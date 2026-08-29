@@ -6,7 +6,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use super::error::RecipeCatalogError;
-use super::model::{CaseRecipe, RecipeKind};
+use super::model::{CaseRecipe, MetadataScParameters, RecipeKind, StringValueSource};
 use crate::planning::RecipeIdentity;
 
 const CASE_RECIPE_SCHEMA: &str = include_str!("../../schemas/case-recipe.schema.json");
@@ -286,6 +286,7 @@ fn validate_shape(path: &Path, recipe: &CaseRecipe) -> Result<(), RecipeCatalogE
     }
     validate_registered_ids(path, recipe)?;
     validate_secondary_capture_contract(path, recipe)?;
+    validate_metadata_sc_contract(path, recipe)?;
     Ok(())
 }
 
@@ -293,11 +294,21 @@ fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), Recip
     const PLAN_PROVIDERS: &[&str] = &[
         "native.case_plan",
         "native.sc_plan",
+        "native.metadata_sc_plan",
         "external.import_plan",
         "mutation.named_plan",
         "qualification.bounded_plan",
     ];
-    const CONTENT_PROVIDERS: &[&str] = &["content.case_default", "content.sc.pixel_pattern"];
+    const CONTENT_PROVIDERS: &[&str] = &[
+        "content.case_default",
+        "content.sc.pixel_pattern",
+        "content.metadata.person_name",
+        "content.metadata.timezone_boundary",
+        "content.metadata.empty_type2",
+        "content.metadata.string_boundaries",
+        "content.metadata.private_creators",
+        "content.metadata.sequence_lengths",
+    ];
     const ALGORITHM_PROVIDERS: &[&str] = &["algorithm.case_provider"];
     const ENCODING_PROVIDERS: &[&str] = &[
         "encoding.transfer_syntax_plan",
@@ -316,6 +327,12 @@ fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), Recip
         "validation.sc.encapsulation",
         "validation.sc.eot",
         "validation.sc.geometry",
+        "validation.metadata.person_name",
+        "validation.metadata.timezone",
+        "validation.metadata.empty_type2",
+        "validation.metadata.string_boundaries",
+        "validation.metadata.private_creators",
+        "validation.metadata.sequence_lengths",
     ];
     const PROJECTION_RULES: &[&str] = &[
         "projection.curated",
@@ -365,6 +382,390 @@ fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), Recip
                     format!("unknown mutation id {}", edit.mutation_id),
                 ));
             }
+        }
+    }
+    Ok(())
+}
+
+fn validate_metadata_sc_contract(
+    path: &Path,
+    recipe: &CaseRecipe,
+) -> Result<(), RecipeCatalogError> {
+    if recipe.plan_provider_id != "native.metadata_sc_plan" {
+        if recipe.dicom.as_ref().is_some_and(|dicom| {
+            dicom
+                .artifacts
+                .iter()
+                .any(|artifact| artifact.metadata_sc.is_some())
+        }) {
+            return Err(semantic(
+                path,
+                "metadata_sc parameters require native.metadata_sc_plan",
+            ));
+        }
+        return Ok(());
+    }
+    if !recipe.provider_parameters.is_empty() {
+        return Err(semantic(
+            path,
+            "native.metadata_sc_plan stores static values in typed artifact contracts",
+        ));
+    }
+    let expected_kind = match recipe.binding.case_id.as_str() {
+        "metadata/sc/utf8_person_name" | "metadata/sc/iso2022_person_name_component_groups" => {
+            "person_name"
+        }
+        "metadata/sc/timezone_boundaries" => "timezone_boundary",
+        "metadata/sc/empty_type2_attributes" => "empty_type2",
+        "metadata/sc/long_multivalue_text_numeric_strings" => "string_boundaries",
+        "metadata/sc/private_creator_blocks" => "private_creators",
+        "metadata/sc/defined_undefined_sequence_lengths" => "sequence_lengths",
+        _ => {
+            return Err(semantic(
+                path,
+                "native.metadata_sc_plan has an unsupported case binding",
+            ));
+        }
+    };
+    let expected_artifact_count =
+        if matches!(expected_kind, "timezone_boundary" | "sequence_lengths") {
+            2
+        } else {
+            1
+        };
+    let dicom = recipe
+        .dicom
+        .as_ref()
+        .ok_or_else(|| semantic(path, "native.metadata_sc_plan requires DICOM artifacts"))?;
+    if dicom.artifacts.len() != expected_artifact_count {
+        return Err(semantic(
+            path,
+            "metadata SC artifact count differs from its typed variant set",
+        ));
+    }
+    for artifact in &dicom.artifacts {
+        if artifact.output.path.is_none() || artifact.output.provider_derived == Some(true) {
+            return Err(semantic(
+                path,
+                "metadata SC artifacts require exact output paths",
+            ));
+        }
+        if !artifact.parameters.is_empty() || !artifact.content.parameters.is_empty() {
+            return Err(semantic(
+                path,
+                "metadata SC cannot hide static values in untyped parameter maps",
+            ));
+        }
+        if artifact.algorithm_provider_id.is_some() {
+            return Err(semantic(
+                path,
+                "data-first metadata SC artifacts cannot name an algorithm provider",
+            ));
+        }
+        if artifact.encoding.transfer_syntax_uid != "1.2.840.10008.1.2.1"
+            || artifact.encoding.offset_table_policy != "none"
+            || artifact.encoding.fragmentation_policy != "native"
+            || artifact.encoding.preamble_policy.as_deref() != Some("zero_filled")
+            || artifact.encoding.file_meta_policy.as_deref() != Some("standard")
+            || artifact
+                .encoding
+                .non_template_encoding_provider_id
+                .is_some()
+        {
+            return Err(semantic(path, "metadata SC encoding policy is not exact"));
+        }
+        let pixels = artifact.secondary_capture.as_ref().ok_or_else(|| {
+            semantic(
+                path,
+                "metadata SC requires a typed Secondary Capture pixel contract",
+            )
+        })?;
+        if pixels.rows == 0
+            || pixels.columns == 0
+            || pixels.frames == 0
+            || pixels.stored_values.is_empty()
+            || pixels.frame_sha256.len() != pixels.frames as usize
+        {
+            return Err(semantic(path, "metadata SC pixel contract is incomplete"));
+        }
+        validate_metadata_pixel_contract(path, pixels)?;
+        let metadata = artifact
+            .metadata_sc
+            .as_ref()
+            .ok_or_else(|| semantic(path, "metadata SC requires typed metadata parameters"))?;
+        let (actual_kind, content_provider, validation_rule) = match metadata {
+            MetadataScParameters::PersonName(person_name) => {
+                validate_person_name_metadata(path, person_name)?;
+                (
+                    "person_name",
+                    "content.metadata.person_name",
+                    "validation.metadata.person_name",
+                )
+            }
+            MetadataScParameters::TimezoneBoundary(boundary) => {
+                if !boundary
+                    .acquisition_date_time
+                    .ends_with(&boundary.timezone_offset)
+                {
+                    return Err(semantic(
+                        path,
+                        "timezone boundary DT and Timezone Offset disagree",
+                    ));
+                }
+                (
+                    "timezone_boundary",
+                    "content.metadata.timezone_boundary",
+                    "validation.metadata.timezone",
+                )
+            }
+            MetadataScParameters::EmptyType2 { attributes } => {
+                let tags = attributes
+                    .iter()
+                    .map(|item| &item.tag)
+                    .collect::<BTreeSet<_>>();
+                if attributes.is_empty() || tags.len() != attributes.len() {
+                    return Err(semantic(
+                        path,
+                        "empty Type 2 tags must be nonempty and unique",
+                    ));
+                }
+                (
+                    "empty_type2",
+                    "content.metadata.empty_type2",
+                    "validation.metadata.empty_type2",
+                )
+            }
+            MetadataScParameters::StringBoundaries { elements } => {
+                validate_string_boundaries(path, elements)?;
+                (
+                    "string_boundaries",
+                    "content.metadata.string_boundaries",
+                    "validation.metadata.string_boundaries",
+                )
+            }
+            MetadataScParameters::PrivateCreators { blocks } => {
+                validate_private_creators(path, blocks)?;
+                (
+                    "private_creators",
+                    "content.metadata.private_creators",
+                    "validation.metadata.private_creators",
+                )
+            }
+            MetadataScParameters::SequenceLengths(sequence) => {
+                let defined = sequence.variant_id == "defined";
+                if sequence.item_length_field_hex != "FFFFFFFF"
+                    || !sequence.item_delimitation_present
+                    || (defined
+                        && (sequence.sequence_length_field_hex != "38000000"
+                            || sequence.sequence_delimitation_present))
+                    || (!defined
+                        && (sequence.sequence_length_field_hex != "FFFFFFFF"
+                            || !sequence.sequence_delimitation_present))
+                    || artifact.encoding.sequence_length_policy != sequence.variant_id
+                    || artifact.encoding.item_length_policy != "undefined"
+                {
+                    return Err(semantic(
+                        path,
+                        "sequence-length metadata policy is inconsistent",
+                    ));
+                }
+                (
+                    "sequence_lengths",
+                    "content.metadata.sequence_lengths",
+                    "validation.metadata.sequence_lengths",
+                )
+            }
+        };
+        if actual_kind != expected_kind
+            || artifact.content.provider_id != content_provider
+            || !recipe
+                .validation_rule_ids
+                .iter()
+                .any(|rule| rule == validation_rule)
+            || !recipe
+                .validation_rule_ids
+                .iter()
+                .any(|rule| rule == "validation.sc.pixel")
+            || !artifact
+                .validation_rule_ids
+                .iter()
+                .any(|rule| rule == validation_rule)
+            || !artifact
+                .validation_rule_ids
+                .iter()
+                .any(|rule| rule == "validation.sc.pixel")
+        {
+            return Err(semantic(
+                path,
+                "metadata SC kind, provider, or specialized validation rule disagrees",
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_metadata_pixel_contract(
+    path: &Path,
+    pixels: &super::model::SecondaryCaptureParameters,
+) -> Result<(), RecipeCatalogError> {
+    if pixels.bits_stored == 0
+        || pixels.bits_stored > pixels.bits_allocated
+        || pixels.high_bit + 1 != pixels.bits_stored
+    {
+        return Err(semantic(path, "invalid metadata SC bit contract"));
+    }
+    let expected_type = match (pixels.bits_allocated, pixels.pixel_representation) {
+        (1, 0) => "u1",
+        (8, 0) => "u8",
+        (16, 0) => "u16",
+        (16, 1) => "i16",
+        (32, 0) => "u32",
+        _ => return Err(semantic(path, "unsupported metadata SC stored type")),
+    };
+    let samples = if pixels.photometric_interpretation == "YBR_FULL_422" {
+        2_u64
+    } else {
+        u64::from(pixels.samples_per_pixel)
+    };
+    let expected_values = u64::from(pixels.rows)
+        .checked_mul(u64::from(pixels.columns))
+        .and_then(|value| value.checked_mul(u64::from(pixels.frames)))
+        .and_then(|value| value.checked_mul(samples))
+        .ok_or_else(|| semantic(path, "metadata SC value count overflow"))?;
+    if pixels.stored_value_type != expected_type
+        || u64::try_from(pixels.stored_values.len()).ok() != Some(expected_values)
+        || pixels.pixel_min > pixels.pixel_max
+        || pixels
+            .stored_values
+            .iter()
+            .any(|value| *value < pixels.pixel_min || *value > pixels.pixel_max)
+    {
+        return Err(semantic(
+            path,
+            "metadata SC stored value contract is inconsistent",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_person_name_metadata(
+    path: &Path,
+    person_name: &super::model::PersonNameMetadata,
+) -> Result<(), RecipeCatalogError> {
+    let reconstructed = person_name
+        .component_groups
+        .iter()
+        .map(|group| group.decoded_value.as_str())
+        .collect::<Vec<_>>()
+        .join("=");
+    if reconstructed != person_name.patient_name_decoded {
+        return Err(semantic(
+            path,
+            "Person Name component groups do not reconstruct PN",
+        ));
+    }
+    if person_name
+        .component_groups
+        .iter()
+        .any(|group| group.components.join("^").trim_end_matches('^') != group.decoded_value)
+    {
+        return Err(semantic(
+            path,
+            "Person Name components do not reconstruct their group",
+        ));
+    }
+    let raw = decode_upper_hex(&person_name.patient_name_raw_hex)
+        .ok_or_else(|| semantic(path, "Person Name raw hex is invalid"))?;
+    if crate::sha256_hex(&raw) != person_name.patient_name_raw_sha256 {
+        return Err(semantic(
+            path,
+            "Person Name raw hash differs from raw bytes",
+        ));
+    }
+    Ok(())
+}
+
+fn decode_upper_hex(value: &str) -> Option<Vec<u8>> {
+    value
+        .as_bytes()
+        .chunks_exact(2)
+        .map(|pair| {
+            let nibble = |byte: u8| match byte {
+                b'0'..=b'9' => Some(byte - b'0'),
+                b'A'..=b'F' => Some(byte - b'A' + 10),
+                _ => None,
+            };
+            Some((nibble(pair[0])? << 4) | nibble(pair[1])?)
+        })
+        .collect()
+}
+
+fn validate_string_boundaries(
+    path: &Path,
+    elements: &[super::model::StringBoundaryElementMetadata],
+) -> Result<(), RecipeCatalogError> {
+    let tags = elements
+        .iter()
+        .map(|item| &item.tag)
+        .collect::<BTreeSet<_>>();
+    if elements.is_empty() || tags.len() != elements.len() {
+        return Err(semantic(
+            path,
+            "string-boundary tags must be nonempty and unique",
+        ));
+    }
+    for element in elements {
+        let mut raw = match &element.source {
+            StringValueSource::Repeated {
+                pattern,
+                repetitions,
+            } => pattern.repeat(*repetitions as usize).into_bytes(),
+            StringValueSource::Literal { values } => values.join("\\").into_bytes(),
+        };
+        if element.padding == "space" && raw.len() % 2 == 1 {
+            raw.push(b' ');
+        }
+        if raw.len() != element.raw_value_byte_length as usize
+            || crate::sha256_hex(&raw) != element.raw_value_sha256
+        {
+            return Err(semantic(
+                path,
+                "string-boundary source differs from declared raw length or hash",
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_private_creators(
+    path: &Path,
+    blocks: &[super::model::PrivateCreatorBlockMetadata],
+) -> Result<(), RecipeCatalogError> {
+    let creator_tags = blocks
+        .iter()
+        .map(|block| &block.creator_tag)
+        .collect::<BTreeSet<_>>();
+    if blocks.is_empty() || creator_tags.len() != blocks.len() {
+        return Err(semantic(
+            path,
+            "private creator tags must be nonempty and unique",
+        ));
+    }
+    for block in blocks {
+        let element_tags = block
+            .elements
+            .iter()
+            .map(|element| &element.tag)
+            .collect::<BTreeSet<_>>();
+        if element_tags.len() != block.elements.len()
+            || block.elements.iter().any(|element| {
+                element.tag < block.block_start_tag || element.tag > block.block_end_tag
+            })
+        {
+            return Err(semantic(
+                path,
+                "private elements are duplicated or outside their creator block",
+            ));
         }
     }
     Ok(())
@@ -677,7 +1078,17 @@ fn validate_registry_bindings(
             && case.requirements.external_codecs.is_empty()
             && (case.case_id.starts_with("classic/sc/")
                 || case.case_id == "encapsulation/sc/eot_single_fragment_multiframe");
-        if recipe.plan_provider_id != expected_provider && !migrated_secondary_capture {
+        let migrated_metadata_sc = recipe.plan_provider_id == "native.metadata_sc_plan"
+            && case.provider.kind == "rust_native"
+            && case.provider.id == "rust_native"
+            && expected_kind == RecipeKind::Dicom
+            && case.requirements.features.is_empty()
+            && case.requirements.external_codecs.is_empty()
+            && case.case_id.starts_with("metadata/sc/");
+        if recipe.plan_provider_id != expected_provider
+            && !migrated_secondary_capture
+            && !migrated_metadata_sc
+        {
             return Err(RecipeCatalogError::Completeness {
                 message: format!(
                     "{} plan provider {} is incompatible with registry provider {}:{}",

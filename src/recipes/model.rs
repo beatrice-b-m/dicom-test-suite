@@ -112,6 +112,122 @@ pub struct SecondaryCaptureParameters {
     #[serde(default)]
     pub color: Option<ColorParameters>,
 }
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PersonNameComponentGroup {
+    pub kind: String,
+    pub decoded_value: String,
+    pub components: [String; 5],
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PersonNameMetadata {
+    pub specific_character_sets: Vec<String>,
+    pub patient_name_decoded: String,
+    pub patient_name_raw_hex: String,
+    pub patient_name_raw_sha256: String,
+    pub native_unicode_round_trip: bool,
+    pub component_groups: Vec<PersonNameComponentGroup>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TimezoneBoundaryMetadata {
+    pub boundary_id: String,
+    pub study_date: String,
+    pub study_time: String,
+    pub acquisition_date_time: String,
+    pub timezone_offset: String,
+    pub offset_minutes: i16,
+    pub normalized_utc: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EmptyType2AttributeMetadata {
+    pub tag: String,
+    pub keyword: String,
+    pub vr: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "source_kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum StringValueSource {
+    Repeated { pattern: String, repetitions: u32 },
+    Literal { values: Vec<String> },
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StringBoundaryElementMetadata {
+    pub tag: String,
+    pub keyword: String,
+    pub vr: String,
+    pub source: StringValueSource,
+    pub padding: String,
+    pub raw_value_byte_length: u32,
+    pub raw_value_sha256: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "value_kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum PrivateElementValue {
+    Lo { text: String },
+    Us { number: u16 },
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PrivateElementMetadata {
+    pub tag: String,
+    pub value: PrivateElementValue,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PrivateCreatorBlockMetadata {
+    pub creator_tag: String,
+    pub creator_id: String,
+    pub block_start_tag: String,
+    pub block_end_tag: String,
+    pub elements: Vec<PrivateElementMetadata>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SequenceLengthMetadata {
+    pub variant_id: String,
+    pub sequence_tag: String,
+    pub sequence_vr: String,
+    pub code_value: String,
+    pub coding_scheme_designator: String,
+    pub code_meaning: String,
+    pub item_dataset_encoded_length: u32,
+    pub undefined_item_encoded_length: u32,
+    pub sequence_length_field_hex: String,
+    pub item_length_field_hex: String,
+    pub item_delimitation_present: bool,
+    pub sequence_delimitation_present: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum MetadataScParameters {
+    PersonName(PersonNameMetadata),
+    TimezoneBoundary(TimezoneBoundaryMetadata),
+    EmptyType2 {
+        attributes: Vec<EmptyType2AttributeMetadata>,
+    },
+    StringBoundaries {
+        elements: Vec<StringBoundaryElementMetadata>,
+    },
+    PrivateCreators {
+        blocks: Vec<PrivateCreatorBlockMetadata>,
+    },
+    SequenceLengths(SequenceLengthMetadata),
+}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AttributeOperation {
@@ -140,6 +256,8 @@ pub struct PlannedArtifactRecipe {
     pub parameters: Parameters,
     #[serde(default)]
     pub secondary_capture: Option<SecondaryCaptureParameters>,
+    #[serde(default)]
+    pub metadata_sc: Option<MetadataScParameters>,
     pub attribute_operations: Vec<AttributeOperation>,
     pub content: ContentBinding,
     pub validation_rule_ids: Vec<String>,

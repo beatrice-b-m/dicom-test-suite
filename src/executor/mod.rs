@@ -6,3 +6,4 @@ pub mod evidence;
 pub mod materialization;
 pub mod scheduler;
 pub mod services;
+pub mod transaction;

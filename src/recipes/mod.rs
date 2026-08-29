@@ -11,6 +11,7 @@ mod error;
 mod loader;
 mod metadata_sc;
 mod model;
+mod presentation;
 mod registration;
 mod sc;
 mod wsi;
@@ -52,6 +53,12 @@ pub use model::{
     PrivateElementMetadata, PrivateElementValue, QualificationRecipe, RecipeKind, RecipeReference,
     ResourcePolicy, SecondaryCaptureParameters, SequenceLengthMetadata,
     StringBoundaryElementMetadata, StringValueSource, TemplateReference, TimezoneBoundaryMetadata,
+};
+pub use presentation::{
+    AdvancedBlendingPresentationParameters, BlendingPresentationParameters,
+    ColorPresentationParameters, DisplayedAreaParameters, GrayscalePresentationParameters,
+    PRESENTATION_ADVANCED_PROVIDER_ID, PresentationKind, PresentationPlanInput,
+    PresentationPlanProvider, PresentationRecipe, PresentationSourceInput,
 };
 pub use registration::{
     DeformableRegistrationParameters, REGISTRATION_PLAN_PROVIDER_ID, RegistrationCommonInput,

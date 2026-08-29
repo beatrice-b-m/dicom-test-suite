@@ -304,6 +304,8 @@ pub enum SlotExecutionBinding {
     StagedAsset { asset: StagedAssetHandle },
     ProviderRequest { request: ProviderRequest },
     NativeFrames { frames: Vec<NativeFrameBinding> },
+    CodecRequest { request: CodecRequest },
+    EncodedFrames { frames: Vec<EncodedFrameResult> },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -324,6 +326,7 @@ impl ArtifactExecutionBindings {
                     registry.resolve(asset)?;
                 }
                 SlotExecutionBinding::ProviderRequest { request } => request.validate(registry)?,
+                SlotExecutionBinding::CodecRequest { request } => request.validate(registry)?,
                 SlotExecutionBinding::NativeFrames { frames } => {
                     if frames.is_empty() {
                         return Err(ServiceError::EmptyNativeFrames(slot.clone()));
@@ -331,6 +334,22 @@ impl ArtifactExecutionBindings {
                     let mut numbers = BTreeSet::new();
                     for frame in frames {
                         frame.validate(registry)?;
+                        if !numbers.insert(frame.frame_number) {
+                            return Err(ServiceError::DuplicateFrameNumber {
+                                slot: slot.clone(),
+                                frame: frame.frame_number,
+                            });
+                        }
+                    }
+                }
+                SlotExecutionBinding::EncodedFrames { frames } => {
+                    if frames.is_empty() {
+                        return Err(ServiceError::EmptyNativeFrames(slot.clone()));
+                    }
+                    let mut numbers = BTreeSet::new();
+                    for frame in frames {
+                        validate_sha256("encoded frame SHA-256", &frame.encoded_sha256)?;
+                        frame.bytes.validate(registry)?;
                         if !numbers.insert(frame.frame_number) {
                             return Err(ServiceError::DuplicateFrameNumber {
                                 slot: slot.clone(),
@@ -639,13 +658,19 @@ pub struct RuleExecutionResult {
 #[serde(deny_unknown_fields)]
 pub struct ValidationRequest {
     pub artifact: PlannedArtifact,
-    pub materialized_asset: StagedAssetHandle,
+    pub materialized_asset: Option<StagedAssetHandle>,
     pub plan: ValidationPlan,
 }
 
 impl ValidationRequest {
     pub fn validate(&self, registry: &StagedAssetRegistry) -> Result<(), ServiceError> {
-        registry.resolve(&self.materialized_asset)?;
+        if let Some(asset) = &self.materialized_asset {
+            registry.resolve(asset)?;
+        } else if self.artifact.output().is_some() {
+            return Err(ServiceError::ResultOutputMismatch(
+                self.artifact.logical_id().into(),
+            ));
+        }
         if self.plan.rules.is_empty() {
             return Err(ServiceError::EmptyValidationRules(
                 self.artifact.logical_id().into(),

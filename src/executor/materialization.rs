@@ -131,7 +131,18 @@ impl MaterializationDispatcher {
                     }
                     ContentMaterialization::Inline(bytes)
                 }
-                SlotExecutionBinding::ProviderRequest { .. } => {
+                SlotExecutionBinding::EncodedFrames { frames } => {
+                    let fragments = frames
+                        .iter()
+                        .map(|frame| self.read_binding(&frame.bytes, assets))
+                        .collect::<Result<Vec<_>, _>>()?;
+                    ContentMaterialization::Encapsulated {
+                        basic_offset_table: Vec::new(),
+                        fragments,
+                    }
+                }
+                SlotExecutionBinding::ProviderRequest { .. }
+                | SlotExecutionBinding::CodecRequest { .. } => {
                     return Err(MaterializationError::UnresolvedProviderBinding {
                         artifact_id: artifact.logical_id.clone(),
                         slot: content.slot.clone(),

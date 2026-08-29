@@ -2,6 +2,7 @@
 
 pub mod adapters;
 pub mod cancellation;
+pub mod engine;
 pub mod evidence;
 pub mod materialization;
 pub mod scheduler;

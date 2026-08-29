@@ -294,6 +294,7 @@ fn validate_shape(path: &Path, recipe: &CaseRecipe) -> Result<(), RecipeCatalogE
 fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), RecipeCatalogError> {
     const PLAN_PROVIDERS: &[&str] = &[
         "native.case_plan",
+        "native.classic_plan",
         "native.sc_plan",
         "native.metadata_sc_plan",
         "external.import_plan",
@@ -302,6 +303,7 @@ fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), Recip
     ];
     const CONTENT_PROVIDERS: &[&str] = &[
         "content.case_default",
+        "content.native_pixels",
         "content.sc.pixel_pattern",
         "content.metadata.person_name",
         "content.metadata.timezone_boundary",
@@ -310,7 +312,14 @@ fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), Recip
         "content.metadata.private_creators",
         "content.metadata.sequence_lengths",
     ];
-    const ALGORITHM_PROVIDERS: &[&str] = &["algorithm.case_provider"];
+    const ALGORITHM_PROVIDERS: &[&str] = &[
+        "algorithm.case_provider",
+        "algorithm.classic_ct",
+        "algorithm.classic_dx_mg",
+        "algorithm.classic_mr_cr",
+        "algorithm.classic_nuclear",
+        "algorithm.classic_vl_projection",
+    ];
     const ENCODING_PROVIDERS: &[&str] = &[
         "encoding.transfer_syntax_plan",
         "encoding.native.explicit_vr_big_endian",
@@ -1086,9 +1095,19 @@ fn validate_registry_bindings(
             && case.requirements.features.is_empty()
             && case.requirements.external_codecs.is_empty()
             && case.case_id.starts_with("metadata/sc/");
+        let migrated_classic = recipe.plan_provider_id == "native.classic_plan"
+            && case.provider.kind == "rust_native"
+            && case.provider.id == "rust_native"
+            && expected_kind == RecipeKind::Dicom
+            && case.requirements.features.is_empty()
+            && case.requirements.external_codecs.is_empty()
+            && (case.case_id.starts_with("classic/")
+                || case.case_id.starts_with("geometry/ct/")
+                || (case.case_id.starts_with("vl/") && !case.case_id.starts_with("vl/wsi/")));
         if recipe.plan_provider_id != expected_provider
             && !migrated_secondary_capture
             && !migrated_metadata_sc
+            && !migrated_classic
         {
             return Err(RecipeCatalogError::Completeness {
                 message: format!(
@@ -1230,7 +1249,7 @@ fn validate_migrated_planning_orders(
     for recipe in recipes.values().filter(|recipe| {
         matches!(
             recipe.plan_provider_id.as_str(),
-            "native.sc_plan" | "native.metadata_sc_plan"
+            "native.sc_plan" | "native.metadata_sc_plan" | "native.classic_plan"
         )
     }) {
         let order = recipe

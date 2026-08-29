@@ -3,11 +3,20 @@
 //! Values are supplied by callers: this module owns no curated defaults,
 //! identity allocation, filesystem paths, writers, or execution services.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
+use std::str::FromStr;
+
+use dicom_core::dictionary::{DataDictionary, DataDictionaryEntry, VirtualVr};
+use dicom_dictionary_std::StandardDataDictionary;
 
 use crate::composition::{
-    AttributeAddress, AttributeOperation, AttributeValue, DicomVr, PrimitiveValue,
+    AttributeAddress, AttributeOperation, AttributeValue, ByteOrder as CompositionByteOrder,
+    CompositionUidRole, DicomVr, IdentityPlan, NativePixelPlan as CompositionPixelPlan,
+    PhotometricInterpretation as CompositionPhotometric, PixelShape as CompositionPixelShape,
+    PlanarConfiguration, PrimitiveValue, ResolvedAttribute, ResolvedInstancePlan,
+    SampleType as CompositionSampleType, TemplateDescriptor, TemplateStatus, ValueOrigin,
+    canonical_native_pixels,
 };
 use crate::corpus_plan::OutputRelativePath;
 use crate::native_pixel::{
@@ -407,6 +416,7 @@ pub struct ClassicInstanceRequest {
     pub common: CommonModuleRequest,
     pub sop_class_uid: String,
     pub sop_instance_uid: String,
+    pub implementation_class_uid: String,
     pub family: Vec<FamilyModuleFragment>,
     pub pixels: ClassicPixelRequest,
 }
@@ -417,6 +427,8 @@ pub struct ClassicPlannedInstance {
     pub order: u64,
     pub output_relative_path: OutputRelativePath,
     pub dependencies: Vec<String>,
+    pub sop_class_uid: String,
+    pub identities: IdentityPlan,
     pub modules: Vec<ModuleFragment>,
     pub pixels: ClassicPixelPlan,
 }
@@ -449,6 +461,10 @@ impl OrderedSeriesProvider {
             require_identifier("logical instance", &request.logical_id)?;
             require_value("sop_class_uid", &request.sop_class_uid)?;
             require_value("sop_instance_uid", &request.sop_instance_uid)?;
+            require_value(
+                "implementation_class_uid",
+                &request.implementation_class_uid,
+            )?;
             let output_relative_path =
                 OutputRelativePath::new(request.output_relative_path.as_str().to_owned())?;
             if !output_paths.insert(output_relative_path.clone()) {
@@ -462,12 +478,44 @@ impl OrderedSeriesProvider {
             if !orders.insert(request.order) {
                 return Err(ClassicPlanError::DuplicateOrder(request.order));
             }
+            let identity_values = [
+                (
+                    CompositionUidRole::StudyInstance,
+                    0,
+                    request.common.study.study_instance_uid.clone(),
+                ),
+                (
+                    CompositionUidRole::SeriesInstance,
+                    0,
+                    request.common.series.series_instance_uid.clone(),
+                ),
+                (
+                    CompositionUidRole::SopInstance,
+                    0,
+                    request.sop_instance_uid.clone(),
+                ),
+                (
+                    CompositionUidRole::ImplementationClass,
+                    0,
+                    request.implementation_class_uid.clone(),
+                ),
+            ];
+            let mut identity_values = identity_values.into_iter().collect::<Vec<_>>();
+            if let Some(frame) = &request.common.frame_of_reference {
+                identity_values.push((
+                    CompositionUidRole::FrameOfReference,
+                    0,
+                    frame.frame_of_reference_uid.clone(),
+                ));
+            }
+            let identities =
+                IdentityPlan::from_exact_values(request.logical_id.clone(), identity_values)?;
             let common = common_provider.plan(request.common)?;
             let mut modules = common.fragments().cloned().collect::<Vec<_>>();
             modules.push(fragment(
                 "sop_common",
                 vec![
-                    set_string("0008,0016", DicomVr::UI, request.sop_class_uid),
+                    set_string("0008,0016", DicomVr::UI, request.sop_class_uid.clone()),
                     set_string("0008,0018", DicomVr::UI, request.sop_instance_uid),
                 ],
             )?);
@@ -484,6 +532,8 @@ impl OrderedSeriesProvider {
                 order: request.order,
                 output_relative_path,
                 dependencies: request.dependencies,
+                sop_class_uid: request.sop_class_uid,
+                identities,
                 modules,
                 pixels,
             });
@@ -511,6 +561,157 @@ impl OrderedSeriesProvider {
         });
         Ok(instances)
     }
+}
+
+pub struct ClassicResolvedPlanInput<'a> {
+    pub planned: ClassicPlannedInstance,
+    pub template: &'a TemplateDescriptor,
+    pub transfer_syntax_uid: &'a str,
+}
+
+pub fn resolved_classic_instance_plan(
+    input: ClassicResolvedPlanInput<'_>,
+) -> Result<ResolvedInstancePlan, ClassicPlanError> {
+    if input.template.status != TemplateStatus::Qualified {
+        return Err(ClassicPlanError::TemplateNotQualified(
+            input.template.template_id.0.clone(),
+        ));
+    }
+    if input.template.sop_class_uid != input.planned.sop_class_uid {
+        return Err(ClassicPlanError::TemplateSopClassMismatch {
+            expected: input.template.sop_class_uid.clone(),
+            actual: input.planned.sop_class_uid.clone(),
+        });
+    }
+    if !input
+        .template
+        .transfer_syntaxes
+        .iter()
+        .any(|syntax| syntax.uid == input.transfer_syntax_uid)
+    {
+        return Err(ClassicPlanError::UnsupportedTransferSyntax(
+            input.transfer_syntax_uid.to_string(),
+        ));
+    }
+    let mut attributes = BTreeMap::new();
+    for operation in input.planned.operations() {
+        let address = operation.address().clone();
+        let (vr, value) = match operation {
+            AttributeOperation::Set { vr, value, .. } => (vr, Some(value)),
+            AttributeOperation::Empty { .. } => {
+                let vr = dictionary_vr(&address).ok_or_else(|| {
+                    ClassicPlanError::MissingEmptyAttributeVr(address.normalized_tag())
+                })?;
+                (vr, None)
+            }
+            AttributeOperation::Remove { .. } => continue,
+        };
+        attributes.insert(
+            address.clone(),
+            ResolvedAttribute {
+                address,
+                vr,
+                value,
+                origin: ValueOrigin::InstanceOverride,
+            },
+        );
+    }
+    let content = classic_canonical_pixel_content(&input.planned.pixels.content)?;
+    Ok(ResolvedInstancePlan {
+        plan_schema_version: "0.1.0".into(),
+        instance_id: input.planned.logical_id,
+        template_id: input.template.template_id.clone(),
+        template_version: input.template.template_version,
+        sop_class_uid: input.template.sop_class_uid.clone(),
+        transfer_syntax_uid: input.transfer_syntax_uid.into(),
+        identities: input.planned.identities,
+        attributes: attributes.into_values().collect(),
+        content: vec![content],
+        references: Vec::new(),
+    })
+}
+
+fn classic_canonical_pixel_content(
+    native: &NativePixelContent,
+) -> Result<crate::composition::CanonicalContent, ClassicPlanError> {
+    let shape = &native.plan.shape;
+    let composition_shape = CompositionPixelShape {
+        rows: shape.rows,
+        columns: shape.columns,
+        frames: shape.frames,
+        samples_per_pixel: u8::try_from(shape.samples_per_pixel)
+            .map_err(|_| ClassicPlanError::NumericRange)?,
+        photometric_interpretation: match shape.photometric_interpretation {
+            PhotometricInterpretation::Monochrome1 => CompositionPhotometric::Monochrome1,
+            PhotometricInterpretation::Monochrome2 => CompositionPhotometric::Monochrome2,
+            PhotometricInterpretation::PaletteColor => CompositionPhotometric::PaletteColor,
+            PhotometricInterpretation::Rgb => CompositionPhotometric::Rgb,
+            PhotometricInterpretation::YbrFull => CompositionPhotometric::YbrFull,
+            PhotometricInterpretation::YbrFull422 => CompositionPhotometric::YbrFull422,
+        },
+        sample_type: match shape.stored_value_type {
+            crate::native_pixel::StoredValueType::U1 => CompositionSampleType::Bit1,
+            crate::native_pixel::StoredValueType::U8
+            | crate::native_pixel::StoredValueType::U16
+            | crate::native_pixel::StoredValueType::U32 => CompositionSampleType::UnsignedInteger,
+            crate::native_pixel::StoredValueType::I8
+            | crate::native_pixel::StoredValueType::I16
+            | crate::native_pixel::StoredValueType::I32 => CompositionSampleType::SignedInteger,
+        },
+        bits_allocated: u8::try_from(shape.bits_allocated)
+            .map_err(|_| ClassicPlanError::NumericRange)?,
+        bits_stored: u8::try_from(shape.bits_stored).map_err(|_| ClassicPlanError::NumericRange)?,
+        high_bit: u8::try_from(shape.high_bit).map_err(|_| ClassicPlanError::NumericRange)?,
+        byte_order: match shape.byte_order {
+            crate::native_pixel::ByteOrder::Little => CompositionByteOrder::Little,
+            crate::native_pixel::ByteOrder::Big => CompositionByteOrder::Big,
+        },
+        planar_configuration: shape
+            .color
+            .as_ref()
+            .map(|color| match color.planar_configuration {
+                0 => Ok(PlanarConfiguration::Interleaved),
+                1 => Ok(PlanarConfiguration::Planar),
+                value => Err(ClassicPlanError::InvalidPlanarConfiguration(value)),
+            })
+            .transpose()?,
+    };
+    let plan = CompositionPixelPlan::plan(composition_shape)?;
+    if plan.unpadded_value_bytes != native.plan.unpadded_value_bytes
+        || plan.padded_value_bytes != native.plan.padded_value_bytes
+        || plan.padding_bytes != native.plan.padding_bytes
+    {
+        return Err(ClassicPlanError::PixelPlanMismatch);
+    }
+    let mut content = canonical_native_pixels(
+        &plan,
+        native.unpadded_bytes.clone(),
+        BTreeMap::from([(
+            "decoded_frame_sha256".into(),
+            serde_json::json!(
+                native
+                    .frames
+                    .iter()
+                    .map(|frame| frame.decoded_sha256.as_str())
+                    .collect::<Vec<_>>()
+            )
+            .to_string(),
+        )]),
+    );
+    content.vr = match shape.pixel_data_vr {
+        crate::native_pixel::PixelDataVr::Ob => DicomVr::OB,
+        crate::native_pixel::PixelDataVr::Ow => DicomVr::OW,
+    };
+    Ok(content)
+}
+
+fn dictionary_vr(address: &AttributeAddress) -> Option<DicomVr> {
+    let entry = StandardDataDictionary.by_tag(address.tag())?;
+    let vr = match entry.vr() {
+        VirtualVr::Exact(vr) => vr,
+        _ => return None,
+    };
+    DicomVr::from_str(&vr.to_string()).ok()
 }
 
 const PROTECTED_TAGS: &[&str] = &[
@@ -695,7 +896,19 @@ pub enum ClassicPlanError {
         instance: String,
         dependency: String,
     },
+    TemplateNotQualified(String),
+    TemplateSopClassMismatch {
+        expected: String,
+        actual: String,
+    },
+    UnsupportedTransferSyntax(String),
+    MissingEmptyAttributeVr(String),
+    NumericRange,
+    InvalidPlanarConfiguration(u8),
+    PixelPlanMismatch,
     Attribute(crate::composition::AttributeError),
+    Identity(crate::composition::IdentityError),
+    PixelPlan(crate::composition::PixelError),
     NativePixel(NativePixelError),
     OutputPath(crate::corpus_plan::CorpusPlanError),
 }
@@ -709,6 +922,18 @@ impl From<crate::composition::AttributeError> for ClassicPlanError {
 impl From<NativePixelError> for ClassicPlanError {
     fn from(error: NativePixelError) -> Self {
         Self::NativePixel(error)
+    }
+}
+
+impl From<crate::composition::IdentityError> for ClassicPlanError {
+    fn from(error: crate::composition::IdentityError) -> Self {
+        Self::Identity(error)
+    }
+}
+
+impl From<crate::composition::PixelError> for ClassicPlanError {
+    fn from(error: crate::composition::PixelError) -> Self {
+        Self::PixelPlan(error)
     }
 }
 

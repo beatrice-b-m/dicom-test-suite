@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use dicom_test_suite::composition::{
-    AttributeAddress, AttributeOperation, AttributeValue, DicomVr, PrimitiveValue,
+    AttributeAddress, AttributeOperation, AttributeValue, DicomVr, PrimitiveValue, TemplateCatalog,
 };
 use dicom_test_suite::corpus_plan::OutputRelativePath;
 use dicom_test_suite::native_pixel::{
@@ -10,9 +10,10 @@ use dicom_test_suite::native_pixel::{
 };
 use dicom_test_suite::recipes::{
     ClassicInstanceRequest, ClassicPixelProvider, ClassicPixelRequest, ClassicPlanError,
-    CommonModuleProvider, CommonModuleRequest, ElementPresence, EquipmentModuleInput,
-    FamilyModuleFragment, FrameOfReferenceModuleInput, ImageModuleInput, OrderedSeriesProvider,
-    PatientModuleInput, SeriesModuleInput, StudyModuleInput,
+    ClassicResolvedPlanInput, CommonModuleProvider, CommonModuleRequest, ElementPresence,
+    EquipmentModuleInput, FamilyModuleFragment, FrameOfReferenceModuleInput, ImageModuleInput,
+    OrderedSeriesProvider, PatientModuleInput, SeriesModuleInput, StudyModuleInput,
+    resolved_classic_instance_plan,
 };
 
 fn common(instance: &str, series: &str) -> CommonModuleRequest {
@@ -311,6 +312,7 @@ fn ordered_series_is_deterministic_and_rejects_collisions() {
         common: common(instance, "1"),
         sop_class_uid: "1.2.840.10008.5.1.4.1.1.2".into(),
         sop_instance_uid: format!("1.2.826.0.4.{instance}"),
+        implementation_class_uid: "1.2.826.0.5.1".into(),
         family: vec![],
         pixels: ClassicPixelRequest {
             slot: "pixels".into(),
@@ -349,6 +351,51 @@ fn ordered_series_is_deterministic_and_rejects_collisions() {
         duplicate_path,
         Err(ClassicPlanError::DuplicateOutputPath(_))
     ));
+}
+
+#[test]
+fn ordered_classic_output_resolves_once_into_the_neutral_instance_plan() {
+    let request = ClassicInstanceRequest {
+        logical_id: "slice_a".into(),
+        order: 1,
+        output_relative_path: OutputRelativePath::new("classic/ct/slice-a.dcm").unwrap(),
+        dependencies: vec![],
+        common: common("1", "1"),
+        sop_class_uid: "1.2.840.10008.5.1.4.1.1.2".into(),
+        sop_instance_uid: "1.2.826.0.4.1".into(),
+        implementation_class_uid: "1.2.826.0.5.1".into(),
+        family: vec![],
+        pixels: ClassicPixelRequest {
+            slot: "pixels".into(),
+            pixels: mono_request(StoredValueType::I16, 1),
+            rescale: None,
+            window: None,
+        },
+    };
+    let planned = OrderedSeriesProvider.plan(vec![request]).unwrap().remove(0);
+    let catalog = TemplateCatalog::load("templates/catalog.json").unwrap();
+    let template = catalog
+        .templates
+        .iter()
+        .find(|template| template.template_id.0 == "classic/ct")
+        .unwrap();
+    let resolved = resolved_classic_instance_plan(ClassicResolvedPlanInput {
+        planned,
+        template,
+        transfer_syntax_uid: "1.2.840.10008.1.2.1",
+    })
+    .unwrap();
+
+    assert_eq!(resolved.instance_id, "slice_a");
+    assert_eq!(resolved.template_id.0, "classic/ct");
+    assert_eq!(resolved.content.len(), 1);
+    assert!(resolved.attributes.iter().any(|attribute| {
+        attribute.address.normalized_tag() == "0010,0010"
+            && attribute.value
+                == Some(AttributeValue::Primitive(PrimitiveValue::String(
+                    "EXACT^PATIENT".into(),
+                )))
+    }));
 }
 
 #[test]

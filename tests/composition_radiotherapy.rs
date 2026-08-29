@@ -3,12 +3,12 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use dicom_core::header::Header;
 use dicom_core::Tag;
+use dicom_core::header::Header;
 use dicom_dictionary_std::tags;
-use dicom_object::{open_file, InMemDicomObject};
-use dicom_test_suite::composition::{compose, ComposeOptions};
-use serde_json::{json, Value};
+use dicom_object::{InMemDicomObject, open_file};
+use dicom_test_suite::composition::{ComposeOptions, compose};
+use serde_json::{Value, json};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
@@ -110,12 +110,16 @@ fn radiotherapy_defaults_have_closed_reproducible_reference_graphs() {
             .find(|entry| entry["instance_id"] == instance_id)
             .unwrap();
         let content = &entry["content"][0];
-        assert!(content["properties"]["bulk_source"]
-            .as_str()
-            .is_some_and(|source| source.contains("default_synthetic")));
-        assert!(content["sha256"]
-            .as_str()
-            .is_some_and(|hash| hash.len() == 64));
+        assert!(
+            content["properties"]["bulk_source"]
+                .as_str()
+                .is_some_and(|source| source.contains("default_synthetic"))
+        );
+        assert!(
+            content["sha256"]
+                .as_str()
+                .is_some_and(|hash| hash.len() == 64)
+        );
         assert_eq!(content["size_bytes"], 16);
     }
     fs::remove_dir_all(first).unwrap();
@@ -194,14 +198,16 @@ fn radiotherapy_rejects_wrong_payload_size_and_unknown_parameters_atomically() {
         )
         .unwrap();
         let out = workspace.join(format!("{label}-out"));
-        assert!(compose(&ComposeOptions {
-            spec_path: spec,
-            out_dir: out.clone(),
-            seed: 77,
-            catalog_path: "templates/catalog.json".into(),
-            dry_run: false,
-        })
-        .is_err());
+        assert!(
+            compose(&ComposeOptions {
+                spec_path: spec,
+                out_dir: out.clone(),
+                seed: 77,
+                catalog_path: "templates/catalog.json".into(),
+                dry_run: false,
+            })
+            .is_err()
+        );
         assert!(!out.exists());
     }
     fs::remove_dir_all(workspace).unwrap();

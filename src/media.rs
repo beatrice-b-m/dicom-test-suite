@@ -730,10 +730,7 @@ mod tests {
         let json = qualification.to_json().unwrap();
         assert_eq!(json["contract_version"], "0.1.0");
         assert_eq!(json["determinism"], "semantic_stable");
-        assert_eq!(
-            json["evidence"]["dcm4che_independent_peer"],
-            "unavailable"
-        );
+        assert_eq!(json["evidence"]["dcm4che_independent_peer"], "unavailable");
     }
 
     #[test]

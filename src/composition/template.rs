@@ -659,12 +659,7 @@ fn classic_family_content_slot(profile: &ClassicFamilyProfile) -> Value {
             | super::ClassicFamilyKind::UltrasoundMultiFrame
             | super::ClassicFamilyKind::NuclearMedicine
     );
-    let mut allowed_sources = vec![
-        "default",
-        "local_file",
-        "inline_small_fixture",
-        "provider",
-    ];
+    let mut allowed_sources = vec!["default", "local_file", "inline_small_fixture", "provider"];
     if matches!(
         profile.kind,
         super::ClassicFamilyKind::Xa | super::ClassicFamilyKind::Xrf

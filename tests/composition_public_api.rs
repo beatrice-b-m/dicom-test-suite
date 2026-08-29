@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use dicom_test_suite::composition::{
-    compose, compose_from_bytes, ComposeBytesOptions, ComposeOptions,
+    ComposeBytesOptions, ComposeOptions, compose, compose_from_bytes,
 };
 
 static NEXT: AtomicU64 = AtomicU64::new(0);

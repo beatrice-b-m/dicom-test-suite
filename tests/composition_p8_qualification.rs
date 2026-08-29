@@ -81,10 +81,9 @@ fn projection(manifest: &Value) -> BTreeMap<String, Value> {
 }
 
 fn assert_independent_routes_are_accounted(catalog: &TemplateCatalog) {
-    let evidence: Value = serde_json::from_slice(
-        &fs::read("templates/qualification-evidence.json").unwrap(),
-    )
-    .unwrap();
+    let evidence: Value =
+        serde_json::from_slice(&fs::read("templates/qualification-evidence.json").unwrap())
+            .unwrap();
     let accounted = evidence["independent_routes"]
         .as_array()
         .unwrap()
@@ -147,18 +146,12 @@ fn every_qualified_default_and_bundle_passes_p8_reproducibility_validation_and_r
     })
     .unwrap();
 
-    for (out, manifest) in [
-        (&sequential_out, &sequential),
-        (&parallel_out, &parallel),
-    ] {
+    for (out, manifest) in [(&sequential_out, &sequential), (&parallel_out, &parallel)] {
         let (count, failures) = validate_composition_root(out, manifest);
         assert!(failures.is_empty(), "{failures:#?}");
         assert_eq!(
             count,
-            manifest["composition"]["entries"]
-                .as_array()
-                .unwrap()
-                .len()
+            manifest["composition"]["entries"].as_array().unwrap().len()
         );
         let report = composition_report(manifest);
         assert_eq!(report["report_kind"], "composition");

@@ -5999,9 +5999,7 @@ fn shared_plan_curated_template_family(case_id: &str) -> Option<&'static str> {
             "derived/seg/fractional_probability_multiframe_explicit_le" => {
                 Some("derived/segmentation/fractional-probability")
             }
-            "derived/seg/labelmap_multiframe_explicit_le" => {
-                Some("derived/segmentation/labelmap")
-            }
+            "derived/seg/labelmap_multiframe_explicit_le" => Some("derived/segmentation/labelmap"),
             "derived/seg/wsi_tile_reference" => Some("derived/segmentation/wsi-tile"),
             "derived/parametric-map/float32_ct_derived_explicit_le" => {
                 Some("derived/parametric-map/float32")
@@ -6021,9 +6019,7 @@ fn shared_plan_curated_template_family(case_id: &str) -> Option<&'static str> {
             "derived/sr/comprehensive3d_scoord3d" => {
                 Some("derived/structured-report/comprehensive-3d")
             }
-            "derived/sr/tid1500_ct_measurement_report" => {
-                Some("derived/structured-report/tid1500")
-            }
+            "derived/sr/tid1500_ct_measurement_report" => Some("derived/structured-report/tid1500"),
             "derived/sr/key_object_selection_explicit_le" => {
                 Some("derived/structured-report/key-object")
             }
@@ -6037,9 +6033,7 @@ fn shared_plan_curated_template_family(case_id: &str) -> Option<&'static str> {
                 Some("non-image/rt/c-arm-photon-electron-radiation")
             }
             "non-image/rt/radiation_set_minimal" => Some("non-image/rt/radiation-set"),
-            "non-image/waveform/twelve_lead_ecg" => {
-                Some("non-image/waveform/twelve-lead-ecg")
-            }
+            "non-image/waveform/twelve_lead_ecg" => Some("non-image/waveform/twelve-lead-ecg"),
             "non-image/waveform/general_ecg" => Some("non-image/waveform/general-ecg"),
             "non-image/encapsulated-document/pdf_minimal_explicit_le" => {
                 Some("non-image/encapsulated-document/pdf")

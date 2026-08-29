@@ -232,7 +232,9 @@ fn stream_staged_content(
         .first(tag)
         .ok_or_else(|| MaterializeError::MissingContent(content.slot.clone()))?;
     if element.depth != 0 || element.declared_length != Some(0) {
-        return Err(MaterializeError::InvalidContentPlacement(content.slot.clone()));
+        return Err(MaterializeError::InvalidContentPlacement(
+            content.slot.clone(),
+        ));
     }
     let padded_size = content
         .size_bytes
@@ -268,12 +270,9 @@ fn stream_staged_content(
         path: staged_path.clone(),
         source,
     })?;
-    let (size, sha256) = super::content::copy_and_hash(
-        &mut staged,
-        &mut destination,
-        content.size_bytes,
-    )
-    .map_err(|error| MaterializeError::Dicom(error.to_string()))?;
+    let (size, sha256) =
+        super::content::copy_and_hash(&mut staged, &mut destination, content.size_bytes)
+            .map_err(|error| MaterializeError::Dicom(error.to_string()))?;
     if size != content.size_bytes {
         return Err(MaterializeError::ContentSize {
             slot: content.slot.clone(),
@@ -289,10 +288,12 @@ fn stream_staged_content(
         });
     }
     if content.size_bytes & 1 == 1 {
-        destination.write_all(&[0]).map_err(|source| MaterializeError::Io {
-            path: temporary.clone(),
-            source,
-        })?;
+        destination
+            .write_all(&[0])
+            .map_err(|source| MaterializeError::Io {
+                path: temporary.clone(),
+                source,
+            })?;
     }
     destination
         .write_all(&skeleton[element.value.end..])

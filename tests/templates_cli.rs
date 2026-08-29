@@ -21,8 +21,8 @@ fn templates_list_has_human_and_machine_readable_output() {
         .unwrap();
     assert!(json.status.success());
     let value: serde_json::Value = serde_json::from_slice(&json.stdout).unwrap();
-    let catalog = dicom_test_suite::composition::TemplateCatalog::load("templates/catalog.json")
-        .unwrap();
+    let catalog =
+        dicom_test_suite::composition::TemplateCatalog::load("templates/catalog.json").unwrap();
     assert_eq!(value.as_array().unwrap().len(), catalog.templates.len());
 }
 

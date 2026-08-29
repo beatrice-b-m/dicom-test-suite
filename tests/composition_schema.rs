@@ -22,7 +22,10 @@ fn assert_invalid(schema_path: &str, fixture_path: &str) {
     let schema = read_json(schema_path);
     let fixture = read_json(fixture_path);
     let validator = jsonschema::validator_for(&schema).expect("schema must compile");
-    assert!(!validator.is_valid(&fixture), "{fixture_path} must be rejected");
+    assert!(
+        !validator.is_valid(&fixture),
+        "{fixture_path} must be rejected"
+    );
 }
 
 #[test]
@@ -50,17 +53,29 @@ fn composition_spec_negative_fixtures_are_rejected() {
 #[test]
 fn composition_paths_reject_every_unsafe_form() {
     let schema = read_json("schemas/composition-spec.schema.json");
-    let path_schema = schema.pointer("/$defs/safe_relative_path").expect("path schema");
+    let path_schema = schema
+        .pointer("/$defs/safe_relative_path")
+        .expect("path schema");
     let validator = jsonschema::validator_for(path_schema).expect("path schema compiles");
 
     for valid in ["assets/frame.raw", "frame.raw", "a/b/c.bin"] {
         assert!(validator.is_valid(&json!(valid)), "{valid} should be safe");
     }
     for invalid in [
-        "", "/absolute.raw", "../outside.raw", "a/../outside.raw", "./frame.raw",
-        "a/./frame.raw", "a\\frame.raw", "C:/frame.raw", "nul\0byte.raw",
+        "",
+        "/absolute.raw",
+        "../outside.raw",
+        "a/../outside.raw",
+        "./frame.raw",
+        "a/./frame.raw",
+        "a\\frame.raw",
+        "C:/frame.raw",
+        "nul\0byte.raw",
     ] {
-        assert!(!validator.is_valid(&json!(invalid)), "{invalid:?} must be unsafe");
+        assert!(
+            !validator.is_valid(&json!(invalid)),
+            "{invalid:?} must be unsafe"
+        );
     }
 }
 

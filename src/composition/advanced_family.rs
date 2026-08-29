@@ -1258,12 +1258,7 @@ fn apply_quantitative_content(
         } => {
             let bytes = super::spec::decode_base64(base64)
                 .map_err(|error| AdvancedFamilyError::UnsupportedContent(error.to_string()))?;
-            resolver.resolve_inline(
-                "pixels",
-                "quantitative_pixels",
-                &bytes,
-                sha256.as_deref(),
-            )
+            resolver.resolve_inline("pixels", "quantitative_pixels", &bytes, sha256.as_deref())
         }
         _ => {
             return Err(AdvancedFamilyError::UnsupportedContent(
@@ -1756,12 +1751,7 @@ fn apply_caller_content(
                 .map_err(|error| AdvancedFamilyError::UnsupportedContent(error.to_string()))?;
             (
                 declaration,
-                resolver.resolve_inline(
-                    "pixels",
-                    "native_pixels",
-                    &bytes,
-                    sha256.as_deref(),
-                ),
+                resolver.resolve_inline("pixels", "native_pixels", &bytes, sha256.as_deref()),
             )
         }
         _ => {

@@ -4,8 +4,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use dicom_dictionary_std::tags;
 use dicom_object::open_file;
-use dicom_test_suite::composition::{compose, ComposeOptions};
-use serde_json::{json, Value};
+use dicom_test_suite::composition::{ComposeOptions, compose};
+use serde_json::{Value, json};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 

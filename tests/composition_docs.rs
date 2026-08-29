@@ -93,7 +93,10 @@ fn p8_docs_record_promotion_and_remaining_scope_without_coverage_inflation() {
         "full_scale_resource_behavior_unproven",
         "There are no schema-only content-source shims left",
     ] {
-        assert!(status.contains(contract), "missing P8 status contract {contract}");
+        assert!(
+            status.contains(contract),
+            "missing P8 status contract {contract}"
+        );
     }
     for source in [
         "inline_small_fixture",

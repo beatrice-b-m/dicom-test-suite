@@ -106,7 +106,8 @@ fn migrated_curated_recipes_record_shared_plan_materialization() {
         );
         assert_eq!(entry["size_bytes"], bytes.len(), "{case_id}");
         if p5(case_id) || p6(case_id) {
-            let object = dicom_object::open_file(root.join(entry["path"].as_str().unwrap())).unwrap();
+            let object =
+                dicom_object::open_file(root.join(entry["path"].as_str().unwrap())).unwrap();
             assert_eq!(
                 entry["uids"]["implementation_version_name"],
                 object
@@ -135,14 +136,16 @@ fn migrated_curated_recipes_record_shared_plan_materialization() {
         "every runtime-available P6 curated recipe emitted by all must migrate"
     );
     if !cfg!(feature = "deflate") {
-        assert!(manifest["skipped_cases"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|entry| {
-                entry["case_id"] == "derived/seg/binary_multiframe_deflated_image_frame"
-                    && entry["reason_code"] == "feature_gated_case_unavailable"
-            }));
+        assert!(
+            manifest["skipped_cases"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|entry| {
+                    entry["case_id"] == "derived/seg/binary_multiframe_deflated_image_frame"
+                        && entry["reason_code"] == "feature_gated_case_unavailable"
+                })
+        );
     }
     fs::remove_dir_all(root).unwrap();
 }

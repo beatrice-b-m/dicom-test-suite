@@ -874,13 +874,10 @@ fn resolve_sc_pixels(
             ..
         } => {
             let bytes = super::spec::decode_base64(base64)?;
-            let asset = resolver.resolve_inline(
-                "pixels",
-                "native_pixels",
-                &bytes,
-                sha256.as_deref(),
-            )?;
-            let output = super::native_content::resolve_staged_native_pixels(asset, pixel.shape()?)?;
+            let asset =
+                resolver.resolve_inline("pixels", "native_pixels", &bytes, sha256.as_deref())?;
+            let output =
+                super::native_content::resolve_staged_native_pixels(asset, pixel.shape()?)?;
             Ok(DefaultPixelOutput {
                 plan: output.plan,
                 content: output.content,
@@ -957,13 +954,10 @@ fn resolve_family_pixels(
             ..
         } => {
             let bytes = super::spec::decode_base64(base64)?;
-            let asset = resolver.resolve_inline(
-                "pixels",
-                "native_pixels",
-                &bytes,
-                sha256.as_deref(),
-            )?;
-            let output = super::native_content::resolve_staged_native_pixels(asset, pixel.shape()?)?;
+            let asset =
+                resolver.resolve_inline("pixels", "native_pixels", &bytes, sha256.as_deref())?;
+            let output =
+                super::native_content::resolve_staged_native_pixels(asset, pixel.shape()?)?;
             Ok(DefaultPixelOutput {
                 plan: output.plan,
                 content: output.content,
@@ -1266,10 +1260,8 @@ fn resolve_encoded_rle_pixels(
         decoded_frame_sha256.push(sha256_hex(&decoded.native_bytes));
         encoded.push(bytes);
     }
-    let encapsulated = EncapsulatedPixelData::one_fragment_per_frame(
-        &encoded,
-        BasicOffsetTablePolicy::Populated,
-    )?;
+    let encapsulated =
+        EncapsulatedPixelData::one_fragment_per_frame(&encoded, BasicOffsetTablePolicy::Populated)?;
     let compressed_frame_sha256 = encapsulated.compressed_frame_hashes.clone();
     let basic_offset_table = encapsulated.basic_offset_table.offsets;
     let mut fragments = encapsulated.fragment_payloads;
@@ -1289,8 +1281,14 @@ fn resolve_encoded_rle_pixels(
         sha256: sha256_hex(&content_bytes),
         properties: BTreeMap::from([
             ("content_origin".into(), "encoded_frames".into()),
-            ("codec_backend".into(), NativeRleLosslessEncoder::BACKEND_ID.into()),
-            ("codec_semantic_validation".into(), "independent_decode_passed".into()),
+            (
+                "codec_backend".into(),
+                NativeRleLosslessEncoder::BACKEND_ID.into(),
+            ),
+            (
+                "codec_semantic_validation".into(),
+                "independent_decode_passed".into(),
+            ),
             (
                 "compressed_frame_sha256".into(),
                 serde_json::to_string(&compressed_frame_sha256).expect("hashes serialize"),
@@ -1299,7 +1297,10 @@ fn resolve_encoded_rle_pixels(
                 "decoded_frame_sha256".into(),
                 serde_json::to_string(&decoded_frame_sha256).expect("hashes serialize"),
             ),
-            ("source_transfer_syntax_uid".into(), source_transfer_syntax_uid.into()),
+            (
+                "source_transfer_syntax_uid".into(),
+                source_transfer_syntax_uid.into(),
+            ),
             (
                 "encoded_frame_assets".into(),
                 serde_json::to_string(&encoded_frame_assets).expect("assets serialize"),
@@ -2470,9 +2471,18 @@ mod tests {
         .unwrap();
         let properties = &manifest["composition"]["entries"][0]["content"][0]["properties"];
         assert_eq!(properties["content_origin"], "encoded_frames");
-        assert_eq!(properties["codec_semantic_validation"], "independent_decode_passed");
-        assert_eq!(manifest["composition"]["assets"][0]["spec_relative_path"], "frame-1.rle");
-        assert_eq!(manifest["composition"]["assets"][0]["sha256"], sha256_hex(&encoded));
+        assert_eq!(
+            properties["codec_semantic_validation"],
+            "independent_decode_passed"
+        );
+        assert_eq!(
+            manifest["composition"]["assets"][0]["spec_relative_path"],
+            "frame-1.rle"
+        );
+        assert_eq!(
+            manifest["composition"]["assets"][0]["sha256"],
+            sha256_hex(&encoded)
+        );
         let object = dicom_object::open_file(out.join("instances/xa_encoded.dcm")).unwrap();
         let fragments = match object.element_by_name("PixelData").unwrap().value() {
             dicom_core::value::Value::PixelSequence(sequence) => sequence.fragments(),
@@ -2534,11 +2544,13 @@ mod tests {
         })
         .unwrap();
         assert_eq!(
-            manifest["composition"]["entries"][0]["content"][0]["properties"]
-                ["content_origin"],
+            manifest["composition"]["entries"][0]["content"][0]["properties"]["content_origin"],
             "inline_fixture"
         );
-        assert_eq!(manifest["composition"]["assets"][0]["staging_method"], "inline");
+        assert_eq!(
+            manifest["composition"]["assets"][0]["staging_method"],
+            "inline"
+        );
         fs::remove_dir_all(root).unwrap();
     }
 }

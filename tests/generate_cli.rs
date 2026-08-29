@@ -8384,9 +8384,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         "full stress scales are qualifications, not planned file rows"
     );
     assert_eq!(
-        stress_manifest["qualifications"]
-            .as_array()
-            .map(Vec::len),
+        stress_manifest["qualifications"].as_array().map(Vec::len),
         Some(7),
         "all --include-stress must record seven reduced/full-scale qualifications"
     );

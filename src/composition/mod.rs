@@ -5,6 +5,7 @@
 pub mod attribute;
 pub mod content;
 pub mod identity;
+pub mod pixel;
 pub mod plan;
 pub mod reference;
 pub mod template;
@@ -15,6 +16,10 @@ pub use attribute::{
 };
 pub use content::{ContentError, ContentLimits, LocalContentResolver, StagedAsset};
 pub use identity::{CompositionUidRole, IdentityAllocator, IdentityError, IdentityPlan};
+pub use pixel::{
+    ByteOrder, FrameSpan, NativePixelPlan, PhotometricInterpretation, PixelElement, PixelError,
+    PixelShape, PlanarConfiguration, SampleType,
+};
 pub use plan::{
     AttributeLayer, AttributePolicy, AttributeResolver, CanonicalContent, Condition,
     ResolveContext, ResolveError, ResolvedAttribute, ResolvedInstancePlan, ValueOrigin,

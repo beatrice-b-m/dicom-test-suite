@@ -1,5 +1,38 @@
 # Arbitrary DICOM composition status
 
+## 2026-08-29 — Phase P5 completion gate
+
+Phase P5 is complete. Qualified templates now cover Enhanced CT, Enhanced MR,
+Enhanced PET, the two-part Enhanced CT concatenation, tiled-full and sparse
+WSI, multiple optical paths, the three-member WSI pyramid, spatial and
+deformable registration, and grayscale, color, blending, and advanced blending
+presentation states. Enhanced and WSI templates accept either their bounded
+qualified defaults or caller-owned native frames with an exact structural
+shape.
+
+The shared plan validates functional-group and dimension cardinality, implicit
+and explicit WSI tiling, concatenation UID/number/total/offset continuity, and
+one-based referenced-frame ranges before publication. Derived-object bundles
+support explicit sources or deterministic defaults. Their embedded referenced
+SOP, series, study, and Frame of Reference UIDs are rewritten onto the resolved
+logical graph; paired blending sources share the intended two-series identity
+topology. Manifest and report projections distinguish requested members from
+default dependencies and expose source provenance, closure, and frame roles.
+
+Default, caller-content, malformed-structure, explicit-source substitution,
+two-run reproducibility, root validation, report, and DICOM-reference closure
+tests pass. The pinned independent route reports the expected Enhanced, WSI,
+Registration, and Presentation State IODs without findings, except sparse WSI:
+its locked `pydicom-dicom-validator-wsi-sparse` primary route remains clean and
+the exact known dicom3tools full-grid finding remains non-accepted
+characterization.
+
+All corresponding curated cases now rematerialize through the shared plan with
+a mandatory byte-equality check. Their prior specialized validation and
+independent evidence remain in place, and each manifest row records the
+`curated_composition_plan` check. Default bundle members remain composition
+artifacts and are never projected as curated registry cases.
+
 ## 2026-08-29 — Phase P4 completion gate
 
 Phase P4 is complete. Every curated Secondary Capture, CT, MR, CR, DX,

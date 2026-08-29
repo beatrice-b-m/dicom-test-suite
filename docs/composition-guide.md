@@ -6,8 +6,9 @@ validator as the shared composition library. It is separate from `generate`:
 the latter selects curated registry cases and retains their case-specific
 qualification contracts; composition runs do not claim registry coverage.
 
-The catalog currently qualifies the Phase P2 Secondary Capture templates and
-the completed Phase P3 classic and visible-light image families:
+The catalog currently qualifies the Phase P2 Secondary Capture, completed
+Phase P3 classic and visible-light, and completed Phase P5 enhanced, WSI,
+registration, and presentation-state families:
 
 - `classic/secondary-capture/monochrome@1.0.0`: native unsigned 8- or 16-bit
   MONOCHROME1/MONOCHROME2;
@@ -42,6 +43,21 @@ the completed Phase P3 classic and visible-light image families:
 - `classic/xa@1.0.0` and `classic/xrf@1.0.0`: native unsigned MONOCHROME2
   12-bit-in-16-bit projection images with modality-specific acquisition and
   positioning defaults.
+- `enhanced/ct@1.0.0`, `enhanced/mr@1.0.0`, and `enhanced/pet@1.0.0`:
+  native multi-frame images with protected functional groups and dimensions;
+- `enhanced/ct/concatenation-part-1@1.0.0`: root of a deterministic two-part
+  Enhanced CT concatenation with contiguous frame offsets;
+- `vl/wsi/tiled-full@1.0.0`, `vl/wsi/tiled-sparse@1.0.0`, and
+  `vl/wsi/multiple-optical-paths@1.0.0`: reduced native RGB WSI organizations;
+- `vl/wsi/pyramid-volume@1.0.0`: root of a volume, thumbnail, and label default
+  bundle; its two companion templates may also be requested explicitly;
+- `derived/registration/spatial@1.0.0` and
+  `derived/registration/deformable@1.0.0`: reference-closed CT registration
+  bundles; and
+- `derived/presentation-state/grayscale@1.0.0`, `color@1.0.0`,
+  `blending@1.0.0`, and `advanced-blending@1.0.0`: source-closed presentation
+  states. The last three IDs use the full
+  `derived/presentation-state/<name>` prefix.
 
 Inspect the current descriptors rather than copying this summary as an
 inventory invariant:
@@ -144,6 +160,23 @@ Series identities, transfer syntax, Rows, Columns, pixel shape, and Pixel Data.
 A contradiction is an error; caller content is never silently reconciled with a
 contradictory attribute.
 
+## Bundles and references
+
+Reference-bearing templates declare named roles. Omit a role to create its
+deterministic qualified default, or provide an explicit logical reference to a
+compatible instance in the same specification. An explicit role suppresses
+only that default dependency. Bundle members share only the Study, Series, or
+Frame of Reference identities declared by the descriptor; blending defaults
+use two paired CT series in one Frame of Reference.
+
+The manifest records every member as requested or default-generated, its
+logical role and provenance, the dependency closure, and resolved SOP and
+optional frame references. Embedded DICOM reference sequences are rewritten to
+those same identities before validation. Unknown roles, missing targets,
+cycles, duplicate edges, zero or out-of-range frames, sequence overrides, and
+identity-cardinality mismatches abort the staged run without publishing its
+output root.
+
 The committed
 `tests/fixtures/composition/valid/typed-local-content.json` fixture demonstrates
 all P2 attribute forms. Private elements require an odd group, an element in the
@@ -167,7 +200,10 @@ detects undeclared instance files. `report` groups only composition templates
 and transfer syntaxes. It deliberately has no registry `case_id`, profile, or
 coverage projection.
 
-These are strong same-project checks. Every qualified Phase P2/P3 default has
-finding-free evidence from the pinned `dicom3tools-dciodvfy` route in
-`docs/arbitrary-dicom-composition-status.md`. That evidence applies only to the
-documented template versions and pixel domains.
+These are strong same-project checks. Every qualified Phase P2/P3/P5 default
+has pinned independent evidence documented in
+`docs/arbitrary-dicom-composition-status.md`; the general IOD route remains the
+pinned `dicom3tools-dciodvfy` adapter. Sparse WSI deliberately uses its separate
+primary validator and retains the exact dicom3tools limitation as
+characterization rather than an allowlisted pass. Evidence applies only to the
+documented template versions, content domains, and reduced scales.

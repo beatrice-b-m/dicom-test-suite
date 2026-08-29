@@ -6,10 +6,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::{
-    CaseRecipe, ClassicFamilyProvider, ClassicInstanceRequest, ClassicPixelRequest,
-    ClassicPlanError, CommonModuleRequest, ElementPresence, EquipmentModuleInput,
-    FamilyModuleFragment, FrameOfReferenceModuleInput, ImageModuleInput, PatientModuleInput,
-    RescalePlan, SeriesModuleInput, StudyModuleInput, WindowPlan,
+    CLASSIC_PIXEL_SLOT, CaseRecipe, ClassicFamilyProvider, ClassicInstanceRequest,
+    ClassicPixelRequest, ClassicPlanError, CommonModuleRequest, ElementPresence,
+    EquipmentModuleInput, FamilyModuleFragment, FrameOfReferenceModuleInput, ImageModuleInput,
+    PatientModuleInput, RescalePlan, SeriesModuleInput, StudyModuleInput, WindowPlan,
 };
 use crate::composition::{
     AttributeAddress, AttributeOperation, AttributeValue, DicomVr, PrimitiveValue,
@@ -348,7 +348,7 @@ pub fn plan_ct_recipe(
             implementation_class_uid: implementation_class_uid.clone(),
             family,
             pixels: ClassicPixelRequest {
-                slot: artifact.logical_id.clone(),
+                slot: CLASSIC_PIXEL_SLOT.into(),
                 pixels: NativePixelRequest {
                     shape: PixelShape {
                         rows: u32::from(pixels.rows),

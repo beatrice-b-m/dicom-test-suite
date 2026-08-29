@@ -3,6 +3,8 @@
 //! Values are supplied by callers: this module owns no curated defaults,
 //! identity allocation, filesystem paths, writers, or execution services.
 
+pub const CLASSIC_PIXEL_SLOT: &str = "pixels";
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::str::FromStr;

@@ -16,9 +16,10 @@ use crate::native_pixel::{
 use crate::uid::{DeterministicUidInput, UidRole, deterministic_uid};
 
 use super::{
-    CaseRecipe, ClassicInstanceRequest, ClassicPixelRequest, CommonModuleRequest, ElementPresence,
-    EquipmentModuleInput, FamilyModuleFragment, FrameOfReferenceModuleInput, ImageModuleInput,
-    PatientModuleInput, SeriesModuleInput, StudyModuleInput,
+    CLASSIC_PIXEL_SLOT, CaseRecipe, ClassicInstanceRequest, ClassicPixelRequest,
+    CommonModuleRequest, ElementPresence, EquipmentModuleInput, FamilyModuleFragment,
+    FrameOfReferenceModuleInput, ImageModuleInput, PatientModuleInput, SeriesModuleInput,
+    StudyModuleInput,
 };
 
 const PROVIDER_ID: &str = "native.classic_plan";
@@ -224,7 +225,7 @@ pub fn plan_mr_cr_recipe(
             implementation_class_uid: implementation_class_uid.clone(),
             family: vec![family_fragment],
             pixels: ClassicPixelRequest {
-                slot: "pixels".into(),
+                slot: CLASSIC_PIXEL_SLOT.into(),
                 pixels,
                 rescale: None,
                 window: None,

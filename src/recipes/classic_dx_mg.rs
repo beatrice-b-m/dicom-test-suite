@@ -17,10 +17,10 @@ use crate::native_pixel::{
 use crate::uid::{DeterministicUidInput, UidRole, deterministic_uid};
 
 use super::{
-    CaseRecipe, ClassicFamilyProvider, ClassicInstanceRequest, ClassicPixelRequest,
-    ClassicPlanError, CommonModuleRequest, DeclaredVrException, ElementPresence,
-    EquipmentModuleInput, FamilyModuleFragment, ImageModuleInput, PatientModuleInput, RescalePlan,
-    SeriesModuleInput, StudyModuleInput, WindowPlan,
+    CLASSIC_PIXEL_SLOT, CaseRecipe, ClassicFamilyProvider, ClassicInstanceRequest,
+    ClassicPixelRequest, ClassicPlanError, CommonModuleRequest, DeclaredVrException,
+    ElementPresence, EquipmentModuleInput, FamilyModuleFragment, ImageModuleInput,
+    PatientModuleInput, RescalePlan, SeriesModuleInput, StudyModuleInput, WindowPlan,
 };
 
 pub const PLAN_PROVIDER_ID: &str = "native.classic_plan";
@@ -270,7 +270,7 @@ pub fn plan_dx_mg_recipe(
         implementation_class_uid,
         family,
         pixels: ClassicPixelRequest {
-            slot: "pixel_data".into(),
+            slot: CLASSIC_PIXEL_SLOT.into(),
             pixels,
             rescale: Some(RescalePlan {
                 intercept: "0".into(),

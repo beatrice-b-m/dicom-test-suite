@@ -13,12 +13,13 @@ mod sc;
 
 pub use crate::planning::RecipeIdentity;
 pub use classic::{
-    ClassicFamilyProvider, ClassicInstanceRequest, ClassicPixelPlan, ClassicPixelProvider,
-    ClassicPixelRequest, ClassicPlanError, ClassicPlannedInstance, ClassicResolvedPlanInput,
-    CommonModulePlan, CommonModuleProvider, CommonModuleRequest, DeclaredVrException,
-    ElementPresence, EquipmentModuleInput, FamilyModuleFragment, FrameOfReferenceModuleInput,
-    ImageModuleInput, ModuleFragment, OrderedSeriesProvider, PatientModuleInput, RescalePlan,
-    SeriesModuleInput, StudyModuleInput, WindowPlan, resolved_classic_instance_plan,
+    CLASSIC_PIXEL_SLOT, ClassicFamilyProvider, ClassicInstanceRequest, ClassicPixelPlan,
+    ClassicPixelProvider, ClassicPixelRequest, ClassicPlanError, ClassicPlannedInstance,
+    ClassicResolvedPlanInput, CommonModulePlan, CommonModuleProvider, CommonModuleRequest,
+    DeclaredVrException, ElementPresence, EquipmentModuleInput, FamilyModuleFragment,
+    FrameOfReferenceModuleInput, ImageModuleInput, ModuleFragment, OrderedSeriesProvider,
+    PatientModuleInput, RescalePlan, SeriesModuleInput, StudyModuleInput, WindowPlan,
+    resolved_classic_instance_plan,
 };
 pub use encoding::{RecipeEncodingError, encoding_plan_from_recipe};
 pub use error::RecipeCatalogError;

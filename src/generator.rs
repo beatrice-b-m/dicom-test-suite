@@ -3821,6 +3821,12 @@ const U9_PLAN_FIRST_ENHANCED_MR_CASE_IDS: &[&str] = &[
     "enhanced/mr/multiframe_phase_velocity_encoding_explicit_le",
 ];
 const U9_PLAN_FIRST_ENHANCED_PET_CASE_IDS: &[&str] = &["enhanced/pet/multiframe_explicit_le"];
+const U9_PLAN_FIRST_WSI_CASE_IDS: &[&str] = &[
+    "vl/wsi/tiled_full_small",
+    "vl/wsi/tiled_sparse_small",
+    "vl/wsi/multiple_optical_paths_small",
+    "vl/wsi/pyramid_small",
+];
 
 const PLAN_FIRST_CLASSIC_US_MULTIFRAME_XA_XRF_CASE_IDS: &[&str] = &[
     "classic/us/multiframe_explicit_le",
@@ -4186,12 +4192,7 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
             .push(file);
     }
     let mut context = GenerationContext::default();
-    for case_id in [
-        WSI_TILED_FULL_CASE_ID,
-        WSI_TILED_SPARSE_CASE_ID,
-        WSI_MULTIPLE_OPTICAL_PATHS_CASE_ID,
-        WSI_PYRAMID_CASE_ID,
-    ] {
+    for case_id in U9_PLAN_FIRST_WSI_CASE_IDS.iter().copied() {
         if let Some(files) = take_plan_first_advanced_case(
             run,
             registry,
@@ -22149,6 +22150,19 @@ mod tests {
         assert_eq!(
             U9_PLAN_FIRST_ENHANCED_PET_CASE_IDS,
             &["enhanced/pet/multiframe_explicit_le"]
+        );
+    }
+
+    #[test]
+    fn wsi_plan_first_compatibility_list_preserves_historical_order() {
+        assert_eq!(
+            U9_PLAN_FIRST_WSI_CASE_IDS,
+            &[
+                "vl/wsi/tiled_full_small",
+                "vl/wsi/tiled_sparse_small",
+                "vl/wsi/multiple_optical_paths_small",
+                "vl/wsi/pyramid_small",
+            ]
         );
     }
 

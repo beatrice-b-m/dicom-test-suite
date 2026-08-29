@@ -166,6 +166,28 @@ private staging root, performs generation-time checks, writes the manifest, and
 then promotes the completed directory. A failed run does not constitute a
 usable corpus.
 
+### Compose caller-defined objects
+
+Composition is a separate workflow from registry-selected generation. Inspect
+qualified descriptors and create a default Secondary Capture object with:
+
+```sh
+cargo run --locked -- templates list
+cargo run --locked -- compose \
+  --spec tests/fixtures/composition/valid/template-only.json \
+  --out generated/composition-sc --seed 1
+cargo run --locked -- validate generated/composition-sc
+cargo run --locked -- report generated/composition-sc --format json
+```
+
+Composition roots use `run.kind = "composition"` and composition entries. Their
+reports group templates and transfer syntaxes; they do not claim a registry
+profile or `case_id` coverage. The Phase P2 public scope is native monochrome
+and RGB Secondary Capture. Read
+[the composition guide](composition-guide.md) for the specification format,
+raw pixels, attribute overrides, dry runs, resource limits, and qualification
+boundary.
+
 ## 6. Understand The Output
 
 Each generated root has this conceptual structure:

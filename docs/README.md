@@ -11,6 +11,8 @@ avoid treating a milestone snapshot as the current capability contract.
 - [Generation guide](generation-guide.md): complete user/agent workflow for
   selecting, generating, validating, reporting, and consuming representative
   DICOM test corpora.
+- [Composition guide](composition-guide.md): caller-defined template, raw
+  content, attribute, dry-run, validation, and evidence workflow.
 - [Corpus consumption](corpus-consumption.md): reproducible downstream handoff
   procedure and evidence checklist.
 - [Case taxonomy](../cases/taxonomy.md): stable case ID and profile-selection
@@ -69,13 +71,16 @@ These are dated evidence records for implemented vertical slices:
   payload-free robustness qualification.
 - [Phase 8 interoperability](phase-8-interoperability-status.md): DICOMDIR,
   protocol, and security availability boundaries.
+- [Arbitrary composition status](arbitrary-dicom-composition-status.md): dated
+  gates and evidence for the shared standards-aware composition program.
 
 ## Planning And Decision Records
 
 - [Arbitrary DICOM composition plan](arbitrary-dicom-composition-plan.md):
-  proposed phased execution plan for a standards-aware caller-supplied
-  attribute and content composition engine; its commands are not current
-  capability until the documented promotion gates close.
+  active phased execution contract for the standards-aware caller-supplied
+  attribute and content composition engine. Only capabilities promoted in the
+  current guide and status record are public; later phase descriptions remain
+  planned.
 - [Coverage expansion plan](coverage-expansion-plan.md): historical phased plan
   and acceptance model; consult its completion section and the registry for
   current state.

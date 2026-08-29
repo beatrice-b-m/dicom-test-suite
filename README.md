@@ -40,6 +40,22 @@ cargo run --locked -- report \
 The output directory must not already exist. Generation is staged and promoted
 as a complete directory, and the result always includes `manifest.json`.
 
+For caller-defined objects, the public composition slice currently qualifies
+native monochrome and RGB Secondary Capture templates:
+
+```sh
+cargo run --locked -- templates list
+cargo run --locked -- compose \
+  --spec tests/fixtures/composition/valid/template-only.json \
+  --out generated/composition-sc --seed 1
+cargo run --locked -- validate generated/composition-sc
+```
+
+`compose` is standards-aware but does not project curated registry coverage.
+See the [composition guide](docs/composition-guide.md) for raw pixels, typed
+attribute operations, dry runs, resource limits, manifests, and evidence
+boundaries.
+
 For profile selection, optional codecs, negative/fuzz/stress workflows,
 manifest consumption, validation levels, and troubleshooting, read the
 [generation and usage guide](docs/generation-guide.md). For handing a generated
@@ -164,6 +180,8 @@ limitations are documented in [conformance/README.md](conformance/README.md).
 
 ```text
 generate          Create one profile in a new output root.
+compose           Create caller-specified objects in a new output root.
+templates         List or describe qualified composition templates.
 list-cases        Inspect registry selection, status, providers, and blockers.
 validate          Strictly check a generated root against its manifest.
 report            Render generated coverage or registry/standards gaps.

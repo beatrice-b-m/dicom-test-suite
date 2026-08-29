@@ -1,5 +1,22 @@
 # Arbitrary DICOM composition status
 
+## 2026-08-29 — Phase P3 completion gate
+
+Phase P3 is complete. Every implemented classic-image and single/multi-frame
+visible-light SOP Class in `templates/inventory.json` resolves to a qualified,
+standards-evidenced descriptor. The catalog-rendered
+`docs/composition-template-reference.md` exposes every qualified version, SOP
+Class, transfer syntax, determinism class, and independent route; a gate test
+prevents that reference or the inventory mappings from drifting.
+
+All family defaults pass same-project composition validation and the pinned
+`dicom3tools-dciodvfy` executable without warning or error findings. Caller
+native pixels are checked against family-specific frame, photometric, sample,
+and bit-depth contracts. XA/XRF additionally qualify deterministic built-in RLE
+Lossless encoding with fragment-integrity validation, lossless decode evidence,
+and byte-stable two-run output. Descriptor audits require protected, derived,
+conditional, and caller-settable policy coverage for every P3 inventory entry.
+
 ## 2026-08-29 — Multi-frame Secondary Capture qualification
 
 Multi-frame Single Bit and Multi-frame Grayscale Byte Secondary Capture are
@@ -9,9 +26,9 @@ frame-local packing even when a frame boundary is not byte aligned. Both
 profiles pass caller round trips, byte reproducibility, root validation and
 reporting, and the pinned independent route without findings.
 
-Every currently implemented classic and single/multi-frame VL SOP Class now
-has a native qualified template. P3 still awaits its cross-family closeout and
-the explicitly scheduled codec-backed XA/XRF integration boundary.
+Every currently implemented classic and single/multi-frame VL SOP Class has a
+native qualified template. The cross-family and codec closeout is recorded in
+the Phase P3 completion entry above.
 
 ## 2026-08-29 — Phase P3.7 native XA/XRF checkpoint
 
@@ -22,10 +39,9 @@ relationship semantics. Both pass caller native-pixel round trips,
 wrong-signedness rejection, root validation/reporting, byte comparison, and
 the pinned independent route without findings.
 
-This is a P3.7 checkpoint, not completion of that lane: existing codec-backed
-caller-frame integration remains scheduled under P7.5 and is not claimed by
-the current descriptors. Multi-frame SC and cross-family P3 closeout also
-remain open.
+This entry records the native checkpoint. Built-in RLE caller-frame integration
+and the cross-family closeout were subsequently qualified by the Phase P3
+completion entry above.
 
 ## 2026-08-29 — Phase P3.6 visible-light lane
 

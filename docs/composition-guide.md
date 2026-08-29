@@ -7,7 +7,7 @@ the latter selects curated registry cases and retains their case-specific
 qualification contracts; composition runs do not claim registry coverage.
 
 The catalog currently qualifies the Phase P2 Secondary Capture templates and
-the Phase P3.3 classic modality lane:
+the completed Phase P3 classic and visible-light image families:
 
 - `classic/secondary-capture/monochrome@1.0.0`: native unsigned 8- or 16-bit
   MONOCHROME1/MONOCHROME2;
@@ -49,6 +49,7 @@ inventory invariant:
 ```sh
 cargo run --locked -- templates list
 cargo run --locked -- templates list --format json
+cargo run --locked -- templates reference --format markdown
 cargo run --locked -- templates describe \
   classic/secondary-capture/monochrome --format json
 ```
@@ -155,9 +156,10 @@ per-file bytes, total input bytes, and total output bytes. Defaults are finite
 and are recorded in the composition manifest. Network content and provider
 execution are not currently available.
 
-XA/XRF composition is currently qualified only for native Explicit VR Little
-Endian. The repository's existing codec backends are not implied by those
-descriptors until the scheduled caller-frame codec integration is qualified.
+XA/XRF composition supports native Explicit VR Little Endian and built-in RLE
+Lossless. RLE input uses the same native caller-frame contract, emits one
+fragment per frame with a populated Basic Offset Table, and records native and
+compressed frame hashes. No external codec is required.
 
 `validate` reconstructs each resolved plan from the manifest, verifies file
 size and SHA-256, reopens Part 10 and data elements, checks content hashes, and
@@ -165,7 +167,7 @@ detects undeclared instance files. `report` groups only composition templates
 and transfer syntaxes. It deliberately has no registry `case_id`, profile, or
 coverage projection.
 
-These are strong same-project checks. The qualified P2 and P3.3 defaults also
-have finding-free evidence from the pinned `dicom3tools-dciodvfy` route in
+These are strong same-project checks. Every qualified Phase P2/P3 default has
+finding-free evidence from the pinned `dicom3tools-dciodvfy` route in
 `docs/arbitrary-dicom-composition-status.md`. That evidence applies only to the
-documented template versions and native pixel domains.
+documented template versions and pixel domains.

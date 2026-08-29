@@ -40,11 +40,12 @@ cargo run --locked -- report \
 The output directory must not already exist. Generation is staged and promoted
 as a complete directory, and the result always includes `manifest.json`.
 
-For caller-defined objects, the public composition slice currently qualifies
-native monochrome and RGB Secondary Capture templates:
+For caller-defined objects, the public composition catalog qualifies classic
+and visible-light image families with bounded default and caller pixel models:
 
 ```sh
 cargo run --locked -- templates list
+cargo run --locked -- templates reference --format markdown
 cargo run --locked -- compose \
   --spec tests/fixtures/composition/valid/template-only.json \
   --out generated/composition-sc --seed 1
@@ -52,9 +53,10 @@ cargo run --locked -- validate generated/composition-sc
 ```
 
 `compose` is standards-aware but does not project curated registry coverage.
-See the [composition guide](docs/composition-guide.md) for raw pixels, typed
-attribute operations, dry runs, resource limits, manifests, and evidence
-boundaries.
+See the [composition guide](docs/composition-guide.md) and generated
+[template reference](docs/composition-template-reference.md) for raw pixels,
+typed attribute operations, transfer syntaxes, dry runs, resource limits,
+manifests, and evidence boundaries.
 
 For profile selection, optional codecs, negative/fuzz/stress workflows,
 manifest consumption, validation levels, and troubleshooting, read the

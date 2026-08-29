@@ -173,6 +173,7 @@ qualified descriptors and create a default Secondary Capture object with:
 
 ```sh
 cargo run --locked -- templates list
+cargo run --locked -- templates reference --format markdown
 cargo run --locked -- compose \
   --spec tests/fixtures/composition/valid/template-only.json \
   --out generated/composition-sc --seed 1
@@ -182,11 +183,11 @@ cargo run --locked -- report generated/composition-sc --format json
 
 Composition roots use `run.kind = "composition"` and composition entries. Their
 reports group templates and transfer syntaxes; they do not claim a registry
-profile or `case_id` coverage. The Phase P2 public scope is native monochrome
-and RGB Secondary Capture. Read
-[the composition guide](composition-guide.md) for the specification format,
-raw pixels, attribute overrides, dry runs, resource limits, and qualification
-boundary.
+profile or `case_id` coverage. The qualified public scope covers the cataloged
+classic and visible-light image families, including built-in RLE Lossless for
+XA/XRF. Read [the composition guide](composition-guide.md) for the specification
+format and [the rendered template reference](composition-template-reference.md)
+for exact versions, transfer syntaxes, and independent routes.
 
 ## 6. Understand The Output
 

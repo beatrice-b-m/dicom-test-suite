@@ -55,6 +55,7 @@ pub mod media_runner;
 pub mod media_sources;
 mod metadata;
 pub mod mutation;
+pub mod native_pixel;
 pub mod negative;
 pub mod part10_locator;
 pub mod planning;

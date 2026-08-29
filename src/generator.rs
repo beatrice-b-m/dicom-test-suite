@@ -5874,7 +5874,120 @@ pub(crate) fn write_supported_cases(
         standards_lock_sha256,
         CuratedRecipeStage::ClassicImagesAfterEnhancedPet,
     )?;
+    migrate_p5_curated_files_through_composition(run, &mut context.generated_files)?;
     Ok(context.into_output())
+}
+
+fn migrate_p5_curated_files_through_composition(
+    run: &PreparedGenerationRun,
+    files: &mut [GeneratedFile],
+) -> Result<(), GenerateError> {
+    for (index, file) in files.iter_mut().enumerate() {
+        let Some(template_family) = p5_curated_template_family(&file.case_id) else {
+            continue;
+        };
+        let relative_path = generated_manifest_str(
+            &file.manifest_entry,
+            "/path",
+            "P5 curated path must be a string",
+        )?;
+        let path = run.out_dir.join(relative_path);
+        let before = fs::read(&path).map_err(|source| GenerateError::ReadGeneratedFile {
+            path: path.clone(),
+            source,
+        })?;
+        let file_object = open_file(&path).map_err(|source| GenerateError::ValidateDicomFile {
+            path: path.clone(),
+            message: source.to_string(),
+        })?;
+        let transfer_syntax_uid = file_object.meta().transfer_syntax().to_string();
+        let implementation_class_uid = file_object.meta().implementation_class_uid.clone();
+        let object = file_object.into_inner();
+        let string = |name: &str| {
+            object
+                .element_by_name(name)
+                .ok()
+                .and_then(|element| element.to_str().ok())
+                .map(|value| value.trim().to_string())
+        };
+        let sop_class_uid = string("SOPClassUID").ok_or_else(|| GenerateError::MetadataShape {
+            path: path.clone(),
+            message: "P5 curated object is missing SOP Class UID",
+        })?;
+        let sop_instance_uid =
+            string("SOPInstanceUID").ok_or_else(|| GenerateError::MetadataShape {
+                path: path.clone(),
+                message: "P5 curated object is missing SOP Instance UID",
+            })?;
+        let study_instance_uid = string("StudyInstanceUID");
+        let series_instance_uid = string("SeriesInstanceUID");
+        let plan = crate::composition::resolved_plan_from_curated_dataset(
+            &object,
+            crate::composition::CuratedPlanInput {
+                instance_id: &format!("curated_p5_{index}"),
+                template_id: crate::composition::TemplateId(template_family.into()),
+                template_version: "1.0.0".parse().expect("static template version"),
+                sop_class_uid: &sop_class_uid,
+                transfer_syntax_uid: &transfer_syntax_uid,
+                study_instance_uid: study_instance_uid.as_deref(),
+                series_instance_uid: series_instance_uid.as_deref(),
+                sop_instance_uid: &sop_instance_uid,
+                implementation_class_uid: &implementation_class_uid,
+            },
+        )
+        .map_err(|error| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: format!("resolve P5 curated composition plan: {error}"),
+        })?;
+        fs::remove_file(&path).map_err(|source| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: format!("replace reserved P5 curated instance: {source}"),
+        })?;
+        crate::composition::Part10Materializer
+            .materialize(&plan, &path)
+            .map_err(|error| GenerateError::WriteDicomFile {
+                path: path.clone(),
+                message: error.to_string(),
+            })?;
+        let after = fs::read(&path).map_err(|source| GenerateError::ReadGeneratedFile {
+            path: path.clone(),
+            source,
+        })?;
+        if after != before {
+            return Err(GenerateError::MetadataShape {
+                path,
+                message: "P5 curated composition migration changed byte-stable output",
+            });
+        }
+        append_curated_plan_validation(&mut file.manifest_entry["validation"]);
+    }
+    Ok(())
+}
+
+fn p5_curated_template_family(case_id: &str) -> Option<&'static str> {
+    if case_id.starts_with("enhanced/ct/") {
+        Some("enhanced/ct")
+    } else if case_id.starts_with("enhanced/mr/") {
+        Some("enhanced/mr")
+    } else if case_id.starts_with("enhanced/pet/") {
+        Some("enhanced/pet")
+    } else if case_id.starts_with("vl/wsi/") {
+        Some("vl/wsi")
+    } else {
+        match case_id {
+            "derived/registration/spatial_ct_pair" => Some("derived/registration/spatial"),
+            "derived/registration/deformable_ct_pair" => Some("derived/registration/deformable"),
+            "derived/presentation-state/grayscale_softcopy_ct_window_explicit_le" => {
+                Some("derived/presentation-state/grayscale")
+            }
+            "derived/presentation-state/color_softcopy" => Some("derived/presentation-state/color"),
+            "derived/presentation-state/blending" => Some("derived/presentation-state/blending"),
+            "derived/presentation-state/advanced_blending" => {
+                Some("derived/presentation-state/advanced-blending")
+            }
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -44,6 +44,7 @@ pub mod conformance;
 pub mod corpus_plan;
 pub mod coverage_gaps;
 pub mod encapsulation;
+pub mod executor;
 pub mod fuzz;
 pub mod generation_backends;
 mod generator;

@@ -4680,6 +4680,286 @@ fn acceptable_outcome_name(outcome: &impl std::fmt::Debug) -> &'static str {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CuratedRecipeStage {
+    SecondaryCapture,
+    ClassicCt,
+    ClassicImagesBeforeEnhancedPet,
+    ClassicImagesAfterEnhancedPet,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum CuratedRecipeImplementation {
+    Pixel(PixelRecipe),
+    MetadataSc(MetadataScRecipe),
+    TimezoneSc(TimezoneScRecipe),
+    EmptyType2Sc(EmptyType2ScRecipe),
+    StringBoundarySc(StringBoundaryScRecipe),
+    PrivateCreatorSc(PrivateCreatorScRecipe),
+    SequenceLengthSc(SequenceLengthScRecipe),
+    NonsquareSpacingSc(NonsquareSpacingScRecipe),
+    Ct(ClassicCtRecipe),
+    Mg(ClassicMgRecipe),
+    Dx(ClassicDxRecipe),
+    Nm(ClassicNmRecipe),
+    Pet(ClassicPetRecipe),
+    UsMultiframe(ClassicUsMultiframeRecipe),
+    Xa(ClassicXaRecipe),
+    Xrf(ClassicXrfRecipe),
+    Us(ClassicUsRecipe),
+    Cr(ClassicCrRecipe),
+    Mr(ClassicMrRecipe),
+}
+
+impl CuratedRecipeImplementation {
+    fn case_id(self) -> &'static str {
+        match self {
+            Self::Pixel(recipe) => recipe.case_id,
+            Self::MetadataSc(recipe) => recipe.pixel.case_id,
+            Self::TimezoneSc(recipe) => recipe.pixel.case_id,
+            Self::EmptyType2Sc(recipe) => recipe.pixel.case_id,
+            Self::StringBoundarySc(recipe) => recipe.pixel.case_id,
+            Self::PrivateCreatorSc(recipe) => recipe.pixel.case_id,
+            Self::SequenceLengthSc(recipe) => recipe.pixel.case_id,
+            Self::NonsquareSpacingSc(recipe) => recipe.pixel.case_id,
+            Self::Ct(recipe) => recipe.case_id,
+            Self::Mg(recipe) => recipe.case_id,
+            Self::Dx(recipe) => recipe.case_id,
+            Self::Nm(recipe) => recipe.case_id,
+            Self::Pet(recipe) => recipe.case_id,
+            Self::UsMultiframe(recipe) => recipe.case_id,
+            Self::Xa(recipe) => recipe.case_id,
+            Self::Xrf(recipe) => recipe.case_id,
+            Self::Us(recipe) => recipe.case_id,
+            Self::Cr(recipe) => recipe.case_id,
+            Self::Mr(recipe) => recipe.case_id,
+        }
+    }
+
+    fn generate(
+        self,
+        run: &PreparedGenerationRun,
+        case: &Value,
+        standards_lock_sha256: &str,
+    ) -> Result<Vec<GeneratedFile>, GenerateError> {
+        match self {
+            Self::Pixel(recipe) => Ok(vec![write_pixel_case(
+                run,
+                case,
+                recipe,
+                standards_lock_sha256,
+            )?]),
+            Self::MetadataSc(recipe) => Ok(vec![write_metadata_sc_case(
+                run,
+                case,
+                recipe,
+                standards_lock_sha256,
+            )?]),
+            Self::TimezoneSc(recipe) => {
+                write_timezone_sc_case(run, case, recipe, standards_lock_sha256)
+            }
+            Self::EmptyType2Sc(recipe) => Ok(vec![write_empty_type2_sc_case(
+                run,
+                case,
+                recipe,
+                standards_lock_sha256,
+            )?]),
+            Self::StringBoundarySc(recipe) => Ok(vec![write_string_boundary_sc_case(
+                run,
+                case,
+                recipe,
+                standards_lock_sha256,
+            )?]),
+            Self::PrivateCreatorSc(recipe) => Ok(vec![write_private_creator_sc_case(
+                run,
+                case,
+                recipe,
+                standards_lock_sha256,
+            )?]),
+            Self::SequenceLengthSc(recipe) => {
+                write_sequence_length_sc_case(run, case, recipe, standards_lock_sha256)
+            }
+            Self::NonsquareSpacingSc(recipe) => {
+                write_nonsquare_spacing_sc_case(run, case, recipe, standards_lock_sha256)
+            }
+            Self::Ct(recipe) => write_classic_ct_case(run, case, recipe, standards_lock_sha256),
+            Self::Mg(recipe) => Ok(vec![write_classic_mg_case(
+                run,
+                case,
+                recipe,
+                standards_lock_sha256,
+            )?]),
+            Self::Dx(recipe) => Ok(vec![write_classic_dx_case(
+                run,
+                case,
+                recipe,
+                standards_lock_sha256,
+            )?]),
+            Self::Nm(recipe) => Ok(vec![write_classic_nm_case(
+                run,
+                case,
+                recipe,
+                standards_lock_sha256,
+            )?]),
+            Self::Pet(recipe) => Ok(vec![write_classic_pet_case(
+                run,
+                case,
+                recipe,
+                standards_lock_sha256,
+            )?]),
+            Self::UsMultiframe(recipe) => Ok(vec![write_classic_us_multiframe_case(
+                run,
+                case,
+                recipe,
+                standards_lock_sha256,
+            )?]),
+            Self::Xa(recipe) => Ok(vec![write_classic_xa_case(
+                run,
+                case,
+                recipe,
+                standards_lock_sha256,
+            )?]),
+            Self::Xrf(recipe) => Ok(vec![write_classic_xrf_case(
+                run,
+                case,
+                recipe,
+                standards_lock_sha256,
+            )?]),
+            Self::Us(recipe) => Ok(vec![write_classic_us_case(
+                run,
+                case,
+                recipe,
+                standards_lock_sha256,
+            )?]),
+            Self::Cr(recipe) => Ok(vec![write_classic_cr_case(
+                run,
+                case,
+                recipe,
+                standards_lock_sha256,
+            )?]),
+            Self::Mr(recipe) => write_classic_mr_case(run, case, recipe, standards_lock_sha256),
+        }
+    }
+}
+
+fn curated_recipe_registry(stage: CuratedRecipeStage) -> Vec<CuratedRecipeImplementation> {
+    let mut recipes = Vec::new();
+    match stage {
+        CuratedRecipeStage::SecondaryCapture => {
+            recipes.extend(
+                PIXEL_RECIPES
+                    .iter()
+                    .copied()
+                    .map(CuratedRecipeImplementation::Pixel),
+            );
+            recipes.extend(
+                METADATA_SC_RECIPES
+                    .iter()
+                    .copied()
+                    .map(CuratedRecipeImplementation::MetadataSc),
+            );
+            recipes.extend([
+                CuratedRecipeImplementation::TimezoneSc(TIMEZONE_SC_RECIPE),
+                CuratedRecipeImplementation::EmptyType2Sc(EMPTY_TYPE2_SC_RECIPE),
+                CuratedRecipeImplementation::StringBoundarySc(STRING_BOUNDARY_SC_RECIPE),
+                CuratedRecipeImplementation::PrivateCreatorSc(PRIVATE_CREATOR_SC_RECIPE),
+                CuratedRecipeImplementation::SequenceLengthSc(SEQUENCE_LENGTH_SC_RECIPE),
+                CuratedRecipeImplementation::NonsquareSpacingSc(NONSQUARE_SPACING_SC_RECIPE),
+            ]);
+        }
+        CuratedRecipeStage::ClassicCt => recipes.extend(
+            CLASSIC_CT_RECIPES
+                .iter()
+                .copied()
+                .map(CuratedRecipeImplementation::Ct),
+        ),
+        CuratedRecipeStage::ClassicImagesBeforeEnhancedPet => {
+            recipes.extend(
+                CLASSIC_MG_RECIPES
+                    .iter()
+                    .copied()
+                    .map(CuratedRecipeImplementation::Mg),
+            );
+            recipes.extend(
+                CLASSIC_DX_RECIPES
+                    .iter()
+                    .copied()
+                    .map(CuratedRecipeImplementation::Dx),
+            );
+            recipes.extend(
+                CLASSIC_NM_RECIPES
+                    .iter()
+                    .copied()
+                    .map(CuratedRecipeImplementation::Nm),
+            );
+            recipes.extend(
+                CLASSIC_PET_RECIPES
+                    .iter()
+                    .copied()
+                    .map(CuratedRecipeImplementation::Pet),
+            );
+        }
+        CuratedRecipeStage::ClassicImagesAfterEnhancedPet => {
+            recipes.extend(
+                CLASSIC_US_MULTIFRAME_RECIPES
+                    .iter()
+                    .copied()
+                    .map(CuratedRecipeImplementation::UsMultiframe),
+            );
+            recipes.extend(
+                CLASSIC_XA_RECIPES
+                    .iter()
+                    .copied()
+                    .map(CuratedRecipeImplementation::Xa),
+            );
+            recipes.extend(
+                CLASSIC_XRF_RECIPES
+                    .iter()
+                    .copied()
+                    .map(CuratedRecipeImplementation::Xrf),
+            );
+            recipes.extend(
+                CLASSIC_US_RECIPES
+                    .iter()
+                    .copied()
+                    .map(CuratedRecipeImplementation::Us),
+            );
+            recipes.extend(
+                CLASSIC_CR_RECIPES
+                    .iter()
+                    .copied()
+                    .map(CuratedRecipeImplementation::Cr),
+            );
+            recipes.extend(
+                CLASSIC_MR_RECIPES
+                    .iter()
+                    .copied()
+                    .map(CuratedRecipeImplementation::Mr),
+            );
+        }
+    }
+    recipes
+}
+
+fn write_curated_recipe_stage(
+    context: &mut GenerationContext,
+    run: &PreparedGenerationRun,
+    registry: &Value,
+    standards_lock_sha256: &str,
+    stage: CuratedRecipeStage,
+) -> Result<(), GenerateError> {
+    for implementation in curated_recipe_registry(stage) {
+        let case_id = implementation.case_id();
+        let Some(case) = registry_case(registry, case_id)? else {
+            continue;
+        };
+        if should_generate_case(case, run)? {
+            context.record_many(implementation.generate(run, case, standards_lock_sha256)?)?;
+        }
+    }
+    Ok(())
+}
+
 pub(crate) fn write_supported_cases(
     run: &PreparedGenerationRun,
     registry: &Value,
@@ -4745,89 +5025,13 @@ pub(crate) fn write_supported_cases(
             }
         }
     }
-    for recipe in PIXEL_RECIPES {
-        let Some(case) = registry_case(registry, recipe.case_id)? else {
-            continue;
-        };
-        if !should_generate_case(case, run)? {
-            continue;
-        }
-        context.record_one(write_pixel_case(run, case, *recipe, standards_lock_sha256)?)?;
-    }
-    for recipe in METADATA_SC_RECIPES {
-        let Some(case) = registry_case(registry, recipe.pixel.case_id)? else {
-            continue;
-        };
-        if !should_generate_case(case, run)? {
-            continue;
-        }
-        context.record_one(write_metadata_sc_case(
-            run,
-            case,
-            *recipe,
-            standards_lock_sha256,
-        )?)?;
-    }
-    if let Some(case) = registry_case(registry, TIMEZONE_SC_RECIPE.pixel.case_id)? {
-        if should_generate_case(case, run)? {
-            context.record_many(write_timezone_sc_case(
-                run,
-                case,
-                TIMEZONE_SC_RECIPE,
-                standards_lock_sha256,
-            )?)?;
-        }
-    }
-    if let Some(case) = registry_case(registry, EMPTY_TYPE2_SC_RECIPE.pixel.case_id)? {
-        if should_generate_case(case, run)? {
-            context.record_one(write_empty_type2_sc_case(
-                run,
-                case,
-                EMPTY_TYPE2_SC_RECIPE,
-                standards_lock_sha256,
-            )?)?;
-        }
-    }
-    if let Some(case) = registry_case(registry, STRING_BOUNDARY_SC_RECIPE.pixel.case_id)? {
-        if should_generate_case(case, run)? {
-            context.record_one(write_string_boundary_sc_case(
-                run,
-                case,
-                STRING_BOUNDARY_SC_RECIPE,
-                standards_lock_sha256,
-            )?)?;
-        }
-    }
-    if let Some(case) = registry_case(registry, PRIVATE_CREATOR_SC_RECIPE.pixel.case_id)? {
-        if should_generate_case(case, run)? {
-            context.record_one(write_private_creator_sc_case(
-                run,
-                case,
-                PRIVATE_CREATOR_SC_RECIPE,
-                standards_lock_sha256,
-            )?)?;
-        }
-    }
-    if let Some(case) = registry_case(registry, SEQUENCE_LENGTH_SC_RECIPE.pixel.case_id)? {
-        if should_generate_case(case, run)? {
-            context.record_many(write_sequence_length_sc_case(
-                run,
-                case,
-                SEQUENCE_LENGTH_SC_RECIPE,
-                standards_lock_sha256,
-            )?)?;
-        }
-    }
-    if let Some(case) = registry_case(registry, NONSQUARE_SPACING_SC_RECIPE.pixel.case_id)? {
-        if should_generate_case(case, run)? {
-            context.record_many(write_nonsquare_spacing_sc_case(
-                run,
-                case,
-                NONSQUARE_SPACING_SC_RECIPE,
-                standards_lock_sha256,
-            )?)?;
-        }
-    }
+    write_curated_recipe_stage(
+        &mut context,
+        run,
+        registry,
+        standards_lock_sha256,
+        CuratedRecipeStage::SecondaryCapture,
+    )?;
     if let Some(case) = registry_case(registry, STRESS_HIGH_INSTANCE_CT_CASE_ID)? {
         if should_generate_case(case, run)? {
             let (request, started) = context.preflight_stress(
@@ -4903,20 +5107,13 @@ pub(crate) fn write_supported_cases(
             )?;
         }
     }
-    for recipe in CLASSIC_CT_RECIPES {
-        let Some(case) = registry_case(registry, recipe.case_id)? else {
-            continue;
-        };
-        if !should_generate_case(case, run)? {
-            continue;
-        }
-        context.record_many(write_classic_ct_case(
-            run,
-            case,
-            *recipe,
-            standards_lock_sha256,
-        )?)?;
-    }
+    write_curated_recipe_stage(
+        &mut context,
+        run,
+        registry,
+        standards_lock_sha256,
+        CuratedRecipeStage::ClassicCt,
+    )?;
     for spec in [FLOAT32_SPEC, FLOAT64_SPEC] {
         if let Some(case) = registry_case(registry, spec.case_id)? {
             if !should_generate_case(case, run)? {
@@ -5649,62 +5846,13 @@ pub(crate) fn write_supported_cases(
             standards_lock_sha256,
         )?)?;
     }
-    for recipe in CLASSIC_MG_RECIPES {
-        let Some(case) = registry_case(registry, recipe.case_id)? else {
-            continue;
-        };
-        if !should_generate_case(case, run)? {
-            continue;
-        }
-        context.record_one(write_classic_mg_case(
-            run,
-            case,
-            *recipe,
-            standards_lock_sha256,
-        )?)?;
-    }
-    for recipe in CLASSIC_DX_RECIPES {
-        let Some(case) = registry_case(registry, recipe.case_id)? else {
-            continue;
-        };
-        if !should_generate_case(case, run)? {
-            continue;
-        }
-        context.record_one(write_classic_dx_case(
-            run,
-            case,
-            *recipe,
-            standards_lock_sha256,
-        )?)?;
-    }
-    for recipe in CLASSIC_NM_RECIPES {
-        let Some(case) = registry_case(registry, recipe.case_id)? else {
-            continue;
-        };
-        if !should_generate_case(case, run)? {
-            continue;
-        }
-        context.record_one(write_classic_nm_case(
-            run,
-            case,
-            *recipe,
-            standards_lock_sha256,
-        )?)?;
-    }
-    for recipe in CLASSIC_PET_RECIPES {
-        let Some(case) = registry_case(registry, recipe.case_id)? else {
-            continue;
-        };
-        if !should_generate_case(case, run)? {
-            continue;
-        }
-        context.record_one(write_classic_pet_case(
-            run,
-            case,
-            *recipe,
-            standards_lock_sha256,
-        )?)?;
-    }
+    write_curated_recipe_stage(
+        &mut context,
+        run,
+        registry,
+        standards_lock_sha256,
+        CuratedRecipeStage::ClassicImagesBeforeEnhancedPet,
+    )?;
     for recipe in ENHANCED_PET_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
@@ -5719,90 +5867,13 @@ pub(crate) fn write_supported_cases(
             standards_lock_sha256,
         )?)?;
     }
-    for recipe in CLASSIC_US_MULTIFRAME_RECIPES {
-        let Some(case) = registry_case(registry, recipe.case_id)? else {
-            continue;
-        };
-        if !should_generate_case(case, run)? {
-            continue;
-        }
-        context.record_one(write_classic_us_multiframe_case(
-            run,
-            case,
-            *recipe,
-            standards_lock_sha256,
-        )?)?;
-    }
-    for recipe in CLASSIC_XA_RECIPES {
-        let Some(case) = registry_case(registry, recipe.case_id)? else {
-            continue;
-        };
-        if !should_generate_case(case, run)? {
-            continue;
-        }
-        context.record_one(write_classic_xa_case(
-            run,
-            case,
-            *recipe,
-            standards_lock_sha256,
-        )?)?;
-    }
-    for recipe in CLASSIC_XRF_RECIPES {
-        let Some(case) = registry_case(registry, recipe.case_id)? else {
-            continue;
-        };
-        if !should_generate_case(case, run)? {
-            continue;
-        }
-        context.record_one(write_classic_xrf_case(
-            run,
-            case,
-            *recipe,
-            standards_lock_sha256,
-        )?)?;
-    }
-    for recipe in CLASSIC_US_RECIPES {
-        let Some(case) = registry_case(registry, recipe.case_id)? else {
-            continue;
-        };
-        if !should_generate_case(case, run)? {
-            continue;
-        }
-        context.record_one(write_classic_us_case(
-            run,
-            case,
-            *recipe,
-            standards_lock_sha256,
-        )?)?;
-    }
-    for recipe in CLASSIC_CR_RECIPES {
-        let Some(case) = registry_case(registry, recipe.case_id)? else {
-            continue;
-        };
-        if !should_generate_case(case, run)? {
-            continue;
-        }
-        context.record_one(write_classic_cr_case(
-            run,
-            case,
-            *recipe,
-            standards_lock_sha256,
-        )?)?;
-    }
-    for recipe in CLASSIC_MR_RECIPES {
-        let Some(case) = registry_case(registry, recipe.case_id)? else {
-            continue;
-        };
-        if !should_generate_case(case, run)? {
-            continue;
-        }
-        context.record_many(write_classic_mr_case(
-            run,
-            case,
-            *recipe,
-            standards_lock_sha256,
-        )?)?;
-    }
+    write_curated_recipe_stage(
+        &mut context,
+        run,
+        registry,
+        standards_lock_sha256,
+        CuratedRecipeStage::ClassicImagesAfterEnhancedPet,
+    )?;
     Ok(context.into_output())
 }
 
@@ -24596,13 +24667,12 @@ fn write_classic_mg_case(
         None
     };
 
-    let template_family = if recipe.sop_class_uid
-        == uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION
-    {
-        "classic/mammography/for-presentation"
-    } else {
-        "classic/mammography/for-processing"
-    };
+    let template_family =
+        if recipe.sop_class_uid == uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION {
+            "classic/mammography/for-presentation"
+        } else {
+            "classic/mammography/for-processing"
+        };
     materialize_curated_classic_dataset(
         &obj,
         &path,
@@ -31340,6 +31410,55 @@ fn case_matches_profile(profiles: &[String], requested: &str, include_stress: bo
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn curated_recipe_registry_is_complete_and_unique() {
+        let actual = [
+            CuratedRecipeStage::SecondaryCapture,
+            CuratedRecipeStage::ClassicCt,
+            CuratedRecipeStage::ClassicImagesBeforeEnhancedPet,
+            CuratedRecipeStage::ClassicImagesAfterEnhancedPet,
+        ]
+        .into_iter()
+        .flat_map(curated_recipe_registry)
+        .map(CuratedRecipeImplementation::case_id)
+        .collect::<Vec<_>>();
+        let unique = actual.iter().copied().collect::<BTreeSet<_>>();
+        assert_eq!(unique.len(), actual.len(), "recipe IDs must be unique");
+
+        let mut expected = BTreeSet::new();
+        expected.extend(PIXEL_RECIPES.iter().map(|recipe| recipe.case_id));
+        expected.extend(
+            METADATA_SC_RECIPES
+                .iter()
+                .map(|recipe| recipe.pixel.case_id),
+        );
+        expected.extend([
+            TIMEZONE_SC_RECIPE.pixel.case_id,
+            EMPTY_TYPE2_SC_RECIPE.pixel.case_id,
+            STRING_BOUNDARY_SC_RECIPE.pixel.case_id,
+            PRIVATE_CREATOR_SC_RECIPE.pixel.case_id,
+            SEQUENCE_LENGTH_SC_RECIPE.pixel.case_id,
+            NONSQUARE_SPACING_SC_RECIPE.pixel.case_id,
+        ]);
+        expected.extend(CLASSIC_CT_RECIPES.iter().map(|recipe| recipe.case_id));
+        expected.extend(CLASSIC_MG_RECIPES.iter().map(|recipe| recipe.case_id));
+        expected.extend(CLASSIC_DX_RECIPES.iter().map(|recipe| recipe.case_id));
+        expected.extend(CLASSIC_NM_RECIPES.iter().map(|recipe| recipe.case_id));
+        expected.extend(CLASSIC_PET_RECIPES.iter().map(|recipe| recipe.case_id));
+        expected.extend(
+            CLASSIC_US_MULTIFRAME_RECIPES
+                .iter()
+                .map(|recipe| recipe.case_id),
+        );
+        expected.extend(CLASSIC_XA_RECIPES.iter().map(|recipe| recipe.case_id));
+        expected.extend(CLASSIC_XRF_RECIPES.iter().map(|recipe| recipe.case_id));
+        expected.extend(CLASSIC_US_RECIPES.iter().map(|recipe| recipe.case_id));
+        expected.extend(CLASSIC_CR_RECIPES.iter().map(|recipe| recipe.case_id));
+        expected.extend(CLASSIC_MR_RECIPES.iter().map(|recipe| recipe.case_id));
+
+        assert_eq!(unique, expected);
+    }
 
     #[cfg(feature = "jpegxl")]
     #[test]

@@ -72,6 +72,10 @@ These are dated evidence records for implemented vertical slices:
 
 ## Planning And Decision Records
 
+- [Arbitrary DICOM composition plan](arbitrary-dicom-composition-plan.md):
+  proposed phased execution plan for a standards-aware caller-supplied
+  attribute and content composition engine; its commands are not current
+  capability until the documented promotion gates close.
 - [Coverage expansion plan](coverage-expansion-plan.md): historical phased plan
   and acceptance model; consult its completion section and the registry for
   current state.

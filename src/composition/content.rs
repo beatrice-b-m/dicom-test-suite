@@ -5,6 +5,12 @@ use std::io::{Read, Write};
 use std::path::{Component, Path, PathBuf};
 
 #[cfg(unix)]
+use std::ffi::CString;
+#[cfg(unix)]
+use std::os::fd::{AsRawFd, FromRawFd};
+#[cfg(unix)]
+use std::os::unix::ffi::OsStrExt;
+#[cfg(unix)]
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 
 use super::{
@@ -100,12 +106,14 @@ impl LocalContentResolver {
                 limit: self.limits.max_files,
             });
         }
-        let source_path = verify_component_path(&self.spec_root, relative_path)?;
+        let source_path = self.spec_root.join(relative_path);
+        let source = open_relative_no_follow(&self.spec_root, relative_path)?;
         self.stage_source(
             slot,
             kind,
             relative_text,
             source_path,
+            source,
             expected_sha256,
             BTreeMap::new(),
         )
@@ -212,11 +220,13 @@ impl LocalContentResolver {
         if !source_path.is_absolute() {
             return Err(ContentError::UnsafePath(source_path.to_path_buf()));
         }
+        let source = open_no_follow(source_path)?;
         self.stage_source(
             slot,
             kind,
             label,
             source_path.to_path_buf(),
+            source,
             Some(expected_sha256),
             properties,
         )
@@ -279,10 +289,10 @@ impl LocalContentResolver {
         kind: &str,
         relative_text: String,
         source_path: PathBuf,
+        mut source: File,
         expected_sha256: Option<&str>,
         properties: BTreeMap<String, String>,
     ) -> Result<StagedAsset, ContentError> {
-        let mut source = open_no_follow(&source_path)?;
         let before = source.metadata().map_err(|source| ContentError::Io {
             path: source_path.clone(),
             source,
@@ -330,11 +340,11 @@ impl LocalContentResolver {
             let _ = fs::remove_file(&staged_path);
             return Err(ContentError::FileChanged(relative_text));
         }
-        let after_path = fs::symlink_metadata(&source_path).map_err(|source| ContentError::Io {
+        let after = source.metadata().map_err(|source| ContentError::Io {
             path: source_path.clone(),
             source,
         })?;
-        if !same_file(&before, &after_path) {
+        if !same_file(&before, &after) {
             let _ = fs::remove_file(&staged_path);
             return Err(ContentError::FileChanged(relative_text));
         }
@@ -409,7 +419,75 @@ fn verify_plain_directory(path: &Path) -> Result<(), ContentError> {
     Ok(())
 }
 
-fn verify_component_path(root: &Path, relative: &Path) -> Result<PathBuf, ContentError> {
+#[cfg(unix)]
+fn open_relative_no_follow(root: &Path, relative: &Path) -> Result<File, ContentError> {
+    let root_name = CString::new(root.as_os_str().as_bytes())
+        .map_err(|_| ContentError::UnsafePath(root.to_path_buf()))?;
+    let root_fd = unsafe {
+        libc::open(
+            root_name.as_ptr(),
+            libc::O_RDONLY | libc::O_CLOEXEC | libc::O_DIRECTORY | libc::O_NOFOLLOW,
+        )
+    };
+    if root_fd < 0 {
+        return Err(ContentError::Io {
+            path: root.to_path_buf(),
+            source: std::io::Error::last_os_error(),
+        });
+    }
+    let mut directory = unsafe { File::from_raw_fd(root_fd) };
+    let components = relative.components().collect::<Vec<_>>();
+    let mut current = root.to_path_buf();
+    for (index, component) in components.iter().enumerate() {
+        current.push(component.as_os_str());
+        let name = CString::new(component.as_os_str().as_bytes())
+            .map_err(|_| ContentError::UnsafePath(relative.to_path_buf()))?;
+        let is_final = index + 1 == components.len();
+        let mut flags = libc::O_RDONLY | libc::O_CLOEXEC | libc::O_NOFOLLOW;
+        if !is_final {
+            flags |= libc::O_DIRECTORY;
+        }
+        let fd = unsafe { libc::openat(directory.as_raw_fd(), name.as_ptr(), flags) };
+        if fd < 0 {
+            let source = std::io::Error::last_os_error();
+            let is_symlink = is_symlink_at(directory.as_raw_fd(), &name);
+            return match source.raw_os_error() {
+                Some(libc::ELOOP) => Err(ContentError::Symlink(current)),
+                Some(libc::ENOTDIR) if is_symlink => Err(ContentError::Symlink(current)),
+                Some(libc::ENOTDIR) if !is_final => {
+                    Err(ContentError::NonDirectoryAncestor(current))
+                }
+                _ => Err(ContentError::Io {
+                    path: current,
+                    source,
+                }),
+            };
+        }
+        let opened = unsafe { File::from_raw_fd(fd) };
+        if is_final {
+            return Ok(opened);
+        }
+        directory = opened;
+    }
+    Err(ContentError::UnsafePath(relative.to_path_buf()))
+}
+
+#[cfg(unix)]
+fn is_symlink_at(directory_fd: libc::c_int, name: &CString) -> bool {
+    let mut status = std::mem::MaybeUninit::<libc::stat>::uninit();
+    let result = unsafe {
+        libc::fstatat(
+            directory_fd,
+            name.as_ptr(),
+            status.as_mut_ptr(),
+            libc::AT_SYMLINK_NOFOLLOW,
+        )
+    };
+    result == 0 && unsafe { status.assume_init().st_mode & libc::S_IFMT == libc::S_IFLNK }
+}
+
+#[cfg(not(unix))]
+fn open_relative_no_follow(root: &Path, relative: &Path) -> Result<File, ContentError> {
     let mut current = root.to_path_buf();
     let count = relative.components().count();
     for (index, component) in relative.components().enumerate() {
@@ -429,7 +507,7 @@ fn verify_component_path(root: &Path, relative: &Path) -> Result<PathBuf, Conten
             return Err(ContentError::NonDirectoryAncestor(current));
         }
     }
-    Ok(current)
+    open_no_follow(&current)
 }
 
 fn open_no_follow(path: &Path) -> Result<File, ContentError> {
@@ -445,7 +523,13 @@ fn open_no_follow(path: &Path) -> Result<File, ContentError> {
 
 #[cfg(unix)]
 fn same_file(before: &fs::Metadata, after: &fs::Metadata) -> bool {
-    before.dev() == after.dev() && before.ino() == after.ino() && before.len() == after.len()
+    before.dev() == after.dev()
+        && before.ino() == after.ino()
+        && before.len() == after.len()
+        && before.mtime() == after.mtime()
+        && before.mtime_nsec() == after.mtime_nsec()
+        && before.ctime() == after.ctime()
+        && before.ctime_nsec() == after.ctime_nsec()
 }
 
 #[cfg(not(unix))]
@@ -825,5 +909,19 @@ mod tests {
             ),
             Err(ContentError::Symlink(_))
         ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn detects_same_length_rewrites_on_an_open_source() {
+        let fixture = Fixture::new();
+        let path = fixture.inputs.join("frame.raw");
+        fs::write(&path, b"before").unwrap();
+        let source = open_relative_no_follow(&fixture.inputs, Path::new("frame.raw")).unwrap();
+        let before = source.metadata().unwrap();
+        fs::write(&path, b"after!").unwrap();
+        let after = source.metadata().unwrap();
+        assert_eq!(before.len(), after.len());
+        assert!(!same_file(&before, &after));
     }
 }

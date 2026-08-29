@@ -181,12 +181,15 @@ impl Part10Materializer {
         if reopened.meta().transfer_syntax() != plan.transfer_syntax_uid
             || reopened.meta().media_storage_sop_class_uid() != plan.sop_class_uid
             || reopened.meta().media_storage_sop_instance_uid() != sop_instance_uid
-            || reopened.meta().implementation_class_uid() != implementation_class_uid
-            || reopened.meta().implementation_version_name.as_deref() != implementation_version
         {
             return Err(MaterializeError::IdentityRoundTrip);
         }
         if let Some(encoding) = encoding {
+            if reopened.meta().implementation_class_uid() != implementation_class_uid
+                || reopened.meta().implementation_version_name.as_deref() != implementation_version
+            {
+                return Err(MaterializeError::IdentityRoundTrip);
+            }
             let bytes = fs::read(path).map_err(|source| MaterializeError::Io {
                 path: path.to_path_buf(),
                 source,

@@ -1239,7 +1239,7 @@ fn quantitative_context(
             run_seed,
             file_index: 0,
             frame_index: None,
-            referenced_object_index: None,
+            referenced_object_index: Some(0),
             role,
         })
     };
@@ -1272,6 +1272,22 @@ fn quantitative_context(
             ),
         ),
         (
+            CompositionUidRole::ImplementationClass,
+            0,
+            deterministic_uid(&DeterministicUidInput {
+                standards_lock_sha256,
+                case_id: "dicom-test-suite/implementation",
+                recipe_version: crate::PACKAGE_VERSION,
+                run_seed: 0,
+                file_index: 0,
+                frame_index: None,
+                referenced_object_index: None,
+                role: UidRole::ImplementationClass,
+            }),
+        ),
+    ];
+    if recipe.provider_parameters.contains_key("segmentation") {
+        identities.push((
             CompositionUidRole::DimensionOrganization,
             0,
             uid(
@@ -1280,20 +1296,12 @@ fn quantitative_context(
                 seed,
                 UidRole::DimensionOrganization,
             ),
-        ),
-        (
-            CompositionUidRole::ImplementationClass,
-            0,
-            uid(
-                "dicom-test-suite/implementation",
-                crate::PACKAGE_VERSION,
-                0,
-                UidRole::ImplementationClass,
-            ),
-        ),
-    ];
-    if let Some(frame) = source_identity(CompositionUidRole::FrameOfReference) {
-        identities.push((CompositionUidRole::FrameOfReference, 0, frame));
+        ));
+    }
+    if recipe.provider_parameters.contains_key("segmentation") {
+        if let Some(frame) = source_identity(CompositionUidRole::FrameOfReference) {
+            identities.push((CompositionUidRole::FrameOfReference, 0, frame));
+        }
     }
     Ok(QuantitativeArtifactContext {
         recipe_artifact_logical_id: artifact.logical_id.clone(),

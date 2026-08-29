@@ -791,10 +791,6 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
                 &self.planned_artifacts,
             )?;
             typed.append(TypedValidationCheck::passed_internal(
-                "quantitative_reference_closure",
-                "The quantitative object references the planned source graph and its materialized identities.",
-            ));
-            typed.append(TypedValidationCheck::passed_internal(
                 "curated_composition_plan",
                 "The curated dataset resolved through the shared composition plan before Part 10 materialization.",
             ));

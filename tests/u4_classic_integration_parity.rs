@@ -176,7 +176,10 @@ fn manifest_files_by_path(manifest: &Value) -> BTreeMap<&str, &Value> {
         .collect()
 }
 
-fn expected_uids(plan: &dicom_test_suite::composition::ResolvedInstancePlan) -> Value {
+fn expected_uids(
+    plan: &dicom_test_suite::composition::ResolvedInstancePlan,
+    include_implementation_version_name: bool,
+) -> Value {
     let mut object = serde_json::Map::from_iter([
         ("study_instance_uid".into(), Value::Null),
         ("series_instance_uid".into(), Value::Null),
@@ -184,6 +187,9 @@ fn expected_uids(plan: &dicom_test_suite::composition::ResolvedInstancePlan) -> 
         ("frame_of_reference_uid".into(), Value::Null),
         ("implementation_class_uid".into(), Value::Null),
     ]);
+    if include_implementation_version_name {
+        object.insert("implementation_version_name".into(), json!("DICOMTS010"));
+    }
     for (key, uid) in &plan.identities.identities {
         let role = key
             .strip_suffix("#0")
@@ -285,7 +291,14 @@ fn every_u4_plan_matches_fresh_legacy_part10_and_identity_facts() {
             assert_eq!(entry["recipe"]["recipe_version"], recipe.recipe_version);
             assert_eq!(
                 entry["uids"],
-                expected_uids(&resolved),
+                expected_uids(
+                    &resolved,
+                    artifact
+                        .classic_projection
+                        .as_ref()
+                        .unwrap()
+                        .include_implementation_version_name,
+                ),
                 "UIDs differ for {path}"
             );
             assert_eq!(

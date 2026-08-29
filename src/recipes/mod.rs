@@ -32,9 +32,10 @@ pub use classic::{
 };
 pub use encoding::{RecipeEncodingError, encoding_plan_from_recipe};
 pub use enhanced::{
-    EnhancedCommonInput, EnhancedCtInput, EnhancedCtPartInput, EnhancedFrameGeometry,
-    EnhancedMrFrameAxis, EnhancedMrInput, EnhancedNativePixels, EnhancedPetInput,
-    EnhancedPlanError, EnhancedPlanProvider, EnhancedProviderInput,
+    ENHANCED_CONCATENATION_PREDECESSOR_RELATIONSHIP, EnhancedCommonInput, EnhancedCtInput,
+    EnhancedCtPartInput, EnhancedFrameGeometry, EnhancedMrFrameAxis, EnhancedMrInput,
+    EnhancedNativePixels, EnhancedPetInput, EnhancedPlanError, EnhancedPlanProvider,
+    EnhancedProviderInput,
 };
 pub use error::RecipeCatalogError;
 pub use loader::RecipeCatalog;

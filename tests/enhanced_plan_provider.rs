@@ -1,12 +1,13 @@
 use std::fs;
 
 use dicom_test_suite::composition::{CompositionUidRole, Part10Materializer};
-use dicom_test_suite::corpus_plan::OutputRelativePath;
+use dicom_test_suite::corpus_plan::{OutputRelativePath, PublicationPlan, PublicationTransaction};
 use dicom_test_suite::recipes::{
     AdvancedPlanProviderRequest, AdvancedProviderFamily, AdvancedProviderLimits,
-    EnhancedCommonInput, EnhancedCtInput, EnhancedCtPartInput, EnhancedFrameGeometry,
-    EnhancedMrFrameAxis, EnhancedMrInput, EnhancedNativePixels, EnhancedPetInput,
-    EnhancedPlanProvider, EnhancedProviderInput, RecipeIdentity,
+    ENHANCED_CONCATENATION_PREDECESSOR_RELATIONSHIP, EnhancedCommonInput, EnhancedCtInput,
+    EnhancedCtPartInput, EnhancedFrameGeometry, EnhancedMrFrameAxis, EnhancedMrInput,
+    EnhancedNativePixels, EnhancedPetInput, EnhancedPlanProvider, EnhancedProviderInput,
+    RecipeIdentity,
 };
 use dicom_test_suite::sha256_hex;
 
@@ -64,6 +65,15 @@ fn request(input: &EnhancedProviderInput) -> AdvancedPlanProviderRequest {
             max_peak_working_bytes: 32 * 1024 * 1024,
             max_parallelism: 2,
         },
+    }
+}
+
+fn publication() -> PublicationPlan {
+    PublicationPlan {
+        manifest_path: OutputRelativePath::new("manifest.json").unwrap(),
+        transaction: PublicationTransaction::AtomicNoReplace,
+        private_staging: true,
+        no_overwrite: true,
     }
 }
 
@@ -375,6 +385,31 @@ fn planning_is_output_free_ordered_and_identity_stable() {
             .identities
             .get(&CompositionUidRole::SopInstance, 0)
     );
+    assert_eq!(first.dependencies.len(), 1);
+    assert_eq!(
+        first.dependencies[0].relationship,
+        ENHANCED_CONCATENATION_PREDECESSOR_RELATIONSHIP
+    );
+    assert_eq!(
+        first.dependencies[0].artifact_id,
+        first.artifacts[1].planned.logical_id
+    );
+    assert_eq!(
+        first.dependencies[0].depends_on,
+        first.artifacts[0].planned.logical_id
+    );
+    assert_eq!(
+        first
+            .to_corpus_plan(&request(&input), publication())
+            .unwrap()
+            .topological_order()
+            .unwrap(),
+        first
+            .artifacts
+            .iter()
+            .map(|artifact| artifact.planned.logical_id.clone())
+            .collect::<Vec<_>>()
+    );
 }
 
 #[test]
@@ -422,6 +457,28 @@ fn rejects_corrupt_dimensions_cardinality_and_catalog_ownership() {
     let mut mismatched = request(&input);
     mismatched.recipe.recipe_id = "not_owned".into();
     assert!(provider.plan_typed(&mismatched, &input).is_err());
+
+    let mut missing_part = concatenation();
+    let EnhancedProviderInput::Ct(ct) = &mut missing_part else {
+        unreachable!()
+    };
+    ct.parts.pop();
+    assert!(
+        provider
+            .plan_typed(&request(&missing_part), &missing_part)
+            .is_err()
+    );
+
+    let mut reordered = concatenation();
+    let EnhancedProviderInput::Ct(ct) = &mut reordered else {
+        unreachable!()
+    };
+    ct.parts.swap(0, 1);
+    assert!(
+        provider
+            .plan_typed(&request(&reordered), &reordered)
+            .is_err()
+    );
 }
 
 #[test]

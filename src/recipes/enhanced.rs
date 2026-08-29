@@ -18,8 +18,8 @@ use crate::composition::{
     SampleType, TemplateId, TemplateVersion, ValueOrigin, canonical_native_pixels,
 };
 use crate::corpus_plan::{
-    ArtifactProvenance, ArtifactResourceEstimate, CaseBinding, EncodingPlan, EvidenceIndependence,
-    EvidenceObligation, EvidencePlan, FileMetaPolicy, FragmentationPolicy,
+    ArtifactDependency, ArtifactProvenance, ArtifactResourceEstimate, CaseBinding, EncodingPlan,
+    EvidenceIndependence, EvidenceObligation, EvidencePlan, FileMetaPolicy, FragmentationPolicy,
     ImplementationIdentityPlan, ItemLengthPolicy, OffsetTablePolicy, OutputPlan,
     OutputRelativePath, PlannedDicomArtifact, PreamblePolicy, SequenceLengthPolicy, ValidationPlan,
     ValidationRequirement, ValidationRule,
@@ -44,6 +44,9 @@ const EXPLICIT_VR_LE: &str = "1.2.840.10008.1.2.1";
 const ENHANCED_CT_SOP: &str = "1.2.840.10008.5.1.4.1.1.2.1";
 const ENHANCED_MR_SOP: &str = "1.2.840.10008.5.1.4.1.1.4.1";
 const ENHANCED_PET_SOP: &str = "1.2.840.10008.5.1.4.1.1.130";
+
+pub const ENHANCED_CONCATENATION_PREDECESSOR_RELATIONSHIP: &str =
+    "enhanced_concatenation_predecessor";
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "family", rename_all = "snake_case", deny_unknown_fields)]
@@ -446,9 +449,22 @@ impl EnhancedPlanProvider {
                 provenance: AdvancedArtifactProvenance::Requested,
             });
         }
+        let dependencies = if input.concatenation {
+            artifacts
+                .windows(2)
+                .map(|pair| ArtifactDependency {
+                    artifact_id: pair[1].planned.logical_id.clone(),
+                    depends_on: pair[0].planned.logical_id.clone(),
+                    relationship: ENHANCED_CONCATENATION_PREDECESSOR_RELATIONSHIP.into(),
+                    frame_numbers: vec![],
+                })
+                .collect()
+        } else {
+            vec![]
+        };
         Ok(AdvancedPlanProviderOutput {
             artifacts,
-            dependencies: vec![],
+            dependencies,
             references: vec![],
             bindings,
         })

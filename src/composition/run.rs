@@ -16,8 +16,8 @@ use crate::encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData};
 
 use super::executor_adapter::{
     CompositionExecutionBundle, CompositionExecutionServiceFactory,
-    CompositionExecutorManifestProjector, CompositionProjectionContext, CompositionSourceAsset,
-    DeferredCompositionProvider,
+    CompositionExecutorManifestProjector, CompositionProjectionContext, CompositionSource,
+    CompositionSourceAsset, DeferredCompositionProvider, remove_planning_scratch,
 };
 use super::{
     AdvancedFamilyProfile, BundleResolver, CompositionManifestInputs, CompositionSpec,
@@ -39,6 +39,45 @@ use crate::executor::services::{
 use crate::{PACKAGE_NAME, PACKAGE_VERSION, RUSTC_VERSION, TARGET_TRIPLE, sha256_hex};
 
 static NEXT_STAGING: AtomicU64 = AtomicU64::new(0);
+
+struct PlanningScratch {
+    path: Option<PathBuf>,
+}
+
+impl PlanningScratch {
+    fn path(&self) -> &Path {
+        self.path.as_deref().expect("planning scratch is armed")
+    }
+
+    fn into_path(mut self) -> PathBuf {
+        self.path.take().expect("planning scratch is armed")
+    }
+}
+
+impl Drop for PlanningScratch {
+    fn drop(&mut self) {
+        if let Some(path) = self.path.take() {
+            let _ = fs::remove_dir_all(path);
+        }
+    }
+}
+
+fn create_planning_scratch(parent: &Path) -> Result<PlanningScratch, ComposeError> {
+    let path = parent.join(format!(
+        ".dts-compose-{}-{:08}",
+        std::process::id(),
+        NEXT_STAGING.fetch_add(1, Ordering::Relaxed)
+    ));
+    fs::create_dir(&path).map_err(|source| ComposeError::Io {
+        path: path.clone(),
+        source,
+    })?;
+    if let Err(error) = set_private_directory_permissions(&path) {
+        let _ = fs::remove_dir_all(&path);
+        return Err(error);
+    }
+    Ok(PlanningScratch { path: Some(path) })
+}
 
 #[derive(Debug, Clone)]
 pub struct ComposeOptions {
@@ -163,23 +202,6 @@ fn compose_loaded(
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
         .unwrap_or_else(|| Path::new("."));
-    fs::create_dir_all(parent).map_err(|source| ComposeError::Io {
-        path: parent.to_path_buf(),
-        source,
-    })?;
-    let staging = parent.join(format!(
-        ".dts-compose-{}-{:08}",
-        std::process::id(),
-        NEXT_STAGING.fetch_add(1, Ordering::Relaxed)
-    ));
-    fs::create_dir(&staging).map_err(|source| ComposeError::Io {
-        path: staging.clone(),
-        source,
-    })?;
-    if let Err(error) = set_private_directory_permissions(&staging) {
-        let _ = remove_private_staging(&staging);
-        return Err(error);
-    }
     let options = ComposeOptions {
         spec_path: spec_root.join("<in-memory-spec>"),
         out_dir: out_dir.to_path_buf(),
@@ -187,29 +209,28 @@ fn compose_loaded(
         catalog_path: catalog_path.to_path_buf(),
         dry_run,
     };
-    let result = resolve_execution_bundle(
+    let planned = resolve_execution_bundle(
         &options,
         &spec,
         &catalog,
         &spec_bytes,
         &catalog_bytes,
-        &staging,
+        &std::env::temp_dir(),
         spec_root,
         cancellation,
-    );
-    let planned = match result {
-        Ok(planned) => planned,
-        Err(error) => {
-            let _ = remove_private_staging(&staging);
-            return Err(error);
-        }
-    };
+    )?;
     if cancellation.is_cancelled() {
-        remove_private_staging(&staging)?;
+        if let Some(scratch) = &planned.bundle.planning_scratch_root {
+            remove_planning_scratch(scratch)
+                .map_err(|error| ComposeError::Executor(error.to_string()))?;
+        }
         return Err(ComposeError::Cancelled);
     }
     if dry_run {
-        remove_private_staging(&staging)?;
+        if let Some(scratch) = &planned.bundle.planning_scratch_root {
+            remove_planning_scratch(scratch)
+                .map_err(|error| ComposeError::Executor(error.to_string()))?;
+        }
         return Ok((
             ComposeSummary {
                 out_dir: out_dir.to_path_buf(),
@@ -221,6 +242,15 @@ fn compose_loaded(
             planned.dry_run_output,
         ));
     }
+    if let Err(source) = fs::create_dir_all(parent) {
+        if let Some(scratch) = &planned.bundle.planning_scratch_root {
+            let _ = remove_planning_scratch(scratch);
+        }
+        return Err(ComposeError::Io {
+            path: parent.to_path_buf(),
+            source,
+        });
+    }
     let services = CompositionExecutionServiceFactory::new(
         &planned.bundle,
         Arc::new(RejectCompositionAuxiliary),
@@ -230,26 +260,40 @@ fn compose_loaded(
     // macOS exposes its temporary directory through `/var`, a system symlink
     // to `/private/var`. Resolve the existing parent so the shared transaction
     // receives a symlink-free destination while the public path stays intact.
-    let execution_out = fs::canonicalize(parent)
-        .map_err(|source| ComposeError::Io {
-            path: parent.to_path_buf(),
-            source,
-        })?
-        .join(
-            out_dir
-                .file_name()
-                .ok_or_else(|| ComposeError::Executor("output has no final component".into()))?,
-        );
+    let canonical_parent = match fs::canonicalize(parent) {
+        Ok(parent) => parent,
+        Err(source) => {
+            if let Some(scratch) = &planned.bundle.planning_scratch_root {
+                let _ = remove_planning_scratch(scratch);
+            }
+            return Err(ComposeError::Io {
+                path: parent.to_path_buf(),
+                source,
+            });
+        }
+    };
+    let execution_out = canonical_parent.join(
+        out_dir
+            .file_name()
+            .ok_or_else(|| ComposeError::Executor("output has no final component".into()))?,
+    );
     let execution = executor.execute(
         &planned.bundle.plan,
         &execution_out,
         spec.parallelism,
         cancellation.executor_token(),
     );
-    let cleanup = remove_private_staging(&staging);
-    let execution = execution.map_err(|error| map_executor_error(error, &spec.resource_limits));
-    match (execution, cleanup) {
-        (Ok(execution), Ok(())) => {
+    let execution = match execution {
+        Ok(execution) => Ok(execution),
+        Err(error) => {
+            if let Some(scratch) = &planned.bundle.planning_scratch_root {
+                let _ = remove_planning_scratch(scratch);
+            }
+            Err(map_executor_error(error, &spec.resource_limits))
+        }
+    };
+    match execution {
+        Ok(execution) => {
             let manifest = serde_json::from_slice(&execution.manifest_bytes)
                 .map_err(|error| ComposeError::ExecutorManifest(error.to_string()))?;
             Ok((
@@ -263,8 +307,7 @@ fn compose_loaded(
                 manifest,
             ))
         }
-        (Err(error), _) => Err(error),
-        (Ok(_), Err(error)) => Err(error),
+        Err(error) => Err(error),
     }
 }
 
@@ -295,7 +338,7 @@ fn resolve_execution_bundle(
     catalog: &TemplateCatalog,
     spec_bytes: &[u8],
     catalog_bytes: &[u8],
-    staging: &Path,
+    scratch_parent: &Path,
     spec_root: &Path,
     cancellation: &ComposeCancellationToken,
 ) -> Result<PlannedCompositionExecution, ComposeError> {
@@ -307,14 +350,8 @@ fn resolve_execution_bundle(
             limit: spec.resource_limits.max_instances,
         }));
     }
-    let asset_root = staging.join(".assets");
-    fs::create_dir(&asset_root).map_err(|source| ComposeError::Io {
-        path: asset_root.clone(),
-        source,
-    })?;
-    let mut content_resolver = LocalContentResolver::new(
+    let mut content_resolver = LocalContentResolver::new_read_only(
         spec_root,
-        &asset_root,
         ContentLimits {
             max_files: usize::try_from(spec.resource_limits.max_input_files)
                 .map_err(|_| ComposeError::ResourceRange)?,
@@ -322,6 +359,7 @@ fn resolve_execution_bundle(
             max_total_bytes: spec.resource_limits.max_total_input_bytes,
         },
     )?;
+    let mut planning_scratch = None;
     let run_defaults = spec.defaults.typed_attributes()?;
     reject_structural_overrides("composition defaults", &run_defaults)?;
     let mut plans = Vec::with_capacity(spec.instances.len());
@@ -406,7 +444,14 @@ fn resolve_execution_bundle(
             references: vec![],
         };
         if let Some(profile) = AdvancedFamilyProfile::for_template(&template.template_id.0) {
-            let private_root = staging.join(".defaults").join(&instance.instance_id);
+            let scratch = match &planning_scratch {
+                Some(scratch) => scratch,
+                None => {
+                    planning_scratch = Some(create_planning_scratch(scratch_parent)?);
+                    planning_scratch.as_ref().expect("scratch was created")
+                }
+            };
+            let private_root = scratch.path().join(".defaults").join(&instance.instance_id);
             let plan = profile.resolve_plan(
                 instance,
                 template,
@@ -459,17 +504,12 @@ fn resolve_execution_bundle(
 
     enforce_synthetic_data(&mut plans)?;
 
-    let private_defaults = staging.join(".defaults");
-    if private_defaults.exists() {
-        remove_private_staging(&private_defaults)?;
-    }
-
     super::advanced_family::validate_concatenation_closure(&plans, &bundle_resolution.members)?;
     materialize_reference_graph(&mut plans, &spec, &bundle_resolution.members)?;
     super::advanced_family::rewrite_materialized_dicom_references(&mut plans)?;
 
     let source_assets =
-        bind_execution_content(&plans, &native_codec_plans, &mut execution_bindings)?;
+        bind_execution_content(&mut plans, &native_codec_plans, &mut execution_bindings)?;
     let corpus_plan = super::resolved_composition_corpus_plan(
         options.seed,
         &plans,
@@ -520,6 +560,7 @@ fn resolve_execution_bundle(
             projection,
             source_assets,
             providers: deferred_providers,
+            planning_scratch_root: planning_scratch.map(PlanningScratch::into_path),
         },
         dry_run_output,
     })
@@ -556,12 +597,12 @@ fn enforce_synthetic_data(plans: &mut [ResolvedInstancePlan]) -> Result<(), Comp
 }
 
 fn bind_execution_content(
-    plans: &[ResolvedInstancePlan],
+    plans: &mut [ResolvedInstancePlan],
     native_codec_plans: &BTreeMap<String, super::NativePixelPlan>,
     bindings: &mut BTreeMap<String, ArtifactExecutionBindings>,
 ) -> Result<Vec<CompositionSourceAsset>, ComposeError> {
     let mut sources = Vec::new();
-    for (artifact_index, plan) in plans.iter().enumerate() {
+    for (artifact_index, plan) in plans.iter_mut().enumerate() {
         let artifact_bindings =
             bindings
                 .entry(plan.instance_id.clone())
@@ -569,10 +610,20 @@ fn bind_execution_content(
                     artifact_id: plan.instance_id.clone(),
                     slots: BTreeMap::new(),
                 });
-        for content in &plan.content {
-            let source_handle = if let Some(super::ContentMaterialization::StagedFile(path)) =
-                &content.materialization
-            {
+        for content in &mut plan.content {
+            let planning_materialization = content.materialization.clone();
+            let caller_inline = content.properties.get("content_origin").map(String::as_str)
+                == Some("inline_fixture");
+            let source = match &content.materialization {
+                Some(super::ContentMaterialization::StagedFile(path)) => {
+                    Some(CompositionSource::File(path.clone()))
+                }
+                Some(super::ContentMaterialization::Inline(bytes)) if caller_inline => {
+                    Some(CompositionSource::Inline(bytes.clone()))
+                }
+                _ => None,
+            };
+            let source_handle = if let Some(source) = source {
                 let handle = StagedAssetHandle::new(format!(
                     "composition-source-{}-{}",
                     artifact_index, content.slot
@@ -585,12 +636,13 @@ fn bind_execution_content(
                 .map_err(|error| ComposeError::ExecutionBinding(error.to_string()))?;
                 sources.push(CompositionSourceAsset {
                     handle: handle.clone(),
-                    source_path: path.clone(),
+                    source,
                     staging_relative_path: relative_path,
                     media_type: "application/octet-stream".into(),
                     expected_size_bytes: content.size_bytes,
                     expected_sha256: content.sha256.clone(),
                 });
+                content.materialization = None;
                 Some(handle)
             } else {
                 None
@@ -626,7 +678,7 @@ fn bind_execution_content(
                         }
                         let offset = span.bit_offset / 8;
                         let length = span.bit_length / 8;
-                        let bytes = match (&content.materialization, &source_handle) {
+                        let bytes = match (&planning_materialization, &source_handle) {
                             (Some(super::ContentMaterialization::Inline(all)), _) => {
                                 let start = usize::try_from(offset)
                                     .map_err(|_| ComposeError::ResourceRange)?;
@@ -1615,13 +1667,6 @@ fn resource_map(limits: &super::ResourceLimits) -> BTreeMap<String, u64> {
     ])
 }
 
-fn remove_private_staging(path: &Path) -> Result<(), ComposeError> {
-    fs::remove_dir_all(path).map_err(|source| ComposeError::Io {
-        path: path.to_path_buf(),
-        source,
-    })
-}
-
 fn set_private_directory_permissions(path: &Path) -> Result<(), ComposeError> {
     #[cfg(unix)]
     {
@@ -1778,6 +1823,177 @@ mod tests {
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ))
+    }
+
+    #[test]
+    fn caller_content_planning_writes_nothing_and_plan_contains_no_paths() {
+        let root = output("planning-read-only");
+        fs::create_dir(&root).unwrap();
+        let pixels = [1_u8, 2, 3, 4];
+        fs::write(root.join("pixels.raw"), pixels).unwrap();
+        let spec_value = json!({
+            "composition_spec_schema_version": "0.1.0",
+            "instances": [
+                {
+                    "instance_id": "local",
+                    "template": {"id": "classic/secondary-capture/monochrome"},
+                    "content": [{"slot": "pixels", "source": {
+                        "kind": "local_file", "path": "pixels.raw",
+                        "sha256": sha256_hex(&pixels),
+                        "pixel": {"rows":2,"columns":2,"frames":1,"samples_per_pixel":1,
+                            "photometric_interpretation":"MONOCHROME2","sample_type":"uint",
+                            "bits_allocated":8,"bits_stored":8,"high_bit":7,"byte_order":"little"}
+                    }}]
+                },
+                {
+                    "instance_id": "inline",
+                    "template": {"id": "classic/secondary-capture/monochrome"},
+                    "content": [{"slot": "pixels", "source": {
+                        "kind": "inline_small_fixture", "base64": "AQIDBA==",
+                        "sha256": sha256_hex(&pixels),
+                        "pixel": {"rows":2,"columns":2,"frames":1,"samples_per_pixel":1,
+                            "photometric_interpretation":"MONOCHROME2","sample_type":"uint",
+                            "bits_allocated":8,"bits_stored":8,"high_bit":7,"byte_order":"little"}
+                    }}]
+                }
+            ]
+        });
+        let spec_bytes = serde_json::to_vec(&spec_value).unwrap();
+        let catalog_bytes = fs::read("templates/catalog.json").unwrap();
+        let spec = CompositionSpec::from_slice(&spec_bytes).unwrap();
+        let catalog = TemplateCatalog::from_slice(&catalog_bytes).unwrap();
+        let before = fs::read_dir(&root).unwrap().count();
+        let planned = resolve_execution_bundle(
+            &ComposeOptions {
+                spec_path: root.join("spec.json"),
+                out_dir: root.join("out"),
+                seed: 1,
+                catalog_path: "templates/catalog.json".into(),
+                dry_run: false,
+            },
+            &spec,
+            &catalog,
+            &spec_bytes,
+            &catalog_bytes,
+            &root,
+            &root,
+            &ComposeCancellationToken::new(),
+        )
+        .unwrap();
+
+        assert_eq!(fs::read_dir(&root).unwrap().count(), before);
+        assert!(planned.bundle.planning_scratch_root.is_none());
+        assert_eq!(planned.bundle.source_assets.len(), 2);
+        for artifact in &planned.bundle.plan.artifacts {
+            let crate::corpus_plan::PlannedArtifact::Dicom(artifact) = artifact else {
+                panic!("composition caller content should plan DICOM artifacts")
+            };
+            assert!(
+                artifact
+                    .instance
+                    .content
+                    .iter()
+                    .all(|content| content.materialization.is_none())
+            );
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn advanced_bridge_scratch_is_cleaned_during_executor_binding() {
+        let root = output("advanced-scratch-lifecycle");
+        let executor_staging = root.join("executor-staging");
+        fs::create_dir_all(&executor_staging).unwrap();
+        let spec_bytes = br#"{
+            "composition_spec_schema_version":"0.1.0",
+            "instances":[{"instance_id":"enhanced","template":{"id":"enhanced/ct"}}]
+        }"#;
+        let catalog_bytes = fs::read("templates/catalog.json").unwrap();
+        let spec = CompositionSpec::from_slice(spec_bytes).unwrap();
+        let catalog = TemplateCatalog::from_slice(&catalog_bytes).unwrap();
+        let planned = resolve_execution_bundle(
+            &ComposeOptions {
+                spec_path: root.join("spec.json"),
+                out_dir: root.join("out"),
+                seed: 1,
+                catalog_path: "templates/catalog.json".into(),
+                dry_run: false,
+            },
+            &spec,
+            &catalog,
+            spec_bytes,
+            &catalog_bytes,
+            &root,
+            &root,
+            &ComposeCancellationToken::new(),
+        )
+        .unwrap();
+        let scratch = planned.bundle.planning_scratch_root.clone().unwrap();
+        assert!(scratch.is_dir());
+        let factory = CompositionExecutionServiceFactory::new(
+            &planned.bundle,
+            Arc::new(RejectCompositionAuxiliary),
+        );
+        crate::executor::engine::ExecutionServiceFactory::bind(&factory, &executor_staging)
+            .unwrap();
+        assert!(!scratch.exists(), "scratch must be gone before scheduling");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn unsafe_advanced_scratch_cleanup_fails_before_publication() {
+        use std::os::unix::fs::symlink;
+
+        let root = output("advanced-scratch-failure");
+        fs::create_dir_all(&root).unwrap();
+        let spec_bytes = br#"{
+            "composition_spec_schema_version":"0.1.0",
+            "instances":[{"instance_id":"enhanced","template":{"id":"enhanced/ct"}}]
+        }"#;
+        let catalog_bytes = fs::read("templates/catalog.json").unwrap();
+        let spec = CompositionSpec::from_slice(spec_bytes).unwrap();
+        let catalog = TemplateCatalog::from_slice(&catalog_bytes).unwrap();
+        let planned = resolve_execution_bundle(
+            &ComposeOptions {
+                spec_path: root.join("spec.json"),
+                out_dir: root.join("out"),
+                seed: 1,
+                catalog_path: "templates/catalog.json".into(),
+                dry_run: false,
+            },
+            &spec,
+            &catalog,
+            spec_bytes,
+            &catalog_bytes,
+            &std::env::temp_dir(),
+            &root,
+            &ComposeCancellationToken::new(),
+        )
+        .unwrap();
+        let scratch = planned.bundle.planning_scratch_root.clone().unwrap();
+        let held = scratch.with_extension("held");
+        fs::rename(&scratch, &held).unwrap();
+        symlink(&held, &scratch).unwrap();
+
+        let services = CompositionExecutionServiceFactory::new(
+            &planned.bundle,
+            Arc::new(RejectCompositionAuxiliary),
+        );
+        let projector =
+            CompositionExecutorManifestProjector::new(planned.bundle.projection.clone());
+        let out = root.join("out");
+        let result = CorpusExecutor::new(services, projector).execute(
+            &planned.bundle.plan,
+            &out,
+            1,
+            &crate::executor::cancellation::CancellationToken::new(),
+        );
+        assert!(result.is_err());
+        assert!(!out.exists(), "cleanup failure must precede publication");
+        fs::remove_file(scratch).unwrap();
+        fs::remove_dir_all(held).unwrap();
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

@@ -34,10 +34,21 @@ pub struct StagedAsset {
     pub sha256: String,
     pub spec_relative_path: String,
     pub staged_path: PathBuf,
+    pub(crate) inline_bytes: Option<Vec<u8>>,
     pub properties: BTreeMap<String, String>,
 }
 
 impl StagedAsset {
+    pub(crate) fn read_bytes(&self) -> Result<Vec<u8>, ContentError> {
+        match &self.inline_bytes {
+            Some(bytes) => Ok(bytes.clone()),
+            None => fs::read(&self.staged_path).map_err(|source| ContentError::Io {
+                path: self.staged_path.clone(),
+                source,
+            }),
+        }
+    }
+
     pub fn into_canonical_content(
         self,
         address: AttributeAddress,
@@ -54,7 +65,10 @@ impl StagedAsset {
             sha256: self.sha256,
             properties,
             placement: super::ContentPlacement::TopLevel,
-            materialization: Some(ContentMaterialization::StagedFile(self.staged_path)),
+            materialization: Some(match self.inline_bytes {
+                Some(bytes) => ContentMaterialization::Inline(bytes),
+                None => ContentMaterialization::StagedFile(self.staged_path),
+            }),
         }
     }
 }
@@ -62,7 +76,7 @@ impl StagedAsset {
 #[derive(Debug)]
 pub struct LocalContentResolver {
     spec_root: PathBuf,
-    staging_root: PathBuf,
+    staging_root: Option<PathBuf>,
     limits: ContentLimits,
     files: usize,
     total_bytes: u64,
@@ -83,7 +97,27 @@ impl LocalContentResolver {
         verify_plain_directory(&staging_root)?;
         Ok(Self {
             spec_root,
-            staging_root,
+            staging_root: Some(staging_root),
+            limits,
+            files: 0,
+            total_bytes: 0,
+        })
+    }
+
+    /// Planning-only resolver. It securely reads and hashes caller inputs but
+    /// does not copy them or create any scratch files.
+    pub(crate) fn new_read_only(
+        spec_root: impl Into<PathBuf>,
+        limits: ContentLimits,
+    ) -> Result<Self, ContentError> {
+        if limits.max_files == 0 || limits.max_file_bytes == 0 || limits.max_total_bytes == 0 {
+            return Err(ContentError::InvalidLimits);
+        }
+        let spec_root = spec_root.into();
+        verify_plain_directory(&spec_root)?;
+        Ok(Self {
+            spec_root,
+            staging_root: None,
             limits,
             files: 0,
             total_bytes: 0,
@@ -162,9 +196,24 @@ impl LocalContentResolver {
                 });
             }
         }
-        let staged_path = self
-            .staging_root
-            .join(format!("asset-{:08}.bin", self.files));
+        let Some(staging_root) = &self.staging_root else {
+            self.files += 1;
+            self.total_bytes = projected_total;
+            return Ok(StagedAsset {
+                slot: slot.to_string(),
+                kind: kind.to_string(),
+                size_bytes,
+                sha256,
+                spec_relative_path: format!("inline/{slot}"),
+                staged_path: PathBuf::new(),
+                inline_bytes: Some(bytes.to_vec()),
+                properties: BTreeMap::from([
+                    ("content_origin".into(), "inline_fixture".into()),
+                    ("staging_method".into(), "inline".into()),
+                ]),
+            });
+        };
+        let staged_path = staging_root.join(format!("asset-{:08}.bin", self.files));
         let mut destination = OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -201,6 +250,7 @@ impl LocalContentResolver {
             sha256,
             spec_relative_path: format!("inline/{slot}"),
             staged_path,
+            inline_bytes: None,
             properties: BTreeMap::from([
                 ("content_origin".into(), "inline_fixture".into()),
                 ("staging_method".into(), "inline".into()),
@@ -318,8 +368,60 @@ impl LocalContentResolver {
             });
         }
 
+        if self.staging_root.is_none() {
+            let mut hasher = StreamingSha256::new();
+            let mut buffer = [0_u8; COPY_BUFFER_BYTES];
+            let mut observed_bytes = 0_u64;
+            loop {
+                let read = source.read(&mut buffer).map_err(ContentError::Stream)?;
+                if read == 0 {
+                    break;
+                }
+                observed_bytes = observed_bytes
+                    .checked_add(read as u64)
+                    .ok_or(ContentError::TotalSizeOverflow)?;
+                hasher.update(&buffer[..read]);
+            }
+            let sha256 = hasher.finish_hex();
+            if observed_bytes != before.len() {
+                return Err(ContentError::FileChanged(relative_text));
+            }
+            let after = source.metadata().map_err(|source| ContentError::Io {
+                path: source_path.clone(),
+                source,
+            })?;
+            if !same_file(&before, &after) {
+                return Err(ContentError::FileChanged(relative_text));
+            }
+            if let Some(expected) = expected_sha256 {
+                if expected != sha256 {
+                    return Err(ContentError::HashMismatch {
+                        path: relative_text,
+                        expected: expected.to_string(),
+                        actual: sha256,
+                    });
+                }
+            }
+            self.files += 1;
+            self.total_bytes = projected_total;
+            return Ok(StagedAsset {
+                slot: slot.to_string(),
+                kind: kind.to_string(),
+                size_bytes: observed_bytes,
+                sha256,
+                spec_relative_path: relative_text,
+                staged_path: source_path,
+                inline_bytes: None,
+                properties,
+            });
+        }
+
         let staged_name = format!("asset-{:08}.bin", self.files);
-        let staged_path = self.staging_root.join(staged_name);
+        let staged_path = self
+            .staging_root
+            .as_ref()
+            .expect("write-mode resolver has staging root")
+            .join(staged_name);
         let mut destination = OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -384,6 +486,7 @@ impl LocalContentResolver {
             sha256,
             spec_relative_path: relative_text,
             staged_path,
+            inline_bytes: None,
             properties,
         })
     }

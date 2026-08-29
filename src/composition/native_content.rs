@@ -48,7 +48,10 @@ pub(crate) fn resolve_staged_native_pixels(
             actual: asset.size_bytes,
         });
     }
-    let frame_sha256 = hash_staged_frames(&asset.staged_path, &plan.frame_spans)?;
+    let frame_sha256 = match &asset.inline_bytes {
+        Some(bytes) => hash_inline_frames(bytes, &plan.frame_spans)?,
+        None => hash_staged_frames(&asset.staged_path, &plan.frame_spans)?,
+    };
     let mut content = asset.into_canonical_content(
         AttributeAddress::from_normalized_tag("7FE0,0010").expect("Pixel Data is a known tag"),
         if plan.shape.bits_allocated <= 8 {
@@ -72,6 +75,23 @@ pub(crate) fn resolve_staged_native_pixels(
         content,
         frame_sha256,
     })
+}
+
+fn hash_inline_frames(
+    bytes: &[u8],
+    spans: &[crate::composition::FrameSpan],
+) -> Result<Vec<String>, RawContentError> {
+    spans
+        .iter()
+        .map(|span| {
+            let start = usize::try_from(span.bit_offset / 8).map_err(|_| RawContentError::Range)?;
+            let length =
+                usize::try_from(span.bit_length / 8).map_err(|_| RawContentError::Range)?;
+            let end = start.checked_add(length).ok_or(RawContentError::Range)?;
+            let frame = bytes.get(start..end).ok_or(RawContentError::Range)?;
+            Ok(crate::sha256_hex(frame))
+        })
+        .collect()
 }
 
 const HASH_BUFFER_BYTES: usize = 64 * 1024;

@@ -1267,7 +1267,8 @@ fn apply_quantitative_content(
         }
     }
     .map_err(|error| AdvancedFamilyError::TypedBulk(error.to_string()))?;
-    let bytes = std::fs::read(&asset.staged_path)
+    let bytes = asset
+        .read_bytes()
         .map_err(|error| AdvancedFamilyError::TypedBulk(error.to_string()))?;
     validate_quantitative_bytes(&plan.template_id.0, &bytes)?;
     let bounds = BulkDataBounds::exact(expected.size_bytes);

@@ -46,6 +46,9 @@ pub struct CompositionExecutionBundle {
     pub projection: Arc<CompositionProjectionContext>,
     pub source_assets: Vec<CompositionSourceAsset>,
     pub providers: BTreeMap<String, DeferredCompositionProvider>,
+    /// Exact temporary root used only by the allowlisted U5.6 advanced-default
+    /// bridge. Ordinary caller content never creates planning scratch.
+    pub planning_scratch_root: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone)]
@@ -57,11 +60,17 @@ pub struct CompositionProjectionContext {
 #[derive(Debug, Clone)]
 pub struct CompositionSourceAsset {
     pub handle: StagedAssetHandle,
-    pub source_path: PathBuf,
+    pub source: CompositionSource,
     pub staging_relative_path: StagingRelativePath,
     pub media_type: String,
     pub expected_size_bytes: u64,
     pub expected_sha256: String,
+}
+
+#[derive(Debug, Clone)]
+pub enum CompositionSource {
+    File(PathBuf),
+    Inline(Vec<u8>),
 }
 
 #[derive(Debug, Clone)]
@@ -76,6 +85,7 @@ pub struct CompositionExecutionServiceFactory {
     sources: Arc<Vec<CompositionSourceAsset>>,
     providers: Arc<BTreeMap<String, DeferredCompositionProvider>>,
     auxiliary: Arc<dyn AuxiliaryMaterializationHandler>,
+    planning_scratch_root: Option<PathBuf>,
 }
 
 impl CompositionExecutionServiceFactory {
@@ -88,6 +98,7 @@ impl CompositionExecutionServiceFactory {
             sources: Arc::new(bundle.source_assets.clone()),
             providers: Arc::new(bundle.providers.clone()),
             auxiliary,
+            planning_scratch_root: bundle.planning_scratch_root.clone(),
         }
     }
 }
@@ -97,11 +108,28 @@ impl ExecutionServiceFactory for CompositionExecutionServiceFactory {
         &self,
         private_staging_root: &Path,
     ) -> Result<Arc<dyn BoundExecutionServices>, ServiceInvocationError> {
-        let initial_assets = self
+        let staged = self
             .sources
             .iter()
             .map(|source| stage_source(private_staging_root, source))
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<Result<Vec<_>, _>>();
+        let scratch_cleanup = self
+            .planning_scratch_root
+            .as_deref()
+            .map(remove_planning_scratch)
+            .transpose()
+            .map(|_| ());
+        let initial_assets = match (staged, scratch_cleanup) {
+            (Ok(assets), Ok(())) => assets,
+            (Err(primary), Ok(())) => return Err(primary),
+            (Ok(_), Err(cleanup)) => return Err(cleanup),
+            (Err(primary), Err(cleanup)) => {
+                return Err(ServiceInvocationError::new(
+                    "source staging",
+                    format!("{primary}; planning scratch cleanup also failed: {cleanup}"),
+                ));
+            }
+        };
         let materializer =
             MaterializationDispatcher::new(private_staging_root, self.auxiliary.clone())
                 .map_err(|error| service_error("materializer", error))?;
@@ -226,6 +254,15 @@ impl BoundExecutionServices for CompositionBoundServices {
         request: &CodecRequest,
         assets: &StagedAssetRegistry,
     ) -> Result<CodecServiceOutcome, ServiceInvocationError> {
+        self.invoke_codec_cancellable(request, assets, &CancellationToken::new())
+    }
+
+    fn invoke_codec_cancellable(
+        &self,
+        request: &CodecRequest,
+        assets: &StagedAssetRegistry,
+        cancellation: &CancellationToken,
+    ) -> Result<CodecServiceOutcome, ServiceInvocationError> {
         if request.backend_id != NativeRleLosslessEncoder::BACKEND_ID {
             return Err(ServiceInvocationError::new(
                 "codec",
@@ -243,6 +280,9 @@ impl BoundExecutionServices for CompositionBoundServices {
         let mut decoded_frame_sha256 = BTreeMap::new();
         let mut native_content = Vec::new();
         for frame in &request.frames {
+            if cancellation.is_cancelled() {
+                return Err(ServiceInvocationError::new("codec", "execution cancelled"));
+            }
             let native = binding_bytes(&self.staging_root, &frame.bytes, assets)?;
             native_content.extend_from_slice(&native);
             let result = encoder
@@ -289,6 +329,9 @@ impl BoundExecutionServices for CompositionBoundServices {
                 },
             });
         }
+        if cancellation.is_cancelled() {
+            return Err(ServiceInvocationError::new("codec", "execution cancelled"));
+        }
         Ok(CodecServiceOutcome {
             result: CodecResult {
                 request_id: request.request_id.clone(),
@@ -324,9 +367,18 @@ impl BoundExecutionServices for CompositionBoundServices {
         request: &MaterializationRequest,
         assets: &StagedAssetRegistry,
     ) -> Result<MaterializationResult, ServiceInvocationError> {
+        self.materialize_cancellable(request, assets, &CancellationToken::new())
+    }
+
+    fn materialize_cancellable(
+        &self,
+        request: &MaterializationRequest,
+        assets: &StagedAssetRegistry,
+        cancellation: &CancellationToken,
+    ) -> Result<MaterializationResult, ServiceInvocationError> {
         let result = self
             .materializer
-            .dispatch(request, assets)
+            .dispatch_cancellable(request, assets, cancellation)
             .map_err(|error| service_error("materializer", error))?;
         if let PlannedArtifact::Dicom(artifact) = &request.artifact {
             let mut plan = artifact.instance.clone();
@@ -710,16 +762,20 @@ fn stage_source(
     root: &Path,
     source: &CompositionSourceAsset,
 ) -> Result<ProducedAsset, ServiceInvocationError> {
-    let metadata = fs::symlink_metadata(&source.source_path)
-        .map_err(|error| service_error("source staging", error))?;
-    if metadata.file_type().is_symlink() || !metadata.is_file() {
-        return Err(ServiceInvocationError::new(
-            "source staging",
-            "source must be a non-symlink regular file",
-        ));
-    }
-    let bytes =
-        fs::read(&source.source_path).map_err(|error| service_error("source staging", error))?;
+    let bytes = match &source.source {
+        CompositionSource::File(path) => {
+            let metadata = fs::symlink_metadata(path)
+                .map_err(|error| service_error("source staging", error))?;
+            if metadata.file_type().is_symlink() || !metadata.is_file() {
+                return Err(ServiceInvocationError::new(
+                    "source staging",
+                    "source must be a non-symlink regular file",
+                ));
+            }
+            fs::read(path).map_err(|error| service_error("source staging", error))?
+        }
+        CompositionSource::Inline(bytes) => bytes.clone(),
+    };
     let hash = sha256_hex(&bytes);
     if bytes.len() as u64 != source.expected_size_bytes || hash != source.expected_sha256 {
         return Err(ServiceInvocationError::new(
@@ -750,6 +806,25 @@ fn stage_source(
         observed_size_bytes: bytes.len() as u64,
         observed_sha256: hash,
     })
+}
+
+pub(crate) fn remove_planning_scratch(path: &Path) -> Result<(), ServiceInvocationError> {
+    let safe_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name.starts_with(".dts-compose-") && !name.contains('/'));
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(service_error("planning scratch cleanup", error)),
+    };
+    if !safe_name || metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err(ServiceInvocationError::new(
+            "planning scratch cleanup",
+            format!("refusing unsafe planning scratch {}", path.display()),
+        ));
+    }
+    fs::remove_dir_all(path).map_err(|error| service_error("planning scratch cleanup", error))
 }
 
 fn binding_bytes(

@@ -27,15 +27,21 @@ fn public_docs_preserve_composition_and_curated_evidence_boundaries() {
 }
 
 #[test]
-fn docs_limit_public_p2_templates_to_the_qualified_sc_pixel_domains() {
+fn docs_limit_public_templates_to_the_qualified_native_pixel_domains() {
     let guide = fs::read_to_string("docs/composition-guide.md").unwrap();
     for contract in [
         "classic/secondary-capture/monochrome@1.0.0",
         "classic/secondary-capture/rgb@1.0.0",
         "unsigned 8- or 16-bit",
         "unsigned 8-bit RGB",
-        "are not available in P2",
+        "classic/cr@1.0.0",
+        "classic/ct@1.0.0",
+        "classic/mr@1.0.0",
+        "not currently available",
     ] {
-        assert!(guide.contains(contract), "missing P2 boundary {contract}");
+        assert!(
+            guide.contains(contract),
+            "missing composition boundary {contract}"
+        );
     }
 }

@@ -1,5 +1,25 @@
 # Arbitrary DICOM composition status
 
+## 2026-08-28 — Phase P3.3 CT, MR, and CR lane
+
+The first modality-specific classic-image lane is qualified. The catalog now
+exposes CT Image Storage, MR Image Storage, and Computed Radiography Image
+Storage templates with bounded deterministic defaults, explicit protected,
+derived, conditional, and caller-settable policies, and exact native pixel
+contracts. Caller-owned pixels round-trip for each permitted model; a wrong
+signedness or other structural mismatch fails before output publication.
+
+All three defaults pass composition plan/materialization validation, root
+validation, composition reporting, and two-run byte comparison. The pinned
+`dicom3tools-dciodvfy` executable recorded below identifies them as `CTImage`,
+`MRImage`, and `CRImage` respectively with no warning or error finding. This is
+template-specific independent IOD evidence and does not imply qualification
+for compressed transfer syntaxes or a broader pixel domain.
+
+P3.3 is a completed family lane, not the P3 breadth gate. DX/mammography,
+US/NM/PET, VL, XA/XRF, and the multi-frame Secondary Capture families remain
+to be promoted before P3 closes.
+
 ## 2026-08-28 — Phase P2 Secondary Capture gate
 
 The shared plan engine is publicly exercised through two qualified Secondary

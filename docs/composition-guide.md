@@ -6,12 +6,18 @@ validator as the shared composition library. It is separate from `generate`:
 the latter selects curated registry cases and retains their case-specific
 qualification contracts; composition runs do not claim registry coverage.
 
-Phase P2 publicly qualifies two templates:
+The catalog currently qualifies the Phase P2 Secondary Capture templates and
+the Phase P3.3 classic modality lane:
 
 - `classic/secondary-capture/monochrome@1.0.0`: native unsigned 8- or 16-bit
   MONOCHROME1/MONOCHROME2;
 - `classic/secondary-capture/rgb@1.0.0`: native unsigned 8-bit RGB with planar
   configuration 0 or 1.
+- `classic/cr@1.0.0`: native unsigned 12-bit-in-16-bit CR;
+- `classic/ct@1.0.0`: native signed 12-bit-in-16-bit CT with axial geometry
+  and HU rescale defaults;
+- `classic/mr@1.0.0`: native unsigned 12-bit-in-16-bit MR with axial geometry
+  and deterministic acquisition defaults.
 
 Inspect the current descriptors rather than copying this summary as an
 inventory invariant:
@@ -96,7 +102,9 @@ SHA-256 is strongly recommended and makes source drift fail before publication:
 ```
 
 Raw values must contain exactly `rows × columns × frames × samples × bytes per
-sample` bytes for these P2 templates. The manifest records the source-relative
+sample` bytes. Each family descriptor fixes its permitted photometric,
+sample-type, stored-bit, and frame model; rows and columns remain caller-sized
+within the bounded resource policy. The manifest records the source-relative
 path, whole-value hash, pixel shape, and exact per-frame hashes. Symlinks,
 absolute paths, traversal, changing files, wrong hashes, and resource overruns
 are rejected.
@@ -121,7 +129,7 @@ private data range, an explicit VR, and `private_creator`.
 The optional `resource_limits` block bounds instance count, input file count,
 per-file bytes, total input bytes, and total output bytes. Defaults are finite
 and are recorded in the composition manifest. Network content and provider
-execution are not available in P2.
+execution are not currently available.
 
 `validate` reconstructs each resolved plan from the manifest, verifies file
 size and SHA-256, reopens Part 10 and data elements, checks content hashes, and
@@ -129,8 +137,7 @@ detects undeclared instance files. `report` groups only composition templates
 and transfer syntaxes. It deliberately has no registry `case_id`, profile, or
 coverage projection.
 
-These are strong same-project checks. P2 additionally records finding-free
-qualification with the pinned `dicom3tools-dciodvfy` route for the default
-monochrome and RGB templates in
+These are strong same-project checks. The qualified P2 and P3.3 defaults also
+have finding-free evidence from the pinned `dicom3tools-dciodvfy` route in
 `docs/arbitrary-dicom-composition-status.md`. That evidence applies only to the
 documented template versions and native pixel domains.

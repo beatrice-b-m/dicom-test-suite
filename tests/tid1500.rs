@@ -141,7 +141,7 @@ fn assert_generated_manifest_contract(root: &Path, file: &Value) {
     assert_eq!(
         file.pointer("/uids/implementation_version_name")
             .and_then(Value::as_str),
-        Some("highdicom0.28.1")
+        Some("DICOMTS010")
     );
 
     let backend = file["generation_backend"]

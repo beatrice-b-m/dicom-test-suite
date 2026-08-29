@@ -246,6 +246,7 @@ impl BulkDataPlan {
             size_bytes: self.size_bytes,
             sha256: self.sha256,
             properties,
+            placement: super::ContentPlacement::TopLevel,
             materialization: self.materialization,
         }
     }

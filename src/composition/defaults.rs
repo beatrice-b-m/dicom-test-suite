@@ -93,6 +93,7 @@ pub fn canonical_native_pixels(
         size_bytes: bytes.len() as u64,
         sha256: sha256_hex(&bytes),
         properties,
+        placement: super::ContentPlacement::TopLevel,
         materialization: Some(ContentMaterialization::Inline(bytes)),
     }
 }

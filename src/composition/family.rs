@@ -617,6 +617,7 @@ pub fn default_family_pixels(
         size_bytes: bytes.len() as u64,
         sha256: sha256_hex(&bytes),
         properties: BTreeMap::new(),
+        placement: super::ContentPlacement::TopLevel,
         materialization: Some(ContentMaterialization::Inline(bytes)),
     };
     Ok((plan, content))

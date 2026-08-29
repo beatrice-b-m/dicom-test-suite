@@ -74,8 +74,26 @@ pub struct CanonicalContent {
     pub size_bytes: u64,
     pub sha256: String,
     pub properties: BTreeMap<String, String>,
+    #[serde(default)]
+    pub placement: ContentPlacement,
     #[serde(skip)]
     pub materialization: Option<ContentMaterialization>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ContentPlacement {
+    #[default]
+    TopLevel,
+    Nested {
+        sequence_path: Vec<SequenceItemPlacement>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SequenceItemPlacement {
+    pub sequence: AttributeAddress,
+    pub item_index: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

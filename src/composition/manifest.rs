@@ -560,6 +560,7 @@ mod tests {
                 size_bytes: content.len() as u64,
                 sha256: sha256_hex(&content),
                 properties: BTreeMap::new(),
+                placement: super::super::ContentPlacement::TopLevel,
                 materialization: Some(ContentMaterialization::Inline(content)),
             }],
             references: vec![],

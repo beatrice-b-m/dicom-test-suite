@@ -72,8 +72,8 @@ pub use pixel::{
 };
 pub use plan::{
     AttributeLayer, AttributePolicy, AttributeResolver, CanonicalContent, Condition,
-    ContentMaterialization, ResolveContext, ResolveError, ResolvedAttribute, ResolvedInstancePlan,
-    ValueOrigin,
+    ContentMaterialization, ContentPlacement, ResolveContext, ResolveError, ResolvedAttribute,
+    ResolvedInstancePlan, SequenceItemPlacement, ValueOrigin,
 };
 pub use reference::{
     CyclePolicy, LogicalReference, MaterializedReference, ReferenceError, ReferenceGraph,

@@ -157,6 +157,7 @@ fn content_from_element(
         size_bytes: bytes.len() as u64,
         sha256: sha256_hex(&bytes),
         properties: Default::default(),
+        placement: super::ContentPlacement::TopLevel,
         materialization: Some(materialization),
     })
 }

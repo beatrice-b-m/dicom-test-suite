@@ -90,12 +90,20 @@ fn build_dataset(plan: &ResolvedInstancePlan) -> Result<Dataset, MaterializeErro
     let mut object = Dataset::new_empty();
     let mut creators = BTreeMap::new();
     let mut element_tags = BTreeSet::new();
+    let mut attributes = plan.attributes.clone();
+    for content in &plan.content {
+        if let super::ContentPlacement::Nested { sequence_path } = &content.placement {
+            let bytes = materialized_primitive_bytes(content)?;
+            inject_nested_content(&mut attributes, sequence_path, content, bytes)?;
+        }
+    }
     let content_tags = plan
         .content
         .iter()
+        .filter(|content| matches!(content.placement, super::ContentPlacement::TopLevel))
         .map(|content| content.address.clone())
         .collect::<BTreeSet<_>>();
-    for attribute in &plan.attributes {
+    for attribute in &attributes {
         if attribute.address.group == 0x0002 {
             return Err(MaterializeError::StructuralConflict(
                 attribute.address.normalized_tag(),
@@ -114,6 +122,9 @@ fn build_dataset(plan: &ResolvedInstancePlan) -> Result<Dataset, MaterializeErro
         put_resolved_attribute(&mut object, attribute, &mut creators)?;
     }
     for content in &plan.content {
+        if !matches!(content.placement, super::ContentPlacement::TopLevel) {
+            continue;
+        }
         if content.address.group == 0x0002 || !element_tags.insert(content.address.clone()) {
             return Err(MaterializeError::DuplicateElement(
                 content.address.normalized_tag(),
@@ -138,16 +149,7 @@ fn build_dataset(plan: &ResolvedInstancePlan) -> Result<Dataset, MaterializeErro
             ));
             continue;
         }
-        let bytes = match materialization {
-            ContentMaterialization::Inline(bytes) => bytes.clone(),
-            ContentMaterialization::StagedFile(path) => {
-                fs::read(path).map_err(|source| MaterializeError::Io {
-                    path: path.clone(),
-                    source,
-                })?
-            }
-            ContentMaterialization::Encapsulated { .. } => unreachable!(),
-        };
+        let bytes = materialized_primitive_bytes(content)?;
         validate_content_bytes(content, &bytes)?;
         put_private_creator(&mut object, &content.address, &mut creators)?;
         object.put(DataElement::new(
@@ -157,6 +159,114 @@ fn build_dataset(plan: &ResolvedInstancePlan) -> Result<Dataset, MaterializeErro
         ));
     }
     Ok(object)
+}
+
+fn materialized_primitive_bytes(
+    content: &super::CanonicalContent,
+) -> Result<Vec<u8>, MaterializeError> {
+    let materialization = content
+        .materialization
+        .as_ref()
+        .ok_or_else(|| MaterializeError::MissingContent(content.slot.clone()))?;
+    let bytes = match materialization {
+        ContentMaterialization::Inline(bytes) => bytes.clone(),
+        ContentMaterialization::StagedFile(path) => {
+            fs::read(path).map_err(|source| MaterializeError::Io {
+                path: path.clone(),
+                source,
+            })?
+        }
+        ContentMaterialization::Encapsulated { .. } => {
+            return Err(MaterializeError::NestedEncapsulatedContent(
+                content.slot.clone(),
+            ));
+        }
+    };
+    validate_content_bytes(content, &bytes)?;
+    Ok(bytes)
+}
+
+fn inject_nested_content(
+    attributes: &mut [ResolvedAttribute],
+    path: &[super::SequenceItemPlacement],
+    content: &super::CanonicalContent,
+    bytes: Vec<u8>,
+) -> Result<(), MaterializeError> {
+    let Some((head, tail)) = path.split_first() else {
+        return Err(MaterializeError::InvalidContentPlacement(
+            content.slot.clone(),
+        ));
+    };
+    let attribute = attributes
+        .iter_mut()
+        .find(|attribute| attribute.address == head.sequence)
+        .ok_or_else(|| MaterializeError::InvalidContentPlacement(content.slot.clone()))?;
+    let Some(AttributeValue::Sequence(items)) = attribute.value.as_mut() else {
+        return Err(MaterializeError::InvalidContentPlacement(
+            content.slot.clone(),
+        ));
+    };
+    let item = items
+        .get_mut(head.item_index)
+        .ok_or_else(|| MaterializeError::InvalidContentPlacement(content.slot.clone()))?;
+    inject_nested_item(item, tail, content, bytes)
+}
+
+fn inject_nested_item(
+    item: &mut AttributeItem,
+    path: &[super::SequenceItemPlacement],
+    content: &super::CanonicalContent,
+    bytes: Vec<u8>,
+) -> Result<(), MaterializeError> {
+    if let Some((head, tail)) = path.split_first() {
+        let operation = item
+            .attributes
+            .iter_mut()
+            .find(|operation| {
+                matches!(operation, super::AttributeOperation::Set { address, .. } if address == &head.sequence)
+            })
+            .ok_or_else(|| MaterializeError::InvalidContentPlacement(content.slot.clone()))?;
+        let super::AttributeOperation::Set {
+            value: AttributeValue::Sequence(items),
+            ..
+        } = operation
+        else {
+            return Err(MaterializeError::InvalidContentPlacement(
+                content.slot.clone(),
+            ));
+        };
+        let nested = items
+            .get_mut(head.item_index)
+            .ok_or_else(|| MaterializeError::InvalidContentPlacement(content.slot.clone()))?;
+        return inject_nested_item(nested, tail, content, bytes);
+    }
+
+    if let Some(operation) = item.attributes.iter_mut().find(|operation| {
+        matches!(operation, super::AttributeOperation::Set { address, .. } if address == &content.address)
+    }) {
+        *operation = super::AttributeOperation::Set {
+            address: content.address.clone(),
+            vr: content.vr,
+            value: AttributeValue::Binary(bytes),
+        };
+    } else {
+        item.attributes.push(super::AttributeOperation::Set {
+            address: content.address.clone(),
+            vr: content.vr,
+            value: AttributeValue::Binary(bytes),
+        });
+        fn address(operation: &super::AttributeOperation) -> &AttributeAddress {
+            match operation {
+                super::AttributeOperation::Set { address, .. }
+                | super::AttributeOperation::Remove { address }
+                | super::AttributeOperation::Empty { address, .. } => address,
+            }
+        }
+        item.attributes.sort_by(|left, right| {
+            address(left).cmp(address(right))
+        });
+    }
+    Ok(())
 }
 
 fn validate_content_bytes(
@@ -388,6 +498,8 @@ pub enum MaterializeError {
         expected: String,
         actual: String,
     },
+    InvalidContentPlacement(String),
+    NestedEncapsulatedContent(String),
     PrivateCreatorConflict {
         tag: String,
     },
@@ -475,6 +587,7 @@ mod tests {
                 size_bytes: pixel_bytes.len() as u64,
                 sha256: sha256_hex(&pixel_bytes),
                 properties: BTreeMap::new(),
+                placement: super::super::ContentPlacement::TopLevel,
                 materialization: Some(ContentMaterialization::Inline(pixel_bytes)),
             }],
             references: vec![],
@@ -517,6 +630,60 @@ mod tests {
                 .unwrap()
                 .len(),
             1
+        );
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn writes_hash_checked_bulk_content_into_a_sequence_item() {
+        let path = std::env::temp_dir().join(format!(
+            "dts-composition-nested-content-{}-{}.dcm",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        let mut plan = plan(vec![0, 1, 2, 3]);
+        let waveform_sequence = AttributeAddress::from_normalized_tag("5400,0100").unwrap();
+        let waveform_data = AttributeAddress::from_normalized_tag("5400,1010").unwrap();
+        plan.attributes.push(ResolvedAttribute {
+            address: waveform_sequence.clone(),
+            vr: DicomVr::SQ,
+            value: Some(AttributeValue::Sequence(vec![AttributeItem {
+                attributes: vec![],
+            }])),
+            origin: ValueOrigin::TemplateDefault,
+        });
+        let bytes = vec![4, 3, 2, 1];
+        plan.content.push(super::super::CanonicalContent {
+            slot: "waveform_samples".into(),
+            kind: "waveform_samples".into(),
+            address: waveform_data,
+            vr: DicomVr::OW,
+            size_bytes: bytes.len() as u64,
+            sha256: sha256_hex(&bytes),
+            properties: BTreeMap::new(),
+            placement: super::super::ContentPlacement::Nested {
+                sequence_path: vec![super::super::SequenceItemPlacement {
+                    sequence: waveform_sequence,
+                    item_index: 0,
+                }],
+            },
+            materialization: Some(ContentMaterialization::Inline(bytes.clone())),
+        });
+
+        Part10Materializer.materialize(&plan, &path).unwrap();
+        let object = open_file(&path).unwrap();
+        let item = &object
+            .element(Tag(0x5400, 0x0100))
+            .unwrap()
+            .items()
+            .unwrap()[0];
+        assert_eq!(
+            item.element(Tag(0x5400, 0x1010))
+                .unwrap()
+                .to_bytes()
+                .unwrap()
+                .as_ref(),
+            bytes
         );
         fs::remove_file(path).unwrap();
     }

@@ -43,6 +43,7 @@ impl StagedAsset {
             properties: [("spec_relative_path".to_string(), self.spec_relative_path)]
                 .into_iter()
                 .collect(),
+            placement: super::ContentPlacement::TopLevel,
             materialization: Some(ContentMaterialization::StagedFile(self.staged_path)),
         }
     }

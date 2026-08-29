@@ -255,23 +255,31 @@ fn common_operations(
             .get(&role, 0)
             .ok_or(RtPlanError::SourceGraph)
     };
-    let (model, serial) = match parameters.object {
-        RtObjectParameters::StructureSet(_) => {
-            ("Native Single-ROI RT Structure Set", "DTS-RTSTRUCT-0001")
-        }
-        RtObjectParameters::Dose(_) => ("Native Multi-frame RT Dose", "DTS-RTDOSE-001"),
-        RtObjectParameters::Plan(_) => ("Native Linked RT Plan", "DTS-RTPLAN-001"),
-        RtObjectParameters::Image(_) => ("Native Linked RT Image", "DTS-RTIMAGE-001"),
-        RtObjectParameters::CarmRadiation(_) => {
-            ("Native C-Arm Photon-Electron Radiation", "DTS-LINAC-001")
-        }
-        RtObjectParameters::RadiationSet(_) => ("Native RT Radiation Set", "DTS-LINAC-001"),
+    let (model, serial, study_id) = match parameters.object {
+        RtObjectParameters::StructureSet(_) => (None, "DTS-RTSTRUCT-0001", "DTS-RTSTRUCT"),
+        RtObjectParameters::Dose(_) => (None, "DTS-RTDOSE-0001", "DTS-RTDOSE"),
+        RtObjectParameters::Plan(_) => (
+            Some("Native Linked RT Plan"),
+            "DTS-RTPLAN-001",
+            "DTS-RTSTRUCT",
+        ),
+        RtObjectParameters::Image(_) => (
+            Some("Native Linked RT Image"),
+            "DTS-RTIMAGE-001",
+            "DTS-RTSTRUCT",
+        ),
+        RtObjectParameters::CarmRadiation(_) => (
+            Some("Native C-Arm Photon-Electron Radiation"),
+            "DTS-LINAC-001",
+            "DTS-RTSTRUCT",
+        ),
+        RtObjectParameters::RadiationSet(_) => (
+            Some("Native RT Radiation Set"),
+            "DTS-LINAC-001",
+            "DTS-RTSTRUCT",
+        ),
     };
     let mut operations = vec![
-        string_allow_empty_op("0008,1070", DicomVr::PN, "")?,
-        string_allow_empty_op("0008,0080", DicomVr::LO, "")?,
-        string_allow_empty_op("0008,0081", DicomVr::ST, "")?,
-        string_op("0008,1090", DicomVr::LO, model)?,
         string_op("0018,1000", DicomVr::LO, serial)?,
         string_op(
             "0020,000D",
@@ -283,8 +291,24 @@ fn common_operations(
             DicomVr::UI,
             identity(crate::composition::CompositionUidRole::SeriesInstance)?,
         )?,
-        string_op("0020,0010", DicomVr::SH, "DTS-RTSTRUCT")?,
+        string_op("0020,0010", DicomVr::SH, study_id)?,
     ];
+    if !matches!(
+        parameters.object,
+        RtObjectParameters::CarmRadiation(_) | RtObjectParameters::RadiationSet(_)
+    ) {
+        operations.push(string_allow_empty_op("0008,1070", DicomVr::PN, "")?);
+    }
+    if matches!(
+        parameters.object,
+        RtObjectParameters::Plan(_) | RtObjectParameters::Image(_)
+    ) {
+        operations.push(string_allow_empty_op("0008,0080", DicomVr::LO, "")?);
+        operations.push(string_allow_empty_op("0008,0081", DicomVr::ST, "")?);
+    }
+    if let Some(model) = model {
+        operations.push(string_op("0008,1090", DicomVr::LO, model)?);
+    }
     if let Some(frame) = context
         .identities
         .get(&crate::composition::CompositionUidRole::FrameOfReference, 0)
@@ -469,9 +493,7 @@ fn object_operations(
         RtObjectParameters::Plan(value) => plan_operations(value, context),
         RtObjectParameters::Image(value) => image_operations(value, context),
         RtObjectParameters::CarmRadiation(value) => radiation_operations(value, &context.sources),
-        RtObjectParameters::RadiationSet(value) => {
-            radiation_set_operations(value, &context.sources)
-        }
+        RtObjectParameters::RadiationSet(value) => radiation_set_operations(value, context),
     }
 }
 
@@ -785,12 +807,30 @@ fn plan_operations(
 
 fn image_operations(
     value: &ImageParameters,
-    _context: &SemanticPlanContext,
+    context: &SemanticPlanContext,
 ) -> Result<Vec<AttributeOperation>, RtPlanError> {
     if value.rows == 0 || value.columns == 0 || value.referenced_beam_number == 0 {
         return Err(RtPlanError::InvalidParameters);
     }
+    let plan = context
+        .sources
+        .iter()
+        .find(|source| source.role == "referenced_plan")
+        .ok_or(RtPlanError::SourceGraph)?;
     Ok(vec![
+        multi_string_op(
+            "0008,0008",
+            DicomVr::CS,
+            ["DERIVED".into(), "SECONDARY".into(), "DRR".into()],
+        )?,
+        string_op("0008,0022", DicomVr::DA, "20260101")?,
+        string_op("0008,0023", DicomVr::DA, "20260101")?,
+        string_op("0008,0032", DicomVr::TM, "000000")?,
+        string_op("0008,0033", DicomVr::TM, "000000")?,
+        string_op("0008,0064", DicomVr::CS, "WSD")?,
+        string_allow_empty_op("0020,0020", DicomVr::CS, "")?,
+        unsigned_op("0028,0002", DicomVr::US, 1)?,
+        string_op("0028,0004", DicomVr::CS, "MONOCHROME2")?,
         unsigned_op("0028,0010", DicomVr::US, value.rows.into())?,
         unsigned_op("0028,0011", DicomVr::US, value.columns.into())?,
         unsigned_op("0028,0100", DicomVr::US, 8)?,
@@ -798,6 +838,7 @@ fn image_operations(
         unsigned_op("0028,0102", DicomVr::US, 7)?,
         unsigned_op("0028,0103", DicomVr::US, 0)?,
         string_op("3002,000C", DicomVr::CS, &value.image_plane)?,
+        string_op("3002,000E", DicomVr::DS, "0")?,
         multi_string_op(
             "3002,0012",
             DicomVr::DS,
@@ -811,6 +852,8 @@ fn image_operations(
         string_op("3002,0020", DicomVr::SH, &value.radiation_machine_name)?,
         string_op("3002,0022", DicomVr::DS, &value.radiation_machine_sad)?,
         string_op("3002,0026", DicomVr::DS, &value.image_sid)?,
+        string_op("3002,0029", DicomVr::IS, "1")?,
+        string_op("300A,00B3", DicomVr::CS, "MU")?,
         string_op(
             "300C,0006",
             DicomVr::IS,
@@ -821,6 +864,7 @@ fn image_operations(
             DicomVr::IS,
             &value.referenced_fraction_group_number.to_string(),
         )?,
+        reference_sequence("300C,0002", plan)?,
     ])
 }
 
@@ -833,44 +877,172 @@ fn radiation_operations(
     }
     let source = &sources[0];
     Ok(vec![
-        string_op("3010,0033", DicomVr::SH, &value.radiation_name)?,
-        string_op("300A,00C6", DicomVr::CS, &value.radiation_type)?,
-        string_op("0018,115A", DicomVr::CS, &value.radiation_mode)?,
-        string_op("300A,00CE", DicomVr::CS, &value.treatment_delivery_type)?,
-        string_op("300A,00B2", DicomVr::SH, &value.machine_name)?,
+        string_op("0008,0012", DicomVr::DA, "20260101")?,
+        string_op("0008,0013", DicomVr::TM, "000000")?,
+        string_op("0008,0021", DicomVr::DA, "20260101")?,
+        string_op("0008,0023", DicomVr::DA, "20260101")?,
+        string_op("0008,0031", DicomVr::TM, "000000")?,
+        string_op("0008,0033", DicomVr::TM, "000000")?,
+        common_instance_reference(source)?,
+        sequence_op("0008,1156", {
+            let mut attributes = referenced_sop_attributes(source)?;
+            attributes.push(string_op("300C,0006", DicomVr::IS, "1")?);
+            attributes
+        })?,
+        code_sequence(
+            "0054,0410",
+            "102538003",
+            "SCT",
+            "recumbent",
+            Some(("0054,0412", "40199007", "SCT", "supine")),
+        )?,
+        string_allow_empty_op("0070,0081", DicomVr::LO, "")?,
         unsigned_op("300A,0604", DicomVr::US, value.control_point_count.into())?,
+        sequence_items_op(
+            "300A,062F",
+            vec![
+                vec![
+                    empty_value_op("300A,0132", DicomVr::FL)?,
+                    unsigned_op("300A,0600", DicomVr::US, 1)?,
+                    unsigned_op("300A,060B", DicomVr::US, 1)?,
+                    empty_value_op("300A,0634", DicomVr::FD)?,
+                    float64_op("300A,063C", 0.0)?,
+                    empty_value_op("300A,063D", DicomVr::FD)?,
+                    float64_op("300A,0679", 0.0)?,
+                    float64_op("300A,067A", 0.0)?,
+                ],
+                vec![
+                    unsigned_op("300A,0600", DicomVr::US, 2)?,
+                    float64_op("300A,063C", 100.0)?,
+                ],
+            ],
+        )?,
+        string_op("3010,0033", DicomVr::SH, &value.radiation_name)?,
         string_op("300A,0638", DicomVr::CS, "IDENT_ONLY")?,
         string_op("300A,0639", DicomVr::CS, &value.rt_record_flag)?,
-        reference_sequence("300C,0002", source)?,
+        sequence_op(
+            "300A,063A",
+            vec![
+                string_op("0008,0070", DicomVr::LO, "dicom-test-suite")?,
+                string_op("0008,1090", DicomVr::LO, "DTS C-Arm LINAC")?,
+                string_op("0018,1000", DicomVr::LO, "DTS-LINAC-001")?,
+                string_allow_empty_op("0018,100B", DicomVr::UI, "")?,
+                string_op("0018,1020", DicomVr::LO, crate::PACKAGE_VERSION)?,
+                string_op("3010,001A", DicomVr::LO, "1")?,
+                string_allow_empty_op("3010,001B", DicomVr::UC, "")?,
+                string_op("3010,002D", DicomVr::LO, &value.machine_name)?,
+                code_sequence(
+                    "3010,002E",
+                    "130361",
+                    "DCM",
+                    "Radiotherapy Treatment Device",
+                    None,
+                )?,
+                string_op("3010,0043", DicomVr::ST, "DTS-LINAC-001")?,
+            ],
+        )?,
+        sequence_op(
+            "300A,063F",
+            vec![
+                multi_string_op(
+                    "0028,9520",
+                    DicomVr::DS,
+                    [
+                        "1", "0", "0", "0", "0", "1", "0", "0", "0", "0", "1", "0", "0", "0", "0",
+                        "1",
+                    ]
+                    .into_iter()
+                    .map(str::to_owned),
+                )?,
+                empty_sequence_op("3006,00C9")?,
+                empty_sequence_op("3006,00CB")?,
+                unsigned_op("300A,0606", DicomVr::US, 1)?,
+            ],
+        )?,
+        float64_op("300A,0640", 1000.0)?,
+        code_sequence("300A,0658", "{MU}", "UCUM", "Monitor Units", None)?,
+        code_sequence(
+            "300A,0659",
+            "130358",
+            "DCM",
+            "Nominal Radiation Source Location",
+            None,
+        )?,
+        string_op("300A,0675", DicomVr::UI, "1.2.840.10008.1.4.3.1")?,
+        empty_sequence_op("300A,0677")?,
+        unsigned_op("300A,0687", DicomVr::US, 0)?,
+        float64_op("300A,0688", 500.0)?,
+        empty_sequence_op("3010,0019")?,
+        code_sequence("3010,0030", "102540008", "SCT", "headfirst", None)?,
+        code_sequence("3010,0080", "130102", "DCM", "Static Beam", None)?,
     ])
 }
 
 fn radiation_set_operations(
     value: &RadiationSetParameters,
-    sources: &[SemanticSource],
+    context: &SemanticPlanContext,
 ) -> Result<Vec<AttributeOperation>, RtPlanError> {
+    let sources = &context.sources;
     if sources.len() != 2
         || value.treatment_position_group_uid_role.is_empty()
         || value.treatment_session_uid_role.is_empty()
     {
         return Err(RtPlanError::InvalidParameters);
     }
-    let mut operations = vec![
-        string_op("3010,0033", DicomVr::SH, &value.radiation_set_label)?,
-        string_op("3010,0034", DicomVr::LO, &value.radiation_set_name)?,
+    let plan = sources
+        .iter()
+        .find(|source| source.role == "referenced_plan")
+        .ok_or(RtPlanError::SourceGraph)?;
+    let radiation = sources
+        .iter()
+        .find(|source| source.role == "referenced_radiation")
+        .ok_or(RtPlanError::SourceGraph)?;
+    let treatment_position_uid = context
+        .identities
+        .get(
+            &crate::composition::CompositionUidRole::TemplateDefined(
+                value.treatment_position_group_uid_role.clone(),
+            ),
+            0,
+        )
+        .ok_or(RtPlanError::SourceGraph)?;
+    let operations = vec![
+        string_op("0008,0012", DicomVr::DA, "20260101")?,
+        string_op("0008,0013", DicomVr::TM, "000000")?,
+        string_op("0008,0021", DicomVr::DA, "20260101")?,
+        string_op("0008,0023", DicomVr::DA, "20260101")?,
+        string_op("0008,0031", DicomVr::TM, "000000")?,
+        string_op("0008,0033", DicomVr::TM, "000000")?,
+        sequence_items_op(
+            "0008,1115",
+            vec![
+                vec![
+                    sequence_op("0008,114A", referenced_sop_attributes(plan)?)?,
+                    string_op("0020,000E", DicomVr::UI, &plan.series_instance_uid)?,
+                ],
+                vec![
+                    sequence_op("0008,114A", referenced_sop_attributes(radiation)?)?,
+                    string_op("0020,000E", DicomVr::UI, &radiation.series_instance_uid)?,
+                ],
+            ],
+        )?,
+        sequence_op("0008,1156", referenced_sop_attributes(plan)?)?,
+        string_allow_empty_op("0070,0081", DicomVr::LO, "")?,
+        sequence_op(
+            "300A,060A",
+            vec![
+                string_op("300A,0608", DicomVr::LO, "DTS_TPG_1")?,
+                string_op("300A,0609", DicomVr::UI, treatment_position_uid)?,
+                reference_sequence("300A,0630", radiation)?,
+            ],
+        )?,
+        reference_sequence("300A,0616", radiation)?,
         unsigned_op("300A,0636", DicomVr::US, 1)?,
         string_op("300A,0637", DicomVr::CS, "TREATMENT")?,
+        empty_sequence_op("300A,063B")?,
+        empty_sequence_op("3010,0019")?,
+        string_op("3010,0033", DicomVr::SH, &value.radiation_set_label)?,
     ];
-    for source in sources {
-        operations.push(reference_sequence(
-            if source.role == "referenced_plan" {
-                "300C,0002"
-            } else {
-                "300A,0630"
-            },
-            source,
-        )?);
-    }
     Ok(operations)
 }
 
@@ -919,6 +1091,46 @@ fn sequence_items_op(
                 .map(|attributes| AttributeItem { attributes })
                 .collect(),
         ),
+    })
+}
+
+fn empty_sequence_op(tag: &str) -> Result<AttributeOperation, RtPlanError> {
+    Ok(AttributeOperation::Set {
+        address: address(tag)?,
+        vr: DicomVr::SQ,
+        value: AttributeValue::Sequence(Vec::new()),
+    })
+}
+
+fn code_sequence(
+    tag: &str,
+    code_value: &str,
+    scheme: &str,
+    meaning: &str,
+    nested: Option<(&str, &str, &str, &str)>,
+) -> Result<AttributeOperation, RtPlanError> {
+    let mut attributes = vec![
+        string_op("0008,0100", DicomVr::SH, code_value)?,
+        string_op("0008,0102", DicomVr::SH, scheme)?,
+        string_op("0008,0104", DicomVr::LO, meaning)?,
+    ];
+    if let Some((nested_tag, value, nested_scheme, nested_meaning)) = nested {
+        attributes.push(code_sequence(
+            nested_tag,
+            value,
+            nested_scheme,
+            nested_meaning,
+            None,
+        )?);
+    }
+    sequence_op(tag, attributes)
+}
+
+fn empty_value_op(tag: &str, vr: DicomVr) -> Result<AttributeOperation, RtPlanError> {
+    Ok(AttributeOperation::Set {
+        address: address(tag)?,
+        vr,
+        value: AttributeValue::Multi(Vec::new()),
     })
 }
 
@@ -973,6 +1185,14 @@ fn float32_op(tag: &str, value: f32) -> Result<AttributeOperation, RtPlanError> 
         address: address(tag)?,
         vr: DicomVr::FL,
         value: AttributeValue::Primitive(PrimitiveValue::Float32Bits(value.to_bits())),
+    })
+}
+
+fn float64_op(tag: &str, value: f64) -> Result<AttributeOperation, RtPlanError> {
+    Ok(AttributeOperation::Set {
+        address: address(tag)?,
+        vr: DicomVr::FD,
+        value: AttributeValue::Primitive(PrimitiveValue::Float64Bits(value.to_bits())),
     })
 }
 

@@ -1457,6 +1457,22 @@ fn semantic_context(
     if let Some(value) = identity(CompositionUidRole::FrameOfReference) {
         exact.push((CompositionUidRole::FrameOfReference, 0, value));
     }
+    if rt_object_kind == Some("radiation_set") {
+        exact.push((
+            CompositionUidRole::TemplateDefined("derived_reference_0".into()),
+            0,
+            deterministic_uid(&DeterministicUidInput {
+                standards_lock_sha256,
+                case_id: &recipe.binding.case_id,
+                recipe_version: &recipe.recipe_version,
+                run_seed: seed,
+                file_index: 0,
+                frame_index: None,
+                referenced_object_index: Some(0),
+                role: UidRole::DerivedReference,
+            }),
+        ));
+    }
     let template = artifact
         .template
         .as_ref()
@@ -1509,7 +1525,7 @@ fn semantic_context(
 fn semantic_common_attributes(
     recipe: &CaseRecipe,
 ) -> Result<Vec<ResolvedAttribute>, CuratedPlanError> {
-    let values = [
+    let mut values = vec![
         (Tag(0x0008, 0x001C), DicomVr::CS, "YES"),
         (Tag(0x0010, 0x0010), DicomVr::PN, "DTS^Synthetic^Patient001"),
         (Tag(0x0010, 0x0020), DicomVr::LO, "DTS-PATIENT-001"),
@@ -1520,9 +1536,19 @@ fn semantic_common_attributes(
         (Tag(0x0008, 0x0090), DicomVr::PN, ""),
         (Tag(0x0008, 0x0050), DicomVr::SH, ""),
         (Tag(0x0008, 0x0070), DicomVr::LO, "dicom-test-suite"),
-        (Tag(0x0008, 0x1090), DicomVr::LO, recipe.recipe_id.as_str()),
         (Tag(0x0018, 0x1020), DicomVr::LO, crate::PACKAGE_VERSION),
     ];
+    let rt_kind = recipe
+        .provider_parameters
+        .get("object")
+        .and_then(serde_json::Value::as_object)
+        .and_then(|object| object.get("kind"))
+        .and_then(serde_json::Value::as_str);
+    if recipe.plan_provider_id != RT_PLAN_PROVIDER_ID
+        || matches!(rt_kind, Some("structure_set" | "dose"))
+    {
+        values.push((Tag(0x0008, 0x1090), DicomVr::LO, recipe.recipe_id.as_str()));
+    }
     values
         .into_iter()
         .map(|(tag, vr, value)| {

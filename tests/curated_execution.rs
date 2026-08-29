@@ -132,7 +132,7 @@ fn corpus_executor_runs_a_production_curated_sc_plan_end_to_end() {
 }
 
 #[test]
-fn native_sr_and_rt_execute_with_typed_staged_evidence() {
+fn native_sr_and_rt_execute_with_typed_evidence_and_frozen_bytes() {
     let recipes = RecipeCatalog::load(
         "cases/recipes",
         "cases/registry.json",
@@ -166,6 +166,7 @@ fn native_sr_and_rt_execute_with_typed_staged_evidence() {
     )
     .execute(&bundle.plan, &destination.0, 3, &CancellationToken::new())
     .unwrap();
+    let baseline = PathBuf::from("/tmp/dts-unified-baseline-20260829-52e1d20/all");
     for artifact in &result.evidence.artifacts {
         let planned = bundle
             .plan
@@ -193,7 +194,14 @@ fn native_sr_and_rt_execute_with_typed_staged_evidence() {
                     .get("checks")
                     .is_some_and(|checks| checks.to_string().contains("_reference_graph"))
         }));
-        open_file(destination.0.join(planned.output.relative_path.as_str())).unwrap();
+        let relative = planned.output.relative_path.as_str();
+        open_file(destination.0.join(relative)).unwrap();
+        assert_eq!(
+            fs::read(destination.0.join(relative)).unwrap(),
+            fs::read(baseline.join(relative)).unwrap(),
+            "Part 10 drift for {}",
+            binding.case_id
+        );
     }
 }
 

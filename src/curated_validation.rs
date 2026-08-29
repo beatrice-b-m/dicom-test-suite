@@ -20,7 +20,8 @@ use crate::recipes::{
 use crate::sha256_hex;
 use crate::validation::{
     PaletteExpectations, Part10Expectations, PixelDataLengthFormula, PixelPaddingExpectations,
-    validate_part10_file,
+    RealWorldValueMappingExpectations, validate_part10_file,
+    validate_real_world_value_mapping_file,
 };
 
 pub(crate) fn validate_part10_with_expectations(
@@ -28,6 +29,19 @@ pub(crate) fn validate_part10_with_expectations(
     expected: &Part10Expectations<'_>,
 ) -> Result<TypedValidationReport, CuratedValidationError> {
     let validated = validate_part10_file(path, expected)
+        .map_err(|error| CuratedValidationError::Part10(error.to_string()))?;
+    Ok(TypedValidationReport {
+        bytes: validated.bytes,
+        checks: checks_from_legacy(&validated.validation)?,
+        metadata_observation: None,
+    })
+}
+
+pub(crate) fn validate_rwvm_with_expectations(
+    path: &Path,
+    expected: &RealWorldValueMappingExpectations<'_>,
+) -> Result<TypedValidationReport, CuratedValidationError> {
+    let validated = validate_real_world_value_mapping_file(path, expected)
         .map_err(|error| CuratedValidationError::Part10(error.to_string()))?;
     Ok(TypedValidationReport {
         bytes: validated.bytes,

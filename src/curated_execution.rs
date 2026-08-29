@@ -22,7 +22,7 @@ use crate::curated_validation::{
     ScPart10ValidationInput, ScPixelLengthFormula, TypedValidationCheck, TypedValidationReport,
     validate_extended_offset_table_round_trip, validate_icc_profile_round_trip,
     validate_metadata_round_trip, validate_nonsquare_round_trip, validate_part10_with_expectations,
-    validate_sc_part10,
+    validate_rwvm_with_expectations, validate_sc_part10,
 };
 use crate::executor::cancellation::CancellationToken;
 use crate::executor::engine::{
@@ -52,8 +52,12 @@ use crate::recipes::classic_vl_projection::{
     ProjectionArtifactParameters, VlArtifactParameters, VlPhotometricInterpretation,
 };
 use crate::recipes::{
-    CLASSIC_PIXEL_SLOT, EnhancedMrFrameAxis, PRESENTATION_ADVANCED_PROVIDER_ID, PresentationKind,
-    REGISTRATION_PLAN_PROVIDER_ID, WsiArtifactParameters, WsiPixelAlgorithm,
+    CLASSIC_PIXEL_SLOT, ENCAPSULATED_PAYLOAD_PLAN_PROVIDER_ID, EnhancedMrFrameAxis,
+    ObservedSpecializedContent, PRESENTATION_ADVANCED_PROVIDER_ID, PresentationKind,
+    QUANTITATIVE_NATIVE_PROVIDER_ID, REGISTRATION_PLAN_PROVIDER_ID,
+    SpecializedValidationObservation, WAVEFORM_PLAN_PROVIDER_ID, WsiArtifactParameters,
+    WsiPixelAlgorithm, encapsulated_payload_input_from_recipe, validate_encapsulated_payload,
+    validate_waveform, waveform_input_from_recipe,
 };
 use crate::validation::{
     AdvancedBlendingPresentationStateExpectations, AdvancedBlendingSourceSeriesExpectations,
@@ -64,11 +68,12 @@ use crate::validation::{
     EnhancedPetImageExpectations, MgImageExpectations, MrImageExpectations, NmDetectorExpectations,
     NmEnergyWindowExpectations, NmImageExpectations, PaletteExpectations, Part10Expectations,
     PetImageExpectations, PixelDataLengthFormula, PresentationStateExpectations,
-    SpatialRegistrationExpectations, SpatialRegistrationReferenceExpectations, UsImageExpectations,
-    UsMultiframeExpectations, XaImageExpectations, XrfImageExpectations,
-    validate_advanced_blending_presentation_state_file, validate_blending_presentation_state_file,
-    validate_color_softcopy_presentation_state_file, validate_deformable_spatial_registration_file,
-    validate_part10_file, validate_presentation_state_file, validate_spatial_registration_file,
+    RealWorldValueMappingExpectations, SegmentationExpectations, SpatialRegistrationExpectations,
+    SpatialRegistrationReferenceExpectations, UsImageExpectations, UsMultiframeExpectations,
+    XaImageExpectations, XrfImageExpectations, validate_advanced_blending_presentation_state_file,
+    validate_blending_presentation_state_file, validate_color_softcopy_presentation_state_file,
+    validate_deformable_spatial_registration_file, validate_part10_file,
+    validate_presentation_state_file, validate_spatial_registration_file,
     validate_wsi_multiple_optical_paths_file, validate_wsi_pyramid_file,
     validate_wsi_tiled_full_file, validate_wsi_tiled_sparse_file,
 };
@@ -258,6 +263,30 @@ struct RegistrationValidationParameters {
     content_description: String,
     registration: crate::recipes::RegistrationKindInput,
     sources: Vec<Value>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct QuantitativeSegValidationParameters {
+    segmentation: crate::recipes::SegmentationInput,
+    sources: Vec<QuantitativeValidationSource>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct QuantitativeRwvmValidationParameters {
+    mapping: crate::recipes::RealWorldValueMappingInput,
+    sources: Vec<QuantitativeValidationSource>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct QuantitativeValidationSource {
+    recipe: crate::recipes::RecipeReference,
+    artifact_logical_id: String,
+    role: crate::recipes::QuantitativeSourceRole,
+    #[serde(default)]
+    referenced_frames: Vec<u32>,
 }
 
 pub(crate) fn advanced_provider_parameters(
@@ -686,6 +715,97 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
                 &format!("curated_{provider_name}_plan_validator"),
             );
         }
+        if matches!(
+            context.case_recipe.plan_provider_id.as_str(),
+            WAVEFORM_PLAN_PROVIDER_ID | ENCAPSULATED_PAYLOAD_PLAN_PROVIDER_ID
+        ) {
+            let observation = specialized_validation_observation(
+                &self.staging_root.join(declaration.relative_path.as_str()),
+                artifact,
+                &plan,
+                &content,
+            )?;
+            let typed = if context.case_recipe.plan_provider_id == WAVEFORM_PLAN_PROVIDER_ID {
+                let input = waveform_input_from_recipe(&context.case_recipe)
+                    .map_err(|error| service_error("waveform validation", error))?
+                    .ok_or_else(|| {
+                        ServiceInvocationError::new(
+                            "waveform validation",
+                            "waveform provider recipe did not yield typed input",
+                        )
+                    })?;
+                validate_waveform(&input, &observation)
+                    .map_err(|error| service_error("waveform validation", error))?
+            } else {
+                let input = encapsulated_payload_input_from_recipe(&context.case_recipe)
+                    .map_err(|error| service_error("encapsulated validation", error))?
+                    .ok_or_else(|| {
+                        ServiceInvocationError::new(
+                            "encapsulated validation",
+                            "encapsulated provider recipe did not yield typed input",
+                        )
+                    })?;
+                validate_encapsulated_payload(&input, &observation)
+                    .map_err(|error| service_error("encapsulated validation", error))?
+            };
+            return validation_result(
+                request,
+                artifact,
+                checks,
+                typed,
+                if context.case_recipe.plan_provider_id == WAVEFORM_PLAN_PROVIDER_ID {
+                    "curated_waveform_plan_validator"
+                } else {
+                    "curated_encapsulated_payload_plan_validator"
+                },
+            );
+        }
+        if context.case_recipe.plan_provider_id == QUANTITATIVE_NATIVE_PROVIDER_ID {
+            let planned_slots = plan
+                .content
+                .iter()
+                .map(|item| item.slot.as_str())
+                .collect::<BTreeSet<_>>();
+            let observed_slots = content
+                .iter()
+                .map(|item| item.slot.as_str())
+                .collect::<BTreeSet<_>>();
+            if planned_slots != observed_slots {
+                return Err(ServiceInvocationError::new(
+                    "validation",
+                    "quantitative materialized content does not close over planned slots",
+                ));
+            }
+            validate_materialized_reference_sources(
+                &plan,
+                &self.materialized,
+                &self.planned_artifacts,
+                &self.staging_root,
+            )?;
+            let mut typed = validate_quantitative_compatibility(
+                &self.staging_root.join(declaration.relative_path.as_str()),
+                artifact,
+                context,
+                &plan,
+                &content,
+                &self.planned_artifacts,
+            )?;
+            typed.append(TypedValidationCheck::passed_internal(
+                "quantitative_reference_closure",
+                "The quantitative object references the planned source graph and its materialized identities.",
+            ));
+            typed.append(TypedValidationCheck::passed_internal(
+                "curated_composition_plan",
+                "The curated dataset resolved through the shared composition plan before Part 10 materialization.",
+            ));
+            return validation_result(
+                request,
+                artifact,
+                checks,
+                typed,
+                "curated_quantitative_plan_validator",
+            );
+        }
         let sc = context
             .artifact_recipe
             .secondary_capture
@@ -975,6 +1095,290 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
         }
         Ok(metadata.len().max(1))
     }
+}
+
+fn specialized_validation_observation(
+    path: &Path,
+    artifact: &crate::corpus_plan::PlannedDicomArtifact,
+    plan: &ResolvedInstancePlan,
+    content: &[MaterializedContentEvidence],
+) -> Result<SpecializedValidationObservation, ServiceInvocationError> {
+    let bytes = fs::read(path).map_err(|error| service_error("specialized validation", error))?;
+    let part10_preamble_present = bytes.len() >= 132 && &bytes[128..132] == b"DICM";
+    let pixel_data_absent = plan
+        .attributes
+        .iter()
+        .all(|attribute| attribute.address.normalized_tag() != "7FE0,0010")
+        && plan
+            .content
+            .iter()
+            .all(|item| item.address.normalized_tag() != "7FE0,0010");
+    let implementation_identity_matches = plan
+        .identities
+        .get(&CompositionUidRole::ImplementationClass, 0)
+        .is_some_and(|uid| uid == artifact.encoding.implementation.class_uid);
+    Ok(SpecializedValidationObservation {
+        generic_plan_validation_passed: true,
+        part10_preamble_present,
+        transfer_syntax_uid: artifact.encoding.transfer_syntax_uid.clone(),
+        sop_class_uid: plan.sop_class_uid.clone(),
+        implementation_identity_matches,
+        pixel_data_absent,
+        content: content
+            .iter()
+            .map(|item| {
+                (
+                    item.slot.clone(),
+                    ObservedSpecializedContent {
+                        size_bytes: item.size_bytes,
+                        sha256: item.sha256.clone(),
+                        vr: item.vr.clone(),
+                    },
+                )
+            })
+            .collect(),
+    })
+}
+
+fn validate_quantitative_compatibility(
+    path: &Path,
+    artifact: &crate::corpus_plan::PlannedDicomArtifact,
+    context: &CuratedArtifactProjectionContext,
+    plan: &ResolvedInstancePlan,
+    content: &[MaterializedContentEvidence],
+    planned_artifacts: &BTreeMap<String, crate::corpus_plan::PlannedDicomArtifact>,
+) -> Result<TypedValidationReport, ServiceInvocationError> {
+    let reference = plan.references.first().ok_or_else(|| {
+        ServiceInvocationError::new("quantitative validation", "missing source reference")
+    })?;
+    let source = planned_artifacts
+        .get(&reference.target_instance_id)
+        .ok_or_else(|| {
+            ServiceInvocationError::new(
+                "quantitative validation",
+                "source reference is not a planned DICOM artifact",
+            )
+        })?;
+    let source_series = source
+        .instance
+        .identities
+        .get(&CompositionUidRole::SeriesInstance, 0)
+        .ok_or_else(|| {
+            ServiceInvocationError::new("quantitative validation", "source series UID is missing")
+        })?;
+    let sop_instance = plan
+        .identities
+        .get(&CompositionUidRole::SopInstance, 0)
+        .ok_or_else(|| {
+            ServiceInvocationError::new("quantitative validation", "SOP Instance UID is missing")
+        })?;
+    let implementation = plan
+        .identities
+        .get(&CompositionUidRole::ImplementationClass, 0)
+        .ok_or_else(|| {
+            ServiceInvocationError::new(
+                "quantitative validation",
+                "Implementation Class UID is missing",
+            )
+        })?;
+    if let Ok(parameters) = serde_json::from_value::<QuantitativeSegValidationParameters>(
+        Value::Object(context.case_recipe.provider_parameters.clone()),
+    ) {
+        if parameters.sources.len() != 1 {
+            return Err(ServiceInvocationError::new(
+                "quantitative validation",
+                "native segmentation requires exactly one declared source",
+            ));
+        }
+        validate_quantitative_source_declaration(
+            &parameters.sources[0],
+            source,
+            reference,
+            crate::recipes::QuantitativeSourceRole::SegmentationSourceImage,
+        )?;
+        let segmentation = parameters.segmentation;
+        let _pixel = content.first().ok_or_else(|| {
+            ServiceInvocationError::new(
+                "quantitative validation",
+                "segmentation content evidence is missing",
+            )
+        })?;
+        let decoded_hashes: Vec<&str> = Vec::new();
+        let referenced_frames = reference
+            .referenced_frames
+            .iter()
+            .map(|frame| {
+                u16::try_from(*frame)
+                    .map_err(|error| service_error("quantitative validation", error))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let frame_of_reference = plan
+            .identities
+            .get(&CompositionUidRole::FrameOfReference, 0)
+            .ok_or_else(|| {
+                ServiceInvocationError::new(
+                    "quantitative validation",
+                    "Frame of Reference UID is missing",
+                )
+            })?;
+        let dimension = plan
+            .identities
+            .get(&CompositionUidRole::DimensionOrganization, 0)
+            .or_else(|| plan.identities.get(&CompositionUidRole::SopInstance, 0))
+            .ok_or_else(|| {
+                ServiceInvocationError::new(
+                    "quantitative validation",
+                    "Dimension Organization UID is missing",
+                )
+            })?;
+        let (bits_allocated, bits_stored, high_bit, fractional_type, maximum) =
+            match segmentation.kind {
+                crate::recipes::SegmentationKind::Binary => (1, 1, 0, None, None),
+                crate::recipes::SegmentationKind::FractionalProbability => {
+                    (8, 8, 7, Some("PROBABILITY"), Some(255))
+                }
+                crate::recipes::SegmentationKind::Labelmap => (8, 8, 7, None, None),
+            };
+        return validate_part10_with_expectations(
+            path,
+            &Part10Expectations {
+                sop_class_uid: &plan.sop_class_uid,
+                sop_instance_uid: sop_instance,
+                transfer_syntax_uid: &artifact.encoding.transfer_syntax_uid,
+                implementation_class_uid: implementation,
+                synthetic_data: "YES",
+                rows: segmentation.rows,
+                columns: segmentation.columns,
+                frames: segmentation.frames,
+                samples_per_pixel: 1,
+                photometric_interpretation: "MONOCHROME2",
+                bits_allocated,
+                bits_stored,
+                high_bit,
+                pixel_representation: 0,
+                planar_configuration: None,
+                pixel_data_vr: VR::OB,
+                pixel_data_length_formula: if bits_allocated == 1 {
+                    PixelDataLengthFormula::BitPackedContinuousFrames
+                } else {
+                    PixelDataLengthFormula::ContiguousSamples
+                },
+                decoded_frame_hashes: &decoded_hashes,
+                palette: None,
+                padding: None,
+                ct_image: None,
+                enhanced_ct_image: None,
+                enhanced_mr_image: None,
+                enhanced_pet_image: None,
+                mg_image: None,
+                dx_image: None,
+                xa_image: None,
+                xrf_image: None,
+                us_image: None,
+                us_multiframe: None,
+                nm_image: None,
+                pet_image: None,
+                cr_image: None,
+                mr_image: None,
+                segmentation: Some(SegmentationExpectations {
+                    modality: "SEG",
+                    frame_of_reference_uid: frame_of_reference,
+                    image_type: "DERIVED\\PRIMARY",
+                    segmentation_type: match segmentation.kind {
+                        crate::recipes::SegmentationKind::Binary => "BINARY",
+                        crate::recipes::SegmentationKind::FractionalProbability => "FRACTIONAL",
+                        crate::recipes::SegmentationKind::Labelmap => "LABELMAP",
+                    },
+                    segmentation_fractional_type: fractional_type,
+                    maximum_fractional_value: maximum,
+                    segment_sequence_items: 1,
+                    shared_functional_groups: 1,
+                    per_frame_functional_groups: usize::from(segmentation.frames),
+                    dimension_organization_uid: dimension,
+                    dimension_index_count: 1,
+                    referenced_sop_class_uid: &reference.referenced_sop_class_uid,
+                    referenced_sop_instance_uid: &reference.referenced_sop_instance_uid,
+                    referenced_frame_numbers: &referenced_frames,
+                }),
+            },
+        )
+        .map_err(|error| service_error("quantitative validation", error));
+    }
+    let parameters = serde_json::from_value::<QuantitativeRwvmValidationParameters>(Value::Object(
+        context.case_recipe.provider_parameters.clone(),
+    ))
+    .map_err(|error| service_error("quantitative validation recipe", error))?;
+    if parameters.sources.len() != 1 {
+        return Err(ServiceInvocationError::new(
+            "quantitative validation",
+            "native RWVM requires exactly one declared source",
+        ));
+    }
+    validate_quantitative_source_declaration(
+        &parameters.sources[0],
+        source,
+        reference,
+        crate::recipes::QuantitativeSourceRole::RealWorldValueSourceImage,
+    )?;
+    let mapping = parameters.mapping;
+    let referenced_frames = reference
+        .referenced_frames
+        .iter()
+        .map(|frame| {
+            u16::try_from(*frame).map_err(|error| service_error("quantitative validation", error))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    validate_rwvm_with_expectations(
+        path,
+        &RealWorldValueMappingExpectations {
+            sop_class_uid: &plan.sop_class_uid,
+            sop_instance_uid: sop_instance,
+            transfer_syntax_uid: &artifact.encoding.transfer_syntax_uid,
+            implementation_class_uid: implementation,
+            synthetic_data: "YES",
+            modality: "RWV",
+            content_label: &mapping.content_label,
+            referenced_series_instance_uid: source_series,
+            referenced_sop_class_uid: &reference.referenced_sop_class_uid,
+            referenced_sop_instance_uid: &reference.referenced_sop_instance_uid,
+            referenced_frame_numbers: &referenced_frames,
+            lut_label: &mapping.lut_label,
+            first_value_mapped: mapping.first_value_mapped,
+            last_value_mapped: mapping.last_value_mapped,
+            intercept: mapping.intercept,
+            slope: mapping.slope,
+            unit_code_value: &mapping.unit_code_value,
+            unit_coding_scheme_designator: &mapping.unit_coding_scheme_designator,
+            unit_code_meaning: &mapping.unit_code_meaning,
+        },
+    )
+    .map_err(|error| service_error("quantitative validation", error))
+}
+
+fn validate_quantitative_source_declaration(
+    declaration: &QuantitativeValidationSource,
+    source: &crate::corpus_plan::PlannedDicomArtifact,
+    reference: &crate::composition::MaterializedReference,
+    expected_role: crate::recipes::QuantitativeSourceRole,
+) -> Result<(), ServiceInvocationError> {
+    let binding = source.case_binding.as_ref().ok_or_else(|| {
+        ServiceInvocationError::new(
+            "quantitative validation",
+            "source artifact lacks a recipe binding",
+        )
+    })?;
+    if declaration.role != expected_role
+        || declaration.recipe.recipe_id != binding.recipe_id
+        || declaration.recipe.recipe_version != binding.recipe_version
+        || declaration.artifact_logical_id.is_empty()
+        || declaration.referenced_frames != reference.referenced_frames
+    {
+        return Err(ServiceInvocationError::new(
+            "quantitative validation",
+            "declared quantitative source differs from the materialized dependency",
+        ));
+    }
+    Ok(())
 }
 
 fn validation_result(

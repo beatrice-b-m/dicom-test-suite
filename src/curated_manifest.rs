@@ -9,13 +9,20 @@ use serde_json::{Value, json};
 
 use crate::composition::CompositionUidRole;
 use crate::corpus_plan::{OffsetTablePolicy, PlannedArtifact, PlannedDicomArtifact};
+use crate::curated_execution::{
+    AdvancedCompatibilityProvider, advanced_artifact_parameters, advanced_provider_parameters,
+    wsi_artifact_parameters,
+};
 use crate::curated_plan::{CuratedArtifactProjectionContext, CuratedScProjectionContext};
 use crate::curated_validation::{CheckLayer, MetadataObservation, TypedValidationCheck};
 use crate::executor::adapters::{ManifestProjectionArtifact, ManifestProjectionCompatibilityInput};
 use crate::executor::evidence::{
     ArtifactExecutionEvidence, MaterializedContentEvidence, ResultStatus,
 };
-use crate::recipes::{MetadataScParameters, PrivateElementValue, StringValueSource};
+use crate::recipes::{
+    EnhancedMrFrameAxis, MetadataScParameters, PrivateElementValue, StringValueSource,
+    WsiPixelAlgorithm,
+};
 
 const RLE: &str = "1.2.840.10008.1.2.5";
 
@@ -266,42 +273,588 @@ fn project_advanced_file_entry(
         .instance
         .identities
         .get(&CompositionUidRole::DimensionOrganization, 0);
-    let image = json!({
-        "rows":rows,"columns":columns,"frames":frames,"samples_per_pixel":samples_per_pixel,
-        "photometric_interpretation":photometric,"bits_allocated":bits_allocated,
-        "bits_stored":bits_stored,"high_bit":high_bit,"pixel_representation":pixel_representation,
-        "planar_configuration":planar_configuration,
-    });
-    let pixel_data = json!({
-        "vr":pixels.vr,"native_or_encapsulated":if planned.encoding.transfer_syntax_uid == RLE {"encapsulated"} else {"native"},
-        "value_length":pixels.native_value_field_size_bytes.unwrap_or(pixels.size_bytes),
-        "frame_count":frames,"frame_hashes":frame_hashes,
-    });
+    let common = AdvancedManifestCommon {
+        output,
+        pixels,
+        frame_hashes,
+        rows,
+        columns,
+        frames,
+        samples_per_pixel,
+        photometric: &photometric,
+        bits_allocated,
+        bits_stored,
+        high_bit,
+        pixel_representation,
+        planar_configuration,
+        study,
+        series,
+        sop,
+        frame_of_reference,
+        dimension,
+        validation: legacy_validation(&checks),
+    };
+    if ctx.case_recipe.plan_provider_id == "native.enhanced_plan" {
+        project_enhanced_manifest(ctx, planned, &common)
+    } else {
+        project_wsi_manifest(ctx, planned, &common)
+    }
+}
+
+struct AdvancedManifestCommon<'a> {
+    output: &'a crate::executor::evidence::OutputEvidence,
+    pixels: &'a MaterializedContentEvidence,
+    frame_hashes: &'a [String],
+    rows: u64,
+    columns: u64,
+    frames: u64,
+    samples_per_pixel: u64,
+    photometric: &'a str,
+    bits_allocated: u64,
+    bits_stored: u64,
+    high_bit: u64,
+    pixel_representation: u64,
+    planar_configuration: Option<u64>,
+    study: &'a str,
+    series: &'a str,
+    sop: &'a str,
+    frame_of_reference: Option<&'a str>,
+    dimension: Option<&'a str>,
+    validation: Value,
+}
+
+fn advanced_base(
+    ctx: &CuratedArtifactProjectionContext,
+    planned: &PlannedDicomArtifact,
+    common: &AdvancedManifestCommon<'_>,
+) -> Result<Value, CuratedManifestError> {
     Ok(json!({
         "case_id":ctx.registry_case.case_id,
         "profile_membership":ctx.artifact_recipe.public_profile_membership.as_ref().unwrap_or(&ctx.registry_case.profiles),
-        "path":output.relative_path,"sha256":output.sha256,"size_bytes":output.size_bytes,
+        "path":common.output.relative_path,"sha256":common.output.sha256,"size_bytes":common.output.size_bytes,
         "determinism":ctx.registry_case.determinism,
-        "recipe":{"recipe_id":ctx.case_recipe.recipe_id,"recipe_version":ctx.case_recipe.recipe_version,
-            "recipe_parameters":{"provider":ctx.case_recipe.provider_parameters,"artifact":ctx.artifact_recipe.parameters}},
         "dicom":{"sop_class_uid":required(&ctx.registry_case.sop_class_uid,"registry SOP Class UID")?,
             "sop_class_name":required(&ctx.registry_case.sop_class_name,"registry SOP Class name")?,
             "iod_name":required(&ctx.registry_case.iod_name,"registry IOD name")?,
             "modality":required(&ctx.registry_case.modality,"registry modality")?,
             "transfer_syntax_uid":planned.encoding.transfer_syntax_uid,
             "transfer_syntax_name":transfer_syntax_name(&planned.encoding.transfer_syntax_uid)?},
-        "uids":{"study_instance_uid":study,"series_instance_uid":series,"sop_instance_uid":sop,
-            "frame_of_reference_uid":frame_of_reference,"dimension_organization_uid":dimension,
-            "implementation_class_uid":planned.encoding.implementation.class_uid,
-            "implementation_version_name":planned.encoding.implementation.version_name},
-        "image":image,"pixel_data":pixel_data,
-        "expected_capabilities":ctx.registry_case.compatibility_axes,
-        "expected_semantics":{"synthetic_data":"YES"},
-        "expected_visual_checks":{"pattern":ctx.artifact_recipe.content.provider_id},
-        "validation":legacy_validation(&checks),
-        "known_stressors":ctx.registry_case.compatibility_axes,
+        "image":{"rows":common.rows,"columns":common.columns,"frames":common.frames,
+            "samples_per_pixel":common.samples_per_pixel,"photometric_interpretation":common.photometric,
+            "bits_allocated":common.bits_allocated,"bits_stored":common.bits_stored,"high_bit":common.high_bit,
+            "pixel_representation":common.pixel_representation,"planar_configuration":common.planar_configuration},
+        "pixel_data":{"vr":common.pixels.vr,"native_or_encapsulated":"native",
+            "value_length":common.pixels.native_value_field_size_bytes.unwrap_or(common.pixels.size_bytes),
+            "frame_count":common.frames,"frame_hashes":common.frame_hashes},
+        "validation":common.validation,
         "standards_evidence":ctx.registry_case.standards_evidence,
     }))
+}
+
+fn project_enhanced_manifest(
+    ctx: &CuratedArtifactProjectionContext,
+    planned: &PlannedDicomArtifact,
+    common: &AdvancedManifestCommon<'_>,
+) -> Result<Value, CuratedManifestError> {
+    let provider = advanced_provider_parameters(ctx).map_err(|error| err(error.to_string()))?;
+    let artifact = advanced_artifact_parameters(ctx).map_err(|error| err(error.to_string()))?;
+    let frames = artifact.frames.expand().map_err(CuratedManifestError)?;
+    let positions = frames
+        .iter()
+        .map(|frame| frame.image_position_patient.as_str())
+        .collect::<Vec<_>>();
+    let dimensions = frames
+        .iter()
+        .map(|frame| frame.dimension_index_value)
+        .collect::<Vec<_>>();
+    let pixel_count = usize::try_from(common.rows)
+        .ok()
+        .and_then(|rows| {
+            usize::try_from(common.columns)
+                .ok()
+                .map(|columns| rows * columns)
+        })
+        .and_then(|pixels| {
+            usize::try_from(common.frames)
+                .ok()
+                .map(|frames| pixels * frames)
+        })
+        .ok_or_else(|| err("advanced pixel count overflow"))?;
+    let (stored_values, pixel_min, pixel_max) = artifact
+        .pixels
+        .values(pixel_count)
+        .map_err(CuratedManifestError)?;
+    let mut manifest = advanced_base(ctx, planned, common)?;
+    manifest["references"] = json!([]);
+    match provider {
+        AdvancedCompatibilityProvider::Ct {
+            common: parameters,
+            pixel_spacing,
+            image_orientation_patient,
+            slice_thickness,
+            spacing_between_slices,
+            rescale_intercept,
+            rescale_slope,
+            rescale_type,
+            concatenation,
+            stress: _,
+        } => {
+            let (case_pixel_min, case_pixel_max) = enhanced_case_pixel_range(ctx)?;
+            let dimension = common
+                .dimension
+                .ok_or_else(|| err("missing CT dimension UID"))?;
+            let irradiation = planned
+                .instance
+                .identities
+                .get(&CompositionUidRole::IrradiationEvent, 0)
+                .ok_or_else(|| err("missing CT irradiation UID"))?;
+            let concatenation_value = if concatenation {
+                json!({
+                    "concatenation_uid":planned_string(planned,"0020,9161")?,
+                    "in_concatenation_number":artifact.in_concatenation_number,
+                    "in_concatenation_total_number":ctx.case_recipe.dicom.as_ref().map_or(0,|dicom|dicom.artifacts.len()),
+                    "concatenation_frame_offset_number":artifact.concatenation_frame_offset_number,
+                    "sop_instance_uid_of_concatenation_source":planned_string(planned,"0020,0242")?
+                })
+            } else {
+                Value::Null
+            };
+            manifest["recipe"] = json!({"recipe_id":ctx.case_recipe.recipe_id,"recipe_version":ctx.case_recipe.recipe_version,
+                "recipe_parameters":{"rows":common.rows,"columns":common.columns,"frames":common.frames,
+                    "samples_per_pixel":1,"photometric_interpretation":"MONOCHROME2","bits_allocated":16,
+                    "bits_stored":16,"high_bit":15,"pixel_representation":0,"pixel_values":stored_values,
+                    "frame_type":parameters.frame_type,"dimension_index":{"dimension_organization_uid":dimension,
+                        "dimension_index_pointer":"ImagePositionPatient","functional_group_pointer":"PlanePositionSequence"},
+                    "shared_functional_groups":{"pixel_measures":{"pixel_spacing":pixel_spacing,
+                        "slice_thickness":slice_thickness,"spacing_between_slices":spacing_between_slices},
+                        "plane_orientation_patient":image_orientation_patient,"frame_anatomy":{"frame_laterality":"U",
+                            "anatomic_region_code_value":"T-D3000"},"irradiation_event_uid":irradiation,
+                        "ct_pixel_value_transformation":{"intercept":rescale_intercept,"slope":rescale_slope,"type":rescale_type}},
+                    "per_frame_functional_groups":{"image_position_patient":positions},"concatenation":concatenation_value}});
+            manifest["uids"] = json!({"study_instance_uid":common.study,"series_instance_uid":common.series,
+                "sop_instance_uid":common.sop,"frame_of_reference_uid":common.frame_of_reference,
+                "dimension_organization_uid":dimension,"irradiation_event_uid":irradiation,
+                "implementation_class_uid":planned.encoding.implementation.class_uid,
+                "implementation_version_name":"DICOMTS010"});
+            manifest["expected_capabilities"] = json!([
+                "open_file",
+                "read_metadata",
+                "render_native_pixels",
+                "parse_multiframe_functional_groups"
+            ]);
+            manifest["expected_semantics"] = json!({"synthetic_data":"YES","pixel_min":case_pixel_min,"pixel_max":case_pixel_max,
+                "shared_functional_groups_sequence_items":1,"per_frame_functional_groups_sequence_items":common.frames,
+                "dimension_index_values":dimensions,"concatenation":concatenation_value});
+            manifest["expected_visual_checks"] = json!({"pattern":if concatenation {
+                "single_member_enhanced_ct_concatenation_gradient"} else {"two_frame_enhanced_ct_unsigned_gradient_stack"}});
+            let mut stressors = vec![
+                "enhanced_ct_image_storage",
+                "native_multiframe_pixel_data",
+                "shared_functional_groups_sequence",
+                "per_frame_functional_groups_sequence",
+                "multi_frame_dimension",
+            ];
+            if concatenation {
+                stressors.push("concatenation");
+            }
+            manifest["known_stressors"] = json!(stressors);
+        }
+        AdvancedCompatibilityProvider::Mr {
+            common: parameters,
+            pixel_spacing,
+            image_orientation_patient,
+            slice_thickness,
+            spacing_between_slices,
+            rescale_intercept,
+            rescale_slope,
+            rescale_type,
+            repetition_time,
+            flip_angle,
+            echo_train_length,
+            rf_echo_train_length,
+            gradient_echo_train_length,
+            axis,
+        } => {
+            let dimension = common
+                .dimension
+                .ok_or_else(|| err("missing MR dimension UID"))?;
+            let operating_modes = json!([{"type":"STATIC FIELD","mode":"IEC_NORMAL"},{"type":"RF","mode":"IEC_NORMAL"},{"type":"GRADIENT","mode":"IEC_NORMAL"}]);
+            let (pointer, group, name, values, pattern, stressor) = match &axis {
+                EnhancedMrFrameAxis::EffectiveEchoTime { values } => (
+                    "EffectiveEchoTime",
+                    "MREchoSequence",
+                    "effective_echo_time",
+                    json!(values),
+                    "two_frame_enhanced_mr_echo_gradient_stack",
+                    "per_frame_mr_echo",
+                ),
+                EnhancedMrFrameAxis::TemporalPositionTimeOffset { values } => (
+                    "TemporalPositionTimeOffset",
+                    "TemporalPositionSequence",
+                    "temporal_position_time_offset",
+                    json!(values),
+                    "two_frame_enhanced_mr_temporal_gradient_stack",
+                    "per_frame_temporal_position",
+                ),
+                EnhancedMrFrameAxis::VelocityEncoding { directions, .. } => (
+                    "VelocityEncodingDirection",
+                    "MRVelocityEncodingSequence",
+                    "velocity_encoding_direction",
+                    json!(directions),
+                    "two_frame_enhanced_mr_phase_velocity_encoding_stack",
+                    "per_frame_mr_velocity_encoding",
+                ),
+            };
+            let mut per_frame = json!({"image_position_patient":positions});
+            per_frame[name] = values.clone();
+            let mut semantics = json!({"synthetic_data":"YES","patient_position":"","content_qualification":"RESEARCH",
+                "applicable_safety_standard_agency":"IEC","complex_image_component":"MAGNITUDE","acquisition_contrast":"UNKNOWN",
+                "burned_in_annotation":"NO","lossy_image_compression":"00","presentation_lut_shape":"IDENTITY",
+                "pixel_min":pixel_min,"pixel_max":pixel_max,"shared_functional_groups_sequence_items":1,
+                "per_frame_functional_groups_sequence_items":common.frames,"dimension_index_values":[1,2]});
+            semantics[name] = values.clone();
+            if let EnhancedMrFrameAxis::TemporalPositionTimeOffset { .. } = &axis {
+                per_frame["temporal_position_index"] = json!([1, 2]);
+                per_frame["dimension_index_values"] = json!([1, 2]);
+                per_frame["frame_acquisition_number"] = json!([1, 2]);
+                semantics["temporal_position_indices"] = json!([1, 2]);
+                semantics["frame_acquisition_numbers"] = json!([1, 2]);
+                semantics["temporal_position_time_offset_unit"] = json!("seconds");
+            }
+            if let EnhancedMrFrameAxis::VelocityEncoding {
+                minimum, maximum, ..
+            } = &axis
+            {
+                per_frame["velocity_encoding_minimum_value"] = json!(minimum);
+                per_frame["velocity_encoding_maximum_value"] = json!(maximum);
+                semantics["velocity_encoding_minimum_value"] = json!(minimum);
+                semantics["velocity_encoding_maximum_value"] = json!(maximum);
+            }
+            manifest["recipe"] = json!({"recipe_id":ctx.case_recipe.recipe_id,"recipe_version":ctx.case_recipe.recipe_version,
+                "recipe_parameters":{"rows":common.rows,"columns":common.columns,"frames":common.frames,"samples_per_pixel":1,
+                "photometric_interpretation":"MONOCHROME2","bits_allocated":16,"bits_stored":16,"high_bit":15,
+                "pixel_representation":0,"pixel_values":stored_values,"frame_type":parameters.frame_type,"presentation_lut_shape":"IDENTITY",
+                "dimension_index":{"dimension_organization_uid":dimension,"dimension_index_pointer":pointer,"functional_group_pointer":group},
+                "shared_functional_groups":{"pixel_measures":{"pixel_spacing":pixel_spacing,"slice_thickness":slice_thickness,
+                    "spacing_between_slices":spacing_between_slices},"plane_orientation_patient":image_orientation_patient,
+                    "frame_anatomy":{"frame_laterality":"U","anatomic_region_code_value":"69536005","anatomic_region_coding_scheme":"SCT","anatomic_region_code_meaning":"Head"},
+                    "mr_image_frame_type":{"complex_image_component":"MAGNITUDE","acquisition_contrast":"UNKNOWN"},
+                    "mr_timing":{"repetition_time":repetition_time,"flip_angle":flip_angle,"echo_train_length":echo_train_length,
+                        "rf_echo_train_length":rf_echo_train_length,"gradient_echo_train_length":gradient_echo_train_length,
+                        "specific_absorption_rate":{"definition":"IEC_HEAD","value":0.1},"operating_modes":operating_modes},
+                    "pixel_value_transformation":{"intercept":rescale_intercept,"slope":rescale_slope,"type":rescale_type}},
+                "per_frame_functional_groups":per_frame}});
+            manifest["uids"] = json!({"study_instance_uid":common.study,"series_instance_uid":common.series,"sop_instance_uid":common.sop,
+                "frame_of_reference_uid":common.frame_of_reference,"dimension_organization_uid":dimension,
+                "implementation_class_uid":planned.encoding.implementation.class_uid,
+                "implementation_version_name":"DICOMTS010"});
+            manifest["expected_capabilities"] = json!([
+                "open_file",
+                "read_metadata",
+                "render_native_pixels",
+                "parse_multiframe_functional_groups"
+            ]);
+            manifest["expected_semantics"] = semantics;
+            manifest["expected_visual_checks"] = json!({"pattern":pattern});
+            manifest["known_stressors"] = json!([
+                "enhanced_mr_image_storage",
+                "native_multiframe_pixel_data",
+                "shared_functional_groups_sequence",
+                "per_frame_functional_groups_sequence",
+                stressor,
+                "multi_frame_dimension"
+            ]);
+        }
+        AdvancedCompatibilityProvider::Pet {
+            common: parameters,
+            pixel_spacing: _,
+            image_orientation_patient: _,
+            slice_thickness: _,
+            spacing_between_slices: _,
+            rescale_intercept: _,
+            rescale_slope,
+            units: _,
+            counts_source,
+            stack_id,
+        } => {
+            let dimension = common
+                .dimension
+                .ok_or_else(|| err("missing PET dimension UID"))?;
+            let activity = stored_values
+                .iter()
+                .map(|value| *value as f64 * rescale_slope.parse::<f64>().unwrap_or(0.0))
+                .collect::<Vec<_>>();
+            let expected = enhanced_pet_contract(
+                &parameters,
+                &frames,
+                &dimensions,
+                &artifact,
+                &stored_values,
+                &activity,
+                &counts_source,
+                &stack_id,
+                common.frame_hashes,
+                common.pixels,
+            );
+            manifest["recipe"] = json!({"recipe_id":ctx.case_recipe.recipe_id,"recipe_version":ctx.case_recipe.recipe_version,
+                "recipe_parameters":{"rows":common.rows,"columns":common.columns,"frames":common.frames,"pixel_values":stored_values,
+                    "image_positions":positions,"dimension_index_values":dimensions,"enhanced_pet":expected}});
+            manifest["uids"] = json!({"study_instance_uid":common.study,"series_instance_uid":common.series,"sop_instance_uid":common.sop,
+                "frame_of_reference_uid":common.frame_of_reference,"dimension_organization_uid":dimension,
+                "implementation_class_uid":planned.encoding.implementation.class_uid,
+                "implementation_version_name":"DICOMTS010"});
+            manifest["expected_capabilities"] = json!([
+                "open_file",
+                "render_native_pixels",
+                "apply_real_world_value_mapping"
+            ]);
+            manifest["expected_semantics"] = json!({"synthetic_data":"YES","pixel_min":0,"pixel_max":400,
+                "shared_functional_groups_item_count":1,"per_frame_functional_groups_item_count":common.frames,
+                "dimension_index_values":dimensions,"temporal_position_indices":artifact.temporal_position_indices,
+                "quantitative_mapping":"synthetic_bqml_not_suv_or_clinically_calibrated"});
+            manifest["expected_enhanced_pet"] = expected;
+            manifest["expected_visual_checks"] =
+                json!({"pattern":"two_identical_pet_activity_frames_at_distinct_z_positions"});
+            manifest["known_stressors"] = json!([
+                "enhanced_pet_image_storage",
+                "shared_per_frame_functional_groups",
+                "native_multiframe_u16",
+                "bqml_rwvm"
+            ]);
+        }
+    }
+    Ok(manifest)
+}
+
+fn enhanced_pet_contract(
+    common: &crate::curated_execution::AdvancedCompatibilityCommon,
+    frames: &[crate::recipes::EnhancedFrameGeometry],
+    dimensions: &[u32],
+    artifact: &crate::curated_execution::AdvancedCompatibilityArtifact,
+    stored_values: &[i64],
+    activity: &[f64],
+    counts_source: &str,
+    stack_id: &str,
+    frame_hashes: &[String],
+    pixels: &MaterializedContentEvidence,
+) -> Value {
+    let identity = json!({
+        "image_type":common.image_type.split('\\').collect::<Vec<_>>(),
+        "frame_type":common.frame_type.split('\\').collect::<Vec<_>>(),
+        "pixel_presentation":"MONOCHROME","volumetric_properties":"VOLUME",
+        "volume_based_calculation_technique":"NONE","content_qualification":"RESEARCH",
+        "burned_in_annotation":"NO","lossy_image_compression":"00","presentation_lut_shape":"IDENTITY",
+        "frame_count":frames.len()
+    });
+    let dimensions = json!({"shared_functional_groups_item_count":1,
+        "per_frame_functional_groups_item_count":frames.len(),"dimension_organization_item_count":1,
+        "dimension_index_item_count":1,"dimension_index_pointer":"0020,9057","functional_group_pointer":"0020,9111",
+        "stack_ids":[stack_id,stack_id],"in_stack_position_numbers":artifact.in_stack_position_numbers,
+        "dimension_index_values":dimensions,"temporal_position_indices":artifact.temporal_position_indices
+    });
+    let geometry = json!({
+        "image_positions_patient_mm":[[0.0,0.0,0.0],[0.0,0.0,5.0]],"pixel_spacing_mm":[2.0,2.0],
+        "slice_thickness_mm":5.0,"spacing_between_slices_mm":5.0,
+        "image_orientation_patient":[1.0,0.0,0.0,0.0,1.0,0.0],"frame_laterality":"U",
+        "anatomic_region":{"code_value":"69536005","coding_scheme_designator":"SCT","code_meaning":"Head"}
+    });
+    let quantitative = json!({
+        "rescale_intercept":0.0,"rescale_slope":2.5,"rescale_type":"US","window_center":500.0,"window_width":1000.0,
+        "real_world_value_mapping":{"first_value_mapped":0,"last_value_mapped":400,"intercept":0.0,"slope":2.5,
+            "lut_label":"BQML","lut_explanation":"Activity concentration","measurement_units":{"code_value":"Bq/ml",
+                "coding_scheme_designator":"UCUM","code_meaning":"Becquerels/milliliter"}},
+        "radiopharmaceutical_information":{"item_count":1,"agent_number":1,
+            "radionuclide":{"code_value":"77004003","coding_scheme_designator":"SCT","code_meaning":"^18^Fluorine"},
+            "administration_route":{"code_value":"47625008","coding_scheme_designator":"SCT","code_meaning":"Intravenous route"},
+            "start_datetime":"20260101000000","total_dose_present_empty":true,"half_life_seconds":6586.2,"positron_fraction":0.967,
+            "radiopharmaceutical":{"code_value":"35321007","coding_scheme_designator":"SCT","code_meaning":"Fluorodeoxyglucose F^18^"}},
+        "radiopharmaceutical_usage_agent_number":1
+    });
+    let acquisition = json!({"table_motion":"STATIC","time_of_flight_information_used":"FALSE",
+        "view_code":{"code_value":"24422004","coding_scheme_designator":"SCT","code_meaning":"Axial"},
+        "view_modifier_item_count":0,"slice_progression_direction_present":false,"counts_source":counts_source,
+        "corrections":{"decay":"NO","attenuation":"NO","scatter":"NO","dead_time":"NO","gantry_motion":"NO",
+            "patient_motion":"NO","count_loss_normalization":"NO","randoms":"NO","non_uniform_radial_sampling":"NO",
+            "sensitivity_calibration":"NO","detector_normalization":"NO"},
+        "derivation_image_item_count":0,"acquisition_context_item_count":0,
+        "stored_values_by_frame":[stored_values.get(0..4).unwrap_or(stored_values),stored_values.get(4..8).unwrap_or(stored_values)],
+        "activity_values_bqml_by_frame":[activity.get(0..4).unwrap_or(activity),activity.get(4..8).unwrap_or(activity)],
+        "frame_sha256":frame_hashes,"pixel_data_sha256":pixels.sha256,
+        "nonclaims":{"suv":false,"body_weight_normalization":false,"body_surface_area_normalization":false,
+            "decay_corrected":false,"clinically_calibrated":false,"acquisition_counts":false,"actual_clinical_dose":false,
+            "gating":false,"detector_motion":false,"time_of_flight_processing":false,"reconstruction":false}
+    });
+    let mut result = serde_json::Map::new();
+    for fragment in [identity, dimensions, geometry, quantitative, acquisition] {
+        result.extend(
+            fragment
+                .as_object()
+                .expect("PET fragment is an object")
+                .clone(),
+        );
+    }
+    Value::Object(result)
+}
+
+fn enhanced_case_pixel_range(
+    ctx: &CuratedArtifactProjectionContext,
+) -> Result<(i64, i64), CuratedManifestError> {
+    let artifacts = &ctx
+        .case_recipe
+        .dicom
+        .as_ref()
+        .ok_or_else(|| err("enhanced recipe has no DICOM artifacts"))?
+        .artifacts;
+    let mut minimum = None;
+    let mut maximum = None;
+    for artifact in artifacts {
+        let parameters: crate::curated_execution::AdvancedCompatibilityArtifact =
+            serde_json::from_value(Value::Object(artifact.parameters.clone()))
+                .map_err(|error| err(format!("invalid enhanced artifact parameters: {error}")))?;
+        let (_, item_minimum, item_maximum) =
+            parameters.pixels.values(0).map_err(CuratedManifestError)?;
+        minimum = Some(minimum.map_or(item_minimum, |value: i64| value.min(item_minimum)));
+        maximum = Some(maximum.map_or(item_maximum, |value: i64| value.max(item_maximum)));
+    }
+    minimum
+        .zip(maximum)
+        .ok_or_else(|| err("enhanced recipe has no pixel range"))
+}
+
+fn project_wsi_manifest(
+    ctx: &CuratedArtifactProjectionContext,
+    planned: &PlannedDicomArtifact,
+    common: &AdvancedManifestCommon<'_>,
+) -> Result<Value, CuratedManifestError> {
+    let item = wsi_artifact_parameters(ctx).map_err(|error| err(error.to_string()))?;
+    let params = &item.parameters;
+    let frame_of_reference = common
+        .frame_of_reference
+        .ok_or_else(|| err("missing WSI Frame of Reference UID"))?;
+    let dimension = common
+        .dimension
+        .ok_or_else(|| err("missing WSI Dimension Organization UID"))?;
+    let specimen = planned
+        .instance
+        .identities
+        .get(
+            &CompositionUidRole::TemplateDefined("specimen_uid".into()),
+            0,
+        )
+        .ok_or_else(|| err("missing WSI specimen UID"))?;
+    let mut manifest = advanced_base(ctx, planned, common)?;
+    manifest["references"] = json!([]);
+    manifest["uids"] = json!({"study_instance_uid":common.study,"series_instance_uid":common.series,
+        "sop_instance_uid":common.sop,"frame_of_reference_uid":frame_of_reference,
+        "dimension_organization_uid":dimension,"implementation_class_uid":planned.encoding.implementation.class_uid,
+        "implementation_version_name":planned.encoding.implementation.version_name});
+    match item.pixel_algorithm {
+        WsiPixelAlgorithm::TiledColorQuadrants if !params.pyramid_membership => {
+            let expected = crate::wsi_tiled_full_locked_contract(frame_of_reference, specimen);
+            manifest["recipe"] = json!({"recipe_id":ctx.case_recipe.recipe_id,"recipe_version":ctx.case_recipe.recipe_version,
+                "recipe_parameters":{"dimension_organization_type":params.dimension_type,"tile_rows":params.rows,
+                    "tile_columns":params.columns,"total_pixel_matrix_rows":params.matrix_rows,
+                    "total_pixel_matrix_columns":params.matrix_columns,
+                    "frame_order":"row_then_column_then_depth_then_optical_path_then_segment",
+                    "tile_colors":["red","green","blue","white"],"icc_profile_sha256":expected["optical_path"]["icc_profile"]["sha256"]}});
+            manifest["expected_capabilities"] = json!([
+                "open_file",
+                "read_metadata",
+                "render_native_pixels",
+                "navigate_multiframe",
+                "reconstruct_total_pixel_matrix"
+            ]);
+            manifest["expected_semantics"] = json!({"synthetic_data":"YES","image_type":["ORIGINAL","PRIMARY","VOLUME","NONE"],
+                "lossy_image_compression":"00","one_specimen":true,"one_optical_path":true,"one_focal_plane":true,
+                "slide_label_present":true,"per_frame_functional_groups_absent":true,"dimension_index_sequence_absent":true});
+            manifest["expected_wsi_tiled_full"] = expected;
+            manifest["expected_visual_checks"] =
+                json!({"pattern":"4x4_tiled_full_red_green_blue_white_quadrants"});
+            manifest["known_stressors"] = json!([
+                "vl_whole_slide_microscopy_image_storage",
+                "tiled_full_implicit_frame_order",
+                "total_pixel_matrix_reconstruction",
+                "specimen_and_optical_path_metadata",
+                "nested_icc_profile",
+                "absent_per_frame_functional_groups"
+            ]);
+        }
+        WsiPixelAlgorithm::SparseDiagonalTiles if !params.pyramid_membership => {
+            let expected =
+                crate::wsi_tiled_sparse_locked_contract(frame_of_reference, specimen, dimension);
+            manifest["recipe"] = json!({"recipe_id":ctx.case_recipe.recipe_id,"recipe_version":ctx.case_recipe.recipe_version,
+                "recipe_parameters":{"dimension_organization_type":params.dimension_type,"tile_rows":params.rows,
+                    "tile_columns":params.columns,"total_pixel_matrix_rows":params.matrix_rows,
+                    "total_pixel_matrix_columns":params.matrix_columns,"stored_tile_positions":[[1,1],[3,3]],
+                    "tile_colors":["red","white"],"occupancy_mask":["present","absent","absent","present"],
+                    "icc_profile_sha256":expected["optical_path"]["icc_profile"]["sha256"]}});
+            manifest["expected_capabilities"] = json!([
+                "open_file",
+                "read_metadata",
+                "render_native_pixels",
+                "navigate_multiframe",
+                "reconstruct_sparse_total_pixel_matrix"
+            ]);
+            manifest["expected_semantics"] = json!({"synthetic_data":"YES","image_type":["ORIGINAL","PRIMARY","VOLUME","NONE"],
+                "lossy_image_compression":"00","one_specimen":true,"one_optical_path":true,"one_focal_plane":true,
+                "slide_label_present":true,"per_frame_functional_groups_present":true,"dimension_index_sequence_present":true,
+                "absent_tiles_are_not_black_frames":true});
+            manifest["expected_wsi_tiled_sparse"] = expected;
+            manifest["expected_visual_checks"] =
+                json!({"pattern":"4x4_tiled_sparse_red_and_white_diagonal_with_two_absent_tiles"});
+            manifest["known_stressors"] = json!([
+                "vl_whole_slide_microscopy_image_storage",
+                "tiled_sparse_explicit_frame_positions",
+                "dimension_index_values",
+                "sparse_occupancy_reconstruction",
+                "specimen_and_optical_path_metadata",
+                "nested_icc_profile"
+            ]);
+        }
+        WsiPixelAlgorithm::MultipleOpticalPaths if !params.pyramid_membership => {
+            let expected = crate::wsi_multiple_optical_paths_locked_contract(
+                frame_of_reference,
+                specimen,
+                dimension,
+            );
+            manifest["recipe"] = json!({"recipe_id":ctx.case_recipe.recipe_id,"recipe_version":ctx.case_recipe.recipe_version,
+                "recipe_parameters":{"dimension_organization_type":params.dimension_type,
+                    "frame_order":"row_then_column_then_focal_plane_then_optical_path",
+                    "optical_path_identifiers":params.optical_paths.iter().map(|path|path.identifier.as_str()).collect::<Vec<_>>(),
+                    "optical_path_descriptions":params.optical_paths.iter().filter_map(|path|path.description.as_deref()).collect::<Vec<_>>(),
+                    "illumination_wavelengths_nm":params.optical_paths.iter().map(|path|path.wavelength).collect::<Vec<_>>(),
+                    "icc_profile_sha256":expected["optical_paths"][0]["icc_profile"]["sha256"]}});
+            manifest["expected_capabilities"] = json!([
+                "open_file",
+                "read_metadata",
+                "render_native_pixels",
+                "navigate_multiframe",
+                "reconstruct_optical_path_matrices"
+            ]);
+            manifest["expected_semantics"] = json!({"synthetic_data":"YES","two_ordered_optical_paths":true,"one_focal_plane":true,
+                "path_major_implicit_frame_order":true,"nested_icc_profiles":true,"top_level_icc_profile_absent":true,
+                "per_frame_functional_groups_absent":true,"dimension_index_sequence_absent":true});
+            manifest["expected_wsi_multiple_optical_paths"] = expected;
+            manifest["expected_visual_checks"] =
+                json!({"pattern":"two_distinct_4x4_rgb_optical_path_matrices"});
+            manifest["known_stressors"] = json!([
+                "vl_whole_slide_microscopy_image_storage",
+                "tiled_full_implicit_optical_path_order",
+                "multiple_nested_icc_profiles",
+                "separate_optical_path_matrix_reconstruction"
+            ]);
+        }
+        _ => {
+            manifest["recipe"] = json!({"recipe_id":ctx.case_recipe.recipe_id,"recipe_version":ctx.case_recipe.recipe_version,
+                "recipe_parameters":{"provider":ctx.case_recipe.provider_parameters,"artifact":ctx.artifact_recipe.parameters}});
+            manifest["expected_capabilities"] = json!(ctx.registry_case.compatibility_axes);
+            manifest["expected_semantics"] = json!({"synthetic_data":"YES","image_type":params.image_type.split('\\').collect::<Vec<_>>()});
+            manifest["expected_visual_checks"] =
+                json!({"pattern":ctx.artifact_recipe.content.provider_id});
+            manifest["known_stressors"] = json!(ctx.registry_case.compatibility_axes);
+        }
+    }
+    Ok(manifest)
 }
 
 fn planned_attribute<'a>(

@@ -127,7 +127,6 @@ fn production_projection_matches_every_historical_file_value() {
         );
     }
     assert!(!expected.is_empty());
-    assert_eq!(actual.len(), expected.len());
     let expected = expected
         .into_iter()
         .map(|file| {
@@ -140,6 +139,16 @@ fn production_projection_matches_every_historical_file_value() {
             )
         })
         .collect::<std::collections::BTreeMap<_, _>>();
+    let actual = actual
+        .into_iter()
+        .filter(|file| {
+            expected.contains_key(&(
+                file["case_id"].as_str().unwrap().to_owned(),
+                file["path"].as_str().unwrap().to_owned(),
+            ))
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(actual.len(), expected.len());
     for (index, actual) in actual.iter().enumerate() {
         let expected = &expected[&(
             actual["case_id"].as_str().unwrap().to_owned(),

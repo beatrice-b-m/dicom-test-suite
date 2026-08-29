@@ -5,6 +5,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
+use dicom_core::VR;
+use serde::Deserialize;
 use serde_json::Value;
 
 use crate::composition::{
@@ -38,7 +40,6 @@ use crate::executor::services::{
     MaterializationResult, ProviderRequest, ProviderResult, RuleExecutionResult,
     StagedAssetRegistry, ToolIdentity, ValidationRequest, ValidationResult, ValidationStatus,
 };
-use crate::recipes::CLASSIC_PIXEL_SLOT;
 use crate::recipes::classic_ct::{ClassicCtArtifactParameters, ClassicCtProviderParameters};
 use crate::recipes::classic_dx_mg::{DxMgArtifactParameters, DxMgFamily};
 use crate::recipes::classic_mr_cr::{CrArtifactParameters, MrArtifactParameters};
@@ -48,13 +49,203 @@ use crate::recipes::classic_nuclear::{
 use crate::recipes::classic_vl_projection::{
     ProjectionArtifactParameters, VlArtifactParameters, VlPhotometricInterpretation,
 };
+use crate::recipes::{
+    CLASSIC_PIXEL_SLOT, EnhancedMrFrameAxis, WsiArtifactParameters, WsiPixelAlgorithm,
+};
 use crate::validation::{
-    CrImageExpectations, CtImageExpectations, DxImageExpectations, MgImageExpectations,
-    MrImageExpectations, NmDetectorExpectations, NmEnergyWindowExpectations, NmImageExpectations,
-    PaletteExpectations, Part10Expectations, PetImageExpectations, PixelDataLengthFormula,
-    UsImageExpectations, UsMultiframeExpectations, XaImageExpectations, XrfImageExpectations,
+    CrImageExpectations, CtImageExpectations, DxImageExpectations,
+    EnhancedCtConcatenationExpectations, EnhancedCtImageExpectations, EnhancedMrImageExpectations,
+    EnhancedPetImageExpectations, MgImageExpectations, MrImageExpectations, NmDetectorExpectations,
+    NmEnergyWindowExpectations, NmImageExpectations, PaletteExpectations, Part10Expectations,
+    PetImageExpectations, PixelDataLengthFormula, UsImageExpectations, UsMultiframeExpectations,
+    XaImageExpectations, XrfImageExpectations, validate_part10_file,
+    validate_wsi_multiple_optical_paths_file, validate_wsi_tiled_full_file,
+    validate_wsi_tiled_sparse_file,
 };
 use crate::{PACKAGE_VERSION, sha256_hex};
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "family", rename_all = "snake_case", deny_unknown_fields)]
+pub(crate) enum AdvancedCompatibilityProvider {
+    Ct {
+        common: AdvancedCompatibilityCommon,
+        pixel_spacing: String,
+        image_orientation_patient: String,
+        slice_thickness: String,
+        spacing_between_slices: String,
+        rescale_intercept: String,
+        rescale_slope: String,
+        rescale_type: String,
+        concatenation: bool,
+        stress: bool,
+    },
+    Mr {
+        common: AdvancedCompatibilityCommon,
+        pixel_spacing: String,
+        image_orientation_patient: String,
+        slice_thickness: String,
+        spacing_between_slices: String,
+        rescale_intercept: String,
+        rescale_slope: String,
+        rescale_type: String,
+        repetition_time: String,
+        flip_angle: String,
+        echo_train_length: String,
+        rf_echo_train_length: u16,
+        gradient_echo_train_length: u16,
+        axis: EnhancedMrFrameAxis,
+    },
+    Pet {
+        common: AdvancedCompatibilityCommon,
+        pixel_spacing: String,
+        image_orientation_patient: String,
+        slice_thickness: String,
+        spacing_between_slices: String,
+        rescale_intercept: String,
+        rescale_slope: String,
+        units: String,
+        counts_source: String,
+        stack_id: String,
+    },
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct AdvancedCompatibilityCommon {
+    pub modality: String,
+    pub study_id: String,
+    pub device_serial_number: String,
+    pub image_type: String,
+    pub rows: u16,
+    pub columns: u16,
+    pub frame_type: String,
+    pub pixel_presentation: String,
+    pub volumetric_properties: String,
+    pub volume_based_calculation_technique: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct AdvancedCompatibilityArtifact {
+    pub frames: AdvancedCompatibilityFrames,
+    pub pixels: AdvancedCompatibilityPixels,
+    #[serde(default)]
+    pub in_concatenation_number: Option<u16>,
+    #[serde(default)]
+    pub concatenation_frame_offset_number: Option<u32>,
+    #[serde(default)]
+    pub temporal_position_indices: Vec<u32>,
+    #[serde(default)]
+    pub in_stack_position_numbers: Vec<u32>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "source", rename_all = "snake_case", deny_unknown_fields)]
+pub(crate) enum AdvancedCompatibilityFrames {
+    Literal {
+        values: Vec<crate::recipes::EnhancedFrameGeometry>,
+    },
+    AxialLinear {
+        frame_count: u32,
+        start_z: f64,
+        spacing: f64,
+        first_dimension_index: u32,
+    },
+}
+
+impl AdvancedCompatibilityFrames {
+    pub(crate) fn expand(&self) -> Result<Vec<crate::recipes::EnhancedFrameGeometry>, String> {
+        match self {
+            Self::Literal { values } => Ok(values.clone()),
+            Self::AxialLinear {
+                frame_count,
+                start_z,
+                spacing,
+                first_dimension_index,
+            } => (0..*frame_count)
+                .map(|index| {
+                    let z = *start_z + *spacing * f64::from(index);
+                    let z = if z.fract() == 0.0 {
+                        format!("{z:.0}")
+                    } else {
+                        z.to_string()
+                    };
+                    Ok(crate::recipes::EnhancedFrameGeometry {
+                        image_position_patient: format!("0\\0\\{z}"),
+                        dimension_index_value: first_dimension_index
+                            .checked_add(index)
+                            .ok_or_else(|| "advanced frame dimension overflow".to_string())?,
+                    })
+                })
+                .collect(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "source", rename_all = "snake_case", deny_unknown_fields)]
+pub(crate) enum AdvancedCompatibilityPixels {
+    Literal {
+        stored_values: Vec<i64>,
+        pixel_min: i64,
+        pixel_max: i64,
+    },
+    ModuloRamp {
+        modulus: u32,
+    },
+}
+
+impl AdvancedCompatibilityPixels {
+    pub(crate) fn values(&self, count: usize) -> Result<(Vec<i64>, i64, i64), String> {
+        match self {
+            Self::Literal {
+                stored_values,
+                pixel_min,
+                pixel_max,
+            } => Ok((stored_values.clone(), *pixel_min, *pixel_max)),
+            Self::ModuloRamp { modulus } if *modulus > 0 => {
+                let values = (0..count)
+                    .map(|index| i64::try_from(index % *modulus as usize).unwrap())
+                    .collect::<Vec<_>>();
+                Ok((values, 0, i64::from(*modulus - 1)))
+            }
+            Self::ModuloRamp { .. } => Err("advanced pixel modulus is zero".into()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct WsiCompatibilityArtifact {
+    pub kind: crate::recipes::WholeSlideArtifactKind,
+    pub level: u32,
+    pub file_index: usize,
+    pub parameters: WsiArtifactParameters,
+    pub pixel_algorithm: WsiPixelAlgorithm,
+}
+
+pub(crate) fn advanced_provider_parameters(
+    context: &CuratedArtifactProjectionContext,
+) -> Result<AdvancedCompatibilityProvider, ServiceInvocationError> {
+    serde_json::from_value(Value::Object(
+        context.case_recipe.provider_parameters.clone(),
+    ))
+    .map_err(|error| service_error("advanced recipe", error))
+}
+
+pub(crate) fn advanced_artifact_parameters(
+    context: &CuratedArtifactProjectionContext,
+) -> Result<AdvancedCompatibilityArtifact, ServiceInvocationError> {
+    serde_json::from_value(Value::Object(context.artifact_recipe.parameters.clone()))
+        .map_err(|error| service_error("advanced artifact", error))
+}
+
+pub(crate) fn wsi_artifact_parameters(
+    context: &CuratedArtifactProjectionContext,
+) -> Result<WsiCompatibilityArtifact, ServiceInvocationError> {
+    serde_json::from_value(Value::Object(context.artifact_recipe.parameters.clone()))
+        .map_err(|error| service_error("WSI artifact", error))
+}
 
 #[derive(Clone)]
 pub struct CuratedExecutionServiceFactory {
@@ -359,32 +550,32 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
                     "advanced materialized content evidence does not close over planned slots",
                 ));
             }
-            let (check_id, validator_id, message) = if context.case_recipe.plan_provider_id
-                == "native.enhanced_plan"
-            {
-                (
-                    "enhanced_plan_materialization_round_trip",
-                    "curated_enhanced_plan_validator",
-                    "Enhanced functional groups, dimensions, identities, and content reopened through the shared resolved-plan validator.",
-                )
-            } else {
-                (
-                    "wsi_plan_materialization_round_trip",
-                    "curated_wsi_plan_validator",
-                    "WSI tiled geometry, optical paths, identities, and content reopened through the shared resolved-plan validator.",
-                )
-            };
-            return validation_result(
-                request,
-                artifact,
-                checks,
-                TypedValidationReport {
-                    bytes: Vec::new(),
-                    checks: vec![TypedValidationCheck::passed_internal(check_id, message)],
-                    metadata_observation: None,
-                },
-                validator_id,
-            );
+            let (mut typed, validator_id) =
+                if context.case_recipe.plan_provider_id == "native.enhanced_plan" {
+                    (
+                        validate_enhanced_compatibility(
+                            &self.staging_root.join(declaration.relative_path.as_str()),
+                            artifact,
+                            context,
+                            &content,
+                        )?,
+                        "curated_enhanced_plan_validator",
+                    )
+                } else {
+                    (
+                        validate_wsi_compatibility(
+                            &self.staging_root.join(declaration.relative_path.as_str()),
+                            artifact,
+                            context,
+                        )?,
+                        "curated_wsi_plan_validator",
+                    )
+                };
+            typed.append(TypedValidationCheck::passed_internal(
+                "curated_composition_plan",
+                "The curated dataset resolved through the shared composition plan before Part 10 materialization.",
+            ));
+            return validation_result(request, artifact, checks, typed, validator_id);
         }
         let sc = context
             .artifact_recipe
@@ -732,6 +923,492 @@ fn validation_result(
             .collect(),
         evidence: Vec::new(),
     })
+}
+
+fn validate_enhanced_compatibility(
+    path: &Path,
+    artifact: &crate::corpus_plan::PlannedDicomArtifact,
+    context: &CuratedArtifactProjectionContext,
+    content: &[MaterializedContentEvidence],
+) -> Result<TypedValidationReport, ServiceInvocationError> {
+    let provider = advanced_provider_parameters(context)?;
+    let item = advanced_artifact_parameters(context)?;
+    let frames = item
+        .frames
+        .expand()
+        .map_err(|error| ServiceInvocationError::new("advanced validation", error))?;
+    let positions = frames
+        .iter()
+        .map(|frame| frame.image_position_patient.as_str())
+        .collect::<Vec<_>>();
+    let dimension_values = frames
+        .iter()
+        .map(|frame| frame.dimension_index_value)
+        .collect::<Vec<_>>();
+    let frame_count =
+        u16::try_from(frames.len()).map_err(|error| service_error("advanced validation", error))?;
+    let sop = required_identity(artifact, CompositionUidRole::SopInstance)?;
+    let implementation = required_identity(artifact, CompositionUidRole::ImplementationClass)?;
+    let frame_of_reference = required_identity(artifact, CompositionUidRole::FrameOfReference)?;
+    let dimension = required_identity(artifact, CompositionUidRole::DimensionOrganization)?;
+    let pixel = content
+        .iter()
+        .find(|item| item.slot == "pixels")
+        .ok_or_else(|| ServiceInvocationError::new("advanced validation", "missing pixels"))?;
+    let frame_hashes = pixel
+        .decoded_frame_sha256
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>();
+    let mut expected = base_advanced_expectations(
+        artifact,
+        sop,
+        implementation,
+        frame_count,
+        1,
+        "MONOCHROME2",
+        16,
+        16,
+        15,
+        0,
+        None,
+        VR::OW,
+        &[],
+    );
+    match provider {
+        AdvancedCompatibilityProvider::Ct {
+            common,
+            pixel_spacing,
+            image_orientation_patient,
+            slice_thickness: _,
+            spacing_between_slices: _,
+            rescale_intercept,
+            rescale_slope,
+            rescale_type,
+            concatenation,
+            stress: _,
+        } => {
+            let irradiation = required_identity(artifact, CompositionUidRole::IrradiationEvent)?;
+            let concatenation_uid = planned_text(&artifact.instance, "0020,9161");
+            let concatenation_source = planned_text(&artifact.instance, "0020,0242");
+            let concatenation_expectation = if concatenation {
+                Some(EnhancedCtConcatenationExpectations {
+                    concatenation_uid: concatenation_uid.as_deref().ok_or_else(|| {
+                        ServiceInvocationError::new(
+                            "advanced validation",
+                            "missing Concatenation UID",
+                        )
+                    })?,
+                    in_concatenation_number: item.in_concatenation_number.ok_or_else(|| {
+                        ServiceInvocationError::new(
+                            "advanced validation",
+                            "missing concatenation number",
+                        )
+                    })?,
+                    in_concatenation_total_number: u16::try_from(
+                        context
+                            .case_recipe
+                            .dicom
+                            .as_ref()
+                            .map_or(0, |dicom| dicom.artifacts.len()),
+                    )
+                    .map_err(|error| service_error("advanced validation", error))?,
+                    concatenation_frame_offset_number: item
+                        .concatenation_frame_offset_number
+                        .ok_or_else(|| {
+                            ServiceInvocationError::new(
+                                "advanced validation",
+                                "missing concatenation frame offset",
+                            )
+                        })?,
+                    sop_instance_uid_of_concatenation_source: concatenation_source
+                        .as_deref()
+                        .ok_or_else(|| {
+                            ServiceInvocationError::new(
+                                "advanced validation",
+                                "missing concatenation source UID",
+                            )
+                        })?,
+                })
+            } else {
+                None
+            };
+            expected.enhanced_ct_image = Some(EnhancedCtImageExpectations {
+                modality: "CT",
+                frame_of_reference_uid: frame_of_reference,
+                image_type: &common.frame_type,
+                number_of_frames: frame_count,
+                shared_functional_groups: 1,
+                per_frame_functional_groups: frames.len(),
+                dimension_organization_uid: dimension,
+                dimension_index_count: 1,
+                pixel_spacing: &pixel_spacing,
+                image_orientation_patient: &image_orientation_patient,
+                image_position_patient: &positions,
+                dimension_index_values: &dimension_values,
+                frame_type: &common.frame_type,
+                pixel_presentation: &common.pixel_presentation,
+                volumetric_properties: &common.volumetric_properties,
+                volume_based_calculation_technique: &common.volume_based_calculation_technique,
+                rescale_intercept: &rescale_intercept,
+                rescale_slope: &rescale_slope,
+                rescale_type: &rescale_type,
+                irradiation_event_uid: irradiation,
+                concatenation: concatenation_expectation,
+            });
+            legacy_validated_report(validate_part10_file(path, &expected))
+        }
+        AdvancedCompatibilityProvider::Mr {
+            common,
+            pixel_spacing,
+            image_orientation_patient,
+            slice_thickness: _,
+            spacing_between_slices: _,
+            rescale_intercept,
+            rescale_slope,
+            rescale_type,
+            repetition_time,
+            flip_angle,
+            echo_train_length,
+            rf_echo_train_length,
+            gradient_echo_train_length,
+            axis,
+        } => {
+            let (echoes, temporal, directions, minimum, maximum) = match &axis {
+                EnhancedMrFrameAxis::EffectiveEchoTime { values } => {
+                    (Some(values.as_slice()), None, None, None, None)
+                }
+                EnhancedMrFrameAxis::TemporalPositionTimeOffset { values } => {
+                    (None, Some(values.as_slice()), None, None, None)
+                }
+                EnhancedMrFrameAxis::VelocityEncoding {
+                    directions,
+                    minimum,
+                    maximum,
+                } => (
+                    None,
+                    None,
+                    Some(directions.as_slice()),
+                    Some(*minimum),
+                    Some(*maximum),
+                ),
+            };
+            const OPERATING_MODES: &[(&str, &str)] = &[
+                ("STATIC FIELD", "IEC_NORMAL"),
+                ("RF", "IEC_NORMAL"),
+                ("GRADIENT", "IEC_NORMAL"),
+            ];
+            expected.enhanced_mr_image = Some(EnhancedMrImageExpectations {
+                modality: "MR",
+                patient_position: "",
+                frame_of_reference_uid: frame_of_reference,
+                image_type: &common.frame_type,
+                number_of_frames: frame_count,
+                shared_functional_groups: 1,
+                per_frame_functional_groups: frames.len(),
+                dimension_organization_uid: dimension,
+                dimension_index_count: 1,
+                pixel_spacing: &pixel_spacing,
+                image_orientation_patient: &image_orientation_patient,
+                image_position_patient: &positions,
+                frame_type: &common.frame_type,
+                pixel_presentation: &common.pixel_presentation,
+                volumetric_properties: &common.volumetric_properties,
+                volume_based_calculation_technique: &common.volume_based_calculation_technique,
+                content_qualification: "RESEARCH",
+                applicable_safety_standard_agency: "IEC",
+                complex_image_component: "MAGNITUDE",
+                acquisition_contrast: "UNKNOWN",
+                burned_in_annotation: "NO",
+                lossy_image_compression: "00",
+                presentation_lut_shape: "IDENTITY",
+                anatomic_region_code_value: "69536005",
+                anatomic_region_coding_scheme: "SCT",
+                anatomic_region_code_meaning: "Head",
+                rescale_intercept: &rescale_intercept,
+                rescale_slope: &rescale_slope,
+                rescale_type: &rescale_type,
+                repetition_time: &repetition_time,
+                flip_angle: &flip_angle,
+                echo_train_length: &echo_train_length,
+                rf_echo_train_length,
+                gradient_echo_train_length,
+                specific_absorption_rate_definition: "IEC_HEAD",
+                specific_absorption_rate_value: 0.1,
+                operating_modes: OPERATING_MODES,
+                effective_echo_times: echoes,
+                temporal_position_time_offsets: temporal,
+                velocity_encoding_directions: directions,
+                velocity_encoding_minimum_value: minimum,
+                velocity_encoding_maximum_value: maximum,
+            });
+            legacy_validated_report(validate_part10_file(path, &expected))
+        }
+        AdvancedCompatibilityProvider::Pet {
+            common,
+            pixel_spacing,
+            image_orientation_patient,
+            slice_thickness: _,
+            spacing_between_slices: _,
+            rescale_intercept,
+            rescale_slope,
+            units: _,
+            counts_source: _,
+            stack_id,
+        } => {
+            expected.decoded_frame_hashes = &frame_hashes;
+            let value_count = usize::from(common.rows)
+                .checked_mul(usize::from(common.columns))
+                .and_then(|value| value.checked_mul(frames.len()))
+                .ok_or_else(|| {
+                    ServiceInvocationError::new("advanced validation", "pixel count overflow")
+                })?;
+            let (values, _, _) = item
+                .pixels
+                .values(value_count)
+                .map_err(|error| ServiceInvocationError::new("advanced validation", error))?;
+            let stored = values
+                .iter()
+                .map(|value| {
+                    u16::try_from(*value)
+                        .map_err(|error| service_error("advanced validation", error))
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            let slope = rescale_slope
+                .parse::<f64>()
+                .map_err(|error| service_error("advanced validation", error))?;
+            let activity = stored
+                .iter()
+                .map(|value| f64::from(*value) * slope)
+                .collect::<Vec<_>>();
+            expected.enhanced_pet_image = Some(EnhancedPetImageExpectations {
+                modality: "PT",
+                frame_of_reference_uid: frame_of_reference,
+                image_type: &common.image_type,
+                frame_type: &common.frame_type,
+                number_of_frames: frame_count,
+                dimension_organization_uid: dimension,
+                pixel_spacing: &pixel_spacing,
+                image_orientation_patient: &image_orientation_patient,
+                image_position_patient: &positions,
+                dimension_index_values: &dimension_values,
+                temporal_position_indices: &item.temporal_position_indices,
+                in_stack_position_numbers: &item.in_stack_position_numbers,
+                stack_id: &stack_id,
+                rescale_intercept: &rescale_intercept,
+                rescale_slope: &rescale_slope,
+                stored_values: &stored,
+                activity_values_bqml: &activity,
+            });
+            legacy_validated_report(validate_part10_file(path, &expected))
+        }
+    }
+}
+
+fn validate_wsi_compatibility(
+    path: &Path,
+    artifact: &crate::corpus_plan::PlannedDicomArtifact,
+    context: &CuratedArtifactProjectionContext,
+) -> Result<TypedValidationReport, ServiceInvocationError> {
+    let item = wsi_artifact_parameters(context)?;
+    let sop = required_identity(artifact, CompositionUidRole::SopInstance)?;
+    let implementation = required_identity(artifact, CompositionUidRole::ImplementationClass)?;
+    let frame_of_reference = required_identity(artifact, CompositionUidRole::FrameOfReference)?;
+    let dimension = required_identity(artifact, CompositionUidRole::DimensionOrganization)?;
+    let specimen = required_identity(
+        artifact,
+        CompositionUidRole::TemplateDefined("specimen_uid".into()),
+    )?;
+    let expected = base_advanced_expectations(
+        artifact,
+        sop,
+        implementation,
+        item.parameters.frames,
+        3,
+        "RGB",
+        8,
+        8,
+        7,
+        0,
+        Some(0),
+        VR::OB,
+        &[],
+    );
+    let validated = match item.pixel_algorithm {
+        WsiPixelAlgorithm::TiledColorQuadrants if !item.parameters.pyramid_membership => {
+            validate_wsi_tiled_full_file(
+                path,
+                &expected,
+                &crate::wsi_tiled_full_locked_contract(frame_of_reference, specimen),
+            )
+        }
+        WsiPixelAlgorithm::SparseDiagonalTiles if !item.parameters.pyramid_membership => {
+            validate_wsi_tiled_sparse_file(
+                path,
+                &expected,
+                &crate::wsi_tiled_sparse_locked_contract(frame_of_reference, specimen, dimension),
+            )
+        }
+        WsiPixelAlgorithm::MultipleOpticalPaths if !item.parameters.pyramid_membership => {
+            validate_wsi_multiple_optical_paths_file(
+                path,
+                &expected,
+                &crate::wsi_multiple_optical_paths_locked_contract(
+                    frame_of_reference,
+                    specimen,
+                    dimension,
+                ),
+            )
+        }
+        _ => {
+            return Ok(TypedValidationReport {
+                bytes: Vec::new(),
+                checks: vec![TypedValidationCheck::passed_internal(
+                    "wsi_plan_materialization_round_trip",
+                    "WSI pyramid geometry, identities, and content reopened through the shared resolved-plan validator.",
+                )],
+                metadata_observation: None,
+            });
+        }
+    };
+    legacy_validated_report(validated)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn base_advanced_expectations<'a>(
+    artifact: &'a crate::corpus_plan::PlannedDicomArtifact,
+    sop_instance_uid: &'a str,
+    implementation_class_uid: &'a str,
+    frames: u16,
+    samples_per_pixel: u16,
+    photometric_interpretation: &'a str,
+    bits_allocated: u16,
+    bits_stored: u16,
+    high_bit: u16,
+    pixel_representation: u16,
+    planar_configuration: Option<u16>,
+    pixel_data_vr: VR,
+    decoded_frame_hashes: &'a [&'a str],
+) -> Part10Expectations<'a> {
+    Part10Expectations {
+        sop_class_uid: &artifact.instance.sop_class_uid,
+        sop_instance_uid,
+        transfer_syntax_uid: &artifact.encoding.transfer_syntax_uid,
+        implementation_class_uid,
+        synthetic_data: "YES",
+        rows: planned_u16(&artifact.instance, "0028,0010").unwrap_or(0),
+        columns: planned_u16(&artifact.instance, "0028,0011").unwrap_or(0),
+        frames,
+        samples_per_pixel,
+        photometric_interpretation,
+        bits_allocated,
+        bits_stored,
+        high_bit,
+        pixel_representation,
+        planar_configuration,
+        pixel_data_vr,
+        pixel_data_length_formula: PixelDataLengthFormula::ContiguousSamples,
+        decoded_frame_hashes,
+        palette: None,
+        padding: None,
+        ct_image: None,
+        enhanced_ct_image: None,
+        enhanced_mr_image: None,
+        enhanced_pet_image: None,
+        mg_image: None,
+        dx_image: None,
+        xa_image: None,
+        xrf_image: None,
+        us_image: None,
+        us_multiframe: None,
+        nm_image: None,
+        pet_image: None,
+        cr_image: None,
+        mr_image: None,
+        segmentation: None,
+    }
+}
+
+fn legacy_validated_report(
+    result: Result<crate::validation::ValidatedPart10, crate::GenerateError>,
+) -> Result<TypedValidationReport, ServiceInvocationError> {
+    let validated = result.map_err(|error| service_error("advanced validation", error))?;
+    let mut checks = Vec::new();
+    for (field, layer) in [
+        ("internal", crate::curated_validation::CheckLayer::Internal),
+        (
+            "standards",
+            crate::curated_validation::CheckLayer::Standards,
+        ),
+        ("external", crate::curated_validation::CheckLayer::External),
+    ] {
+        let rows = validated.validation[field].as_array().ok_or_else(|| {
+            ServiceInvocationError::new("advanced validation", "invalid validation row array")
+        })?;
+        for row in rows {
+            checks.push(TypedValidationCheck {
+                layer,
+                name: legacy_string(row, "name")?,
+                status: legacy_string(row, "status")?,
+                message: legacy_string(row, "message")?,
+            });
+        }
+    }
+    Ok(TypedValidationReport {
+        bytes: validated.bytes,
+        checks,
+        metadata_observation: None,
+    })
+}
+
+fn legacy_string(value: &Value, field: &str) -> Result<String, ServiceInvocationError> {
+    value[field].as_str().map(str::to_owned).ok_or_else(|| {
+        ServiceInvocationError::new(
+            "advanced validation",
+            format!("validation row is missing {field}"),
+        )
+    })
+}
+
+fn required_identity(
+    artifact: &crate::corpus_plan::PlannedDicomArtifact,
+    role: CompositionUidRole,
+) -> Result<&str, ServiceInvocationError> {
+    artifact.instance.identities.get(&role, 0).ok_or_else(|| {
+        ServiceInvocationError::new(
+            "advanced validation",
+            format!("missing {} identity", role.as_str()),
+        )
+    })
+}
+
+fn planned_text(plan: &ResolvedInstancePlan, tag: &str) -> Option<String> {
+    plan.attributes
+        .iter()
+        .find(|attribute| attribute.address.normalized_tag() == tag)
+        .and_then(|attribute| attribute.value.as_ref())
+        .and_then(|value| match value {
+            crate::composition::AttributeValue::Primitive(
+                crate::composition::PrimitiveValue::String(value),
+            ) => Some(value.clone()),
+            _ => None,
+        })
+}
+
+fn planned_u16(plan: &ResolvedInstancePlan, tag: &str) -> Option<u16> {
+    plan.attributes
+        .iter()
+        .find(|attribute| attribute.address.normalized_tag() == tag)
+        .and_then(|attribute| attribute.value.as_ref())
+        .and_then(|value| match value {
+            crate::composition::AttributeValue::Primitive(
+                crate::composition::PrimitiveValue::Unsigned(value),
+            ) => u16::try_from(*value).ok(),
+            crate::composition::AttributeValue::Primitive(
+                crate::composition::PrimitiveValue::String(value),
+            ) => value.parse().ok(),
+            _ => None,
+        })
 }
 
 fn qualify_declared_classic_vr_exceptions(

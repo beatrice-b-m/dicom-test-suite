@@ -117,9 +117,9 @@ fn ordinary_generate_preserves_locked_curated_history_for_public_profiles() {
         ),
         (
             "all",
-            // U4 expands this derived selection from the SC slice to the
-            // byte- and manifest-parity-qualified classic families.
-            "c24bbafcbbd0ab7d72a47d38fadc3a28ad4233434438e72fba7685b931744f22",
+            // U5 expands the exact U4 SC/classic slice with the ten
+            // byte- and full-Value-qualified Enhanced and WSI artifacts.
+            "5f993d4a6b2778f3226408eef5efa553c632842b89ad4c6cb3281056fc76193b",
         ),
         (
             "legacy",

@@ -15,7 +15,10 @@ mod model;
 mod presentation;
 mod quantitative;
 mod registration;
+mod rt;
 mod sc;
+mod semantic;
+mod sr;
 mod wsi;
 
 pub use crate::planning::RecipeIdentity;
@@ -84,9 +87,23 @@ pub use registration::{
     RegistrationKindInput, RegistrationPlanError, RegistrationPlanProvider,
     RegistrationProviderInput, RegistrationSourceInput, SpatialRegistrationParameters,
 };
+pub use rt::{
+    DoseParameters, ImageParameters, PlanParameters, RT_ALGORITHM_PROVIDER_ID,
+    RT_CONTENT_PROVIDER_ID, RT_PLAN_PROVIDER_ID, RadiationParameters, RadiationSetParameters,
+    RtDocumentParameters, RtObjectParameters, RtPlanError, RtPlanInput, RtPlanProvider,
+    RtSourceDeclaration, StructureSetParameters, rt_input_from_recipe,
+};
 pub use sc::{
     ScPlanError, SecondaryCapturePlanInput, native_pixel_content_from_recipe,
     native_pixel_request_from_recipe, resolved_secondary_capture_plan,
+};
+pub use semantic::{SemanticPlanContext, SemanticPlanError, SemanticPlanOutput, SemanticSource};
+pub use sr::{
+    ExternalSrImportRequest, HIGH_DICOM_SR_ALGORITHM_PROVIDER_ID,
+    HIGH_DICOM_SR_CONTENT_PROVIDER_ID, HIGH_DICOM_SR_IMPORT_PROVIDER_ID, HighDicomSrBoundary,
+    SR_ALGORITHM_PROVIDER_ID, SR_CONTENT_PROVIDER_ID, SR_PLAN_PROVIDER_ID, SrDocumentKind,
+    SrDocumentParameters, SrPlanError, SrPlanInput, SrPlanProvider, SrSourceDeclaration,
+    sr_input_from_recipe,
 };
 pub use wsi::{
     WSI_ADVANCED_PROVIDER_ID, WsiAdvancedPlanProvider, WsiArtifactParameters, WsiArtifactRecipe,

@@ -678,7 +678,7 @@ fn rt_operations(
     let (modality, label_tag, label_vr) = match contract.object_kind {
         RtObjectKind::StructureSet => ("RTSTRUCT", "3006,0002", DicomVr::SH),
         RtObjectKind::Plan => ("RTPLAN", "300A,0002", DicomVr::SH),
-        RtObjectKind::Dose => ("RTDOSE", "3004,0006", DicomVr::LT),
+        RtObjectKind::Dose => ("RTDOSE", "3004,0006", DicomVr::LO),
         RtObjectKind::Image => ("RTIMAGE", "3002,0002", DicomVr::SH),
     };
     let mut operations = vec![
@@ -787,16 +787,17 @@ fn reference_sequence(
                 set_string("0008,1155", DicomVr::UI, &reference.sop_instance_uid)?,
             ];
             if !reference.frames.is_empty() {
-                attributes.push(set_string(
-                    "0008,1160",
-                    DicomVr::IS,
-                    &reference
-                        .frames
-                        .iter()
-                        .map(u32::to_string)
-                        .collect::<Vec<_>>()
-                        .join("\\"),
-                )?);
+                attributes.push(AttributeOperation::Set {
+                    address: address("0008,1160")?,
+                    vr: DicomVr::IS,
+                    value: AttributeValue::Multi(
+                        reference
+                            .frames
+                            .iter()
+                            .map(|frame| PrimitiveValue::String(frame.to_string()))
+                            .collect(),
+                    ),
+                });
             }
             Ok(AttributeItem { attributes })
         })

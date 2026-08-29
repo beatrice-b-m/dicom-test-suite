@@ -76,6 +76,10 @@ These are dated evidence records for implemented vertical slices:
 
 ## Planning And Decision Records
 
+- [Unified generation spine plan](unified-generation-spine-plan.md): active
+  migration plan for making curated generation and caller-authored composition
+  share one plan-first corpus executor while preserving their distinct
+  registry and evidence semantics.
 - [Arbitrary DICOM composition plan](arbitrary-dicom-composition-plan.md):
   completed phased execution contract for the standards-aware caller-supplied
   attribute and content composition engine. The operating guides and P8 status

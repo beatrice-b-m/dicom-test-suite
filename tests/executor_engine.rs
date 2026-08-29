@@ -58,10 +58,12 @@ fn plan() -> CorpusPlan {
             },
             encoding: EncodingPlan {
                 transfer_syntax_uid: TS.into(),
-                dataset_length: DatasetLengthPolicy::WriterDefault,
+                sequence_length: SequenceLengthPolicy::WriterDefault,
+                item_length: ItemLengthPolicy::WriterDefault,
                 fragmentation: FragmentationPolicy::Native,
                 offset_table: OffsetTablePolicy::NotApplicable,
                 preamble: PreamblePolicy::ZeroFilled,
+                file_meta: FileMetaPolicy::Standard,
                 implementation: ImplementationIdentityPlan {
                     class_uid: "2.25.99".into(),
                     version_name: Some("DICOMTS010".into()),

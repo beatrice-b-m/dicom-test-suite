@@ -890,11 +890,11 @@ mod tests {
         CompositionUidRole, IdentityPlan, ResolvedInstancePlan, TemplateId, TemplateVersion,
     };
     use crate::corpus_plan::{
-        ArtifactProvenance, ArtifactResourceEstimate, DatasetLengthPolicy, EncodingPlan,
-        EvidenceIndependence, EvidenceObligation, EvidencePlan, FragmentationPolicy,
-        ImplementationIdentityPlan, MutationPlan, OffsetTablePolicy, OutputPlan,
+        ArtifactProvenance, ArtifactResourceEstimate, EncodingPlan, EvidenceIndependence,
+        EvidenceObligation, EvidencePlan, FileMetaPolicy, FragmentationPolicy,
+        ImplementationIdentityPlan, ItemLengthPolicy, MutationPlan, OffsetTablePolicy, OutputPlan,
         OutputRelativePath, PlannedByteRange, PlannedMutationOperation, PreamblePolicy,
-        ValidationPlan, ValidationRequirement, ValidationRule,
+        SequenceLengthPolicy, ValidationPlan, ValidationRequirement, ValidationRule,
     };
 
     static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -982,10 +982,12 @@ mod tests {
             output: output(path, publish),
             encoding: EncodingPlan {
                 transfer_syntax_uid: "1.2.840.10008.1.2.1".into(),
-                dataset_length: DatasetLengthPolicy::WriterDefault,
+                sequence_length: SequenceLengthPolicy::WriterDefault,
+                item_length: ItemLengthPolicy::WriterDefault,
                 fragmentation: FragmentationPolicy::Native,
                 offset_table: OffsetTablePolicy::NotApplicable,
                 preamble: PreamblePolicy::ZeroFilled,
+                file_meta: FileMetaPolicy::Standard,
                 implementation: ImplementationIdentityPlan {
                     class_uid: "2.25.1002".into(),
                     version_name: Some("DICOMTS010".into()),

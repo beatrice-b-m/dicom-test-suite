@@ -5,10 +5,11 @@ use dicom_test_suite::composition::{
 };
 use dicom_test_suite::corpus_plan::{
     ArtifactProvenance, ArtifactResourceEstimate, CORPUS_PLAN_SCHEMA_VERSION, CorpusPlan,
-    DatasetLengthPolicy, EncodingPlan, EvidenceIndependence, EvidenceObligation, EvidencePlan,
-    FragmentationPolicy, ImplementationIdentityPlan, OffsetTablePolicy, OutputPlan,
-    OutputRelativePath, PlannedArtifact, PlannedDicomArtifact, PreamblePolicy, PublicationPlan,
-    PublicationTransaction, ResourcePlan, ValidationPlan, ValidationRequirement, ValidationRule,
+    EncodingPlan, EvidenceIndependence, EvidenceObligation, EvidencePlan, FileMetaPolicy,
+    FragmentationPolicy, ImplementationIdentityPlan, ItemLengthPolicy, OffsetTablePolicy,
+    OutputPlan, OutputRelativePath, PlannedArtifact, PlannedDicomArtifact, PreamblePolicy,
+    PublicationPlan, PublicationTransaction, ResourcePlan, SequenceLengthPolicy, ValidationPlan,
+    ValidationRequirement, ValidationRule,
 };
 use dicom_test_suite::executor::adapters::{
     ArtifactServiceOutputs, CodecExecutionRecord, ProviderExecutionRecord, PublicationTransition,
@@ -77,10 +78,12 @@ fn planned(id: &str, order: u64, path: &str) -> PlannedArtifact {
         },
         encoding: EncodingPlan {
             transfer_syntax_uid: TS.into(),
-            dataset_length: DatasetLengthPolicy::WriterDefault,
+            sequence_length: SequenceLengthPolicy::WriterDefault,
+            item_length: ItemLengthPolicy::WriterDefault,
             fragmentation: FragmentationPolicy::Native,
             offset_table: OffsetTablePolicy::NotApplicable,
             preamble: PreamblePolicy::ZeroFilled,
+            file_meta: FileMetaPolicy::Standard,
             implementation: ImplementationIdentityPlan {
                 class_uid: "2.25.99".into(),
                 version_name: Some("DICOMTS010".into()),

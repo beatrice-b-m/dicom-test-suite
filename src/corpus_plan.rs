@@ -15,7 +15,7 @@ use serde_json::Value;
 use crate::composition::ResolvedInstancePlan;
 use crate::sha256_hex;
 
-pub const CORPUS_PLAN_SCHEMA_VERSION: &str = "0.1.0";
+pub const CORPUS_PLAN_SCHEMA_VERSION: &str = "0.2.0";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -458,6 +458,23 @@ impl PlannedDicomArtifact {
                 encoding_uid: self.encoding.transfer_syntax_uid.clone(),
             });
         }
+        let instance_implementation_uid = self
+            .instance
+            .identities
+            .get(
+                &crate::composition::CompositionUidRole::ImplementationClass,
+                0,
+            )
+            .ok_or_else(|| CorpusPlanError::MissingImplementationIdentity {
+                logical_id: self.logical_id.clone(),
+            })?;
+        if instance_implementation_uid != self.encoding.implementation.class_uid {
+            return Err(CorpusPlanError::ImplementationIdentityMismatch {
+                logical_id: self.logical_id.clone(),
+                instance_uid: instance_implementation_uid.to_owned(),
+                encoding_uid: self.encoding.implementation.class_uid.clone(),
+            });
+        }
         self.output.validate()?;
         self.encoding.validate()?;
         self.validation.validate()?;
@@ -638,28 +655,97 @@ impl OutputPlan {
 #[serde(deny_unknown_fields)]
 pub struct EncodingPlan {
     pub transfer_syntax_uid: String,
-    pub dataset_length: DatasetLengthPolicy,
+    pub sequence_length: SequenceLengthPolicy,
+    pub item_length: ItemLengthPolicy,
     pub fragmentation: FragmentationPolicy,
     pub offset_table: OffsetTablePolicy,
     pub preamble: PreamblePolicy,
+    pub file_meta: FileMetaPolicy,
     pub implementation: ImplementationIdentityPlan,
     pub backend_id: String,
 }
 
 impl EncodingPlan {
-    fn validate(&self) -> Result<(), CorpusPlanError> {
+    pub fn validate(&self) -> Result<(), CorpusPlanError> {
         validate_uid("transfer_syntax_uid", &self.transfer_syntax_uid)?;
         validate_identifier("encoding backend_id", &self.backend_id)?;
-        self.implementation.validate()
+        self.implementation.validate()?;
+
+        let native = matches!(self.fragmentation, FragmentationPolicy::Native);
+        let no_offset_table = self.offset_table == OffsetTablePolicy::NotApplicable;
+        if native != no_offset_table {
+            return Err(CorpusPlanError::InvalidEncodingCombination(
+                "native fragmentation and a not-applicable offset table must be selected together",
+            ));
+        }
+        if matches!(
+            self.fragmentation,
+            FragmentationPolicy::FixedMaximumBytes { maximum_bytes: 0 }
+        ) {
+            return Err(CorpusPlanError::ZeroFragmentSizeLimit);
+        }
+        if self.offset_table == OffsetTablePolicy::Extended
+            && self.fragmentation != FragmentationPolicy::OneFragmentPerFrame
+        {
+            return Err(CorpusPlanError::InvalidEncodingCombination(
+                "extended offset tables require one fragment per frame",
+            ));
+        }
+
+        const IMPLICIT_VR_LE: &str = "1.2.840.10008.1.2";
+        const EXPLICIT_VR_LE: &str = "1.2.840.10008.1.2.1";
+        const EXPLICIT_VR_BE: &str = "1.2.840.10008.1.2.2";
+        const RLE_LOSSLESS: &str = "1.2.840.10008.1.2.5";
+        if self.transfer_syntax_uid == RLE_LOSSLESS && native {
+            return Err(CorpusPlanError::InvalidEncodingCombination(
+                "RLE Lossless requires encapsulated fragmentation",
+            ));
+        }
+        if matches!(
+            self.transfer_syntax_uid.as_str(),
+            IMPLICIT_VR_LE | EXPLICIT_VR_LE | EXPLICIT_VR_BE
+        ) && !native
+        {
+            return Err(CorpusPlanError::InvalidEncodingCombination(
+                "native transfer syntaxes cannot use encapsulated fragmentation",
+            ));
+        }
+        match self.backend_id.as_str() {
+            "encoding.native.rle_lossless" if self.transfer_syntax_uid != RLE_LOSSLESS => {
+                return Err(CorpusPlanError::BackendTransferSyntaxMismatch {
+                    backend_id: self.backend_id.clone(),
+                    transfer_syntax_uid: self.transfer_syntax_uid.clone(),
+                });
+            }
+            "encoding.native.explicit_vr_big_endian"
+                if self.transfer_syntax_uid != EXPLICIT_VR_BE =>
+            {
+                return Err(CorpusPlanError::BackendTransferSyntaxMismatch {
+                    backend_id: self.backend_id.clone(),
+                    transfer_syntax_uid: self.transfer_syntax_uid.clone(),
+                });
+            }
+            _ => {}
+        }
+        Ok(())
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum DatasetLengthPolicy {
+pub enum SequenceLengthPolicy {
     WriterDefault,
     Defined,
-    UndefinedSequences,
+    Undefined,
+    PreserveDeclared,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ItemLengthPolicy {
+    WriterDefault,
+    Defined,
+    Undefined,
     PreserveDeclared,
 }
 
@@ -686,6 +772,12 @@ pub enum OffsetTablePolicy {
 pub enum PreamblePolicy {
     ZeroFilled,
     DeterministicNonZero,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FileMetaPolicy {
+    Standard,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1062,6 +1154,20 @@ pub enum CorpusPlanError {
         instance_uid: String,
         encoding_uid: String,
     },
+    MissingImplementationIdentity {
+        logical_id: String,
+    },
+    ImplementationIdentityMismatch {
+        logical_id: String,
+        instance_uid: String,
+        encoding_uid: String,
+    },
+    InvalidEncodingCombination(&'static str),
+    ZeroFragmentSizeLimit,
+    BackendTransferSyntaxMismatch {
+        backend_id: String,
+        transfer_syntax_uid: String,
+    },
     InvalidImplementationVersion,
     EmptyValidationPlan,
     DuplicateValidationRule(String),
@@ -1193,6 +1299,31 @@ impl fmt::Display for CorpusPlanError {
             } => write!(
                 formatter,
                 "artifact {logical_id} instance transfer syntax {instance_uid} differs from encoding {encoding_uid}"
+            ),
+            Self::MissingImplementationIdentity { logical_id } => write!(
+                formatter,
+                "artifact {logical_id} has no implementation class identity"
+            ),
+            Self::ImplementationIdentityMismatch {
+                logical_id,
+                instance_uid,
+                encoding_uid,
+            } => write!(
+                formatter,
+                "artifact {logical_id} instance implementation class {instance_uid} differs from encoding {encoding_uid}"
+            ),
+            Self::InvalidEncodingCombination(message) => {
+                write!(formatter, "invalid encoding policy combination: {message}")
+            }
+            Self::ZeroFragmentSizeLimit => {
+                formatter.write_str("fragment maximum bytes must be non-zero")
+            }
+            Self::BackendTransferSyntaxMismatch {
+                backend_id,
+                transfer_syntax_uid,
+            } => write!(
+                formatter,
+                "encoding backend {backend_id} does not support transfer syntax {transfer_syntax_uid}"
             ),
             Self::InvalidImplementationVersion => {
                 formatter.write_str("implementation version must be 1-16 ASCII bytes")

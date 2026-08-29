@@ -9,11 +9,11 @@ use std::collections::BTreeMap;
 use crate::IMPLEMENTATION_VERSION_NAME;
 use crate::corpus_plan::{
     ArtifactDependency, ArtifactProvenance, ArtifactResourceEstimate, CORPUS_PLAN_SCHEMA_VERSION,
-    CorpusPlan, CorpusPlanError, DatasetLengthPolicy, EncodingPlan, EvidenceIndependence,
-    EvidenceObligation, EvidencePlan, FragmentationPolicy, ImplementationIdentityPlan,
-    OffsetTablePolicy, OutputPlan, OutputRelativePath, PlannedArtifact, PlannedDicomArtifact,
-    PreamblePolicy, PublicationPlan, PublicationTransaction, ResourcePlan, ValidationPlan,
-    ValidationRequirement, ValidationRule,
+    CorpusPlan, CorpusPlanError, EncodingPlan, EvidenceIndependence, EvidenceObligation,
+    EvidencePlan, FileMetaPolicy, FragmentationPolicy, ImplementationIdentityPlan,
+    ItemLengthPolicy, OffsetTablePolicy, OutputPlan, OutputRelativePath, PlannedArtifact,
+    PlannedDicomArtifact, PreamblePolicy, PublicationPlan, PublicationTransaction, ResourcePlan,
+    SequenceLengthPolicy, ValidationPlan, ValidationRequirement, ValidationRule,
 };
 
 use super::{
@@ -119,7 +119,8 @@ fn planned_artifact(
         },
         encoding: EncodingPlan {
             transfer_syntax_uid: plan.transfer_syntax_uid.clone(),
-            dataset_length: DatasetLengthPolicy::WriterDefault,
+            sequence_length: SequenceLengthPolicy::WriterDefault,
+            item_length: ItemLengthPolicy::WriterDefault,
             fragmentation: if encapsulated.is_some()
                 || plan.transfer_syntax_uid == crate::codecs::RLE_LOSSLESS_TRANSFER_SYNTAX_UID
             {
@@ -138,6 +139,7 @@ fn planned_artifact(
                 None => OffsetTablePolicy::NotApplicable,
             },
             preamble: PreamblePolicy::ZeroFilled,
+            file_meta: FileMetaPolicy::Standard,
             implementation: ImplementationIdentityPlan {
                 class_uid: implementation_class_uid,
                 version_name: Some(IMPLEMENTATION_VERSION_NAME.into()),

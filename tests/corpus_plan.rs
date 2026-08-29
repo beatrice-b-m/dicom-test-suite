@@ -5,13 +5,14 @@ use dicom_test_suite::composition::{
 };
 use dicom_test_suite::corpus_plan::{
     ArtifactDependency, ArtifactProvenance, ArtifactResourceEstimate, CORPUS_PLAN_SCHEMA_VERSION,
-    CapabilityKind, CaseBinding, CorpusPlan, CorpusPlanError, DatasetLengthPolicy, EncodingPlan,
-    EvidenceIndependence, EvidenceObligation, EvidencePlan, FragmentationPolicy,
-    ImplementationIdentityPlan, MutationPlan, OffsetTablePolicy, OutputPlan, OutputRelativePath,
-    PlannedArtifact, PlannedAuxiliaryArtifact, PlannedByteRange, PlannedDicomArtifact,
-    PlannedMutationArtifact, PlannedMutationOperation, PlannedQualification, PreamblePolicy,
-    PublicationPlan, PublicationTransaction, QualificationPayloadPolicy, ResourcePlan,
-    UnavailableCapability, ValidationPlan, ValidationRequirement, ValidationRule,
+    CapabilityKind, CaseBinding, CorpusPlan, CorpusPlanError, EncodingPlan, EvidenceIndependence,
+    EvidenceObligation, EvidencePlan, FileMetaPolicy, FragmentationPolicy,
+    ImplementationIdentityPlan, ItemLengthPolicy, MutationPlan, OffsetTablePolicy, OutputPlan,
+    OutputRelativePath, PlannedArtifact, PlannedAuxiliaryArtifact, PlannedByteRange,
+    PlannedDicomArtifact, PlannedMutationArtifact, PlannedMutationOperation, PlannedQualification,
+    PreamblePolicy, PublicationPlan, PublicationTransaction, QualificationPayloadPolicy,
+    ResourcePlan, SequenceLengthPolicy, UnavailableCapability, ValidationPlan,
+    ValidationRequirement, ValidationRule,
 };
 
 const EXPLICIT_LE: &str = "1.2.840.10008.1.2.1";
@@ -100,10 +101,12 @@ fn dicom(logical_id: &str, provenance: ArtifactProvenance, path: &str) -> Planne
         },
         encoding: EncodingPlan {
             transfer_syntax_uid: EXPLICIT_LE.into(),
-            dataset_length: DatasetLengthPolicy::WriterDefault,
+            sequence_length: SequenceLengthPolicy::WriterDefault,
+            item_length: ItemLengthPolicy::WriterDefault,
             fragmentation: FragmentationPolicy::Native,
             offset_table: OffsetTablePolicy::NotApplicable,
             preamble: PreamblePolicy::ZeroFilled,
+            file_meta: FileMetaPolicy::Standard,
             implementation: ImplementationIdentityPlan {
                 class_uid: IMPLEMENTATION_UID.into(),
                 version_name: Some("DICOMTS010".into()),
@@ -422,6 +425,114 @@ fn validation_rejects_schema_identity_encoding_and_publication_drift() {
     assert!(matches!(
         value.validate(),
         Err(CorpusPlanError::UnsafePublicationPolicy)
+    ));
+}
+
+#[test]
+fn encoding_contract_serializes_distinct_length_file_meta_and_identity_fields() {
+    let value = plan(
+        vec![dicom("one", ArtifactProvenance::Requested, "one.dcm")],
+        vec![],
+    );
+    let json: serde_json::Value =
+        serde_json::from_slice(&value.canonical_bytes().unwrap()).unwrap();
+    let encoding = &json["artifacts"][0]["encoding"];
+    assert_eq!(json["schema_version"], CORPUS_PLAN_SCHEMA_VERSION);
+    assert_eq!(encoding["sequence_length"], "writer_default");
+    assert_eq!(encoding["item_length"], "writer_default");
+    assert_eq!(encoding["file_meta"], "standard");
+    assert!(encoding.get("dataset_length").is_none());
+    assert_eq!(encoding["implementation"]["class_uid"], IMPLEMENTATION_UID);
+}
+
+#[test]
+fn encoding_contract_rejects_invalid_fragment_offset_backend_and_zero_limit_matrix() {
+    let base = dicom("one", ArtifactProvenance::Requested, "one.dcm");
+    let expect_invalid = |mutate: fn(&mut EncodingPlan), expected: fn(&CorpusPlanError) -> bool| {
+        let mut artifact = base.clone();
+        let PlannedArtifact::Dicom(value) = &mut artifact else {
+            unreachable!()
+        };
+        mutate(&mut value.encoding);
+        let error = plan(vec![artifact], vec![]).validate().unwrap_err();
+        assert!(expected(&error), "unexpected error: {error}");
+    };
+    expect_invalid(
+        |encoding| encoding.offset_table = OffsetTablePolicy::EmptyBasic,
+        |error| matches!(error, CorpusPlanError::InvalidEncodingCombination(_)),
+    );
+    let mut artifact = base.clone();
+    let PlannedArtifact::Dicom(value) = &mut artifact else {
+        unreachable!()
+    };
+    value.instance.transfer_syntax_uid = "1.2.840.10008.1.2.5".into();
+    value.encoding.transfer_syntax_uid = "1.2.840.10008.1.2.5".into();
+    value.encoding.fragmentation = FragmentationPolicy::FixedMaximumBytes { maximum_bytes: 0 };
+    value.encoding.offset_table = OffsetTablePolicy::EmptyBasic;
+    assert!(matches!(
+        plan(vec![artifact], vec![]).validate(),
+        Err(CorpusPlanError::ZeroFragmentSizeLimit)
+    ));
+
+    let mut artifact = base.clone();
+    let PlannedArtifact::Dicom(value) = &mut artifact else {
+        unreachable!()
+    };
+    value.instance.transfer_syntax_uid = "1.2.840.10008.1.2.5".into();
+    value.encoding.transfer_syntax_uid = "1.2.840.10008.1.2.5".into();
+    value.encoding.fragmentation = FragmentationPolicy::PreserveEncodedFrames;
+    value.encoding.offset_table = OffsetTablePolicy::Extended;
+    assert!(matches!(
+        plan(vec![artifact], vec![]).validate(),
+        Err(CorpusPlanError::InvalidEncodingCombination(_))
+    ));
+
+    let mut artifact = base.clone();
+    let PlannedArtifact::Dicom(value) = &mut artifact else {
+        unreachable!()
+    };
+    value.encoding.fragmentation = FragmentationPolicy::OneFragmentPerFrame;
+    value.encoding.offset_table = OffsetTablePolicy::NotApplicable;
+    assert!(matches!(
+        plan(vec![artifact], vec![]).validate(),
+        Err(CorpusPlanError::InvalidEncodingCombination(_))
+    ));
+
+    let mut artifact = base;
+    let PlannedArtifact::Dicom(value) = &mut artifact else {
+        unreachable!()
+    };
+    value.encoding.backend_id = "encoding.native.rle_lossless".into();
+    assert!(matches!(
+        plan(vec![artifact], vec![]).validate(),
+        Err(CorpusPlanError::BackendTransferSyntaxMismatch { .. })
+    ));
+}
+
+#[test]
+fn encoding_contract_cross_checks_implementation_class_identity() {
+    let mut artifact = dicom("one", ArtifactProvenance::Requested, "one.dcm");
+    let PlannedArtifact::Dicom(value) = &mut artifact else {
+        unreachable!()
+    };
+    value.encoding.implementation.class_uid = "2.25.999".into();
+    assert!(matches!(
+        plan(vec![artifact], vec![]).validate(),
+        Err(CorpusPlanError::ImplementationIdentityMismatch { .. })
+    ));
+
+    let mut artifact = dicom("one", ArtifactProvenance::Requested, "one.dcm");
+    let PlannedArtifact::Dicom(value) = &mut artifact else {
+        unreachable!()
+    };
+    value.instance.identities = IdentityPlan::from_exact_values(
+        "one",
+        [(CompositionUidRole::SopInstance, 0, "2.25.1003".into())],
+    )
+    .unwrap();
+    assert!(matches!(
+        plan(vec![artifact], vec![]).validate(),
+        Err(CorpusPlanError::MissingImplementationIdentity { .. })
     ));
 }
 

@@ -19,12 +19,18 @@ use crate::executor::adapters::{ManifestProjectionArtifact, ManifestProjectionCo
 use crate::executor::evidence::{
     ArtifactExecutionEvidence, MaterializedContentEvidence, ResultStatus,
 };
+use crate::quantitative_evidence::{
+    NativeRwvmManifestProjection, NativeSegManifestProjection, QuantitativeCheck,
+    QuantitativeValidationReport, SegPixelDataProjection, project_native_rwvm_manifest_fields,
+    project_native_seg_manifest_fields,
+};
 use crate::recipes::{
     ENCAPSULATED_PAYLOAD_PLAN_PROVIDER_ID, EnhancedMrFrameAxis, MetadataScParameters,
     PRESENTATION_ADVANCED_PROVIDER_ID, PresentationKind, PrivateElementValue,
-    REGISTRATION_PLAN_PROVIDER_ID, RegistrationKindInput, StringValueSource,
-    WAVEFORM_PLAN_PROVIDER_ID, WsiPixelAlgorithm, encapsulated_payload_input_from_recipe,
-    project_encapsulated_payload, project_waveform, waveform_input_from_recipe,
+    QUANTITATIVE_NATIVE_PROVIDER_ID, REGISTRATION_PLAN_PROVIDER_ID, RegistrationKindInput,
+    SegmentationInput, SegmentationKind, StringValueSource, WAVEFORM_PLAN_PROVIDER_ID,
+    WsiPixelAlgorithm, encapsulated_payload_input_from_recipe, project_encapsulated_payload,
+    project_waveform, waveform_input_from_recipe,
 };
 
 const RLE: &str = "1.2.840.10008.1.2.5";
@@ -262,6 +268,9 @@ fn project_one(
     ) {
         return project_typed_bulk_file_entry(ctx, pair, planned);
     }
+    if ctx.case_recipe.plan_provider_id == QUANTITATIVE_NATIVE_PROVIDER_ID {
+        return project_native_quantitative_file_entry(ctx, pair, planned, input);
+    }
     let sc = ctx
         .artifact_recipe
         .secondary_capture
@@ -381,6 +390,357 @@ fn project_one(
     });
     add_special(&mut manifest, ctx, planned, pixels, observation.as_ref())?;
     Ok(manifest)
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct QuantitativeSourceProjection {
+    recipe: crate::recipes::RecipeReference,
+    artifact_logical_id: String,
+    role: crate::recipes::QuantitativeSourceRole,
+    referenced_frames: Vec<u32>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SegProjectionParameters {
+    segmentation: SegmentationInput,
+    sources: Vec<QuantitativeSourceProjection>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RwvmProjectionParameters {
+    mapping: crate::recipes::RealWorldValueMappingInput,
+    sources: Vec<QuantitativeSourceProjection>,
+}
+
+fn project_native_quantitative_file_entry(
+    ctx: &CuratedArtifactProjectionContext,
+    pair: &ManifestProjectionArtifact,
+    planned: &PlannedDicomArtifact,
+    input: &ManifestProjectionCompatibilityInput,
+) -> Result<Value, CuratedManifestError> {
+    let execution = &pair.execution;
+    let output = execution
+        .output
+        .as_ref()
+        .ok_or_else(|| err("quantitative artifact has no output evidence"))?;
+    let materialization = execution
+        .materialization
+        .as_ref()
+        .ok_or_else(|| err("quantitative artifact has no materialization evidence"))?;
+    if execution.status != crate::executor::evidence::ExecutionStatus::Succeeded
+        || !output.publish
+        || output.relative_path != planned.output.relative_path.as_str()
+        || output.relative_path != ctx.artifact_recipe.output.path.as_deref().unwrap_or("")
+        || materialization.transfer_syntax_uid.as_deref()
+            != Some(planned.encoding.transfer_syntax_uid.as_str())
+        || materialization.implementation_class_uid.as_deref()
+            != Some(planned.encoding.implementation.class_uid.as_str())
+        || materialization.materialized_artifact_sha256.as_deref() != Some(output.sha256.as_str())
+    {
+        return fail("quantitative output/materialization differs from immutable plan");
+    }
+    let [reference] = planned.instance.references.as_slice() else {
+        return fail("native quantitative projection requires exactly one source reference");
+    };
+    let source_pair = input
+        .artifacts
+        .iter()
+        .find(|candidate| candidate.planned.logical_id() == reference.target_instance_id)
+        .ok_or_else(|| err("quantitative source is absent from projection input"))?;
+    let PlannedArtifact::Dicom(source_planned) = &source_pair.planned else {
+        return fail("quantitative source is not DICOM");
+    };
+    let source_binding = source_planned
+        .case_binding
+        .as_ref()
+        .ok_or_else(|| err("quantitative source has no case binding"))?;
+    let source_output = source_pair
+        .execution
+        .output
+        .as_ref()
+        .ok_or_else(|| err("quantitative source has no output evidence"))?;
+    if reference.referenced_sop_class_uid != source_planned.instance.sop_class_uid
+        || reference.referenced_sop_instance_uid
+            != uid(source_planned, CompositionUidRole::SopInstance)?
+        || !source_output.publish
+    {
+        return fail("quantitative source reference differs from planned/executed source");
+    }
+    let checks = validation_checks(execution)?;
+    let report = quantitative_validation_report(&checks)?;
+    let is_seg = ctx
+        .case_recipe
+        .provider_parameters
+        .contains_key("segmentation");
+    let fields = if is_seg {
+        let parameters: SegProjectionParameters =
+            serde_json::from_value(Value::Object(ctx.case_recipe.provider_parameters.clone()))
+                .map_err(|error| err(format!("invalid SEG projection parameters: {error}")))?;
+        let [declared_source] = parameters.sources.as_slice() else {
+            return fail("native SEG projection requires one declared source");
+        };
+        if declared_source.referenced_frames != reference.referenced_frames
+            || declared_source.role
+                != crate::recipes::QuantitativeSourceRole::SegmentationSourceImage
+            || declared_source.artifact_logical_id != source_planned.logical_id
+            || declared_source.recipe.recipe_id != source_binding.recipe_id
+            || declared_source.recipe.recipe_version != source_binding.recipe_version
+            || reference.role != "source_image_for_segmentation"
+        {
+            return fail("SEG declared frames differ from planned reference");
+        }
+        let pixels = materialization
+            .content
+            .iter()
+            .find(|content| content.slot == "pixels")
+            .ok_or_else(|| err("SEG has no materialized pixel evidence"))?;
+        if pixels.vr != "OB" || !pixels.compressed_frame_sha256.is_empty() {
+            return fail(format!(
+                "SEG pixel evidence differs from feature-free native contract: vr={}, compressed={}",
+                pixels.vr,
+                pixels.compressed_frame_sha256.len(),
+            ));
+        }
+        let bits = match parameters.segmentation.kind {
+            SegmentationKind::Binary => 1,
+            SegmentationKind::FractionalProbability | SegmentationKind::Labelmap => 8,
+        };
+        let (segmentation_type, fractional_type, maximum_fractional_value) =
+            match parameters.segmentation.kind {
+                SegmentationKind::Binary => ("BINARY", None, None),
+                SegmentationKind::FractionalProbability => {
+                    ("FRACTIONAL", Some("PROBABILITY".to_string()), Some(255))
+                }
+                SegmentationKind::Labelmap => ("LABELMAP", None, None),
+            };
+        let pixel_min = parameters
+            .segmentation
+            .stored_values
+            .iter()
+            .copied()
+            .min()
+            .ok_or_else(|| err("SEG stored values are empty"))?;
+        let pixel_max = parameters
+            .segmentation
+            .stored_values
+            .iter()
+            .copied()
+            .max()
+            .ok_or_else(|| err("SEG stored values are empty"))?;
+        let (encoded, frame_sha256) = quantitative_seg_pixel_facts(&parameters.segmentation)?;
+        let value_length = pixels
+            .native_value_field_size_bytes
+            .ok_or_else(|| err("SEG native Value Field size evidence is absent"))?;
+        if value_length != encoded.len() as u64
+            || pixels.size_bytes != encoded.len() as u64
+            || pixels.sha256 != crate::sha256_hex(&encoded)
+            || (!pixels.native_frame_sha256.is_empty()
+                && pixels.native_frame_sha256 != [pixels.sha256.clone()])
+            || (!pixels.decoded_frame_sha256.is_empty()
+                && pixels.decoded_frame_sha256 != [pixels.sha256.clone()])
+        {
+            return fail(
+                "SEG aggregate native bytes differ from typed recipe and execution evidence",
+            );
+        }
+        let dimension = uid(planned, CompositionUidRole::DimensionOrganization)?;
+        project_native_seg_manifest_fields(
+            &NativeSegManifestProjection {
+                source_case_id: source_binding.case_id.clone(),
+                source_sop_instance_uid: reference.referenced_sop_instance_uid.clone(),
+                rows: parameters.segmentation.rows,
+                columns: parameters.segmentation.columns,
+                frames: parameters.segmentation.frames,
+                bits_allocated: bits,
+                bits_stored: bits,
+                high_bit: bits - 1,
+                pixel_values: parameters
+                    .segmentation
+                    .stored_values
+                    .iter()
+                    .map(|value| u16::from(*value))
+                    .collect(),
+                segmentation_type: segmentation_type.into(),
+                segmentation_fractional_type: fractional_type,
+                maximum_fractional_value,
+                segment_label: parameters.segmentation.segment_label,
+                referenced_frame_numbers: reference.referenced_frames.clone(),
+                dimension_organization_uid: dimension.into(),
+                pixel_min: u16::from(pixel_min),
+                pixel_max: u16::from(pixel_max),
+                pixel_data: SegPixelDataProjection::Native {
+                    value_length,
+                    frame_sha256,
+                },
+                visual_pattern: parameters.segmentation.visual_pattern,
+                stressors: ctx.artifact_recipe.stressors.clone(),
+            },
+            &report,
+        )
+    } else {
+        let parameters: RwvmProjectionParameters =
+            serde_json::from_value(Value::Object(ctx.case_recipe.provider_parameters.clone()))
+                .map_err(|error| err(format!("invalid RWVM projection parameters: {error}")))?;
+        let [declared_source] = parameters.sources.as_slice() else {
+            return fail("native RWVM projection requires one declared source");
+        };
+        if declared_source.referenced_frames != reference.referenced_frames
+            || declared_source.role
+                != crate::recipes::QuantitativeSourceRole::RealWorldValueSourceImage
+            || declared_source.artifact_logical_id != source_planned.logical_id
+            || declared_source.recipe.recipe_id != source_binding.recipe_id
+            || declared_source.recipe.recipe_version != source_binding.recipe_version
+            || reference.role != "source_image"
+            || !materialization.content.is_empty()
+        {
+            return fail("RWVM source/content evidence differs from plan");
+        }
+        project_native_rwvm_manifest_fields(
+            &NativeRwvmManifestProjection {
+                source_case_id: source_binding.case_id.clone(),
+                source_sop_instance_uid: reference.referenced_sop_instance_uid.clone(),
+                content_label: parameters.mapping.content_label,
+                content_description: parameters.mapping.content_description,
+                lut_label: parameters.mapping.lut_label,
+                first_value_mapped: parameters.mapping.first_value_mapped,
+                last_value_mapped: parameters.mapping.last_value_mapped,
+                intercept: parameters.mapping.intercept,
+                slope: parameters.mapping.slope,
+                unit_code_value: parameters.mapping.unit_code_value,
+                unit_coding_scheme_designator: parameters.mapping.unit_coding_scheme_designator,
+                unit_code_meaning: parameters.mapping.unit_code_meaning,
+                referenced_frame_numbers: reference.referenced_frames.clone(),
+            },
+            &report,
+        )
+    };
+    let mut entry = json!({
+        "case_id":ctx.registry_case.case_id,
+        "profile_membership":ctx.artifact_recipe.public_profile_membership.as_ref().unwrap_or(&ctx.registry_case.profiles),
+        "path":output.relative_path,"sha256":output.sha256,"size_bytes":output.size_bytes,
+        "determinism":ctx.registry_case.determinism,
+        "recipe":{"recipe_id":ctx.case_recipe.recipe_id,"recipe_version":ctx.case_recipe.recipe_version},
+        "dicom":{"sop_class_uid":required(&ctx.registry_case.sop_class_uid,"SOP Class UID")?,
+            "sop_class_name":required(&ctx.registry_case.sop_class_name,"SOP Class name")?,
+            "iod_name":required(&ctx.registry_case.iod_name,"IOD name")?,
+            "modality":required(&ctx.registry_case.modality,"modality")?,
+            "transfer_syntax_uid":planned.encoding.transfer_syntax_uid,
+            "transfer_syntax_name":transfer_syntax_name(&planned.encoding.transfer_syntax_uid)?},
+        "uids":{"study_instance_uid":uid(planned,CompositionUidRole::StudyInstance)?,
+            "series_instance_uid":uid(planned,CompositionUidRole::SeriesInstance)?,
+            "sop_instance_uid":uid(planned,CompositionUidRole::SopInstance)?,
+            "implementation_class_uid":planned.encoding.implementation.class_uid,
+            "implementation_version_name":planned.encoding.implementation.version_name},
+        "references":[{"source_case_id":source_binding.case_id,"source_path":source_output.relative_path,
+            "series_instance_uid":uid(source_planned,CompositionUidRole::SeriesInstance)?,
+            "sop_class_uid":reference.referenced_sop_class_uid,"sop_instance_uid":reference.referenced_sop_instance_uid,
+            "relationship":"source_image","frame_numbers":reference.referenced_frames}],
+        "standards_evidence":ctx.registry_case.standards_evidence,
+    });
+    if is_seg {
+        if let Some(frame) = planned
+            .instance
+            .identities
+            .get(&CompositionUidRole::FrameOfReference, 0)
+        {
+            entry["uids"]["frame_of_reference_uid"] = json!(frame);
+        }
+        if let Some(dimension) = planned
+            .instance
+            .identities
+            .get(&CompositionUidRole::DimensionOrganization, 0)
+        {
+            entry["uids"]["dimension_organization_uid"] = json!(dimension);
+        }
+    }
+    let Value::Object(specialized) = fields else {
+        return fail("quantitative evidence projector did not return an object");
+    };
+    let target = entry
+        .as_object_mut()
+        .ok_or_else(|| err("quantitative manifest is not an object"))?;
+    for (name, value) in specialized {
+        if name == "recipe_parameters" {
+            target
+                .get_mut("recipe")
+                .and_then(Value::as_object_mut)
+                .ok_or_else(|| err("quantitative recipe manifest is not an object"))?
+                .insert(name, value);
+        } else if target.insert(name.clone(), value).is_some() {
+            return fail(format!(
+                "quantitative projected field collides with common field: {name}"
+            ));
+        }
+    }
+    Ok(entry)
+}
+
+fn quantitative_seg_pixel_facts(
+    segmentation: &SegmentationInput,
+) -> Result<(Vec<u8>, Vec<String>), CuratedManifestError> {
+    let frame_size = usize::from(segmentation.rows)
+        .checked_mul(usize::from(segmentation.columns))
+        .ok_or_else(|| err("SEG frame size overflow"))?;
+    let expected = frame_size
+        .checked_mul(usize::from(segmentation.frames))
+        .ok_or_else(|| err("SEG value count overflow"))?;
+    if segmentation.stored_values.len() != expected {
+        return fail("SEG stored-value cardinality differs from dimensions");
+    }
+    let frame_sha256 = segmentation
+        .stored_values
+        .chunks_exact(frame_size)
+        .map(crate::sha256_hex)
+        .collect::<Vec<_>>();
+    let encoded = if segmentation.kind == SegmentationKind::Binary {
+        let mut bytes = vec![0_u8; segmentation.stored_values.len().div_ceil(8)];
+        for (index, value) in segmentation.stored_values.iter().enumerate() {
+            if *value > 1 {
+                return fail("binary SEG stored value exceeds one");
+            }
+            bytes[index / 8] |= *value << (index % 8);
+        }
+        if bytes.len() % 2 != 0 {
+            bytes.push(0);
+        }
+        bytes
+    } else {
+        let mut bytes = segmentation.stored_values.clone();
+        if bytes.len() % 2 != 0 {
+            bytes.push(0);
+        }
+        bytes
+    };
+    Ok((encoded, frame_sha256))
+}
+
+fn quantitative_validation_report(
+    checks: &[TypedValidationCheck],
+) -> Result<QuantitativeValidationReport, CuratedManifestError> {
+    if checks
+        .iter()
+        .any(|check| !check.passed() || check.layer == CheckLayer::External)
+    {
+        return fail("native quantitative validation contains failed or external checks");
+    }
+    let convert = |layer| {
+        checks
+            .iter()
+            .filter(|check| check.layer == layer && check.name != "quantitative_reference_closure")
+            .map(|check| QuantitativeCheck {
+                name: check.name.clone(),
+                status: "passed".into(),
+                message: check.message.clone(),
+            })
+            .collect::<Vec<_>>()
+    };
+    Ok(QuantitativeValidationReport {
+        internal: convert(CheckLayer::Internal),
+        standards: convert(CheckLayer::Standards),
+    })
 }
 
 fn project_typed_bulk_file_entry(

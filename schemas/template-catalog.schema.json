@@ -442,7 +442,17 @@
               "logical_role": { "$ref": "#/$defs/id" },
               "template_id": { "$ref": "#/$defs/template_id" },
               "template_version": { "$ref": "#/$defs/semver" },
-              "reference_role": { "$ref": "#/$defs/id" }
+              "reference_role": { "$ref": "#/$defs/id" },
+              "instance_suffix": { "$ref": "#/$defs/id" },
+              "frames": {
+                "type": "array",
+                "items": { "type": "integer", "minimum": 1 },
+                "uniqueItems": true
+              },
+              "parameters": { "type": "object" },
+              "share_study": { "type": "boolean" },
+              "share_series": { "type": "boolean" },
+              "share_frame_of_reference": { "type": "boolean" }
             },
             "additionalProperties": false
           }

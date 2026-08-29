@@ -6,16 +6,17 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde_json::{Value, json};
 
-use crate::codecs::{FrameEncodeInput, FrameEncoder, NativeRleLosslessEncoder};
 #[cfg(test)]
 use crate::codecs::{FrameDecodeInput, FrameDecoder};
+use crate::codecs::{FrameEncodeInput, FrameEncoder, NativeRleLosslessEncoder};
 use crate::encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData};
 
 use super::{
-    CompositionManifestAssembler, CompositionManifestInputs, CompositionSpec, CompositionUidRole,
-    ContentLimits, ContentSource, DefaultPixelOutput, IdentityAllocator, IdentityChoice,
-    LocalContentResolver, ManifestEntryInput, Part10Materializer, ResolvedInstancePlan,
-    TemplateCatalog, TemplateDescriptor, default_family_pixels, resolve_family_attributes,
+    BundleResolver, CompositionManifestAssembler, CompositionManifestInputs, CompositionSpec,
+    CompositionUidRole, ContentLimits, ContentSource, CyclePolicy, DefaultPixelOutput,
+    IdentityAllocator, IdentityChoice, LocalContentResolver, LogicalReference, ManifestEntryInput,
+    Part10Materializer, ReferenceGraph, ReferenceNode, ResolvedInstancePlan, TemplateCatalog,
+    TemplateDescriptor, default_family_pixels, resolve_family_attributes,
     resolve_raw_native_pixels, resolved_sc_plan, sc_default_pixels,
 };
 use crate::{PACKAGE_NAME, PACKAGE_VERSION, RUSTC_VERSION, TARGET_TRIPLE, sha256_hex};
@@ -109,6 +110,8 @@ fn resolve_and_stage(
     catalog_bytes: &[u8],
     staging: &Path,
 ) -> Result<(ComposeSummary, Value), ComposeError> {
+    let bundle_resolution = BundleResolver.resolve(spec.clone(), catalog)?;
+    let spec = &bundle_resolution.spec;
     let output_root = staging.join("instances");
     let asset_root = staging.join(".assets");
     fs::create_dir(&output_root).map_err(|source| ComposeError::Io {
@@ -171,11 +174,7 @@ fn resolve_and_stage(
     apply_shared_identities(spec, &mut identity_plans)?;
 
     for (instance, template) in spec.instances.iter().zip(templates) {
-        if !instance.references.is_empty() {
-            return Err(ComposeError::UnsupportedScReference(
-                instance.instance_id.clone(),
-            ));
-        }
+        validate_reference_roles(instance, template)?;
         let transfer_syntax_uid = instance
             .transfer_syntax_uid
             .as_deref()
@@ -236,6 +235,8 @@ fn resolve_and_stage(
         }
     }
 
+    materialize_reference_graph(&mut plans, spec, &bundle_resolution.members)?;
+
     let dry_run_output = json!({
         "composition_spec_schema_version": spec.composition_spec_schema_version,
         "seed": options.seed,
@@ -281,14 +282,17 @@ fn resolve_and_stage(
     let entries = plans
         .iter()
         .zip(&entry_paths)
-        .map(|(plan, (path, relative_path))| ManifestEntryInput {
-            plan,
-            output_path: path,
-            relative_path: relative_path.clone(),
-            requested: true,
-            bundle_root_instance_id: plan.instance_id.clone(),
-            bundle_role: "root".into(),
-            determinism: "byte_stable".into(),
+        .map(|(plan, (path, relative_path))| {
+            let member = bundle_resolution.member(&plan.instance_id);
+            ManifestEntryInput {
+                plan,
+                output_path: path,
+                relative_path: relative_path.clone(),
+                requested: member.requested,
+                bundle_root_instance_id: member.bundle_root_instance_id.clone(),
+                bundle_role: member.bundle_role.clone(),
+                determinism: "byte_stable".into(),
+            }
         })
         .collect::<Vec<_>>();
     let manifest = CompositionManifestAssembler.assemble(
@@ -402,6 +406,106 @@ fn identity_key(name: &str) -> Result<&'static str, ComposeError> {
         "patient" => Err(ComposeError::UnsupportedPatientIdentity),
         other => Err(ComposeError::UnknownIdentity(other.into())),
     }
+}
+
+fn validate_reference_roles(
+    instance: &super::SpecInstance,
+    template: &TemplateDescriptor,
+) -> Result<(), ComposeError> {
+    let declared = template
+        .reference_slots
+        .iter()
+        .filter_map(|slot| slot["role"].as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    for reference in &instance.references {
+        if !declared.contains(reference.role.as_str()) {
+            return Err(ComposeError::UnknownReferenceRole {
+                instance_id: instance.instance_id.clone(),
+                role: reference.role.clone(),
+            });
+        }
+    }
+    Ok(())
+}
+
+fn materialize_reference_graph(
+    plans: &mut [ResolvedInstancePlan],
+    spec: &CompositionSpec,
+    members: &BTreeMap<String, super::BundleMemberProvenance>,
+) -> Result<(), ComposeError> {
+    let nodes = plans
+        .iter()
+        .map(|plan| {
+            Ok(ReferenceNode {
+                instance_id: plan.instance_id.clone(),
+                bundle_id: members
+                    .get(&plan.instance_id)
+                    .expect("bundle member covers plan")
+                    .bundle_root_instance_id
+                    .clone(),
+                sop_class_uid: plan.sop_class_uid.clone(),
+                frames: resolved_frame_count(plan)?,
+            })
+        })
+        .collect::<Result<Vec<_>, ComposeError>>()?;
+    let edges = spec
+        .instances
+        .iter()
+        .flat_map(|instance| {
+            instance
+                .references
+                .iter()
+                .map(|reference| LogicalReference {
+                    source_instance_id: instance.instance_id.clone(),
+                    target_instance_id: reference.target_instance_id.clone(),
+                    role: reference.role.clone(),
+                    frame_role: (!reference.frames.is_empty()).then(|| "referenced_frame".into()),
+                    frames: reference.frames.clone(),
+                    cycle_policy: CyclePolicy::Forbidden,
+                })
+        })
+        .collect::<Vec<_>>();
+    let graph = ReferenceGraph::new(nodes, edges)?;
+    let identities = plans
+        .iter()
+        .map(|plan| (plan.instance_id.clone(), plan.identities.clone()))
+        .collect::<BTreeMap<_, _>>();
+    let references = graph.materialize(&identities)?;
+    for plan in plans {
+        plan.references = references
+            .iter()
+            .filter(|reference| reference.source_instance_id == plan.instance_id)
+            .cloned()
+            .collect();
+    }
+    Ok(())
+}
+
+fn resolved_frame_count(plan: &ResolvedInstancePlan) -> Result<u32, ComposeError> {
+    let Some(attribute) = plan
+        .attributes
+        .iter()
+        .find(|attribute| attribute.address.normalized_tag() == "0028,0008")
+    else {
+        return Ok(1);
+    };
+    let frame_count = match attribute.value.as_ref() {
+        Some(super::AttributeValue::Primitive(super::PrimitiveValue::String(value))) => {
+            value.parse::<u32>().ok()
+        }
+        Some(super::AttributeValue::Primitive(super::PrimitiveValue::Unsigned(value))) => {
+            u32::try_from(*value).ok()
+        }
+        Some(super::AttributeValue::Primitive(super::PrimitiveValue::Signed(value))) => {
+            u32::try_from(*value).ok()
+        }
+        _ => None,
+    };
+    frame_count
+        .filter(|count| *count > 0)
+        .ok_or_else(|| ComposeError::InvalidResolvedFrameCount {
+            instance_id: plan.instance_id.clone(),
+        })
 }
 
 fn resolve_sc_pixels(
@@ -688,6 +792,8 @@ pub enum ComposeError {
     Materialize(super::MaterializeError),
     Manifest(super::ManifestError),
     Family(super::FamilyError),
+    Bundle(super::BundleError),
+    Reference(super::ReferenceError),
     Codec(crate::codecs::CodecError),
     Encapsulation(crate::encapsulation::EncapsulationError),
     ResourceRange,
@@ -695,6 +801,13 @@ pub enum ComposeError {
     UnsupportedP2Content(String),
     UnsupportedFamilyContent(String),
     UnsupportedScReference(String),
+    UnknownReferenceRole {
+        instance_id: String,
+        role: String,
+    },
+    InvalidResolvedFrameCount {
+        instance_id: String,
+    },
     UnsupportedTransferSyntax {
         instance_id: String,
         uid: String,
@@ -743,6 +856,8 @@ from_error!(super::DefaultError, Defaults);
 from_error!(super::MaterializeError, Materialize);
 from_error!(super::ManifestError, Manifest);
 from_error!(super::FamilyError, Family);
+from_error!(super::BundleError, Bundle);
+from_error!(super::ReferenceError, Reference);
 from_error!(crate::codecs::CodecError, Codec);
 from_error!(crate::encapsulation::EncapsulationError, Encapsulation);
 
@@ -785,6 +900,79 @@ mod tests {
         assert!(out.join("instances/primary.dcm").is_file());
         assert_eq!(manifest["run"]["kind"], "composition");
         fs::remove_dir_all(out).unwrap();
+    }
+
+    #[test]
+    fn default_bundle_dependency_is_generated_and_reference_closed() {
+        let root = output("default-bundle");
+        fs::create_dir(&root).unwrap();
+        let catalog = TemplateCatalog::load("templates/catalog.json").unwrap();
+        let mut catalog_value = serde_json::to_value(catalog).unwrap();
+        let templates = catalog_value["templates"].as_array_mut().unwrap();
+        let ct = templates
+            .iter_mut()
+            .find(|template| template["template_id"] == "classic/ct")
+            .unwrap();
+        ct["reference_slots"] = json!([{
+            "role":"source_image", "required":true, "cardinality":"one",
+            "target_sop_class_uids":["1.2.840.10008.5.1.4.1.1.1"],
+            "frame_roles":[], "cycle_policy":"forbidden",
+            "default_dependency":"classic/cr",
+            "description":"Synthetic source image for bundle qualification."
+        }]);
+        ct["default_bundle"] = json!({"dependencies":[{
+            "logical_role":"image_source", "reference_role":"source_image",
+            "instance_suffix":"source", "template_id":"classic/cr",
+            "template_version":"1.0.0", "share_study":true
+        }]});
+        let catalog_path = root.join("catalog.json");
+        fs::write(
+            &catalog_path,
+            serde_json::to_vec_pretty(&catalog_value).unwrap(),
+        )
+        .unwrap();
+        let spec_path = root.join("spec.json");
+        fs::write(
+            &spec_path,
+            serde_json::to_vec_pretty(&json!({
+                "composition_spec_schema_version":"0.1.0",
+                "instances":[{"instance_id":"root","template":{"id":"classic/ct"}}]
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        let out = root.join("out");
+        let (summary, manifest) = compose(&ComposeOptions {
+            spec_path,
+            out_dir: out.clone(),
+            seed: 6,
+            catalog_path,
+            dry_run: false,
+        })
+        .unwrap();
+        assert_eq!(summary.instances_written, 2);
+        assert!(out.join("instances/root__source.dcm").is_file());
+        let entries = manifest["composition"]["entries"].as_array().unwrap();
+        let source = entries
+            .iter()
+            .find(|entry| entry["instance_id"] == "root__source")
+            .unwrap();
+        assert_eq!(source["requested"], false);
+        assert_eq!(source["bundle_root_instance_id"], "root");
+        assert_eq!(source["bundle_role"], "image_source");
+        let root_entry = entries
+            .iter()
+            .find(|entry| entry["instance_id"] == "root")
+            .unwrap();
+        assert_eq!(
+            root_entry["references"][0]["target_instance_id"],
+            "root__source"
+        );
+        assert_eq!(
+            root_entry["references"][0]["referenced_sop_instance_uid"],
+            source["uids"]["sop_instance_uid#0"]
+        );
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
@@ -1451,16 +1639,21 @@ mod tests {
         let second = root.join("second");
         for out in [&first, &second] {
             compose(&ComposeOptions {
-                spec_path: spec_path.clone(), out_dir: out.clone(), seed: 46,
-                catalog_path: "templates/catalog.json".into(), dry_run: false,
-            }).unwrap();
+                spec_path: spec_path.clone(),
+                out_dir: out.clone(),
+                seed: 46,
+                catalog_path: "templates/catalog.json".into(),
+                dry_run: false,
+            })
+            .unwrap();
         }
         let first_bytes = fs::read(first.join("instances/xa_rle.dcm")).unwrap();
-        assert_eq!(first_bytes, fs::read(second.join("instances/xa_rle.dcm")).unwrap());
-        let manifest: serde_json::Value = serde_json::from_slice(
-            &fs::read(first.join("manifest.json")).unwrap(),
-        )
-        .unwrap();
+        assert_eq!(
+            first_bytes,
+            fs::read(second.join("instances/xa_rle.dcm")).unwrap()
+        );
+        let manifest: serde_json::Value =
+            serde_json::from_slice(&fs::read(first.join("manifest.json")).unwrap()).unwrap();
         assert_eq!(
             manifest["composition"]["entries"][0]["content"][0]["kind"],
             "encapsulated_pixels"
@@ -1475,11 +1668,17 @@ mod tests {
             _ => panic!("RLE Pixel Data must reopen as fragments"),
         };
         assert_eq!(fragments.len(), 1);
-        let decoded = NativeRleLosslessEncoder::new().decode_frame(FrameDecodeInput {
-            encoded_frame: &fragments[0], rows: 16, columns: 16,
-            samples_per_pixel: 1, bits_allocated: 16, bits_stored: 12,
-            photometric_interpretation: "MONOCHROME2",
-        }).unwrap();
+        let decoded = NativeRleLosslessEncoder::new()
+            .decode_frame(FrameDecodeInput {
+                encoded_frame: &fragments[0],
+                rows: 16,
+                columns: 16,
+                samples_per_pixel: 1,
+                bits_allocated: 16,
+                bits_stored: 12,
+                photometric_interpretation: "MONOCHROME2",
+            })
+            .unwrap();
         assert_eq!(decoded.native_bytes, raw);
         fs::remove_dir_all(root).unwrap();
     }

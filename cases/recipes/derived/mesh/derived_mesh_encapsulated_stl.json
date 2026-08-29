@@ -2,64 +2,36 @@
   "case_recipe_schema_version": "0.1.0",
   "recipe_id": "derived_mesh_encapsulated_stl",
   "recipe_version": "0.1.0",
-  "binding": {
-    "case_id": "derived/mesh/encapsulated_stl"
-  },
+  "binding": {"case_id": "derived/mesh/encapsulated_stl"},
   "kind": "dicom",
-  "plan_provider_id": "native.case_plan",
-  "dependencies": [
-
-  ],
+  "plan_provider_id": "native.encapsulated_payload_plan",
+  "planning_order": 721,
+  "dependencies": [],
   "provider_parameters": {
+    "sop_class_uid": "1.2.840.10008.5.1.4.1.1.104.3",
+    "modality": "M3D", "study_id": "DTS-MESH", "series_number": "82",
+    "series_description": "DTS synthetic manufacturing model",
+    "manufacturer_model_name": "derived_mesh_encapsulated_stl", "device_serial_number": "DTS-STL-0001",
+    "patient_name": "DTS^Synthetic^Mesh", "patient_id": "DTS-MESH-001",
+    "document_title": "DTS Synthetic Closed Tetrahedron",
+    "content_description": "Deterministic closed tetrahedron manufacturing model",
+    "acquisition_datetime": "20260101000000+0000", "burned_in_annotation": "NO", "recognizable_visual_features": "NO",
+    "payload": {"kind": "closed_tetrahedron_binary_stl", "mime_type": "model/stl", "declared_size_bytes": 284, "declared_sha256": "3c3049d231f8e98c0d2fe7cb81cf6805141bcac39dd04b9cf7f8063ec44bbfb2", "triangle_count": 4, "unit_code_value": "mm", "unit_coding_scheme": "UCUM", "unit_code_meaning": "millimeter"},
+    "projection": {"expected_capabilities":["open_file","read_metadata","show_unsupported_but_recognized","extract_encapsulated_document","parse_binary_stl"],"expected_visual_pattern":"recognized_unsupported_closed_tetrahedron_manufacturing_model","known_stressors":["encapsulated_stl_storage","binary_stl_payload","closed_manifold_mesh","non_image_object","recognized_unsupported"]}
   },
-  "validation_rule_ids": [
-    "validation.shared"
-  ],
-  "projection_rule_ids": [
-    "projection.curated"
-  ],
-  "dicom": {
-    "artifacts": [
-      {
-        "logical_id": "artifact_1",
-        "output": {
-          "role": "primary_1",
-          "provider_derived": true
-        },
-        "encoding": {
-          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-          "sequence_length_policy": "provider",
-          "item_length_policy": "provider",
-          "offset_table_policy": "provider",
-          "fragmentation_policy": "provider"
-        },
-        "parameters": {
-        },
-        "attribute_operations": [
-
-        ],
-        "content": {
-          "provider_id": "content.case_default",
-          "parameters": {
-          }
-        },
-        "validation_rule_ids": [
-          "validation.shared"
-        ],
-        "projection_rule_ids": [
-          "projection.curated"
-        ],
-        "determinism": "byte_stable",
-        "stressors": [
-
-        ],
-        "algorithm_provider_id": "algorithm.case_provider",
-        "template": {
-          "template_id": "non-image/mesh/stl",
-          "template_version": "1.0.0"
-        },
-        "order": 0
-      }
-    ]
-  }
+  "validation_rule_ids": ["validation.manufacturing_model", "validation.stl.structure", "validation.content.integrity"],
+  "projection_rule_ids": ["projection.encapsulated_mesh"],
+  "dicom": {"artifacts": [{
+    "logical_id": "artifact_1",
+    "output": {"role": "primary_1", "path": "derived/mesh/encapsulated_stl/instance.dcm"},
+    "encoding": {"transfer_syntax_uid": "1.2.840.10008.1.2.1", "sequence_length_policy": "default", "item_length_policy": "default", "offset_table_policy": "none", "fragmentation_policy": "native", "preamble_policy": "zero_filled", "file_meta_policy": "standard"},
+    "parameters": {}, "attribute_operations": [],
+    "content": {"provider_id": "content.declared_byte_payload", "parameters": {}},
+    "validation_rule_ids": ["validation.manufacturing_model", "validation.stl.structure", "validation.content.integrity"],
+    "projection_rule_ids": ["projection.encapsulated_mesh"],
+    "determinism": "byte_stable", "stressors": [],
+    "algorithm_provider_id": "algorithm.binary_stl_tetrahedron",
+    "template": {"template_id": "non-image/mesh/stl", "template_version": "1.0.0"},
+    "order": 0
+  }]}
 }

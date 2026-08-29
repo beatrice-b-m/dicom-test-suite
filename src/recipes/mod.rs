@@ -6,6 +6,7 @@ pub mod classic_mr_cr;
 pub mod classic_nuclear;
 pub mod classic_vl_projection;
 mod content_provider;
+mod encapsulated_payload;
 mod encoding;
 mod enhanced;
 mod error;
@@ -19,6 +20,8 @@ mod rt;
 mod sc;
 mod semantic;
 mod sr;
+mod typed_bulk;
+mod waveform;
 mod wsi;
 
 pub use crate::planning::RecipeIdentity;
@@ -45,6 +48,12 @@ pub use content_provider::{
     IntegerPixelsContract, IntegerSamples, MeshContract, MeshFormat, NeutralContentProvider,
     RtObjectKind, RtSemanticContract, SemanticReference, SemanticReferenceRole,
     StructuredReportContract, VerificationFlag, WaveformContract,
+};
+pub use encapsulated_payload::{
+    BINARY_STL_ALGORITHM_PROVIDER_ID, DECLARED_BYTE_PAYLOAD_CONTENT_PROVIDER_ID,
+    ENCAPSULATED_PAYLOAD_PLAN_PROVIDER_ID, EncapsulatedPayload, EncapsulatedPayloadPlanError,
+    EncapsulatedPayloadPlanInput, EncapsulatedPayloadPlanProvider, EncapsulatedPayloadProjection,
+    MINIMAL_PDF_ALGORITHM_PROVIDER_ID, encapsulated_payload_input_from_recipe,
 };
 pub use encoding::{RecipeEncodingError, encoding_plan_from_recipe};
 pub use enhanced::{
@@ -104,6 +113,12 @@ pub use sr::{
     SR_ALGORITHM_PROVIDER_ID, SR_CONTENT_PROVIDER_ID, SR_PLAN_PROVIDER_ID, SrDocumentKind,
     SrDocumentParameters, SrPlanError, SrPlanInput, SrPlanProvider, SrSourceDeclaration,
     sr_input_from_recipe,
+};
+pub use typed_bulk::{TypedBulkPlanProviderOutput, TypedBulkPlanningContext};
+pub use waveform::{
+    WAVEFORM_ALGORITHM_PROVIDER_ID, WAVEFORM_CONTENT_PROVIDER_ID, WAVEFORM_PLAN_PROVIDER_ID,
+    WaveformChannelInput, WaveformFormula, WaveformGroupInput, WaveformPlanError,
+    WaveformPlanInput, WaveformPlanProvider, WaveformProjection, waveform_input_from_recipe,
 };
 pub use wsi::{
     WSI_ADVANCED_PROVIDER_ID, WsiAdvancedPlanProvider, WsiArtifactParameters, WsiArtifactRecipe,

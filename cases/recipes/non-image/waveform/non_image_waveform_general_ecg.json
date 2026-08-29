@@ -6,17 +6,42 @@
     "case_id": "non-image/waveform/general_ecg"
   },
   "kind": "dicom",
-  "plan_provider_id": "native.case_plan",
+  "plan_provider_id": "native.waveform_plan",
+  "planning_order": 711,
   "dependencies": [
 
   ],
   "provider_parameters": {
+    "sop_class_uid": "1.2.840.10008.5.1.4.1.1.9.1.2",
+    "modality": "ECG",
+    "study_id": "DTS-ECG",
+    "series_number": "91",
+    "manufacturer_model_name": "Native General ECG",
+    "device_serial_number": "DTS-GECG-001",
+    "groups": [
+      {
+        "slot":"waveform_samples_1","label":"STD12_250HZ","samples_per_channel":1000,"sampling_frequency_hz":"250","formula_group_index":0,"declared_size_bytes":24000,"declared_sha256":"e4bfb8a3290d9057fa5f5935fa6960ce2a44a07f18991d28c190522739008dbb",
+        "channels":[
+          {"label":"I","code_value":"2:1","code_meaning":"Lead I"},{"label":"II","code_value":"2:2","code_meaning":"Lead II"},{"label":"III","code_value":"2:61","code_meaning":"Lead III"},{"label":"aVR","code_value":"2:62","code_meaning":"aVR, augmented voltage, right"},{"label":"aVL","code_value":"2:63","code_meaning":"aVL, augmented voltage, left"},{"label":"aVF","code_value":"2:64","code_meaning":"aVF, augmented voltage, foot"},{"label":"V1","code_value":"2:3","code_meaning":"Lead V1"},{"label":"V2","code_value":"2:4","code_meaning":"Lead V2"},{"label":"V3","code_value":"2:5","code_meaning":"Lead V3"},{"label":"V4","code_value":"2:6","code_meaning":"Lead V4"},{"label":"V5","code_value":"2:7","code_meaning":"Lead V5"},{"label":"V6","code_value":"2:8","code_meaning":"Lead V6"}
+        ]
+      },
+      {
+        "slot":"waveform_samples_2","label":"AUX4_1000HZ","samples_per_channel":4000,"sampling_frequency_hz":"1000","formula_group_index":1,"declared_size_bytes":32000,"declared_sha256":"5b201d4fa7274ba36d6f7387c3d0217e1b5da161a915f983c2b63b995dde7bbe",
+        "channels":[
+          {"label":"A1","code_value":"2:75","code_meaning":"Auxiliary unipolar lead 1"},{"label":"A2","code_value":"2:76","code_meaning":"Auxiliary unipolar lead 2"},{"label":"A3","code_value":"2:77","code_meaning":"Auxiliary unipolar lead 3"},{"label":"A4","code_value":"2:78","code_meaning":"Auxiliary unipolar lead 4"}
+        ]
+      }
+    ],
+    "formula":{"sample_multiplier":37,"channel_bias_multiplier":101,"group_bias_multiplier":307,"modulus":2001,"baseline":1000},
+    "projection":{"kind":"general","expected_capabilities":["open_file","read_metadata","read_waveform","display_general_ecg"],"expected_visual_pattern":"two_group_deterministic_general_ecg_trace","known_stressors":["general_ecg_waveform_storage","two_heterogeneous_multiplex_groups","sixteen_total_channels","different_group_sampling_frequencies","signed_16_bit_ow_payloads","separate_channel_then_sample_interleave","cid_3001_channel_sources"],"simultaneous_sampling_within_groups":true,"common_duration_seconds":4,"cross_group_synchronization_asserted":false,"diagnostic_use":false}
   },
   "validation_rule_ids": [
-    "validation.shared"
+    "validation.waveform.topology",
+    "validation.waveform.samples",
+    "validation.content.integrity"
   ],
   "projection_rule_ids": [
-    "projection.curated"
+    "projection.waveform"
   ],
   "dicom": {
     "artifacts": [
@@ -24,14 +49,16 @@
         "logical_id": "artifact_1",
         "output": {
           "role": "primary_1",
-          "provider_derived": true
+          "path": "non-image/waveform/general_ecg/instance.dcm"
         },
         "encoding": {
           "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-          "sequence_length_policy": "provider",
-          "item_length_policy": "provider",
-          "offset_table_policy": "provider",
-          "fragmentation_policy": "provider"
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
         },
         "parameters": {
         },
@@ -39,21 +66,23 @@
 
         ],
         "content": {
-          "provider_id": "content.case_default",
+          "provider_id": "content.waveform_samples",
           "parameters": {
           }
         },
         "validation_rule_ids": [
-          "validation.shared"
+          "validation.waveform.topology",
+          "validation.waveform.samples",
+          "validation.content.integrity"
         ],
         "projection_rule_ids": [
-          "projection.curated"
+          "projection.waveform"
         ],
         "determinism": "byte_stable",
         "stressors": [
 
         ],
-        "algorithm_provider_id": "algorithm.case_provider",
+        "algorithm_provider_id": "algorithm.waveform_deterministic_multiplex",
         "template": {
           "template_id": "non-image/waveform/general-ecg",
           "template_version": "1.0.0"

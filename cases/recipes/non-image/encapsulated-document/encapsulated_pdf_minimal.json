@@ -2,64 +2,35 @@
   "case_recipe_schema_version": "0.1.0",
   "recipe_id": "encapsulated_pdf_minimal",
   "recipe_version": "0.1.0",
-  "binding": {
-    "case_id": "non-image/encapsulated-document/pdf_minimal_explicit_le"
-  },
+  "binding": {"case_id": "non-image/encapsulated-document/pdf_minimal_explicit_le"},
   "kind": "dicom",
-  "plan_provider_id": "native.case_plan",
-  "dependencies": [
-
-  ],
+  "plan_provider_id": "native.encapsulated_payload_plan",
+  "planning_order": 720,
+  "dependencies": [],
   "provider_parameters": {
+    "sop_class_uid": "1.2.840.10008.5.1.4.1.1.104.1",
+    "modality": "DOC", "study_id": "DTS-PDF", "series_number": "81",
+    "series_description": "DTS minimal synthetic PDF",
+    "manufacturer_model_name": "encapsulated_pdf_minimal", "device_serial_number": "DTS-PDF-0001",
+    "patient_name": "DTS^Synthetic^Patient001", "patient_id": "DTS-PATIENT-001",
+    "document_title": "DTS Minimal Synthetic PDF", "content_description": null,
+    "acquisition_datetime": "20260101000000", "burned_in_annotation": "NO", "recognizable_visual_features": "NO",
+    "payload": {"kind": "minimal_pdf", "mime_type": "application/pdf", "declared_size_bytes": 327, "declared_sha256": "4028af3714fa07d2f20e758649532faef11b4818c99a2b8dc0c88170a0dc8784"},
+    "projection": {"expected_capabilities":["open_file","read_metadata","show_unsupported_but_recognized","extract_encapsulated_document"],"expected_visual_pattern":"minimal_single_page_pdf_document","known_stressors":["encapsulated_pdf_storage","encapsulated_document_ob","non_image_object","document_extraction"]}
   },
-  "validation_rule_ids": [
-    "validation.shared"
-  ],
-  "projection_rule_ids": [
-    "projection.curated"
-  ],
-  "dicom": {
-    "artifacts": [
-      {
-        "logical_id": "artifact_1",
-        "output": {
-          "role": "primary_1",
-          "provider_derived": true
-        },
-        "encoding": {
-          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-          "sequence_length_policy": "provider",
-          "item_length_policy": "provider",
-          "offset_table_policy": "provider",
-          "fragmentation_policy": "provider"
-        },
-        "parameters": {
-        },
-        "attribute_operations": [
-
-        ],
-        "content": {
-          "provider_id": "content.case_default",
-          "parameters": {
-          }
-        },
-        "validation_rule_ids": [
-          "validation.shared"
-        ],
-        "projection_rule_ids": [
-          "projection.curated"
-        ],
-        "determinism": "byte_stable",
-        "stressors": [
-
-        ],
-        "algorithm_provider_id": "algorithm.case_provider",
-        "template": {
-          "template_id": "non-image/encapsulated-document/pdf",
-          "template_version": "1.0.0"
-        },
-        "order": 0
-      }
-    ]
-  }
+  "validation_rule_ids": ["validation.encapsulated_document", "validation.pdf.structure", "validation.content.integrity"],
+  "projection_rule_ids": ["projection.encapsulated_document"],
+  "dicom": {"artifacts": [{
+    "logical_id": "artifact_1",
+    "output": {"role": "primary_1", "path": "non-image/encapsulated-document/pdf_minimal_explicit_le/instance.dcm"},
+    "encoding": {"transfer_syntax_uid": "1.2.840.10008.1.2.1", "sequence_length_policy": "default", "item_length_policy": "default", "offset_table_policy": "none", "fragmentation_policy": "native", "preamble_policy": "zero_filled", "file_meta_policy": "standard"},
+    "parameters": {}, "attribute_operations": [],
+    "content": {"provider_id": "content.declared_byte_payload", "parameters": {}},
+    "validation_rule_ids": ["validation.encapsulated_document", "validation.pdf.structure", "validation.content.integrity"],
+    "projection_rule_ids": ["projection.encapsulated_document"],
+    "determinism": "byte_stable", "stressors": [],
+    "algorithm_provider_id": "algorithm.encapsulated_pdf_minimal",
+    "template": {"template_id": "non-image/encapsulated-document/pdf", "template_version": "1.0.0"},
+    "order": 0
+  }]}
 }

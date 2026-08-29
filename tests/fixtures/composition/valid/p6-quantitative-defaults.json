@@ -1,0 +1,12 @@
+{
+  "composition_spec_schema_version": "0.1.0",
+  "instances": [
+    { "instance_id": "binary", "template": { "id": "derived/segmentation/binary" } },
+    { "instance_id": "fractional", "template": { "id": "derived/segmentation/fractional-probability" } },
+    { "instance_id": "labelmap", "template": { "id": "derived/segmentation/labelmap" } },
+    { "instance_id": "wsi_seg", "template": { "id": "derived/segmentation/wsi-tile" } },
+    { "instance_id": "float32", "template": { "id": "derived/parametric-map/float32" } },
+    { "instance_id": "float64", "template": { "id": "derived/parametric-map/float64" } },
+    { "instance_id": "rwvm", "template": { "id": "derived/real-world-value-mapping/linear" } }
+  ]
+}

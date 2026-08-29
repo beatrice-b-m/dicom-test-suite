@@ -169,7 +169,8 @@
           "type": "array",
           "items": { "$ref": "#/$defs/content_slot" }
         },
-        "validation": { "$ref": "#/$defs/validation" }
+        "validation": { "$ref": "#/$defs/validation" },
+        "reference_only": { "type": "boolean" }
       },
       "additionalProperties": false
     },

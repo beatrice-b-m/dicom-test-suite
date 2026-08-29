@@ -6,9 +6,10 @@ use dicom_object::open_file;
 
 use super::{
     AttributeOperation, AttributeValue, BulkDataBounds, BulkDataPlan, BulkDataSource,
-    ContentSource, EncapsulatedDocumentSlot, IdentityPlan, LocalContentResolver, MeshSlot,
-    PrimitiveValue, ResolvedAttribute, ResolvedInstancePlan, SequenceItemPlacement, SpecInstance,
-    TemplateDescriptor, ValueOrigin, WaveformSamplesSlot, resolve_raw_native_pixels,
+    ContentSource, DoubleFloatPixelDataSlot, EncapsulatedDocumentSlot, FloatPixelDataSlot,
+    IdentityPlan, LocalContentResolver, MeshSlot, PixelDataSlot, PrimitiveValue, ResolvedAttribute,
+    ResolvedInstancePlan, SequenceItemPlacement, SpecInstance, TemplateDescriptor, ValueOrigin,
+    WaveformSamplesSlot, resolve_raw_native_pixels,
 };
 use crate::generator::write_composition_default_artifacts;
 
@@ -20,6 +21,7 @@ pub enum AdvancedFamilyKind {
     WholeSlide,
     DerivedReference,
     TypedBulk(TypedBulkFamily),
+    Quantitative(QuantitativeFamily),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -28,6 +30,13 @@ pub enum TypedBulkFamily {
     GeneralEcg,
     EncapsulatedPdf,
     EncapsulatedStl,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QuantitativeFamily {
+    Segmentation,
+    ParametricMap,
+    RealWorldValueMapping,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -69,6 +78,18 @@ impl AdvancedFamilyProfile {
                 AdvancedFamilyKind::TypedBulk(TypedBulkFamily::EncapsulatedPdf)
             }
             "non-image/mesh/stl" => AdvancedFamilyKind::TypedBulk(TypedBulkFamily::EncapsulatedStl),
+            "derived/segmentation/binary"
+            | "derived/segmentation/fractional-probability"
+            | "derived/segmentation/labelmap"
+            | "derived/segmentation/wsi-tile" => {
+                AdvancedFamilyKind::Quantitative(QuantitativeFamily::Segmentation)
+            }
+            "derived/parametric-map/float32" | "derived/parametric-map/float64" => {
+                AdvancedFamilyKind::Quantitative(QuantitativeFamily::ParametricMap)
+            }
+            "derived/real-world-value-mapping/linear" => {
+                AdvancedFamilyKind::Quantitative(QuantitativeFamily::RealWorldValueMapping)
+            }
             _ => return None,
         };
         Some(Self {
@@ -159,6 +180,8 @@ impl AdvancedFamilyProfile {
         normalize_derived_reference_defaults(&template.template_id.0, &mut plan)?;
         if let AdvancedFamilyKind::TypedBulk(family) = self.kind {
             extract_typed_bulk_defaults(family, &mut plan)?;
+        } else if let AdvancedFamilyKind::Quantitative(family) = self.kind {
+            normalize_quantitative_content(family, &mut plan)?;
         } else if self.kind == AdvancedFamilyKind::WholeSlide {
             validate_wsi_structure(&plan)?;
         } else if self.kind != AdvancedFamilyKind::DerivedReference {
@@ -172,6 +195,8 @@ impl AdvancedFamilyProfile {
             }
         } else if let AdvancedFamilyKind::TypedBulk(family) = self.kind {
             apply_typed_bulk_content(family, instance, &mut plan, content_resolver)?;
+        } else if let AdvancedFamilyKind::Quantitative(family) = self.kind {
+            apply_quantitative_content(family, instance, &mut plan, content_resolver)?;
         } else {
             apply_caller_content(instance, &mut plan, content_resolver)?;
         }
@@ -503,7 +528,13 @@ pub(crate) fn rewrite_materialized_dicom_references(
                 || plan
                     .template_id
                     .0
-                    .starts_with("derived/presentation-state/"))
+                    .starts_with("derived/presentation-state/")
+                || plan.template_id.0.starts_with("derived/segmentation/")
+                || plan.template_id.0.starts_with("derived/parametric-map/")
+                || plan
+                    .template_id
+                    .0
+                    .starts_with("derived/real-world-value-mapping/"))
         {
             continue;
         }
@@ -785,6 +816,187 @@ fn validate_wsi_structure(plan: &ResolvedInstancePlan) -> Result<(), AdvancedFam
                 "sparse WSI requires one slide position for each of {frames} frames"
             )));
         }
+    }
+    Ok(())
+}
+
+fn normalize_quantitative_content(
+    family: QuantitativeFamily,
+    plan: &mut ResolvedInstancePlan,
+) -> Result<(), AdvancedFamilyError> {
+    if family == QuantitativeFamily::RealWorldValueMapping {
+        if !plan.content.is_empty() {
+            return Err(AdvancedFamilyError::TypedBulk(
+                "RWVM must not contain a bulk payload".into(),
+            ));
+        }
+        return Ok(());
+    }
+    if plan.content.len() != 1 {
+        return Err(AdvancedFamilyError::TypedBulk(format!(
+            "{} must contain exactly one quantitative pixel value",
+            plan.template_id
+        )));
+    }
+    let original = plan.content.remove(0);
+    let bytes = match original.materialization {
+        Some(super::ContentMaterialization::Inline(bytes)) => bytes,
+        _ => {
+            return Err(AdvancedFamilyError::TypedBulk(
+                "qualified quantitative defaults must use native inline pixels".into(),
+            ));
+        }
+    };
+    validate_quantitative_bytes(&plan.template_id.0, &bytes)?;
+    let bounds = BulkDataBounds::exact(bytes.len() as u64);
+    let properties = BTreeMap::from([(
+        "semantic_validator".into(),
+        match family {
+            QuantitativeFamily::Segmentation => "segmentation_pixels",
+            QuantitativeFamily::ParametricMap => "finite_parametric_values",
+            QuantitativeFamily::RealWorldValueMapping => unreachable!(),
+        }
+        .into(),
+    )]);
+    let mut content = match original.address.normalized_tag().as_str() {
+        "7FE0,0010" => BulkDataPlan::from_bytes::<PixelDataSlot>(
+            bytes,
+            original.vr,
+            bounds,
+            BulkDataSource::DefaultSynthetic,
+            properties,
+        ),
+        "7FE0,0008" => BulkDataPlan::from_bytes::<FloatPixelDataSlot>(
+            bytes,
+            original.vr,
+            bounds,
+            BulkDataSource::DefaultSynthetic,
+            properties,
+        ),
+        "7FE0,0009" => BulkDataPlan::from_bytes::<DoubleFloatPixelDataSlot>(
+            bytes,
+            original.vr,
+            bounds,
+            BulkDataSource::DefaultSynthetic,
+            properties,
+        ),
+        tag => {
+            return Err(AdvancedFamilyError::TypedBulk(format!(
+                "unsupported quantitative pixel element {tag}"
+            )));
+        }
+    }
+    .map_err(|error| AdvancedFamilyError::TypedBulk(error.to_string()))?
+    .into_canonical_content();
+    content.placement = original.placement;
+    plan.content.push(content);
+    Ok(())
+}
+
+fn apply_quantitative_content(
+    family: QuantitativeFamily,
+    instance: &SpecInstance,
+    plan: &mut ResolvedInstancePlan,
+    resolver: &mut LocalContentResolver,
+) -> Result<(), AdvancedFamilyError> {
+    if family == QuantitativeFamily::RealWorldValueMapping {
+        if instance.content.is_empty() {
+            return Ok(());
+        }
+        return Err(AdvancedFamilyError::UnsupportedContent(
+            instance.instance_id.clone(),
+        ));
+    }
+    if instance.content.is_empty()
+        || (instance.content.len() == 1
+            && matches!(instance.content[0].source, ContentSource::Default))
+    {
+        return Ok(());
+    }
+    if instance.content.len() != 1 || instance.content[0].slot != "pixels" {
+        return Err(AdvancedFamilyError::ContentCardinality(
+            instance.instance_id.clone(),
+        ));
+    }
+    let ContentSource::LocalFile {
+        path,
+        sha256,
+        pixel: None,
+        ..
+    } = &instance.content[0].source
+    else {
+        return Err(AdvancedFamilyError::UnsupportedContent(
+            instance.instance_id.clone(),
+        ));
+    };
+    let expected = &plan.content[0];
+    let asset = resolver
+        .resolve(
+            "pixels",
+            "quantitative_pixels",
+            Path::new(path),
+            sha256.as_deref(),
+        )
+        .map_err(|error| AdvancedFamilyError::TypedBulk(error.to_string()))?;
+    let bytes = std::fs::read(&asset.staged_path)
+        .map_err(|error| AdvancedFamilyError::TypedBulk(error.to_string()))?;
+    validate_quantitative_bytes(&plan.template_id.0, &bytes)?;
+    let bounds = BulkDataBounds::exact(expected.size_bytes);
+    let properties = BTreeMap::from([(
+        "semantic_validator".into(),
+        match family {
+            QuantitativeFamily::Segmentation => "segmentation_pixels",
+            QuantitativeFamily::ParametricMap => "finite_parametric_values",
+            QuantitativeFamily::RealWorldValueMapping => unreachable!(),
+        }
+        .into(),
+    )]);
+    let mut replacement = match expected.address.normalized_tag().as_str() {
+        "7FE0,0010" => {
+            BulkDataPlan::from_staged::<PixelDataSlot>(asset, expected.vr, bounds, properties)
+        }
+        "7FE0,0008" => {
+            BulkDataPlan::from_staged::<FloatPixelDataSlot>(asset, expected.vr, bounds, properties)
+        }
+        "7FE0,0009" => BulkDataPlan::from_staged::<DoubleFloatPixelDataSlot>(
+            asset,
+            expected.vr,
+            bounds,
+            properties,
+        ),
+        tag => {
+            return Err(AdvancedFamilyError::TypedBulk(format!(
+                "unsupported quantitative pixel element {tag}"
+            )));
+        }
+    }
+    .map_err(|error| AdvancedFamilyError::TypedBulk(error.to_string()))?
+    .into_canonical_content();
+    replacement.placement = expected.placement.clone();
+    plan.content[0] = replacement;
+    Ok(())
+}
+
+fn validate_quantitative_bytes(template_id: &str, bytes: &[u8]) -> Result<(), AdvancedFamilyError> {
+    if template_id == "derived/parametric-map/float32" {
+        if bytes.len() % 4 != 0
+            || bytes.chunks_exact(4).any(|chunk| {
+                !f32::from_le_bytes(chunk.try_into().expect("four-byte chunk")).is_finite()
+            })
+        {
+            return Err(AdvancedFamilyError::TypedBulk(
+                "Float Pixel Data must contain only finite little-endian f32 values".into(),
+            ));
+        }
+    } else if template_id == "derived/parametric-map/float64"
+        && (bytes.len() % 8 != 0
+            || bytes.chunks_exact(8).any(|chunk| {
+                !f64::from_le_bytes(chunk.try_into().expect("eight-byte chunk")).is_finite()
+            }))
+    {
+        return Err(AdvancedFamilyError::TypedBulk(
+            "Double Float Pixel Data must contain only finite little-endian f64 values".into(),
+        ));
     }
     Ok(())
 }

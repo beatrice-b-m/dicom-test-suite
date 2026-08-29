@@ -6105,6 +6105,62 @@ pub(crate) fn write_composition_default_artifacts(
                 None,
             ),
             ("non-image/mesh/stl", _) => (&["derived/mesh/encapsulated_stl"], None, None),
+            ("derived/segmentation/binary", _) => (
+                &[
+                    "enhanced/ct/multiframe_shared_perframe_explicit_le",
+                    "derived/seg/binary_multiframe_explicit_le",
+                ],
+                Some("derived/seg/binary_multiframe_explicit_le"),
+                None,
+            ),
+            ("derived/segmentation/fractional-probability", _) => (
+                &[
+                    "enhanced/ct/multiframe_shared_perframe_explicit_le",
+                    "derived/seg/fractional_probability_multiframe_explicit_le",
+                ],
+                Some("derived/seg/fractional_probability_multiframe_explicit_le"),
+                None,
+            ),
+            ("derived/segmentation/labelmap", _) => (
+                &[
+                    "enhanced/ct/multiframe_shared_perframe_explicit_le",
+                    "derived/seg/labelmap_multiframe_explicit_le",
+                ],
+                Some("derived/seg/labelmap_multiframe_explicit_le"),
+                None,
+            ),
+            ("derived/segmentation/wsi-tile", _) => (
+                &[
+                    "vl/wsi/tiled_full_small",
+                    "derived/seg/wsi_tile_reference",
+                ],
+                Some("derived/seg/wsi_tile_reference"),
+                None,
+            ),
+            ("derived/parametric-map/float32", _) => (
+                &[
+                    "geometry/ct/spatial_sort_conflicts_instance_number",
+                    "derived/parametric-map/float32_ct_derived_explicit_le",
+                ],
+                Some("derived/parametric-map/float32_ct_derived_explicit_le"),
+                None,
+            ),
+            ("derived/parametric-map/float64", _) => (
+                &[
+                    "geometry/ct/spatial_sort_conflicts_instance_number",
+                    "derived/parametric-map/float64_ct_derived_explicit_le",
+                ],
+                Some("derived/parametric-map/float64_ct_derived_explicit_le"),
+                None,
+            ),
+            ("derived/real-world-value-mapping/linear", _) => (
+                &[
+                    "enhanced/ct/multiframe_shared_perframe_explicit_le",
+                    "derived/rwvm/linear_ct_mapping_explicit_le",
+                ],
+                Some("derived/rwvm/linear_ct_mapping_explicit_le"),
+                None,
+            ),
             _ => {
                 return Err(GenerateError::MetadataShape {
                     path: PathBuf::from(template_id),

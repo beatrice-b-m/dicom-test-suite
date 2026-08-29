@@ -538,6 +538,105 @@
       "limitations": ["Qualified for two paired CT series sharing one Frame of Reference."], "qualification_owner": "registration_presentation_state"
     },
     {
+      "template_id": "derived/segmentation/binary", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "Segmentation", "sop_class_name": "Segmentation Storage", "sop_class_uid": "1.2.840.10008.5.1.4.1.1.66.4", "default_modality": "SEG", "artifact_kind": "derived_image",
+      "modules": [{ "name": "Segmentation Image", "usage": "mandatory", "condition": null }],
+      "content_slots": [{ "slot": "pixels", "kind": "native_pixels", "required": true, "default_provider": "qualified_curated_default", "allowed_sources": ["default", "local_file"], "constraints": { "bits_allocated": [1], "sample_types": ["bit1"], "min_frames": 2, "max_frames": 2, "max_bytes": 1 }, "description": "Two continuously bit-packed 2 by 2 binary segmentation frames." }],
+      "reference_slots": [{ "role": "source_image", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.2.1"], "frame_roles": ["source_frames"], "cycle_policy": "forbidden", "default_dependency": "enhanced/ct", "description": "Enhanced CT frames segmented by the two output frames." }],
+      "default_bundle": { "dependencies": [{ "logical_role": "source", "template_id": "enhanced/ct", "template_version": "1.0.0", "reference_role": "source_image", "frames": [1, 2], "share_study": true, "share_frame_of_reference": true }] },
+      "validation": { "generic_rule_ids": ["meta_identity", "resolved_attributes"], "template_rule_ids": ["segmentation_structure", "reference_closure"], "content_rule_ids": ["content_integrity", "segmentation_pixels"], "independent_routes": [{ "adapter_id": "dicom_validator", "kind": "iod", "required_for_qualification": true }, { "adapter_id": "pydicom-segmentation-payload", "kind": "pixel", "required_for_qualification": true }] },
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "Segmentation IOD and Segmentation Functional Groups", "reason": "Locks binary bit packing, segment identification, per-frame derivation, and source-frame closure.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-quantitative-derived.md" }],
+      "limitations": ["Caller payloads retain the qualified two-frame binary segment geometry and references."], "qualification_owner": "quantitative_derived"
+    },
+    {
+      "template_id": "derived/segmentation/fractional-probability", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "Segmentation", "sop_class_name": "Segmentation Storage", "sop_class_uid": "1.2.840.10008.5.1.4.1.1.66.4", "default_modality": "SEG", "artifact_kind": "derived_image",
+      "modules": [{ "name": "Segmentation Image", "usage": "mandatory", "condition": null }],
+      "content_slots": [{ "slot": "pixels", "kind": "native_pixels", "required": true, "default_provider": "qualified_curated_default", "allowed_sources": ["default", "local_file"], "constraints": { "bits_allocated": [8], "sample_types": ["uint"], "min_frames": 2, "max_frames": 2, "max_bytes": 8 }, "description": "Two 2 by 2 fractional probability frames bounded by Maximum Fractional Value 255." }],
+      "reference_slots": [{ "role": "source_image", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.2.1"], "frame_roles": ["source_frames"], "cycle_policy": "forbidden", "default_dependency": "enhanced/ct", "description": "Enhanced CT frames segmented by the probability frames." }],
+      "default_bundle": { "dependencies": [{ "logical_role": "source", "template_id": "enhanced/ct", "template_version": "1.0.0", "reference_role": "source_image", "frames": [1, 2], "share_study": true, "share_frame_of_reference": true }] },
+      "validation": { "generic_rule_ids": ["meta_identity", "resolved_attributes"], "template_rule_ids": ["segmentation_structure", "reference_closure"], "content_rule_ids": ["content_integrity", "segmentation_pixels"], "independent_routes": [{ "adapter_id": "dicom_validator", "kind": "iod", "required_for_qualification": true }, { "adapter_id": "pydicom-segmentation-payload", "kind": "pixel", "required_for_qualification": true }] },
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "Segmentation IOD fractional segmentation", "reason": "Locks probability type, maximum fractional value, segment identification, and source-frame closure.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-quantitative-derived.md" }],
+      "limitations": ["Caller payloads retain the qualified two-frame probability geometry and references."], "qualification_owner": "quantitative_derived"
+    },
+    {
+      "template_id": "derived/segmentation/labelmap", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "Segmentation", "sop_class_name": "Label Map Segmentation Storage", "sop_class_uid": "1.2.840.10008.5.1.4.1.1.66.7", "default_modality": "SEG", "artifact_kind": "derived_image",
+      "modules": [{ "name": "Label Map Segmentation Image", "usage": "mandatory", "condition": null }],
+      "content_slots": [{ "slot": "pixels", "kind": "native_pixels", "required": true, "default_provider": "qualified_curated_default", "allowed_sources": ["default", "local_file"], "constraints": { "bits_allocated": [8], "sample_types": ["uint"], "min_frames": 2, "max_frames": 2, "max_bytes": 8 }, "description": "Two 2 by 2 label-map frames using the qualified segment number domain." }],
+      "reference_slots": [{ "role": "source_image", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.2.1"], "frame_roles": ["source_frames"], "cycle_policy": "forbidden", "default_dependency": "enhanced/ct", "description": "Enhanced CT frames represented by the label map." }],
+      "default_bundle": { "dependencies": [{ "logical_role": "source", "template_id": "enhanced/ct", "template_version": "1.0.0", "reference_role": "source_image", "frames": [1, 2], "share_study": true, "share_frame_of_reference": true }] },
+      "validation": { "generic_rule_ids": ["meta_identity", "resolved_attributes"], "template_rule_ids": ["segmentation_structure", "reference_closure"], "content_rule_ids": ["content_integrity", "segmentation_pixels"], "independent_routes": [{ "adapter_id": "dicom_validator", "kind": "iod", "required_for_qualification": true }, { "adapter_id": "pydicom-segmentation-payload", "kind": "pixel", "required_for_qualification": true }] },
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "Label Map Segmentation IOD", "reason": "Locks label-map pixel semantics, segment identification, and source-frame closure.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-quantitative-derived.md" }],
+      "limitations": ["Caller payloads retain the qualified two-frame single-label domain and references."], "qualification_owner": "quantitative_derived"
+    },
+    {
+      "template_id": "derived/segmentation/wsi-tile", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "Segmentation", "sop_class_name": "Segmentation Storage", "sop_class_uid": "1.2.840.10008.5.1.4.1.1.66.4", "default_modality": "SEG", "artifact_kind": "derived_image",
+      "modules": [{ "name": "Segmentation Image", "usage": "mandatory", "condition": null }],
+      "content_slots": [{ "slot": "pixels", "kind": "native_pixels", "required": true, "default_provider": "qualified_curated_default", "allowed_sources": ["default", "local_file"], "constraints": { "bits_allocated": [8], "sample_types": ["uint"], "min_frames": 2, "max_frames": 2, "max_bytes": 8 }, "description": "Two fractional occupancy frames bound to qualified sparse WSI tiles." }],
+      "reference_slots": [{ "role": "source_image", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.77.1.6"], "frame_roles": ["source_frames"], "cycle_policy": "forbidden", "default_dependency": "vl/wsi/tiled-full", "description": "Tiled-full WSI frames segmented in slide coordinates." }],
+      "default_bundle": { "dependencies": [{ "logical_role": "source", "template_id": "vl/wsi/tiled-full", "template_version": "1.0.0", "reference_role": "source_image", "frames": [1, 2], "share_study": true, "share_frame_of_reference": true }] },
+      "validation": { "generic_rule_ids": ["meta_identity", "resolved_attributes"], "template_rule_ids": ["segmentation_structure", "reference_closure", "slide_coordinates"], "content_rule_ids": ["content_integrity", "segmentation_pixels"], "independent_routes": [{ "adapter_id": "dicom_validator", "kind": "iod", "required_for_qualification": true }, { "adapter_id": "pydicom-dicom-validator-wsi-tile-segmentation", "kind": "pixel", "required_for_qualification": true }] },
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "Segmentation IOD with VL Whole Slide Microscopy source references", "reason": "Locks slide-coordinate functional groups, tile-frame references, and fractional occupancy pixels.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-quantitative-derived.md" }],
+      "limitations": ["Qualified only for the reduced two-frame tiled-full WSI source fixture."], "qualification_owner": "quantitative_derived"
+    },
+    {
+      "template_id": "derived/parametric-map/float32", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "Parametric Map", "sop_class_name": "Parametric Map Storage", "sop_class_uid": "1.2.840.10008.5.1.4.1.1.30", "default_modality": "OT", "artifact_kind": "derived_image",
+      "modules": [{ "name": "Parametric Map Image", "usage": "mandatory", "condition": null }],
+      "content_slots": [{ "slot": "pixels", "kind": "float_pixels", "required": true, "default_provider": "qualified_curated_default", "allowed_sources": ["default", "local_file"], "constraints": { "bits_allocated": [32], "sample_types": ["float32"], "min_frames": 3, "max_frames": 3, "max_bytes": 48 }, "description": "Three finite little-endian Float Pixel Data frames with qualified real-world mapping." }],
+      "reference_slots": [
+        { "role": "source_1", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.2"], "frame_roles": [], "cycle_policy": "forbidden", "default_dependency": "classic/ct", "description": "First source CT slice." },
+        { "role": "source_2", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.2"], "frame_roles": [], "cycle_policy": "forbidden", "default_dependency": "classic/ct", "description": "Second source CT slice." },
+        { "role": "source_3", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.2"], "frame_roles": [], "cycle_policy": "forbidden", "default_dependency": "classic/ct", "description": "Third source CT slice." }
+      ],
+      "default_bundle": { "dependencies": [
+        { "logical_role": "source_1", "template_id": "classic/ct", "template_version": "1.0.0", "reference_role": "source_1", "share_study": true, "share_frame_of_reference": true },
+        { "logical_role": "source_2", "template_id": "classic/ct", "template_version": "1.0.0", "reference_role": "source_2", "share_study": true, "share_series_with_role": "source_1", "share_frame_of_reference": true },
+        { "logical_role": "source_3", "template_id": "classic/ct", "template_version": "1.0.0", "reference_role": "source_3", "share_study": true, "share_series_with_role": "source_1", "share_frame_of_reference": true }
+      ] },
+      "validation": { "generic_rule_ids": ["meta_identity", "resolved_attributes"], "template_rule_ids": ["parametric_map_structure", "reference_closure"], "content_rule_ids": ["content_integrity", "finite_parametric_values"], "independent_routes": [{ "adapter_id": "dicom_validator", "kind": "iod", "required_for_qualification": true }, { "adapter_id": "highdicom-pydicom", "kind": "pixel", "required_for_qualification": true }] },
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "Parametric Map IOD with Float Pixel Data", "reason": "Locks float payload, functional groups, derivation references, and real-world value mapping.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-quantitative-derived.md" }],
+      "limitations": ["Caller values retain the qualified three-frame geometry, derivation chain, and units."], "qualification_owner": "quantitative_derived"
+    },
+    {
+      "template_id": "derived/parametric-map/float64", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "Parametric Map", "sop_class_name": "Parametric Map Storage", "sop_class_uid": "1.2.840.10008.5.1.4.1.1.30", "default_modality": "OT", "artifact_kind": "derived_image",
+      "modules": [{ "name": "Parametric Map Image", "usage": "mandatory", "condition": null }],
+      "content_slots": [{ "slot": "pixels", "kind": "double_float_pixels", "required": true, "default_provider": "qualified_curated_default", "allowed_sources": ["default", "local_file"], "constraints": { "bits_allocated": [64], "sample_types": ["float64"], "min_frames": 3, "max_frames": 3, "max_bytes": 96 }, "description": "Three finite little-endian Double Float Pixel Data frames with qualified real-world mapping." }],
+      "reference_slots": [
+        { "role": "source_1", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.2"], "frame_roles": [], "cycle_policy": "forbidden", "default_dependency": "classic/ct", "description": "First source CT slice." },
+        { "role": "source_2", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.2"], "frame_roles": [], "cycle_policy": "forbidden", "default_dependency": "classic/ct", "description": "Second source CT slice." },
+        { "role": "source_3", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.2"], "frame_roles": [], "cycle_policy": "forbidden", "default_dependency": "classic/ct", "description": "Third source CT slice." }
+      ],
+      "default_bundle": { "dependencies": [
+        { "logical_role": "source_1", "template_id": "classic/ct", "template_version": "1.0.0", "reference_role": "source_1", "share_study": true, "share_frame_of_reference": true },
+        { "logical_role": "source_2", "template_id": "classic/ct", "template_version": "1.0.0", "reference_role": "source_2", "share_study": true, "share_series_with_role": "source_1", "share_frame_of_reference": true },
+        { "logical_role": "source_3", "template_id": "classic/ct", "template_version": "1.0.0", "reference_role": "source_3", "share_study": true, "share_series_with_role": "source_1", "share_frame_of_reference": true }
+      ] },
+      "validation": { "generic_rule_ids": ["meta_identity", "resolved_attributes"], "template_rule_ids": ["parametric_map_structure", "reference_closure"], "content_rule_ids": ["content_integrity", "finite_parametric_values"], "independent_routes": [{ "adapter_id": "dicom_validator", "kind": "iod", "required_for_qualification": true }, { "adapter_id": "highdicom-pydicom", "kind": "pixel", "required_for_qualification": true }] },
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "Parametric Map IOD with Double Float Pixel Data", "reason": "Locks double-float payload, functional groups, derivation references, and real-world value mapping.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-quantitative-derived.md" }],
+      "limitations": ["Caller values retain the qualified three-frame geometry, derivation chain, and units."], "qualification_owner": "quantitative_derived"
+    },
+    {
+      "template_id": "derived/real-world-value-mapping/linear", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "Real World Value Mapping", "sop_class_name": "Real World Value Mapping Storage", "sop_class_uid": "1.2.840.10008.5.1.4.1.1.67", "default_modality": "RWV", "artifact_kind": "derived_image", "reference_only": true,
+      "modules": [{ "name": "Real World Value Mapping", "usage": "mandatory", "condition": null }],
+      "reference_slots": [{ "role": "source_image", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.2.1"], "frame_roles": ["source_frames"], "cycle_policy": "forbidden", "default_dependency": "enhanced/ct", "description": "Enhanced CT frames receiving the linear mapping." }],
+      "default_bundle": { "dependencies": [{ "logical_role": "source", "template_id": "enhanced/ct", "template_version": "1.0.0", "reference_role": "source_image", "frames": [1, 2], "share_study": true, "share_frame_of_reference": true }] },
+      "validation": { "generic_rule_ids": ["meta_identity", "resolved_attributes"], "template_rule_ids": ["rwvm_structure", "reference_closure"], "content_rule_ids": [], "independent_routes": [{ "adapter_id": "dicom_validator", "kind": "iod", "required_for_qualification": true }, { "adapter_id": "pydicom-rwvm", "kind": "entity", "required_for_qualification": true }] },
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "Real World Value Mapping IOD", "reason": "Locks first and last mapped values, slope, intercept, units, and source-frame closure.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-quantitative-derived.md" }],
+      "limitations": ["Qualified for the deterministic linear CT mapping and fixed UCUM unit code."], "qualification_owner": "quantitative_derived"
+    },
+    {
       "template_id": "non-image/waveform/twelve-lead-ecg", "template_version": "1.0.0", "status": "qualified",
       "iod_name": "12-lead ECG Waveform", "sop_class_name": "12-lead ECG Waveform Storage", "sop_class_uid": "1.2.840.10008.5.1.4.1.1.9.1.1", "default_modality": "ECG", "artifact_kind": "waveform",
       "modules": [{ "name": "12-lead ECG Waveform", "usage": "mandatory", "condition": null }],

@@ -172,6 +172,8 @@ struct ClassicFamilyTemplateDeclaration {
     content_slots: Vec<Value>,
     #[serde(default)]
     validation: Option<Value>,
+    #[serde(default)]
+    reference_only: bool,
 }
 
 impl TemplateCatalog {
@@ -441,10 +443,11 @@ impl ClassicFamilyTemplateDeclaration {
 impl ClassicFamilyTemplateDeclaration {
     fn expand_advanced(self) -> TemplateDescriptor {
         let wsi = self.artifact_kind == "whole_slide_image";
-        let reference_only = matches!(
-            self.artifact_kind.as_str(),
-            "presentation_state" | "registration"
-        );
+        let reference_only = self.reference_only
+            || matches!(
+                self.artifact_kind.as_str(),
+                "presentation_state" | "registration"
+            );
         let declared_content_slots = self.content_slots;
         let pixel_bearing = declared_content_slots.is_empty() && !reference_only;
         let mut attributes = [

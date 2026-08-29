@@ -71,6 +71,27 @@ fn resource_envelopes_fail_transactionally_and_clean_staging() {
     ));
     assert!(!instance_out.exists());
 
+    let policy_limited = root.join("policy-limit.json");
+    write_json(
+        &policy_limited,
+        &json!({
+            "composition_spec_schema_version":"0.1.0",
+            "resource_limits":{"max_file_bytes":1073741825_u64},
+            "instances":[
+                {"instance_id":"one","template":{"id":"classic/secondary-capture/monochrome"}}
+            ]
+        }),
+    );
+    let policy_out = root.join("policy-out");
+    assert!(matches!(
+        compose(&options(policy_limited, policy_out.clone())),
+        Err(ComposeError::Spec(SpecError::ResourceLimitAbovePolicy {
+            name: "max_file_bytes",
+            ..
+        }))
+    ));
+    assert!(!policy_out.exists());
+
     let output_limited = root.join("output-limit.json");
     write_json(
         &output_limited,

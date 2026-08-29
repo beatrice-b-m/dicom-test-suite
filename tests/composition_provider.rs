@@ -170,6 +170,26 @@ fn provider_crash_and_hang_are_bounded() {
         ),
         Err(ProviderError::Timeout { .. })
     ));
+
+    let flood = root.join("flood.sh");
+    write_executable(
+        &flood,
+        "#!/bin/sh\n/usr/bin/yes x | /usr/bin/head -c 1048576 > \"$DTS_COMPOSITION_PROVIDER_OUTPUTS/content.bin\"\n/bin/sleep 5\n",
+    );
+    let flood_sha256 = sha256_hex(&fs::read(&flood).unwrap());
+    assert!(matches!(
+        invoke_content_provider(
+            &ProviderInvocation {
+                executable: flood,
+                executable_sha256: flood_sha256,
+                arguments: vec![],
+                timeout: Duration::from_secs(2),
+            },
+            &request(),
+            &root.join("flood-run"),
+        ),
+        Err(ProviderError::Invalid { .. })
+    ));
     fs::remove_dir_all(root).unwrap();
 }
 

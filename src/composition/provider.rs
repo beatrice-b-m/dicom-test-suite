@@ -223,10 +223,20 @@ pub(crate) fn invoke_content_provider_cancellable(
         stdout_receiver,
         stderr_receiver,
         is_cancelled,
+        staging_root,
+        &response_path,
+        &output_root,
+        request.output.max_size_bytes,
     )?;
     if !status.success() {
         return Err(invalid(format!("provider exited with status {status}")));
     }
+    audit_running_staging(
+        staging_root,
+        &response_path,
+        &output_root,
+        request.output.max_size_bytes,
+    )?;
 
     let response_metadata =
         fs::symlink_metadata(&response_path).map_err(|source| ProviderError::Io {
@@ -327,6 +337,10 @@ fn wait_for_provider(
     stdout_receiver: mpsc::Receiver<Result<Vec<u8>, ProviderError>>,
     stderr_receiver: mpsc::Receiver<Result<Vec<u8>, ProviderError>>,
     is_cancelled: &dyn Fn() -> bool,
+    staging_root: &Path,
+    response_path: &Path,
+    output_root: &Path,
+    max_output_bytes: u64,
 ) -> Result<(std::process::ExitStatus, Vec<u8>, Vec<u8>), ProviderError> {
     let deadline = Instant::now() + timeout;
     let mut status = None;
@@ -336,6 +350,12 @@ fn wait_for_provider(
         if is_cancelled() {
             terminate_process_tree(child, process_group_id);
             return Err(ProviderError::Cancelled);
+        }
+        if let Err(error) =
+            audit_running_staging(staging_root, response_path, output_root, max_output_bytes)
+        {
+            terminate_process_tree(child, process_group_id);
+            return Err(error);
         }
         if status.is_none() {
             status = match child.try_wait() {
@@ -369,6 +389,71 @@ fn wait_for_provider(
         }
         thread::sleep(Duration::from_millis(10));
     }
+}
+
+fn audit_running_staging(
+    staging_root: &Path,
+    response_path: &Path,
+    output_root: &Path,
+    max_output_bytes: u64,
+) -> Result<(), ProviderError> {
+    for entry in fs::read_dir(staging_root).map_err(|source| ProviderError::Io {
+        path: staging_root.to_path_buf(),
+        source,
+    })? {
+        let entry = entry.map_err(|source| ProviderError::Io {
+            path: staging_root.to_path_buf(),
+            source,
+        })?;
+        let path = entry.path();
+        if path != staging_root.join(REQUEST_FILE) && path != response_path && path != output_root {
+            return Err(invalid("provider created an undeclared staging entry"));
+        }
+        let metadata = fs::symlink_metadata(&path).map_err(|source| ProviderError::Io {
+            path: path.clone(),
+            source,
+        })?;
+        if metadata.file_type().is_symlink() {
+            return Err(invalid("provider staging entries cannot be symlinks"));
+        }
+        if path == output_root && !metadata.is_dir() {
+            return Err(invalid("provider replaced its output directory"));
+        }
+        if path == staging_root.join(REQUEST_FILE) && !metadata.is_file() {
+            return Err(invalid("provider replaced its request file"));
+        }
+        if path == response_path && (!metadata.is_file() || metadata.len() > MAX_RESPONSE_BYTES) {
+            return Err(invalid("provider response is not a bounded regular file"));
+        }
+    }
+
+    let mut output_count = 0_u64;
+    for entry in fs::read_dir(output_root).map_err(|source| ProviderError::Io {
+        path: output_root.to_path_buf(),
+        source,
+    })? {
+        let entry = entry.map_err(|source| ProviderError::Io {
+            path: output_root.to_path_buf(),
+            source,
+        })?;
+        output_count += 1;
+        if output_count > 1 {
+            return Err(invalid("provider created more than one output"));
+        }
+        let metadata = fs::symlink_metadata(entry.path()).map_err(|source| ProviderError::Io {
+            path: entry.path(),
+            source,
+        })?;
+        if metadata.file_type().is_symlink() || !metadata.is_file() {
+            return Err(invalid("provider output must be a regular file"));
+        }
+        if metadata.len() > max_output_bytes {
+            return Err(invalid(format!(
+                "provider output exceeds {max_output_bytes} bytes while running"
+            )));
+        }
+    }
+    Ok(())
 }
 
 fn poll_reader(

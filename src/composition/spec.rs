@@ -306,6 +306,41 @@ impl CompositionSpec {
             return Err(SpecError::Schema(errors));
         }
         let spec: Self = serde_json::from_value(value).map_err(SpecError::Parse)?;
+        for (name, value, maximum) in [
+            (
+                "max_instances",
+                spec.resource_limits.max_instances,
+                default_max_instances(),
+            ),
+            (
+                "max_input_files",
+                spec.resource_limits.max_input_files,
+                default_max_input_files(),
+            ),
+            (
+                "max_file_bytes",
+                spec.resource_limits.max_file_bytes,
+                default_max_file_bytes(),
+            ),
+            (
+                "max_total_input_bytes",
+                spec.resource_limits.max_total_input_bytes,
+                default_max_total_input_bytes(),
+            ),
+            (
+                "max_total_output_bytes",
+                spec.resource_limits.max_total_output_bytes,
+                default_max_total_output_bytes(),
+            ),
+        ] {
+            if value > maximum {
+                return Err(SpecError::ResourceLimitAbovePolicy {
+                    name,
+                    value,
+                    maximum,
+                });
+            }
+        }
         if spec.instances.len() as u64 > spec.resource_limits.max_instances {
             return Err(SpecError::InstanceLimit {
                 count: spec.instances.len(),
@@ -483,6 +518,11 @@ pub enum SpecError {
     InstanceLimit {
         count: usize,
         limit: u64,
+    },
+    ResourceLimitAbovePolicy {
+        name: &'static str,
+        value: u64,
+        maximum: u64,
     },
     InvalidPlanarConfiguration(u8),
     NegativeUnsigned(i64),

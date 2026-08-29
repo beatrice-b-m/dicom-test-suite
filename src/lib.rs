@@ -3,12 +3,13 @@ use std::error::Error;
 use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
 
 use dicom_core::VR;
 use dicom_dictionary_std::{StandardDataDictionary, tags, uids};
 use dicom_object::{FileDicomObject, InMemDicomObject, open_file};
 use serde_json::Value;
+
+use crate::executor::transaction::{OutputTransaction, TransactionError};
 
 use crate::codecs::{
     DEFLATED_IMAGE_FRAME_TRANSFER_SYNTAX_UID, FrameDecodeInput, FrameDecoder,
@@ -252,6 +253,11 @@ pub enum GenerateError {
         destination_path: PathBuf,
         source: std::io::Error,
     },
+    PublicationTransaction {
+        operation: &'static str,
+        path: PathBuf,
+        source: TransactionError,
+    },
     CreateCaseOutputDir {
         path: PathBuf,
         source: std::io::Error,
@@ -328,6 +334,15 @@ impl fmt::Display for GenerateError {
                 source_path.display(),
                 destination_path.display()
             ),
+            Self::PublicationTransaction {
+                operation,
+                path,
+                source,
+            } => write!(
+                f,
+                "failed to {operation} generation output {}: {source}",
+                path.display()
+            ),
             Self::CreateCaseOutputDir { path, source } => {
                 write!(
                     f,
@@ -373,6 +388,7 @@ impl Error for GenerateError {
             Self::SerializeManifest { source, .. } => Some(source),
             Self::WriteManifest { source, .. } => Some(source),
             Self::PromoteOutputDir { source, .. } => Some(source),
+            Self::PublicationTransaction { source, .. } => Some(source),
             Self::CreateCaseOutputDir { source, .. } => Some(source),
             Self::WriteDicomFile { .. } => None,
             Self::ReadGeneratedFile { source, .. } => Some(source),
@@ -544,8 +560,39 @@ pub fn write_generation_run(
     if fs::symlink_metadata(&run.out_dir).is_ok() {
         return Err(GenerateError::OutputPathExists(run.out_dir.clone()));
     }
-    let staging_root = create_generation_staging_root(&run.out_dir)?;
-    let mut staging_guard = GenerationStagingGuard(Some(staging_root.clone()));
+    let parent = run
+        .out_dir
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    fs::create_dir_all(parent).map_err(|source| GenerateError::CreateOutputDir {
+        path: parent.to_path_buf(),
+        source,
+    })?;
+    let canonical_parent =
+        fs::canonicalize(parent).map_err(|source| GenerateError::CreateOutputDir {
+            path: parent.to_path_buf(),
+            source,
+        })?;
+    let transaction_destination = run
+        .out_dir
+        .file_name()
+        .map(|name| canonical_parent.join(name))
+        .unwrap_or_else(|| run.out_dir.clone());
+    let mut transaction = match OutputTransaction::begin(&transaction_destination) {
+        Ok(transaction) => transaction,
+        Err(TransactionError::DestinationExists(_)) => {
+            return Err(GenerateError::OutputPathExists(run.out_dir.clone()));
+        }
+        Err(source) => {
+            return Err(GenerateError::PublicationTransaction {
+                operation: "begin atomic publication for",
+                path: run.out_dir.clone(),
+                source,
+            });
+        }
+    };
+    let staging_root = transaction.staging_root().to_path_buf();
     let staged_run = PreparedGenerationRun {
         profile: run.profile.clone(),
         out_dir: staging_root.clone(),
@@ -594,69 +641,29 @@ pub fn write_generation_run(
     })?;
     contents.push('\n');
 
-    fs::write(&staged_run.manifest_path, contents).map_err(|source| {
-        GenerateError::WriteManifest {
-            path: staged_run.manifest_path.clone(),
+    transaction
+        .write_manifest(contents.as_bytes())
+        .map_err(|source| GenerateError::PublicationTransaction {
+            operation: "write manifest for",
+            path: run.out_dir.clone(),
             source,
-        }
-    })?;
+        })?;
 
     if fs::symlink_metadata(&run.out_dir).is_ok() {
         return Err(GenerateError::OutputPathExists(run.out_dir.clone()));
     }
-    fs::rename(&staging_root, &run.out_dir).map_err(|source| GenerateError::PromoteOutputDir {
-        source_path: staging_root,
-        destination_path: run.out_dir.clone(),
-        source,
-    })?;
-    staging_guard.0 = None;
+    transaction
+        .promote()
+        .map_err(|source| GenerateError::PublicationTransaction {
+            operation: "promote completed",
+            path: run.out_dir.clone(),
+            source,
+        })?;
 
     Ok(GenerationSummary {
         files_written,
         manifest_written: true,
     })
-}
-
-static GENERATION_STAGING_COUNTER: AtomicU64 = AtomicU64::new(0);
-
-struct GenerationStagingGuard(Option<PathBuf>);
-
-impl Drop for GenerationStagingGuard {
-    fn drop(&mut self) {
-        if let Some(path) = self.0.take() {
-            let _ = fs::remove_dir_all(path);
-        }
-    }
-}
-
-fn create_generation_staging_root(out_dir: &Path) -> Result<PathBuf, GenerateError> {
-    let parent = out_dir.parent().unwrap_or_else(|| Path::new("."));
-    fs::create_dir_all(parent).map_err(|source| GenerateError::CreateOutputDir {
-        path: parent.to_path_buf(),
-        source,
-    })?;
-    let output_name = out_dir
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("generated");
-
-    loop {
-        let counter = GENERATION_STAGING_COUNTER.fetch_add(1, Ordering::Relaxed);
-        let candidate = parent.join(format!(
-            ".{output_name}.dicom-test-suite-staging-{}-{counter}",
-            std::process::id()
-        ));
-        match fs::create_dir(&candidate) {
-            Ok(()) => return Ok(candidate),
-            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
-            Err(source) => {
-                return Err(GenerateError::CreateOutputDir {
-                    path: candidate,
-                    source,
-                });
-            }
-        }
-    }
 }
 
 pub fn validate_generated_root(
@@ -38043,6 +38050,65 @@ mod tests {
         );
 
         fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+    }
+
+    #[test]
+    fn write_generation_run_rejects_destination_created_after_prepare_without_staging_leak() {
+        let out_dir = unique_temp_dir("write_generation_run_destination_race");
+        let prepared = prepare_generation_run(GenerateOptions {
+            profile: "smoke".to_string(),
+            out_dir: out_dir.clone(),
+            seed: 7,
+            include_stress: false,
+        })
+        .expect("generation run should prepare while destination is absent");
+        fs::create_dir(&out_dir).expect("simulate a destination winner");
+
+        let error = write_generation_run(&prepared)
+            .expect_err("generation must not merge with a destination-race winner");
+        assert!(matches!(error, GenerateError::OutputPathExists(ref path) if path == &out_dir));
+        assert!(
+            fs::read_dir(&out_dir).unwrap().next().is_none(),
+            "the destination-race winner must remain untouched"
+        );
+        let prefix = format!(
+            ".{}.dicom-test-suite-staging-",
+            out_dir.file_name().unwrap().to_string_lossy()
+        );
+        assert!(
+            fs::read_dir(out_dir.parent().unwrap())
+                .unwrap()
+                .filter_map(Result::ok)
+                .all(|entry| !entry.file_name().to_string_lossy().starts_with(&prefix)),
+            "a rejected destination race must not leak transaction staging"
+        );
+        fs::remove_dir_all(out_dir).expect("remove destination-race winner");
+    }
+
+    #[test]
+    fn write_generation_run_creates_missing_parent_and_promotes_once() {
+        let workspace = unique_temp_dir("write_generation_run_nested_parent");
+        let out_dir = workspace.join("nested/corpus");
+        let prepared = prepare_generation_run(GenerateOptions {
+            profile: "smoke".to_string(),
+            out_dir: out_dir.clone(),
+            seed: 7,
+            include_stress: false,
+        })
+        .expect("generation run should prepare");
+
+        let summary = write_generation_run(&prepared).expect("nested corpus should publish");
+        assert!(summary.manifest_written);
+        assert!(out_dir.join("manifest.json").is_file());
+        assert_eq!(
+            fs::read_dir(workspace.join("nested"))
+                .unwrap()
+                .filter_map(Result::ok)
+                .count(),
+            1,
+            "publication must leave only the single promoted root"
+        );
+        fs::remove_dir_all(workspace).expect("remove nested publication workspace");
     }
 
     #[test]

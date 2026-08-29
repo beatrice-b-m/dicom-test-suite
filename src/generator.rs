@@ -25910,23 +25910,18 @@ fn write_classic_nm_case(
         PrimitiveValue::from(pixel_bytes.clone()),
     ));
 
-    let file_obj = obj
-        .with_meta(
-            FileMetaTableBuilder::new()
-                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
-                .implementation_class_uid(&implementation_class_uid)
-                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
-        )
-        .map_err(|err| GenerateError::WriteDicomFile {
-            path: path.clone(),
-            message: err.to_string(),
-        })?;
-    file_obj
-        .write_to_file(&path)
-        .map_err(|err| GenerateError::WriteDicomFile {
-            path: path.clone(),
-            message: err.to_string(),
-        })?;
+    materialize_curated_classic_dataset(
+        &obj,
+        &path,
+        recipe.recipe_id,
+        "classic/nuclear-medicine",
+        uids::NUCLEAR_MEDICINE_IMAGE_STORAGE,
+        uids::EXPLICIT_VR_LITTLE_ENDIAN,
+        &study_instance_uid,
+        &series_instance_uid,
+        &sop_instance_uid,
+        &implementation_class_uid,
+    )?;
 
     let frame_hashes = recipe
         .frames
@@ -25987,7 +25982,7 @@ fn write_classic_nm_case(
         .collect::<Vec<_>>();
     let actual_frame_duration_ms = recipe.actual_frame_duration_ms.to_string();
     let counts_accumulated = recipe.counts_accumulated.to_string();
-    let validated = validate_part10_file(
+    let mut validated = validate_part10_file(
         &path,
         &Part10Expectations {
             sop_class_uid: uids::NUCLEAR_MEDICINE_IMAGE_STORAGE,
@@ -26039,6 +26034,7 @@ fn write_classic_nm_case(
             segmentation: None,
         },
     )?;
+    append_curated_plan_validation(&mut validated.validation);
 
     Ok(GeneratedFile {
         case_id: recipe.case_id.to_string(),
@@ -26553,25 +26549,20 @@ fn write_classic_pet_case(
         PrimitiveValue::from(recipe.pixel_bytes_le.to_vec()),
     ));
 
-    let file_obj = obj
-        .with_meta(
-            FileMetaTableBuilder::new()
-                .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
-                .implementation_class_uid(&implementation_class_uid)
-                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
-        )
-        .map_err(|err| GenerateError::WriteDicomFile {
-            path: path.clone(),
-            message: err.to_string(),
-        })?;
-    file_obj
-        .write_to_file(&path)
-        .map_err(|err| GenerateError::WriteDicomFile {
-            path: path.clone(),
-            message: err.to_string(),
-        })?;
+    materialize_curated_classic_dataset(
+        &obj,
+        &path,
+        recipe.recipe_id,
+        "classic/pet",
+        uids::POSITRON_EMISSION_TOMOGRAPHY_IMAGE_STORAGE,
+        uids::EXPLICIT_VR_LITTLE_ENDIAN,
+        &study_instance_uid,
+        &series_instance_uid,
+        &sop_instance_uid,
+        &implementation_class_uid,
+    )?;
 
-    let validated = validate_part10_file(
+    let mut validated = validate_part10_file(
         &path,
         &Part10Expectations {
             sop_class_uid: uids::POSITRON_EMISSION_TOMOGRAPHY_IMAGE_STORAGE,
@@ -26643,6 +26634,7 @@ fn write_classic_pet_case(
             segmentation: None,
         },
     )?;
+    append_curated_plan_validation(&mut validated.validation);
 
     Ok(GeneratedFile {
         case_id: recipe.case_id.to_string(),
@@ -28545,21 +28537,18 @@ fn write_classic_us_multiframe_case(
         PrimitiveValue::from(pixel_bytes),
     ));
 
-    obj.with_meta(
-        FileMetaTableBuilder::new()
-            .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
-            .implementation_class_uid(&implementation_class_uid)
-            .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
-    )
-    .map_err(|err| GenerateError::WriteDicomFile {
-        path: path.clone(),
-        message: err.to_string(),
-    })?
-    .write_to_file(&path)
-    .map_err(|err| GenerateError::WriteDicomFile {
-        path: path.clone(),
-        message: err.to_string(),
-    })?;
+    materialize_curated_classic_dataset(
+        &obj,
+        &path,
+        recipe.recipe_id,
+        "classic/ultrasound/multiframe",
+        uids::ULTRASOUND_MULTI_FRAME_IMAGE_STORAGE,
+        uids::EXPLICIT_VR_LITTLE_ENDIAN,
+        &study_instance_uid,
+        &series_instance_uid,
+        &sop_instance_uid,
+        &implementation_class_uid,
+    )?;
 
     let frame_hashes = recipe
         .frames
@@ -28567,7 +28556,7 @@ fn write_classic_us_multiframe_case(
         .map(|frame| frame.frame_sha256)
         .collect::<Vec<_>>();
     let frame_time_ms = recipe.frame_time_ms.to_string();
-    let validated = validate_part10_file(
+    let mut validated = validate_part10_file(
         &path,
         &Part10Expectations {
             sop_class_uid: uids::ULTRASOUND_MULTI_FRAME_IMAGE_STORAGE,
@@ -28616,6 +28605,7 @@ fn write_classic_us_multiframe_case(
             segmentation: None,
         },
     )?;
+    append_curated_plan_validation(&mut validated.validation);
 
     Ok(GeneratedFile {
         case_id: recipe.case_id.to_string(),
@@ -28944,28 +28934,22 @@ fn write_classic_us_case(
         None
     };
 
-    let file_obj = obj
-        .with_meta(
-            FileMetaTableBuilder::new()
-                .transfer_syntax(recipe.transfer_syntax.uid)
-                .implementation_class_uid(&implementation_class_uid)
-                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
-        )
-        .map_err(|err| GenerateError::WriteDicomFile {
-            path: path.clone(),
-            message: err.to_string(),
-        })?;
-
-    file_obj
-        .write_to_file(&path)
-        .map_err(|err| GenerateError::WriteDicomFile {
-            path: path.clone(),
-            message: err.to_string(),
-        })?;
+    materialize_curated_classic_dataset(
+        &obj,
+        &path,
+        recipe.recipe_id,
+        "classic/ultrasound/single-frame",
+        uids::ULTRASOUND_IMAGE_STORAGE,
+        recipe.transfer_syntax.uid,
+        &study_instance_uid,
+        &series_instance_uid,
+        &sop_instance_uid,
+        &implementation_class_uid,
+    )?;
 
     let decoded_frame_hash = sha256_hex(recipe.pixel_bytes);
     let decoded_frame_hashes = [decoded_frame_hash.as_str()];
-    let validated = validate_part10_file(
+    let mut validated = validate_part10_file(
         &path,
         &Part10Expectations {
             sop_class_uid: uids::ULTRASOUND_IMAGE_STORAGE,
@@ -29020,6 +29004,7 @@ fn write_classic_us_case(
             segmentation: None,
         },
     )?;
+    append_curated_plan_validation(&mut validated.validation);
 
     Ok(GeneratedFile {
         case_id: recipe.case_id.to_string(),

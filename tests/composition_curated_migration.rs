@@ -15,7 +15,7 @@ fn output(label: &str) -> PathBuf {
 
 #[test]
 fn migrated_classic_recipes_record_shared_plan_materialization() {
-    let root = output("sc-vl");
+    let root = output("classic-families");
     let result = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args([
             "generate",
@@ -44,6 +44,9 @@ fn migrated_classic_recipes_record_shared_plan_materialization() {
                 || case_id.starts_with("classic/dx/")
                 || case_id.starts_with("classic/mg/")
                 || case_id.starts_with("classic/mr/")
+                || case_id.starts_with("classic/nm/")
+                || case_id.starts_with("classic/pet/")
+                || case_id.starts_with("classic/us/")
                 || case_id.starts_with("geometry/ct/")
                 || case_id.starts_with("metadata/sc/")
                 || case_id.starts_with("encapsulation/sc/")

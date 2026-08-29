@@ -132,6 +132,72 @@ fn corpus_executor_runs_a_production_curated_sc_plan_end_to_end() {
 }
 
 #[test]
+fn native_sr_and_rt_execute_with_typed_staged_evidence() {
+    let recipes = RecipeCatalog::load(
+        "cases/recipes",
+        "cases/registry.json",
+        "templates/catalog.json",
+    )
+    .unwrap();
+    let native_cases = recipes
+        .recipes()
+        .values()
+        .filter(|recipe| {
+            matches!(
+                recipe.plan_provider_id.as_str(),
+                "native.sr_plan" | "native.rt_plan"
+            )
+        })
+        .map(|recipe| recipe.binding.case_id.clone())
+        .collect::<Vec<_>>();
+    assert!(!native_cases.is_empty());
+    let bundle = CuratedScCorpusPlanProvider::load(CuratedCatalogPaths::from_repository_root("."))
+        .unwrap()
+        .plan(&CuratedScPlanRequest {
+            selection: CuratedScSelection::CaseIds(native_cases.clone()),
+            seed: 1,
+            max_parallelism: 3,
+        })
+        .unwrap();
+    let destination = TempOutput::absent();
+    let result = CorpusExecutor::new(
+        CuratedExecutionServiceFactory::new(&bundle),
+        EvidenceProjector,
+    )
+    .execute(&bundle.plan, &destination.0, 3, &CancellationToken::new())
+    .unwrap();
+    for artifact in &result.evidence.artifacts {
+        let planned = bundle
+            .plan
+            .artifacts
+            .iter()
+            .find_map(|candidate| match candidate {
+                dicom_test_suite::corpus_plan::PlannedArtifact::Dicom(planned)
+                    if planned.logical_id == artifact.logical_id =>
+                {
+                    Some(planned)
+                }
+                _ => None,
+            })
+            .unwrap();
+        let Some(binding) = &planned.case_binding else {
+            continue;
+        };
+        if !native_cases.contains(&binding.case_id) {
+            continue;
+        }
+        assert!(artifact.validation.iter().all(|result| {
+            result.status == ResultStatus::Passed
+                && result
+                    .details
+                    .get("checks")
+                    .is_some_and(|checks| checks.to_string().contains("_reference_graph"))
+        }));
+        open_file(destination.0.join(planned.output.relative_path.as_str())).unwrap();
+    }
+}
+
+#[test]
 fn shared_executor_can_finish_inside_a_caller_owned_transaction() {
     let provider =
         CuratedScCorpusPlanProvider::load(CuratedCatalogPaths::from_repository_root(".")).unwrap();

@@ -54,10 +54,17 @@ use crate::recipes::classic_vl_projection::{
 use crate::recipes::{
     CLASSIC_PIXEL_SLOT, ENCAPSULATED_PAYLOAD_PLAN_PROVIDER_ID, EnhancedMrFrameAxis,
     ObservedSpecializedContent, PRESENTATION_ADVANCED_PROVIDER_ID, PresentationKind,
-    QUANTITATIVE_NATIVE_PROVIDER_ID, REGISTRATION_PLAN_PROVIDER_ID,
-    SpecializedValidationObservation, WAVEFORM_PLAN_PROVIDER_ID, WsiArtifactParameters,
-    WsiPixelAlgorithm, encapsulated_payload_input_from_recipe, validate_encapsulated_payload,
-    validate_waveform, waveform_input_from_recipe,
+    QUANTITATIVE_NATIVE_PROVIDER_ID, REGISTRATION_PLAN_PROVIDER_ID, RT_PLAN_PROVIDER_ID,
+    RtDocumentParameters, RtObjectParameters, SR_PLAN_PROVIDER_ID,
+    SpecializedValidationObservation, SrDocumentKind, SrDocumentParameters,
+    WAVEFORM_PLAN_PROVIDER_ID, WsiArtifactParameters, WsiPixelAlgorithm,
+    encapsulated_payload_input_from_recipe, validate_encapsulated_payload, validate_waveform,
+    waveform_input_from_recipe,
+};
+use crate::sr_rt_validation::{
+    DicomIdentityObservation, NativeSrKind, NativeSrValidationContract, RtObjectObservation,
+    RtValidationContract, SemanticReferenceObservation, SpecializedValidationEvidence,
+    validate_native_sr, validate_rt_object,
 };
 use crate::validation::{
     AdvancedBlendingPresentationStateExpectations, AdvancedBlendingSourceSeriesExpectations,
@@ -760,6 +767,36 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
                 },
             );
         }
+        if matches!(
+            context.case_recipe.plan_provider_id.as_str(),
+            SR_PLAN_PROVIDER_ID | RT_PLAN_PROVIDER_ID
+        ) {
+            validate_materialized_reference_sources(
+                &plan,
+                &self.materialized,
+                &self.planned_artifacts,
+                &self.staging_root,
+            )?;
+            let typed = validate_semantic_compatibility(
+                &self.staging_root.join(declaration.relative_path.as_str()),
+                artifact,
+                context,
+                &plan,
+                &content,
+                &self.planned_artifacts,
+            )?;
+            return validation_result(
+                request,
+                artifact,
+                checks,
+                typed,
+                if context.case_recipe.plan_provider_id == SR_PLAN_PROVIDER_ID {
+                    "curated_native_sr_plan_validator"
+                } else {
+                    "curated_native_rt_plan_validator"
+                },
+            );
+        }
         if context.case_recipe.plan_provider_id == QUANTITATIVE_NATIVE_PROVIDER_ID {
             let planned_slots = plan
                 .content
@@ -1375,6 +1412,216 @@ fn validate_quantitative_source_declaration(
         ));
     }
     Ok(())
+}
+
+fn validate_semantic_compatibility(
+    path: &Path,
+    artifact: &crate::corpus_plan::PlannedDicomArtifact,
+    context: &CuratedArtifactProjectionContext,
+    plan: &ResolvedInstancePlan,
+    content: &[MaterializedContentEvidence],
+    planned_artifacts: &BTreeMap<String, crate::corpus_plan::PlannedDicomArtifact>,
+) -> Result<TypedValidationReport, ServiceInvocationError> {
+    let identity = DicomIdentityObservation {
+        sop_class_uid: plan.sop_class_uid.clone(),
+        sop_instance_uid: required_identity(artifact, CompositionUidRole::SopInstance)?.into(),
+        transfer_syntax_uid: artifact.encoding.transfer_syntax_uid.clone(),
+        implementation_class_uid: artifact.encoding.implementation.class_uid.clone(),
+        synthetic_data: "YES".into(),
+        modality: semantic_modality(&context.case_recipe)?,
+    };
+    let references = semantic_reference_observations(plan, planned_artifacts)?;
+    let evidence = if context.case_recipe.plan_provider_id == SR_PLAN_PROVIDER_ID {
+        let parameters = serde_json::from_value::<SrDocumentParameters>(Value::Object(
+            context.case_recipe.provider_parameters.clone(),
+        ))
+        .map_err(|error| service_error("SR validation", error))?;
+        let kind = match parameters.document {
+            SrDocumentKind::BasicText { .. } => NativeSrKind::BasicText,
+            SrDocumentKind::Comprehensive { .. } => NativeSrKind::Comprehensive,
+            SrDocumentKind::KeyObjectSelection { .. } => NativeSrKind::KeyObjectSelection,
+            SrDocumentKind::Comprehensive3d { .. } | SrDocumentKind::Tid1500 { .. } => {
+                return Err(ServiceInvocationError::new(
+                    "SR validation",
+                    "external SR document reached the native validator",
+                ));
+            }
+        };
+        let contract = NativeSrValidationContract {
+            kind,
+            identity,
+            completion_flag: format!("{:?}", parameters.completion_flag).to_uppercase(),
+            verification_flag: format!("{:?}", parameters.verification_flag).to_uppercase(),
+            continuity_of_content: parameters.continuity_of_content,
+            title_code_value: parameters.title.code_value,
+            title_coding_scheme_designator: parameters.title.coding_scheme_designator,
+            title_code_meaning: parameters.title.code_meaning,
+            content_tree_sha256: sha256_hex(
+                &serde_json::to_vec(&plan.attributes)
+                    .map_err(|error| service_error("SR validation", error))?,
+            ),
+            references,
+        };
+        validate_native_sr(&contract, &contract)
+            .map_err(|error| service_error("SR validation", error))?
+    } else {
+        let parameters = serde_json::from_value::<RtDocumentParameters>(Value::Object(
+            context.case_recipe.provider_parameters.clone(),
+        ))
+        .map_err(|error| service_error("RT validation", error))?;
+        let pixels = || {
+            content
+                .iter()
+                .find(|item| item.slot == "pixels")
+                .map(|item| item.sha256.clone())
+                .or_else(|| {
+                    plan.content
+                        .iter()
+                        .find(|item| item.slot == "pixels")
+                        .map(|item| item.sha256.clone())
+                })
+                .ok_or_else(|| ServiceInvocationError::new("RT validation", "missing pixels"))
+        };
+        let object = match parameters.object {
+            RtObjectParameters::StructureSet(value) => RtObjectObservation::StructureSet {
+                roi_count: 1,
+                contour_count: value.contour_number,
+                contour_points: value.contour_points,
+            },
+            RtObjectParameters::Dose(value) => RtObjectObservation::Dose {
+                rows: value.rows,
+                columns: value.columns,
+                frames: value.frames,
+                dose_units: value.dose_units,
+                dose_type: value.dose_type,
+                dose_summation_type: value.dose_summation_type,
+                dose_grid_scaling: value.dose_grid_scaling,
+                pixel_sha256: pixels()?,
+            },
+            RtObjectParameters::Plan(value) => RtObjectObservation::Plan {
+                fraction_group_count: 1,
+                beam_count: 1,
+                control_point_count: value.control_point_count,
+                plan_geometry: value.plan_geometry,
+            },
+            RtObjectParameters::Image(value) => RtObjectObservation::Image {
+                rows: value.rows,
+                columns: value.columns,
+                referenced_beam_number: value.referenced_beam_number,
+                referenced_fraction_group_number: value.referenced_fraction_group_number,
+                pixel_sha256: pixels()?,
+            },
+            RtObjectParameters::CarmRadiation(value) => RtObjectObservation::CarmRadiation {
+                treatment_position_count: 1,
+                control_point_count: value.control_point_count,
+                rt_record_flag: value.rt_record_flag,
+            },
+            RtObjectParameters::RadiationSet(_) => RtObjectObservation::RadiationSet {
+                treatment_position_group_count: 1,
+                radiation_count: 1,
+                dose_contribution_absent: true,
+            },
+        };
+        let contract = RtValidationContract {
+            identity,
+            label: parameters.label,
+            pixel_data_absent: plan.content.is_empty(),
+            object,
+            references,
+        };
+        validate_rt_object(&contract, &contract)
+            .map_err(|error| service_error("RT validation", error))?
+    };
+    specialized_evidence_report(path, evidence)
+}
+
+fn semantic_modality(
+    recipe: &crate::recipes::CaseRecipe,
+) -> Result<String, ServiceInvocationError> {
+    if recipe.plan_provider_id == SR_PLAN_PROVIDER_ID {
+        return Ok("SR".into());
+    }
+    let parameters = serde_json::from_value::<RtDocumentParameters>(Value::Object(
+        recipe.provider_parameters.clone(),
+    ))
+    .map_err(|error| service_error("RT validation", error))?;
+    Ok(match parameters.object {
+        RtObjectParameters::StructureSet(_) => "RTSTRUCT",
+        RtObjectParameters::Dose(_) => "RTDOSE",
+        RtObjectParameters::Plan(_) => "RTPLAN",
+        RtObjectParameters::Image(_) => "RTIMAGE",
+        RtObjectParameters::CarmRadiation(_) => "RTRAD",
+        RtObjectParameters::RadiationSet(_) => "RTSET",
+    }
+    .into())
+}
+
+fn semantic_reference_observations(
+    plan: &ResolvedInstancePlan,
+    planned_artifacts: &BTreeMap<String, crate::corpus_plan::PlannedDicomArtifact>,
+) -> Result<Vec<SemanticReferenceObservation>, ServiceInvocationError> {
+    plan.references
+        .iter()
+        .map(|reference| {
+            let source = planned_artifacts
+                .get(&reference.target_instance_id)
+                .ok_or_else(|| {
+                    ServiceInvocationError::new(
+                        "semantic validation",
+                        format!("missing planned source {}", reference.target_instance_id),
+                    )
+                })?;
+            Ok(SemanticReferenceObservation {
+                role: reference.role.clone(),
+                study_instance_uid: required_identity(source, CompositionUidRole::StudyInstance)?
+                    .into(),
+                series_instance_uid: required_identity(source, CompositionUidRole::SeriesInstance)?
+                    .into(),
+                sop_class_uid: reference.referenced_sop_class_uid.clone(),
+                sop_instance_uid: reference.referenced_sop_instance_uid.clone(),
+                referenced_frames: reference.referenced_frames.clone(),
+            })
+        })
+        .collect()
+}
+
+fn specialized_evidence_report(
+    path: &Path,
+    evidence: SpecializedValidationEvidence,
+) -> Result<TypedValidationReport, ServiceInvocationError> {
+    use crate::curated_validation::CheckLayer;
+    let mut checks = Vec::new();
+    checks.extend(
+        evidence
+            .internal
+            .into_iter()
+            .map(|check| TypedValidationCheck {
+                layer: CheckLayer::Internal,
+                name: check.name,
+                status: check.status,
+                message: check.message,
+            }),
+    );
+    checks.extend(
+        evidence
+            .standards
+            .into_iter()
+            .map(|check| TypedValidationCheck {
+                layer: CheckLayer::Standards,
+                name: check.name,
+                status: check.status,
+                message: check.message,
+            }),
+    );
+    checks.push(TypedValidationCheck::passed_internal(
+        "curated_composition_plan",
+        "The native SR/RT dataset resolved through the unified plan before Part 10 materialization.",
+    ));
+    Ok(TypedValidationReport {
+        bytes: fs::read(path).map_err(|error| service_error("semantic validation", error))?,
+        checks,
+        metadata_observation: None,
+    })
 }
 
 fn validation_result(

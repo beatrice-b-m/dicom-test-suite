@@ -7,6 +7,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use dicom_core::ops::{AttributeSelector, AttributeSelectorStep};
 use serde_json::{Value, json};
 
 use crate::composition::{ContentMaterialization, Part10Materializer};
@@ -282,6 +283,7 @@ impl MaterializationDispatcher {
                     native_value_fields.push((
                         content.slot.clone(),
                         content.address.tag(),
+                        content.placement.clone(),
                         native_value_field_size_bytes,
                         native_value_field_sha256.clone(),
                     ));
@@ -491,9 +493,34 @@ impl MaterializationDispatcher {
                     message: error.to_string(),
                 }
             })?;
-            for (slot, tag, expected_size, expected_sha256) in &native_value_fields {
+            for (slot, tag, placement, expected_size, expected_sha256) in &native_value_fields {
+                let mut selector = match placement {
+                    crate::composition::ContentPlacement::TopLevel => Vec::new(),
+                    crate::composition::ContentPlacement::Nested { sequence_path } => sequence_path
+                        .iter()
+                        .map(|parent| {
+                            u32::try_from(parent.item_index)
+                                .map(|item| AttributeSelectorStep::Nested {
+                                    tag: parent.sequence.tag(),
+                                    item,
+                                })
+                                .map_err(|_| MaterializationError::NativeValueFieldRead {
+                                    slot: slot.clone(),
+                                    message: "nested item index exceeds DICOM selector range"
+                                        .into(),
+                                })
+                        })
+                        .collect::<Result<Vec<_>, _>>()?,
+                };
+                selector.push(AttributeSelectorStep::Tag(*tag));
+                let selector = AttributeSelector::new(selector).ok_or_else(|| {
+                    MaterializationError::NativeValueFieldRead {
+                        slot: slot.clone(),
+                        message: "invalid native value field selector".into(),
+                    }
+                })?;
                 let actual = object
-                    .element(*tag)
+                    .value_at(selector)
                     .map_err(|error| MaterializationError::NativeValueFieldRead {
                         slot: slot.clone(),
                         message: error.to_string(),
@@ -1656,6 +1683,49 @@ mod tests {
         assert_eq!(
             content["native_value_field_sha256"],
             sha256_hex(&[1, 2, 3, 0])
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn nested_native_value_field_is_verified_at_its_declared_sequence_path() {
+        let root = root("nested-native-value-field");
+        let mut request = native_request(
+            "instances/nested-native.dcm",
+            &[1, 2, 3, 4],
+            vec![native_frame(1, vec![1, 2, 3, 4], 1, 2, 16)],
+        );
+        let PlannedArtifact::Dicom(artifact) = &mut request.artifact else {
+            unreachable!()
+        };
+        let sequence =
+            crate::composition::AttributeAddress::from_keyword("WaveformSequence").unwrap();
+        artifact
+            .instance
+            .attributes
+            .push(crate::composition::ResolvedAttribute {
+                address: sequence.clone(),
+                vr: crate::composition::DicomVr::SQ,
+                value: Some(crate::composition::AttributeValue::Sequence(vec![
+                    crate::composition::AttributeItem { attributes: vec![] },
+                ])),
+                origin: crate::composition::ValueOrigin::DerivedStructural,
+            });
+        let content = &mut artifact.instance.content[0];
+        content.address =
+            crate::composition::AttributeAddress::from_keyword("WaveformData").unwrap();
+        content.placement = crate::composition::ContentPlacement::Nested {
+            sequence_path: vec![crate::composition::SequenceItemPlacement {
+                sequence,
+                item_index: 0,
+            }],
+        };
+        let result = dispatcher(&root)
+            .dispatch(&request, &StagedAssetRegistry::default())
+            .unwrap();
+        assert_eq!(
+            result.evidence[0].claims["materialized_content"][0]["native_value_field_sha256"],
+            sha256_hex(&[1, 2, 3, 4])
         );
         fs::remove_dir_all(root).unwrap();
     }

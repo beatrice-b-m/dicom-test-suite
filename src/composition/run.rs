@@ -16,7 +16,8 @@ use crate::encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData};
 
 use super::advanced_defaults::{
     AdvancedDefaultMember, AdvancedSourceMember, group_identity, is_direct_advanced_default,
-    is_reference_default, plan_image_group, plan_reference_default,
+    is_reference_default, is_typed_bulk_default, plan_image_group, plan_reference_default,
+    plan_typed_bulk_default,
 };
 use super::executor_adapter::{
     CompositionExecutionBundle, CompositionExecutionServiceFactory,
@@ -557,6 +558,38 @@ fn resolve_execution_bundle(
                 advanced_artifacts.insert(planned.logical_id.clone(), planned);
                 plans_by_id.insert(resolved.instance_id.clone(), resolved);
             }
+        } else if is_typed_bulk_default(template) {
+            let member = AdvancedDefaultMember {
+                instance,
+                template,
+                identities: base_plan.identities.clone(),
+                order: u64::try_from(instance_index).map_err(|_| ComposeError::ResourceRange)?,
+            };
+            let mut output = plan_typed_bulk_default(&recipes, &member)
+                .map_err(ComposeError::AdvancedDefaults)?;
+            let mut planned = output
+                .artifacts
+                .remove(&instance.instance_id)
+                .ok_or_else(|| {
+                    ComposeError::AdvancedDefaults("typed-bulk provider omitted target".into())
+                })?;
+            let profile = AdvancedFamilyProfile::for_template(&template.template_id.0)
+                .expect("typed-bulk default template has a profile");
+            profile.customize_direct_plan(
+                instance,
+                &mut planned.instance,
+                &mut content_resolver,
+            )?;
+            if instance
+                .content
+                .iter()
+                .any(|assignment| !matches!(assignment.source, ContentSource::Default))
+            {
+                output.bindings.remove(&instance.instance_id);
+            }
+            execution_bindings.extend(output.bindings);
+            advanced_artifacts.insert(planned.logical_id.clone(), planned.clone());
+            plans_by_id.insert(instance.instance_id.clone(), planned.instance);
         } else if let Some(profile) = AdvancedFamilyProfile::for_template(&template.template_id.0) {
             let scratch = match &planning_scratch {
                 Some(scratch) => scratch,

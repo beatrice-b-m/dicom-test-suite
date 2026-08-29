@@ -14,10 +14,13 @@ use crate::planning::RecipeIdentity;
 use crate::recipes::{
     AdvancedArtifactPlanningContext, AdvancedPlanProvider, AdvancedPlanProviderOutput,
     AdvancedPlanProviderRequest, AdvancedProviderFamily, AdvancedProviderLimits,
-    AdvancedSourceRole, EnhancedPlanProvider, PRESENTATION_ADVANCED_PROVIDER_ID,
+    AdvancedSourceRole, ContentProviderLimits, ENCAPSULATED_PAYLOAD_PLAN_PROVIDER_ID,
+    EncapsulatedPayloadPlanProvider, EnhancedPlanProvider, PRESENTATION_ADVANCED_PROVIDER_ID,
     PresentationPlanProvider, PresentationSourceInput, REGISTRATION_PLAN_PROVIDER_ID,
     RecipeCatalog, RegistrationKindInput, RegistrationPlanProvider, RegistrationSourceInput,
-    WSI_ADVANCED_PROVIDER_ID, WsiAdvancedPlanProvider,
+    TypedBulkPlanningContext, WAVEFORM_PLAN_PROVIDER_ID, WSI_ADVANCED_PROVIDER_ID,
+    WaveformPlanProvider, WsiAdvancedPlanProvider, encapsulated_payload_input_from_recipe,
+    waveform_input_from_recipe,
 };
 use crate::{DeterministicUidInput, UidRole, deterministic_uid};
 
@@ -59,6 +62,74 @@ pub(crate) fn is_reference_default(template: &TemplateDescriptor) -> bool {
         template.artifact_kind.as_str(),
         "registration" | "presentation_state"
     ) && template.default_recipe.is_some()
+}
+
+pub(crate) fn is_typed_bulk_default(template: &TemplateDescriptor) -> bool {
+    matches!(
+        template.template_id.0.as_str(),
+        "non-image/waveform/twelve-lead-ecg"
+            | "non-image/waveform/general-ecg"
+            | "non-image/encapsulated-document/pdf"
+            | "non-image/mesh/stl"
+    )
+}
+
+pub(crate) fn plan_typed_bulk_default(
+    recipes: &RecipeCatalog,
+    member: &AdvancedDefaultMember<'_>,
+) -> Result<AdvancedDefaultOutput, String> {
+    let (recipe_id, recipe_artifact_id) = match member.template.template_id.0.as_str() {
+        "non-image/waveform/twelve-lead-ecg" => {
+            ("non_image_waveform_twelve_lead_ecg", "artifact_1")
+        }
+        "non-image/waveform/general-ecg" => ("non_image_waveform_general_ecg", "artifact_1"),
+        "non-image/encapsulated-document/pdf" => ("encapsulated_pdf_minimal", "artifact_1"),
+        "non-image/mesh/stl" => ("derived_mesh_encapsulated_stl", "artifact_1"),
+        other => return Err(format!("unsupported typed-bulk default template {other}")),
+    };
+    let recipe = recipes
+        .recipes()
+        .iter()
+        .find_map(|(identity, recipe)| (identity.recipe_id == recipe_id).then_some(recipe))
+        .ok_or_else(|| format!("missing typed-bulk default recipe {recipe_id}"))?;
+    let context = TypedBulkPlanningContext {
+        recipe_artifact_logical_id: recipe_artifact_id.into(),
+        target_instance_id: member.instance.instance_id.clone(),
+        order: member.order,
+        output: composition_output(&member.instance.instance_id)?,
+        identities: member.identities.clone(),
+    };
+    let output = match recipe.plan_provider_id.as_str() {
+        WAVEFORM_PLAN_PROVIDER_ID => {
+            let input = waveform_input_from_recipe(recipe)
+                .map_err(|error| error.to_string())?
+                .ok_or_else(|| "waveform recipe did not produce typed input".to_string())?;
+            WaveformPlanProvider
+                .plan(&input, &context, ContentProviderLimits::default())
+                .map_err(|error| error.to_string())?
+        }
+        ENCAPSULATED_PAYLOAD_PLAN_PROVIDER_ID => {
+            let input = encapsulated_payload_input_from_recipe(recipe)
+                .map_err(|error| error.to_string())?
+                .ok_or_else(|| {
+                    "encapsulated payload recipe did not produce typed input".to_string()
+                })?;
+            EncapsulatedPayloadPlanProvider
+                .plan(&input, &context, ContentProviderLimits::default())
+                .map_err(|error| error.to_string())?
+        }
+        other => return Err(format!("unsupported typed-bulk default provider {other}")),
+    };
+    if output.artifact.instance.template_id != member.template.template_id
+        || output.artifact.instance.sop_class_uid != member.template.sop_class_uid
+    {
+        return Err("typed-bulk provider output differs from composition template".into());
+    }
+    Ok(AdvancedDefaultOutput {
+        artifacts: BTreeMap::from([(member.instance.instance_id.clone(), output.artifact)]),
+        bindings: BTreeMap::from([(member.instance.instance_id.clone(), output.bindings)]),
+        dependencies: vec![],
+    })
 }
 
 pub(crate) fn group_identity(

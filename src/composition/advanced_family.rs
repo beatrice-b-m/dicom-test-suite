@@ -2,8 +2,6 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::path::Path;
 
-use dicom_object::open_file;
-
 use super::{
     AttributeOperation, AttributeValue, BulkDataBounds, BulkDataPlan, BulkDataSource,
     ContentSource, DoubleFloatPixelDataSlot, EncapsulatedDocumentSlot, FloatPixelDataSlot,
@@ -11,7 +9,6 @@ use super::{
     ResolvedInstancePlan, SequenceItemPlacement, SpecInstance, TemplateDescriptor, ValueOrigin,
     WaveformSamplesSlot,
 };
-use crate::generator::write_composition_default_artifacts;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AdvancedFamilyKind {
@@ -157,145 +154,20 @@ impl AdvancedFamilyProfile {
         &self,
         instance: &SpecInstance,
         template: &TemplateDescriptor,
-        identities: IdentityPlan,
-        seed: u64,
-        private_root: &Path,
-        content_resolver: &mut LocalContentResolver,
+        _identities: IdentityPlan,
+        _seed: u64,
+        _private_root: &Path,
+        _content_resolver: &mut LocalContentResolver,
     ) -> Result<ResolvedInstancePlan, AdvancedFamilyError> {
         if instance.parameters.contains_key("variant") {
             return Err(AdvancedFamilyError::InvalidVariant(
                 instance.instance_id.clone(),
             ));
         }
-        let artifacts =
-            write_composition_default_artifacts(private_root, seed, &template.template_id.0, None)
-                .map_err(|error| AdvancedFamilyError::DefaultArtifact(error.to_string()))?;
-        if artifacts.len() != 1 {
-            return Err(AdvancedFamilyError::DefaultArtifact(format!(
-                "{} emitted {} artifacts where one instance was required",
-                template.template_id,
-                artifacts.len()
-            )));
-        }
-        let artifact = open_file(&artifacts[0].path)
-            .map_err(|error| AdvancedFamilyError::DefaultArtifact(error.to_string()))?;
-        let transfer_syntax_uid = artifact.meta().transfer_syntax().to_string();
-        if transfer_syntax_uid != template.transfer_syntaxes[0].uid {
-            return Err(AdvancedFamilyError::DefaultArtifact(
-                "qualified default transfer syntax differs from the descriptor".into(),
-            ));
-        }
-        let object = artifact.into_inner();
-        let sop_instance_uid = identities
-            .get(&super::CompositionUidRole::SopInstance, 0)
-            .ok_or(AdvancedFamilyError::MissingIdentity("sop_instance"))?;
-        let implementation_class_uid = identities
-            .get(&super::CompositionUidRole::ImplementationClass, 0)
-            .ok_or(AdvancedFamilyError::MissingIdentity("implementation_class"))?;
-        let study_instance_uid = identities
-            .get(&super::CompositionUidRole::StudyInstance, 0)
-            .ok_or(AdvancedFamilyError::MissingIdentity("study"))?;
-        let series_instance_uid = identities
-            .get(&super::CompositionUidRole::SeriesInstance, 0)
-            .ok_or(AdvancedFamilyError::MissingIdentity("series"))?;
-        let mut plan = super::resolved_plan_from_curated_dataset(
-            &object,
-            super::CuratedPlanInput {
-                instance_id: &instance.instance_id,
-                template_id: template.template_id.clone(),
-                template_version: template.template_version,
-                sop_class_uid: &template.sop_class_uid,
-                transfer_syntax_uid: &transfer_syntax_uid,
-                study_instance_uid: Some(study_instance_uid),
-                series_instance_uid: Some(series_instance_uid),
-                sop_instance_uid,
-                implementation_class_uid,
-            },
-        )
-        .map_err(|error| AdvancedFamilyError::DefaultArtifact(error.to_string()))?;
-        plan.identities = identities;
-        rewrite_plan_identities(&mut plan)?;
-        if self.kind == AdvancedFamilyKind::EnhancedCt {
-            normalize_enhanced_ct_defined_terms(&mut plan);
-            if template
-                .template_id
-                .0
-                .starts_with("enhanced/ct/concatenation-")
-            {
-                qualify_enhanced_ct_concatenation(&mut plan)?;
-            }
-        }
-        normalize_derived_reference_defaults(&template.template_id.0, &mut plan)?;
-        if let AdvancedFamilyKind::TypedBulk(family) = self.kind {
-            extract_typed_bulk_defaults(family, &mut plan)?;
-        } else if let AdvancedFamilyKind::Quantitative(family) = self.kind {
-            normalize_quantitative_content(family, &mut plan)?;
-        } else if let AdvancedFamilyKind::StructuredReport(_) = self.kind {
-            if !plan.content.is_empty() {
-                return Err(AdvancedFamilyError::TypedBulk(
-                    "structured reports cannot carry bulk content".into(),
-                ));
-            }
-        } else if let AdvancedFamilyKind::Radiotherapy(family) = self.kind {
-            if matches!(family, RadiotherapyFamily::Dose | RadiotherapyFamily::Image) {
-                normalize_quantitative_content(QuantitativeFamily::Segmentation, &mut plan)?;
-                if let Some(content) = plan.content.first_mut() {
-                    content.properties.insert(
-                        "semantic_validator".into(),
-                        match family {
-                            RadiotherapyFamily::Dose => "rt_dose_grid",
-                            RadiotherapyFamily::Image => "rt_image_pixels",
-                            _ => unreachable!(),
-                        }
-                        .into(),
-                    );
-                }
-            } else if !plan.content.is_empty() {
-                return Err(AdvancedFamilyError::TypedBulk(
-                    "non-pixel RT object unexpectedly contains bulk content".into(),
-                ));
-            }
-        } else if self.kind == AdvancedFamilyKind::WholeSlide {
-            validate_wsi_structure(&plan)?;
-        } else if self.kind != AdvancedFamilyKind::DerivedReference {
-            validate_multiframe_structure(&plan)?;
-        }
-        if self.kind == AdvancedFamilyKind::DerivedReference {
-            if !instance.content.is_empty() {
-                return Err(AdvancedFamilyError::UnsupportedContent(
-                    instance.instance_id.clone(),
-                ));
-            }
-        } else if let AdvancedFamilyKind::TypedBulk(family) = self.kind {
-            apply_typed_bulk_content(family, instance, &mut plan, content_resolver)?;
-        } else if let AdvancedFamilyKind::Quantitative(family) = self.kind {
-            apply_quantitative_content(family, instance, &mut plan, content_resolver)?;
-        } else if let AdvancedFamilyKind::StructuredReport(family) = self.kind {
-            if !instance.content.is_empty() {
-                return Err(AdvancedFamilyError::UnsupportedContent(
-                    instance.instance_id.clone(),
-                ));
-            }
-            apply_structured_report_parameters(family, instance, &mut plan)?;
-        } else if let AdvancedFamilyKind::Radiotherapy(family) = self.kind {
-            if matches!(family, RadiotherapyFamily::Dose | RadiotherapyFamily::Image) {
-                apply_quantitative_content(
-                    QuantitativeFamily::Segmentation,
-                    instance,
-                    &mut plan,
-                    content_resolver,
-                )?;
-            } else if !instance.content.is_empty() {
-                return Err(AdvancedFamilyError::UnsupportedContent(
-                    instance.instance_id.clone(),
-                ));
-            }
-            apply_radiotherapy_parameters(family, instance, &mut plan)?;
-        } else {
-            apply_caller_content(instance, &mut plan, content_resolver)?;
-        }
-        apply_overrides(instance, &mut plan)?;
-        Ok(plan)
+        Err(AdvancedFamilyError::DefaultArtifact(format!(
+            "{} has not been routed through its neutral default provider",
+            template.template_id
+        )))
     }
 
     pub(crate) fn customize_direct_plan(
@@ -323,9 +195,13 @@ impl AdvancedFamilyProfile {
             | AdvancedFamilyKind::WholeSlide => {
                 apply_caller_content(instance, plan, content_resolver)?;
             }
+            AdvancedFamilyKind::TypedBulk(family) => {
+                normalize_typed_bulk_direct_plan(family, plan)?;
+                apply_typed_bulk_content(family, instance, plan, content_resolver)?;
+            }
             _ => {
                 return Err(AdvancedFamilyError::DefaultArtifact(
-                    "direct advanced customization is limited to U5 providers".into(),
+                    "direct advanced customization is not registered for this provider".into(),
                 ));
             }
         }
@@ -335,9 +211,12 @@ impl AdvancedFamilyProfile {
             | AdvancedFamilyKind::EnhancedPet => validate_multiframe_structure(plan)?,
             AdvancedFamilyKind::WholeSlide => validate_wsi_structure(plan)?,
             AdvancedFamilyKind::DerivedReference => {}
+            AdvancedFamilyKind::TypedBulk(_) => {}
             _ => unreachable!(),
         }
-        normalize_direct_legacy_plan(plan);
+        if !matches!(self.kind, AdvancedFamilyKind::TypedBulk(_)) {
+            normalize_direct_legacy_plan(plan);
+        }
         if self.kind == AdvancedFamilyKind::DerivedReference {
             normalize_derived_reference_defaults(&instance.template.id.0, plan)?;
         }
@@ -355,6 +234,32 @@ impl AdvancedFamilyProfile {
         apply_overrides(instance, plan)?;
         Ok(())
     }
+}
+
+fn normalize_typed_bulk_direct_plan(
+    family: TypedBulkFamily,
+    plan: &mut ResolvedInstancePlan,
+) -> Result<(), AdvancedFamilyError> {
+    for content in &mut plan.content {
+        content.properties.insert(
+            "bulk_source".into(),
+            serde_json::to_string(&BulkDataSource::DefaultSynthetic)
+                .map_err(|error| AdvancedFamilyError::TypedBulk(error.to_string()))?,
+        );
+        let semantic = match family {
+            TypedBulkFamily::TwelveLeadEcg | TypedBulkFamily::GeneralEcg => "waveform_samples",
+            TypedBulkFamily::EncapsulatedPdf => "pdf_structure",
+            TypedBulkFamily::EncapsulatedStl => "binary_stl_structure",
+        };
+        content
+            .properties
+            .insert("semantic_validator".into(), semantic.into());
+        if family == TypedBulkFamily::EncapsulatedStl {
+            content.slot = "mesh".into();
+            content.kind = "mesh".into();
+        }
+    }
+    Ok(())
 }
 
 fn normalize_direct_legacy_plan(plan: &mut ResolvedInstancePlan) {

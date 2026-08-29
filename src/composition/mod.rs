@@ -7,6 +7,7 @@ pub mod classic;
 pub mod content;
 pub mod curated;
 pub mod defaults;
+pub mod enhanced;
 pub mod family;
 pub mod identity;
 pub mod manifest;
@@ -34,6 +35,11 @@ pub use curated::{CuratedPlanError, CuratedPlanInput, resolved_plan_from_curated
 pub use defaults::{
     DefaultError, DefaultPixelOutput, canonical_native_pixels, resolved_sc_plan, sc_default_pixels,
     sc_derived_layer, sc_template_default_layer,
+};
+pub use enhanced::{
+    ConcatenationPlan, DimensionIndex, DimensionOrganization, DimensionOrganizationPlan,
+    EnhancedMultiframePlan, EnhancedPlanError, FunctionalGroupItemPlan,
+    PerFrameFunctionalGroupPlan, TemporalFramePlan,
 };
 pub use family::{
     ClassicFamilyKind, ClassicFamilyProfile, FamilyError, default_family_pixels,

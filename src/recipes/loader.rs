@@ -337,6 +337,8 @@ fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), Recip
         "validation.sc.encapsulation",
         "validation.sc.eot",
         "validation.sc.geometry",
+        "validation.classic.dx",
+        "validation.classic.mammography",
         "validation.metadata.person_name",
         "validation.metadata.timezone",
         "validation.metadata.empty_type2",

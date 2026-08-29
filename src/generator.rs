@@ -5874,22 +5874,22 @@ pub(crate) fn write_supported_cases(
         standards_lock_sha256,
         CuratedRecipeStage::ClassicImagesAfterEnhancedPet,
     )?;
-    migrate_p5_curated_files_through_composition(run, &mut context.generated_files)?;
+    migrate_shared_plan_curated_files(run, &mut context.generated_files)?;
     Ok(context.into_output())
 }
 
-fn migrate_p5_curated_files_through_composition(
+fn migrate_shared_plan_curated_files(
     run: &PreparedGenerationRun,
     files: &mut [GeneratedFile],
 ) -> Result<(), GenerateError> {
     for (index, file) in files.iter_mut().enumerate() {
-        let Some(template_family) = p5_curated_template_family(&file.case_id) else {
+        let Some(template_family) = shared_plan_curated_template_family(&file.case_id) else {
             continue;
         };
         let relative_path = generated_manifest_str(
             &file.manifest_entry,
             "/path",
-            "P5 curated path must be a string",
+            "shared-plan curated path must be a string",
         )?;
         let path = run.out_dir.join(relative_path);
         let before = fs::read(&path).map_err(|source| GenerateError::ReadGeneratedFile {
@@ -5912,19 +5912,19 @@ fn migrate_p5_curated_files_through_composition(
         };
         let sop_class_uid = string("SOPClassUID").ok_or_else(|| GenerateError::MetadataShape {
             path: path.clone(),
-            message: "P5 curated object is missing SOP Class UID",
+            message: "shared-plan curated object is missing SOP Class UID",
         })?;
         let sop_instance_uid =
             string("SOPInstanceUID").ok_or_else(|| GenerateError::MetadataShape {
                 path: path.clone(),
-                message: "P5 curated object is missing SOP Instance UID",
+                message: "shared-plan curated object is missing SOP Instance UID",
             })?;
         let study_instance_uid = string("StudyInstanceUID");
         let series_instance_uid = string("SeriesInstanceUID");
         let plan = crate::composition::resolved_plan_from_curated_dataset(
             &object,
             crate::composition::CuratedPlanInput {
-                instance_id: &format!("curated_p5_{index}"),
+                instance_id: &format!("curated_shared_{index}"),
                 template_id: crate::composition::TemplateId(template_family.into()),
                 template_version: "1.0.0".parse().expect("static template version"),
                 sop_class_uid: &sop_class_uid,
@@ -5937,11 +5937,11 @@ fn migrate_p5_curated_files_through_composition(
         )
         .map_err(|error| GenerateError::WriteDicomFile {
             path: path.clone(),
-            message: format!("resolve P5 curated composition plan: {error}"),
+            message: format!("resolve shared curated composition plan: {error}"),
         })?;
         fs::remove_file(&path).map_err(|source| GenerateError::WriteDicomFile {
             path: path.clone(),
-            message: format!("replace reserved P5 curated instance: {source}"),
+            message: format!("replace reserved shared curated instance: {source}"),
         })?;
         crate::composition::Part10Materializer
             .materialize(&plan, &path)
@@ -5953,18 +5953,23 @@ fn migrate_p5_curated_files_through_composition(
             path: path.clone(),
             source,
         })?;
-        if after != before {
+        let semantic_stable = file.manifest_entry["determinism"] == "semantic_stable";
+        if after != before && !semantic_stable {
             return Err(GenerateError::MetadataShape {
                 path,
-                message: "P5 curated composition migration changed byte-stable output",
+                message: "shared curated composition migration changed byte-stable output",
             });
+        }
+        if semantic_stable {
+            file.manifest_entry["sha256"] = Value::String(sha256_hex(&after));
+            file.manifest_entry["size_bytes"] = serde_json::json!(after.len());
         }
         append_curated_plan_validation(&mut file.manifest_entry["validation"]);
     }
     Ok(())
 }
 
-fn p5_curated_template_family(case_id: &str) -> Option<&'static str> {
+fn shared_plan_curated_template_family(case_id: &str) -> Option<&'static str> {
     if case_id.starts_with("enhanced/ct/") {
         Some("enhanced/ct")
     } else if case_id.starts_with("enhanced/mr/") {
@@ -5985,6 +5990,59 @@ fn p5_curated_template_family(case_id: &str) -> Option<&'static str> {
             "derived/presentation-state/advanced_blending" => {
                 Some("derived/presentation-state/advanced-blending")
             }
+            "derived/seg/binary_multiframe_explicit_le"
+            | "derived/seg/binary_multiframe_deflated_image_frame" => {
+                Some("derived/segmentation/binary")
+            }
+            "derived/seg/fractional_probability_multiframe_explicit_le" => {
+                Some("derived/segmentation/fractional-probability")
+            }
+            "derived/seg/labelmap_multiframe_explicit_le" => {
+                Some("derived/segmentation/labelmap")
+            }
+            "derived/seg/wsi_tile_reference" => Some("derived/segmentation/wsi-tile"),
+            "derived/parametric-map/float32_ct_derived_explicit_le" => {
+                Some("derived/parametric-map/float32")
+            }
+            "derived/parametric-map/float64_ct_derived_explicit_le" => {
+                Some("derived/parametric-map/float64")
+            }
+            "derived/rwvm/linear_ct_mapping_explicit_le" => {
+                Some("derived/real-world-value-mapping/linear")
+            }
+            "derived/sr/basic_text_observation_explicit_le" => {
+                Some("derived/structured-report/basic-text")
+            }
+            "derived/sr/comprehensive_measurement_explicit_le" => {
+                Some("derived/structured-report/comprehensive")
+            }
+            "derived/sr/comprehensive3d_scoord3d" => {
+                Some("derived/structured-report/comprehensive-3d")
+            }
+            "derived/sr/tid1500_ct_measurement_report" => {
+                Some("derived/structured-report/tid1500")
+            }
+            "derived/sr/key_object_selection_explicit_le" => {
+                Some("derived/structured-report/key-object")
+            }
+            "non-image/rt/structure_set_single_roi_explicit_le" => {
+                Some("non-image/rt/structure-set")
+            }
+            "non-image/rt/dose_grid_u16_explicit_le" => Some("non-image/rt/dose"),
+            "non-image/rt/plan_linked" => Some("non-image/rt/plan"),
+            "non-image/rt/image_linked" => Some("non-image/rt/image"),
+            "non-image/rt/carm_photon_electron_radiation_minimal" => {
+                Some("non-image/rt/c-arm-photon-electron-radiation")
+            }
+            "non-image/rt/radiation_set_minimal" => Some("non-image/rt/radiation-set"),
+            "non-image/waveform/twelve_lead_ecg" => {
+                Some("non-image/waveform/twelve-lead-ecg")
+            }
+            "non-image/waveform/general_ecg" => Some("non-image/waveform/general-ecg"),
+            "non-image/encapsulated-document/pdf_minimal_explicit_le" => {
+                Some("non-image/encapsulated-document/pdf")
+            }
+            "derived/mesh/encapsulated_stl" => Some("non-image/mesh/stl"),
             _ => None,
         }
     }

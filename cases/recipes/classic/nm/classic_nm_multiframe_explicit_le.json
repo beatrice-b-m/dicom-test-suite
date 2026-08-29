@@ -6,11 +6,28 @@
     "case_id": "classic/nm/multiframe_explicit_le"
   },
   "kind": "dicom",
-  "plan_provider_id": "native.case_plan",
-  "dependencies": [
-
-  ],
+  "plan_provider_id": "native.classic_plan",
+  "planning_order": 400,
+  "dependencies": [],
   "provider_parameters": {
+    "patient_name": "DTS^Synthetic^Patient001",
+    "patient_id": "DTS-PATIENT-001",
+    "patient_birth_date": "19700101",
+    "patient_sex": "O",
+    "study_date": "20260101",
+    "study_time": "000000",
+    "study_id": "DTS-NM",
+    "accession_number": "",
+    "referring_physician_name": "",
+    "modality": "NM",
+    "series_number": "1",
+    "manufacturer": "dicom-test-suite",
+    "software_versions": "0.1.0",
+    "acquisition_number": "1",
+    "acquisition_date": "20260101",
+    "acquisition_time": "000000",
+    "instance_number": "1",
+    "body_part_examined": "HEAD"
   },
   "validation_rule_ids": [
     "validation.shared"
@@ -21,27 +38,142 @@
   "dicom": {
     "artifacts": [
       {
-        "logical_id": "artifact_1",
+        "logical_id": "instance",
+        "order": 0,
+        "template": {
+          "template_id": "classic/nuclear-medicine",
+          "template_version": "1.0.0"
+        },
         "output": {
-          "role": "primary_1",
-          "provider_derived": true
+          "role": "primary",
+          "path": "classic/nm/multiframe_explicit_le/instance.dcm"
         },
         "encoding": {
           "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-          "sequence_length_policy": "provider",
-          "item_length_policy": "provider",
-          "offset_table_policy": "provider",
-          "fragmentation_policy": "provider"
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
         },
         "parameters": {
+          "family": "nuclear_medicine",
+          "pixels": {
+            "rows": 2,
+            "columns": 2,
+            "frames": 4,
+            "stored_value_type": "u16",
+            "stored_values": [
+              0,
+              1,
+              2,
+              3,
+              10,
+              11,
+              12,
+              13,
+              100,
+              101,
+              102,
+              103,
+              110,
+              111,
+              112,
+              113
+            ],
+            "pixel_min": 0,
+            "pixel_max": 113,
+            "frame_sha256": [
+              "245bbd9d484dcf27c714e2690cd6544973de5d54aa9cd82eab23d6046a65faa8",
+              "a58214fbfec2da6f1e9fc6a2641c8a0af73fb383860180a73d4439fe31b44189",
+              "4908c41ec85a7552278ed886fa3c43819f44d4df5b73138a9c5855926c750a58",
+              "a12837f26e181e5420b019bae0940e221d2927e13fea963ad899945c34c697fe"
+            ]
+          },
+          "image_type": [
+            "ORIGINAL",
+            "PRIMARY",
+            "STATIC",
+            "EMISSION"
+          ],
+          "pixel_spacing": [
+            "4",
+            "4"
+          ],
+          "energy_window_vector": [
+            1,
+            1,
+            2,
+            2
+          ],
+          "detector_vector": [
+            1,
+            2,
+            1,
+            2
+          ],
+          "energy_windows": [
+            {
+              "index": 1,
+              "name": "Tc99m Photopeak",
+              "lower_limit_kev": "126",
+              "upper_limit_kev": "154"
+            },
+            {
+              "index": 2,
+              "name": "Tc99m Scatter",
+              "lower_limit_kev": "100",
+              "upper_limit_kev": "120"
+            }
+          ],
+          "detectors": [
+            {
+              "index": 1,
+              "collimator_type": "PARA",
+              "focal_distance_mm": "0",
+              "start_angle_degrees": "0",
+              "image_orientation_patient": [
+                "1",
+                "0",
+                "0",
+                "0",
+                "1",
+                "0"
+              ],
+              "image_position_patient": [
+                "0",
+                "0",
+                "0"
+              ]
+            },
+            {
+              "index": 2,
+              "collimator_type": "PARA",
+              "focal_distance_mm": "0",
+              "start_angle_degrees": "180",
+              "image_orientation_patient": [
+                "-1",
+                "0",
+                "0",
+                "0",
+                "1",
+                "0"
+              ],
+              "image_position_patient": [
+                "0",
+                "0",
+                "0"
+              ]
+            }
+          ],
+          "actual_frame_duration_ms": 1000,
+          "counts_accumulated": 904
         },
-        "attribute_operations": [
-
-        ],
+        "attribute_operations": [],
         "content": {
-          "provider_id": "content.case_default",
-          "parameters": {
-          }
+          "provider_id": "content.native_pixels",
+          "parameters": {}
         },
         "validation_rule_ids": [
           "validation.shared"
@@ -51,14 +183,14 @@
         ],
         "determinism": "byte_stable",
         "stressors": [
-
+          "nuclear_medicine_image_storage",
+          "classic_multiframe",
+          "multi_dimensional_frame_indexing",
+          "energy_window_information",
+          "detector_information",
+          "native_u16_pixels"
         ],
-        "algorithm_provider_id": "algorithm.case_provider",
-        "template": {
-          "template_id": "classic/nuclear-medicine",
-          "template_version": "1.0.0"
-        },
-        "order": 0
+        "algorithm_provider_id": "algorithm.classic_nuclear"
       }
     ]
   }

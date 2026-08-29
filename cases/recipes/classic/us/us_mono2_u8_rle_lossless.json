@@ -6,11 +6,27 @@
     "case_id": "classic/us/mono2_u8_rle_lossless"
   },
   "kind": "dicom",
-  "plan_provider_id": "native.case_plan",
-  "dependencies": [
-
-  ],
+  "plan_provider_id": "native.classic_plan",
+  "planning_order": 404,
+  "dependencies": [],
   "provider_parameters": {
+    "patient_name": "DTS^Synthetic^Patient001",
+    "patient_id": "DTS-PATIENT-001",
+    "patient_birth_date": "19700101",
+    "patient_sex": "O",
+    "study_date": "20260101",
+    "study_time": "000000",
+    "study_id": "DTS-US",
+    "accession_number": "",
+    "referring_physician_name": "",
+    "modality": "US",
+    "series_number": "1",
+    "manufacturer": "dicom-test-suite",
+    "software_versions": "0.1.0",
+    "acquisition_number": "1",
+    "acquisition_date": "20260101",
+    "acquisition_time": "000000",
+    "instance_number": "1"
   },
   "validation_rule_ids": [
     "validation.shared"
@@ -21,28 +37,56 @@
   "dicom": {
     "artifacts": [
       {
-        "logical_id": "artifact_1",
+        "logical_id": "instance",
+        "order": 0,
+        "template": {
+          "template_id": "classic/ultrasound/single-frame",
+          "template_version": "1.0.0"
+        },
         "output": {
-          "role": "primary_1",
-          "provider_derived": true
+          "role": "primary",
+          "path": "classic/us/mono2_u8_rle_lossless/instance.dcm"
         },
         "encoding": {
           "transfer_syntax_uid": "1.2.840.10008.1.2.5",
-          "sequence_length_policy": "provider",
-          "item_length_policy": "provider",
-          "offset_table_policy": "provider",
-          "fragmentation_policy": "provider",
-          "non_template_encoding_provider_id": "encoding.transfer_syntax_plan"
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "populated_basic",
+          "fragmentation_policy": "one_per_frame",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard",
+          "non_template_encoding_provider_id": "encoding.native.rle_lossless"
         },
         "parameters": {
+          "family": "ultrasound_single_frame",
+          "pixels": {
+            "rows": 2,
+            "columns": 2,
+            "frames": 1,
+            "stored_value_type": "u8",
+            "stored_values": [
+              0,
+              85,
+              170,
+              255
+            ],
+            "pixel_min": 0,
+            "pixel_max": 255,
+            "frame_sha256": [
+              "03b722a15d4658be01f1eb9def5e8be124710cc0e88842f78107abfda3e23ea8"
+            ]
+          },
+          "image_type": [
+            "ORIGINAL",
+            "PRIMARY"
+          ],
+          "lossy_image_compression": "00",
+          "ultrasound_color_data_present": 0
         },
-        "attribute_operations": [
-
-        ],
+        "attribute_operations": [],
         "content": {
-          "provider_id": "content.case_default",
-          "parameters": {
-          }
+          "provider_id": "content.native_pixels",
+          "parameters": {}
         },
         "validation_rule_ids": [
           "validation.shared"
@@ -52,14 +96,14 @@
         ],
         "determinism": "byte_stable",
         "stressors": [
-
+          "ultrasound_image_storage",
+          "single_frame_us",
+          "mono2_u8_pixels",
+          "encapsulated_pixel_data",
+          "rle_lossless_transfer_syntax",
+          "compressed_modality_pixels"
         ],
-        "algorithm_provider_id": "algorithm.case_provider",
-        "template": {
-          "template_id": "classic/ultrasound/single-frame",
-          "template_version": "1.0.0"
-        },
-        "order": 0
+        "algorithm_provider_id": "algorithm.classic_nuclear"
       }
     ]
   }

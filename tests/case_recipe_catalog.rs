@@ -390,6 +390,61 @@ fn data_first_sc_and_metadata_values_and_hashes_match_current_generator_bytes() 
         })
         .collect::<Vec<_>>();
     migrated.sort_by_key(|recipe| recipe.planning_order.unwrap());
+    let registry = registry();
+    let mut explicit_public_memberships = BTreeSet::new();
+    for recipe in &migrated {
+        let registry_profiles = registry["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|case| case["case_id"] == recipe.binding.case_id)
+            .unwrap()["profiles"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|profile| profile.as_str().unwrap().to_string())
+            .collect::<Vec<_>>();
+        for artifact in &recipe.dicom.as_ref().unwrap().artifacts {
+            let path = artifact.output.path.as_deref().unwrap();
+            let oracle =
+                files.iter().find(|file| file["path"] == path).unwrap()["profile_membership"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|profile| profile.as_str().unwrap().to_string())
+                    .collect::<Vec<_>>();
+            let declared = artifact
+                .public_profile_membership
+                .as_ref()
+                .unwrap_or(&registry_profiles);
+            assert_eq!(declared, &oracle, "{path}");
+            if let Some(profiles) = &artifact.public_profile_membership {
+                assert_eq!(profiles, &["core"]);
+                explicit_public_memberships
+                    .insert(format!("{}/{}", recipe.recipe_id, artifact.logical_id));
+            }
+        }
+    }
+    assert_eq!(
+        explicit_public_memberships,
+        [
+            "metadata_sc_defined_undefined_sequence_lengths/defined",
+            "metadata_sc_defined_undefined_sequence_lengths/undefined",
+            "metadata_sc_iso2022_person_name_component_groups/instance",
+            "metadata_sc_long_multivalue_text_numeric_strings/instance",
+            "sc_mono1_i16_odd_3x3_rle_lossless/instance",
+            "sc_mono1_u16_odd_3x3_rle_lossless/instance",
+            "sc_mono1_u16_rle_lossless/instance",
+            "sc_mono2_i16_odd_3x3_rle_lossless/instance",
+            "sc_mono2_u16_odd_3x3_rle_lossless/instance",
+            "sc_mono2_u16_rect_2x3_rle_lossless/instance",
+            "sc_mono2_u8_multiframe_rle_lossless/instance",
+            "sc_mono2_u8_padding_multiframe_rle_lossless/instance",
+        ]
+        .into_iter()
+        .map(str::to_string)
+        .collect()
+    );
     let planning_orders = migrated
         .iter()
         .map(|recipe| recipe.planning_order.unwrap())
@@ -947,6 +1002,26 @@ fn projection_oracle_schema_rejects_unknown_and_crossed_shapes() {
     nonsquare["dicom"]["artifacts"][0]["nonsquare_geometry"]["pixel_aspect_ratio"] =
         serde_json::json!([2, 1]);
     assert!(validator.iter_errors(&nonsquare).next().is_some());
+}
+
+#[test]
+fn public_profile_membership_schema_rejects_empty_duplicate_and_unknown_profiles() {
+    let schema: Value =
+        serde_json::from_slice(&fs::read("schemas/case-recipe.schema.json").unwrap()).unwrap();
+    let validator = jsonschema::validator_for(&schema).unwrap();
+    let source: Value = serde_json::from_slice(
+        &fs::read("cases/recipes/classic/sc/sc_mono1_u16_rle_lossless.json").unwrap(),
+    )
+    .unwrap();
+    for invalid in [
+        serde_json::json!([]),
+        serde_json::json!(["core", "core"]),
+        serde_json::json!(["all"]),
+    ] {
+        let mut recipe = source.clone();
+        recipe["dicom"]["artifacts"][0]["public_profile_membership"] = invalid;
+        assert!(validator.iter_errors(&recipe).next().is_some());
+    }
 }
 
 #[test]

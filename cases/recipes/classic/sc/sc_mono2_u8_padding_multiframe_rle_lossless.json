@@ -23,6 +23,9 @@
       {
         "logical_id": "instance",
         "order": 0,
+        "public_profile_membership": [
+          "core"
+        ],
         "template": {
           "template_id": "classic/secondary-capture/monochrome",
           "template_version": "1.0.0"

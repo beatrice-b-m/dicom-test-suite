@@ -22,6 +22,9 @@
       {
         "logical_id": "defined",
         "order": 0,
+        "public_profile_membership": [
+          "core"
+        ],
         "template": {
           "template_id": "classic/secondary-capture/monochrome",
           "template_version": "1.0.0"
@@ -102,6 +105,9 @@
       {
         "logical_id": "undefined",
         "order": 1,
+        "public_profile_membership": [
+          "core"
+        ],
         "template": {
           "template_id": "classic/secondary-capture/monochrome",
           "template_version": "1.0.0"

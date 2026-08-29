@@ -296,6 +296,10 @@ pub struct ContentBinding {
 pub struct PlannedArtifactRecipe {
     pub logical_id: String,
     pub order: u32,
+    /// Artifact-level public manifest membership. When absent, projection
+    /// inherits the authoritative registry case profiles unchanged.
+    #[serde(default)]
+    pub public_profile_membership: Option<Vec<String>>,
     #[serde(default)]
     pub template: Option<TemplateReference>,
     pub output: OutputBinding,

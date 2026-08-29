@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::fs::{self, File, OpenOptions};
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use dicom_core::value::{
@@ -41,7 +41,17 @@ impl Part10Materializer {
         plan: &ResolvedInstancePlan,
         path: impl AsRef<Path>,
     ) -> Result<MaterializeOutcome, MaterializeError> {
+        self.materialize_cancellable(plan, path, &|| false)
+    }
+
+    pub fn materialize_cancellable(
+        &self,
+        plan: &ResolvedInstancePlan,
+        path: impl AsRef<Path>,
+        is_cancelled: &dyn Fn() -> bool,
+    ) -> Result<MaterializeOutcome, MaterializeError> {
         let path = path.as_ref();
+        check_materialization_cancelled(is_cancelled)?;
         if path.exists() {
             return Err(MaterializeError::OutputExists(path.to_path_buf()));
         }
@@ -72,6 +82,7 @@ impl Part10Materializer {
             None
         };
         let mut object = build_dataset(plan, stream_content.map(|content| content.slot.as_str()))?;
+        check_materialization_cancelled(is_cancelled)?;
         let sop_instance_uid = plan
             .identities
             .get(&CompositionUidRole::SopInstance, 0)
@@ -105,11 +116,13 @@ impl Part10Materializer {
             .map_err(|error| MaterializeError::Dicom(error.to_string()))?
             .write_to_file(path)
             .map_err(|error| MaterializeError::Dicom(error.to_string()))?;
+        check_materialization_cancelled(is_cancelled)?;
 
         if let Some(content) = stream_content {
-            stream_staged_content(path, content)?;
+            stream_staged_content(path, content, is_cancelled)?;
         }
 
+        check_materialization_cancelled(is_cancelled)?;
         let reopened =
             open_file(path).map_err(|error| MaterializeError::Dicom(error.to_string()))?;
         if reopened.meta().transfer_syntax() != plan.transfer_syntax_uid
@@ -214,7 +227,9 @@ fn build_dataset(
 fn stream_staged_content(
     path: &Path,
     content: &super::CanonicalContent,
+    is_cancelled: &dyn Fn() -> bool,
 ) -> Result<(), MaterializeError> {
+    check_materialization_cancelled(is_cancelled)?;
     let Some(ContentMaterialization::StagedFile(staged_path)) = &content.materialization else {
         return Err(MaterializeError::MissingContent(content.slot.clone()));
     };
@@ -270,9 +285,39 @@ fn stream_staged_content(
         path: staged_path.clone(),
         source,
     })?;
-    let (size, sha256) =
-        super::content::copy_and_hash(&mut staged, &mut destination, content.size_bytes)
-            .map_err(|error| MaterializeError::Dicom(error.to_string()))?;
+    let mut hasher = super::content::StreamingSha256::new();
+    let mut buffer = [0_u8; 64 * 1024];
+    let mut size = 0_u64;
+    loop {
+        check_materialization_cancelled(is_cancelled)?;
+        let read = staged
+            .read(&mut buffer)
+            .map_err(|source| MaterializeError::Io {
+                path: staged_path.clone(),
+                source,
+            })?;
+        if read == 0 {
+            break;
+        }
+        size = size
+            .checked_add(read as u64)
+            .ok_or(MaterializeError::NumericRange)?;
+        if size > content.size_bytes {
+            return Err(MaterializeError::ContentSize {
+                slot: content.slot.clone(),
+                expected: content.size_bytes,
+                actual: size,
+            });
+        }
+        hasher.update(&buffer[..read]);
+        destination
+            .write_all(&buffer[..read])
+            .map_err(|source| MaterializeError::Io {
+                path: temporary.clone(),
+                source,
+            })?;
+    }
+    let sha256 = hasher.finish_hex();
     if size != content.size_bytes {
         return Err(MaterializeError::ContentSize {
             slot: content.slot.clone(),
@@ -311,6 +356,16 @@ fn stream_staged_content(
         source,
     })?;
     Ok(())
+}
+
+fn check_materialization_cancelled(
+    is_cancelled: &dyn Fn() -> bool,
+) -> Result<(), MaterializeError> {
+    if is_cancelled() {
+        Err(MaterializeError::Cancelled)
+    } else {
+        Ok(())
+    }
 }
 
 fn materialized_primitive_bytes(
@@ -635,6 +690,7 @@ fn ensure_string(
 
 #[derive(Debug)]
 pub enum MaterializeError {
+    Cancelled,
     OutputExists(PathBuf),
     MissingParent(PathBuf),
     MissingIdentity(&'static str),
@@ -676,7 +732,7 @@ impl std::error::Error for MaterializeError {}
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
     use super::*;
     use crate::composition::{AttributeItem, IdentityAllocator, TemplateId, ValueOrigin};
@@ -784,6 +840,34 @@ mod tests {
             1
         );
         fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn cancellation_interrupts_streamed_content_copy() {
+        let suffix = NEXT.fetch_add(1, Ordering::Relaxed);
+        let path = std::env::temp_dir().join(format!(
+            "dts-composition-cancel-stream-{}-{suffix}.dcm",
+            std::process::id()
+        ));
+        let source = std::env::temp_dir().join(format!(
+            "dts-composition-cancel-stream-{}-{suffix}.raw",
+            std::process::id()
+        ));
+        let bytes = vec![7_u8; 2 * 1024 * 1024];
+        fs::write(&source, &bytes).unwrap();
+        let mut plan = plan(Vec::new());
+        plan.content[0].size_bytes = bytes.len() as u64;
+        plan.content[0].sha256 = sha256_hex(&bytes);
+        plan.content[0].materialization = Some(ContentMaterialization::StagedFile(source.clone()));
+        let polls = AtomicUsize::new(0);
+        let error = Part10Materializer
+            .materialize_cancellable(&plan, &path, &|| polls.fetch_add(1, Ordering::Relaxed) >= 5)
+            .unwrap_err();
+        assert!(matches!(error, MaterializeError::Cancelled));
+        assert!(polls.load(Ordering::Relaxed) >= 6);
+        let _ = fs::remove_file(path.with_extension("dts-streaming"));
+        let _ = fs::remove_file(path);
+        fs::remove_file(source).unwrap();
     }
 
     #[test]

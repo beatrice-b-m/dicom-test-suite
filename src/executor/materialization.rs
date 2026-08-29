@@ -16,6 +16,7 @@ use crate::corpus_plan::{
     QualificationPayloadPolicy,
 };
 use crate::encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData};
+use crate::executor::cancellation::CancellationToken;
 use crate::mutation::{
     AcceptableOutcome, ByteRange, FailureLayer, LengthWidth, MutationParameters, MutationRequest,
     TruncationTarget, apply_named_mutation,
@@ -96,9 +97,23 @@ impl MaterializationDispatcher {
         request: &MaterializationRequest,
         assets: &StagedAssetRegistry,
     ) -> Result<MaterializationResult, MaterializationError> {
+        self.dispatch_cancellable(request, assets, &CancellationToken::new())
+    }
+
+    pub fn dispatch_cancellable(
+        &self,
+        request: &MaterializationRequest,
+        assets: &StagedAssetRegistry,
+        cancellation: &CancellationToken,
+    ) -> Result<MaterializationResult, MaterializationError> {
+        if cancellation.is_cancelled() {
+            return Err(MaterializationError::Cancelled);
+        }
         request.validate(assets)?;
-        match &request.artifact {
-            PlannedArtifact::Dicom(artifact) => self.materialize_dicom(artifact, request, assets),
+        let result = match &request.artifact {
+            PlannedArtifact::Dicom(artifact) => {
+                self.materialize_dicom(artifact, request, assets, cancellation)
+            }
             PlannedArtifact::Mutation(artifact) => {
                 self.materialize_mutation(artifact, request, assets)
             }
@@ -108,7 +123,11 @@ impl MaterializationDispatcher {
             PlannedArtifact::Auxiliary(artifact) => {
                 self.materialize_auxiliary(artifact, request, assets)
             }
+        }?;
+        if cancellation.is_cancelled() {
+            return Err(MaterializationError::Cancelled);
         }
+        Ok(result)
     }
 
     fn materialize_dicom(
@@ -116,10 +135,14 @@ impl MaterializationDispatcher {
         artifact: &PlannedDicomArtifact,
         request: &MaterializationRequest,
         assets: &StagedAssetRegistry,
+        cancellation: &CancellationToken,
     ) -> Result<MaterializationResult, MaterializationError> {
         let mut instance = artifact.instance.clone();
         let mut materialized_content = Vec::new();
         for content in &mut instance.content {
+            if cancellation.is_cancelled() {
+                return Err(MaterializationError::Cancelled);
+            }
             let Some(binding) = request.bindings.slots.get(&content.slot) else {
                 continue;
             };
@@ -208,7 +231,8 @@ impl MaterializationDispatcher {
         }
         let relative_path = artifact.output.relative_path.as_str();
         let path = self.output_path(relative_path)?;
-        Part10Materializer.materialize(&instance, &path)?;
+        Part10Materializer
+            .materialize_cancellable(&instance, &path, &|| cancellation.is_cancelled())?;
         let materialized_instance_plan_sha256 = instance.canonical_sha256();
         let output = self.produced_file(
             &artifact.logical_id,
@@ -790,6 +814,7 @@ fn parse_outcome(value: &str) -> Result<AcceptableOutcome, MaterializationError>
 
 #[derive(Debug)]
 pub enum MaterializationError {
+    Cancelled,
     Io {
         path: PathBuf,
         source: std::io::Error,

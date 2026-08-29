@@ -13,6 +13,7 @@ mod loader;
 mod metadata_sc;
 mod model;
 mod presentation;
+mod quantitative;
 mod registration;
 mod sc;
 mod wsi;
@@ -69,6 +70,14 @@ pub use presentation::{
     ColorPresentationParameters, DisplayedAreaParameters, GrayscalePresentationParameters,
     PRESENTATION_ADVANCED_PROVIDER_ID, PresentationKind, PresentationPlanInput,
     PresentationPlanProvider, PresentationRecipe, PresentationSourceInput,
+};
+pub use quantitative::{
+    ExternalDependencyContract, ExternalImportBoundary, ExternalImportKind,
+    ExternalSemanticEvidence, QUANTITATIVE_EXTERNAL_PROVIDER_ID, QUANTITATIVE_NATIVE_PROVIDER_ID,
+    QuantitativeArtifactContext, QuantitativePlanError, QuantitativePlanInput,
+    QuantitativePlanOutput, QuantitativePlanProvider, QuantitativeProviderLimits,
+    QuantitativeSourceInput, QuantitativeSourceRole, RealWorldValueMappingInput, SegmentationInput,
+    SegmentationKind,
 };
 pub use registration::{
     DeformableRegistrationParameters, REGISTRATION_PLAN_PROVIDER_ID, RegistrationCommonInput,

@@ -156,7 +156,10 @@ fn compose_loaded(
         path: staging.clone(),
         source,
     })?;
-    set_private_directory_permissions(&staging)?;
+    if let Err(error) = set_private_directory_permissions(&staging) {
+        let _ = remove_private_staging(&staging);
+        return Err(error);
+    }
     let options = ComposeOptions {
         spec_path: spec_root.join("<in-memory-spec>"),
         out_dir: out_dir.to_path_buf(),
@@ -184,10 +187,7 @@ fn compose_loaded(
             Ok((summary, output))
         }
         Ok((mut summary, output)) => {
-            promote_no_replace(&staging, out_dir).map_err(|source| ComposeError::Io {
-                path: out_dir.to_path_buf(),
-                source,
-            })?;
+            promote_or_cleanup(&staging, out_dir)?;
             summary.out_dir = out_dir.to_path_buf();
             summary.manifest_path = out_dir.join("manifest.json");
             Ok((summary, output))
@@ -1512,12 +1512,36 @@ fn promote_no_replace(source: &Path, destination: &Path) -> std::io::Result<()> 
     }
 }
 
+fn promote_or_cleanup(source: &Path, destination: &Path) -> Result<(), ComposeError> {
+    match promote_no_replace(source, destination) {
+        Ok(()) => Ok(()),
+        Err(promotion) => match fs::remove_dir_all(source) {
+            Ok(()) => Err(ComposeError::Io {
+                path: destination.to_path_buf(),
+                source: promotion,
+            }),
+            Err(cleanup) => Err(ComposeError::PromotionCleanup {
+                staging: source.to_path_buf(),
+                destination: destination.to_path_buf(),
+                promotion,
+                cleanup,
+            }),
+        },
+    }
+}
+
 #[derive(Debug)]
 pub enum ComposeError {
     OutputExists(PathBuf),
     Io {
         path: PathBuf,
         source: std::io::Error,
+    },
+    PromotionCleanup {
+        staging: PathBuf,
+        destination: PathBuf,
+        promotion: std::io::Error,
+        cleanup: std::io::Error,
     },
     Spec(super::SpecError),
     Template(super::TemplateError),
@@ -1670,6 +1694,17 @@ mod tests {
         assert_eq!(summary.instances_written, 1);
         assert!(out.join("instances/primary.dcm").is_file());
         assert_eq!(manifest["run"]["kind"], "composition");
+        assert_eq!(
+            manifest["composition"]["publication"]["atomic_promotion"],
+            "complete"
+        );
+        assert_eq!(
+            manifest["composition"]["publication"]["cleanup_complete"],
+            true
+        );
+        let published: Value =
+            serde_json::from_slice(&fs::read(out.join("manifest.json")).unwrap()).unwrap();
+        assert_eq!(published, manifest);
         fs::remove_dir_all(out).unwrap();
     }
 
@@ -1780,13 +1815,14 @@ mod tests {
         fs::write(source.join("new"), b"new").unwrap();
         fs::create_dir(&destination).unwrap();
         fs::write(destination.join("owned"), b"owned").unwrap();
-        let error = promote_no_replace(&source, &destination).unwrap_err();
+        let error = promote_or_cleanup(&source, &destination).unwrap_err();
         assert!(matches!(
-            error.kind(),
-            std::io::ErrorKind::AlreadyExists | std::io::ErrorKind::Other
+            error,
+            ComposeError::Io { source, .. }
+                if matches!(source.kind(), std::io::ErrorKind::AlreadyExists | std::io::ErrorKind::Other)
         ));
         assert_eq!(fs::read(destination.join("owned")).unwrap(), b"owned");
-        assert!(source.join("new").exists());
+        assert!(!source.exists());
         fs::remove_dir_all(root).unwrap();
     }
 

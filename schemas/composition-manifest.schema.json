@@ -197,8 +197,8 @@
         "validation_complete": { "const": true },
         "expected_entries": { "type": "integer", "minimum": 1 },
         "expected_output_bytes": { "type": "integer", "minimum": 1 },
-        "atomic_promotion": { "const": "pending" },
-        "cleanup_complete": { "const": false }
+        "atomic_promotion": { "const": "complete" },
+        "cleanup_complete": { "const": true }
       },
       "additionalProperties": false
     }

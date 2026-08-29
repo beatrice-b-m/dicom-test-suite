@@ -532,8 +532,8 @@ impl CompositionManifestAssembler {
                     "validation_complete": true,
                     "expected_entries": entries.len(),
                     "expected_output_bytes": output_bytes,
-                    "atomic_promotion": "pending",
-                    "cleanup_complete": false
+                    "atomic_promotion": "complete",
+                    "cleanup_complete": true
                 }
             }
         });

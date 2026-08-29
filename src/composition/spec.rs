@@ -243,6 +243,8 @@ pub struct SpecReference {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ResourceLimits {
+    #[serde(default = "default_max_spec_bytes")]
+    pub max_spec_bytes: u64,
     #[serde(default = "default_max_instances")]
     pub max_instances: u64,
     #[serde(default = "default_max_input_files")]
@@ -253,20 +255,45 @@ pub struct ResourceLimits {
     pub max_total_input_bytes: u64,
     #[serde(default = "default_max_total_output_bytes")]
     pub max_total_output_bytes: u64,
+    #[serde(default = "default_max_attributes_per_instance")]
+    pub max_attributes_per_instance: u64,
+    #[serde(default = "default_max_sequence_items")]
+    pub max_sequence_items: u64,
+    #[serde(default = "default_max_value_multiplicity")]
+    pub max_value_multiplicity: u64,
+    #[serde(default = "default_max_content_assignments_per_instance")]
+    pub max_content_assignments_per_instance: u64,
+    #[serde(default = "default_max_references_per_instance")]
+    pub max_references_per_instance: u64,
+    #[serde(default = "default_max_parameter_nodes")]
+    pub max_parameter_nodes: u64,
+    #[serde(default = "default_max_parameter_depth")]
+    pub max_parameter_depth: u64,
 }
 
 impl Default for ResourceLimits {
     fn default() -> Self {
         Self {
+            max_spec_bytes: default_max_spec_bytes(),
             max_instances: default_max_instances(),
             max_input_files: default_max_input_files(),
             max_file_bytes: default_max_file_bytes(),
             max_total_input_bytes: default_max_total_input_bytes(),
             max_total_output_bytes: default_max_total_output_bytes(),
+            max_attributes_per_instance: default_max_attributes_per_instance(),
+            max_sequence_items: default_max_sequence_items(),
+            max_value_multiplicity: default_max_value_multiplicity(),
+            max_content_assignments_per_instance: default_max_content_assignments_per_instance(),
+            max_references_per_instance: default_max_references_per_instance(),
+            max_parameter_nodes: default_max_parameter_nodes(),
+            max_parameter_depth: default_max_parameter_depth(),
         }
     }
 }
 
+const fn default_max_spec_bytes() -> u64 {
+    16 * 1024 * 1024
+}
 const fn default_max_instances() -> u64 {
     1024
 }
@@ -282,6 +309,27 @@ const fn default_max_total_input_bytes() -> u64 {
 const fn default_max_total_output_bytes() -> u64 {
     8 * 1024 * 1024 * 1024
 }
+const fn default_max_attributes_per_instance() -> u64 {
+    4096
+}
+const fn default_max_sequence_items() -> u64 {
+    4096
+}
+const fn default_max_value_multiplicity() -> u64 {
+    1024
+}
+const fn default_max_content_assignments_per_instance() -> u64 {
+    64
+}
+const fn default_max_references_per_instance() -> u64 {
+    4096
+}
+const fn default_max_parameter_nodes() -> u64 {
+    4096
+}
+const fn default_max_parameter_depth() -> u64 {
+    32
+}
 
 impl CompositionSpec {
     pub fn load(path: impl AsRef<Path>) -> Result<Self, SpecError> {
@@ -294,6 +342,12 @@ impl CompositionSpec {
     }
 
     pub fn from_slice(bytes: &[u8]) -> Result<Self, SpecError> {
+        if bytes.len() as u64 > default_max_spec_bytes() {
+            return Err(SpecError::SpecSizeLimit {
+                size: bytes.len() as u64,
+                limit: default_max_spec_bytes(),
+            });
+        }
         let value: Value = serde_json::from_slice(bytes).map_err(SpecError::Parse)?;
         let schema: Value = serde_json::from_str(COMPOSITION_SPEC_SCHEMA)
             .expect("embedded composition schema parses");
@@ -307,6 +361,11 @@ impl CompositionSpec {
         }
         let spec: Self = serde_json::from_value(value).map_err(SpecError::Parse)?;
         for (name, value, maximum) in [
+            (
+                "max_spec_bytes",
+                spec.resource_limits.max_spec_bytes,
+                default_max_spec_bytes(),
+            ),
             (
                 "max_instances",
                 spec.resource_limits.max_instances,
@@ -332,6 +391,41 @@ impl CompositionSpec {
                 spec.resource_limits.max_total_output_bytes,
                 default_max_total_output_bytes(),
             ),
+            (
+                "max_attributes_per_instance",
+                spec.resource_limits.max_attributes_per_instance,
+                default_max_attributes_per_instance(),
+            ),
+            (
+                "max_sequence_items",
+                spec.resource_limits.max_sequence_items,
+                default_max_sequence_items(),
+            ),
+            (
+                "max_value_multiplicity",
+                spec.resource_limits.max_value_multiplicity,
+                default_max_value_multiplicity(),
+            ),
+            (
+                "max_content_assignments_per_instance",
+                spec.resource_limits.max_content_assignments_per_instance,
+                default_max_content_assignments_per_instance(),
+            ),
+            (
+                "max_references_per_instance",
+                spec.resource_limits.max_references_per_instance,
+                default_max_references_per_instance(),
+            ),
+            (
+                "max_parameter_nodes",
+                spec.resource_limits.max_parameter_nodes,
+                default_max_parameter_nodes(),
+            ),
+            (
+                "max_parameter_depth",
+                spec.resource_limits.max_parameter_depth,
+                default_max_parameter_depth(),
+            ),
         ] {
             if value > maximum {
                 return Err(SpecError::ResourceLimitAbovePolicy {
@@ -341,6 +435,12 @@ impl CompositionSpec {
                 });
             }
         }
+        if bytes.len() as u64 > spec.resource_limits.max_spec_bytes {
+            return Err(SpecError::SpecSizeLimit {
+                size: bytes.len() as u64,
+                limit: spec.resource_limits.max_spec_bytes,
+            });
+        }
         if spec.instances.len() as u64 > spec.resource_limits.max_instances {
             return Err(SpecError::InstanceLimit {
                 count: spec.instances.len(),
@@ -348,6 +448,7 @@ impl CompositionSpec {
             });
         }
         let mut ids = std::collections::BTreeSet::new();
+        let default_operations = default_attribute_operations(&spec.defaults);
         for instance in &spec.instances {
             if !ids.insert(&instance.instance_id) {
                 return Err(SpecError::DuplicateInstance(instance.instance_id.clone()));
@@ -355,11 +456,155 @@ impl CompositionSpec {
             for operation in instance.typed_attributes()? {
                 operation.validate()?;
             }
+            validate_instance_shape(instance, &default_operations, &spec.resource_limits)?;
         }
         for operation in spec.defaults.typed_attributes()? {
             operation.validate()?;
         }
         Ok(spec)
+    }
+}
+
+fn validate_instance_shape(
+    instance: &SpecInstance,
+    default_operations: &[Value],
+    limits: &ResourceLimits,
+) -> Result<(), SpecError> {
+    let mut operations = default_operations.to_vec();
+    operations.extend(instance.attributes.iter().cloned());
+    validate_operations_shape(&instance.instance_id, &operations, limits)?;
+    enforce_shape_limit(
+        &instance.instance_id,
+        "content assignments",
+        instance.content.len() as u64,
+        limits.max_content_assignments_per_instance,
+    )?;
+    enforce_shape_limit(
+        &instance.instance_id,
+        "references",
+        instance.references.len() as u64,
+        limits.max_references_per_instance,
+    )?;
+    let (nodes, depth) =
+        measure_json(&serde_json::to_value(&instance.parameters).expect("parameters serialize"));
+    enforce_shape_limit(
+        &instance.instance_id,
+        "parameter nodes",
+        nodes,
+        limits.max_parameter_nodes,
+    )?;
+    enforce_shape_limit(
+        &instance.instance_id,
+        "parameter depth",
+        depth,
+        limits.max_parameter_depth,
+    )
+}
+
+fn default_attribute_operations(defaults: &SpecDefaults) -> Vec<Value> {
+    [
+        &defaults.patient,
+        &defaults.study,
+        &defaults.series,
+        &defaults.equipment,
+    ]
+    .into_iter()
+    .flatten()
+    .flat_map(|scope| scope.attributes.iter().cloned())
+    .collect()
+}
+
+fn validate_operations_shape(
+    owner: &str,
+    operations: &[Value],
+    limits: &ResourceLimits,
+) -> Result<(), SpecError> {
+    let mut attributes = 0_u64;
+    let mut sequence_items = 0_u64;
+    let mut maximum_multiplicity = 1_u64;
+    let mut stack = operations
+        .iter()
+        .map(|operation| (operation, 0_u64))
+        .collect::<Vec<_>>();
+    while let Some((operation, depth)) = stack.pop() {
+        attributes = attributes
+            .checked_add(1)
+            .ok_or(SpecError::ResourceCountOverflow)?;
+        if operation["operation"] != "set" {
+            continue;
+        }
+        let value = &operation["value"];
+        if value["kind"] == "multi" {
+            maximum_multiplicity = maximum_multiplicity
+                .max(value["values"].as_array().map_or(0, |values| values.len()) as u64);
+        } else if value["kind"] == "sequence" {
+            let items = value["items"]
+                .as_array()
+                .expect("schema requires sequence items");
+            sequence_items = sequence_items
+                .checked_add(items.len() as u64)
+                .ok_or(SpecError::ResourceCountOverflow)?;
+            for item in items {
+                for nested in item["attributes"]
+                    .as_array()
+                    .expect("schema requires item attributes")
+                {
+                    stack.push((nested, depth + 1));
+                }
+            }
+        }
+    }
+    enforce_shape_limit(
+        owner,
+        "attributes",
+        attributes,
+        limits.max_attributes_per_instance,
+    )?;
+    enforce_shape_limit(
+        owner,
+        "sequence items",
+        sequence_items,
+        limits.max_sequence_items,
+    )?;
+    enforce_shape_limit(
+        owner,
+        "value multiplicity",
+        maximum_multiplicity,
+        limits.max_value_multiplicity,
+    )
+}
+
+fn measure_json(value: &Value) -> (u64, u64) {
+    let mut nodes = 0_u64;
+    let mut maximum_depth = 0_u64;
+    let mut stack = vec![(value, 1_u64)];
+    while let Some((value, depth)) = stack.pop() {
+        nodes = nodes.saturating_add(1);
+        maximum_depth = maximum_depth.max(depth);
+        match value {
+            Value::Array(values) => stack.extend(values.iter().map(|value| (value, depth + 1))),
+            Value::Object(values) => stack.extend(values.values().map(|value| (value, depth + 1))),
+            _ => {}
+        }
+    }
+    (nodes, maximum_depth)
+}
+
+fn enforce_shape_limit(
+    owner: &str,
+    dimension: &'static str,
+    value: u64,
+    limit: u64,
+) -> Result<(), SpecError> {
+    if value > limit {
+        Err(SpecError::ShapeLimit {
+            owner: owner.into(),
+            dimension,
+            value,
+            limit,
+        })
+    } else {
+        Ok(())
     }
 }
 
@@ -519,6 +764,17 @@ pub enum SpecError {
         count: usize,
         limit: u64,
     },
+    SpecSizeLimit {
+        size: u64,
+        limit: u64,
+    },
+    ShapeLimit {
+        owner: String,
+        dimension: &'static str,
+        value: u64,
+        limit: u64,
+    },
+    ResourceCountOverflow,
     ResourceLimitAbovePolicy {
         name: &'static str,
         value: u64,
@@ -562,6 +818,49 @@ mod tests {
 
     static NEXT: AtomicU64 = AtomicU64::new(0);
     const LOCK_HASH: &str = "823230c5932b81b504434330d118fba286d5ff41d4e2f7766372633f4a49e559";
+
+    #[test]
+    fn rejects_specs_larger_than_the_caller_limit() {
+        let bytes = br#"{
+            "composition_spec_schema_version":"0.1.0",
+            "resource_limits":{"max_spec_bytes":1},
+            "instances":[{
+                "instance_id":"one",
+                "template":{"id":"classic/secondary-capture/monochrome"}
+            }]
+        }"#;
+        assert!(matches!(
+            CompositionSpec::from_slice(bytes),
+            Err(SpecError::SpecSizeLimit { size, limit: 1 }) if size == bytes.len() as u64
+        ));
+    }
+
+    #[test]
+    fn bounds_combined_default_and_instance_attribute_breadth() {
+        let bytes = br#"{
+            "composition_spec_schema_version":"0.1.0",
+            "resource_limits":{"max_attributes_per_instance":1},
+            "defaults":{"patient":{"attributes":[
+                {"operation":"set","address":{"tag":"0010,0010"},"vr":"PN","value":{"kind":"string","value":"SYNTHETIC^PATIENT"}}
+            ]}},
+            "instances":[{
+                "instance_id":"one",
+                "template":{"id":"classic/secondary-capture/monochrome"},
+                "attributes":[
+                    {"operation":"set","address":{"tag":"0008,0008"},"vr":"CS","value":{"kind":"string","value":"DERIVED"}}
+                ]
+            }]
+        }"#;
+        assert!(matches!(
+            CompositionSpec::from_slice(bytes),
+            Err(SpecError::ShapeLimit {
+                dimension: "attributes",
+                value: 2,
+                limit: 1,
+                ..
+            })
+        ));
+    }
 
     #[test]
     fn parses_all_p2_attribute_forms_into_typed_operations() {
@@ -639,12 +938,8 @@ mod tests {
         Part10Materializer.materialize(&plan, &path).unwrap();
         let object = open_file(&path).unwrap();
         assert_eq!(
-            object
-                .element(tags::SERIES_DESCRIPTION)
-                .unwrap()
-                .to_str()
-                .unwrap(),
-            "Synthetic\\Composition"
+            object.element(tags::IMAGE_TYPE).unwrap().to_str().unwrap(),
+            "DERIVED\\SECONDARY"
         );
         assert_eq!(
             object

@@ -457,11 +457,19 @@
     "resource_limits": {
       "type": "object",
       "properties": {
+        "max_spec_bytes": { "type": "integer", "minimum": 1, "maximum": 16777216 },
         "max_instances": { "type": "integer", "minimum": 1, "maximum": 1000000 },
         "max_input_files": { "type": "integer", "minimum": 1, "maximum": 1000000 },
         "max_file_bytes": { "type": "integer", "minimum": 1 },
         "max_total_input_bytes": { "type": "integer", "minimum": 1 },
-        "max_total_output_bytes": { "type": "integer", "minimum": 1 }
+        "max_total_output_bytes": { "type": "integer", "minimum": 1 },
+        "max_attributes_per_instance": { "type": "integer", "minimum": 1, "maximum": 4096 },
+        "max_sequence_items": { "type": "integer", "minimum": 1, "maximum": 4096 },
+        "max_value_multiplicity": { "type": "integer", "minimum": 1, "maximum": 1024 },
+        "max_content_assignments_per_instance": { "type": "integer", "minimum": 1, "maximum": 64 },
+        "max_references_per_instance": { "type": "integer", "minimum": 1, "maximum": 4096 },
+        "max_parameter_nodes": { "type": "integer", "minimum": 1, "maximum": 4096 },
+        "max_parameter_depth": { "type": "integer", "minimum": 1, "maximum": 32 }
       },
       "additionalProperties": false
     }

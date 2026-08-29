@@ -1406,6 +1406,7 @@ fn reject_structural_overrides(
 
 fn resource_map(limits: &super::ResourceLimits) -> BTreeMap<String, u64> {
     BTreeMap::from([
+        ("max_spec_bytes".into(), limits.max_spec_bytes),
         ("max_instances".into(), limits.max_instances),
         ("max_input_files".into(), limits.max_input_files),
         ("max_file_bytes".into(), limits.max_file_bytes),
@@ -1414,6 +1415,25 @@ fn resource_map(limits: &super::ResourceLimits) -> BTreeMap<String, u64> {
             "max_total_output_bytes".into(),
             limits.max_total_output_bytes,
         ),
+        (
+            "max_attributes_per_instance".into(),
+            limits.max_attributes_per_instance,
+        ),
+        ("max_sequence_items".into(), limits.max_sequence_items),
+        (
+            "max_value_multiplicity".into(),
+            limits.max_value_multiplicity,
+        ),
+        (
+            "max_content_assignments_per_instance".into(),
+            limits.max_content_assignments_per_instance,
+        ),
+        (
+            "max_references_per_instance".into(),
+            limits.max_references_per_instance,
+        ),
+        ("max_parameter_nodes".into(), limits.max_parameter_nodes),
+        ("max_parameter_depth".into(), limits.max_parameter_depth),
     ])
 }
 

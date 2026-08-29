@@ -2,6 +2,7 @@ mod encoding;
 mod error;
 mod loader;
 mod model;
+mod sc;
 
 pub use crate::planning::RecipeIdentity;
 pub use encoding::{RecipeEncodingError, encoding_plan_from_recipe};
@@ -16,4 +17,8 @@ pub use model::{
     RecipeKind, RecipeReference, ResourcePolicy, SecondaryCaptureParameters,
     SequenceLengthMetadata, StringBoundaryElementMetadata, StringValueSource, TemplateReference,
     TimezoneBoundaryMetadata,
+};
+pub use sc::{
+    ScPlanError, SecondaryCapturePlanInput, native_pixel_content_from_recipe,
+    native_pixel_request_from_recipe, resolved_secondary_capture_plan,
 };

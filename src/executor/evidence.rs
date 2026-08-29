@@ -362,6 +362,12 @@ pub struct MaterializedContentEvidence {
     pub native_byte_order: Option<NativeByteOrderEvidence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub native_bit_packing: Option<NativeBitPackingEvidence>,
+    /// Exact native Pixel Data Value Field identity after DICOM's mandatory
+    /// even-length VR padding. The canonical size/hash above remain unpadded.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native_value_field_size_bytes: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native_value_field_sha256: Option<String>,
     /// How the writer consumed this slot when execution used a distinct
     /// materialization path (for example, bounded file streaming).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -498,6 +504,27 @@ impl MaterializedContentEvidence {
             {
                 return Err(EvidenceError::NativeBitPacking(self.slot.clone()));
             }
+        }
+        match (
+            self.native_value_field_size_bytes,
+            &self.native_value_field_sha256,
+        ) {
+            (None, None) => {}
+            (Some(value_size), Some(value_sha256)) => {
+                validate_sha256("native Pixel Data Value Field", value_sha256)?;
+                let expected_size = self
+                    .size_bytes
+                    .checked_add(self.size_bytes % 2)
+                    .ok_or_else(|| EvidenceError::NativeValueField(self.slot.clone()))?;
+                if self.fragment_count != 0
+                    || self.native_frame_sha256.is_empty()
+                    || value_size != expected_size
+                    || (self.size_bytes % 2 == 0 && value_sha256 != &self.sha256)
+                {
+                    return Err(EvidenceError::NativeValueField(self.slot.clone()));
+                }
+            }
+            _ => return Err(EvidenceError::NativeValueField(self.slot.clone())),
         }
         Ok(())
     }
@@ -911,6 +938,7 @@ pub enum EvidenceError {
     FragmentEvidenceCardinality(String),
     FragmentEvidenceArithmetic(String),
     NativeBitPacking(String),
+    NativeValueField(String),
     UnsafeRelativePath(String),
     ArtifactOutputLimitExceeded,
     ArtifactWorkingLimitExceeded,
@@ -980,6 +1008,8 @@ mod tests {
             extended_offset_table_lengths: vec![],
             native_byte_order: None,
             native_bit_packing: None,
+            native_value_field_size_bytes: None,
+            native_value_field_sha256: None,
             writer_materialization: None,
         }
     }
@@ -1039,6 +1069,8 @@ mod tests {
                 packed_size_bytes: 3,
                 unused_trailing_bits: 6,
             }),
+            native_value_field_size_bytes: Some(4),
+            native_value_field_sha256: Some("3".repeat(64)),
             writer_materialization: None,
         };
         native.validate_encoding_facts().unwrap();
@@ -1050,6 +1082,29 @@ mod tests {
         assert!(matches!(
             native.validate_encoding_facts(),
             Err(EvidenceError::NativeBitPacking(slot)) if slot == "pixels"
+        ));
+
+        let mut odd_size_drift = native.clone();
+        odd_size_drift
+            .native_bit_packing
+            .as_mut()
+            .unwrap()
+            .unused_trailing_bits = 6;
+        odd_size_drift.native_value_field_size_bytes = Some(3);
+        assert!(matches!(
+            odd_size_drift.validate_encoding_facts(),
+            Err(EvidenceError::NativeValueField(slot)) if slot == "pixels"
+        ));
+
+        let mut even_hash_drift = native;
+        even_hash_drift.size_bytes = 4;
+        even_hash_drift.sha256 = "4".repeat(64);
+        even_hash_drift.native_bit_packing = None;
+        even_hash_drift.native_value_field_size_bytes = Some(4);
+        even_hash_drift.native_value_field_sha256 = Some("5".repeat(64));
+        assert!(matches!(
+            even_hash_drift.validate_encoding_facts(),
+            Err(EvidenceError::NativeValueField(slot)) if slot == "pixels"
         ));
     }
 }

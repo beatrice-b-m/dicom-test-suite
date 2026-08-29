@@ -141,6 +141,7 @@ impl MaterializationDispatcher {
         let mut instance = artifact.instance.clone();
         let mut materialized_content = Vec::new();
         let mut extended_table_values = None;
+        let mut native_value_fields = Vec::new();
         for content in &mut instance.content {
             if cancellation.is_cancelled() {
                 return Err(MaterializationError::Cancelled);
@@ -272,6 +273,18 @@ impl MaterializationDispatcher {
                     } else {
                         Value::Null
                     };
+                    let mut native_value_field = bytes.clone();
+                    if native_value_field.len() % 2 != 0 {
+                        native_value_field.push(0);
+                    }
+                    let native_value_field_size_bytes = native_value_field.len() as u64;
+                    let native_value_field_sha256 = sha256_hex(&native_value_field);
+                    native_value_fields.push((
+                        content.slot.clone(),
+                        content.address.tag(),
+                        native_value_field_size_bytes,
+                        native_value_field_sha256.clone(),
+                    ));
                     materialized_content.push(json!({
                         "slot": content.slot,
                         "kind": content.kind,
@@ -286,6 +299,8 @@ impl MaterializationDispatcher {
                         "decoded_frame_lengths": decoded_frame_lengths,
                         "native_byte_order": native_byte_order,
                         "native_bit_packing": native_bit_packing,
+                        "native_value_field_size_bytes": native_value_field_size_bytes,
+                        "native_value_field_sha256": native_value_field_sha256,
                         "fragment_count": 0,
                         "compressed_lengths": [],
                         "padded_fragment_lengths": [],
@@ -469,6 +484,38 @@ impl MaterializationDispatcher {
             &path,
             &|| cancellation.is_cancelled(),
         )?;
+        if !native_value_fields.is_empty() {
+            let object = dicom_object::open_file(&path).map_err(|error| {
+                MaterializationError::NativeValueFieldRead {
+                    slot: native_value_fields[0].0.clone(),
+                    message: error.to_string(),
+                }
+            })?;
+            for (slot, tag, expected_size, expected_sha256) in &native_value_fields {
+                let actual = object
+                    .element(*tag)
+                    .map_err(|error| MaterializationError::NativeValueFieldRead {
+                        slot: slot.clone(),
+                        message: error.to_string(),
+                    })?
+                    .to_bytes()
+                    .map_err(|error| MaterializationError::NativeValueFieldRead {
+                        slot: slot.clone(),
+                        message: error.to_string(),
+                    })?;
+                let actual_size = actual.len() as u64;
+                let actual_sha256 = sha256_hex(actual.as_ref());
+                if actual_size != *expected_size || actual_sha256 != *expected_sha256 {
+                    return Err(MaterializationError::NativeValueFieldIdentity {
+                        slot: slot.clone(),
+                        expected_size: *expected_size,
+                        actual_size,
+                        expected_sha256: expected_sha256.clone(),
+                        actual_sha256,
+                    });
+                }
+            }
+        }
         let materialized_instance_plan_sha256 = instance.canonical_sha256();
         let output = self.produced_file(
             &artifact.logical_id,
@@ -1267,6 +1314,17 @@ pub enum MaterializationError {
         expected: String,
         actual: String,
     },
+    NativeValueFieldRead {
+        slot: String,
+        message: String,
+    },
+    NativeValueFieldIdentity {
+        slot: String,
+        expected_size: u64,
+        actual_size: u64,
+        expected_sha256: String,
+        actual_sha256: String,
+    },
     InvalidPart10FileMeta,
     MissingPrivateMutationSource(String),
     MutationSourceNotPrivate(StagedAssetHandle),
@@ -1569,9 +1627,36 @@ mod tests {
         );
         assert_eq!(content["decoded_frame_lengths"], json!([2, 2]));
         assert_eq!(content["native_byte_order"], "little_endian");
+        assert_eq!(content["native_value_field_size_bytes"], 4);
+        assert_eq!(
+            content["native_value_field_sha256"],
+            sha256_hex(&[1, 2, 3, 4])
+        );
         assert_eq!(content["fragment_count"], 0);
         assert_eq!(content["compressed_frame_sha256"], json!([]));
         assert_eq!(content["padded_fragment_lengths"], json!([]));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn odd_native_value_field_records_the_actual_zero_padding() {
+        let root = root("native-odd-value-field");
+        let request = native_request(
+            "instances/native-odd.dcm",
+            &[1, 2, 3],
+            vec![native_frame(1, vec![1, 2, 3], 1, 3, 8)],
+        );
+        let result = dispatcher(&root)
+            .dispatch(&request, &StagedAssetRegistry::default())
+            .unwrap();
+        let content = &result.evidence[0].claims["materialized_content"][0];
+        assert_eq!(content["size_bytes"], 3);
+        assert_eq!(content["sha256"], sha256_hex(&[1, 2, 3]));
+        assert_eq!(content["native_value_field_size_bytes"], 4);
+        assert_eq!(
+            content["native_value_field_sha256"],
+            sha256_hex(&[1, 2, 3, 0])
+        );
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -1665,6 +1750,13 @@ mod tests {
         );
         assert_eq!(content["native_bit_packing"]["stored_values_per_frame"], 9);
         assert_eq!(content["native_bit_packing"]["unused_trailing_bits"], 6);
+        assert_eq!(content["size_bytes"], 3);
+        assert_eq!(content["sha256"], sha256_hex(&packed));
+        assert_eq!(content["native_value_field_size_bytes"], 4);
+        assert_eq!(
+            content["native_value_field_sha256"],
+            sha256_hex(&[0x55, 0x55, 0x01, 0x00])
+        );
         assert_eq!(
             content["decoded_frame_sha256"],
             json!([sha256_hex(&frame_one), sha256_hex(&frame_two)])

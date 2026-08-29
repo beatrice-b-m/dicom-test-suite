@@ -13,6 +13,15 @@ use dicom_test_suite::{GenerateOptions, prepare_generation_run, sha256_hex, writ
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 const IMPLEMENTATION_VERSION_NAME: &str = "DICOMTS010";
 
+#[test]
+fn metadata_planner_has_no_provider_identity_rewrite_bridge() {
+    let source = include_str!("../src/recipes/metadata_sc.rs");
+    assert!(source.contains("resolved_secondary_capture_base_plan"));
+    assert!(!source.contains("plan_provider_id ="));
+    assert!(!source.contains("recipe.clone()"));
+    assert!(!source.contains("artifact.clone()"));
+}
+
 fn temp_dir(label: &str) -> PathBuf {
     std::env::temp_dir().join(format!(
         "dicom-test-suite-metadata-sc-planner-{label}-{}-{}",
@@ -51,6 +60,7 @@ fn every_typed_metadata_sc_artifact_is_byte_identical_to_the_current_generator()
         .values()
         .filter(|recipe| recipe.plan_provider_id == "native.metadata_sc_plan")
     {
+        let provider_identity = recipe.plan_provider_id.clone();
         planned_cases.insert(recipe.binding.case_id.clone());
         let dicom = recipe.dicom.as_ref().unwrap();
         for artifact in &dicom.artifacts {
@@ -71,6 +81,7 @@ fn every_typed_metadata_sc_artifact_is_byte_identical_to_the_current_generator()
                 seed: 7,
             })
             .unwrap();
+            assert_eq!(recipe.plan_provider_id, provider_identity);
             let implementation = ImplementationIdentityPlan {
                 class_uid: plan
                     .identities

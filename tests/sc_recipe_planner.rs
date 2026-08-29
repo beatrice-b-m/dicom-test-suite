@@ -10,7 +10,7 @@ use dicom_test_suite::composition::{
     CompositionUidRole, ContentMaterialization, Part10Materializer, TemplateCatalog,
 };
 use dicom_test_suite::recipes::{
-    RecipeCatalog, SecondaryCapturePlanInput, native_pixel_content_from_recipe,
+    RecipeCatalog, ScPlanError, SecondaryCapturePlanInput, native_pixel_content_from_recipe,
     resolved_secondary_capture_plan,
 };
 use dicom_test_suite::{GenerateOptions, prepare_generation_run, sha256_hex, write_generation_run};
@@ -88,6 +88,60 @@ fn generated_path(manifest: &Value, case_id: &str, role_suffix: &str) -> String 
         .as_str()
         .unwrap()
         .to_owned()
+}
+
+#[test]
+fn ordinary_sc_entry_point_keeps_provider_and_metadata_boundaries_strict() {
+    let (recipes, templates, lock_hash) = load();
+    let identity = recipes
+        .binding_for_case("classic/sc/mono2_u8_explicit_le")
+        .unwrap();
+    let mut wrong_provider = recipes.recipes().get(identity).unwrap().clone();
+    wrong_provider.plan_provider_id = "native.metadata_sc_plan".into();
+    let artifact = &wrong_provider.dicom.as_ref().unwrap().artifacts[0];
+    let reference = artifact.template.as_ref().unwrap();
+    let template = templates
+        .resolve_qualified(
+            &dicom_test_suite::composition::TemplateId(reference.template_id.clone()),
+            Some(reference.template_version.parse().unwrap()),
+        )
+        .unwrap();
+    assert!(matches!(
+        resolved_secondary_capture_plan(SecondaryCapturePlanInput {
+            recipe: &wrong_provider,
+            artifact,
+            template,
+            instance_id: &wrong_provider.recipe_id,
+            standards_lock_sha256: &lock_hash,
+            seed: 7,
+        }),
+        Err(ScPlanError::WrongPlanProvider(_))
+    ));
+
+    let identity = recipes
+        .binding_for_case("metadata/sc/utf8_person_name")
+        .unwrap();
+    let mut metadata_recipe = recipes.recipes().get(identity).unwrap().clone();
+    metadata_recipe.plan_provider_id = "native.sc_plan".into();
+    let artifact = &metadata_recipe.dicom.as_ref().unwrap().artifacts[0];
+    let reference = artifact.template.as_ref().unwrap();
+    let template = templates
+        .resolve_qualified(
+            &dicom_test_suite::composition::TemplateId(reference.template_id.clone()),
+            Some(reference.template_version.parse().unwrap()),
+        )
+        .unwrap();
+    assert!(matches!(
+        resolved_secondary_capture_plan(SecondaryCapturePlanInput {
+            recipe: &metadata_recipe,
+            artifact,
+            template,
+            instance_id: &metadata_recipe.recipe_id,
+            standards_lock_sha256: &lock_hash,
+            seed: 7,
+        }),
+        Err(ScPlanError::MetadataOverrideDeferred)
+    ));
 }
 
 #[test]

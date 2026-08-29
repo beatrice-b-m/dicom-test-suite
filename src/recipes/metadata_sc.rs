@@ -13,7 +13,7 @@ use crate::sha256_hex;
 
 use super::{
     CaseRecipe, MetadataScParameters, PlannedArtifactRecipe, PrivateElementValue,
-    SecondaryCapturePlanInput, StringValueSource, resolved_secondary_capture_plan,
+    SecondaryCapturePlanInput, StringValueSource, sc::resolved_secondary_capture_base_plan,
 };
 
 /// Stable metadata planning inputs available before staging exists.
@@ -41,16 +41,9 @@ pub fn resolved_metadata_sc_plan(
         .as_ref()
         .ok_or(MetadataScPlannerError::MissingMetadata)?;
 
-    // The shared SC builder deliberately accepts only ordinary SC recipes.
-    // Present it an ephemeral metadata-free view while preserving every
-    // identity, pixel, template, and encoding field from the source document.
-    let mut base_recipe = input.recipe.clone();
-    base_recipe.plan_provider_id = "native.sc_plan".into();
-    let mut base_artifact = input.artifact.clone();
-    base_artifact.metadata_sc = None;
-    let mut plan = resolved_secondary_capture_plan(SecondaryCapturePlanInput {
-        recipe: &base_recipe,
-        artifact: &base_artifact,
+    let mut plan = resolved_secondary_capture_base_plan(SecondaryCapturePlanInput {
+        recipe: input.recipe,
+        artifact: input.artifact,
         template: input.template,
         instance_id: input.instance_id,
         standards_lock_sha256: input.standards_lock_sha256,

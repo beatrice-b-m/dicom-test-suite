@@ -140,7 +140,16 @@ pub struct SecondaryCapturePlanInput<'a> {
 pub fn resolved_secondary_capture_plan(
     input: SecondaryCapturePlanInput<'_>,
 ) -> Result<ResolvedInstancePlan, ScPlanError> {
-    validate_input(&input)?;
+    validate_ordinary_input(&input)?;
+    resolved_secondary_capture_base_plan(input)
+}
+
+/// Build the provider-neutral SC structure after the caller has established
+/// its own provider-specific contract.
+pub(super) fn resolved_secondary_capture_base_plan(
+    input: SecondaryCapturePlanInput<'_>,
+) -> Result<ResolvedInstancePlan, ScPlanError> {
+    validate_structural_input(&input)?;
     let sc = input
         .artifact
         .secondary_capture
@@ -194,7 +203,7 @@ pub fn resolved_secondary_capture_plan(
     })
 }
 
-fn validate_input(input: &SecondaryCapturePlanInput<'_>) -> Result<(), ScPlanError> {
+fn validate_ordinary_input(input: &SecondaryCapturePlanInput<'_>) -> Result<(), ScPlanError> {
     if input.recipe.plan_provider_id != "native.sc_plan" {
         return Err(ScPlanError::WrongPlanProvider(
             input.recipe.plan_provider_id.clone(),
@@ -203,6 +212,15 @@ fn validate_input(input: &SecondaryCapturePlanInput<'_>) -> Result<(), ScPlanErr
     if input.artifact.metadata_sc.is_some() {
         return Err(ScPlanError::MetadataOverrideDeferred);
     }
+    Ok(())
+}
+
+fn validate_structural_input(input: &SecondaryCapturePlanInput<'_>) -> Result<(), ScPlanError> {
+    input
+        .artifact
+        .secondary_capture
+        .as_ref()
+        .ok_or(ScPlanError::MissingSecondaryCapture)?;
     if input.template.status != TemplateStatus::Qualified {
         return Err(ScPlanError::TemplateNotQualified(
             input.template.template_id.0.clone(),

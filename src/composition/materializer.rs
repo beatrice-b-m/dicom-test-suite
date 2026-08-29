@@ -3,7 +3,9 @@ use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use dicom_core::value::{DataSetSequence, PrimitiveValue as DicomPrimitiveValue};
+use dicom_core::value::{
+    DataSetSequence, PixelFragmentSequence, PrimitiveValue as DicomPrimitiveValue,
+};
 use dicom_core::{DataElement, Tag};
 use dicom_dictionary_std::{StandardDataDictionary, tags};
 use dicom_object::{FileMetaTableBuilder, InMemDicomObject, open_file};
@@ -117,31 +119,36 @@ fn build_dataset(plan: &ResolvedInstancePlan) -> Result<Dataset, MaterializeErro
                 content.address.normalized_tag(),
             ));
         }
-        let bytes = match content.materialization.as_ref() {
-            Some(ContentMaterialization::Inline(bytes)) => bytes.clone(),
-            Some(ContentMaterialization::StagedFile(path)) => {
+        let materialization = content
+            .materialization
+            .as_ref()
+            .ok_or_else(|| MaterializeError::MissingContent(content.slot.clone()))?;
+        if let ContentMaterialization::Encapsulated {
+            basic_offset_table,
+            fragments,
+        } = materialization
+        {
+            let bytes = fragments.concat();
+            validate_content_bytes(content, &bytes)?;
+            put_private_creator(&mut object, &content.address, &mut creators)?;
+            object.put(DataElement::new(
+                content.address.tag(),
+                content.vr.as_dicom(),
+                PixelFragmentSequence::new(basic_offset_table.clone(), fragments.clone()),
+            ));
+            continue;
+        }
+        let bytes = match materialization {
+            ContentMaterialization::Inline(bytes) => bytes.clone(),
+            ContentMaterialization::StagedFile(path) => {
                 fs::read(path).map_err(|source| MaterializeError::Io {
                     path: path.clone(),
                     source,
                 })?
             }
-            None => return Err(MaterializeError::MissingContent(content.slot.clone())),
+            ContentMaterialization::Encapsulated { .. } => unreachable!(),
         };
-        if bytes.len() as u64 != content.size_bytes {
-            return Err(MaterializeError::ContentSize {
-                slot: content.slot.clone(),
-                expected: content.size_bytes,
-                actual: bytes.len() as u64,
-            });
-        }
-        let actual_hash = sha256_hex(&bytes);
-        if actual_hash != content.sha256 {
-            return Err(MaterializeError::ContentHash {
-                slot: content.slot.clone(),
-                expected: content.sha256.clone(),
-                actual: actual_hash,
-            });
-        }
+        validate_content_bytes(content, &bytes)?;
         put_private_creator(&mut object, &content.address, &mut creators)?;
         object.put(DataElement::new(
             content.address.tag(),
@@ -150,6 +157,28 @@ fn build_dataset(plan: &ResolvedInstancePlan) -> Result<Dataset, MaterializeErro
         ));
     }
     Ok(object)
+}
+
+fn validate_content_bytes(
+    content: &super::CanonicalContent,
+    bytes: &[u8],
+) -> Result<(), MaterializeError> {
+    if bytes.len() as u64 != content.size_bytes {
+        return Err(MaterializeError::ContentSize {
+            slot: content.slot.clone(),
+            expected: content.size_bytes,
+            actual: bytes.len() as u64,
+        });
+    }
+    let actual_hash = sha256_hex(bytes);
+    if actual_hash != content.sha256 {
+        return Err(MaterializeError::ContentHash {
+            slot: content.slot.clone(),
+            expected: content.sha256.clone(),
+            actual: actual_hash,
+        });
+    }
+    Ok(())
 }
 
 fn put_resolved_attribute(

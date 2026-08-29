@@ -1,0 +1,15 @@
+{
+  "composition_spec_schema_version": "0.1.0",
+  "instances": [
+    {
+      "instance_id": "xa_rle",
+      "template": { "id": "classic/xa" },
+      "transfer_syntax_uid": "1.2.840.10008.1.2.5"
+    },
+    {
+      "instance_id": "xrf_rle",
+      "template": { "id": "classic/xrf" },
+      "transfer_syntax_uid": "1.2.840.10008.1.2.5"
+    }
+  ]
+}

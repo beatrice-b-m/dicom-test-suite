@@ -140,6 +140,15 @@ fn p3_7_native_defaults_pass_pinned_independent_iod_validation_when_available() 
 }
 
 #[test]
+fn p3_7_rle_defaults_pass_pinned_independent_iod_validation_when_available() {
+    qualify_defaults(
+        "tests/fixtures/composition/valid/classic-p3-7-rle.json",
+        38,
+        &[("xa_rle", "XAImage"), ("xrf_rle", "XRFImage")],
+    );
+}
+
+#[test]
 fn multiframe_sc_defaults_pass_pinned_independent_iod_validation_when_available() {
     qualify_defaults(
         "tests/fixtures/composition/valid/classic-multiframe-sc-defaults.json",

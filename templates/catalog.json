@@ -306,7 +306,7 @@
       "iod_name": "X-Ray Angiographic Image", "sop_class_name": "X-Ray Angiographic Image Storage",
       "sop_class_uid": "1.2.840.10008.5.1.4.1.1.12.1", "default_modality": "XA",
       "artifact_kind": "classic_image",
-      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }, { "uid": "1.2.840.10008.1.2.5", "name": "RLE Lossless", "default": false, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": ["Uses the built-in deterministic RLE encoder; caller native frames are encoded as one fragment per frame."] }],
       "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "X-Ray Angiographic Image IOD module table", "reason": "Locks XA acquisition, positioning, and image semantics.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-classic-images.md" }],
       "limitations": ["Qualified for deterministic native MONOCHROME2 unsigned 12-bit-in-16-bit pixels only."],
       "qualification_owner": "classic_xa"
@@ -316,7 +316,7 @@
       "iod_name": "X-Ray Radiofluoroscopic Image", "sop_class_name": "X-Ray Radiofluoroscopic Image Storage",
       "sop_class_uid": "1.2.840.10008.5.1.4.1.1.12.2", "default_modality": "RF",
       "artifact_kind": "classic_image",
-      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }, { "uid": "1.2.840.10008.1.2.5", "name": "RLE Lossless", "default": false, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": ["Uses the built-in deterministic RLE encoder; caller native frames are encoded as one fragment per frame."] }],
       "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "X-Ray Radiofluoroscopic Image IOD module table", "reason": "Locks XRF acquisition, positioning, and image semantics.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-classic-images.md" }],
       "limitations": ["Qualified for deterministic native MONOCHROME2 unsigned 12-bit-in-16-bit pixels only."],
       "qualification_owner": "classic_xrf"

@@ -3,6 +3,7 @@ use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use dicom_core::value::Value as DicomValue;
 use dicom_object::open_file;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -188,6 +189,21 @@ impl GenericPlanValidator {
                 Ok(element) if element.vr() != content.vr.as_dicom() => content_errors.push(
                     format!("{} has an unexpected VR", content.address.normalized_tag()),
                 ),
+                Ok(element) if content.kind == "encapsulated_pixels" => match element.value() {
+                    DicomValue::PixelSequence(sequence) => {
+                        let bytes = sequence.fragments().concat();
+                        if bytes.len() as u64 != content.size_bytes
+                            || sha256_hex(&bytes) != content.sha256
+                        {
+                            content_errors.push(format!(
+                                "{} encapsulated fragments differ from the resolved plan",
+                                content.slot
+                            ));
+                        }
+                    }
+                    _ => content_errors
+                        .push(format!("{} is not encapsulated Pixel Data", content.slot)),
+                },
                 Ok(element) => match element.to_bytes() {
                     Ok(bytes) => {
                         let bytes = bytes.as_ref();

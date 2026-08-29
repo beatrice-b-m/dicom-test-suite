@@ -82,6 +82,10 @@ pub struct CanonicalContent {
 pub enum ContentMaterialization {
     Inline(Vec<u8>),
     StagedFile(PathBuf),
+    Encapsulated {
+        basic_offset_table: Vec<u32>,
+        fragments: Vec<Vec<u8>>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

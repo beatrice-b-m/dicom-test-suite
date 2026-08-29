@@ -6,6 +6,11 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde_json::{Value, json};
 
+use crate::codecs::{FrameEncodeInput, FrameEncoder, NativeRleLosslessEncoder};
+#[cfg(test)]
+use crate::codecs::{FrameDecodeInput, FrameDecoder};
+use crate::encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData};
+
 use super::{
     CompositionManifestAssembler, CompositionManifestInputs, CompositionSpec, CompositionUidRole,
     ContentLimits, ContentSource, DefaultPixelOutput, IdentityAllocator, IdentityChoice,
@@ -203,8 +208,11 @@ fn resolve_and_stage(
             references: vec![],
         };
         if let Some(profile) = super::ClassicFamilyProfile::for_template(&template.template_id) {
-            let pixel = resolve_family_pixels(instance, &profile, &mut content_resolver)?;
+            let mut pixel = resolve_family_pixels(instance, &profile, &mut content_resolver)?;
             validate_family_pixel_contract(&profile, &pixel)?;
+            if transfer_syntax_uid == crate::codecs::RLE_LOSSLESS_TRANSFER_SYNTAX_UID {
+                pixel = encode_rle_pixels(pixel)?;
+            }
             let mut plan = base_plan;
             plan.attributes = resolve_family_attributes(
                 &profile,
@@ -515,6 +523,87 @@ fn validate_family_pixel_contract(
     }
 }
 
+fn encode_rle_pixels(mut pixel: DefaultPixelOutput) -> Result<DefaultPixelOutput, ComposeError> {
+    let native = match pixel.content.materialization.as_ref() {
+        Some(super::ContentMaterialization::Inline(bytes)) => bytes.clone(),
+        Some(super::ContentMaterialization::StagedFile(path)) => {
+            fs::read(path).map_err(|source| ComposeError::Io {
+                path: path.clone(),
+                source,
+            })?
+        }
+        Some(super::ContentMaterialization::Encapsulated { .. }) => {
+            return Err(ComposeError::AlreadyEncapsulated);
+        }
+        None => return Err(ComposeError::MissingPixelMaterialization),
+    };
+    let shape = &pixel.plan.shape;
+    let photometric = match shape.photometric_interpretation {
+        super::PhotometricInterpretation::Monochrome1 => "MONOCHROME1",
+        super::PhotometricInterpretation::Monochrome2 => "MONOCHROME2",
+        super::PhotometricInterpretation::PaletteColor => "PALETTE COLOR",
+        super::PhotometricInterpretation::Rgb => "RGB",
+        super::PhotometricInterpretation::YbrFull => "YBR_FULL",
+        super::PhotometricInterpretation::YbrFull422 => "YBR_FULL_422",
+    };
+    let mut encoded_frames = Vec::with_capacity(pixel.plan.frame_spans.len());
+    for frame in &pixel.plan.frame_spans {
+        if frame.bit_offset % 8 != 0 || frame.bit_length % 8 != 0 {
+            return Err(ComposeError::CodecPixelAlignment);
+        }
+        let start =
+            usize::try_from(frame.bit_offset / 8).map_err(|_| ComposeError::ResourceRange)?;
+        let length =
+            usize::try_from(frame.bit_length / 8).map_err(|_| ComposeError::ResourceRange)?;
+        let end = start
+            .checked_add(length)
+            .ok_or(ComposeError::ResourceRange)?;
+        let encoded = NativeRleLosslessEncoder::new().encode_frame(FrameEncodeInput {
+            native_frame: native.get(start..end).ok_or(ComposeError::ResourceRange)?,
+            rows: u16::try_from(shape.rows).map_err(|_| ComposeError::ResourceRange)?,
+            columns: u16::try_from(shape.columns).map_err(|_| ComposeError::ResourceRange)?,
+            samples_per_pixel: u16::from(shape.samples_per_pixel),
+            bits_allocated: u16::from(shape.bits_allocated),
+            bits_stored: u16::from(shape.bits_stored),
+            photometric_interpretation: photometric,
+        })?;
+        encoded_frames.push(encoded.bytes);
+    }
+    let encapsulated = EncapsulatedPixelData::one_fragment_per_frame(
+        &encoded_frames,
+        BasicOffsetTablePolicy::Populated,
+    )?;
+    let mut fragments = encapsulated.fragment_payloads;
+    for fragment in &mut fragments {
+        if fragment.len() % 2 != 0 {
+            fragment.push(0);
+        }
+    }
+    let bytes = fragments.concat();
+    pixel.content.kind = "encapsulated_pixels".into();
+    pixel.content.vr = super::DicomVr::OB;
+    pixel.content.size_bytes = bytes.len() as u64;
+    pixel.content.sha256 = sha256_hex(&bytes);
+    pixel
+        .content
+        .properties
+        .insert("native_sha256".into(), sha256_hex(&native));
+    pixel.content.properties.insert(
+        "codec_backend".into(),
+        NativeRleLosslessEncoder::BACKEND_ID.into(),
+    );
+    pixel.content.properties.insert(
+        "compressed_frame_sha256".into(),
+        serde_json::to_string(&encapsulated.compressed_frame_hashes)
+            .expect("frame hashes serialize"),
+    );
+    pixel.content.materialization = Some(super::ContentMaterialization::Encapsulated {
+        basic_offset_table: encapsulated.basic_offset_table.offsets,
+        fragments,
+    });
+    Ok(pixel)
+}
+
 fn validate_sc_pixel_contract(
     template: &TemplateDescriptor,
     pixel: &DefaultPixelOutput,
@@ -599,6 +688,8 @@ pub enum ComposeError {
     Materialize(super::MaterializeError),
     Manifest(super::ManifestError),
     Family(super::FamilyError),
+    Codec(crate::codecs::CodecError),
+    Encapsulation(crate::encapsulation::EncapsulationError),
     ResourceRange,
     UnsupportedTemplate(String),
     UnsupportedP2Content(String),
@@ -625,6 +716,9 @@ pub enum ComposeError {
         tag: String,
     },
     OutputSizeOverflow,
+    MissingPixelMaterialization,
+    AlreadyEncapsulated,
+    CodecPixelAlignment,
     OutputLimit {
         size: u64,
         limit: u64,
@@ -649,6 +743,8 @@ from_error!(super::DefaultError, Defaults);
 from_error!(super::MaterializeError, Materialize);
 from_error!(super::ManifestError, Manifest);
 from_error!(super::FamilyError, Family);
+from_error!(crate::codecs::CodecError, Codec);
+from_error!(crate::encapsulation::EncapsulationError, Encapsulation);
 
 impl fmt::Display for ComposeError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -1320,6 +1416,71 @@ mod tests {
                 expected
             );
         }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn p3_7_rle_encodes_caller_frames_losslessly_and_byte_stably() {
+        let root = output("p3-7-rle-caller");
+        fs::create_dir(&root).unwrap();
+        let raw = (0_u16..256).flat_map(u16::to_le_bytes).collect::<Vec<_>>();
+        fs::write(root.join("xray.raw"), &raw).unwrap();
+        let spec = json!({
+            "composition_spec_schema_version": "0.1.0",
+            "instances": [{
+                "instance_id": "xa_rle",
+                "template": { "id": "classic/xa" },
+                "transfer_syntax_uid": "1.2.840.10008.1.2.5",
+                "content": [{
+                    "slot": "pixels",
+                    "source": {
+                        "kind": "local_file", "path": "xray.raw", "sha256": sha256_hex(&raw),
+                        "pixel": {
+                            "rows": 16, "columns": 16, "frames": 1,
+                            "samples_per_pixel": 1, "photometric_interpretation": "MONOCHROME2",
+                            "sample_type": "uint", "bits_allocated": 16,
+                            "bits_stored": 12, "high_bit": 11, "byte_order": "little"
+                        }
+                    }
+                }]
+            }]
+        });
+        let spec_path = root.join("spec.json");
+        fs::write(&spec_path, serde_json::to_vec_pretty(&spec).unwrap()).unwrap();
+        let first = root.join("first");
+        let second = root.join("second");
+        for out in [&first, &second] {
+            compose(&ComposeOptions {
+                spec_path: spec_path.clone(), out_dir: out.clone(), seed: 46,
+                catalog_path: "templates/catalog.json".into(), dry_run: false,
+            }).unwrap();
+        }
+        let first_bytes = fs::read(first.join("instances/xa_rle.dcm")).unwrap();
+        assert_eq!(first_bytes, fs::read(second.join("instances/xa_rle.dcm")).unwrap());
+        let manifest: serde_json::Value = serde_json::from_slice(
+            &fs::read(first.join("manifest.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            manifest["composition"]["entries"][0]["content"][0]["kind"],
+            "encapsulated_pixels"
+        );
+        assert_eq!(
+            manifest["composition"]["entries"][0]["content"][0]["properties"]["codec_backend"],
+            "native_project_rle_encoder"
+        );
+        let object = dicom_object::open_file(first.join("instances/xa_rle.dcm")).unwrap();
+        let fragments = match object.element_by_name("PixelData").unwrap().value() {
+            dicom_core::value::Value::PixelSequence(sequence) => sequence.fragments(),
+            _ => panic!("RLE Pixel Data must reopen as fragments"),
+        };
+        assert_eq!(fragments.len(), 1);
+        let decoded = NativeRleLosslessEncoder::new().decode_frame(FrameDecodeInput {
+            encoded_frame: &fragments[0], rows: 16, columns: 16,
+            samples_per_pixel: 1, bits_allocated: 16, bits_stored: 12,
+            photometric_interpretation: "MONOCHROME2",
+        }).unwrap();
+        assert_eq!(decoded.native_bytes, raw);
         fs::remove_dir_all(root).unwrap();
     }
 }

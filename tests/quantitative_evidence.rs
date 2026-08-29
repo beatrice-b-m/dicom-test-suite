@@ -7,12 +7,15 @@ fn segmentation() -> SegmentationValidationContract {
     SegmentationValidationContract {
         transfer_syntax_uid: "1.2.840.10008.1.2.1".into(),
         modality: "SEG".into(),
+        frame_of_reference_uid: "2.25.9".into(),
+        image_type: "DERIVED\\PRIMARY".into(),
         segmentation_type: "BINARY".into(),
         segmentation_fractional_type: None,
         maximum_fractional_value: None,
         segment_sequence_items: 1,
         shared_functional_groups_sequence_items: 1,
         per_frame_functional_groups_sequence_items: 2,
+        dimension_index_count: 1,
         dimension_organization_uid: "2.25.10".into(),
         referenced_sop_class_uid: "1.2.840.10008.5.1.4.1.1.2.1".into(),
         referenced_sop_instance_uid: "2.25.11".into(),
@@ -21,23 +24,45 @@ fn segmentation() -> SegmentationValidationContract {
     }
 }
 
-#[test]
-fn segmentation_adapter_uses_observed_values_and_fails_corruption() {
-    let expected = segmentation();
-    let observed = SegmentationObservation {
+fn segmentation_observation(expected: &SegmentationValidationContract) -> SegmentationObservation {
+    SegmentationObservation {
         modality: expected.modality.clone(),
+        frame_of_reference_uid: expected.frame_of_reference_uid.clone(),
+        image_type: expected.image_type.clone(),
+        lossy_image_compression: "00".into(),
         segmentation_type: expected.segmentation_type.clone(),
         segmentation_fractional_type: None,
         maximum_fractional_value: None,
         segment_sequence_items: 1,
+        segment_number: 1,
+        segment_algorithm_type: "AUTOMATIC".into(),
         shared_functional_groups_sequence_items: 1,
         per_frame_functional_groups_sequence_items: 2,
+        dimension_organization_sequence_items: 1,
+        dimension_index_sequence_items: 1,
         dimension_organization_uid: expected.dimension_organization_uid.clone(),
         referenced_sop_class_uid: expected.referenced_sop_class_uid.clone(),
         referenced_sop_instance_uid: expected.referenced_sop_instance_uid.clone(),
-        referenced_frame_numbers: vec![1, 2],
+        common_reference_sop_class_uid: expected.referenced_sop_class_uid.clone(),
+        common_reference_sop_instance_uid: expected.referenced_sop_instance_uid.clone(),
+        frames: expected
+            .referenced_frame_numbers
+            .iter()
+            .map(|number| SegmentationFrameObservation {
+                referenced_segment_number: 1,
+                source_sop_class_uid: expected.referenced_sop_class_uid.clone(),
+                source_sop_instance_uid: expected.referenced_sop_instance_uid.clone(),
+                source_frame_number: *number,
+            })
+            .collect(),
         frame_sha256: expected.frame_sha256.clone(),
-    };
+    }
+}
+
+#[test]
+fn segmentation_adapter_uses_observed_values_and_fails_corruption() {
+    let expected = segmentation();
+    let observed = segmentation_observation(&expected);
     let report = validate_native_segmentation(&expected, &observed).unwrap();
     assert_eq!(report.internal[0].name, "segmentation_modality");
     assert_eq!(report.legacy_json()["status"], "passed");
@@ -122,20 +147,7 @@ fn rwvm_adapter_preserves_legacy_order_and_rejects_pixel_data() {
 #[test]
 fn native_projection_preserves_nulls_and_public_semantics() {
     let contract = segmentation();
-    let observed = SegmentationObservation {
-        modality: contract.modality.clone(),
-        segmentation_type: contract.segmentation_type.clone(),
-        segmentation_fractional_type: None,
-        maximum_fractional_value: None,
-        segment_sequence_items: 1,
-        shared_functional_groups_sequence_items: 1,
-        per_frame_functional_groups_sequence_items: 2,
-        dimension_organization_uid: contract.dimension_organization_uid.clone(),
-        referenced_sop_class_uid: contract.referenced_sop_class_uid.clone(),
-        referenced_sop_instance_uid: contract.referenced_sop_instance_uid.clone(),
-        referenced_frame_numbers: vec![1, 2],
-        frame_sha256: contract.frame_sha256.clone(),
-    };
+    let observed = segmentation_observation(&contract);
     let report = validate_native_segmentation(&contract, &observed).unwrap();
     let projected = project_native_seg_manifest_fields(
         &NativeSegManifestProjection {

@@ -49,12 +49,15 @@ impl QuantitativeValidationReport {
 pub struct SegmentationValidationContract {
     pub transfer_syntax_uid: String,
     pub modality: String,
+    pub frame_of_reference_uid: String,
+    pub image_type: String,
     pub segmentation_type: String,
     pub segmentation_fractional_type: Option<String>,
     pub maximum_fractional_value: Option<u16>,
     pub segment_sequence_items: u32,
     pub shared_functional_groups_sequence_items: u32,
     pub per_frame_functional_groups_sequence_items: u32,
+    pub dimension_index_count: u32,
     pub dimension_organization_uid: String,
     pub referenced_sop_class_uid: String,
     pub referenced_sop_instance_uid: String,
@@ -66,87 +69,174 @@ pub struct SegmentationValidationContract {
 #[serde(deny_unknown_fields)]
 pub struct SegmentationObservation {
     pub modality: String,
+    pub frame_of_reference_uid: String,
+    pub image_type: String,
+    pub lossy_image_compression: String,
     pub segmentation_type: String,
     pub segmentation_fractional_type: Option<String>,
     pub maximum_fractional_value: Option<u16>,
     pub segment_sequence_items: u32,
+    pub segment_number: u16,
+    pub segment_algorithm_type: String,
     pub shared_functional_groups_sequence_items: u32,
     pub per_frame_functional_groups_sequence_items: u32,
+    pub dimension_organization_sequence_items: u32,
+    pub dimension_index_sequence_items: u32,
     pub dimension_organization_uid: String,
     pub referenced_sop_class_uid: String,
     pub referenced_sop_instance_uid: String,
-    pub referenced_frame_numbers: Vec<u32>,
+    pub common_reference_sop_class_uid: String,
+    pub common_reference_sop_instance_uid: String,
+    pub frames: Vec<SegmentationFrameObservation>,
     pub frame_sha256: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SegmentationFrameObservation {
+    pub referenced_segment_number: u16,
+    pub source_sop_class_uid: String,
+    pub source_sop_instance_uid: String,
+    pub source_frame_number: u32,
 }
 
 pub fn validate_native_segmentation(
     expected: &SegmentationValidationContract,
     observed: &SegmentationObservation,
 ) -> Result<QuantitativeValidationReport, QuantitativeEvidenceError> {
-    let checks = [
+    let mut checks = vec![
         (
             "segmentation_modality",
             expected.modality == observed.modality,
-            "Segmentation Series Modality matches the recipe.",
+            "Segmentation top-level attribute matches the recipe.",
+        ),
+        (
+            "segmentation_frame_of_reference_uid",
+            expected.frame_of_reference_uid == observed.frame_of_reference_uid,
+            "Segmentation top-level attribute matches the recipe.",
+        ),
+        (
+            "segmentation_image_type",
+            expected.image_type == observed.image_type,
+            "Segmentation top-level attribute matches the recipe.",
         ),
         (
             "segmentation_type",
             expected.segmentation_type == observed.segmentation_type,
-            "Segmentation Type matches the recipe.",
+            "Segmentation top-level attribute matches the recipe.",
         ),
         (
-            "segmentation_fractional_type",
-            expected.segmentation_fractional_type == observed.segmentation_fractional_type,
-            "Segmentation Fractional Type matches the recipe.",
-        ),
-        (
-            "segmentation_maximum_fractional_value",
-            expected.maximum_fractional_value == observed.maximum_fractional_value,
-            "Maximum Fractional Value matches the recipe.",
+            "segmentation_lossy_image_compression",
+            observed.lossy_image_compression == "00",
+            "Segmentation top-level attribute matches the recipe.",
         ),
         (
             "segmentation_segment_sequence_items",
             expected.segment_sequence_items == observed.segment_sequence_items,
-            "Segment Sequence item count matches the recipe.",
+            "Segment Sequence has the expected segment descriptions.",
         ),
+        (
+            "segmentation_segment_number",
+            observed.segment_number == 1,
+            "Segment Number is one-based.",
+        ),
+        (
+            "segmentation_algorithm_type",
+            observed.segment_algorithm_type == "AUTOMATIC",
+            "Segment Algorithm Type matches the deterministic recipe.",
+        ),
+    ];
+    if expected.segmentation_fractional_type.is_some() {
+        checks.push((
+            "segmentation_fractional_type",
+            expected.segmentation_fractional_type == observed.segmentation_fractional_type,
+            "Segmentation Fractional Type matches the deterministic recipe.",
+        ));
+    }
+    if expected.maximum_fractional_value.is_some() {
+        checks.push((
+            "segmentation_maximum_fractional_value",
+            expected.maximum_fractional_value == observed.maximum_fractional_value,
+            "Maximum Fractional Value matches the deterministic recipe.",
+        ));
+    }
+    checks.extend([
         (
             "segmentation_shared_functional_groups_sequence_items",
             expected.shared_functional_groups_sequence_items
                 == observed.shared_functional_groups_sequence_items,
-            "Shared Functional Groups Sequence item count matches the recipe.",
+            "Shared Functional Groups Sequence has one item.",
         ),
         (
             "segmentation_per_frame_functional_groups_sequence_items",
             expected.per_frame_functional_groups_sequence_items
                 == observed.per_frame_functional_groups_sequence_items,
-            "Per-frame Functional Groups Sequence item count matches the recipe.",
+            "Per-Frame Functional Groups Sequence has one item per segmentation frame.",
+        ),
+        (
+            "segmentation_dimension_organization_sequence_items",
+            observed.dimension_organization_sequence_items == 1,
+            "Dimension Organization Sequence has one item.",
+        ),
+        (
+            "segmentation_dimension_index_sequence_items",
+            expected.dimension_index_count == observed.dimension_index_sequence_items,
+            "Dimension Index Sequence item count matches the recipe.",
         ),
         (
             "segmentation_dimension_organization_uid",
             expected.dimension_organization_uid == observed.dimension_organization_uid,
-            "Dimension Organization UID matches the planned identity.",
+            "Dimension Organization UID matches between the recipe and Dimension Organization Sequence.",
         ),
         (
-            "segmentation_source_image_sop_class_uid",
-            expected.referenced_sop_class_uid == observed.referenced_sop_class_uid,
-            "Source Image reference SOP Class UID matches the source.",
+            "segmentation_common_instance_reference_sop_class_uid",
+            expected.referenced_sop_class_uid == observed.common_reference_sop_class_uid,
+            "Common Instance Reference SOP Class UID matches the source image.",
         ),
         (
-            "segmentation_source_image_sop_instance_uid",
-            expected.referenced_sop_instance_uid == observed.referenced_sop_instance_uid,
-            "Source Image reference SOP Instance UID matches the source.",
+            "segmentation_common_instance_reference_sop_instance_uid",
+            expected.referenced_sop_instance_uid == observed.common_reference_sop_instance_uid,
+            "Common Instance Reference SOP Instance UID matches the source image.",
         ),
-        (
-            "segmentation_source_image_frame_number",
-            expected.referenced_frame_numbers == observed.referenced_frame_numbers,
-            "Source Image referenced frame numbers match the recipe.",
-        ),
-        (
-            "segmentation_frame_payload_hashes",
-            expected.frame_sha256 == observed.frame_sha256,
-            "Decoded segmentation frame hashes match the typed content evidence.",
-        ),
-    ];
+    ]);
+    if observed.frames.len() != expected.referenced_frame_numbers.len() {
+        return Err(QuantitativeEvidenceError::ValidationFailed(
+            "segmentation_per_frame_source_cardinality".into(),
+        ));
+    }
+    for (frame, expected_frame_number) in observed
+        .frames
+        .iter()
+        .zip(&expected.referenced_frame_numbers)
+    {
+        checks.extend([
+            (
+                "segmentation_referenced_segment_number",
+                frame.referenced_segment_number == 1,
+                "Per-frame Segment Identification references segment 1.",
+            ),
+            (
+                "segmentation_source_image_sop_class_uid",
+                frame.source_sop_class_uid == expected.referenced_sop_class_uid,
+                "Derivation Image source SOP Class UID matches the source image.",
+            ),
+            (
+                "segmentation_source_image_sop_instance_uid",
+                frame.source_sop_instance_uid == expected.referenced_sop_instance_uid,
+                "Derivation Image source SOP Instance UID matches the source image.",
+            ),
+            (
+                "segmentation_source_image_frame_number",
+                frame.source_frame_number == *expected_frame_number,
+                "Derivation Image source frame number matches the segmentation frame.",
+            ),
+        ]);
+    }
+    checks.push((
+        "segmentation_frame_payload_hashes",
+        expected.frame_sha256 == observed.frame_sha256,
+        "Decoded segmentation frame hashes match the typed content evidence.",
+    ));
     checked_report(
         checks,
         "sop_class_uid",
@@ -200,7 +290,7 @@ pub fn validate_native_rwvm(
     expected: &RwvmValidationContract,
     observed: &RwvmObservation,
 ) -> Result<QuantitativeValidationReport, QuantitativeEvidenceError> {
-    let checks = [
+    let checks = vec![
         (
             "rwvm_modality",
             expected.modality == observed.modality,
@@ -287,8 +377,8 @@ pub fn validate_native_rwvm(
     )
 }
 
-fn checked_report<const N: usize>(
-    checks: [(&str, bool, &str); N],
+fn checked_report(
+    checks: Vec<(&str, bool, &str)>,
     sop_name: &str,
     sop_message: &str,
     transfer_syntax: (&str, &str),

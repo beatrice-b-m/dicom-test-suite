@@ -193,7 +193,10 @@ impl LocalContentResolver {
             sha256,
             spec_relative_path: format!("inline/{slot}"),
             staged_path,
-            properties: BTreeMap::from([("content_origin".into(), "inline_fixture".into())]),
+            properties: BTreeMap::from([
+                ("content_origin".into(), "inline_fixture".into()),
+                ("staging_method".into(), "inline".into()),
+            ]),
         })
     }
 

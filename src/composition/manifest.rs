@@ -365,7 +365,8 @@ impl CompositionManifestAssembler {
                             "size_bytes": content.size_bytes,
                             "sha256": content.sha256,
                             "content_slots": [],
-                            "staging_method": "stream_copy"
+                            "staging_method": content.properties.get("staging_method")
+                                .map(String::as_str).unwrap_or("stream_copy")
                         })
                     });
                     let slots = asset["content_slots"]
@@ -377,6 +378,36 @@ impl CompositionManifestAssembler {
                     {
                         slots.push(Value::String(content.slot.clone()));
                         slots.sort_by(|left, right| left.as_str().cmp(&right.as_str()));
+                    }
+                }
+                if let Some(encoded_assets) = content.properties.get("encoded_frame_assets") {
+                    let encoded_assets: Vec<Value> = serde_json::from_str(encoded_assets)
+                        .map_err(|error| ManifestError::Schema(format!(
+                            "encoded frame asset provenance is invalid: {error}"
+                        )))?;
+                    for encoded_asset in encoded_assets {
+                        let spec_relative_path = encoded_asset["spec_relative_path"]
+                            .as_str()
+                            .ok_or_else(|| ManifestError::Schema(
+                                "encoded frame asset path is missing".into(),
+                            ))?;
+                        let sha256 = encoded_asset["sha256"]
+                            .as_str()
+                            .ok_or_else(|| ManifestError::Schema(
+                                "encoded frame asset SHA-256 is missing".into(),
+                            ))?;
+                        let asset_id = sha256_hex(
+                            format!("{spec_relative_path}\0{sha256}").as_bytes(),
+                        );
+                        assets.entry(asset_id.clone()).or_insert_with(|| json!({
+                            "asset_id": asset_id,
+                            "spec_relative_path": spec_relative_path,
+                            "kind": "encoded_frame",
+                            "size_bytes": encoded_asset["size_bytes"],
+                            "sha256": sha256,
+                            "content_slots": [content.slot],
+                            "staging_method": "stream_copy"
+                        }));
                     }
                 }
             }

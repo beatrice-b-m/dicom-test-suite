@@ -1228,6 +1228,7 @@ fn resolve_encoded_rle_pixels(
     };
     let decoder = NativeRleLosslessEncoder::new();
     let mut encoded = Vec::with_capacity(frames.len());
+    let mut encoded_frame_assets = Vec::with_capacity(frames.len());
     let mut decoded_frame_sha256 = Vec::with_capacity(frames.len());
     for (index, frame) in frames.iter().enumerate() {
         let asset = resolver.resolve(
@@ -1236,6 +1237,11 @@ fn resolve_encoded_rle_pixels(
             Path::new(&frame.path),
             frame.sha256.as_deref(),
         )?;
+        encoded_frame_assets.push(json!({
+            "spec_relative_path": asset.spec_relative_path,
+            "size_bytes": asset.size_bytes,
+            "sha256": asset.sha256
+        }));
         let bytes = fs::read(&asset.staged_path).map_err(|source| ComposeError::Io {
             path: asset.staged_path,
             source,
@@ -1294,6 +1300,10 @@ fn resolve_encoded_rle_pixels(
                 serde_json::to_string(&decoded_frame_sha256).expect("hashes serialize"),
             ),
             ("source_transfer_syntax_uid".into(), source_transfer_syntax_uid.into()),
+            (
+                "encoded_frame_assets".into(),
+                serde_json::to_string(&encoded_frame_assets).expect("assets serialize"),
+            ),
         ]),
         placement: super::ContentPlacement::TopLevel,
         materialization: Some(super::ContentMaterialization::Encapsulated {
@@ -2461,6 +2471,8 @@ mod tests {
         let properties = &manifest["composition"]["entries"][0]["content"][0]["properties"];
         assert_eq!(properties["content_origin"], "encoded_frames");
         assert_eq!(properties["codec_semantic_validation"], "independent_decode_passed");
+        assert_eq!(manifest["composition"]["assets"][0]["spec_relative_path"], "frame-1.rle");
+        assert_eq!(manifest["composition"]["assets"][0]["sha256"], sha256_hex(&encoded));
         let object = dicom_object::open_file(out.join("instances/xa_encoded.dcm")).unwrap();
         let fragments = match object.element_by_name("PixelData").unwrap().value() {
             dicom_core::value::Value::PixelSequence(sequence) => sequence.fragments(),
@@ -2526,6 +2538,7 @@ mod tests {
                 ["content_origin"],
             "inline_fixture"
         );
+        assert_eq!(manifest["composition"]["assets"][0]["staging_method"], "inline");
         fs::remove_dir_all(root).unwrap();
     }
 }

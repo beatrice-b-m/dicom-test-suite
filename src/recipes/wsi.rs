@@ -3,11 +3,14 @@
 use std::collections::BTreeMap;
 
 use dicom_dictionary_std::tags;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use super::{
     AdvancedArtifactProvenance, AdvancedArtifactRole, AdvancedPlanProvider,
     AdvancedPlanProviderOutput, AdvancedPlanProviderRequest, AdvancedPlannedArtifact,
-    AdvancedProviderContractError, AdvancedProviderFamily, RecipeIdentity, WholeSlideArtifactKind,
+    AdvancedProviderContractError, AdvancedProviderFamily, CaseRecipe, RecipeIdentity,
+    WholeSlideArtifactKind,
 };
 use crate::composition::{
     AttributeAddress, AttributeItem, AttributeOperation, AttributeValue, CanonicalContent,
@@ -26,18 +29,13 @@ use crate::executor::services::{
 use crate::{DeterministicUidInput, UidRole, deterministic_uid, sha256_hex};
 
 pub const WSI_ADVANCED_PROVIDER_ID: &str = "native.wsi_plan";
+pub const WSI_ALGORITHM_PROVIDER_ID: &str = "algorithm.wsi";
 const SOP_CLASS_UID: &str = "1.2.840.10008.5.1.4.1.1.77.1.6";
 const TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.1";
 const PIXEL_SLOT: &str = "pixels";
 const ICC_COLOR_SPACE: &str = "SRGB";
 const ICC_PROFILE_SIZE: usize = 736;
 const PROFILE_HEX: &[u8] = include_bytes!("../generator/native/dcmtk_srgb_input_profile.hex");
-
-const FULL_CASE: &str = "vl/wsi/tiled_full_small";
-const SPARSE_CASE: &str = "vl/wsi/tiled_sparse_small";
-const MULTIPATH_CASE: &str = "vl/wsi/multiple_optical_paths";
-const PYRAMID_CASE: &str = "vl/wsi/pyramid_multiresolution";
-const STRESS_CASE: &str = "stress/wsi/large_pyramid";
 
 #[derive(Debug, Clone)]
 pub struct WsiAdvancedPlanProvider {
@@ -49,13 +47,6 @@ impl WsiAdvancedPlanProvider {
         Self {
             standards_lock_sha256: standards_lock_sha256.into(),
         }
-    }
-
-    pub fn owns(case_id: &str) -> bool {
-        matches!(
-            case_id,
-            FULL_CASE | SPARSE_CASE | MULTIPATH_CASE | PYRAMID_CASE | STRESS_CASE
-        )
     }
 }
 
@@ -81,7 +72,7 @@ impl AdvancedPlanProvider for WsiAdvancedPlanProvider {
         if recipe.recipe != request.recipe {
             return Err(invalid("recipe_id", &request.recipe.recipe_id));
         }
-        if recipe.case_id != request.case_id || !Self::owns(&recipe.case_id) {
+        if recipe.case_id != request.case_id {
             return Err(invalid("case_id", &request.case_id));
         }
 
@@ -160,7 +151,8 @@ impl WsiIdentities {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct WsiPlanRecipe {
     pub case_id: String,
     pub recipe: RecipeIdentity,
@@ -220,18 +212,20 @@ impl WsiPlanRecipe {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum WsiDependencyMode {
     None,
     VolumeRoot,
     OrderedLevelChain,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct WsiArtifactRecipe {
     pub logical_id: String,
     pub order: u64,
-    pub template_id: &'static str,
+    pub template_id: String,
     pub relative_path: String,
     pub kind: WholeSlideArtifactKind,
     pub level: u32,
@@ -241,34 +235,11 @@ pub struct WsiArtifactRecipe {
 }
 
 impl WsiArtifactRecipe {
-    fn ordinary(
-        logical_id: &str,
-        order: u64,
-        template_id: &'static str,
-        relative_path: &str,
-        kind: WholeSlideArtifactKind,
-        file_index: usize,
-        parameters: WsiArtifactParameters,
-        pixel_algorithm: WsiPixelAlgorithm,
-    ) -> Self {
-        Self {
-            logical_id: logical_id.into(),
-            order,
-            template_id,
-            relative_path: relative_path.into(),
-            kind,
-            level: u32::try_from(file_index).expect("bounded WSI file index"),
-            file_index,
-            parameters,
-            pixel_algorithm,
-        }
-    }
-
     fn resolve(&self) -> Result<WsiArtifactSpec, AdvancedProviderContractError> {
         Ok(WsiArtifactSpec {
             logical_id: self.logical_id.clone(),
             order: self.order,
-            template_id: self.template_id,
+            template_id: self.template_id.clone(),
             relative_path: self.relative_path.clone(),
             kind: self.kind,
             level: self.level,
@@ -292,13 +263,14 @@ impl WsiArtifactRecipe {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct WsiArtifactParameters {
-    pub series_number: &'static str,
-    pub model_name: &'static str,
+    pub series_number: String,
+    pub model_name: String,
     pub instance_number: String,
-    pub image_type: &'static str,
-    pub label_in_image: &'static str,
+    pub image_type: String,
+    pub label_in_image: String,
     pub rows: u16,
     pub columns: u16,
     pub frames: u16,
@@ -306,90 +278,26 @@ pub struct WsiArtifactParameters {
     pub matrix_columns: u32,
     pub width: f32,
     pub height: f32,
-    pub spacing: &'static str,
-    pub dimension_type: &'static str,
+    pub spacing: String,
+    pub dimension_type: String,
     pub pyramid_membership: bool,
     pub optical_paths: Vec<WsiOpticalPath>,
     pub sparse_dimension_indices: bool,
     pub sparse_positions: bool,
-    pub specimen_identifier: &'static str,
-    pub container_identifier: &'static str,
+    pub specimen_identifier: String,
+    pub container_identifier: String,
 }
 
-impl WsiArtifactParameters {
-    fn full() -> Self {
-        Self::base()
-    }
-
-    fn sparse() -> Self {
-        Self {
-            series_number: "42",
-            model_name: "Native TILED_SPARSE WSI",
-            frames: 2,
-            dimension_type: "TILED_SPARSE",
-            sparse_dimension_indices: true,
-            sparse_positions: true,
-            ..Self::base()
-        }
-    }
-
-    fn multipath() -> Self {
-        Self {
-            series_number: "44",
-            model_name: "Native Multi-Path WSI",
-            frames: 8,
-            optical_paths: vec![
-                WsiOpticalPath::new("BRIGHTFIELD", Some("Deterministic brightfield path"), 550.0),
-                WsiOpticalPath::new("ALTERNATE", Some("Deterministic alternate path"), 650.0),
-            ],
-            ..Self::base()
-        }
-    }
-
-    fn base() -> Self {
-        Self {
-            series_number: "41",
-            model_name: "Native TILED_FULL WSI",
-            instance_number: "1".into(),
-            image_type: r"ORIGINAL\PRIMARY\VOLUME\NONE",
-            label_in_image: "NO",
-            rows: 2,
-            columns: 2,
-            frames: 4,
-            matrix_rows: 4,
-            matrix_columns: 4,
-            width: 2.0,
-            height: 2.0,
-            spacing: r"0.5\0.5",
-            dimension_type: "TILED_FULL",
-            pyramid_membership: false,
-            optical_paths: vec![WsiOpticalPath::new("RGB", None, 550.0)],
-            sparse_dimension_indices: false,
-            sparse_positions: false,
-            specimen_identifier: "DTS-SPECIMEN-001",
-            container_identifier: "DTS-SLIDE-001",
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct WsiOpticalPath {
-    pub identifier: &'static str,
-    pub description: Option<&'static str>,
+    pub identifier: String,
+    pub description: Option<String>,
     pub wavelength: f32,
 }
 
-impl WsiOpticalPath {
-    fn new(identifier: &'static str, description: Option<&'static str>, wavelength: f32) -> Self {
-        Self {
-            identifier,
-            description,
-            wavelength,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "algorithm", rename_all = "snake_case", deny_unknown_fields)]
 pub enum WsiPixelAlgorithm {
     TiledColorQuadrants,
     SparseDiagonalTiles,
@@ -403,7 +311,7 @@ pub enum WsiPixelAlgorithm {
 struct WsiArtifactSpec {
     logical_id: String,
     order: u64,
-    template_id: &'static str,
+    template_id: String,
     relative_path: String,
     kind: WholeSlideArtifactKind,
     level: u32,
@@ -412,178 +320,93 @@ struct WsiArtifactSpec {
     pixels: Vec<u8>,
 }
 
-pub fn curated_wsi_recipes() -> Vec<WsiPlanRecipe> {
-    vec![
-        single_recipe(
-            FULL_CASE,
-            "vl_wsi_tiled_full_small",
-            WsiArtifactRecipe::ordinary(
-                "wsi_tiled_full",
-                0,
-                "vl/wsi/tiled-full",
-                "vl/wsi/tiled_full_small/instance.dcm",
-                WholeSlideArtifactKind::Volume,
-                0,
-                WsiArtifactParameters::full(),
-                WsiPixelAlgorithm::TiledColorQuadrants,
-            ),
-        ),
-        single_recipe(
-            SPARSE_CASE,
-            "vl_wsi_tiled_sparse_small",
-            WsiArtifactRecipe::ordinary(
-                "wsi_tiled_sparse",
-                0,
-                "vl/wsi/tiled-sparse",
-                "vl/wsi/tiled_sparse_small/instance.dcm",
-                WholeSlideArtifactKind::Volume,
-                0,
-                WsiArtifactParameters::sparse(),
-                WsiPixelAlgorithm::SparseDiagonalTiles,
-            ),
-        ),
-        single_recipe(
-            MULTIPATH_CASE,
-            "vl_wsi_multiple_optical_paths",
-            WsiArtifactRecipe::ordinary(
-                "wsi_multiple_optical_paths",
-                0,
-                "vl/wsi/multiple-optical-paths",
-                "vl/wsi/multiple_optical_paths/instance.dcm",
-                WholeSlideArtifactKind::Volume,
-                0,
-                WsiArtifactParameters::multipath(),
-                WsiPixelAlgorithm::MultipleOpticalPaths,
-            ),
-        ),
-        WsiPlanRecipe {
-            case_id: PYRAMID_CASE.into(),
-            recipe: RecipeIdentity {
-                recipe_id: "vl_wsi_pyramid_multiresolution".into(),
-                recipe_version: "0.1.0".into(),
-            },
-            artifacts: ordinary_pyramid_artifacts(),
-            dependency_mode: WsiDependencyMode::VolumeRoot,
-        },
-        WsiPlanRecipe {
-            case_id: STRESS_CASE.into(),
-            recipe: RecipeIdentity {
-                recipe_id: "stress_wsi_large_pyramid".into(),
-                recipe_version: "0.1.0".into(),
-            },
-            artifacts: stress_pyramid_artifacts(),
-            dependency_mode: WsiDependencyMode::OrderedLevelChain,
-        },
-    ]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct WsiRecipeParameters {
+    dependency_mode: WsiDependencyMode,
 }
 
-fn single_recipe(case_id: &str, recipe_id: &str, artifact: WsiArtifactRecipe) -> WsiPlanRecipe {
-    WsiPlanRecipe {
-        case_id: case_id.into(),
-        recipe: RecipeIdentity {
-            recipe_id: recipe_id.into(),
-            recipe_version: "0.1.0".into(),
-        },
-        artifacts: vec![artifact],
-        dependency_mode: WsiDependencyMode::None,
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct WsiDocumentArtifact {
+    kind: WholeSlideArtifactKind,
+    level: u32,
+    file_index: usize,
+    parameters: WsiArtifactParameters,
+    pixel_algorithm: WsiPixelAlgorithm,
+}
+
+pub(crate) fn wsi_input_from_recipe(recipe: &CaseRecipe) -> Result<Option<WsiPlanRecipe>, String> {
+    if recipe.plan_provider_id != WSI_ADVANCED_PROVIDER_ID {
+        return Ok(None);
     }
-}
-
-fn ordinary_pyramid_artifacts() -> Vec<WsiArtifactRecipe> {
-    let mut common = WsiArtifactParameters::base();
-    common.series_number = "43";
-    common.model_name = "Native WSI Pyramid";
-    common.pyramid_membership = true;
-    vec![
-        WsiArtifactRecipe::ordinary(
-            "wsi_pyramid_volume",
-            0,
-            "vl/wsi/pyramid-volume",
-            "vl/wsi/pyramid_multiresolution/volume.dcm",
-            WholeSlideArtifactKind::Volume,
-            0,
-            common.clone(),
-            WsiPixelAlgorithm::TiledColorQuadrants,
-        ),
-        WsiArtifactRecipe::ordinary(
-            "wsi_pyramid_thumbnail",
-            1,
-            "vl/wsi/pyramid-thumbnail",
-            "vl/wsi/pyramid_multiresolution/thumbnail.dcm",
-            WholeSlideArtifactKind::Thumbnail,
-            1,
-            WsiArtifactParameters {
-                instance_number: "2".into(),
-                image_type: r"DERIVED\PRIMARY\THUMBNAIL\RESAMPLED",
-                frames: 1,
-                matrix_rows: 2,
-                matrix_columns: 2,
-                spacing: r"1.0\1.0",
-                ..common.clone()
-            },
-            WsiPixelAlgorithm::Thumbnail,
-        ),
-        WsiArtifactRecipe::ordinary(
-            "wsi_pyramid_label",
-            2,
-            "vl/wsi/pyramid-label",
-            "vl/wsi/pyramid_multiresolution/label.dcm",
-            WholeSlideArtifactKind::Label,
-            2,
-            WsiArtifactParameters {
-                instance_number: "3".into(),
-                image_type: r"ORIGINAL\PRIMARY\LABEL\NONE",
-                label_in_image: "YES",
-                frames: 1,
-                matrix_rows: 2,
-                matrix_columns: 2,
-                width: 1.0,
-                height: 1.0,
-                pyramid_membership: false,
-                ..common
-            },
-            WsiPixelAlgorithm::Label,
-        ),
-    ]
-}
-
-fn stress_pyramid_artifacts() -> Vec<WsiArtifactRecipe> {
-    let edges = [1024_u32, 512, 256];
-    let frames = [16_u16, 4, 1];
-    let spacings = [r"0.0005\0.0005", r"0.001\0.001", r"0.002\0.002"];
-    let mut specs = Vec::with_capacity(3);
-    for index in 0..3 {
-        specs.push(WsiArtifactRecipe::ordinary(
-            &format!("stress_wsi_level_{:03}", index + 1),
-            index as u64,
-            "vl/wsi/pyramid-volume",
-            &format!("stress/wsi/large_pyramid/level-{:03}.dcm", index + 1),
-            WholeSlideArtifactKind::Volume,
-            index,
-            WsiArtifactParameters {
-                series_number: "143",
-                model_name: "Native Reduced Stress WSI Pyramid",
-                instance_number: (index + 1).to_string(),
-                rows: 256,
-                columns: 256,
-                frames: frames[index],
-                matrix_rows: edges[index],
-                matrix_columns: edges[index],
-                width: 0.512,
-                height: 0.512,
-                spacing: spacings[index],
-                pyramid_membership: true,
-                specimen_identifier: "DTS-STRESS-SPECIMEN-001",
-                container_identifier: "DTS-STRESS-SLIDE-001",
-                ..WsiArtifactParameters::base()
-            },
-            WsiPixelAlgorithm::ReducedStress {
-                level_index: index,
-                edge: edges[index],
-            },
-        ));
-    }
-    specs
+    let parameters: WsiRecipeParameters =
+        serde_json::from_value(Value::Object(recipe.provider_parameters.clone()))
+            .map_err(|error| format!("WSI provider_parameters: {error}"))?;
+    let dicom = recipe
+        .dicom
+        .as_ref()
+        .ok_or_else(|| "native.wsi_plan requires DICOM artifacts".to_string())?;
+    let artifacts = dicom
+        .artifacts
+        .iter()
+        .map(|artifact| {
+            let document: WsiDocumentArtifact =
+                serde_json::from_value(Value::Object(artifact.parameters.clone()))
+                    .map_err(|error| format!("{} parameters: {error}", artifact.logical_id))?;
+            let template_id = artifact
+                .template
+                .as_ref()
+                .ok_or_else(|| format!("{} requires a template", artifact.logical_id))?
+                .template_id
+                .clone();
+            let relative_path = artifact
+                .output
+                .path
+                .as_ref()
+                .ok_or_else(|| format!("{} requires an exact output path", artifact.logical_id))?
+                .clone();
+            if document.file_index >= 3 {
+                return Err(format!(
+                    "{} file_index exceeds UID capacity",
+                    artifact.logical_id
+                ));
+            }
+            if !document.parameters.width.is_finite()
+                || document.parameters.width <= 0.0
+                || !document.parameters.height.is_finite()
+                || document.parameters.height <= 0.0
+                || document.parameters.optical_paths.is_empty()
+                || document
+                    .parameters
+                    .optical_paths
+                    .iter()
+                    .any(|path| !path.wavelength.is_finite() || path.wavelength <= 0.0)
+            {
+                return Err(format!(
+                    "{} has invalid WSI geometry or optical paths",
+                    artifact.logical_id
+                ));
+            }
+            Ok(WsiArtifactRecipe {
+                logical_id: artifact.logical_id.clone(),
+                order: u64::from(artifact.order),
+                template_id,
+                relative_path,
+                kind: document.kind,
+                level: document.level,
+                file_index: document.file_index,
+                parameters: document.parameters,
+                pixel_algorithm: document.pixel_algorithm,
+            })
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    Ok(Some(WsiPlanRecipe {
+        case_id: recipe.binding.case_id.clone(),
+        recipe: recipe.identity(),
+        artifacts,
+        dependency_mode: parameters.dependency_mode,
+    }))
 }
 
 fn planned_artifact(
@@ -782,20 +605,20 @@ fn base_attributes(
     elements.push(empty(tags::ACCESSION_NUMBER, DicomVr::SH));
     s!(tags::MODALITY, CS, "SM");
     s!(tags::SERIES_INSTANCE_UID, UI, &ids.series);
-    s!(tags::SERIES_NUMBER, IS, value.series_number);
+    s!(tags::SERIES_NUMBER, IS, &value.series_number);
     s!(tags::FRAME_OF_REFERENCE_UID, UI, &ids.frame_of_reference);
     s!(tags::POSITION_REFERENCE_INDICATOR, LO, "SLIDE_CORNER");
     s!(tags::MANUFACTURER, LO, "dicom-test-suite");
     elements.push(empty(tags::INSTITUTION_NAME, DicomVr::LO));
     elements.push(empty(tags::INSTITUTION_ADDRESS, DicomVr::ST));
-    s!(tags::MANUFACTURER_MODEL_NAME, LO, value.model_name);
+    s!(tags::MANUFACTURER_MODEL_NAME, LO, &value.model_name);
     s!(tags::DEVICE_SERIAL_NUMBER, LO, "DTS-WSI-001");
     s!(tags::SOFTWARE_VERSIONS, LO, crate::PACKAGE_VERSION);
     s!(tags::INSTANCE_NUMBER, IS, &value.instance_number);
     s!(tags::CONTENT_DATE, DA, "20260101");
     s!(tags::CONTENT_TIME, TM, "000000");
     s!(tags::ACQUISITION_DATE_TIME, DT, "20260101000000");
-    s!(tags::IMAGE_TYPE, CS, value.image_type);
+    s!(tags::IMAGE_TYPE, CS, &value.image_type);
     s!(tags::VOLUMETRIC_PROPERTIES, CS, "VOLUME");
     s!(tags::BURNED_IN_ANNOTATION, CS, "NO");
     s!(tags::LOSSY_IMAGE_COMPRESSION, CS, "00");
@@ -813,10 +636,10 @@ fn base_attributes(
     f32v!(tags::IMAGED_VOLUME_WIDTH, value.width);
     f32v!(tags::IMAGED_VOLUME_HEIGHT, value.height);
     f32v!(tags::IMAGED_VOLUME_DEPTH, 0.001_f32);
-    s!(tags::SPECIMEN_LABEL_IN_IMAGE, CS, value.label_in_image);
+    s!(tags::SPECIMEN_LABEL_IN_IMAGE, CS, &value.label_in_image);
     s!(tags::FOCUS_METHOD, CS, "AUTO");
     s!(tags::EXTENDED_DEPTH_OF_FIELD, CS, "NO");
-    s!(tags::CONTAINER_IDENTIFIER, LO, value.container_identifier);
+    s!(tags::CONTAINER_IDENTIFIER, LO, &value.container_identifier);
     elements.push(sequence(
         tags::ISSUER_OF_THE_CONTAINER_IDENTIFIER_SEQUENCE,
         vec![],
@@ -828,7 +651,7 @@ fn base_attributes(
             set_string(
                 tags::SPECIMEN_IDENTIFIER,
                 DicomVr::LO,
-                value.specimen_identifier,
+                &value.specimen_identifier,
             ),
             set_string(tags::SPECIMEN_UID, DicomVr::UI, &ids.specimen),
             sequence(tags::ISSUER_OF_THE_SPECIMEN_IDENTIFIER_SEQUENCE, vec![]),
@@ -849,9 +672,9 @@ fn base_attributes(
                         "Brightfield illumination",
                     ),
                     set_f32(tags::ILLUMINATION_WAVE_LENGTH, path.wavelength),
-                    set_string(tags::OPTICAL_PATH_IDENTIFIER, DicomVr::SH, path.identifier),
+                    set_string(tags::OPTICAL_PATH_IDENTIFIER, DicomVr::SH, &path.identifier),
                 ];
-                if let Some(description) = path.description {
+                if let Some(description) = path.description.as_deref() {
                     attributes.push(set_string(
                         tags::OPTICAL_PATH_DESCRIPTION,
                         DicomVr::ST,
@@ -889,10 +712,10 @@ fn base_attributes(
             &ids.dimension[file_index],
         )])],
     ));
-    s!(tags::DIMENSION_ORGANIZATION_TYPE, CS, value.dimension_type);
-    elements.push(shared_groups(value.image_type, value.spacing));
+    s!(tags::DIMENSION_ORGANIZATION_TYPE, CS, &value.dimension_type);
+    elements.push(shared_groups(&value.image_type, &value.spacing));
     s!(tags::LABEL_TEXT, UT, "DTS SYNTHETIC SLIDE 001");
-    s!(tags::BARCODE_VALUE, LT, value.container_identifier);
+    s!(tags::BARCODE_VALUE, LT, &value.container_identifier);
     if value.pyramid_membership {
         s!(tags::PYRAMID_UID, UI, &ids.pyramid);
     }

@@ -9,6 +9,7 @@ use std::error::Error;
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::composition::{
     AttributeAddress, AttributeItem, AttributeOperation, AttributeValue,
@@ -37,8 +38,11 @@ use crate::{IMPLEMENTATION_VERSION_NAME, PACKAGE_VERSION, sha256_hex};
 use super::{
     AdvancedArtifactProvenance, AdvancedArtifactRole, AdvancedPlanProvider,
     AdvancedPlanProviderOutput, AdvancedPlanProviderRequest, AdvancedPlannedArtifact,
-    AdvancedProviderContractError, AdvancedProviderFamily,
+    AdvancedProviderContractError, AdvancedProviderFamily, CaseRecipe,
 };
+
+pub const ENHANCED_PLAN_PROVIDER_ID: &str = "native.enhanced_plan";
+pub const ENHANCED_ALGORITHM_PROVIDER_ID: &str = "algorithm.enhanced";
 
 const EXPLICIT_VR_LE: &str = "1.2.840.10008.1.2.1";
 const ENHANCED_CT_SOP: &str = "1.2.840.10008.5.1.4.1.1.2.1";
@@ -175,6 +179,366 @@ pub struct EnhancedPetInput {
     pub counts_source: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "family", rename_all = "snake_case", deny_unknown_fields)]
+enum EnhancedRecipeParameters {
+    Ct {
+        common: EnhancedDocumentCommon,
+        pixel_spacing: String,
+        image_orientation_patient: String,
+        slice_thickness: String,
+        spacing_between_slices: String,
+        rescale_intercept: String,
+        rescale_slope: String,
+        rescale_type: String,
+        concatenation: bool,
+        stress: bool,
+    },
+    Mr {
+        common: EnhancedDocumentCommon,
+        pixel_spacing: String,
+        image_orientation_patient: String,
+        slice_thickness: String,
+        spacing_between_slices: String,
+        rescale_intercept: String,
+        rescale_slope: String,
+        rescale_type: String,
+        repetition_time: String,
+        flip_angle: String,
+        echo_train_length: String,
+        rf_echo_train_length: u16,
+        gradient_echo_train_length: u16,
+        axis: EnhancedMrFrameAxis,
+    },
+    Pet {
+        common: EnhancedDocumentCommon,
+        pixel_spacing: String,
+        image_orientation_patient: String,
+        slice_thickness: String,
+        spacing_between_slices: String,
+        rescale_intercept: String,
+        rescale_slope: String,
+        units: String,
+        counts_source: String,
+        stack_id: String,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct EnhancedDocumentCommon {
+    modality: String,
+    study_id: String,
+    device_serial_number: String,
+    image_type: String,
+    rows: u16,
+    columns: u16,
+    frame_type: String,
+    pixel_presentation: String,
+    volumetric_properties: String,
+    volume_based_calculation_technique: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct EnhancedArtifactParameters {
+    frames: EnhancedFrameSource,
+    pixels: EnhancedPixelSource,
+    #[serde(default)]
+    in_concatenation_number: Option<u16>,
+    #[serde(default)]
+    concatenation_frame_offset_number: Option<u32>,
+    #[serde(default)]
+    temporal_position_indices: Vec<u32>,
+    #[serde(default)]
+    in_stack_position_numbers: Vec<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "source", rename_all = "snake_case", deny_unknown_fields)]
+enum EnhancedFrameSource {
+    Literal {
+        values: Vec<EnhancedFrameGeometry>,
+    },
+    AxialLinear {
+        frame_count: u32,
+        start_z: f64,
+        spacing: f64,
+        first_dimension_index: u32,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "source", rename_all = "snake_case", deny_unknown_fields)]
+enum EnhancedPixelSource {
+    Literal {
+        stored_values: Vec<i64>,
+        pixel_min: i64,
+        pixel_max: i64,
+    },
+    ModuloRamp {
+        modulus: u32,
+    },
+}
+
+pub(crate) fn enhanced_input_from_recipe(
+    recipe: &CaseRecipe,
+) -> Result<Option<EnhancedProviderInput>, String> {
+    if recipe.plan_provider_id != ENHANCED_PLAN_PROVIDER_ID {
+        return Ok(None);
+    }
+    let dicom = recipe
+        .dicom
+        .as_ref()
+        .ok_or_else(|| "native.enhanced_plan requires DICOM artifacts".to_string())?;
+    let parameters: EnhancedRecipeParameters =
+        serde_json::from_value(Value::Object(recipe.provider_parameters.clone()))
+            .map_err(|error| format!("enhanced provider_parameters: {error}"))?;
+    let artifacts = dicom
+        .artifacts
+        .iter()
+        .map(|artifact| {
+            let parameters: EnhancedArtifactParameters =
+                serde_json::from_value(Value::Object(artifact.parameters.clone()))
+                    .map_err(|error| format!("{} parameters: {error}", artifact.logical_id))?;
+            let template_id = artifact
+                .template
+                .as_ref()
+                .ok_or_else(|| format!("{} requires a template", artifact.logical_id))?
+                .template_id
+                .clone();
+            let output_path =
+                artifact.output.path.as_ref().ok_or_else(|| {
+                    format!("{} requires an exact output path", artifact.logical_id)
+                })?;
+            Ok((
+                parameters,
+                template_id,
+                OutputRelativePath::new(output_path.clone()).map_err(|error| error.to_string())?,
+            ))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    let common = |value: EnhancedDocumentCommon, template_id: String| EnhancedCommonInput {
+        case_id: recipe.binding.case_id.clone(),
+        recipe_id: recipe.recipe_id.clone(),
+        recipe_version: recipe.recipe_version.clone(),
+        template_id,
+        modality: value.modality,
+        study_id: value.study_id,
+        device_serial_number: value.device_serial_number,
+        image_type: value.image_type,
+        rows: value.rows,
+        columns: value.columns,
+        frame_type: value.frame_type,
+        pixel_presentation: value.pixel_presentation,
+        volumetric_properties: value.volumetric_properties,
+        volume_based_calculation_technique: value.volume_based_calculation_technique,
+    };
+    let expand = |parameters: EnhancedArtifactParameters,
+                  common: &EnhancedDocumentCommon|
+     -> Result<
+        (
+            Vec<EnhancedFrameGeometry>,
+            EnhancedNativePixels,
+            Vec<u32>,
+            Vec<u32>,
+        ),
+        String,
+    > {
+        let frames = match parameters.frames {
+            EnhancedFrameSource::Literal { values } => values,
+            EnhancedFrameSource::AxialLinear {
+                frame_count,
+                start_z,
+                spacing,
+                first_dimension_index,
+            } => (0..frame_count)
+                .map(|index| EnhancedFrameGeometry {
+                    image_position_patient: format!(
+                        "0\\0\\{}",
+                        start_z + f64::from(index) * spacing
+                    ),
+                    dimension_index_value: first_dimension_index + index,
+                })
+                .collect(),
+        };
+        let sample_count = usize::from(common.rows)
+            .checked_mul(usize::from(common.columns))
+            .and_then(|value| value.checked_mul(frames.len()))
+            .ok_or_else(|| "enhanced pixel cardinality overflows".to_string())?;
+        let pixels = match parameters.pixels {
+            EnhancedPixelSource::Literal {
+                stored_values,
+                pixel_min,
+                pixel_max,
+            } => EnhancedNativePixels {
+                stored_values,
+                pixel_min,
+                pixel_max,
+            },
+            EnhancedPixelSource::ModuloRamp { modulus } => {
+                if modulus == 0 {
+                    return Err("enhanced modulo ramp requires a non-zero modulus".into());
+                }
+                EnhancedNativePixels {
+                    stored_values: (0..sample_count)
+                        .map(|index| {
+                            i64::try_from(index % modulus as usize).expect("modulus is u32")
+                        })
+                        .collect(),
+                    pixel_min: 0,
+                    pixel_max: i64::from(modulus - 1),
+                }
+            }
+        };
+        if pixels.stored_values.len() != sample_count {
+            return Err("enhanced pixel cardinality does not match geometry".into());
+        }
+        if pixels.stored_values.iter().min().copied() != Some(pixels.pixel_min)
+            || pixels.stored_values.iter().max().copied() != Some(pixels.pixel_max)
+        {
+            return Err("enhanced pixel extrema do not match stored values".into());
+        }
+        Ok((
+            frames,
+            pixels,
+            parameters.temporal_position_indices,
+            parameters.in_stack_position_numbers,
+        ))
+    };
+    match parameters {
+        EnhancedRecipeParameters::Ct {
+            common: document_common,
+            pixel_spacing,
+            image_orientation_patient,
+            slice_thickness,
+            spacing_between_slices,
+            rescale_intercept,
+            rescale_slope,
+            rescale_type,
+            concatenation,
+            stress,
+        } => {
+            let template = artifacts
+                .first()
+                .map(|value| value.1.clone())
+                .ok_or_else(|| "enhanced CT requires artifacts".to_string())?;
+            let mut parts = Vec::with_capacity(artifacts.len());
+            for (parameters, template_id, output_path) in artifacts {
+                let number = parameters.in_concatenation_number;
+                let offset = parameters.concatenation_frame_offset_number;
+                let (frames, pixels, temporal, stack) = expand(parameters, &document_common)?;
+                if !temporal.is_empty() || !stack.is_empty() {
+                    return Err("CT artifacts cannot declare PET indices".into());
+                }
+                parts.push(EnhancedCtPartInput {
+                    template_id,
+                    output_path,
+                    frames,
+                    pixels,
+                    in_concatenation_number: number,
+                    concatenation_frame_offset_number: offset,
+                });
+            }
+            Ok(Some(EnhancedProviderInput::Ct(EnhancedCtInput {
+                common: common(document_common, template),
+                pixel_spacing,
+                image_orientation_patient,
+                slice_thickness,
+                spacing_between_slices,
+                rescale_intercept,
+                rescale_slope,
+                rescale_type,
+                parts,
+                concatenation,
+                stress,
+            })))
+        }
+        EnhancedRecipeParameters::Mr {
+            common: document_common,
+            pixel_spacing,
+            image_orientation_patient,
+            slice_thickness,
+            spacing_between_slices,
+            rescale_intercept,
+            rescale_slope,
+            rescale_type,
+            repetition_time,
+            flip_angle,
+            echo_train_length,
+            rf_echo_train_length,
+            gradient_echo_train_length,
+            axis,
+        } => {
+            if artifacts.len() != 1 {
+                return Err("enhanced MR requires exactly one artifact".into());
+            }
+            let (parameters, template_id, output_path) =
+                artifacts.into_iter().next().expect("one artifact");
+            let (frames, pixels, temporal, stack) = expand(parameters, &document_common)?;
+            if !temporal.is_empty() || !stack.is_empty() {
+                return Err("MR artifacts cannot declare PET indices".into());
+            }
+            Ok(Some(EnhancedProviderInput::Mr(EnhancedMrInput {
+                common: common(document_common, template_id),
+                output_path,
+                frames,
+                pixels,
+                pixel_spacing,
+                image_orientation_patient,
+                slice_thickness,
+                spacing_between_slices,
+                rescale_intercept,
+                rescale_slope,
+                rescale_type,
+                repetition_time,
+                flip_angle,
+                echo_train_length,
+                rf_echo_train_length,
+                gradient_echo_train_length,
+                axis,
+            })))
+        }
+        EnhancedRecipeParameters::Pet {
+            common: document_common,
+            pixel_spacing,
+            image_orientation_patient,
+            slice_thickness,
+            spacing_between_slices,
+            rescale_intercept,
+            rescale_slope,
+            units,
+            counts_source,
+            stack_id,
+        } => {
+            if artifacts.len() != 1 {
+                return Err("enhanced PET requires exactly one artifact".into());
+            }
+            let (parameters, template_id, output_path) =
+                artifacts.into_iter().next().expect("one artifact");
+            let (frames, pixels, temporal_position_indices, in_stack_position_numbers) =
+                expand(parameters, &document_common)?;
+            Ok(Some(EnhancedProviderInput::Pet(EnhancedPetInput {
+                common: common(document_common, template_id),
+                output_path,
+                frames,
+                temporal_position_indices,
+                in_stack_position_numbers,
+                stack_id,
+                pixels,
+                pixel_spacing,
+                image_orientation_patient,
+                slice_thickness,
+                spacing_between_slices,
+                rescale_intercept,
+                rescale_slope,
+                units,
+                counts_source,
+            })))
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct EnhancedPlanProvider {
     standards_lock_sha256: String,
@@ -200,21 +564,6 @@ impl EnhancedPlanProvider {
     pub fn with_pixel_limits(mut self, limits: NativePixelLimits) -> Self {
         self.pixel_limits = limits;
         self
-    }
-
-    /// Catalog ownership is identity-only and intentionally contains no
-    /// geometry, pixel, dimension, or functional-group facts.
-    pub fn owns_recipe(recipe_id: &str) -> bool {
-        matches!(
-            recipe_id,
-            "enhanced_ct_multiframe_shared_perframe"
-                | "enhanced_ct_concatenation_two_part"
-                | "enhanced_mr_multiframe_echo_perframe"
-                | "enhanced_mr_multiframe_temporal_position"
-                | "enhanced_mr_multiframe_phase_velocity_encoding"
-                | "enhanced_pet_multiframe_explicit_le"
-                | "stress_enhanced_ct_many_frames"
-        )
     }
 
     pub fn plan_typed(
@@ -248,7 +597,7 @@ impl AdvancedPlanProvider for EnhancedPlanProvider {
     type ProviderInput = EnhancedProviderInput;
 
     fn provider_id(&self) -> &str {
-        "native.enhanced_plan"
+        ENHANCED_PLAN_PROVIDER_ID
     }
 
     fn plan(
@@ -266,8 +615,7 @@ fn validate_ownership(
     request: &AdvancedPlanProviderRequest,
     common: &EnhancedCommonInput,
 ) -> Result<(), EnhancedPlanError> {
-    if !EnhancedPlanProvider::owns_recipe(&common.recipe_id)
-        || request.case_id != common.case_id
+    if request.case_id != common.case_id
         || request.recipe.recipe_id != common.recipe_id
         || request.recipe.recipe_version != common.recipe_version
     {

@@ -5,8 +5,15 @@ use std::path::{Component, Path, PathBuf};
 use serde::Deserialize;
 use serde_json::Value;
 
+use super::enhanced::{
+    ENHANCED_ALGORITHM_PROVIDER_ID, ENHANCED_PLAN_PROVIDER_ID, EnhancedProviderInput,
+    enhanced_input_from_recipe,
+};
 use super::error::RecipeCatalogError;
 use super::model::{CaseRecipe, MetadataScParameters, RecipeKind, StringValueSource};
+use super::wsi::{
+    WSI_ADVANCED_PROVIDER_ID, WSI_ALGORITHM_PROVIDER_ID, WsiPlanRecipe, wsi_input_from_recipe,
+};
 use crate::planning::RecipeIdentity;
 
 const CASE_RECIPE_SCHEMA: &str = include_str!("../../schemas/case-recipe.schema.json");
@@ -134,6 +141,34 @@ impl RecipeCatalog {
 
     pub fn ordered_identities(&self) -> &[RecipeIdentity] {
         &self.ordered
+    }
+
+    pub fn enhanced_input_for_case(
+        &self,
+        case_id: &str,
+    ) -> Result<Option<EnhancedProviderInput>, RecipeCatalogError> {
+        let Some(identity) = self.bindings.get(case_id) else {
+            return Ok(None);
+        };
+        enhanced_input_from_recipe(&self.recipes[identity]).map_err(|message| {
+            RecipeCatalogError::Completeness {
+                message: format!("{case_id}: {message}"),
+            }
+        })
+    }
+
+    pub fn wsi_input_for_case(
+        &self,
+        case_id: &str,
+    ) -> Result<Option<WsiPlanRecipe>, RecipeCatalogError> {
+        let Some(identity) = self.bindings.get(case_id) else {
+            return Ok(None);
+        };
+        wsi_input_from_recipe(&self.recipes[identity]).map_err(|message| {
+            RecipeCatalogError::Completeness {
+                message: format!("{case_id}: {message}"),
+            }
+        })
     }
 }
 
@@ -288,6 +323,7 @@ fn validate_shape(path: &Path, recipe: &CaseRecipe) -> Result<(), RecipeCatalogE
     validate_registered_ids(path, recipe)?;
     validate_secondary_capture_contract(path, recipe)?;
     validate_metadata_sc_contract(path, recipe)?;
+    validate_advanced_contract(path, recipe)?;
     Ok(())
 }
 
@@ -297,6 +333,8 @@ fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), Recip
         "native.classic_plan",
         "native.sc_plan",
         "native.metadata_sc_plan",
+        ENHANCED_PLAN_PROVIDER_ID,
+        WSI_ADVANCED_PROVIDER_ID,
         "external.import_plan",
         "mutation.named_plan",
         "qualification.bounded_plan",
@@ -319,6 +357,8 @@ fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), Recip
         "algorithm.classic_mr_cr",
         "algorithm.classic_nuclear",
         "algorithm.classic_vl_projection",
+        ENHANCED_ALGORITHM_PROVIDER_ID,
+        WSI_ALGORITHM_PROVIDER_ID,
     ];
     const ENCODING_PROVIDERS: &[&str] = &[
         "encoding.transfer_syntax_plan",
@@ -1251,7 +1291,11 @@ fn validate_migrated_planning_orders(
     for recipe in recipes.values().filter(|recipe| {
         matches!(
             recipe.plan_provider_id.as_str(),
-            "native.sc_plan" | "native.metadata_sc_plan" | "native.classic_plan"
+            "native.sc_plan"
+                | "native.metadata_sc_plan"
+                | "native.classic_plan"
+                | ENHANCED_PLAN_PROVIDER_ID
+                | WSI_ADVANCED_PROVIDER_ID
         )
     }) {
         let order = recipe
@@ -1270,6 +1314,96 @@ fn validate_migrated_planning_orders(
                 ),
             });
         }
+    }
+    Ok(())
+}
+
+fn validate_advanced_contract(path: &Path, recipe: &CaseRecipe) -> Result<(), RecipeCatalogError> {
+    let (content_provider, algorithm_provider) = match recipe.plan_provider_id.as_str() {
+        ENHANCED_PLAN_PROVIDER_ID => ("content.native_pixels", ENHANCED_ALGORITHM_PROVIDER_ID),
+        WSI_ADVANCED_PROVIDER_ID => ("content.native_pixels", WSI_ALGORITHM_PROVIDER_ID),
+        _ => return Ok(()),
+    };
+    let dicom = recipe
+        .dicom
+        .as_ref()
+        .ok_or_else(|| semantic(path, "advanced plan provider requires DICOM artifacts"))?;
+    let mut paths = BTreeSet::new();
+    for artifact in &dicom.artifacts {
+        let output = artifact.output.path.as_ref().ok_or_else(|| {
+            semantic(
+                path,
+                format!("{} requires an exact output path", artifact.logical_id),
+            )
+        })?;
+        if artifact.output.provider_derived == Some(true) || !paths.insert(output) {
+            return Err(semantic(
+                path,
+                "advanced output paths must be explicit and unique",
+            ));
+        }
+        if artifact.template.is_none()
+            || artifact.content.provider_id != content_provider
+            || artifact.algorithm_provider_id.as_deref() != Some(algorithm_provider)
+        {
+            return Err(semantic(
+                path,
+                format!(
+                    "{} has mismatched advanced provider bindings",
+                    artifact.logical_id
+                ),
+            ));
+        }
+        let encoding = &artifact.encoding;
+        if encoding.transfer_syntax_uid != "1.2.840.10008.1.2.1"
+            || encoding.sequence_length_policy != "default"
+            || encoding.item_length_policy != "default"
+            || encoding.offset_table_policy != "none"
+            || encoding.fragmentation_policy != "native"
+            || encoding.preamble_policy.as_deref() != Some("zero_filled")
+            || encoding.file_meta_policy.as_deref() != Some("standard")
+            || encoding.non_template_encoding_provider_id.is_some()
+        {
+            return Err(semantic(
+                path,
+                format!(
+                    "{} has unresolved or incompatible encoding",
+                    artifact.logical_id
+                ),
+            ));
+        }
+    }
+    match recipe.plan_provider_id.as_str() {
+        ENHANCED_PLAN_PROVIDER_ID => {
+            enhanced_input_from_recipe(recipe).map_err(|message| semantic(path, message))?;
+        }
+        WSI_ADVANCED_PROVIDER_ID => {
+            let input = wsi_input_from_recipe(recipe).map_err(|message| semantic(path, message))?;
+            let input = input.expect("provider ID selected WSI input");
+            let file_indices = input
+                .artifacts
+                .iter()
+                .map(|artifact| artifact.file_index)
+                .collect::<BTreeSet<_>>();
+            let levels = input
+                .artifacts
+                .iter()
+                .map(|artifact| artifact.level)
+                .collect::<BTreeSet<_>>();
+            if file_indices.len() != input.artifacts.len() || levels.len() != input.artifacts.len()
+            {
+                return Err(semantic(path, "WSI file indices and levels must be unique"));
+            }
+            if input.dependency_mode != super::wsi::WsiDependencyMode::None
+                && input.artifacts.len() < 2
+            {
+                return Err(semantic(
+                    path,
+                    "WSI dependency mode requires multiple artifacts",
+                ));
+            }
+        }
+        _ => unreachable!(),
     }
     Ok(())
 }

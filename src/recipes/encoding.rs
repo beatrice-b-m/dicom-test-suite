@@ -13,21 +13,18 @@ use crate::corpus_plan::{
 };
 
 use super::EncodingPolicy;
+use super::codec_registry::{TransferSyntaxBackendRegistry, encoding_provider_matches};
 
-const EXPLICIT_VR_BIG_ENDIAN: &str = "1.2.840.10008.1.2.2";
-const RLE_LOSSLESS: &str = "1.2.840.10008.1.2.5";
-const BIG_ENDIAN_BACKEND: &str = "encoding.native.explicit_vr_big_endian";
-const RLE_BACKEND: &str = "encoding.native.rle_lossless";
 const DEFAULT_PART10_BACKEND: &str = "dicom-rs.part10";
 
 pub(crate) fn qualifies_non_template_transfer_syntax(
     transfer_syntax_uid: &str,
     backend_id: &str,
 ) -> bool {
-    matches!(
-        (transfer_syntax_uid, backend_id),
-        (RLE_LOSSLESS, RLE_BACKEND) | (EXPLICIT_VR_BIG_ENDIAN, BIG_ENDIAN_BACKEND)
-    )
+    TransferSyntaxBackendRegistry::load_committed()
+        .ok()
+        .and_then(|registry| registry.for_transfer_syntax(transfer_syntax_uid))
+        .is_some_and(|backend| encoding_provider_matches(backend, backend_id))
 }
 
 pub fn encoding_plan_from_recipe(
@@ -81,19 +78,21 @@ pub fn encoding_plan_from_recipe(
         Some(value) => value.to_owned(),
         None => DEFAULT_PART10_BACKEND.to_owned(),
     };
-    let expected_backend = match policy.transfer_syntax_uid.as_str() {
-        RLE_LOSSLESS => Some(RLE_BACKEND),
-        EXPLICIT_VR_BIG_ENDIAN => Some(BIG_ENDIAN_BACKEND),
-        _ => None,
-    };
-    if let Some(expected) = expected_backend {
-        if backend_id != expected {
+    let registry = TransferSyntaxBackendRegistry::load_committed()
+        .map_err(|error| RecipeEncodingError::Registry(error.to_string()))?;
+    if let Some(expected) = registry.for_transfer_syntax(&policy.transfer_syntax_uid) {
+        if !encoding_provider_matches(expected, &backend_id) {
             return Err(RecipeEncodingError::BackendMismatch {
                 transfer_syntax_uid: policy.transfer_syntax_uid.clone(),
-                expected: expected.to_owned(),
+                expected: expected.backend_id.to_owned(),
                 actual: backend_id,
             });
         }
+    } else {
+        return Err(RecipeEncodingError::Registry(format!(
+            "no executable backend for transfer syntax {}",
+            policy.transfer_syntax_uid
+        )));
     }
 
     let encoding = EncodingPlan {
@@ -152,6 +151,7 @@ pub enum RecipeEncodingError {
         actual: String,
     },
     Plan(CorpusPlanError),
+    Registry(String),
 }
 
 impl fmt::Display for RecipeEncodingError {
@@ -176,6 +176,7 @@ impl fmt::Display for RecipeEncodingError {
                 "transfer syntax {transfer_syntax_uid} requires backend {expected}, not {actual}"
             ),
             Self::Plan(error) => write!(formatter, "invalid corpus encoding plan: {error}"),
+            Self::Registry(error) => write!(formatter, "invalid codec registry: {error}"),
         }
     }
 }

@@ -5,6 +5,7 @@ use std::path::{Component, Path, PathBuf};
 use serde::Deserialize;
 use serde_json::Value;
 
+use super::codec_registry::{TransferSyntaxBackendRegistry, encoding_provider_matches};
 use super::enhanced::{
     ENHANCED_ALGORITHM_PROVIDER_ID, ENHANCED_PLAN_PROVIDER_ID, EnhancedProviderInput,
     enhanced_input_from_recipe,
@@ -92,6 +93,11 @@ impl RecipeCatalog {
         let template_catalog_path = template_catalog_path.as_ref();
         let registry: RegistryDocument = read_typed(registry_path)?;
         let templates = load_templates(template_catalog_path)?;
+        let codec_registry = TransferSyntaxBackendRegistry::load_committed().map_err(|error| {
+            RecipeCatalogError::Completeness {
+                message: error.to_string(),
+            }
+        })?;
         let schema: Value =
             serde_json::from_str(CASE_RECIPE_SCHEMA).expect("embedded recipe schema");
         let validator = jsonschema::validator_for(&schema).expect("case recipe schema compiles");
@@ -137,7 +143,7 @@ impl RecipeCatalog {
             }
         }
 
-        validate_registry_bindings(&registry, &recipes, &bindings, &templates)?;
+        validate_registry_bindings(&registry, &recipes, &bindings, &templates, &codec_registry)?;
         validate_template_default_recipes(template_catalog_path, &templates, &recipes)?;
         validate_migrated_planning_orders(&recipes)?;
         validate_dependencies(&recipes)?;
@@ -604,7 +610,13 @@ fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), Recip
                 known(id, ALGORITHM_PROVIDERS, "algorithm provider")?;
             }
             if let Some(id) = &artifact.encoding.non_template_encoding_provider_id {
-                known(id, ENCODING_PROVIDERS, "encoding provider")?;
+                let executable = TransferSyntaxBackendRegistry::load_committed()
+                    .map_err(|error| semantic(path, error.to_string()))?;
+                if !ENCODING_PROVIDERS.contains(&id.as_str())
+                    && executable.for_backend_id(id).is_empty()
+                {
+                    return Err(semantic(path, format!("unknown encoding provider id {id}")));
+                }
             }
             for id in &artifact.validation_rule_ids {
                 known(id, VALIDATION_RULES, "validation rule")?;
@@ -1074,17 +1086,25 @@ fn validate_secondary_capture_contract(
         if artifact.stressors.is_empty() {
             return Err(semantic(path, "native.sc_plan requires explicit stressors"));
         }
-        let expected_encoding_provider = match artifact.encoding.transfer_syntax_uid.as_str() {
-            "1.2.840.10008.1.2.5" => Some("encoding.native.rle_lossless"),
-            "1.2.840.10008.1.2.2" => Some("encoding.native.explicit_vr_big_endian"),
-            _ => None,
-        };
-        if artifact
+        let transfer_syntax_uid = artifact.encoding.transfer_syntax_uid.as_str();
+        let declared_provider = artifact
             .encoding
             .non_template_encoding_provider_id
-            .as_deref()
-            != expected_encoding_provider
-        {
+            .as_deref();
+        let encoding_matches = if matches!(
+            transfer_syntax_uid,
+            "1.2.840.10008.1.2" | "1.2.840.10008.1.2.1"
+        ) {
+            declared_provider.is_none()
+        } else {
+            let registry = TransferSyntaxBackendRegistry::load_committed()
+                .map_err(|error| semantic(path, error.to_string()))?;
+            registry
+                .for_transfer_syntax(transfer_syntax_uid)
+                .zip(declared_provider)
+                .is_some_and(|(backend, provider)| encoding_provider_matches(backend, provider))
+        };
+        if !encoding_matches {
             return Err(semantic(
                 path,
                 "native.sc_plan encoding provider differs from transfer syntax",
@@ -1235,6 +1255,7 @@ fn validate_registry_bindings(
     recipes: &BTreeMap<RecipeIdentity, CaseRecipe>,
     bindings: &BTreeMap<String, RecipeIdentity>,
     templates: &BTreeMap<(String, String), TemplateContract>,
+    codec_registry: &TransferSyntaxBackendRegistry,
 ) -> Result<(), RecipeCatalogError> {
     let implemented = registry
         .cases
@@ -1388,6 +1409,21 @@ fn validate_registry_bindings(
                     message: format!("{} lacks registry transfer syntax UID", case.case_id),
                 }
             })?;
+            if case.provider.kind == "rust_native"
+                || !case.requirements.features.is_empty()
+                || !case.requirements.external_codecs.is_empty()
+            {
+                codec_registry
+                    .validate_registry_requirements(
+                        registry_ts,
+                        &case.determinism,
+                        &case.requirements.features,
+                        &case.requirements.external_codecs,
+                    )
+                    .map_err(|error| RecipeCatalogError::Completeness {
+                        message: format!("{}: {error}", case.case_id),
+                    })?;
+            }
             for artifact in &dicom.artifacts {
                 if artifact.encoding.transfer_syntax_uid != registry_ts {
                     return Err(RecipeCatalogError::Completeness {

@@ -5,6 +5,7 @@ pub mod classic_dx_mg;
 pub mod classic_mr_cr;
 pub mod classic_nuclear;
 pub mod classic_vl_projection;
+mod codec_registry;
 mod content_provider;
 mod encapsulated_payload;
 mod encoding;
@@ -41,6 +42,12 @@ pub use classic::{
     FrameOfReferenceModuleInput, ImageModuleInput, ModuleFragment, OrderedSeriesProvider,
     PatientModuleInput, RescalePlan, SeriesModuleInput, StudyModuleInput, WindowPlan,
     resolved_classic_instance_plan,
+};
+pub use codec_registry::{
+    BACKENDS as CODEC_BACKENDS, BackendAvailability, BackendBoundary, BackendDeterminism,
+    CAPABILITY_MATRIX_JSON, CodecBackendDescriptor, CodecDispatchRequest, CodecEvidenceRequirement,
+    CodecRegistryError, CodecSourceRequest, SourceShape as CodecSourceShape,
+    TransferSyntaxBackendRegistry,
 };
 pub use content_provider::{
     ByteOrder as ContentByteOrder, BytePayloadContract, CodedConcept, CompletionFlag,

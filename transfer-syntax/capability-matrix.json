@@ -12,7 +12,7 @@
       "profiles": ["smoke", "core"],
       "status": "available",
       "read_dataset": true,
-      "decode_pixel": true,
+      "decode_pixel": false,
       "write_dataset": true,
       "encode_pixel": true,
       "feature_flags": [],
@@ -256,6 +256,31 @@
       ]
     },
     {
+      "uid": "1.2.840.10008.1.2.4.112",
+      "keyword": "JPEGXLLossy",
+      "name": "JPEG XL",
+      "profiles": ["extended"],
+      "status": "feature_gated",
+      "read_dataset": true,
+      "decode_pixel": true,
+      "write_dataset": true,
+      "encode_pixel": true,
+      "feature_flags": ["jpegxl"],
+      "external_libraries": ["cjxl 0.11.2", "jxl-oxide"],
+      "determinism": "semantic_stable",
+      "notes": "Generated through the locked cjxl 0.11.2 command boundary when the project `jpegxl` feature is enabled. Runtime version and executable SHA-256, encapsulation, decoded samples, and bounded lossy metrics are required evidence.",
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid JPEGXLLossy",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
       "uid": "1.2.840.10008.1.2.4.201",
       "keyword": "HTJ2KLossless",
       "name": "High-Throughput JPEG 2000 Image Compression (Lossless Only)",
@@ -274,6 +299,31 @@
           "source": "dicom-standard-kb",
           "edition": "2026b",
           "query": "lookup_uid HTJ2KLossless",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ]
+    },
+    {
+      "uid": "1.2.840.10008.1.2.4.203",
+      "keyword": "HTJ2KLossy",
+      "name": "High-Throughput JPEG 2000 Image Compression",
+      "profiles": ["extended"],
+      "status": "feature_gated",
+      "read_dataset": true,
+      "decode_pixel": true,
+      "write_dataset": true,
+      "encode_pixel": true,
+      "feature_flags": ["htj2k_openjph"],
+      "external_libraries": ["OpenJPH 0.27.3", "OpenJPEG"],
+      "determinism": "semantic_stable",
+      "notes": "Generated through the locked OpenJPH 0.27.3 command boundary when the project `htj2k_openjph` feature is enabled. Runtime executable SHA-256, encapsulation, independent OpenJPEG decode, and bounded lossy metrics are required evidence.",
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid HTJ2KLossy",
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"

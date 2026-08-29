@@ -47,6 +47,8 @@ fn migrated_classic_recipes_record_shared_plan_materialization() {
                 || case_id.starts_with("classic/nm/")
                 || case_id.starts_with("classic/pet/")
                 || case_id.starts_with("classic/us/")
+                || case_id.starts_with("classic/xa/")
+                || case_id.starts_with("classic/xrf/")
                 || case_id.starts_with("geometry/ct/")
                 || case_id.starts_with("metadata/sc/")
                 || case_id.starts_with("encapsulation/sc/")

@@ -27718,24 +27718,21 @@ fn write_classic_xa_case(
         PrimitiveValue::from(recipe.pixel_bytes.to_vec()),
     ));
 
-    obj.with_meta(
-        FileMetaTableBuilder::new()
-            .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
-            .implementation_class_uid(&implementation_class_uid)
-            .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
-    )
-    .map_err(|err| GenerateError::WriteDicomFile {
-        path: path.clone(),
-        message: err.to_string(),
-    })?
-    .write_to_file(&path)
-    .map_err(|err| GenerateError::WriteDicomFile {
-        path: path.clone(),
-        message: err.to_string(),
-    })?;
+    materialize_curated_classic_dataset(
+        &obj,
+        &path,
+        recipe.recipe_id,
+        "classic/xa",
+        uids::X_RAY_ANGIOGRAPHIC_IMAGE_STORAGE,
+        uids::EXPLICIT_VR_LITTLE_ENDIAN,
+        &study_instance_uid,
+        &series_instance_uid,
+        &sop_instance_uid,
+        &implementation_class_uid,
+    )?;
 
     let frame_hashes = [recipe.frame_sha256];
-    let validated = validate_part10_file(
+    let mut validated = validate_part10_file(
         &path,
         &Part10Expectations {
             sop_class_uid: uids::X_RAY_ANGIOGRAPHIC_IMAGE_STORAGE,
@@ -27791,6 +27788,7 @@ fn write_classic_xa_case(
             segmentation: None,
         },
     )?;
+    append_curated_plan_validation(&mut validated.validation);
 
     Ok(GeneratedFile {
         case_id: recipe.case_id.to_string(),
@@ -28139,24 +28137,21 @@ fn write_classic_xrf_case(
         PrimitiveValue::from(recipe.pixel_bytes.to_vec()),
     ));
 
-    obj.with_meta(
-        FileMetaTableBuilder::new()
-            .transfer_syntax(uids::EXPLICIT_VR_LITTLE_ENDIAN)
-            .implementation_class_uid(&implementation_class_uid)
-            .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
-    )
-    .map_err(|err| GenerateError::WriteDicomFile {
-        path: path.clone(),
-        message: err.to_string(),
-    })?
-    .write_to_file(&path)
-    .map_err(|err| GenerateError::WriteDicomFile {
-        path: path.clone(),
-        message: err.to_string(),
-    })?;
+    materialize_curated_classic_dataset(
+        &obj,
+        &path,
+        recipe.recipe_id,
+        "classic/xrf",
+        uids::X_RAY_RADIOFLUOROSCOPIC_IMAGE_STORAGE,
+        uids::EXPLICIT_VR_LITTLE_ENDIAN,
+        &study_instance_uid,
+        &series_instance_uid,
+        &sop_instance_uid,
+        &implementation_class_uid,
+    )?;
 
     let frame_hashes = [recipe.frame_sha256];
-    let validated = validate_part10_file(
+    let mut validated = validate_part10_file(
         &path,
         &Part10Expectations {
             sop_class_uid: uids::X_RAY_RADIOFLUOROSCOPIC_IMAGE_STORAGE,
@@ -28211,6 +28206,7 @@ fn write_classic_xrf_case(
             segmentation: None,
         },
     )?;
+    append_curated_plan_validation(&mut validated.validation);
 
     Ok(GeneratedFile {
         case_id: recipe.case_id.to_string(),

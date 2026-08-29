@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 
+use dicom_test_suite::composition::CompositionUidRole;
 use dicom_test_suite::corpus_plan::PlannedArtifact;
 use dicom_test_suite::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
@@ -50,6 +51,19 @@ fn native_quantitative_cases_form_closed_plans_before_execution() {
             dependency.artifact_id == artifact.logical_id
                 && dependency.depends_on == artifact.instance.references[0].target_instance_id
         }));
+        if case_id.contains("/seg/") {
+            let dimension = artifact
+                .instance
+                .identities
+                .get(&CompositionUidRole::DimensionOrganization, 0)
+                .unwrap();
+            let sop = artifact
+                .instance
+                .identities
+                .get(&CompositionUidRole::SopInstance, 0)
+                .unwrap();
+            assert_ne!(dimension, sop);
+        }
     }
     bundle.plan.validate().unwrap();
 }

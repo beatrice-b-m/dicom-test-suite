@@ -1272,6 +1272,16 @@ fn quantitative_context(
             ),
         ),
         (
+            CompositionUidRole::DimensionOrganization,
+            0,
+            uid(
+                &recipe.binding.case_id,
+                &recipe.recipe_version,
+                seed,
+                UidRole::DimensionOrganization,
+            ),
+        ),
+        (
             CompositionUidRole::ImplementationClass,
             0,
             uid(

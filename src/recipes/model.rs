@@ -291,6 +291,39 @@ pub struct ContentBinding {
     pub provider_id: String,
     pub parameters: Parameters,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ClassicProjectionFamily {
+    Ct,
+    DxMg,
+    MrCr,
+    Nuclear,
+    VlProjection,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ClassicSemanticLabels {
+    #[serde(default)]
+    pub photometric_semantics: Option<String>,
+    #[serde(default)]
+    pub overlay_pattern: Option<String>,
+    #[serde(default)]
+    pub modality_lut: Option<String>,
+    #[serde(default)]
+    pub voi_lut: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ClassicProjection {
+    pub family: ClassicProjectionFamily,
+    pub expected_capabilities: Vec<String>,
+    pub visual_pattern: String,
+    #[serde(default)]
+    pub semantic_labels: Option<ClassicSemanticLabels>,
+}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PlannedArtifactRecipe {
@@ -311,6 +344,8 @@ pub struct PlannedArtifactRecipe {
     pub metadata_sc: Option<MetadataScParameters>,
     #[serde(default)]
     pub nonsquare_geometry: Option<NonsquareGeometryParameters>,
+    #[serde(default)]
+    pub classic_projection: Option<ClassicProjection>,
     pub attribute_operations: Vec<AttributeOperation>,
     pub content: ContentBinding,
     pub validation_rule_ids: Vec<String>,

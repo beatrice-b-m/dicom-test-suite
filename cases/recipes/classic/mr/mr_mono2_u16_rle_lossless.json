@@ -2,29 +2,107 @@
   "case_recipe_schema_version": "0.1.0",
   "recipe_id": "mr_mono2_u16_rle_lossless",
   "recipe_version": "0.1.0",
-  "binding": { "case_id": "classic/mr/mono2_u16_rle_lossless" },
+  "binding": {
+    "case_id": "classic/mr/mono2_u16_rle_lossless"
+  },
   "kind": "dicom",
   "plan_provider_id": "native.classic_plan",
   "planning_order": 503,
   "dependencies": [],
   "provider_parameters": {},
-  "validation_rule_ids": ["validation.shared"],
-  "projection_rule_ids": ["projection.curated"],
-  "dicom": { "artifacts": [
-    {
-      "logical_id": "slice_1",
-      "order": 0,
-      "template": { "template_id": "classic/mr", "template_version": "1.0.0" },
-      "output": { "role": "slice_1", "path": "classic/mr/mono2_u16_rle_lossless/slice-001.dcm" },
-      "encoding": { "transfer_syntax_uid": "1.2.840.10008.1.2.5", "sequence_length_policy": "default", "item_length_policy": "default", "offset_table_policy": "populated_basic", "fragmentation_policy": "one_per_frame", "preamble_policy": "zero_filled", "file_meta_policy": "standard", "non_template_encoding_provider_id": "encoding.native.rle_lossless" },
-      "parameters": { "rows": 2, "columns": 2, "pixel_spacing": ["1.000", "1.000"], "image_orientation_patient": ["1", "0", "0", "0", "1", "0"], "image_position_patient": ["0", "0", "0"], "slice_thickness": "5", "spacing_between_slices": "5", "slice_location": "0", "position_along_normal": 0.0, "instance_number": "1", "stored_values": [0, 1, 2, 3], "pixel_min": 0, "pixel_max": 3, "frame_sha256": "245bbd9d484dcf27c714e2690cd6544973de5d54aa9cd82eab23d6046a65faa8" },
-      "attribute_operations": [],
-      "content": { "provider_id": "content.native_pixels", "parameters": {} },
-      "validation_rule_ids": ["validation.shared"],
-      "projection_rule_ids": ["projection.curated"],
-      "determinism": "byte_stable",
-      "stressors": ["encapsulated_pixel_data", "rle_lossless_transfer_syntax", "compressed_modality_pixels"],
-      "algorithm_provider_id": "algorithm.classic_mr_cr"
-    }
-  ] }
+  "validation_rule_ids": [
+    "validation.shared"
+  ],
+  "projection_rule_ids": [
+    "projection.curated"
+  ],
+  "dicom": {
+    "artifacts": [
+      {
+        "logical_id": "slice_1",
+        "order": 0,
+        "template": {
+          "template_id": "classic/mr",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_1",
+          "path": "classic/mr/mono2_u16_rle_lossless/slice-001.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.5",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "populated_basic",
+          "fragmentation_policy": "one_per_frame",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard",
+          "non_template_encoding_provider_id": "encoding.native.rle_lossless"
+        },
+        "parameters": {
+          "rows": 2,
+          "columns": 2,
+          "pixel_spacing": [
+            "1.000",
+            "1.000"
+          ],
+          "image_orientation_patient": [
+            "1",
+            "0",
+            "0",
+            "0",
+            "1",
+            "0"
+          ],
+          "image_position_patient": [
+            "0",
+            "0",
+            "0"
+          ],
+          "slice_thickness": "5",
+          "spacing_between_slices": "5",
+          "slice_location": "0",
+          "position_along_normal": 0.0,
+          "instance_number": "1",
+          "stored_values": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "pixel_min": 0,
+          "pixel_max": 3,
+          "frame_sha256": "245bbd9d484dcf27c714e2690cd6544973de5d54aa9cd82eab23d6046a65faa8"
+        },
+        "attribute_operations": [],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {}
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "encapsulated_pixel_data",
+          "rle_lossless_transfer_syntax",
+          "compressed_modality_pixels"
+        ],
+        "algorithm_provider_id": "algorithm.classic_mr_cr",
+        "classic_projection": {
+          "family": "mr_cr",
+          "expected_capabilities": [
+            "open_file",
+            "read_metadata",
+            "decode_rle_lossless_pixels",
+            "sort_series_by_geometry"
+          ],
+          "visual_pattern": "single_slice_mr_rle_lossless_gradient"
+        }
+      }
+    ]
+  }
 }

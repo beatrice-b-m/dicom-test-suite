@@ -73,7 +73,7 @@
           "template_version": "1.0.0"
         },
         "output": {
-        "role": "slice_001",
+          "role": "slice_001",
           "path": "geometry/ct/gantry_tilt_series/slice-001.dcm"
         },
         "encoding": {
@@ -136,7 +136,20 @@
           "gantry_detector_tilt",
           "sheared_slice_origins"
         ],
-        "algorithm_provider_id": "algorithm.classic_ct"
+        "algorithm_provider_id": "algorithm.classic_ct",
+        "classic_projection": {
+          "family": "ct",
+          "expected_capabilities": [
+            "open_file",
+            "read_metadata",
+            "render_native_pixels",
+            "apply_modality_rescale",
+            "apply_window",
+            "sort_series_by_geometry",
+            "interpret_gantry_tilt"
+          ],
+          "visual_pattern": "2x2_signed_ct_hu_gradient"
+        }
       },
       {
         "logical_id": "slice_002",
@@ -146,7 +159,7 @@
           "template_version": "1.0.0"
         },
         "output": {
-        "role": "slice_002",
+          "role": "slice_002",
           "path": "geometry/ct/gantry_tilt_series/slice-002.dcm"
         },
         "encoding": {
@@ -209,7 +222,20 @@
           "gantry_detector_tilt",
           "sheared_slice_origins"
         ],
-        "algorithm_provider_id": "algorithm.classic_ct"
+        "algorithm_provider_id": "algorithm.classic_ct",
+        "classic_projection": {
+          "family": "ct",
+          "expected_capabilities": [
+            "open_file",
+            "read_metadata",
+            "render_native_pixels",
+            "apply_modality_rescale",
+            "apply_window",
+            "sort_series_by_geometry",
+            "interpret_gantry_tilt"
+          ],
+          "visual_pattern": "2x2_signed_ct_hu_gradient"
+        }
       },
       {
         "logical_id": "slice_003",
@@ -219,7 +245,7 @@
           "template_version": "1.0.0"
         },
         "output": {
-        "role": "slice_003",
+          "role": "slice_003",
           "path": "geometry/ct/gantry_tilt_series/slice-003.dcm"
         },
         "encoding": {
@@ -282,7 +308,20 @@
           "gantry_detector_tilt",
           "sheared_slice_origins"
         ],
-        "algorithm_provider_id": "algorithm.classic_ct"
+        "algorithm_provider_id": "algorithm.classic_ct",
+        "classic_projection": {
+          "family": "ct",
+          "expected_capabilities": [
+            "open_file",
+            "read_metadata",
+            "render_native_pixels",
+            "apply_modality_rescale",
+            "apply_window",
+            "sort_series_by_geometry",
+            "interpret_gantry_tilt"
+          ],
+          "visual_pattern": "2x2_signed_ct_hu_gradient"
+        }
       }
     ]
   }

@@ -71,7 +71,7 @@
           "template_version": "1.0.0"
         },
         "output": {
-        "role": "slice_001",
+          "role": "slice_001",
           "path": "geometry/ct/nonuniform_slice_spacing/slice-001.dcm"
         },
         "encoding": {
@@ -133,7 +133,19 @@
           "geometry_slice_sorting",
           "nonuniform_slice_spacing"
         ],
-        "algorithm_provider_id": "algorithm.classic_ct"
+        "algorithm_provider_id": "algorithm.classic_ct",
+        "classic_projection": {
+          "family": "ct",
+          "expected_capabilities": [
+            "open_file",
+            "read_metadata",
+            "render_native_pixels",
+            "apply_modality_rescale",
+            "apply_window",
+            "sort_series_by_geometry"
+          ],
+          "visual_pattern": "2x2_signed_ct_hu_gradient"
+        }
       },
       {
         "logical_id": "slice_002",
@@ -143,7 +155,7 @@
           "template_version": "1.0.0"
         },
         "output": {
-        "role": "slice_002",
+          "role": "slice_002",
           "path": "geometry/ct/nonuniform_slice_spacing/slice-002.dcm"
         },
         "encoding": {
@@ -205,7 +217,19 @@
           "geometry_slice_sorting",
           "nonuniform_slice_spacing"
         ],
-        "algorithm_provider_id": "algorithm.classic_ct"
+        "algorithm_provider_id": "algorithm.classic_ct",
+        "classic_projection": {
+          "family": "ct",
+          "expected_capabilities": [
+            "open_file",
+            "read_metadata",
+            "render_native_pixels",
+            "apply_modality_rescale",
+            "apply_window",
+            "sort_series_by_geometry"
+          ],
+          "visual_pattern": "2x2_signed_ct_hu_gradient"
+        }
       },
       {
         "logical_id": "slice_003",
@@ -215,7 +239,7 @@
           "template_version": "1.0.0"
         },
         "output": {
-        "role": "slice_003",
+          "role": "slice_003",
           "path": "geometry/ct/nonuniform_slice_spacing/slice-003.dcm"
         },
         "encoding": {
@@ -277,7 +301,19 @@
           "geometry_slice_sorting",
           "nonuniform_slice_spacing"
         ],
-        "algorithm_provider_id": "algorithm.classic_ct"
+        "algorithm_provider_id": "algorithm.classic_ct",
+        "classic_projection": {
+          "family": "ct",
+          "expected_capabilities": [
+            "open_file",
+            "read_metadata",
+            "render_native_pixels",
+            "apply_modality_rescale",
+            "apply_window",
+            "sort_series_by_geometry"
+          ],
+          "visual_pattern": "2x2_signed_ct_hu_gradient"
+        }
       }
     ]
   }

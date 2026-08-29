@@ -99,7 +99,16 @@
           "single_frame_us",
           "mono2_u8_pixels"
         ],
-        "algorithm_provider_id": "algorithm.classic_nuclear"
+        "algorithm_provider_id": "algorithm.classic_nuclear",
+        "classic_projection": {
+          "family": "nuclear",
+          "expected_capabilities": [
+            "open_file",
+            "read_metadata",
+            "render_native_pixels"
+          ],
+          "visual_pattern": "2x2_ultrasound_mono2_gradient"
+        }
       }
     ]
   }

@@ -78,7 +78,7 @@
           "template_version": "1.0.0"
         },
         "output": {
-        "role": "series_001_slice_001",
+          "role": "series_001_slice_001",
           "path": "geometry/ct/multiseries_shared_frame_of_reference/series-001/slice-001.dcm"
         },
         "encoding": {
@@ -141,7 +141,20 @@
           "multiple_series_one_study",
           "shared_frame_of_reference_across_series"
         ],
-        "algorithm_provider_id": "algorithm.classic_ct"
+        "algorithm_provider_id": "algorithm.classic_ct",
+        "classic_projection": {
+          "family": "ct",
+          "expected_capabilities": [
+            "open_file",
+            "read_metadata",
+            "render_native_pixels",
+            "apply_modality_rescale",
+            "apply_window",
+            "sort_series_by_geometry",
+            "organize_series_by_study_and_frame_of_reference"
+          ],
+          "visual_pattern": "2x2_signed_ct_hu_gradient"
+        }
       },
       {
         "logical_id": "series_001_slice_002",
@@ -151,7 +164,7 @@
           "template_version": "1.0.0"
         },
         "output": {
-        "role": "series_001_slice_002",
+          "role": "series_001_slice_002",
           "path": "geometry/ct/multiseries_shared_frame_of_reference/series-001/slice-002.dcm"
         },
         "encoding": {
@@ -214,7 +227,20 @@
           "multiple_series_one_study",
           "shared_frame_of_reference_across_series"
         ],
-        "algorithm_provider_id": "algorithm.classic_ct"
+        "algorithm_provider_id": "algorithm.classic_ct",
+        "classic_projection": {
+          "family": "ct",
+          "expected_capabilities": [
+            "open_file",
+            "read_metadata",
+            "render_native_pixels",
+            "apply_modality_rescale",
+            "apply_window",
+            "sort_series_by_geometry",
+            "organize_series_by_study_and_frame_of_reference"
+          ],
+          "visual_pattern": "2x2_signed_ct_hu_gradient"
+        }
       },
       {
         "logical_id": "series_002_slice_001",
@@ -224,7 +250,7 @@
           "template_version": "1.0.0"
         },
         "output": {
-        "role": "series_002_slice_001",
+          "role": "series_002_slice_001",
           "path": "geometry/ct/multiseries_shared_frame_of_reference/series-002/slice-001.dcm"
         },
         "encoding": {
@@ -287,7 +313,20 @@
           "multiple_series_one_study",
           "shared_frame_of_reference_across_series"
         ],
-        "algorithm_provider_id": "algorithm.classic_ct"
+        "algorithm_provider_id": "algorithm.classic_ct",
+        "classic_projection": {
+          "family": "ct",
+          "expected_capabilities": [
+            "open_file",
+            "read_metadata",
+            "render_native_pixels",
+            "apply_modality_rescale",
+            "apply_window",
+            "sort_series_by_geometry",
+            "organize_series_by_study_and_frame_of_reference"
+          ],
+          "visual_pattern": "2x2_signed_ct_hu_gradient"
+        }
       },
       {
         "logical_id": "series_002_slice_002",
@@ -297,7 +336,7 @@
           "template_version": "1.0.0"
         },
         "output": {
-        "role": "series_002_slice_002",
+          "role": "series_002_slice_002",
           "path": "geometry/ct/multiseries_shared_frame_of_reference/series-002/slice-002.dcm"
         },
         "encoding": {
@@ -360,7 +399,20 @@
           "multiple_series_one_study",
           "shared_frame_of_reference_across_series"
         ],
-        "algorithm_provider_id": "algorithm.classic_ct"
+        "algorithm_provider_id": "algorithm.classic_ct",
+        "classic_projection": {
+          "family": "ct",
+          "expected_capabilities": [
+            "open_file",
+            "read_metadata",
+            "render_native_pixels",
+            "apply_modality_rescale",
+            "apply_window",
+            "sort_series_by_geometry",
+            "organize_series_by_study_and_frame_of_reference"
+          ],
+          "visual_pattern": "2x2_signed_ct_hu_gradient"
+        }
       }
     ]
   }

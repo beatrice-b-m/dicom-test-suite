@@ -177,7 +177,18 @@
           "frame_time_increment_pointer",
           "native_u8_pixels"
         ],
-        "algorithm_provider_id": "algorithm.classic_nuclear"
+        "algorithm_provider_id": "algorithm.classic_nuclear",
+        "classic_projection": {
+          "family": "nuclear",
+          "expected_capabilities": [
+            "open_file",
+            "read_metadata",
+            "render_native_pixels",
+            "navigate_multiframe",
+            "interpret_frame_time"
+          ],
+          "visual_pattern": "four_frame_moving_ultrasound_echo"
+        }
       }
     ]
   }

@@ -1,1 +1,115 @@
-{"case_recipe_schema_version":"0.1.0","recipe_id":"vl_photo_rgb_icc_profile_explicit_le","recipe_version":"0.1.0","binding":{"case_id":"vl/photo/rgb_icc_profile_explicit_le"},"kind":"dicom","plan_provider_id":"native.classic_plan","planning_order":603,"dependencies":[],"provider_parameters":{"patient_name":"DICOMTEST^SMOKE","patient_id":"DICOMTEST-SMOKE-001","patient_birth_date":"19700101","patient_sex":"O","study_date":"20260101","study_time":"000000","study_id":"SMOKE","manufacturer":"dicom-test-suite","software_versions":"0.1.0"},"validation_rule_ids":["validation.shared"],"projection_rule_ids":["projection.curated"],"dicom":{"artifacts":[{"logical_id":"instance","order":0,"output":{"role":"primary_1","path":"vl/photo/rgb_icc_profile_explicit_le/instance.dcm"},"encoding":{"transfer_syntax_uid":"1.2.840.10008.1.2.1","sequence_length_policy":"default","item_length_policy":"default","offset_table_policy":"none","fragmentation_policy":"native","preamble_policy":"zero_filled","file_meta_policy":"standard"},"parameters":{"uid_file_index":6,"modality":"XC","sop_class_uid":"1.2.840.10008.5.1.4.1.1.77.1.4","rows":2,"columns":2,"samples_per_pixel":3,"photometric_interpretation":"RGB","planar_configuration":0,"stored_values":[255,0,0,0,255,0,0,0,255,255,255,255],"pixel_min":0,"pixel_max":255,"frame_sha256":"6733cdd08e5c7ef0453e2759ef0d28fbd43ea2aa7883b55422a13dac38e23ecc","laterality":"R","icc_profile_sha256":"8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef","color_space":"SRGB","icc_profile_hex":"000002e06c636d730210000073636e725247422058595a2007e2000300140009000e001d616373704d53465400000000736177736374726c0000000000000000000000000000f6d6000100000000d32d68616e6493b234a90eb0228a98fd9aafa367899b000000000000000000000000000000000000000000000000000000000000000964657363000000f00000005f637072740000010c0000000c7774707400000118000000147258595a0000012c000000146758595a00000140000000146258595a00000154000000147254524300000168000001786754524300000168000001786254524300000168000001786465736300000000000000057352474200000000000000000000000074657874000000004343300058595a20000000000000f35400010000000116c958595a200000000000006fa0000038f20000038f58595a2000000000000062960000b789000018da58595a2000000000000024a000000f850000b6c46375727600000000000000b60000001c003800540070008c00a800c400e1010001220146016d019501c101f002200255028b02c40301033f038203c6040e045904a704f9054c05a405fe065c06be0721078a07f4086308d5094909c30a3f0abf0b420bc90c540ce10d740e090ea20f400fe01085112d11da128a133e13f614b21571163616fd17ca1899196e1a461b221c031ce71dd01ebd1fae20a4219e229c239f24a525b126c027d528ed2a0a2b2b2c512d7c2eaa2fde31163252339434d93624377338c63a203b7c3cdf3e453fb0412142964410458f4712489b4a284bbb4d514eee508f523553e05590574559005abe5c845e4c601b61ef63c765a6678969716b5f6d516f4a7146734a7551775e79717b887da67fc881f0841e865088898ac58d098f51919f93f3964b98ab9b0e9d789fe7a25ba4d6a756a9dbac67aef7b18fb42ab6ccb974bc21bed5c18dc44cc710c9daccabcf7fd25cd53dd824db12de04e0fee3fce701ea0ced1cf034f350f673f99bfccaffff"},"attribute_operations":[],"content":{"provider_id":"content.native_pixels","parameters":{}},"validation_rule_ids":["validation.shared"],"projection_rule_ids":["projection.curated"],"determinism":"byte_stable","stressors":["icc_profile","color_management"],"algorithm_provider_id":"algorithm.classic_vl_projection","template":{"template_id":"vl/photographic","template_version":"1.0.0"}}]}}
+{
+  "case_recipe_schema_version": "0.1.0",
+  "recipe_id": "vl_photo_rgb_icc_profile_explicit_le",
+  "recipe_version": "0.1.0",
+  "binding": {
+    "case_id": "vl/photo/rgb_icc_profile_explicit_le"
+  },
+  "kind": "dicom",
+  "plan_provider_id": "native.classic_plan",
+  "planning_order": 603,
+  "dependencies": [],
+  "provider_parameters": {
+    "patient_name": "DICOMTEST^SMOKE",
+    "patient_id": "DICOMTEST-SMOKE-001",
+    "patient_birth_date": "19700101",
+    "patient_sex": "O",
+    "study_date": "20260101",
+    "study_time": "000000",
+    "study_id": "SMOKE",
+    "manufacturer": "dicom-test-suite",
+    "software_versions": "0.1.0"
+  },
+  "validation_rule_ids": [
+    "validation.shared"
+  ],
+  "projection_rule_ids": [
+    "projection.curated"
+  ],
+  "dicom": {
+    "artifacts": [
+      {
+        "logical_id": "instance",
+        "order": 0,
+        "output": {
+          "role": "primary_1",
+          "path": "vl/photo/rgb_icc_profile_explicit_le/instance.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 6,
+          "modality": "XC",
+          "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.4",
+          "rows": 2,
+          "columns": 2,
+          "samples_per_pixel": 3,
+          "photometric_interpretation": "RGB",
+          "planar_configuration": 0,
+          "stored_values": [
+            255,
+            0,
+            0,
+            0,
+            255,
+            0,
+            0,
+            0,
+            255,
+            255,
+            255,
+            255
+          ],
+          "pixel_min": 0,
+          "pixel_max": 255,
+          "frame_sha256": "6733cdd08e5c7ef0453e2759ef0d28fbd43ea2aa7883b55422a13dac38e23ecc",
+          "laterality": "R",
+          "icc_profile_sha256": "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef",
+          "color_space": "SRGB",
+          "icc_profile_hex": "000002e06c636d730210000073636e725247422058595a2007e2000300140009000e001d616373704d53465400000000736177736374726c0000000000000000000000000000f6d6000100000000d32d68616e6493b234a90eb0228a98fd9aafa367899b000000000000000000000000000000000000000000000000000000000000000964657363000000f00000005f637072740000010c0000000c7774707400000118000000147258595a0000012c000000146758595a00000140000000146258595a00000154000000147254524300000168000001786754524300000168000001786254524300000168000001786465736300000000000000057352474200000000000000000000000074657874000000004343300058595a20000000000000f35400010000000116c958595a200000000000006fa0000038f20000038f58595a2000000000000062960000b789000018da58595a2000000000000024a000000f850000b6c46375727600000000000000b60000001c003800540070008c00a800c400e1010001220146016d019501c101f002200255028b02c40301033f038203c6040e045904a704f9054c05a405fe065c06be0721078a07f4086308d5094909c30a3f0abf0b420bc90c540ce10d740e090ea20f400fe01085112d11da128a133e13f614b21571163616fd17ca1899196e1a461b221c031ce71dd01ebd1fae20a4219e229c239f24a525b126c027d528ed2a0a2b2b2c512d7c2eaa2fde31163252339434d93624377338c63a203b7c3cdf3e453fb0412142964410458f4712489b4a284bbb4d514eee508f523553e05590574559005abe5c845e4c601b61ef63c765a6678969716b5f6d516f4a7146734a7551775e79717b887da67fc881f0841e865088898ac58d098f51919f93f3964b98ab9b0e9d789fe7a25ba4d6a756a9dbac67aef7b18fb42ab6ccb974bc21bed5c18dc44cc710c9daccabcf7fd25cd53dd824db12de04e0fee3fce701ea0ced1cf034f350f673f99bfccaffff"
+        },
+        "attribute_operations": [],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {}
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "icc_profile",
+          "color_management"
+        ],
+        "algorithm_provider_id": "algorithm.classic_vl_projection",
+        "template": {
+          "template_id": "vl/photographic",
+          "template_version": "1.0.0"
+        },
+        "classic_projection": {
+          "family": "vl_projection",
+          "expected_capabilities": [
+            "open_file",
+            "read_metadata",
+            "render_native_pixels",
+            "apply_icc_profile"
+          ],
+          "visual_pattern": "2x2_vl_photo_rgb_red_green_blue_white_with_srgb_icc",
+          "semantic_labels": {
+            "photometric_semantics": "VL Photographic RGB samples are interpreted through the embedded SRGB input profile"
+          }
+        }
+      }
+    ]
+  }
+}

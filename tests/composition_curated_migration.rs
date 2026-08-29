@@ -41,6 +41,8 @@ fn migrated_classic_recipes_record_shared_plan_materialization() {
             case_id.starts_with("classic/sc/")
                 || case_id.starts_with("classic/cr/")
                 || case_id.starts_with("classic/ct/")
+                || case_id.starts_with("classic/dx/")
+                || case_id.starts_with("classic/mg/")
                 || case_id.starts_with("classic/mr/")
                 || case_id.starts_with("geometry/ct/")
                 || case_id.starts_with("metadata/sc/")

@@ -24596,28 +24596,29 @@ fn write_classic_mg_case(
         None
     };
 
-    let file_obj = obj
-        .with_meta(
-            FileMetaTableBuilder::new()
-                .transfer_syntax(recipe.transfer_syntax.uid)
-                .implementation_class_uid(&implementation_class_uid)
-                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
-        )
-        .map_err(|err| GenerateError::WriteDicomFile {
-            path: path.clone(),
-            message: err.to_string(),
-        })?;
-
-    file_obj
-        .write_to_file(&path)
-        .map_err(|err| GenerateError::WriteDicomFile {
-            path: path.clone(),
-            message: err.to_string(),
-        })?;
+    let template_family = if recipe.sop_class_uid
+        == uids::DIGITAL_MAMMOGRAPHY_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION
+    {
+        "classic/mammography/for-presentation"
+    } else {
+        "classic/mammography/for-processing"
+    };
+    materialize_curated_classic_dataset(
+        &obj,
+        &path,
+        recipe.recipe_id,
+        template_family,
+        recipe.sop_class_uid,
+        recipe.transfer_syntax.uid,
+        &study_instance_uid,
+        &series_instance_uid,
+        &sop_instance_uid,
+        &implementation_class_uid,
+    )?;
 
     let decoded_frame_hash = sha256_hex(recipe.pixel_bytes);
     let decoded_frame_hashes = [decoded_frame_hash.as_str()];
-    let validated = validate_part10_file(
+    let mut validated = validate_part10_file(
         &path,
         &Part10Expectations {
             sop_class_uid: recipe.sop_class_uid,
@@ -24698,6 +24699,7 @@ fn write_classic_mg_case(
             segmentation: None,
         },
     )?;
+    append_curated_plan_validation(&mut validated.validation);
 
     Ok(GeneratedFile {
         case_id: recipe.case_id.to_string(),
@@ -25301,28 +25303,22 @@ fn write_classic_dx_case(
         None
     };
 
-    let file_obj = obj
-        .with_meta(
-            FileMetaTableBuilder::new()
-                .transfer_syntax(recipe.transfer_syntax.uid)
-                .implementation_class_uid(&implementation_class_uid)
-                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
-        )
-        .map_err(|err| GenerateError::WriteDicomFile {
-            path: path.clone(),
-            message: err.to_string(),
-        })?;
-
-    file_obj
-        .write_to_file(&path)
-        .map_err(|err| GenerateError::WriteDicomFile {
-            path: path.clone(),
-            message: err.to_string(),
-        })?;
+    materialize_curated_classic_dataset(
+        &obj,
+        &path,
+        recipe.recipe_id,
+        "classic/dx/for-presentation",
+        uids::DIGITAL_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION,
+        recipe.transfer_syntax.uid,
+        &study_instance_uid,
+        &series_instance_uid,
+        &sop_instance_uid,
+        &implementation_class_uid,
+    )?;
 
     let decoded_frame_hash = sha256_hex(recipe.pixel_bytes);
     let decoded_frame_hashes = [decoded_frame_hash.as_str()];
-    let validated = validate_part10_file(
+    let mut validated = validate_part10_file(
         &path,
         &Part10Expectations {
             sop_class_uid: uids::DIGITAL_X_RAY_IMAGE_STORAGE_FOR_PRESENTATION,
@@ -25404,6 +25400,7 @@ fn write_classic_dx_case(
             segmentation: None,
         },
     )?;
+    append_curated_plan_validation(&mut validated.validation);
 
     Ok(GeneratedFile {
         case_id: recipe.case_id.to_string(),

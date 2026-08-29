@@ -80,6 +80,7 @@ fn source(owner: &str, artifact: &str, role: &str) -> SemanticSource {
             recipe_id: "source_recipe".into(),
             recipe_version: "0.1.0".into(),
         },
+        recipe_artifact_logical_id: artifact.into(),
         artifact_id: artifact.into(),
         role: role.into(),
         reference: MaterializedReference {
@@ -296,5 +297,50 @@ fn sr_recipe_documents_are_typed_ordered_and_dependency_complete() {
                     | SrDocumentKind::KeyObjectSelection { .. }
             ));
         }
+    }
+}
+
+#[test]
+fn rt_recipe_documents_form_one_typed_ordered_reference_dag() {
+    let catalog = RecipeCatalog::load(
+        "cases/recipes",
+        "cases/registry.json",
+        "templates/catalog.json",
+    )
+    .unwrap();
+    let recipes = catalog
+        .recipes()
+        .values()
+        .filter(|recipe| recipe.plan_provider_id == dicom_test_suite::recipes::RT_PLAN_PROVIDER_ID)
+        .collect::<Vec<_>>();
+    assert!(!recipes.is_empty());
+    assert_eq!(
+        recipes
+            .iter()
+            .map(|recipe| recipe.planning_order.unwrap())
+            .collect::<std::collections::BTreeSet<_>>()
+            .len(),
+        recipes.len()
+    );
+    for recipe in recipes {
+        let parameters: RtDocumentParameters = serde_json::from_value(serde_json::Value::Object(
+            recipe.provider_parameters.clone(),
+        ))
+        .unwrap();
+        assert_eq!(parameters.sources.len(), recipe.dependencies.len());
+        assert!(parameters.sources.iter().all(|source| {
+            recipe.dependencies.iter().any(|dependency| {
+                dependency.recipe == source.recipe && dependency.role == source.role
+            })
+        }));
+        let [artifact] = recipe.dicom.as_ref().unwrap().artifacts.as_slice() else {
+            panic!("RT recipes have one output")
+        };
+        assert_eq!(artifact.content.provider_id, "content.rt_semantics");
+        assert_eq!(
+            artifact.algorithm_provider_id.as_deref(),
+            Some("algorithm.rt_semantics")
+        );
+        assert!(artifact.output.path.is_some());
     }
 }

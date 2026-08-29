@@ -6,59 +6,134 @@
     "case_id": "non-image/rt/dose_grid_u16_explicit_le"
   },
   "kind": "dicom",
-  "plan_provider_id": "native.case_plan",
+  "plan_provider_id": "native.rt_plan",
+  "planning_order": 1201,
   "dependencies": [
-
+    {
+      "recipe": {
+        "recipe_id": "enhanced_ct_multiframe_shared_perframe",
+        "recipe_version": "0.1.0"
+      },
+      "role": "source_image"
+    },
+    {
+      "recipe": {
+        "recipe_id": "rt_structure_set_single_roi",
+        "recipe_version": "0.1.0"
+      },
+      "role": "referenced_structure_set"
+    }
   ],
   "provider_parameters": {
+    "series_number": "71",
+    "instance_number": 1,
+    "label": "DTS_RTDOSE",
+    "object": {
+      "kind": "dose",
+      "rows": 2,
+      "columns": 2,
+      "frames": 2,
+      "stored_values": [
+        0,
+        100,
+        200,
+        300,
+        400,
+        500,
+        600,
+        700
+      ],
+      "pixel_spacing": [
+        "1",
+        "1"
+      ],
+      "image_orientation_patient": [
+        "1",
+        "0",
+        "0",
+        "0",
+        "1",
+        "0"
+      ],
+      "image_position_patient": [
+        "0",
+        "0",
+        "0"
+      ],
+      "slice_thickness": "2.5",
+      "grid_frame_offset_vector": [
+        "0",
+        "2.5"
+      ],
+      "dose_units": "GY",
+      "dose_type": "PHYSICAL",
+      "dose_summation_type": "RECORD",
+      "dose_grid_scaling": "0.001"
+    },
+    "sources": [
+      {
+        "recipe": {
+          "recipe_id": "enhanced_ct_multiframe_shared_perframe",
+          "recipe_version": "0.1.0"
+        },
+        "artifact_logical_id": "advanced_enhanced_ct_multiframe_shared_perframe_artifact_1",
+        "role": "source_image"
+      },
+      {
+        "recipe": {
+          "recipe_id": "rt_structure_set_single_roi",
+          "recipe_version": "0.1.0"
+        },
+        "artifact_logical_id": "artifact_1",
+        "role": "referenced_structure_set"
+      }
+    ]
   },
   "validation_rule_ids": [
-    "validation.shared"
+    "validation.rt"
   ],
   "projection_rule_ids": [
-    "projection.curated"
+    "projection.rt"
   ],
   "dicom": {
     "artifacts": [
       {
         "logical_id": "artifact_1",
+        "order": 0,
         "output": {
           "role": "primary_1",
-          "provider_derived": true
+          "path": "non-image/rt/dose_grid_u16_explicit_le/instance.dcm"
         },
         "encoding": {
           "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-          "sequence_length_policy": "provider",
-          "item_length_policy": "provider",
-          "offset_table_policy": "provider",
-          "fragmentation_policy": "provider"
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
         },
-        "parameters": {
-        },
-        "attribute_operations": [
-
-        ],
+        "parameters": {},
+        "attribute_operations": [],
         "content": {
-          "provider_id": "content.case_default",
-          "parameters": {
-          }
+          "provider_id": "content.rt_semantics",
+          "parameters": {}
         },
         "validation_rule_ids": [
-          "validation.shared"
+          "validation.rt"
         ],
         "projection_rule_ids": [
-          "projection.curated"
+          "projection.rt"
         ],
         "determinism": "byte_stable",
         "stressors": [
-
+          "multiframe_rt_dose_grid"
         ],
-        "algorithm_provider_id": "algorithm.case_provider",
+        "algorithm_provider_id": "algorithm.rt_semantics",
         "template": {
           "template_id": "non-image/rt/dose",
           "template_version": "1.0.0"
-        },
-        "order": 0
+        }
       }
     ]
   }

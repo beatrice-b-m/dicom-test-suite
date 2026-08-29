@@ -98,7 +98,9 @@ pub struct ImageParameters {
     pub referenced_fraction_group_number: u32,
     pub image_plane: String,
     pub image_position: [String; 2],
-    pub image_orientation: [String; 6],
+    pub image_plane_pixel_spacing: [String; 2],
+    pub radiation_machine_name: String,
+    pub radiation_machine_sad: String,
     pub image_sid: String,
 }
 
@@ -176,7 +178,7 @@ impl RtPlanProvider {
             }
         };
         let mut operations = if let Some(object_kind) = neutral_kind {
-            NeutralContentProvider
+            let mut operations = NeutralContentProvider
                 .expand(
                     &ContentProviderRequest::RtObject(RtSemanticContract {
                         object_kind,
@@ -187,7 +189,11 @@ impl RtPlanProvider {
                     ContentProviderLimits::default(),
                 )
                 .map_err(|error| RtPlanError::Content(error.to_string()))?
-                .attribute_operations
+                .attribute_operations;
+            if matches!(input.parameters.object, RtObjectParameters::Dose(_)) {
+                operations.retain(|operation| operation.address().normalized_tag() != "3004,0006");
+            }
+            operations
         } else {
             vec![
                 string_op(
@@ -295,7 +301,7 @@ fn validate_input(input: &RtPlanInput) -> Result<(), RtPlanError> {
                     recipe_id: source.recipe.recipe_id.clone(),
                     recipe_version: source.recipe.recipe_version.clone(),
                 },
-                source.artifact_id.as_str(),
+                source.recipe_artifact_logical_id.as_str(),
                 source.role.as_str(),
             )
         })
@@ -569,10 +575,12 @@ fn image_operations(value: &ImageParameters) -> Result<Vec<AttributeOperation>, 
             value.image_position.iter().cloned(),
         )?,
         multi_string_op(
-            "3002,0010",
+            "3002,0011",
             DicomVr::DS,
-            value.image_orientation.iter().cloned(),
+            value.image_plane_pixel_spacing.iter().cloned(),
         )?,
+        string_op("3002,0020", DicomVr::SH, &value.radiation_machine_name)?,
+        string_op("3002,0022", DicomVr::DS, &value.radiation_machine_sad)?,
         string_op("3002,0026", DicomVr::DS, &value.image_sid)?,
         string_op(
             "300C,0006",

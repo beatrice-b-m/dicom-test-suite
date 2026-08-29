@@ -303,7 +303,7 @@ fn validate_input(input: &SrPlanInput, external: bool) -> Result<(), SrPlanError
                     recipe_id: source.recipe.recipe_id.clone(),
                     recipe_version: source.recipe.recipe_version.clone(),
                 },
-                source.artifact_id.as_str(),
+                source.recipe_artifact_logical_id.as_str(),
                 source.role.as_str(),
             )
         })
@@ -320,7 +320,7 @@ fn validate_input(input: &SrPlanInput, external: bool) -> Result<(), SrPlanError
             .context
             .sources
             .iter()
-            .find(|source| source.artifact_id == declaration.artifact_logical_id)
+            .find(|source| source.recipe_artifact_logical_id == declaration.artifact_logical_id)
             .ok_or(SrPlanError::SourceGraph)?;
         if source.reference.referenced_frames != declaration.referenced_frames {
             return Err(SrPlanError::SourceGraph);

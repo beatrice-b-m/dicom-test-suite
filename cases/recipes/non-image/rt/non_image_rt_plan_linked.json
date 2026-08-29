@@ -6,59 +6,105 @@
     "case_id": "non-image/rt/plan_linked"
   },
   "kind": "dicom",
-  "plan_provider_id": "native.case_plan",
+  "plan_provider_id": "native.rt_plan",
+  "planning_order": 1202,
   "dependencies": [
-
+    {
+      "recipe": {
+        "recipe_id": "rt_structure_set_single_roi",
+        "recipe_version": "0.1.0"
+      },
+      "role": "referenced_structure_set"
+    },
+    {
+      "recipe": {
+        "recipe_id": "rt_dose_grid_u16",
+        "recipe_version": "0.1.0"
+      },
+      "role": "referenced_dose"
+    }
   ],
   "provider_parameters": {
+    "series_number": "72",
+    "instance_number": 1,
+    "label": "DTS_PLAN",
+    "object": {
+      "kind": "plan",
+      "plan_name": "DTS Synthetic Linked Plan",
+      "plan_geometry": "PATIENT",
+      "fraction_group_number": 1,
+      "fractions_planned": 1,
+      "beam_number": 1,
+      "beam_name": "DTS_STATIC_AP",
+      "beam_type": "STATIC",
+      "radiation_type": "PHOTON",
+      "treatment_machine_name": "DTS_LINAC",
+      "control_point_count": 2
+    },
+    "sources": [
+      {
+        "recipe": {
+          "recipe_id": "rt_structure_set_single_roi",
+          "recipe_version": "0.1.0"
+        },
+        "artifact_logical_id": "artifact_1",
+        "role": "referenced_structure_set"
+      },
+      {
+        "recipe": {
+          "recipe_id": "rt_dose_grid_u16",
+          "recipe_version": "0.1.0"
+        },
+        "artifact_logical_id": "artifact_1",
+        "role": "referenced_dose"
+      }
+    ]
   },
   "validation_rule_ids": [
-    "validation.shared"
+    "validation.rt"
   ],
   "projection_rule_ids": [
-    "projection.curated"
+    "projection.rt"
   ],
   "dicom": {
     "artifacts": [
       {
         "logical_id": "artifact_1",
+        "order": 0,
         "output": {
           "role": "primary_1",
-          "provider_derived": true
+          "path": "non-image/rt/plan_linked/instance.dcm"
         },
         "encoding": {
           "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-          "sequence_length_policy": "provider",
-          "item_length_policy": "provider",
-          "offset_table_policy": "provider",
-          "fragmentation_policy": "provider"
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
         },
-        "parameters": {
-        },
-        "attribute_operations": [
-
-        ],
+        "parameters": {},
+        "attribute_operations": [],
         "content": {
-          "provider_id": "content.case_default",
-          "parameters": {
-          }
+          "provider_id": "content.rt_semantics",
+          "parameters": {}
         },
         "validation_rule_ids": [
-          "validation.shared"
+          "validation.rt"
         ],
         "projection_rule_ids": [
-          "projection.curated"
+          "projection.rt"
         ],
         "determinism": "byte_stable",
         "stressors": [
-
+          "linked_rt_graph"
         ],
-        "algorithm_provider_id": "algorithm.case_provider",
+        "algorithm_provider_id": "algorithm.rt_semantics",
         "template": {
           "template_id": "non-image/rt/plan",
           "template_version": "1.0.0"
-        },
-        "order": 0
+        }
       }
     ]
   }

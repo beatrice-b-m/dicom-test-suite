@@ -21,6 +21,7 @@ use crate::planning::RecipeIdentity;
 #[serde(deny_unknown_fields)]
 pub struct SemanticSource {
     pub recipe: RecipeIdentity,
+    pub recipe_artifact_logical_id: String,
     pub artifact_id: String,
     pub role: String,
     pub reference: MaterializedReference,
@@ -171,6 +172,7 @@ fn validate_context(context: &SemanticPlanContext) -> Result<(), SemanticPlanErr
     let mut artifacts = BTreeSet::new();
     for source in &context.sources {
         if source.role.is_empty()
+            || source.recipe_artifact_logical_id.is_empty()
             || source.artifact_id.is_empty()
             || source.reference.source_instance_id != context.logical_id
             || source.reference.target_instance_id != source.artifact_id

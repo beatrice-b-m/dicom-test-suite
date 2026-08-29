@@ -6,59 +6,87 @@
     "case_id": "non-image/rt/carm_photon_electron_radiation_minimal"
   },
   "kind": "dicom",
-  "plan_provider_id": "native.case_plan",
+  "plan_provider_id": "native.rt_plan",
+  "planning_order": 1204,
   "dependencies": [
-
+    {
+      "recipe": {
+        "recipe_id": "non_image_rt_plan_linked",
+        "recipe_version": "0.1.0"
+      },
+      "role": "referenced_plan"
+    }
   ],
   "provider_parameters": {
+    "series_number": "74",
+    "instance_number": 1,
+    "label": "DTS_RADIATION",
+    "object": {
+      "kind": "carm_radiation",
+      "radiation_name": "DTS_RADIATION",
+      "radiation_type": "PHOTON",
+      "radiation_mode": "STATIC",
+      "treatment_delivery_type": "TREATMENT",
+      "machine_name": "DTS_LINAC",
+      "control_point_count": 2,
+      "rt_record_flag": "NO"
+    },
+    "sources": [
+      {
+        "recipe": {
+          "recipe_id": "non_image_rt_plan_linked",
+          "recipe_version": "0.1.0"
+        },
+        "artifact_logical_id": "artifact_1",
+        "role": "referenced_plan"
+      }
+    ]
   },
   "validation_rule_ids": [
-    "validation.shared"
+    "validation.rt"
   ],
   "projection_rule_ids": [
-    "projection.curated"
+    "projection.rt"
   ],
   "dicom": {
     "artifacts": [
       {
         "logical_id": "artifact_1",
+        "order": 0,
         "output": {
           "role": "primary_1",
-          "provider_derived": true
+          "path": "non-image/rt/carm_photon_electron_radiation_minimal/instance.dcm"
         },
         "encoding": {
           "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-          "sequence_length_policy": "provider",
-          "item_length_policy": "provider",
-          "offset_table_policy": "provider",
-          "fragmentation_policy": "provider"
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
         },
-        "parameters": {
-        },
-        "attribute_operations": [
-
-        ],
+        "parameters": {},
+        "attribute_operations": [],
         "content": {
-          "provider_id": "content.case_default",
-          "parameters": {
-          }
+          "provider_id": "content.rt_semantics",
+          "parameters": {}
         },
         "validation_rule_ids": [
-          "validation.shared"
+          "validation.rt"
         ],
         "projection_rule_ids": [
-          "projection.curated"
+          "projection.rt"
         ],
         "determinism": "byte_stable",
         "stressors": [
-
+          "second_generation_rt"
         ],
-        "algorithm_provider_id": "algorithm.case_provider",
+        "algorithm_provider_id": "algorithm.rt_semantics",
         "template": {
           "template_id": "non-image/rt/c-arm-photon-electron-radiation",
           "template_version": "1.0.0"
-        },
-        "order": 0
+        }
       }
     ]
   }

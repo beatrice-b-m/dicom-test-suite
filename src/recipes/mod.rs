@@ -1,3 +1,4 @@
+mod advanced;
 mod classic;
 pub mod classic_ct;
 pub mod classic_dx_mg;
@@ -12,6 +13,12 @@ mod model;
 mod sc;
 
 pub use crate::planning::RecipeIdentity;
+pub use advanced::{
+    AdvancedArtifactProvenance, AdvancedArtifactRole, AdvancedPlanProvider,
+    AdvancedPlanProviderOutput, AdvancedPlanProviderRequest, AdvancedPlannedArtifact,
+    AdvancedProviderContractError, AdvancedProviderFamily, AdvancedProviderLimits,
+    AdvancedSourceConsumer, AdvancedSourceReference, AdvancedSourceRole, WholeSlideArtifactKind,
+};
 pub use classic::{
     CLASSIC_PIXEL_SLOT, ClassicFamilyProvider, ClassicInstanceRequest, ClassicPixelPlan,
     ClassicPixelProvider, ClassicPixelRequest, ClassicPlanError, ClassicPlannedInstance,

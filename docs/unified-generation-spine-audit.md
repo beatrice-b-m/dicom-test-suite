@@ -48,7 +48,9 @@ The allowlist is intentionally exhaustive at U0:
   builders, manual family/source ordering, the
   `migrate_shared_plan_curated_files` post-write migration pass, and the
   composition-default compatibility entry point. Native uses are assigned to
-  U3 through U7 and removed by U9.1-U9.3.
+  U3 through U7 and removed by U9.1-U9.3. Its sequence-length case also uses
+  `DataSetWriterOptions` to serialize a complete Part 10 file manually; U3.4
+  moves that policy into the neutral encoding plan.
 - `src/composition/curated.rs` contains the dataset-to-plan bridge. Its unit
   fixtures may exercise external import semantics, but production native uses
   are removed by U9.1 and the module is reduced to an explicitly named
@@ -58,6 +60,9 @@ The allowlist is intentionally exhaustive at U0:
 - `src/generation_backends/` owns locked external full-file construction. Each
   use is classified as an external plan-provider/import boundary by U6.7;
   frame-capable codec transforms move to typed encoded content by U7.2.
+- `src/codecs.rs` contains the locked DCMTK `dcmcjpeg` full-file transform.
+  U7.2 either replaces it with encoded-frame content or retains it only as a
+  named, audited external import boundary.
 - `src/negative.rs` and `src/mutation.rs` are the only expected-invalid byte
   mutation boundary and move beneath shared execution in U8.
 - test-only `write_to_file` calls may create deliberately mutated validation

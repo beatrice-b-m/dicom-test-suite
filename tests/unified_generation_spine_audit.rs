@@ -176,6 +176,20 @@ fn every_current_production_direct_writer_is_classified_for_removal() {
             path.display()
         );
     }
+
+    for (path, marker, removal) in [
+        ("src/generator.rs", "DataSetWriterOptions", "U3.4"),
+        ("src/codecs.rs", "dcmcjpeg", "U7.2"),
+        ("src/generation_backends/", "external", "U6.7"),
+        ("src/negative.rs", "mutation", "U8"),
+    ] {
+        assert!(audit.contains(path), "audit does not classify {path}");
+        assert!(audit.contains(marker), "audit does not name {marker}");
+        assert!(
+            audit.contains(removal),
+            "audit does not assign {path} to {removal}"
+        );
+    }
 }
 
 #[test]

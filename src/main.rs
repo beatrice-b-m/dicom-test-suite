@@ -374,6 +374,53 @@ fn run() -> Result<(), String> {
                 unknown => Err(format!("unknown interoperate subcommand: {unknown}")),
             }
         }
+        "compose" => {
+            let mut spec_path = None;
+            let mut out_dir = None;
+            let mut seed = 1_u64;
+            let mut catalog_path = String::from("templates/catalog.json");
+            let mut dry_run = false;
+            while let Some(argument) = args.next() {
+                match argument.as_str() {
+                    "--spec" => spec_path = Some(required_value(&mut args, "--spec")?),
+                    "--out" => out_dir = Some(required_value(&mut args, "--out")?),
+                    "--seed" => seed = parse_seed(required_value(&mut args, "--seed")?)?,
+                    "--catalog" => catalog_path = required_value(&mut args, "--catalog")?,
+                    "--dry-run" => dry_run = true,
+                    "--help" | "-h" => {
+                        print_compose_usage();
+                        return Ok(());
+                    }
+                    unknown => return Err(format!("unknown compose argument: {unknown}")),
+                }
+            }
+            let spec_path = spec_path.ok_or_else(|| "compose requires --spec".to_string())?;
+            let out_dir = out_dir.ok_or_else(|| "compose requires --out".to_string())?;
+            let (summary, output) = dicom_test_suite::composition::compose(
+                &dicom_test_suite::composition::ComposeOptions {
+                    spec_path: spec_path.clone().into(),
+                    out_dir: out_dir.into(),
+                    seed,
+                    catalog_path: catalog_path.into(),
+                    dry_run,
+                },
+            )
+            .map_err(|error| error.to_string())?;
+            if dry_run {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&output).map_err(|error| error.to_string())?
+                );
+            } else {
+                println!("spec\t{spec_path}");
+                println!("seed\t{seed}");
+                println!("out\t{}", summary.out_dir.display());
+                println!("manifest\t{}", summary.manifest_path.display());
+                println!("instances_written\t{}", summary.instances_written);
+                println!("output_bytes\t{}", summary.output_bytes);
+            }
+            Ok(())
+        }
         "templates" => {
             let subcommand = args
                 .next()
@@ -759,6 +806,7 @@ fn print_usage() {
     println!(
         "  dicom-test-suite generate --profile PROFILE --out PATH [--seed SEED] [--include-stress]"
     );
+    println!("  dicom-test-suite compose --spec PATH --out PATH [--seed SEED] [--dry-run]");
     println!(
         "  dicom-test-suite list-cases [--profile PROFILE] [--status STATUS] [--registry PATH]"
     );
@@ -826,6 +874,12 @@ fn print_media_qualification_markdown(
 fn print_generate_usage() {
     println!(
         "usage: dicom-test-suite generate --profile PROFILE --out PATH [--seed SEED] [--include-stress]"
+    );
+}
+
+fn print_compose_usage() {
+    println!(
+        "usage: dicom-test-suite compose --spec PATH --out PATH [--seed SEED] [--dry-run] [--catalog PATH]"
     );
 }
 

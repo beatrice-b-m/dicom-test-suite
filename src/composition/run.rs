@@ -1,0 +1,609 @@
+use std::collections::BTreeMap;
+use std::fmt;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+
+use serde_json::{Value, json};
+
+use super::{
+    CompositionManifestAssembler, CompositionManifestInputs, CompositionSpec, CompositionUidRole,
+    ContentLimits, ContentSource, DefaultPixelOutput, IdentityAllocator, IdentityChoice,
+    LocalContentResolver, ManifestEntryInput, Part10Materializer, ResolvedInstancePlan,
+    TemplateCatalog, TemplateDescriptor, resolve_raw_native_pixels, resolved_sc_plan,
+    sc_default_pixels,
+};
+use crate::{PACKAGE_NAME, PACKAGE_VERSION, RUSTC_VERSION, TARGET_TRIPLE, sha256_hex};
+
+static NEXT_STAGING: AtomicU64 = AtomicU64::new(0);
+
+#[derive(Debug, Clone)]
+pub struct ComposeOptions {
+    pub spec_path: PathBuf,
+    pub out_dir: PathBuf,
+    pub seed: u64,
+    pub catalog_path: PathBuf,
+    pub dry_run: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ComposeSummary {
+    pub out_dir: PathBuf,
+    pub manifest_path: PathBuf,
+    pub instances_written: usize,
+    pub output_bytes: u64,
+    pub dry_run: bool,
+}
+
+pub fn compose(options: &ComposeOptions) -> Result<(ComposeSummary, Value), ComposeError> {
+    if options.out_dir.exists() {
+        return Err(ComposeError::OutputExists(options.out_dir.clone()));
+    }
+    let spec_bytes = fs::read(&options.spec_path).map_err(|source| ComposeError::Io {
+        path: options.spec_path.clone(),
+        source,
+    })?;
+    let catalog_bytes = fs::read(&options.catalog_path).map_err(|source| ComposeError::Io {
+        path: options.catalog_path.clone(),
+        source,
+    })?;
+    let spec = CompositionSpec::from_slice(&spec_bytes)?;
+    let catalog = TemplateCatalog::from_slice(&catalog_bytes)?;
+    let parent = options
+        .out_dir
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    fs::create_dir_all(parent).map_err(|source| ComposeError::Io {
+        path: parent.to_path_buf(),
+        source,
+    })?;
+    let staging = parent.join(format!(
+        ".dts-compose-{}-{:08}",
+        std::process::id(),
+        NEXT_STAGING.fetch_add(1, Ordering::Relaxed)
+    ));
+    fs::create_dir(&staging).map_err(|source| ComposeError::Io {
+        path: staging.clone(),
+        source,
+    })?;
+    let result = resolve_and_stage(
+        options,
+        &spec,
+        &catalog,
+        &spec_bytes,
+        &catalog_bytes,
+        &staging,
+    );
+    match result {
+        Ok((summary, output)) if options.dry_run => {
+            remove_private_staging(&staging)?;
+            Ok((summary, output))
+        }
+        Ok((mut summary, output)) => {
+            fs::rename(&staging, &options.out_dir).map_err(|source| ComposeError::Io {
+                path: options.out_dir.clone(),
+                source,
+            })?;
+            summary.out_dir = options.out_dir.clone();
+            summary.manifest_path = options.out_dir.join("manifest.json");
+            Ok((summary, output))
+        }
+        Err(error) => {
+            let _ = remove_private_staging(&staging);
+            Err(error)
+        }
+    }
+}
+
+fn resolve_and_stage(
+    options: &ComposeOptions,
+    spec: &CompositionSpec,
+    catalog: &TemplateCatalog,
+    spec_bytes: &[u8],
+    catalog_bytes: &[u8],
+    staging: &Path,
+) -> Result<(ComposeSummary, Value), ComposeError> {
+    let output_root = staging.join("instances");
+    let asset_root = staging.join(".assets");
+    fs::create_dir(&output_root).map_err(|source| ComposeError::Io {
+        path: output_root.clone(),
+        source,
+    })?;
+    fs::create_dir(&asset_root).map_err(|source| ComposeError::Io {
+        path: asset_root.clone(),
+        source,
+    })?;
+    let spec_root = options.spec_path.parent().unwrap_or_else(|| Path::new("."));
+    let mut content_resolver = LocalContentResolver::new(
+        spec_root,
+        &asset_root,
+        ContentLimits {
+            max_files: usize::try_from(spec.resource_limits.max_input_files)
+                .map_err(|_| ComposeError::ResourceRange)?,
+            max_file_bytes: spec.resource_limits.max_file_bytes,
+            max_total_bytes: spec.resource_limits.max_total_input_bytes,
+        },
+    )?;
+    let run_defaults = spec.defaults.typed_attributes()?;
+    let mut plans = Vec::with_capacity(spec.instances.len());
+    let mut templates = Vec::with_capacity(spec.instances.len());
+    let mut identity_plans = BTreeMap::new();
+
+    for instance in &spec.instances {
+        let template =
+            catalog.resolve_qualified(&instance.template.id, instance.template.version)?;
+        if !matches!(
+            template.template_id.0.as_str(),
+            "classic/secondary-capture/monochrome" | "classic/secondary-capture/rgb"
+        ) {
+            return Err(ComposeError::UnsupportedP2Template(
+                template.template_id.0.clone(),
+            ));
+        }
+        let allocator = IdentityAllocator::new(
+            catalog.standards_lock_sha256.clone(),
+            template.template_id.clone(),
+            template.template_version,
+            options.seed,
+        )?;
+        let mut identities = allocator.allocate_plan(
+            instance.instance_id.clone(),
+            [
+                (CompositionUidRole::StudyInstance, 0),
+                (CompositionUidRole::SeriesInstance, 0),
+                (CompositionUidRole::SopInstance, 0),
+                (CompositionUidRole::ImplementationClass, 0),
+            ],
+        )?;
+        apply_explicit_identities(instance, &mut identities.identities)?;
+        identity_plans.insert(instance.instance_id.clone(), identities);
+        templates.push(template);
+    }
+    apply_shared_identities(spec, &mut identity_plans)?;
+
+    for (instance, template) in spec.instances.iter().zip(templates) {
+        if !instance.references.is_empty() {
+            return Err(ComposeError::UnsupportedScReference(
+                instance.instance_id.clone(),
+            ));
+        }
+        let transfer_syntax_uid = instance
+            .transfer_syntax_uid
+            .as_deref()
+            .or(spec.defaults.transfer_syntax_uid.as_deref())
+            .unwrap_or_else(|| catalog.default_transfer_syntax(template).uid.as_str());
+        if !template
+            .transfer_syntaxes
+            .iter()
+            .any(|syntax| syntax.uid == transfer_syntax_uid)
+        {
+            return Err(ComposeError::UnsupportedTransferSyntax {
+                instance_id: instance.instance_id.clone(),
+                uid: transfer_syntax_uid.into(),
+            });
+        }
+        let overrides = instance.typed_attributes()?;
+        reject_content_element_override(&instance.instance_id, &overrides)?;
+        let pixel = resolve_sc_pixels(instance, template, &mut content_resolver)?;
+        validate_sc_pixel_contract(template, &pixel)?;
+        let plan = ResolvedInstancePlan {
+            plan_schema_version: "0.1.0".into(),
+            instance_id: instance.instance_id.clone(),
+            template_id: template.template_id.clone(),
+            template_version: template.template_version,
+            sop_class_uid: template.sop_class_uid.clone(),
+            transfer_syntax_uid: transfer_syntax_uid.into(),
+            identities: identity_plans
+                .remove(&instance.instance_id)
+                .expect("identity pass covered every instance"),
+            attributes: vec![],
+            content: vec![],
+            references: vec![],
+        };
+        plans.push(resolved_sc_plan(
+            plan,
+            template,
+            &run_defaults,
+            &overrides,
+            pixel,
+        )?);
+    }
+
+    let dry_run_output = json!({
+        "composition_spec_schema_version": spec.composition_spec_schema_version,
+        "seed": options.seed,
+        "plans": plans
+    });
+    if options.dry_run {
+        return Ok((
+            ComposeSummary {
+                out_dir: options.out_dir.clone(),
+                manifest_path: options.out_dir.join("manifest.json"),
+                instances_written: 0,
+                output_bytes: 0,
+                dry_run: true,
+            },
+            dry_run_output,
+        ));
+    }
+
+    let mut entry_paths = Vec::with_capacity(plans.len());
+    let mut output_bytes = 0_u64;
+    for plan in &plans {
+        let relative_path = format!("instances/{}.dcm", plan.instance_id);
+        let path = staging.join(&relative_path);
+        Part10Materializer.materialize(plan, &path)?;
+        output_bytes = output_bytes
+            .checked_add(
+                fs::metadata(&path)
+                    .map_err(|source| ComposeError::Io {
+                        path: path.clone(),
+                        source,
+                    })?
+                    .len(),
+            )
+            .ok_or(ComposeError::OutputSizeOverflow)?;
+        if output_bytes > spec.resource_limits.max_total_output_bytes {
+            return Err(ComposeError::OutputLimit {
+                size: output_bytes,
+                limit: spec.resource_limits.max_total_output_bytes,
+            });
+        }
+        entry_paths.push((path, relative_path));
+    }
+    let entries = plans
+        .iter()
+        .zip(&entry_paths)
+        .map(|(plan, (path, relative_path))| ManifestEntryInput {
+            plan,
+            output_path: path,
+            relative_path: relative_path.clone(),
+            requested: true,
+            bundle_root_instance_id: plan.instance_id.clone(),
+            bundle_role: "root".into(),
+            determinism: "byte_stable".into(),
+        })
+        .collect::<Vec<_>>();
+    let manifest = CompositionManifestAssembler.assemble(
+        CompositionManifestInputs {
+            generated_at: "2000-01-01T00:00:00Z".into(),
+            generator: json!({
+                "name": PACKAGE_NAME,
+                "version": PACKAGE_VERSION,
+                "rustc": RUSTC_VERSION,
+                "target": TARGET_TRIPLE
+            }),
+            standards: json!({
+                "dicom_base_edition": "2026b",
+                "standards_lock_sha256": catalog.standards_lock_sha256
+            }),
+            dependencies: json!({ "template_catalog": "templates/catalog.json" }),
+            seed: options.seed,
+            composition_spec_schema_version: spec.composition_spec_schema_version.clone(),
+            input_spec_sha256: sha256_hex(spec_bytes),
+            template_catalog_schema_version: catalog.template_catalog_schema_version.clone(),
+            template_catalog_sha256: sha256_hex(catalog_bytes),
+            resource_limits: resource_map(&spec.resource_limits),
+            requested_parallelism: 1,
+            used_parallelism: 1,
+        },
+        &entries,
+    )?;
+    let manifest_path = staging.join("manifest.json");
+    fs::write(
+        &manifest_path,
+        format!(
+            "{}\n",
+            serde_json::to_string_pretty(&manifest).expect("manifest serializes")
+        ),
+    )
+    .map_err(|source| ComposeError::Io {
+        path: manifest_path.clone(),
+        source,
+    })?;
+    fs::remove_dir_all(&asset_root).map_err(|source| ComposeError::Io {
+        path: asset_root,
+        source,
+    })?;
+    Ok((
+        ComposeSummary {
+            out_dir: staging.to_path_buf(),
+            manifest_path,
+            instances_written: plans.len(),
+            output_bytes,
+            dry_run: false,
+        },
+        manifest,
+    ))
+}
+
+fn apply_explicit_identities(
+    instance: &super::SpecInstance,
+    identities: &mut BTreeMap<String, String>,
+) -> Result<(), ComposeError> {
+    for (name, choice) in &instance.identities {
+        let role = identity_key(name)?;
+        match choice {
+            IdentityChoice::Explicit { uid } => {
+                identities.insert(role.into(), uid.clone());
+            }
+            IdentityChoice::Auto { auto } if *auto => {}
+            IdentityChoice::Shared { .. } => {}
+            IdentityChoice::Auto { .. } => {
+                return Err(ComposeError::InvalidAutoIdentity(name.clone()));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn apply_shared_identities(
+    spec: &CompositionSpec,
+    identities: &mut BTreeMap<String, super::IdentityPlan>,
+) -> Result<(), ComposeError> {
+    for instance in &spec.instances {
+        for (name, choice) in &instance.identities {
+            let IdentityChoice::Shared { share_with } = choice else {
+                continue;
+            };
+            let key = identity_key(name)?;
+            let shared = identities
+                .get(share_with)
+                .and_then(|plan| plan.identities.get(key))
+                .cloned()
+                .ok_or_else(|| ComposeError::UnknownSharedIdentity {
+                    instance_id: instance.instance_id.clone(),
+                    share_with: share_with.clone(),
+                    identity: name.clone(),
+                })?;
+            identities
+                .get_mut(&instance.instance_id)
+                .expect("identity pass covered instance")
+                .identities
+                .insert(key.into(), shared);
+        }
+    }
+    Ok(())
+}
+
+fn identity_key(name: &str) -> Result<&'static str, ComposeError> {
+    match name {
+        "study" => Ok("study_instance_uid#0"),
+        "series" => Ok("series_instance_uid#0"),
+        "sop_instance" => Ok("sop_instance_uid#0"),
+        "frame_of_reference" => Ok("frame_of_reference_uid#0"),
+        "patient" => Err(ComposeError::UnsupportedPatientIdentity),
+        other => Err(ComposeError::UnknownIdentity(other.into())),
+    }
+}
+
+fn resolve_sc_pixels(
+    instance: &super::SpecInstance,
+    template: &TemplateDescriptor,
+    resolver: &mut LocalContentResolver,
+) -> Result<DefaultPixelOutput, ComposeError> {
+    if instance.content.len() > 1 {
+        return Err(ComposeError::ContentCardinality(
+            instance.instance_id.clone(),
+        ));
+    }
+    let Some(assignment) = instance.content.first() else {
+        return Ok(sc_default_pixels(&template.template_id)?);
+    };
+    if assignment.slot != "pixels" {
+        return Err(ComposeError::UnknownContentSlot(assignment.slot.clone()));
+    }
+    match &assignment.source {
+        ContentSource::Default => Ok(sc_default_pixels(&template.template_id)?),
+        ContentSource::LocalFile {
+            path,
+            sha256,
+            pixel: Some(pixel),
+            ..
+        } => {
+            let output =
+                resolve_raw_native_pixels(resolver, path, sha256.as_deref(), pixel.shape()?)?;
+            Ok(DefaultPixelOutput {
+                plan: output.plan,
+                content: output.content,
+            })
+        }
+        ContentSource::LocalFile { pixel: None, .. } => Err(ComposeError::MissingPixelDeclaration(
+            instance.instance_id.clone(),
+        )),
+        _ => Err(ComposeError::UnsupportedP2Content(
+            instance.instance_id.clone(),
+        )),
+    }
+}
+
+fn validate_sc_pixel_contract(
+    template: &TemplateDescriptor,
+    pixel: &DefaultPixelOutput,
+) -> Result<(), ComposeError> {
+    let shape = &pixel.plan.shape;
+    let mono = template.template_id.0.ends_with("/monochrome");
+    let allowed = if mono {
+        shape.samples_per_pixel == 1
+            && matches!(
+                shape.photometric_interpretation,
+                super::PhotometricInterpretation::Monochrome1
+                    | super::PhotometricInterpretation::Monochrome2
+            )
+            && matches!(shape.bits_allocated, 8 | 16)
+            && shape.sample_type == super::SampleType::UnsignedInteger
+            && shape.planar_configuration.is_none()
+    } else {
+        shape.samples_per_pixel == 3
+            && shape.photometric_interpretation == super::PhotometricInterpretation::Rgb
+            && shape.bits_allocated == 8
+            && shape.sample_type == super::SampleType::UnsignedInteger
+            && shape.planar_configuration.is_some()
+    };
+    if allowed && shape.byte_order == super::ByteOrder::Little {
+        Ok(())
+    } else {
+        Err(ComposeError::PixelContract(template.template_id.0.clone()))
+    }
+}
+
+fn reject_content_element_override(
+    instance_id: &str,
+    operations: &[super::AttributeOperation],
+) -> Result<(), ComposeError> {
+    if let Some(operation) = operations.iter().find(|operation| {
+        matches!(
+            operation.address().normalized_tag().as_str(),
+            "7FE0,0010" | "7FE0,0008" | "7FE0,0009"
+        )
+    }) {
+        return Err(ComposeError::ProtectedContentOverride {
+            instance_id: instance_id.into(),
+            tag: operation.address().normalized_tag(),
+        });
+    }
+    Ok(())
+}
+
+fn resource_map(limits: &super::ResourceLimits) -> BTreeMap<String, u64> {
+    BTreeMap::from([
+        ("max_instances".into(), limits.max_instances),
+        ("max_input_files".into(), limits.max_input_files),
+        ("max_file_bytes".into(), limits.max_file_bytes),
+        ("max_total_input_bytes".into(), limits.max_total_input_bytes),
+        (
+            "max_total_output_bytes".into(),
+            limits.max_total_output_bytes,
+        ),
+    ])
+}
+
+fn remove_private_staging(path: &Path) -> Result<(), ComposeError> {
+    fs::remove_dir_all(path).map_err(|source| ComposeError::Io {
+        path: path.to_path_buf(),
+        source,
+    })
+}
+
+#[derive(Debug)]
+pub enum ComposeError {
+    OutputExists(PathBuf),
+    Io {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+    Spec(super::SpecError),
+    Template(super::TemplateError),
+    Identity(super::IdentityError),
+    Content(super::ContentError),
+    RawContent(super::RawContentError),
+    Defaults(super::DefaultError),
+    Materialize(super::MaterializeError),
+    Manifest(super::ManifestError),
+    ResourceRange,
+    UnsupportedP2Template(String),
+    UnsupportedP2Content(String),
+    UnsupportedScReference(String),
+    UnsupportedTransferSyntax {
+        instance_id: String,
+        uid: String,
+    },
+    UnsupportedPatientIdentity,
+    UnknownIdentity(String),
+    InvalidAutoIdentity(String),
+    UnknownSharedIdentity {
+        instance_id: String,
+        share_with: String,
+        identity: String,
+    },
+    ContentCardinality(String),
+    UnknownContentSlot(String),
+    MissingPixelDeclaration(String),
+    PixelContract(String),
+    ProtectedContentOverride {
+        instance_id: String,
+        tag: String,
+    },
+    OutputSizeOverflow,
+    OutputLimit {
+        size: u64,
+        limit: u64,
+    },
+}
+
+macro_rules! from_error {
+    ($source:ty, $variant:ident) => {
+        impl From<$source> for ComposeError {
+            fn from(error: $source) -> Self {
+                Self::$variant(error)
+            }
+        }
+    };
+}
+from_error!(super::SpecError, Spec);
+from_error!(super::TemplateError, Template);
+from_error!(super::IdentityError, Identity);
+from_error!(super::ContentError, Content);
+from_error!(super::RawContentError, RawContent);
+from_error!(super::DefaultError, Defaults);
+from_error!(super::MaterializeError, Materialize);
+from_error!(super::ManifestError, Manifest);
+
+impl fmt::Display for ComposeError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "{self:?}")
+    }
+}
+
+impl std::error::Error for ComposeError {}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    use super::*;
+
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+
+    fn output(label: &str) -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "dts-compose-run-{label}-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ))
+    }
+
+    #[test]
+    fn default_spec_resolves_writes_validates_and_promotes_once() {
+        let out = output("default");
+        let (summary, manifest) = compose(&ComposeOptions {
+            spec_path: "tests/fixtures/composition/valid/template-only.json".into(),
+            out_dir: out.clone(),
+            seed: 5,
+            catalog_path: "templates/catalog.json".into(),
+            dry_run: false,
+        })
+        .unwrap();
+        assert_eq!(summary.instances_written, 1);
+        assert!(out.join("instances/primary.dcm").is_file());
+        assert_eq!(manifest["run"]["kind"], "composition");
+        fs::remove_dir_all(out).unwrap();
+    }
+
+    #[test]
+    fn dry_run_returns_canonical_plans_without_promoting_output() {
+        let out = output("dry-run");
+        let (summary, resolved) = compose(&ComposeOptions {
+            spec_path: "tests/fixtures/composition/valid/template-only.json".into(),
+            out_dir: out.clone(),
+            seed: 5,
+            catalog_path: "templates/catalog.json".into(),
+            dry_run: true,
+        })
+        .unwrap();
+        assert!(summary.dry_run);
+        assert!(!out.exists());
+        assert_eq!(resolved["plans"].as_array().unwrap().len(), 1);
+    }
+}

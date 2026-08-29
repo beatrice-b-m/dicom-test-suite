@@ -12,6 +12,7 @@ pub mod native_content;
 pub mod pixel;
 pub mod plan;
 pub mod reference;
+pub mod run;
 pub mod spec;
 pub mod template;
 
@@ -44,6 +45,7 @@ pub use reference::{
     CyclePolicy, LogicalReference, MaterializedReference, ReferenceError, ReferenceGraph,
     ReferenceNode,
 };
+pub use run::{ComposeError, ComposeOptions, ComposeSummary, compose};
 pub use spec::{
     AttributeScope, CompositionSpec, ContentAssignment, ContentSource, EncodedFrame,
     IdentityChoice, PixelDeclaration, ResourceLimits, SpecDefaults, SpecError, SpecInstance,

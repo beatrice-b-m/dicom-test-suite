@@ -1,65 +1,7 @@
 {
-  "case_recipe_schema_version": "0.1.0",
-  "recipe_id": "derived_seg_wsi_tile_reference",
-  "recipe_version": "0.1.0",
-  "binding": {
-    "case_id": "derived/seg/wsi_tile_reference"
-  },
-  "kind": "dicom",
-  "plan_provider_id": "external.import_plan",
-  "dependencies": [
-
-  ],
-  "provider_parameters": {
-  },
-  "validation_rule_ids": [
-    "validation.shared"
-  ],
-  "projection_rule_ids": [
-    "projection.curated"
-  ],
-  "dicom": {
-    "artifacts": [
-      {
-        "logical_id": "artifact_1",
-        "output": {
-          "role": "primary_1",
-          "provider_derived": true
-        },
-        "encoding": {
-          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-          "sequence_length_policy": "provider",
-          "item_length_policy": "provider",
-          "offset_table_policy": "provider",
-          "fragmentation_policy": "provider"
-        },
-        "parameters": {
-        },
-        "attribute_operations": [
-
-        ],
-        "content": {
-          "provider_id": "content.case_default",
-          "parameters": {
-          }
-        },
-        "validation_rule_ids": [
-          "validation.shared"
-        ],
-        "projection_rule_ids": [
-          "projection.curated"
-        ],
-        "determinism": "semantic_stable",
-        "stressors": [
-
-        ],
-        "algorithm_provider_id": "algorithm.case_provider",
-        "template": {
-          "template_id": "derived/segmentation/wsi-tile",
-          "template_version": "1.0.0"
-        },
-        "order": 0
-      }
-    ]
-  }
+  "case_recipe_schema_version":"0.1.0",
+  "recipe_id":"derived_seg_wsi_tile_reference","recipe_version":"0.1.0","binding":{"case_id":"derived/seg/wsi_tile_reference"},"kind":"dicom","planning_order":1107,"plan_provider_id":"external.quantitative_import_plan",
+  "provider_parameters":{"import":{"kind":"whole_slide_tile_segmentation","request_id":"wsi_tile_segmentation","output_media_type":"application/dicom","maximum_output_bytes":16384,"timeout_seconds":5,"dependency":{"executable_provider_id":"highdicom_pydicom","required_tool_version":"0.5.0","dependency_lock_sha256":"253612f2a540d29071556c238e15abeb00929167e348edd6fa15e267e5189378","protocol_version":"0.1.0"},"semantic_evidence":{"sop_class_uid":"1.2.840.10008.5.1.4.1.1.66.4","transfer_syntax_uid":"1.2.840.10008.1.2.1","pixel_vr":"OB","frame_count":2,"rows":2,"columns":2,"source_frame_numbers":[1,4],"required_validation_names":["wsi_tile_segmentation_source_frames","wsi_tile_segmentation_pixel_payload","wsi_tile_segmentation_slide_coordinates"]}},"sources":[{"recipe":{"recipe_id":"vl_wsi_tiled_full_small","recipe_version":"0.1.0"},"artifact_logical_id":"wsi_tiled_full","role":"whole_slide_source_image","referenced_frames":[1,4]}]},
+  "dependencies":[{"recipe":{"recipe_id":"vl_wsi_tiled_full_small","recipe_version":"0.1.0"},"role":"whole_slide_source_image"}],"validation_rule_ids":["validation.quantitative.external_import"],"projection_rule_ids":["projection.quantitative"],
+  "dicom":{"artifacts":[{"logical_id":"segmentation","order":0,"template":{"template_id":"derived/segmentation/wsi-tile","template_version":"1.0.0"},"output":{"role":"segmentation","path":"derived/seg/wsi_tile_reference/wsi-tile-segmentation.dcm"},"encoding":{"transfer_syntax_uid":"1.2.840.10008.1.2.1","sequence_length_policy":"provider","item_length_policy":"provider","offset_table_policy":"provider","fragmentation_policy":"provider"},"parameters":{"segmentation_type":"FRACTIONAL","segmentation_fractional_type":"OCCUPANCY","maximum_fractional_value":255,"rows":2,"columns":2,"frames":2,"source_frame_numbers":[1,4],"frame_sha256":["34aaa746c25a0f105c4316bbb1f009aa359f49582656ee97d73c58132d563423","10db5223d19bd1d58c2b8eb3c723b0ba104cf17564f9434e53e1b9e642fb3b37"],"payload_sha256":"74fa7cbb10160e0eb1f16f35fa9ad0e7f2712af56019996e88cf1034be92635e","reconstructed_matrix_sha256":"a8ec6f910c0fb02685163a3251bed92517d1016c9173f1e4f021e6b4194f2467"},"attribute_operations":[],"content":{"provider_id":"content.neutral","parameters":{"contract":"integer_pixels","ownership":"external_import"}},"validation_rule_ids":["validation.quantitative.external_import"],"projection_rule_ids":["projection.quantitative"],"determinism":"semantic_stable","stressors":["segmentation_storage","fractional_occupancy_pixel_data","tiled_sparse","wsi_tile_references","slide_coordinate_system","external_generation_backend"],"algorithm_provider_id":"algorithm.quantitative"}]}
 }

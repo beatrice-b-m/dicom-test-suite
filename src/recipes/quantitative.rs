@@ -28,8 +28,8 @@ use crate::executor::services::ArtifactExecutionBindings;
 use crate::planning::RecipeIdentity;
 
 use super::{
-    ContentByteOrder, ContentProviderLimits, ContentProviderRequest, ContentTarget,
-    IntegerPixelsContract, IntegerSamples, NeutralContentProvider,
+    CaseRecipe, ContentByteOrder, ContentProviderLimits, ContentProviderRequest, ContentTarget,
+    IntegerPixelsContract, IntegerSamples, NeutralContentProvider, RecipeReference,
 };
 
 pub const QUANTITATIVE_NATIVE_PROVIDER_ID: &str = "native.quantitative_plan";
@@ -57,7 +57,7 @@ impl Default for QuantitativeProviderLimits {
             max_frames: 256,
             max_elements: 16 * 1024 * 1024,
             max_output_bytes: 64 * 1024 * 1024,
-            max_external_seconds: 30,
+            max_external_seconds: 300,
         }
     }
 }
@@ -205,6 +205,215 @@ pub enum QuantitativePlanInput {
         import: ExternalImportBoundary,
         sources: Vec<QuantitativeSourceInput>,
     },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct QuantitativeSourceDeclaration {
+    recipe: RecipeReference,
+    artifact_logical_id: String,
+    role: QuantitativeSourceRole,
+    #[serde(default)]
+    referenced_frames: Vec<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct NativeSegDocumentParameters {
+    segmentation: SegmentationInput,
+    sources: Vec<QuantitativeSourceDeclaration>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct NativeRwvmDocumentParameters {
+    mapping: RealWorldValueMappingInput,
+    sources: Vec<QuantitativeSourceDeclaration>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ExternalDocumentParameters {
+    import: ExternalImportBoundary,
+    sources: Vec<QuantitativeSourceDeclaration>,
+}
+
+pub fn quantitative_input_from_recipe(
+    recipe: &CaseRecipe,
+    artifact: QuantitativeArtifactContext,
+    sources: Vec<QuantitativeSourceInput>,
+) -> Result<Option<QuantitativePlanInput>, QuantitativePlanError> {
+    let expected = match recipe.plan_provider_id.as_str() {
+        QUANTITATIVE_NATIVE_PROVIDER_ID | QUANTITATIVE_EXTERNAL_PROVIDER_ID => recipe
+            .dicom
+            .as_ref()
+            .and_then(|dicom| dicom.artifacts.first())
+            .ok_or(QuantitativePlanError::Document(
+                "quantitative recipe requires one DICOM artifact".into(),
+            ))?,
+        _ => return Ok(None),
+    };
+    if recipe
+        .dicom
+        .as_ref()
+        .is_none_or(|dicom| dicom.artifacts.len() != 1)
+        || expected.logical_id != artifact.recipe_artifact_logical_id
+        || expected.output.path.as_deref() != Some(artifact.output.relative_path.as_str())
+        || expected.order as u64 != artifact.order
+    {
+        return Err(QuantitativePlanError::Document(
+            "quantitative artifact context differs from recipe".into(),
+        ));
+    }
+    let (declarations, result) = if recipe.plan_provider_id == QUANTITATIVE_EXTERNAL_PROVIDER_ID {
+        let parameters: ExternalDocumentParameters = serde_json::from_value(
+            serde_json::Value::Object(recipe.provider_parameters.clone()),
+        )
+        .map_err(|error| QuantitativePlanError::Document(error.to_string()))?;
+        let declarations = parameters.sources.clone();
+        (
+            declarations,
+            QuantitativePlanInput::ExternalImport {
+                recipe: recipe.identity(),
+                case_id: recipe.binding.case_id.clone(),
+                artifact,
+                import: parameters.import,
+                sources: Vec::new(),
+            },
+        )
+    } else if recipe.provider_parameters.contains_key("segmentation") {
+        let parameters: NativeSegDocumentParameters = serde_json::from_value(
+            serde_json::Value::Object(recipe.provider_parameters.clone()),
+        )
+        .map_err(|error| QuantitativePlanError::Document(error.to_string()))?;
+        let declarations = parameters.sources.clone();
+        (
+            declarations,
+            QuantitativePlanInput::NativeSeg {
+                recipe: recipe.identity(),
+                case_id: recipe.binding.case_id.clone(),
+                artifact,
+                segmentation: parameters.segmentation,
+                sources: Vec::new(),
+            },
+        )
+    } else {
+        let parameters: NativeRwvmDocumentParameters = serde_json::from_value(
+            serde_json::Value::Object(recipe.provider_parameters.clone()),
+        )
+        .map_err(|error| QuantitativePlanError::Document(error.to_string()))?;
+        let declarations = parameters.sources.clone();
+        (
+            declarations,
+            QuantitativePlanInput::NativeRwvm {
+                recipe: recipe.identity(),
+                case_id: recipe.binding.case_id.clone(),
+                artifact,
+                mapping: parameters.mapping,
+                sources: Vec::new(),
+            },
+        )
+    };
+    let ordered = bind_declared_sources(recipe, &declarations, sources)?;
+    Ok(Some(match result {
+        QuantitativePlanInput::NativeSeg {
+            recipe,
+            case_id,
+            artifact,
+            segmentation,
+            ..
+        } => QuantitativePlanInput::NativeSeg {
+            recipe,
+            case_id,
+            artifact,
+            segmentation,
+            sources: ordered,
+        },
+        QuantitativePlanInput::NativeRwvm {
+            recipe,
+            case_id,
+            artifact,
+            mapping,
+            ..
+        } => QuantitativePlanInput::NativeRwvm {
+            recipe,
+            case_id,
+            artifact,
+            mapping,
+            sources: ordered,
+        },
+        QuantitativePlanInput::ExternalImport {
+            recipe,
+            case_id,
+            artifact,
+            import,
+            ..
+        } => QuantitativePlanInput::ExternalImport {
+            recipe,
+            case_id,
+            artifact,
+            import,
+            sources: ordered,
+        },
+    }))
+}
+
+fn bind_declared_sources(
+    recipe: &CaseRecipe,
+    declarations: &[QuantitativeSourceDeclaration],
+    mut sources: Vec<QuantitativeSourceInput>,
+) -> Result<Vec<QuantitativeSourceInput>, QuantitativePlanError> {
+    if declarations.len() != sources.len() {
+        return Err(QuantitativePlanError::Document(
+            "quantitative source cardinality mismatch".into(),
+        ));
+    }
+    let dependencies = recipe
+        .dependencies
+        .iter()
+        .map(|dependency| dependency.recipe.identity())
+        .collect::<BTreeSet<_>>();
+    let mut ordered = Vec::with_capacity(sources.len());
+    for declaration in declarations {
+        if !dependencies.contains(&declaration.recipe.identity()) {
+            return Err(QuantitativePlanError::Document(
+                "quantitative source lacks recipe dependency".into(),
+            ));
+        }
+        let position = sources
+            .iter()
+            .position(|source| {
+                source.artifact.logical_id == declaration.artifact_logical_id
+                    && source
+                        .artifact
+                        .case_binding
+                        .as_ref()
+                        .is_some_and(|binding| {
+                            binding.recipe_id == declaration.recipe.recipe_id
+                                && binding.recipe_version == declaration.recipe.recipe_version
+                        })
+            })
+            .ok_or_else(|| {
+                QuantitativePlanError::Document(format!(
+                    "missing quantitative source {}",
+                    declaration.artifact_logical_id
+                ))
+            })?;
+        let mut source = sources.remove(position);
+        if source.role != declaration.role {
+            return Err(QuantitativePlanError::Document(
+                "quantitative source role mismatch".into(),
+            ));
+        }
+        source.referenced_frames = declaration.referenced_frames.clone();
+        ordered.push(source);
+    }
+    if !sources.is_empty() {
+        return Err(QuantitativePlanError::Document(
+            "undeclared quantitative source".into(),
+        ));
+    }
+    Ok(ordered)
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -362,6 +571,13 @@ fn plan_seg(
         recipe,
         case_id,
         context,
+        match input.kind {
+            SegmentationKind::Binary => "derived/segmentation/binary",
+            SegmentationKind::FractionalProbability => {
+                "derived/segmentation/fractional-probability"
+            }
+            SegmentationKind::Labelmap => "derived/segmentation/labelmap",
+        },
         sop,
         &input.transfer_syntax_uid,
         attributes,
@@ -407,6 +623,7 @@ fn plan_rwvm(
         recipe,
         case_id,
         context,
+        "derived/real-world-value-mapping/linear",
         RWVM_SOP,
         EXPLICIT_VR_LE,
         attributes,
@@ -480,6 +697,7 @@ fn finish_native(
     recipe: &RecipeIdentity,
     case_id: &str,
     context: &QuantitativeArtifactContext,
+    template_id: &str,
     sop_class_uid: &str,
     transfer_syntax_uid: &str,
     attributes: Vec<AttributeOperation>,
@@ -516,7 +734,7 @@ fn finish_native(
         instance: ResolvedInstancePlan {
             plan_schema_version: "0.1.0".into(),
             instance_id: context.target_instance_id.clone(),
-            template_id: TemplateId(template_id(sop_class_uid).into()),
+            template_id: TemplateId(template_id.into()),
             template_version: TemplateVersion::from_str("1.0.0").expect("valid version"),
             sop_class_uid: sop_class_uid.into(),
             transfer_syntax_uid: transfer_syntax_uid.into(),
@@ -960,15 +1178,6 @@ fn encoding(transfer_syntax_uid: &str, implementation: &str) -> EncodingPlan {
     }
 }
 
-fn template_id(sop: &str) -> &'static str {
-    match sop {
-        SEGMENTATION_SOP => "derived/segmentation/binary",
-        LABELMAP_SOP => "derived/segmentation/labelmap",
-        RWVM_SOP => "derived/real-world-value-mapping/linear",
-        _ => unreachable!(),
-    }
-}
-
 fn is_sha256(value: &str) -> bool {
     value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
@@ -987,6 +1196,7 @@ pub enum QuantitativePlanError {
     ResourceOverflow,
     ResourceLimitExceeded,
     Content(super::ContentProviderError),
+    Document(String),
 }
 
 impl fmt::Display for QuantitativePlanError {

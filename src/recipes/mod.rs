@@ -80,7 +80,7 @@ pub use quantitative::{
     QuantitativeArtifactContext, QuantitativePlanError, QuantitativePlanInput,
     QuantitativePlanOutput, QuantitativePlanProvider, QuantitativeProviderLimits,
     QuantitativeSourceInput, QuantitativeSourceRole, RealWorldValueMappingInput, SegmentationInput,
-    SegmentationKind,
+    SegmentationKind, quantitative_input_from_recipe,
 };
 pub use registration::{
     DeformableRegistrationParameters, REGISTRATION_PLAN_PROVIDER_ID, RegistrationCommonInput,

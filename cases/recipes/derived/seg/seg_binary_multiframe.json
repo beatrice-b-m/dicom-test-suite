@@ -1,65 +1,10 @@
 {
   "case_recipe_schema_version": "0.1.0",
-  "recipe_id": "seg_binary_multiframe",
-  "recipe_version": "0.1.0",
-  "binding": {
-    "case_id": "derived/seg/binary_multiframe_explicit_le"
-  },
-  "kind": "dicom",
-  "plan_provider_id": "native.case_plan",
-  "dependencies": [
-
-  ],
-  "provider_parameters": {
-  },
-  "validation_rule_ids": [
-    "validation.shared"
-  ],
-  "projection_rule_ids": [
-    "projection.curated"
-  ],
-  "dicom": {
-    "artifacts": [
-      {
-        "logical_id": "artifact_1",
-        "output": {
-          "role": "primary_1",
-          "provider_derived": true
-        },
-        "encoding": {
-          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-          "sequence_length_policy": "provider",
-          "item_length_policy": "provider",
-          "offset_table_policy": "provider",
-          "fragmentation_policy": "provider"
-        },
-        "parameters": {
-        },
-        "attribute_operations": [
-
-        ],
-        "content": {
-          "provider_id": "content.case_default",
-          "parameters": {
-          }
-        },
-        "validation_rule_ids": [
-          "validation.shared"
-        ],
-        "projection_rule_ids": [
-          "projection.curated"
-        ],
-        "determinism": "byte_stable",
-        "stressors": [
-
-        ],
-        "algorithm_provider_id": "algorithm.case_provider",
-        "template": {
-          "template_id": "derived/segmentation/binary",
-          "template_version": "1.0.0"
-        },
-        "order": 0
-      }
-    ]
-  }
+  "recipe_id": "seg_binary_multiframe", "recipe_version": "0.1.0",
+  "binding": { "case_id": "derived/seg/binary_multiframe_explicit_le" }, "kind": "dicom", "planning_order": 1100,
+  "plan_provider_id": "native.quantitative_plan",
+  "provider_parameters": { "segmentation": { "kind": "binary", "rows": 2, "columns": 2, "frames": 2, "transfer_syntax_uid": "1.2.840.10008.1.2.1", "segment_label": "DTS_SYNTHETIC_REGION", "segment_number": 1, "stored_values": [1,0,0,1,0,1,1,0], "visual_pattern": "two_frame_binary_segmentation_mask" }, "sources": [{ "recipe": { "recipe_id": "enhanced_ct_multiframe_shared_perframe", "recipe_version": "0.1.0" }, "artifact_logical_id": "advanced_enhanced_ct_multiframe_shared_perframe_artifact_1", "role": "segmentation_source_image", "referenced_frames": [1,2] }] },
+  "dependencies": [{ "recipe": { "recipe_id": "enhanced_ct_multiframe_shared_perframe", "recipe_version": "0.1.0" }, "role": "segmentation_source_image" }],
+  "validation_rule_ids": ["validation.quantitative.seg"], "projection_rule_ids": ["projection.quantitative"],
+  "dicom": { "artifacts": [{ "logical_id": "segmentation", "order": 0, "template": { "template_id": "derived/segmentation/binary", "template_version": "1.0.0" }, "output": { "role": "segmentation", "path": "derived/seg/binary_multiframe_explicit_le/instance.dcm" }, "encoding": { "transfer_syntax_uid": "1.2.840.10008.1.2.1", "sequence_length_policy": "default", "item_length_policy": "default", "offset_table_policy": "none", "fragmentation_policy": "native" }, "parameters": { "rows": 2, "columns": 2, "frames": 2, "bits_allocated": 1, "bits_stored": 1, "high_bit": 0, "segmentation_type": "BINARY", "pixel_packing": "continuous_lsb_first", "referenced_frames": [1,2] }, "attribute_operations": [], "content": { "provider_id": "content.neutral", "parameters": { "contract": "integer_pixels_bit_packed" } }, "validation_rule_ids": ["validation.quantitative.seg"], "projection_rule_ids": ["projection.quantitative"], "determinism": "byte_stable", "stressors": ["binary_bit_packed_pixel_data"], "algorithm_provider_id": "algorithm.quantitative" }] }
 }

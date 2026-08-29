@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::fs::{self, File, OpenOptions};
-use std::io::{BufWriter, Read, Write};
+use std::io::{self, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 
 use dicom_core::value::{
@@ -80,6 +80,57 @@ impl Part10Materializer {
         self.materialize_internal(plan, Some(encoding), path, is_cancelled)
     }
 
+    /// Serialize an inline resolved instance to the exact Part 10 bytes used
+    /// by normal materialization without creating or reading any files.
+    ///
+    /// Staged content is intentionally unsupported: preview is a bounded
+    /// validation primitive, not an alternate streaming materializer.
+    pub(crate) fn preview_part10_bytes_with_encoding(
+        &self,
+        plan: &ResolvedInstancePlan,
+        encoding: &EncodingPlan,
+        max_size_bytes: u64,
+    ) -> Result<Vec<u8>, MaterializeError> {
+        self.preview_part10_bytes_with_encoding_cancellable(plan, encoding, max_size_bytes, &|| {
+            false
+        })
+    }
+
+    pub(crate) fn preview_part10_bytes_with_encoding_cancellable(
+        &self,
+        plan: &ResolvedInstancePlan,
+        encoding: &EncodingPlan,
+        max_size_bytes: u64,
+        is_cancelled: &dyn Fn() -> bool,
+    ) -> Result<Vec<u8>, MaterializeError> {
+        check_materialization_cancelled(is_cancelled)?;
+        validate_encoding_policy(plan, Some(encoding))?;
+        if let Some(content) = plan.content.iter().find(|content| {
+            matches!(
+                content.materialization,
+                Some(ContentMaterialization::StagedFile(_))
+            )
+        }) {
+            return Err(MaterializeError::PreviewStagedContent(content.slot.clone()));
+        }
+        let file_object = build_file_object(plan, Some(encoding), None)?;
+        check_materialization_cancelled(is_cancelled)?;
+        let mut writer = BoundedPreviewWriter::new(max_size_bytes, is_cancelled);
+        if let Err(error) = serialize_part10(&file_object, Some(encoding), &mut writer) {
+            return match writer.failure {
+                Some(PreviewWriterFailure::Cancelled) => Err(MaterializeError::Cancelled),
+                Some(PreviewWriterFailure::LimitExceeded) => {
+                    Err(MaterializeError::PreviewLimitExceeded {
+                        limit: max_size_bytes,
+                    })
+                }
+                None => Err(error),
+            };
+        }
+        check_materialization_cancelled(is_cancelled)?;
+        Ok(writer.bytes)
+    }
+
     fn materialize_internal(
         &self,
         plan: &ResolvedInstancePlan,
@@ -119,8 +170,35 @@ impl Part10Materializer {
         } else {
             None
         };
-        let mut object = build_dataset(plan, stream_content.map(|content| content.slot.as_str()))?;
+        let file_object = build_file_object(
+            plan,
+            encoding,
+            stream_content.map(|content| content.slot.as_str()),
+        )?;
         check_materialization_cancelled(is_cancelled)?;
+        let file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(path)
+            .map_err(|source| MaterializeError::Io {
+                path: path.to_path_buf(),
+                source,
+            })?;
+        let mut writer = BufWriter::new(file);
+        serialize_part10(&file_object, encoding, &mut writer)?;
+        writer.flush().map_err(|source| MaterializeError::Io {
+            path: path.to_path_buf(),
+            source,
+        })?;
+        check_materialization_cancelled(is_cancelled)?;
+
+        if let Some(content) = stream_content {
+            stream_staged_content(path, content, is_cancelled)?;
+        }
+
+        check_materialization_cancelled(is_cancelled)?;
+        let reopened =
+            open_file(path).map_err(|error| MaterializeError::Dicom(error.to_string()))?;
         let sop_instance_uid = plan
             .identities
             .get(&CompositionUidRole::SopInstance, 0)
@@ -131,53 +209,9 @@ impl Part10Materializer {
             .ok_or(MaterializeError::MissingIdentity(
                 "implementation_class_uid",
             ))?;
-        ensure_string(
-            &mut object,
-            tags::SOP_CLASS_UID,
-            DicomVr::UI,
-            &plan.sop_class_uid,
-        )?;
-        ensure_string(
-            &mut object,
-            tags::SOP_INSTANCE_UID,
-            DicomVr::UI,
-            sop_instance_uid,
-        )?;
-
         let implementation_version = encoding
             .map(|value| value.implementation.version_name.as_deref())
             .unwrap_or(Some(IMPLEMENTATION_VERSION_NAME));
-        let mut meta = FileMetaTableBuilder::new()
-            .transfer_syntax(&plan.transfer_syntax_uid)
-            .implementation_class_uid(implementation_class_uid);
-        if let Some(version) = implementation_version {
-            meta = meta.implementation_version_name(version);
-        }
-        let file_object = object
-            .with_meta(meta)
-            .map_err(|error| MaterializeError::Dicom(error.to_string()))?;
-        if encoding.is_none()
-            || encoding.is_some_and(|value| {
-                value.preamble == PreamblePolicy::ZeroFilled
-                    && value.sequence_length == SequenceLengthPolicy::WriterDefault
-                    && value.item_length == ItemLengthPolicy::WriterDefault
-            })
-        {
-            file_object
-                .write_to_file(path)
-                .map_err(|error| MaterializeError::Dicom(error.to_string()))?;
-        } else {
-            write_with_encoding(&file_object, encoding.expect("checked above"), path)?;
-        }
-        check_materialization_cancelled(is_cancelled)?;
-
-        if let Some(content) = stream_content {
-            stream_staged_content(path, content, is_cancelled)?;
-        }
-
-        check_materialization_cancelled(is_cancelled)?;
-        let reopened =
-            open_file(path).map_err(|error| MaterializeError::Dicom(error.to_string()))?;
         if reopened.meta().transfer_syntax() != plan.transfer_syntax_uid
             || reopened.meta().media_storage_sop_class_uid() != plan.sop_class_uid
             || reopened.meta().media_storage_sop_instance_uid() != sop_instance_uid
@@ -211,6 +245,48 @@ impl Part10Materializer {
                 .unwrap_or_default(),
         })
     }
+}
+
+fn build_file_object(
+    plan: &ResolvedInstancePlan,
+    encoding: Option<&EncodingPlan>,
+    deferred_slot: Option<&str>,
+) -> Result<dicom_object::FileDicomObject<Dataset>, MaterializeError> {
+    let mut object = build_dataset(plan, deferred_slot)?;
+    let sop_instance_uid = plan
+        .identities
+        .get(&CompositionUidRole::SopInstance, 0)
+        .ok_or(MaterializeError::MissingIdentity("sop_instance_uid"))?;
+    let implementation_class_uid = plan
+        .identities
+        .get(&CompositionUidRole::ImplementationClass, 0)
+        .ok_or(MaterializeError::MissingIdentity(
+            "implementation_class_uid",
+        ))?;
+    ensure_string(
+        &mut object,
+        tags::SOP_CLASS_UID,
+        DicomVr::UI,
+        &plan.sop_class_uid,
+    )?;
+    ensure_string(
+        &mut object,
+        tags::SOP_INSTANCE_UID,
+        DicomVr::UI,
+        sop_instance_uid,
+    )?;
+    let implementation_version = encoding
+        .map(|value| value.implementation.version_name.as_deref())
+        .unwrap_or(Some(IMPLEMENTATION_VERSION_NAME));
+    let mut meta = FileMetaTableBuilder::new()
+        .transfer_syntax(&plan.transfer_syntax_uid)
+        .implementation_class_uid(implementation_class_uid);
+    if let Some(version) = implementation_version {
+        meta = meta.implementation_version_name(version);
+    }
+    object
+        .with_meta(meta)
+        .map_err(|error| MaterializeError::Dicom(error.to_string()))
 }
 
 fn validate_encoding_policy(
@@ -266,10 +342,33 @@ fn validate_encoding_policy(
     Ok(())
 }
 
-fn write_with_encoding(
+fn serialize_part10(
+    file_object: &dicom_object::FileDicomObject<Dataset>,
+    encoding: Option<&EncodingPlan>,
+    writer: &mut dyn Write,
+) -> Result<(), MaterializeError> {
+    if encoding.is_none()
+        || encoding.is_some_and(|value| {
+            value.preamble == PreamblePolicy::ZeroFilled
+                && value.sequence_length == SequenceLengthPolicy::WriterDefault
+                && value.item_length == ItemLengthPolicy::WriterDefault
+        })
+    {
+        return file_object
+            .write_all(writer)
+            .map_err(|error| MaterializeError::Dicom(error.to_string()));
+    }
+    write_with_encoding_to(
+        file_object,
+        encoding.expect("non-default encoding checked above"),
+        writer,
+    )
+}
+
+fn write_with_encoding_to(
     file_object: &dicom_object::FileDicomObject<Dataset>,
     encoding: &EncodingPlan,
-    path: &Path,
+    writer: &mut dyn Write,
 ) -> Result<(), MaterializeError> {
     let transfer_syntax = TransferSyntaxRegistry
         .get(&encoding.transfer_syntax_uid)
@@ -293,15 +392,6 @@ fn write_with_encoding(
         )?;
     }
 
-    let file = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(path)
-        .map_err(|source| MaterializeError::Io {
-            path: path.to_path_buf(),
-            source,
-        })?;
-    let mut writer = BufWriter::new(file);
     let preamble = match encoding.preamble {
         PreamblePolicy::ZeroFilled => [0_u8; 128],
         PreamblePolicy::DeterministicNonZero => {
@@ -316,20 +406,66 @@ fn write_with_encoding(
     writer
         .write_all(&preamble)
         .and_then(|_| writer.write_all(b"DICM"))
-        .map_err(|source| MaterializeError::Io {
-            path: path.to_path_buf(),
-            source,
-        })?;
+        .map_err(|error| MaterializeError::Dicom(error.to_string()))?;
     file_object
-        .write_meta(&mut writer)
+        .write_meta(&mut *writer)
         .map_err(|error| MaterializeError::Dicom(error.to_string()))?;
     writer
         .write_all(&dataset)
         .and_then(|_| writer.flush())
-        .map_err(|source| MaterializeError::Io {
-            path: path.to_path_buf(),
-            source,
-        })
+        .map_err(|error| MaterializeError::Dicom(error.to_string()))
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PreviewWriterFailure {
+    Cancelled,
+    LimitExceeded,
+}
+
+struct BoundedPreviewWriter<'a> {
+    bytes: Vec<u8>,
+    limit: u64,
+    is_cancelled: &'a dyn Fn() -> bool,
+    failure: Option<PreviewWriterFailure>,
+}
+
+impl<'a> BoundedPreviewWriter<'a> {
+    fn new(limit: u64, is_cancelled: &'a dyn Fn() -> bool) -> Self {
+        Self {
+            bytes: Vec::new(),
+            limit,
+            is_cancelled,
+            failure: None,
+        }
+    }
+}
+
+impl Write for BoundedPreviewWriter<'_> {
+    fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+        if (self.is_cancelled)() {
+            self.failure = Some(PreviewWriterFailure::Cancelled);
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Part 10 preview cancelled",
+            ));
+        }
+        let projected = (self.bytes.len() as u64)
+            .checked_add(buffer.len() as u64)
+            .ok_or_else(|| io::Error::other("Part 10 preview size overflow"))?;
+        if projected > self.limit {
+            self.failure = Some(PreviewWriterFailure::LimitExceeded);
+            return Err(io::Error::new(
+                io::ErrorKind::StorageFull,
+                "Part 10 preview exceeds its byte limit",
+            ));
+        }
+        self.bytes.extend_from_slice(buffer);
+        Ok(buffer.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
 }
 
 fn rewrite_explicit_vr_le_lengths(
@@ -1099,6 +1235,10 @@ pub enum MaterializeError {
     MissingParent(PathBuf),
     MissingIdentity(&'static str),
     MissingContent(String),
+    PreviewStagedContent(String),
+    PreviewLimitExceeded {
+        limit: u64,
+    },
     DuplicateElement(String),
     ContentSize {
         slot: String,
@@ -1231,6 +1371,119 @@ mod tests {
             },
             backend_id: "dicom-rs.part10".into(),
         }
+    }
+
+    fn representative_inline_plan(
+        instance_id: &str,
+        sop_class_uid: &str,
+        content_kind: &str,
+        bytes: Vec<u8>,
+    ) -> ResolvedInstancePlan {
+        let mut plan = plan(bytes);
+        plan.instance_id = instance_id.into();
+        plan.sop_class_uid = sop_class_uid.into();
+        plan.content[0].kind = content_kind.into();
+        plan
+    }
+
+    #[test]
+    fn bounded_preview_matches_normal_enhanced_and_wsi_materialization_exactly() {
+        let sentinel = std::env::temp_dir().join(format!(
+            "dts-part10-preview-must-not-create-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        assert!(!sentinel.exists());
+        for (name, plan, nondefault) in [
+            (
+                "enhanced",
+                representative_inline_plan(
+                    "enhanced-ct",
+                    "1.2.840.10008.5.1.4.1.1.2.1",
+                    "native_multiframe_pixels",
+                    vec![0, 1, 2, 3, 4, 5, 6, 7],
+                ),
+                false,
+            ),
+            (
+                "wsi",
+                representative_inline_plan(
+                    "wsi-volume",
+                    "1.2.840.10008.5.1.4.1.1.77.1.6",
+                    "native_wsi_tiles",
+                    vec![10, 20, 30, 40, 50, 60, 70, 80],
+                ),
+                true,
+            ),
+        ] {
+            let mut encoding = encoding(&plan);
+            if nondefault {
+                encoding.preamble = PreamblePolicy::DeterministicNonZero;
+                encoding.sequence_length = SequenceLengthPolicy::Undefined;
+                encoding.item_length = ItemLengthPolicy::Undefined;
+            }
+            let preview = Part10Materializer
+                .preview_part10_bytes_with_encoding(&plan, &encoding, 1024 * 1024)
+                .unwrap();
+            let path = std::env::temp_dir().join(format!(
+                "dts-part10-preview-parity-{name}-{}-{}.dcm",
+                std::process::id(),
+                NEXT.fetch_add(1, Ordering::Relaxed)
+            ));
+            Part10Materializer
+                .materialize_with_encoding(&plan, &encoding, &path)
+                .unwrap();
+            assert_eq!(preview, fs::read(&path).unwrap(), "{name} preview drift");
+            fs::remove_file(path).unwrap();
+        }
+        assert!(!sentinel.exists());
+    }
+
+    #[test]
+    fn preview_rejects_staged_content_without_reading_it() {
+        let mut plan = plan(Vec::new());
+        plan.content[0].materialization = Some(ContentMaterialization::StagedFile(PathBuf::from(
+            "preview-must-not-read-this-file.raw",
+        )));
+        let encoding = encoding(&plan);
+        assert!(matches!(
+            Part10Materializer.preview_part10_bytes_with_encoding(
+                &plan,
+                &encoding,
+                1024 * 1024
+            ),
+            Err(MaterializeError::PreviewStagedContent(slot)) if slot == "pixels"
+        ));
+    }
+
+    #[test]
+    fn preview_enforces_byte_limit_and_cancellation() {
+        let plan = plan(vec![0; 4096]);
+        let encoding = encoding(&plan);
+        let complete = Part10Materializer
+            .preview_part10_bytes_with_encoding(&plan, &encoding, 1024 * 1024)
+            .unwrap();
+        assert!(matches!(
+            Part10Materializer.preview_part10_bytes_with_encoding(
+                &plan,
+                &encoding,
+                complete.len() as u64 - 1
+            ),
+            Err(MaterializeError::PreviewLimitExceeded { limit })
+                if limit == complete.len() as u64 - 1
+        ));
+
+        let polls = AtomicUsize::new(0);
+        assert!(matches!(
+            Part10Materializer.preview_part10_bytes_with_encoding_cancellable(
+                &plan,
+                &encoding,
+                1024 * 1024,
+                &|| polls.fetch_add(1, Ordering::Relaxed) >= 2,
+            ),
+            Err(MaterializeError::Cancelled)
+        ));
+        assert!(polls.load(Ordering::Relaxed) >= 3);
     }
 
     #[test]

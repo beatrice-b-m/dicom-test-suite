@@ -341,28 +341,38 @@ impl BoundExecutionServices for CompositionBoundServices {
         } else {
             ValidationStatus::Passed
         };
-        let rule_id = request
-            .plan
-            .rules
-            .first()
-            .map(|rule| rule.rule_id.clone())
-            .ok_or_else(|| ServiceInvocationError::new("validation", "empty validation plan"))?;
+        if request.plan.rules.is_empty() {
+            return Err(ServiceInvocationError::new(
+                "validation",
+                "empty validation plan",
+            ));
+        }
         Ok(ValidationResult {
             artifact_id: request.artifact.logical_id().into(),
             validator: built_in_tool("composition_generic_plan_validator"),
-            rules: vec![RuleExecutionResult {
-                rule_id,
-                status,
-                message: if status == ValidationStatus::Passed {
-                    "generic composition plan validation passed".into()
-                } else {
-                    "generic composition plan validation failed".into()
-                },
-                measurements: BTreeMap::from([(
-                    "checks".into(),
-                    serde_json::to_value(checks).expect("checks serialize"),
-                )]),
-            }],
+            rules: request
+                .plan
+                .rules
+                .iter()
+                .enumerate()
+                .map(|(index, rule)| RuleExecutionResult {
+                    rule_id: rule.rule_id.clone(),
+                    status,
+                    message: if status == ValidationStatus::Passed {
+                        format!("composition validation `{}` passed", rule.rule_id)
+                    } else {
+                        format!("composition validation `{}` failed", rule.rule_id)
+                    },
+                    measurements: (index == 0)
+                        .then(|| {
+                            BTreeMap::from([(
+                                "checks".into(),
+                                serde_json::to_value(&checks).expect("checks serialize"),
+                            )])
+                        })
+                        .unwrap_or_default(),
+                })
+                .collect(),
             evidence: vec![],
         })
     }
@@ -647,10 +657,13 @@ fn patch_materialized_content(
         }
         content.size_bytes = actual.size_bytes;
         content.sha256 = actual.sha256.clone();
-        content.properties.insert(
-            "compressed_frame_sha256".into(),
-            serde_json::to_string(&actual.compressed_frame_sha256).expect("frame hashes serialize"),
-        );
+        if !actual.compressed_frame_sha256.is_empty() || actual.writer_materialization.is_some() {
+            content.properties.insert(
+                "compressed_frame_sha256".into(),
+                serde_json::to_string(&actual.compressed_frame_sha256)
+                    .expect("frame hashes serialize"),
+            );
+        }
         if let Some(writer_materialization) = &actual.writer_materialization {
             content.properties.insert(
                 "writer_materialization".into(),

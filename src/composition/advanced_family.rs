@@ -297,6 +297,169 @@ impl AdvancedFamilyProfile {
         apply_overrides(instance, &mut plan)?;
         Ok(plan)
     }
+
+    pub(crate) fn customize_direct_plan(
+        &self,
+        instance: &SpecInstance,
+        plan: &mut ResolvedInstancePlan,
+        content_resolver: &mut LocalContentResolver,
+    ) -> Result<(), AdvancedFamilyError> {
+        if instance.parameters.contains_key("variant") {
+            return Err(AdvancedFamilyError::InvalidVariant(
+                instance.instance_id.clone(),
+            ));
+        }
+        match self.kind {
+            AdvancedFamilyKind::DerivedReference => {
+                if !instance.content.is_empty() {
+                    return Err(AdvancedFamilyError::UnsupportedContent(
+                        instance.instance_id.clone(),
+                    ));
+                }
+            }
+            AdvancedFamilyKind::EnhancedCt
+            | AdvancedFamilyKind::EnhancedMr
+            | AdvancedFamilyKind::EnhancedPet
+            | AdvancedFamilyKind::WholeSlide => {
+                apply_caller_content(instance, plan, content_resolver)?;
+            }
+            _ => {
+                return Err(AdvancedFamilyError::DefaultArtifact(
+                    "direct advanced customization is limited to U5 providers".into(),
+                ));
+            }
+        }
+        match self.kind {
+            AdvancedFamilyKind::EnhancedCt
+            | AdvancedFamilyKind::EnhancedMr
+            | AdvancedFamilyKind::EnhancedPet => validate_multiframe_structure(plan)?,
+            AdvancedFamilyKind::WholeSlide => validate_wsi_structure(plan)?,
+            AdvancedFamilyKind::DerivedReference => {}
+            _ => unreachable!(),
+        }
+        normalize_direct_legacy_plan(plan);
+        if self.kind == AdvancedFamilyKind::DerivedReference {
+            normalize_derived_reference_defaults(&instance.template.id.0, plan)?;
+        }
+        if self.kind == AdvancedFamilyKind::EnhancedCt {
+            normalize_enhanced_ct_defined_terms(plan);
+            if instance
+                .template
+                .id
+                .0
+                .starts_with("enhanced/ct/concatenation-")
+            {
+                qualify_enhanced_ct_concatenation(plan)?;
+            }
+        }
+        apply_overrides(instance, plan)?;
+        Ok(())
+    }
+}
+
+fn normalize_direct_legacy_plan(plan: &mut ResolvedInstancePlan) {
+    for content in &mut plan.content {
+        content.placement = super::ContentPlacement::TopLevel;
+        if content.kind == "native_pixel_data" {
+            content.kind = "native_pixels".into();
+            content.properties.clear();
+        }
+    }
+    for attribute in &mut plan.attributes {
+        let identity = matches!(
+            attribute.address.normalized_tag().as_str(),
+            "0008,0018" | "0020,000D" | "0020,000E" | "0020,0052"
+        );
+        if identity {
+            attribute.origin = ValueOrigin::DerivedStructural;
+        }
+        if matches!(
+            attribute.value,
+            Some(AttributeValue::Primitive(PrimitiveValue::String(ref value))) if value.is_empty()
+        ) {
+            attribute.value = None;
+        } else if !identity {
+            if let Some(value) = &mut attribute.value {
+                normalize_legacy_value(value, attribute.vr);
+            }
+        }
+    }
+}
+
+fn normalize_legacy_value(value: &mut AttributeValue, vr: super::DicomVr) {
+    match value {
+        AttributeValue::Primitive(PrimitiveValue::String(value)) => {
+            pad_legacy_text(value, vr);
+        }
+        AttributeValue::Multi(values) => {
+            let encoded_length =
+                values
+                    .iter()
+                    .enumerate()
+                    .fold(0_usize, |total, (index, value)| {
+                        total
+                            + usize::from(index != 0)
+                            + match value {
+                                PrimitiveValue::String(value) => value.len(),
+                                _ => 0,
+                            }
+                    });
+            if encoded_length % 2 != 0 {
+                if let Some(PrimitiveValue::String(last)) = values.last_mut() {
+                    last.push(if vr == super::DicomVr::UI { '\0' } else { ' ' });
+                }
+            }
+        }
+        AttributeValue::Sequence(items) => {
+            for item in items {
+                item.attributes
+                    .sort_by(|left, right| left.address().cmp(right.address()));
+                for operation in &mut item.attributes {
+                    if let AttributeOperation::Set { vr, value, .. } = operation {
+                        if matches!(
+                            value,
+                            AttributeValue::Primitive(PrimitiveValue::String(text)) if text.is_empty()
+                        ) {
+                            *value = AttributeValue::Binary(Vec::new());
+                        } else {
+                            normalize_legacy_value(value, *vr);
+                        }
+                    }
+                }
+            }
+        }
+        AttributeValue::Primitive(_)
+        | AttributeValue::EncodedText(_)
+        | AttributeValue::Binary(_) => {}
+    }
+}
+
+fn pad_legacy_text(value: &mut String, vr: super::DicomVr) {
+    if value.len() % 2 == 0 || value.is_empty() {
+        return;
+    }
+    if matches!(
+        vr,
+        super::DicomVr::AE
+            | super::DicomVr::AS
+            | super::DicomVr::CS
+            | super::DicomVr::DA
+            | super::DicomVr::DS
+            | super::DicomVr::DT
+            | super::DicomVr::IS
+            | super::DicomVr::LO
+            | super::DicomVr::LT
+            | super::DicomVr::PN
+            | super::DicomVr::SH
+            | super::DicomVr::ST
+            | super::DicomVr::TM
+            | super::DicomVr::UC
+            | super::DicomVr::UI
+            | super::DicomVr::UR
+            | super::DicomVr::UT
+    ) {
+        value.push(if vr == super::DicomVr::UI { '\0' } else { ' ' });
+    }
 }
 
 fn normalize_derived_reference_defaults(

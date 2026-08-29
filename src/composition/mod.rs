@@ -2,6 +2,7 @@
 //!
 //! The file-backed CLI and public Rust entry points share this implementation.
 
+mod advanced_defaults;
 pub mod advanced_family;
 pub mod attribute;
 pub mod bulk;
@@ -47,7 +48,6 @@ pub use classic::{
     GeometryPlan, PixelModulePlan,
 };
 pub use content::{ContentError, ContentLimits, LocalContentResolver, StagedAsset};
-pub(crate) use corpus_adapter::resolved_composition_corpus_plan;
 pub use curated::{CuratedPlanError, CuratedPlanInput, resolved_plan_from_curated_dataset};
 pub use defaults::{
     DefaultError, DefaultPixelOutput, canonical_native_pixels, resolved_sc_plan, sc_default_pixels,

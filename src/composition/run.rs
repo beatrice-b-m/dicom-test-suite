@@ -14,6 +14,10 @@ use crate::codecs::{FrameDecodeInput, FrameDecoder, NativeRleLosslessEncoder};
 use crate::codecs::{FrameEncodeInput, FrameEncoder};
 use crate::encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData};
 
+use super::advanced_defaults::{
+    AdvancedDefaultMember, AdvancedSourceMember, group_identity, is_direct_advanced_default,
+    is_reference_default, plan_image_group, plan_reference_default,
+};
 use super::executor_adapter::{
     CompositionExecutionBundle, CompositionExecutionServiceFactory,
     CompositionExecutorManifestProjector, CompositionProjectionContext, CompositionSource,
@@ -36,6 +40,7 @@ use crate::executor::services::{
     ProviderOutputExpectation, ProviderRequest as ExecutorProviderRequest, SlotExecutionBinding,
     StagedAssetHandle, StagedAssetRegistry, StagingRelativePath,
 };
+use crate::recipes::{AdvancedProviderLimits, RecipeCatalog};
 use crate::{PACKAGE_NAME, PACKAGE_VERSION, RUSTC_VERSION, TARGET_TRIPLE, sha256_hex};
 
 static NEXT_STAGING: AtomicU64 = AtomicU64::new(0);
@@ -362,7 +367,17 @@ fn resolve_execution_bundle(
     let mut planning_scratch = None;
     let run_defaults = spec.defaults.typed_attributes()?;
     reject_structural_overrides("composition defaults", &run_defaults)?;
-    let mut plans = Vec::with_capacity(spec.instances.len());
+    let recipes = RecipeCatalog::load(
+        "cases/recipes",
+        "cases/registry.json",
+        &options.catalog_path,
+    )
+    .map_err(|error| ComposeError::AdvancedDefaults(error.to_string()))?;
+    let advanced_limits = advanced_provider_limits(&spec)?;
+    let mut plans_by_id = BTreeMap::new();
+    let mut advanced_artifacts = BTreeMap::new();
+    let mut advanced_dependencies = Vec::new();
+    let mut processed_advanced_groups = std::collections::BTreeSet::new();
     let mut native_codec_plans = BTreeMap::new();
     let mut templates = Vec::with_capacity(spec.instances.len());
     let mut identity_plans = BTreeMap::new();
@@ -409,7 +424,12 @@ fn resolve_execution_bundle(
     let (mut execution_bindings, deferred_providers) =
         plan_spec_providers(&spec, &templates, &identity_plans)?;
 
-    for (instance, template) in spec.instances.iter().zip(templates) {
+    for (instance_index, (instance, template)) in spec
+        .instances
+        .iter()
+        .zip(templates.iter().copied())
+        .enumerate()
+    {
         check_cancelled(cancellation)?;
         validate_reference_roles(instance, template)?;
         let transfer_syntax_uid = instance
@@ -437,13 +457,107 @@ fn resolve_execution_bundle(
             sop_class_uid: template.sop_class_uid.clone(),
             transfer_syntax_uid: transfer_syntax_uid.into(),
             identities: identity_plans
-                .remove(&instance.instance_id)
+                .get(&instance.instance_id)
+                .cloned()
                 .expect("identity pass covered every instance"),
             attributes: vec![],
             content: vec![],
             references: vec![],
         };
-        if let Some(profile) = AdvancedFamilyProfile::for_template(&template.template_id.0) {
+        if is_direct_advanced_default(template) && is_reference_default(template) {
+            continue;
+        } else if is_direct_advanced_default(template) {
+            let member = AdvancedDefaultMember {
+                instance,
+                template,
+                identities: base_plan.identities.clone(),
+                order: u64::try_from(instance_index).map_err(|_| ComposeError::ResourceRange)?,
+            };
+            let bundle_root = &bundle_resolution
+                .member(&instance.instance_id)
+                .bundle_root_instance_id;
+            let group =
+                group_identity(&member, bundle_root).map_err(ComposeError::AdvancedDefaults)?;
+            if !processed_advanced_groups.insert(group.clone()) {
+                continue;
+            }
+            let mut group_members = Vec::new();
+            for (order, (candidate, candidate_template)) in spec
+                .instances
+                .iter()
+                .zip(templates.iter().copied())
+                .enumerate()
+            {
+                if !is_direct_advanced_default(candidate_template)
+                    || is_reference_default(candidate_template)
+                {
+                    continue;
+                }
+                let candidate_member = AdvancedDefaultMember {
+                    instance: candidate,
+                    template: candidate_template,
+                    identities: identity_plans
+                        .get(&candidate.instance_id)
+                        .cloned()
+                        .expect("identity pass covered every instance"),
+                    order: u64::try_from(order).map_err(|_| ComposeError::ResourceRange)?,
+                };
+                let candidate_root = &bundle_resolution
+                    .member(&candidate.instance_id)
+                    .bundle_root_instance_id;
+                if group_identity(&candidate_member, candidate_root)
+                    .map_err(ComposeError::AdvancedDefaults)?
+                    == group
+                {
+                    group_members.push(candidate_member);
+                }
+            }
+            let output = plan_image_group(
+                &recipes,
+                &catalog.standards_lock_sha256,
+                options.seed,
+                advanced_limits.clone(),
+                &group_members,
+            )
+            .map_err(ComposeError::AdvancedDefaults)?;
+            advanced_dependencies.extend(output.dependencies);
+            execution_bindings.extend(output.bindings);
+            for mut planned in output.artifacts.into_values() {
+                let planned_instance = spec
+                    .instances
+                    .iter()
+                    .find(|candidate| candidate.instance_id == planned.logical_id)
+                    .expect("provider output was selected from composition members");
+                let planned_template = templates
+                    .iter()
+                    .copied()
+                    .zip(&spec.instances)
+                    .find_map(|(template, candidate)| {
+                        (candidate.instance_id == planned.logical_id).then_some(template)
+                    })
+                    .expect("provider output was selected from composition templates");
+                let profile = AdvancedFamilyProfile::for_template(&planned_template.template_id.0)
+                    .expect("direct advanced template has a profile");
+                let mut resolved = planned.instance.clone();
+                profile.customize_direct_plan(
+                    planned_instance,
+                    &mut resolved,
+                    &mut content_resolver,
+                )?;
+                resolved.identities = identity_plans
+                    .get(&resolved.instance_id)
+                    .cloned()
+                    .expect("identity pass covered every advanced instance");
+                planned.encoding.implementation.class_uid = resolved
+                    .identities
+                    .get(&CompositionUidRole::ImplementationClass, 0)
+                    .expect("advanced identity plan includes implementation class")
+                    .to_owned();
+                planned.instance = resolved.clone();
+                advanced_artifacts.insert(planned.logical_id.clone(), planned);
+                plans_by_id.insert(resolved.instance_id.clone(), resolved);
+            }
+        } else if let Some(profile) = AdvancedFamilyProfile::for_template(&template.template_id.0) {
             let scratch = match &planning_scratch {
                 Some(scratch) => scratch,
                 None => {
@@ -460,7 +574,7 @@ fn resolve_execution_bundle(
                 &private_root,
                 &mut content_resolver,
             )?;
-            plans.push(plan);
+            plans_by_id.insert(plan.instance_id.clone(), plan);
         } else if let Some(profile) =
             super::ClassicFamilyProfile::for_template(&template.template_id)
         {
@@ -488,34 +602,137 @@ fn resolve_execution_bundle(
                 &overrides,
             )?;
             plan.content.push(pixel.content);
-            plans.push(plan);
+            plans_by_id.insert(plan.instance_id.clone(), plan);
         } else {
             let pixel = resolve_sc_pixels(instance, template, &mut content_resolver)?;
             validate_sc_pixel_contract(template, &pixel)?;
-            plans.push(resolved_sc_plan(
-                base_plan,
-                template,
-                &run_defaults,
-                &overrides,
-                pixel,
-            )?);
+            let plan = resolved_sc_plan(base_plan, template, &run_defaults, &overrides, pixel)?;
+            plans_by_id.insert(plan.instance_id.clone(), plan);
         }
     }
+
+    for (instance_index, (instance, template)) in spec
+        .instances
+        .iter()
+        .zip(templates.iter().copied())
+        .enumerate()
+    {
+        if !is_direct_advanced_default(template) || !is_reference_default(template) {
+            continue;
+        }
+        check_cancelled(cancellation)?;
+        validate_reference_roles(instance, template)?;
+        let mut target = AdvancedDefaultMember {
+            instance,
+            template,
+            identities: identity_plans
+                .get(&instance.instance_id)
+                .cloned()
+                .expect("identity pass covered every instance"),
+            order: u64::try_from(instance_index).map_err(|_| ComposeError::ResourceRange)?,
+        };
+        let sources = instance
+            .references
+            .iter()
+            .map(|reference| {
+                advanced_source_member(
+                    reference.target_instance_id.as_str(),
+                    spec.instances
+                        .iter()
+                        .position(|candidate| candidate.instance_id == reference.target_instance_id)
+                        .ok_or_else(|| {
+                            ComposeError::AdvancedDefaults(format!(
+                                "reference source {} is absent",
+                                reference.target_instance_id
+                            ))
+                        })?,
+                    &plans_by_id,
+                    &advanced_artifacts,
+                    &execution_bindings,
+                    &bundle_resolution.members,
+                    &spec.resource_limits,
+                )
+            })
+            .collect::<Result<Vec<_>, ComposeError>>()?;
+        if let Some(source) = sources.first() {
+            for role in [CompositionUidRole::StudyInstance] {
+                if let Some(value) = source.artifact.instance.identities.get(&role, 0) {
+                    let key = match role {
+                        CompositionUidRole::StudyInstance => "study_instance_uid#0",
+                        CompositionUidRole::FrameOfReference => "frame_of_reference_uid#0",
+                        _ => unreachable!(),
+                    };
+                    target
+                        .identities
+                        .identities
+                        .insert(key.into(), value.to_owned());
+                }
+            }
+        }
+        let output = plan_reference_default(
+            &recipes,
+            &catalog.standards_lock_sha256,
+            options.seed,
+            advanced_limits.clone(),
+            &target,
+            &sources,
+        )
+        .map_err(ComposeError::AdvancedDefaults)?;
+        advanced_dependencies.extend(output.dependencies);
+        execution_bindings.extend(output.bindings);
+        let mut planned = output.artifacts.into_values().next().ok_or_else(|| {
+            ComposeError::AdvancedDefaults("reference provider omitted target".into())
+        })?;
+        let profile = AdvancedFamilyProfile::for_template(&template.template_id.0)
+            .expect("direct advanced template has a profile");
+        let mut resolved = planned.instance.clone();
+        profile.customize_direct_plan(instance, &mut resolved, &mut content_resolver)?;
+        resolved.identities = target.identities.clone();
+        planned.encoding.implementation.class_uid = resolved
+            .identities
+            .get(&CompositionUidRole::ImplementationClass, 0)
+            .expect("advanced identity plan includes implementation class")
+            .to_owned();
+        planned.instance = resolved.clone();
+        advanced_artifacts.insert(planned.logical_id.clone(), planned);
+        plans_by_id.insert(resolved.instance_id.clone(), resolved);
+    }
+
+    let mut plans = spec
+        .instances
+        .iter()
+        .map(|instance| {
+            plans_by_id.remove(&instance.instance_id).ok_or_else(|| {
+                ComposeError::AdvancedDefaults(format!(
+                    "advanced planning omitted {}",
+                    instance.instance_id
+                ))
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
 
     enforce_synthetic_data(&mut plans)?;
 
     super::advanced_family::validate_concatenation_closure(&plans, &bundle_resolution.members)?;
+    validate_explicit_reference_frames(&plans, &spec)?;
     materialize_reference_graph(&mut plans, &spec, &bundle_resolution.members)?;
     super::advanced_family::rewrite_materialized_dicom_references(&mut plans)?;
+    for plan in &plans {
+        if let Some(artifact) = advanced_artifacts.get_mut(&plan.instance_id) {
+            artifact.instance = plan.clone();
+        }
+    }
 
     let source_assets =
         bind_execution_content(&mut plans, &native_codec_plans, &mut execution_bindings)?;
-    let corpus_plan = super::resolved_composition_corpus_plan(
+    let corpus_plan = super::corpus_adapter::resolved_composition_corpus_plan_with_advanced(
         options.seed,
         &plans,
         &bundle_resolution.members,
         &spec.resource_limits,
         spec.parallelism,
+        &advanced_artifacts,
+        &advanced_dependencies,
     )?;
 
     let dry_run_output = json!({
@@ -566,6 +783,71 @@ fn resolve_execution_bundle(
     })
 }
 
+fn advanced_provider_limits(
+    spec: &CompositionSpec,
+) -> Result<AdvancedProviderLimits, ComposeError> {
+    let max_references = spec
+        .resource_limits
+        .max_instances
+        .checked_mul(spec.resource_limits.max_instances)
+        .ok_or(ComposeError::ResourceRange)?;
+    Ok(AdvancedProviderLimits {
+        max_artifacts: spec.resource_limits.max_instances,
+        max_references,
+        max_binding_slots: spec
+            .resource_limits
+            .max_input_files
+            .max(spec.resource_limits.max_instances),
+        max_total_output_bytes: spec.resource_limits.max_total_output_bytes,
+        max_peak_working_bytes: spec.resource_limits.max_total_output_bytes,
+        max_parallelism: spec.parallelism.max(1),
+    })
+}
+
+fn advanced_source_member(
+    instance_id: &str,
+    order: usize,
+    plans: &BTreeMap<String, ResolvedInstancePlan>,
+    advanced: &BTreeMap<String, crate::corpus_plan::PlannedDicomArtifact>,
+    bindings: &BTreeMap<String, ArtifactExecutionBindings>,
+    members: &BTreeMap<String, super::BundleMemberProvenance>,
+    limits: &super::ResourceLimits,
+) -> Result<AdvancedSourceMember, ComposeError> {
+    let plan = plans.get(instance_id).ok_or_else(|| {
+        ComposeError::AdvancedDefaults(format!("reference source {instance_id} is not planned"))
+    })?;
+    let artifact = if let Some(artifact) = advanced.get(instance_id) {
+        artifact.clone()
+    } else {
+        let per_artifact_limit = limits
+            .max_total_output_bytes
+            .checked_div(limits.max_instances.max(1))
+            .unwrap_or(limits.max_total_output_bytes)
+            .max(1);
+        match super::corpus_adapter::planned_artifact(order, plan, members, per_artifact_limit)? {
+            crate::corpus_plan::PlannedArtifact::Dicom(artifact) => artifact,
+            _ => unreachable!("composition source plans are DICOM artifacts"),
+        }
+    };
+    let binding = bindings
+        .get(instance_id)
+        .cloned()
+        .unwrap_or_else(|| ArtifactExecutionBindings {
+            artifact_id: instance_id.to_owned(),
+            slots: plan
+                .content
+                .iter()
+                .map(|content| {
+                    (
+                        content.slot.clone(),
+                        SlotExecutionBinding::NativeFrames { frames: Vec::new() },
+                    )
+                })
+                .collect(),
+        });
+    Ok(AdvancedSourceMember { artifact, binding })
+}
+
 fn enforce_synthetic_data(plans: &mut [ResolvedInstancePlan]) -> Result<(), ComposeError> {
     let address = super::AttributeAddress::from_normalized_tag("0008,001C")
         .expect("Synthetic Data is a standard DICOM tag");
@@ -592,6 +874,41 @@ fn enforce_synthetic_data(plans: &mut [ResolvedInstancePlan]) -> Result<(), Comp
         });
         plan.attributes
             .sort_by(|left, right| left.address.cmp(&right.address));
+    }
+    Ok(())
+}
+
+fn validate_explicit_reference_frames(
+    plans: &[ResolvedInstancePlan],
+    spec: &CompositionSpec,
+) -> Result<(), ComposeError> {
+    let frames = plans
+        .iter()
+        .map(|plan| Ok((plan.instance_id.as_str(), resolved_frame_count(plan)?)))
+        .collect::<Result<BTreeMap<_, _>, ComposeError>>()?;
+    for instance in &spec.instances {
+        for reference in &instance.references {
+            let available = frames
+                .get(reference.target_instance_id.as_str())
+                .copied()
+                .ok_or_else(|| {
+                    ComposeError::AdvancedDefaults(format!(
+                        "reference target {} is not planned",
+                        reference.target_instance_id
+                    ))
+                })?;
+            if let Some(frame) = reference
+                .frames
+                .iter()
+                .copied()
+                .find(|frame| *frame == 0 || *frame > available)
+            {
+                return Err(ComposeError::AdvancedDefaults(format!(
+                    "reference frame {frame} exceeds {} frames on {}",
+                    available, reference.target_instance_id
+                )));
+            }
+        }
     }
     Ok(())
 }
@@ -1705,6 +2022,7 @@ pub enum ComposeError {
     Encapsulation(crate::encapsulation::EncapsulationError),
     Provider(super::ProviderError),
     CorpusPlan(crate::corpus_plan::CorpusPlanError),
+    AdvancedDefaults(String),
     ExecutionBinding(String),
     Executor(String),
     ExecutorManifest(String),

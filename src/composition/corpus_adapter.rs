@@ -28,6 +28,26 @@ pub(crate) fn resolved_composition_corpus_plan(
     limits: &ResourceLimits,
     parallelism: u32,
 ) -> Result<CorpusPlan, CorpusPlanError> {
+    resolved_composition_corpus_plan_with_advanced(
+        seed,
+        plans,
+        members,
+        limits,
+        parallelism,
+        &BTreeMap::new(),
+        &[],
+    )
+}
+
+pub(crate) fn resolved_composition_corpus_plan_with_advanced(
+    seed: u64,
+    plans: &[ResolvedInstancePlan],
+    members: &BTreeMap<String, BundleMemberProvenance>,
+    limits: &ResourceLimits,
+    parallelism: u32,
+    advanced: &BTreeMap<String, PlannedDicomArtifact>,
+    advanced_dependencies: &[ArtifactDependency],
+) -> Result<CorpusPlan, CorpusPlanError> {
     let per_artifact_output_limit = limits
         .max_total_output_bytes
         .checked_div(plans.len().max(1) as u64)
@@ -36,20 +56,47 @@ pub(crate) fn resolved_composition_corpus_plan(
     let artifacts = plans
         .iter()
         .enumerate()
-        .map(|(index, plan)| planned_artifact(index, plan, members, per_artifact_output_limit))
+        .map(|(index, plan)| {
+            if let Some(artifact) = advanced.get(&plan.instance_id) {
+                let mut artifact = artifact.clone();
+                artifact.order =
+                    u64::try_from(index).map_err(|_| CorpusPlanError::ResourceEstimateOverflow)?;
+                let member = members
+                    .get(&plan.instance_id)
+                    .ok_or_else(|| CorpusPlanError::UnknownArtifact(plan.instance_id.clone()))?;
+                artifact.provenance = if member.requested {
+                    ArtifactProvenance::Requested
+                } else {
+                    ArtifactProvenance::Dependency {
+                        requested_by: vec![member.bundle_root_instance_id.clone()],
+                    }
+                };
+                artifact.output.publish = true;
+                Ok(PlannedArtifact::Dicom(artifact))
+            } else {
+                planned_artifact(index, plan, members, per_artifact_output_limit)
+            }
+        })
         .collect::<Result<Vec<_>, _>>()?;
-    let dependencies = plans
+    let advanced_nodes = advanced_dependencies
+        .iter()
+        .flat_map(|dependency| [&dependency.artifact_id, &dependency.depends_on])
+        .collect::<std::collections::BTreeSet<_>>();
+    let mut dependencies = plans
         .iter()
         .filter_map(|plan| {
             let member = members.get(&plan.instance_id)?;
-            (!member.requested).then(|| ArtifactDependency {
-                artifact_id: plan.instance_id.clone(),
-                depends_on: member.bundle_root_instance_id.clone(),
-                relationship: "bundle_dependency".into(),
-                frame_numbers: vec![],
+            (!member.requested && !advanced_nodes.contains(&plan.instance_id)).then(|| {
+                ArtifactDependency {
+                    artifact_id: plan.instance_id.clone(),
+                    depends_on: member.bundle_root_instance_id.clone(),
+                    relationship: "bundle_dependency".into(),
+                    frame_numbers: vec![],
+                }
             })
         })
-        .collect();
+        .collect::<Vec<_>>();
+    dependencies.extend_from_slice(advanced_dependencies);
     let corpus_plan = CorpusPlan {
         schema_version: CORPUS_PLAN_SCHEMA_VERSION.into(),
         seed,
@@ -73,7 +120,7 @@ pub(crate) fn resolved_composition_corpus_plan(
     Ok(corpus_plan)
 }
 
-fn planned_artifact(
+pub(crate) fn planned_artifact(
     index: usize,
     plan: &ResolvedInstancePlan,
     members: &BTreeMap<String, BundleMemberProvenance>,

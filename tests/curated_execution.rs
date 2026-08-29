@@ -13,6 +13,7 @@ use dicom_test_suite::executor::engine::{
     CorpusExecutor, ManifestProjectionError, ManifestProjector,
 };
 use dicom_test_suite::executor::evidence::{ExecutionStatus, PublicationState, ResultStatus};
+use dicom_test_suite::executor::transaction::OutputTransaction;
 
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -123,4 +124,37 @@ fn corpus_executor_runs_a_production_curated_sc_plan_end_to_end() {
         rle.codecs[0].backend_id,
         dicom_test_suite::codecs::NativeRleLosslessEncoder::BACKEND_ID
     );
+}
+
+#[test]
+fn shared_executor_can_finish_inside_a_caller_owned_transaction() {
+    let provider =
+        CuratedScCorpusPlanProvider::load(CuratedCatalogPaths::from_repository_root(".")).unwrap();
+    let bundle = provider
+        .plan(&CuratedScPlanRequest {
+            selection: CuratedScSelection::CaseIds(vec!["classic/sc/mono2_u8_explicit_le".into()]),
+            seed: 7,
+            max_parallelism: 1,
+        })
+        .unwrap();
+    let destination = TempOutput::absent();
+    let transaction = OutputTransaction::begin(&destination.0).unwrap();
+    let staging_root = transaction.staging_root().to_owned();
+    let result = CorpusExecutor::new(
+        CuratedExecutionServiceFactory::new(&bundle),
+        EvidenceProjector,
+    )
+    .execute_into_staging(&bundle.plan, &staging_root, 1, &CancellationToken::new())
+    .unwrap();
+
+    assert_eq!(result.evidence.publication.state, PublicationState::Staging);
+    assert_eq!(result.projection.artifacts.len(), 1);
+    assert!(
+        staging_root
+            .join("classic/sc/mono2_u8_explicit_le/instance.dcm")
+            .is_file()
+    );
+    assert!(!staging_root.join("manifest.json").exists());
+    assert!(!destination.0.exists());
+    transaction.cleanup().unwrap();
 }

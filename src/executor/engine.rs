@@ -229,93 +229,28 @@ where
         requested_parallelism: u32,
         cancellation: &CancellationToken,
     ) -> Result<CorpusExecutionResult, CorpusExecutorError> {
-        cancellation.checkpoint(CancellationPoint::run(CancellationStage::BeforeExecution))?;
-        plan.validate().map_err(CorpusExecutorError::InvalidPlan)?;
-        if plan.artifacts.is_empty() {
-            return Err(CorpusExecutorError::EmptyPlan);
-        }
-        if plan.publication.manifest_path.as_str() != "manifest.json" {
-            return Err(CorpusExecutorError::UnsupportedManifestPath(
-                plan.publication.manifest_path.as_str().to_owned(),
-            ));
-        }
+        validate_execution_request(plan, cancellation)?;
         let transaction = self
             .transactions
             .begin(destination.as_ref())
             .map_err(CorpusExecutorError::Transaction)?;
-        let services = match self.services.bind(transaction.staging_root()) {
-            Ok(services) => services,
-            Err(error) => return Err(cleanup_failure(transaction, error.into())),
-        };
-        let mut initial_registry = StagedAssetRegistry::default();
-        let initial_assets = match services.initial_assets() {
-            Ok(assets) => assets,
-            Err(error) => return Err(cleanup_failure(transaction, error.into())),
-        };
-        for asset in initial_assets {
-            if let Err(error) = initial_registry.register(asset) {
-                return Err(cleanup_failure(
-                    transaction,
-                    CorpusExecutorError::ServiceContract(error),
-                ));
-            }
-        }
-        let registry = Arc::new(Mutex::new(initial_registry));
-        let worker = ExecutionWorker {
-            services,
-            registry,
-            cancellation,
-        };
-        let outcome = match schedule(plan, requested_parallelism, cancellation, &worker) {
-            Ok(outcome) => outcome,
-            Err(error) => {
-                return Err(cleanup_failure(
-                    transaction,
-                    CorpusExecutorError::Scheduler(error),
-                ));
-            }
-        };
-        if let Err(error) =
-            cancellation.checkpoint(CancellationPoint::run(CancellationStage::BeforeManifest))
-        {
-            return Err(cleanup_failure(transaction, error.into()));
-        }
-
-        let preliminary = match evidence_for(
+        let staged = match self.execute_staging(
             plan,
-            outcome.clone(),
+            transaction.staging_root(),
             requested_parallelism,
-            0,
-            PublicationTransition::staging(),
+            cancellation,
         ) {
-            Ok(evidence) => evidence,
+            Ok(staged) => staged,
             Err(error) => return Err(cleanup_failure(transaction, error)),
         };
-        let projection = match compatibility_projection_input(plan, &preliminary) {
-            Ok(projection) => projection,
-            Err(error) => return Err(cleanup_failure(transaction, error.into())),
-        };
-        let manifest = match self.projector.project(&projection) {
+        let manifest = match self.projector.project(&staged.projection) {
             Ok(manifest) => manifest,
             Err(error) => return Err(cleanup_failure(transaction, error.into())),
         };
-        let asset_snapshot = worker
-            .registry
-            .lock()
-            .unwrap_or_else(|error| error.into_inner())
-            .clone();
-        if let Err(error) = worker.services.finalize_private_assets(&asset_snapshot) {
-            return Err(cleanup_failure(transaction, error.into()));
-        }
-        if let Err(error) =
-            sanitize_publication_staging(transaction.staging_root(), plan, &asset_snapshot)
-        {
-            return Err(cleanup_failure(transaction, error.into()));
-        }
         let manifest_sha256 = sha256_hex(&manifest);
         let evidence = match evidence_for(
             plan,
-            outcome,
+            staged.outcome,
             requested_parallelism,
             manifest.len() as u64,
             PublicationTransition::promoted(manifest_sha256.clone()),
@@ -343,6 +278,94 @@ where
             evidence,
         })
     }
+
+    pub fn execute_into_staging(
+        &self,
+        plan: &CorpusPlan,
+        private_staging_root: impl AsRef<Path>,
+        requested_parallelism: u32,
+        cancellation: &CancellationToken,
+    ) -> Result<StagedCorpusExecution, CorpusExecutorError> {
+        validate_execution_request(plan, cancellation)?;
+        let staged = self.execute_staging(
+            plan,
+            private_staging_root.as_ref(),
+            requested_parallelism,
+            cancellation,
+        )?;
+        Ok(StagedCorpusExecution {
+            projection: staged.projection,
+            evidence: staged.preliminary,
+        })
+    }
+
+    fn execute_staging(
+        &self,
+        plan: &CorpusPlan,
+        private_staging_root: &Path,
+        requested_parallelism: u32,
+        cancellation: &CancellationToken,
+    ) -> Result<StagingExecutionCore, CorpusExecutorError> {
+        let services = self.services.bind(private_staging_root)?;
+        let mut initial_registry = StagedAssetRegistry::default();
+        for asset in services.initial_assets()? {
+            initial_registry
+                .register(asset)
+                .map_err(CorpusExecutorError::ServiceContract)?;
+        }
+        let registry = Arc::new(Mutex::new(initial_registry));
+        let worker = ExecutionWorker {
+            services,
+            registry,
+            cancellation,
+        };
+        let outcome = schedule(plan, requested_parallelism, cancellation, &worker)
+            .map_err(CorpusExecutorError::Scheduler)?;
+        cancellation.checkpoint(CancellationPoint::run(CancellationStage::BeforeManifest))?;
+        let preliminary = evidence_for(
+            plan,
+            outcome.clone(),
+            requested_parallelism,
+            0,
+            PublicationTransition::staging(),
+        )?;
+        let projection = compatibility_projection_input(plan, &preliminary)?;
+        let asset_snapshot = worker
+            .registry
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .clone();
+        worker.services.finalize_private_assets(&asset_snapshot)?;
+        sanitize_publication_staging(private_staging_root, plan, &asset_snapshot)?;
+        Ok(StagingExecutionCore {
+            outcome,
+            preliminary,
+            projection,
+        })
+    }
+}
+
+struct StagingExecutionCore {
+    outcome: ScheduleOutcome<ArtifactServiceOutputs>,
+    preliminary: RunEvidence,
+    projection: ManifestProjectionCompatibilityInput,
+}
+
+fn validate_execution_request(
+    plan: &CorpusPlan,
+    cancellation: &CancellationToken,
+) -> Result<(), CorpusExecutorError> {
+    cancellation.checkpoint(CancellationPoint::run(CancellationStage::BeforeExecution))?;
+    plan.validate().map_err(CorpusExecutorError::InvalidPlan)?;
+    if plan.artifacts.is_empty() {
+        return Err(CorpusExecutorError::EmptyPlan);
+    }
+    if plan.publication.manifest_path.as_str() != "manifest.json" {
+        return Err(CorpusExecutorError::UnsupportedManifestPath(
+            plan.publication.manifest_path.as_str().to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 fn sanitize_publication_staging(
@@ -977,6 +1000,16 @@ pub struct CorpusExecutionResult {
     pub manifest_sha256: String,
     pub manifest_size_bytes: u64,
     pub manifest_bytes: Vec<u8>,
+    pub evidence: RunEvidence,
+}
+
+/// Completed shared execution inside a caller-owned private staging root.
+///
+/// This seam lets a frontend combine plan-first artifacts with temporarily
+/// unmigrated artifacts while retaining one outer publication transaction.
+/// It never writes a manifest or promotes the staging directory.
+pub struct StagedCorpusExecution {
+    pub projection: ManifestProjectionCompatibilityInput,
     pub evidence: RunEvidence,
 }
 

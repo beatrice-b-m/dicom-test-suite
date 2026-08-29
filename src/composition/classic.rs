@@ -2,8 +2,7 @@ use std::collections::BTreeSet;
 
 use super::{
     AttributeAddress, AttributeOperation, AttributeValue, CommonModulePlans, DicomVr, IdentityPlan,
-    NativePixelPlan, PhotometricInterpretation, PlanarConfiguration, PrimitiveValue, SampleType,
-    sop_common_operations,
+    NativePixelPlan, PhotometricInterpretation, PrimitiveValue, SampleType, sop_common_operations,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -337,7 +336,8 @@ impl std::error::Error for ClassicPlanError {}
 mod tests {
     use super::*;
     use crate::composition::{
-        ByteOrder, CompositionUidRole, IdentityAllocator, PixelShape, TemplateId,
+        ByteOrder, CompositionUidRole, IdentityAllocator, PixelShape, PlanarConfiguration,
+        TemplateId,
     };
 
     fn identities() -> IdentityPlan {

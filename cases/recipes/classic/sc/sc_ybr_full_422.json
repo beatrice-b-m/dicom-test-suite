@@ -6,14 +6,12 @@
     "case_id": "classic/sc/ybr_full_422_explicit_le"
   },
   "kind": "dicom",
-  "plan_provider_id": "native.case_plan",
-  "dependencies": [
-
-  ],
-  "provider_parameters": {
-  },
+  "plan_provider_id": "native.sc_plan",
+  "dependencies": [],
+  "provider_parameters": {},
   "validation_rule_ids": [
-    "validation.shared"
+    "validation.sc.color",
+    "validation.sc.pixel"
   ],
   "projection_rule_ids": [
     "projection.curated"
@@ -21,44 +19,77 @@
   "dicom": {
     "artifacts": [
       {
-        "logical_id": "artifact_1",
+        "logical_id": "instance",
+        "order": 0,
+        "template": {
+          "template_id": "classic/secondary-capture/rgb",
+          "template_version": "1.0.0"
+        },
         "output": {
-          "role": "primary_1",
-          "provider_derived": true
+          "role": "instance",
+          "path": "classic/sc/ybr_full_422_explicit_le/instance.dcm"
         },
         "encoding": {
           "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-          "sequence_length_policy": "provider",
-          "item_length_policy": "provider",
-          "offset_table_policy": "provider",
-          "fragmentation_policy": "provider"
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
         },
-        "parameters": {
-        },
-        "attribute_operations": [
-
-        ],
-        "content": {
-          "provider_id": "content.case_default",
-          "parameters": {
+        "parameters": {},
+        "secondary_capture": {
+          "rows": 2,
+          "columns": 2,
+          "frames": 1,
+          "samples_per_pixel": 3,
+          "photometric_interpretation": "YBR_FULL_422",
+          "bits_allocated": 8,
+          "bits_stored": 8,
+          "high_bit": 7,
+          "pixel_representation": 0,
+          "pixel_data_vr": "OB",
+          "stored_value_type": "u8",
+          "stored_values": [
+            76,
+            150,
+            65,
+            138,
+            29,
+            255,
+            192,
+            118
+          ],
+          "frame_sha256": [
+            "1376171ffe1b8b279bf253221e6da6b8345f4b9f337110738d86c67804d4430e"
+          ],
+          "visual_pattern": "2x2_ybr_full_422_red_green_blue_white",
+          "semantic_note": "YBR_FULL_422 stores horizontally downsampled chroma with Planar Configuration 0",
+          "pixel_min": 29,
+          "pixel_max": 255,
+          "color": {
+            "planar_configuration": 0,
+            "chroma_subsampling": "horizontal_2_to_1"
           }
         },
+        "attribute_operations": [],
+        "content": {
+          "provider_id": "content.sc.pixel_pattern",
+          "parameters": {}
+        },
         "validation_rule_ids": [
-          "validation.shared"
+          "validation.sc.pixel",
+          "validation.sc.color"
         ],
         "projection_rule_ids": [
           "projection.curated"
         ],
         "determinism": "byte_stable",
         "stressors": [
-
-        ],
-        "algorithm_provider_id": "algorithm.case_provider",
-        "template": {
-          "template_id": "classic/secondary-capture/rgb",
-          "template_version": "1.0.0"
-        },
-        "order": 0
+          "minimal_secondary_capture",
+          "native_ob_pixel_data"
+        ]
       }
     ]
   }

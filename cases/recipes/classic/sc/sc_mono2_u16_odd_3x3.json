@@ -6,14 +6,11 @@
     "case_id": "classic/sc/mono2_u16_odd_3x3_explicit_le"
   },
   "kind": "dicom",
-  "plan_provider_id": "native.case_plan",
-  "dependencies": [
-
-  ],
-  "provider_parameters": {
-  },
+  "plan_provider_id": "native.sc_plan",
+  "dependencies": [],
+  "provider_parameters": {},
   "validation_rule_ids": [
-    "validation.shared"
+    "validation.sc.pixel"
   ],
   "projection_rule_ids": [
     "projection.curated"
@@ -21,44 +18,73 @@
   "dicom": {
     "artifacts": [
       {
-        "logical_id": "artifact_1",
+        "logical_id": "instance",
+        "order": 0,
+        "template": {
+          "template_id": "classic/secondary-capture/monochrome",
+          "template_version": "1.0.0"
+        },
         "output": {
-          "role": "primary_1",
-          "provider_derived": true
+          "role": "instance",
+          "path": "classic/sc/mono2_u16_odd_3x3_explicit_le/instance.dcm"
         },
         "encoding": {
           "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-          "sequence_length_policy": "provider",
-          "item_length_policy": "provider",
-          "offset_table_policy": "provider",
-          "fragmentation_policy": "provider"
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
         },
-        "parameters": {
+        "parameters": {},
+        "secondary_capture": {
+          "rows": 3,
+          "columns": 3,
+          "frames": 1,
+          "samples_per_pixel": 1,
+          "photometric_interpretation": "MONOCHROME2",
+          "bits_allocated": 16,
+          "bits_stored": 16,
+          "high_bit": 15,
+          "pixel_representation": 0,
+          "pixel_data_vr": "OW",
+          "stored_value_type": "u16",
+          "stored_values": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "frame_sha256": [
+            "e0cb19ca992a1039ba743bb99cec01c1c53c194904ceb05bff5c18ba8f586117"
+          ],
+          "visual_pattern": "3x3_monochrome_u16_odd_gradient",
+          "semantic_note": "odd rows and columns use unsigned 16-bit MONOCHROME2 samples",
+          "pixel_min": 0,
+          "pixel_max": 8
         },
-        "attribute_operations": [
-
-        ],
+        "attribute_operations": [],
         "content": {
-          "provider_id": "content.case_default",
-          "parameters": {
-          }
+          "provider_id": "content.sc.pixel_pattern",
+          "parameters": {}
         },
         "validation_rule_ids": [
-          "validation.shared"
+          "validation.sc.pixel"
         ],
         "projection_rule_ids": [
           "projection.curated"
         ],
         "determinism": "byte_stable",
         "stressors": [
-
-        ],
-        "algorithm_provider_id": "algorithm.case_provider",
-        "template": {
-          "template_id": "classic/secondary-capture/monochrome",
-          "template_version": "1.0.0"
-        },
-        "order": 0
+          "minimal_secondary_capture",
+          "native_ob_pixel_data"
+        ]
       }
     ]
   }

@@ -6,14 +6,13 @@
     "case_id": "classic/sc/mono2_i16_padding_multiframe_rle_lossless"
   },
   "kind": "dicom",
-  "plan_provider_id": "native.case_plan",
-  "dependencies": [
-
-  ],
-  "provider_parameters": {
-  },
+  "plan_provider_id": "native.sc_plan",
+  "dependencies": [],
+  "provider_parameters": {},
   "validation_rule_ids": [
-    "validation.shared"
+    "validation.sc.encapsulation",
+    "validation.sc.padding",
+    "validation.sc.pixel"
   ],
   "projection_rule_ids": [
     "projection.curated"
@@ -21,45 +20,81 @@
   "dicom": {
     "artifacts": [
       {
-        "logical_id": "artifact_1",
+        "logical_id": "instance",
+        "order": 0,
+        "template": {
+          "template_id": "classic/secondary-capture/monochrome",
+          "template_version": "1.0.0"
+        },
         "output": {
-          "role": "primary_1",
-          "provider_derived": true
+          "role": "instance",
+          "path": "classic/sc/mono2_i16_padding_multiframe_rle_lossless/instance.dcm"
         },
         "encoding": {
           "transfer_syntax_uid": "1.2.840.10008.1.2.5",
-          "sequence_length_policy": "provider",
-          "item_length_policy": "provider",
-          "offset_table_policy": "provider",
-          "fragmentation_policy": "provider",
-          "non_template_encoding_provider_id": "encoding.transfer_syntax_plan"
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "populated_basic",
+          "fragmentation_policy": "one_per_frame",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard",
+          "non_template_encoding_provider_id": "encoding.native.rle_lossless"
         },
-        "parameters": {
-        },
-        "attribute_operations": [
-
-        ],
-        "content": {
-          "provider_id": "content.case_default",
-          "parameters": {
+        "parameters": {},
+        "secondary_capture": {
+          "rows": 2,
+          "columns": 2,
+          "frames": 2,
+          "samples_per_pixel": 1,
+          "photometric_interpretation": "MONOCHROME2",
+          "bits_allocated": 16,
+          "bits_stored": 16,
+          "high_bit": 15,
+          "pixel_representation": 1,
+          "pixel_data_vr": "OB",
+          "stored_value_type": "i16",
+          "stored_values": [
+            -32768,
+            -1000,
+            1000,
+            3000,
+            3000,
+            1000,
+            -1000,
+            -32768
+          ],
+          "frame_sha256": [
+            "17ce7b9e4ba026f35e8100d2966fe8cf42cff0dd3f1b70b3f5f682504dcaa320",
+            "4f73a81172d42901a9b4874604d11407ffa6b3962cd1b1ac4b4bf635bc77d57e"
+          ],
+          "visual_pattern": "2x2x2_monochrome_i16_rle_lossless_signed_padding_reversed",
+          "semantic_note": "two signed MONOCHROME2 frames preserve Pixel Padding Value -32768 after RLE Lossless decode",
+          "pixel_min": -32768,
+          "pixel_max": 3000,
+          "padding": {
+            "range_limit": -32768,
+            "value": -32768
           }
         },
+        "attribute_operations": [],
+        "content": {
+          "provider_id": "content.sc.pixel_pattern",
+          "parameters": {}
+        },
         "validation_rule_ids": [
-          "validation.shared"
+          "validation.sc.pixel",
+          "validation.sc.padding",
+          "validation.sc.encapsulation"
         ],
         "projection_rule_ids": [
           "projection.curated"
         ],
         "determinism": "byte_stable",
         "stressors": [
-
-        ],
-        "algorithm_provider_id": "algorithm.case_provider",
-        "template": {
-          "template_id": "classic/secondary-capture/monochrome",
-          "template_version": "1.0.0"
-        },
-        "order": 0
+          "minimal_secondary_capture",
+          "encapsulated_pixel_data",
+          "rle_lossless_transfer_syntax"
+        ]
       }
     ]
   }

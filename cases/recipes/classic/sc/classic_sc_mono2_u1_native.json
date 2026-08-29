@@ -6,14 +6,11 @@
     "case_id": "classic/sc/mono2_u1_native"
   },
   "kind": "dicom",
-  "plan_provider_id": "native.case_plan",
-  "dependencies": [
-
-  ],
-  "provider_parameters": {
-  },
+  "plan_provider_id": "native.sc_plan",
+  "dependencies": [],
+  "provider_parameters": {},
   "validation_rule_ids": [
-    "validation.shared"
+    "validation.sc.pixel"
   ],
   "projection_rule_ids": [
     "projection.curated"
@@ -21,44 +18,87 @@
   "dicom": {
     "artifacts": [
       {
-        "logical_id": "artifact_1",
+        "logical_id": "instance",
+        "order": 0,
+        "template": {
+          "template_id": "classic/secondary-capture/multiframe-single-bit",
+          "template_version": "1.0.0"
+        },
         "output": {
-          "role": "primary_1",
-          "provider_derived": true
+          "role": "instance",
+          "path": "classic/sc/mono2_u1_native/instance.dcm"
         },
         "encoding": {
           "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-          "sequence_length_policy": "provider",
-          "item_length_policy": "provider",
-          "offset_table_policy": "provider",
-          "fragmentation_policy": "provider"
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
         },
-        "parameters": {
+        "parameters": {},
+        "secondary_capture": {
+          "rows": 3,
+          "columns": 3,
+          "frames": 2,
+          "samples_per_pixel": 1,
+          "photometric_interpretation": "MONOCHROME2",
+          "bits_allocated": 1,
+          "bits_stored": 1,
+          "high_bit": 0,
+          "pixel_representation": 0,
+          "pixel_data_vr": "OB",
+          "stored_value_type": "u1",
+          "stored_values": [
+            1,
+            0,
+            1,
+            0,
+            1,
+            0,
+            1,
+            0,
+            1,
+            0,
+            1,
+            0,
+            1,
+            0,
+            1,
+            0,
+            1,
+            0
+          ],
+          "frame_sha256": [
+            "a6188710c09cfbc77383ee0588dec2f7affa6e03e78aa900e9ae597a8d8faba3",
+            "c520efb8f894a1125bb1a513a9b64ef957f7c2cd63835fd7e130357c47f989ae"
+          ],
+          "visual_pattern": "3x3x2_continuous_lsb_first_checkerboards",
+          "semantic_note": "two one-bit MONOCHROME2 frames cross a byte boundary and receive padding only at the end of the complete Value Field",
+          "pixel_min": 0,
+          "pixel_max": 1
         },
-        "attribute_operations": [
-
-        ],
+        "attribute_operations": [],
         "content": {
-          "provider_id": "content.case_default",
-          "parameters": {
-          }
+          "provider_id": "content.sc.pixel_pattern",
+          "parameters": {}
         },
         "validation_rule_ids": [
-          "validation.shared"
+          "validation.sc.pixel"
         ],
         "projection_rule_ids": [
           "projection.curated"
         ],
         "determinism": "byte_stable",
         "stressors": [
-
-        ],
-        "algorithm_provider_id": "algorithm.case_provider",
-        "template": {
-          "template_id": "classic/secondary-capture/multiframe-single-bit",
-          "template_version": "1.0.0"
-        },
-        "order": 0
+          "minimal_secondary_capture",
+          "native_ob_pixel_data",
+          "native_bit_packed_pixel_data",
+          "continuous_cross_frame_bit_packing",
+          "multi_frame_single_bit_secondary_capture",
+          "whole_value_field_even_length_padding"
+        ]
       }
     ]
   }

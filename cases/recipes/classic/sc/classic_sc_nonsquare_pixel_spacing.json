@@ -6,14 +6,12 @@
     "case_id": "classic/sc/nonsquare_pixel_spacing"
   },
   "kind": "dicom",
-  "plan_provider_id": "native.case_plan",
-  "dependencies": [
-
-  ],
-  "provider_parameters": {
-  },
+  "plan_provider_id": "native.sc_plan",
+  "dependencies": [],
+  "provider_parameters": {},
   "validation_rule_ids": [
-    "validation.shared"
+    "validation.sc.geometry",
+    "validation.sc.pixel"
   ],
   "projection_rule_ids": [
     "projection.curated"
@@ -21,44 +19,198 @@
   "dicom": {
     "artifacts": [
       {
-        "logical_id": "artifact_1",
+        "logical_id": "pixel_spacing",
+        "order": 0,
+        "template": {
+          "template_id": "classic/secondary-capture/monochrome",
+          "template_version": "1.0.0"
+        },
         "output": {
-          "role": "primary_1",
-          "provider_derived": true
+          "role": "pixel_spacing",
+          "path": "classic/sc/nonsquare_pixel_spacing/pixel-spacing.dcm"
         },
         "encoding": {
           "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-          "sequence_length_policy": "provider",
-          "item_length_policy": "provider",
-          "offset_table_policy": "provider",
-          "fragmentation_policy": "provider"
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
         },
-        "parameters": {
+        "parameters": {},
+        "secondary_capture": {
+          "rows": 4,
+          "columns": 6,
+          "frames": 1,
+          "samples_per_pixel": 1,
+          "photometric_interpretation": "MONOCHROME2",
+          "bits_allocated": 8,
+          "bits_stored": 8,
+          "high_bit": 7,
+          "pixel_representation": 0,
+          "pixel_data_vr": "OB",
+          "stored_value_type": "u8",
+          "stored_values": [
+            0,
+            255,
+            0,
+            255,
+            0,
+            255,
+            255,
+            0,
+            255,
+            0,
+            255,
+            0,
+            0,
+            255,
+            0,
+            255,
+            0,
+            255,
+            255,
+            0,
+            255,
+            0,
+            255,
+            0
+          ],
+          "frame_sha256": [
+            "e89b23efeade0dc3de624fc8982ea8b99adb35a3bb9a2fbf8b8ce675e10581a6"
+          ],
+          "visual_pattern": "4x6_monochrome_checkerboard_with_nonsquare_pixels",
+          "semantic_note": "Equivalent non-square geometry is declared independently by physical pixel spacing and integer pixel aspect ratio",
+          "pixel_min": 0,
+          "pixel_max": 255
         },
         "attribute_operations": [
-
+          {
+            "operation": "set",
+            "tag": "0028,0030",
+            "vr": "DS",
+            "value": "0.6\\0.3"
+          },
+          {
+            "operation": "set",
+            "tag": "0018,2010",
+            "vr": "DS",
+            "value": "0.6\\0.3"
+          }
         ],
         "content": {
-          "provider_id": "content.case_default",
-          "parameters": {
-          }
+          "provider_id": "content.sc.pixel_pattern",
+          "parameters": {}
         },
         "validation_rule_ids": [
-          "validation.shared"
+          "validation.sc.pixel",
+          "validation.sc.geometry"
         ],
         "projection_rule_ids": [
           "projection.curated"
         ],
         "determinism": "byte_stable",
         "stressors": [
-
-        ],
-        "algorithm_provider_id": "algorithm.case_provider",
+          "minimal_secondary_capture",
+          "native_ob_pixel_data",
+          "nonsquare_pixel_geometry",
+          "independent_spacing_and_aspect_ratio_axes"
+        ]
+      },
+      {
+        "logical_id": "pixel_aspect_ratio",
+        "order": 1,
         "template": {
           "template_id": "classic/secondary-capture/monochrome",
           "template_version": "1.0.0"
         },
-        "order": 0
+        "output": {
+          "role": "pixel_aspect_ratio",
+          "path": "classic/sc/nonsquare_pixel_spacing/pixel-aspect-ratio.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {},
+        "secondary_capture": {
+          "rows": 4,
+          "columns": 6,
+          "frames": 1,
+          "samples_per_pixel": 1,
+          "photometric_interpretation": "MONOCHROME2",
+          "bits_allocated": 8,
+          "bits_stored": 8,
+          "high_bit": 7,
+          "pixel_representation": 0,
+          "pixel_data_vr": "OB",
+          "stored_value_type": "u8",
+          "stored_values": [
+            0,
+            255,
+            0,
+            255,
+            0,
+            255,
+            255,
+            0,
+            255,
+            0,
+            255,
+            0,
+            0,
+            255,
+            0,
+            255,
+            0,
+            255,
+            255,
+            0,
+            255,
+            0,
+            255,
+            0
+          ],
+          "frame_sha256": [
+            "e89b23efeade0dc3de624fc8982ea8b99adb35a3bb9a2fbf8b8ce675e10581a6"
+          ],
+          "visual_pattern": "4x6_monochrome_checkerboard_with_nonsquare_pixels",
+          "semantic_note": "Equivalent non-square geometry is declared independently by physical pixel spacing and integer pixel aspect ratio",
+          "pixel_min": 0,
+          "pixel_max": 255
+        },
+        "attribute_operations": [
+          {
+            "operation": "set",
+            "tag": "0028,0034",
+            "vr": "IS",
+            "value": "2\\1"
+          }
+        ],
+        "content": {
+          "provider_id": "content.sc.pixel_pattern",
+          "parameters": {}
+        },
+        "validation_rule_ids": [
+          "validation.sc.pixel",
+          "validation.sc.geometry"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "minimal_secondary_capture",
+          "native_ob_pixel_data",
+          "nonsquare_pixel_geometry",
+          "independent_spacing_and_aspect_ratio_axes"
+        ]
       }
     ]
   }

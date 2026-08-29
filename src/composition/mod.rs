@@ -8,6 +8,7 @@ pub mod defaults;
 pub mod identity;
 pub mod manifest;
 pub mod materializer;
+pub mod native_content;
 pub mod pixel;
 pub mod plan;
 pub mod reference;
@@ -28,6 +29,7 @@ pub use manifest::{
     ManifestEntryInput, ManifestError, ValidationCheck,
 };
 pub use materializer::{MaterializeError, Part10Materializer};
+pub use native_content::{RawContentError, RawNativePixelOutput, resolve_raw_native_pixels};
 pub use pixel::{
     ByteOrder, FrameSpan, NativePixelPlan, PhotometricInterpretation, PixelElement, PixelError,
     PixelShape, PlanarConfiguration, SampleType,

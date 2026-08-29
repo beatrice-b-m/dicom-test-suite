@@ -50,15 +50,23 @@ use crate::recipes::classic_vl_projection::{
     ProjectionArtifactParameters, VlArtifactParameters, VlPhotometricInterpretation,
 };
 use crate::recipes::{
-    CLASSIC_PIXEL_SLOT, EnhancedMrFrameAxis, WsiArtifactParameters, WsiPixelAlgorithm,
+    CLASSIC_PIXEL_SLOT, EnhancedMrFrameAxis, PRESENTATION_ADVANCED_PROVIDER_ID, PresentationKind,
+    REGISTRATION_PLAN_PROVIDER_ID, WsiArtifactParameters, WsiPixelAlgorithm,
 };
 use crate::validation::{
-    CrImageExpectations, CtImageExpectations, DxImageExpectations,
+    AdvancedBlendingPresentationStateExpectations, AdvancedBlendingSourceSeriesExpectations,
+    BlendingPresentationStateExpectations, BlendingSourceSeriesExpectations,
+    ColorSoftcopyPresentationStateExpectations, CrImageExpectations, CtImageExpectations,
+    DeformableSpatialRegistrationExpectations, DxImageExpectations,
     EnhancedCtConcatenationExpectations, EnhancedCtImageExpectations, EnhancedMrImageExpectations,
     EnhancedPetImageExpectations, MgImageExpectations, MrImageExpectations, NmDetectorExpectations,
     NmEnergyWindowExpectations, NmImageExpectations, PaletteExpectations, Part10Expectations,
-    PetImageExpectations, PixelDataLengthFormula, UsImageExpectations, UsMultiframeExpectations,
-    XaImageExpectations, XrfImageExpectations, validate_part10_file,
+    PetImageExpectations, PixelDataLengthFormula, PresentationStateExpectations,
+    SpatialRegistrationExpectations, SpatialRegistrationReferenceExpectations, UsImageExpectations,
+    UsMultiframeExpectations, XaImageExpectations, XrfImageExpectations,
+    validate_advanced_blending_presentation_state_file, validate_blending_presentation_state_file,
+    validate_color_softcopy_presentation_state_file, validate_deformable_spatial_registration_file,
+    validate_part10_file, validate_presentation_state_file, validate_spatial_registration_file,
     validate_wsi_multiple_optical_paths_file, validate_wsi_tiled_full_file,
     validate_wsi_tiled_sparse_file,
 };
@@ -222,6 +230,29 @@ pub(crate) struct WsiCompatibilityArtifact {
     pub file_index: usize,
     pub parameters: WsiArtifactParameters,
     pub pixel_algorithm: WsiPixelAlgorithm,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PresentationValidationParameters {
+    #[serde(default)]
+    uid_reference_index: Option<u32>,
+    presentation: PresentationKind,
+    sources: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RegistrationValidationParameters {
+    series_number: String,
+    study_id: String,
+    laterality: String,
+    manufacturer_model_name: String,
+    device_serial_number: String,
+    content_label: String,
+    content_description: String,
+    registration: crate::recipes::RegistrationKindInput,
+    sources: Vec<Value>,
 }
 
 pub(crate) fn advanced_provider_parameters(
@@ -585,6 +616,67 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
             ));
             return validation_result(request, artifact, checks, typed, validator_id);
         }
+        if matches!(
+            context.case_recipe.plan_provider_id.as_str(),
+            REGISTRATION_PLAN_PROVIDER_ID | PRESENTATION_ADVANCED_PROVIDER_ID
+        ) {
+            let planned_slots = plan
+                .content
+                .iter()
+                .map(|item| item.slot.as_str())
+                .collect::<BTreeSet<_>>();
+            let observed_slots = content
+                .iter()
+                .map(|item| item.slot.as_str())
+                .collect::<BTreeSet<_>>();
+            if planned_slots != observed_slots || !planned_slots.is_empty() {
+                return Err(ServiceInvocationError::new(
+                    "validation",
+                    "reference object unexpectedly contains materialized payload slots",
+                ));
+            }
+            validate_materialized_reference_sources(
+                &plan,
+                &self.materialized,
+                &self.planned_artifacts,
+                &self.staging_root,
+            )?;
+            let (mut typed, provider_name) =
+                if context.case_recipe.plan_provider_id == PRESENTATION_ADVANCED_PROVIDER_ID {
+                    (
+                        validate_presentation_compatibility(
+                            &self.staging_root.join(declaration.relative_path.as_str()),
+                            artifact,
+                            context,
+                            &plan,
+                            &self.planned_artifacts,
+                        )?,
+                        "presentation_state",
+                    )
+                } else {
+                    (
+                        validate_registration_compatibility(
+                            &self.staging_root.join(declaration.relative_path.as_str()),
+                            artifact,
+                            context,
+                            &plan,
+                            &self.planned_artifacts,
+                        )?,
+                        "registration",
+                    )
+                };
+            typed.append(TypedValidationCheck::passed_internal(
+                "curated_composition_plan",
+                "The curated dataset resolved through the shared composition plan before Part 10 materialization.",
+            ));
+            return validation_result(
+                request,
+                artifact,
+                checks,
+                typed,
+                &format!("curated_{provider_name}_plan_validator"),
+            );
+        }
         let sc = context
             .artifact_recipe
             .secondary_capture
@@ -930,6 +1022,455 @@ fn validation_result(
             })
             .collect(),
         evidence: Vec::new(),
+    })
+}
+
+fn validate_materialized_reference_sources(
+    plan: &ResolvedInstancePlan,
+    materialized: &Mutex<BTreeMap<String, MaterializedValidationState>>,
+    planned_artifacts: &BTreeMap<String, crate::corpus_plan::PlannedDicomArtifact>,
+    staging_root: &Path,
+) -> Result<(), ServiceInvocationError> {
+    let states = materialized
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
+    for reference in &plan.references {
+        let source = states.get(&reference.target_instance_id).ok_or_else(|| {
+            ServiceInvocationError::new(
+                "reference validation",
+                format!(
+                    "referenced source {} has no completed materialization",
+                    reference.target_instance_id
+                ),
+            )
+        })?;
+        let source_artifact = planned_artifacts
+            .get(&reference.target_instance_id)
+            .ok_or_else(|| {
+                ServiceInvocationError::new(
+                    "reference validation",
+                    format!(
+                        "referenced source {} has no planned artifact",
+                        reference.target_instance_id
+                    ),
+                )
+            })?;
+        let failures = GenericPlanValidator
+            .validate_file(
+                &source.plan,
+                staging_root.join(source_artifact.output.relative_path.as_str()),
+            )
+            .into_iter()
+            .filter(|check| check.status != "passed")
+            .map(|check| format!("{}: {}", check.rule_id, check.message))
+            .collect::<Vec<_>>();
+        if !failures.is_empty() {
+            return Err(ServiceInvocationError::new(
+                "reference validation",
+                format!(
+                    "referenced source {} failed resolved-plan validation: {}",
+                    reference.target_instance_id,
+                    failures.join("; ")
+                ),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_presentation_compatibility(
+    path: &Path,
+    artifact: &crate::corpus_plan::PlannedDicomArtifact,
+    context: &CuratedArtifactProjectionContext,
+    plan: &ResolvedInstancePlan,
+    planned_artifacts: &BTreeMap<String, crate::corpus_plan::PlannedDicomArtifact>,
+) -> Result<TypedValidationReport, ServiceInvocationError> {
+    const ICC_SHA256: &str = "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef";
+    const PALETTE_SHA256: &str = "f393097e80ec38db493eb054a0886181eb2c0e8cf7b5cdf1de392fbe94b0d1f5";
+    let parameters: PresentationValidationParameters = serde_json::from_value(Value::Object(
+        context.case_recipe.provider_parameters.clone(),
+    ))
+    .map_err(|error| service_error("presentation validation", error))?;
+    let _ = (parameters.uid_reference_index, parameters.sources.len());
+    let sources = plan
+        .references
+        .iter()
+        .map(|reference| {
+            planned_artifacts
+                .get(&reference.target_instance_id)
+                .ok_or_else(|| {
+                    ServiceInvocationError::new(
+                        "presentation validation",
+                        format!("missing source {}", reference.target_instance_id),
+                    )
+                })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let sop = required_identity(artifact, CompositionUidRole::SopInstance)?;
+    let implementation = required_identity(artifact, CompositionUidRole::ImplementationClass)?;
+    let study = required_identity(artifact, CompositionUidRole::StudyInstance)?;
+    let series = required_identity(artifact, CompositionUidRole::SeriesInstance)?;
+    let mut report = match &parameters.presentation {
+        PresentationKind::Grayscale(item) => {
+            let [source] = sources.as_slice() else {
+                return Err(ServiceInvocationError::new(
+                    "presentation validation",
+                    "grayscale presentation requires one source",
+                ));
+            };
+            legacy_validated_report(validate_presentation_state_file(
+                path,
+                &PresentationStateExpectations {
+                    sop_class_uid: &artifact.instance.sop_class_uid,
+                    sop_instance_uid: sop,
+                    transfer_syntax_uid: &artifact.encoding.transfer_syntax_uid,
+                    implementation_class_uid: implementation,
+                    synthetic_data: "YES",
+                    modality: "PR",
+                    presentation_label: &item.content_label,
+                    referenced_series_instance_uid: required_identity(
+                        source,
+                        CompositionUidRole::SeriesInstance,
+                    )?,
+                    referenced_sop_class_uid: &source.instance.sop_class_uid,
+                    referenced_sop_instance_uid: required_identity(
+                        source,
+                        CompositionUidRole::SopInstance,
+                    )?,
+                    displayed_area_top_left: item.displayed_area.top_left.to_vec(),
+                    displayed_area_bottom_right: item.displayed_area.bottom_right.to_vec(),
+                    presentation_size_mode: &item.displayed_area.size_mode,
+                    presentation_pixel_aspect_ratio: item
+                        .displayed_area
+                        .pixel_aspect_ratio
+                        .to_vec(),
+                    window_center: &item.window_center,
+                    window_width: &item.window_width,
+                    presentation_lut_shape: &item.presentation_lut_shape,
+                },
+            ))?
+        }
+        PresentationKind::Color(_) => {
+            let [source] = sources.as_slice() else {
+                return Err(ServiceInvocationError::new(
+                    "presentation validation",
+                    "color presentation requires one source",
+                ));
+            };
+            legacy_validated_report(validate_color_softcopy_presentation_state_file(
+                path,
+                &ColorSoftcopyPresentationStateExpectations {
+                    sop_class_uid: &artifact.instance.sop_class_uid,
+                    sop_instance_uid: sop,
+                    transfer_syntax_uid: &artifact.encoding.transfer_syntax_uid,
+                    implementation_class_uid: implementation,
+                    synthetic_data: "YES",
+                    study_instance_uid: study,
+                    series_instance_uid: series,
+                    source_study_instance_uid: required_identity(
+                        source,
+                        CompositionUidRole::StudyInstance,
+                    )?,
+                    source_series_instance_uid: required_identity(
+                        source,
+                        CompositionUidRole::SeriesInstance,
+                    )?,
+                    source_sop_class_uid: &source.instance.sop_class_uid,
+                    source_sop_instance_uid: required_identity(
+                        source,
+                        CompositionUidRole::SopInstance,
+                    )?,
+                    icc_profile_sha256: ICC_SHA256,
+                },
+            ))?
+        }
+        PresentationKind::Blending(_) | PresentationKind::AdvancedBlending(_) => {
+            let [a, b, c, d] = sources.as_slice() else {
+                return Err(ServiceInvocationError::new(
+                    "presentation validation",
+                    "blending presentation requires four sources",
+                ));
+            };
+            let source_series = [
+                (
+                    required_identity(a, CompositionUidRole::SeriesInstance)?,
+                    &a.instance.sop_class_uid,
+                    [
+                        required_identity(a, CompositionUidRole::SopInstance)?,
+                        required_identity(b, CompositionUidRole::SopInstance)?,
+                    ],
+                ),
+                (
+                    required_identity(c, CompositionUidRole::SeriesInstance)?,
+                    &c.instance.sop_class_uid,
+                    [
+                        required_identity(c, CompositionUidRole::SopInstance)?,
+                        required_identity(d, CompositionUidRole::SopInstance)?,
+                    ],
+                ),
+            ];
+            match &parameters.presentation {
+                PresentationKind::Blending(_) => {
+                    legacy_validated_report(validate_blending_presentation_state_file(
+                        path,
+                        &BlendingPresentationStateExpectations {
+                            sop_class_uid: &artifact.instance.sop_class_uid,
+                            sop_instance_uid: sop,
+                            transfer_syntax_uid: &artifact.encoding.transfer_syntax_uid,
+                            implementation_class_uid: implementation,
+                            synthetic_data: "YES",
+                            study_instance_uid: study,
+                            series_instance_uid: series,
+                            source_series: [
+                                BlendingSourceSeriesExpectations {
+                                    series_instance_uid: source_series[0].0,
+                                    sop_class_uid: source_series[0].1,
+                                    sop_instance_uids: source_series[0].2,
+                                },
+                                BlendingSourceSeriesExpectations {
+                                    series_instance_uid: source_series[1].0,
+                                    sop_class_uid: source_series[1].1,
+                                    sop_instance_uids: source_series[1].2,
+                                },
+                            ],
+                            palette_channel_sha256: PALETTE_SHA256,
+                            icc_profile_sha256: ICC_SHA256,
+                        },
+                    ))?
+                }
+                PresentationKind::AdvancedBlending(_) => {
+                    legacy_validated_report(validate_advanced_blending_presentation_state_file(
+                        path,
+                        &AdvancedBlendingPresentationStateExpectations {
+                            sop_class_uid: &artifact.instance.sop_class_uid,
+                            sop_instance_uid: sop,
+                            transfer_syntax_uid: &artifact.encoding.transfer_syntax_uid,
+                            implementation_class_uid: implementation,
+                            synthetic_data: "YES",
+                            study_instance_uid: study,
+                            series_instance_uid: series,
+                            frame_of_reference_uid: required_identity(
+                                artifact,
+                                CompositionUidRole::FrameOfReference,
+                            )?,
+                            source_series: [
+                                AdvancedBlendingSourceSeriesExpectations {
+                                    series_instance_uid: source_series[0].0,
+                                    sop_class_uid: source_series[0].1,
+                                    sop_instance_uids: source_series[0].2,
+                                },
+                                AdvancedBlendingSourceSeriesExpectations {
+                                    series_instance_uid: source_series[1].0,
+                                    sop_class_uid: source_series[1].1,
+                                    sop_instance_uids: source_series[1].2,
+                                },
+                            ],
+                            icc_profile_sha256: ICC_SHA256,
+                        },
+                    ))?
+                }
+                _ => unreachable!(),
+            }
+        }
+    };
+    if !matches!(parameters.presentation, PresentationKind::Grayscale(_)) {
+        let (name, message) = match parameters.presentation {
+            PresentationKind::Color(_) => (
+                "color_softcopy_source_precheck",
+                "Rust reopened and hashed the RGB source, then verified its manifest identity, Explicit VR Little Endian encoding, single-frame 2x2 interleaved RGB shape, and 8-bit depth before construction.",
+            ),
+            PresentationKind::Blending(_) => (
+                "blending_source_precheck",
+                "Rust reopened and hashed all four source CT files and verified exact Study, Series, Frame of Reference, SOP, transfer syntax, geometry, and ordering before construction.",
+            ),
+            PresentationKind::AdvancedBlending(_) => (
+                "advanced_blending_source_precheck",
+                "Rust reopened and hashed all four source CT files and verified exact Study, Series, Frame of Reference, SOP, transfer syntax, geometry, and ordering before construction.",
+            ),
+            PresentationKind::Grayscale(_) => unreachable!(),
+        };
+        report.append(TypedValidationCheck::passed_internal(name, message));
+    }
+    Ok(report)
+}
+
+fn validate_registration_compatibility(
+    path: &Path,
+    artifact: &crate::corpus_plan::PlannedDicomArtifact,
+    context: &CuratedArtifactProjectionContext,
+    plan: &ResolvedInstancePlan,
+    planned_artifacts: &BTreeMap<String, crate::corpus_plan::PlannedDicomArtifact>,
+) -> Result<TypedValidationReport, ServiceInvocationError> {
+    let parameters: RegistrationValidationParameters = serde_json::from_value(Value::Object(
+        context.case_recipe.provider_parameters.clone(),
+    ))
+    .map_err(|error| service_error("registration validation", error))?;
+    let _ = parameters.sources.len();
+    let sources = plan
+        .references
+        .iter()
+        .map(|reference| {
+            planned_artifacts
+                .get(&reference.target_instance_id)
+                .ok_or_else(|| {
+                    ServiceInvocationError::new(
+                        "registration validation",
+                        format!("missing source {}", reference.target_instance_id),
+                    )
+                })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let [target, source] = sources.as_slice() else {
+        return Err(ServiceInvocationError::new(
+            "registration validation",
+            "registration requires two sources",
+        ));
+    };
+    let sop = required_identity(artifact, CompositionUidRole::SopInstance)?;
+    let implementation = required_identity(artifact, CompositionUidRole::ImplementationClass)?;
+    let study = required_identity(artifact, CompositionUidRole::StudyInstance)?;
+    let series = required_identity(artifact, CompositionUidRole::SeriesInstance)?;
+    let registered = required_identity(target, CompositionUidRole::FrameOfReference)?;
+    let mut report = match &parameters.registration {
+        crate::recipes::RegistrationKindInput::Spatial(item) => {
+            let fixed = parse_matrix(&item.fixed_matrix)?;
+            let moving = parse_matrix(&item.moving_matrix)?;
+            legacy_validated_report(validate_spatial_registration_file(
+                path,
+                &SpatialRegistrationExpectations {
+                    sop_class_uid: &artifact.instance.sop_class_uid,
+                    sop_instance_uid: sop,
+                    transfer_syntax_uid: &artifact.encoding.transfer_syntax_uid,
+                    implementation_class_uid: implementation,
+                    synthetic_data: "YES",
+                    patient_id: "DTS-PATIENT-001",
+                    study_instance_uid: study,
+                    study_id: &parameters.study_id,
+                    series_instance_uid: series,
+                    series_number: &parameters.series_number,
+                    laterality: &parameters.laterality,
+                    modality: "REG",
+                    instance_number: "1",
+                    content_date: "20260101",
+                    content_time: "000000",
+                    content_label: &parameters.content_label,
+                    content_description: &parameters.content_description,
+                    content_creator_name: "DTS^Generator",
+                    manufacturer: "dicom-test-suite",
+                    manufacturer_model_name: &parameters.manufacturer_model_name,
+                    device_serial_number: &parameters.device_serial_number,
+                    software_versions: PACKAGE_VERSION,
+                    registered_frame_of_reference_uid: registered,
+                    target: registration_reference(target)?,
+                    source: registration_reference(source)?,
+                    target_matrix: fixed,
+                    source_to_registered_matrix: moving,
+                    source_landmark_mm: [-0.625, -0.625, 0.0],
+                    registered_landmark_mm: [0.0, 0.0, 2.5],
+                    rigid_tolerance: 0.000001,
+                },
+            ))?
+        }
+        crate::recipes::RegistrationKindInput::Deformable(item) => {
+            let pre = parse_matrix(&item.pre_deformation_matrix)?;
+            let post = parse_matrix(&item.post_deformation_matrix)?;
+            let vectors = item
+                .vector_grid_data
+                .chunks_exact(3)
+                .map(|v| [v[0], v[1], v[2]])
+                .collect::<Vec<_>>();
+            let registered_points = [
+                [0.0, 0.0, 2.5],
+                [0.75, 0.0, 2.5],
+                [0.0, 0.75, 2.5],
+                [0.75, 0.75, 2.5],
+            ];
+            let source_points = [
+                [-0.625, -0.625, 0.0],
+                [0.0, -0.625, 0.0],
+                [-0.625, 0.0, 0.0],
+                [0.0, 0.0, 0.0],
+            ];
+            legacy_validated_report(validate_deformable_spatial_registration_file(
+                path,
+                &DeformableSpatialRegistrationExpectations {
+                    sop_class_uid: &artifact.instance.sop_class_uid,
+                    sop_instance_uid: sop,
+                    transfer_syntax_uid: &artifact.encoding.transfer_syntax_uid,
+                    implementation_class_uid: implementation,
+                    synthetic_data: "YES",
+                    patient_id: "DTS-PATIENT-001",
+                    study_instance_uid: study,
+                    study_id: &parameters.study_id,
+                    series_instance_uid: series,
+                    series_number: &parameters.series_number,
+                    laterality: &parameters.laterality,
+                    modality: "REG",
+                    instance_number: "1",
+                    content_date: "20260101",
+                    content_time: "000000",
+                    content_label: &parameters.content_label,
+                    content_description: &parameters.content_description,
+                    content_creator_name: "DTS^Generator",
+                    manufacturer: "dicom-test-suite",
+                    manufacturer_model_name: &parameters.manufacturer_model_name,
+                    device_serial_number: &parameters.device_serial_number,
+                    software_versions: PACKAGE_VERSION,
+                    registered_frame_of_reference_uid: registered,
+                    target: registration_reference(target)?,
+                    source: registration_reference(source)?,
+                    pre_matrix: pre,
+                    post_matrix: post,
+                    image_orientation_patient: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+                    image_position_patient: [0.0, 0.0, 2.5],
+                    grid_dimensions: item.grid_dimensions,
+                    grid_resolution: item.grid_resolution,
+                    vector_grid_data_sha256: "d0673d2da1b415db6465047e607b7f16f1a886dfae4ede91764c71bf7df72f47",
+                    decoded_vectors_mm: &vectors,
+                    registered_points_mm: &registered_points,
+                    source_points_mm: &source_points,
+                    tolerance: 0.000001,
+                },
+            ))?
+        }
+    };
+    let (name, message) = if matches!(
+        parameters.registration,
+        crate::recipes::RegistrationKindInput::Spatial(_)
+    ) {
+        (
+            "spatial_registration_source_geometry",
+            "Rust reopened both CT sources and verified identities, hashes, Frames of Reference, and locked geometry before construction.",
+        )
+    } else {
+        (
+            "deformable_registration_source_geometry",
+            "Rust reopened both CT sources and verified identities, hashes, Frames of Reference, and locked geometry before construction.",
+        )
+    };
+    report.append(TypedValidationCheck::passed_internal(name, message));
+    Ok(report)
+}
+
+fn parse_matrix(values: &[String; 16]) -> Result<[f64; 16], ServiceInvocationError> {
+    let mut parsed = [0.0; 16];
+    for (index, value) in values.iter().enumerate() {
+        parsed[index] = value
+            .parse()
+            .map_err(|error| service_error("registration validation", error))?;
+    }
+    Ok(parsed)
+}
+
+fn registration_reference(
+    item: &crate::corpus_plan::PlannedDicomArtifact,
+) -> Result<SpatialRegistrationReferenceExpectations<'_>, ServiceInvocationError> {
+    Ok(SpatialRegistrationReferenceExpectations {
+        study_instance_uid: required_identity(item, CompositionUidRole::StudyInstance)?,
+        series_instance_uid: required_identity(item, CompositionUidRole::SeriesInstance)?,
+        sop_class_uid: &item.instance.sop_class_uid,
+        sop_instance_uid: required_identity(item, CompositionUidRole::SopInstance)?,
+        frame_of_reference_uid: required_identity(item, CompositionUidRole::FrameOfReference)?,
     })
 }
 

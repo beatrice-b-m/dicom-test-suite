@@ -20,7 +20,8 @@ use crate::executor::evidence::{
     ArtifactExecutionEvidence, MaterializedContentEvidence, ResultStatus,
 };
 use crate::recipes::{
-    EnhancedMrFrameAxis, MetadataScParameters, PrivateElementValue, StringValueSource,
+    EnhancedMrFrameAxis, MetadataScParameters, PRESENTATION_ADVANCED_PROVIDER_ID, PresentationKind,
+    PrivateElementValue, REGISTRATION_PLAN_PROVIDER_ID, RegistrationKindInput, StringValueSource,
     WsiPixelAlgorithm,
 };
 
@@ -57,7 +58,7 @@ pub fn project_curated_file_entries(
                     ctx.artifact_id
                 ));
             }
-            project_one(ctx, artifact)
+            project_one(ctx, artifact, input)
         })
         .collect::<Result<Vec<_>, _>>()?;
     project_wsi_pyramid_group(context, input, &mut entries)?;
@@ -222,6 +223,7 @@ fn project_wsi_pyramid_group(
 fn project_one(
     ctx: &CuratedArtifactProjectionContext,
     pair: &ManifestProjectionArtifact,
+    input: &ManifestProjectionCompatibilityInput,
 ) -> Result<Value, CuratedManifestError> {
     let PlannedArtifact::Dicom(planned) = &pair.planned else {
         return fail("curated artifact is not DICOM");
@@ -245,6 +247,12 @@ fn project_one(
         "native.enhanced_plan" | "native.wsi_plan"
     ) {
         return project_advanced_file_entry(ctx, pair, planned);
+    }
+    if matches!(
+        ctx.case_recipe.plan_provider_id.as_str(),
+        REGISTRATION_PLAN_PROVIDER_ID | PRESENTATION_ADVANCED_PROVIDER_ID
+    ) {
+        return project_reference_file_entry(ctx, pair, planned, input);
     }
     let sc = ctx
         .artifact_recipe
@@ -466,6 +474,540 @@ fn project_advanced_file_entry(
     } else {
         project_wsi_manifest(ctx, planned, &common)
     }
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PresentationProjectionParameters {
+    #[serde(default)]
+    uid_reference_index: Option<u32>,
+    presentation: PresentationKind,
+    sources: Vec<Value>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RegistrationProjectionParameters {
+    series_number: String,
+    study_id: String,
+    laterality: String,
+    manufacturer_model_name: String,
+    device_serial_number: String,
+    content_label: String,
+    content_description: String,
+    registration: RegistrationKindInput,
+    sources: Vec<Value>,
+}
+
+fn project_reference_file_entry(
+    ctx: &CuratedArtifactProjectionContext,
+    pair: &ManifestProjectionArtifact,
+    planned: &PlannedDicomArtifact,
+    input: &ManifestProjectionCompatibilityInput,
+) -> Result<Value, CuratedManifestError> {
+    let execution = &pair.execution;
+    let output = execution
+        .output
+        .as_ref()
+        .ok_or_else(|| err("missing reference output evidence"))?;
+    if output.relative_path != planned.output.relative_path.as_str()
+        || !output.publish
+        || execution.status != crate::executor::evidence::ExecutionStatus::Succeeded
+    {
+        return fail("reference output evidence differs from plan");
+    }
+    let materialization = execution
+        .materialization
+        .as_ref()
+        .ok_or_else(|| err("missing reference materialization evidence"))?;
+    if materialization.materialized_artifact_sha256.as_deref() != Some(&output.sha256)
+        || !materialization.content.is_empty()
+    {
+        return fail("reference materialization evidence is inconsistent");
+    }
+    let checks = validation_checks(execution)?;
+    let source = |reference: &crate::composition::MaterializedReference| {
+        let pair = input
+            .artifacts
+            .iter()
+            .find(|pair| pair.planned.logical_id() == reference.target_instance_id)
+            .ok_or_else(|| {
+                err(format!(
+                    "missing reference source {}",
+                    reference.target_instance_id
+                ))
+            })?;
+        let PlannedArtifact::Dicom(artifact) = &pair.planned else {
+            return fail("reference source is not DICOM");
+        };
+        let binding = artifact
+            .case_binding
+            .as_ref()
+            .ok_or_else(|| err("reference source has no case binding"))?;
+        let output = pair
+            .execution
+            .output
+            .as_ref()
+            .ok_or_else(|| err("reference source has no output evidence"))?;
+        Ok((
+            artifact,
+            binding,
+            output,
+            json!({
+                "source_case_id":binding.case_id,
+                "source_path":output.relative_path,
+                "series_instance_uid":uid(artifact, CompositionUidRole::SeriesInstance)?,
+                "sop_class_uid":artifact.instance.sop_class_uid,
+                "sop_instance_uid":uid(artifact, CompositionUidRole::SopInstance)?,
+                "relationship":reference.role,
+                "frame_numbers": if reference.referenced_frames.is_empty() { Value::Null } else { json!(reference.referenced_frames) }
+            }),
+        ))
+    };
+    let sources = planned
+        .instance
+        .references
+        .iter()
+        .map(source)
+        .collect::<Result<Vec<_>, CuratedManifestError>>()?;
+    let references = sources
+        .iter()
+        .map(|(_, _, _, value)| {
+            let mut value = value.clone();
+            if value["frame_numbers"].is_null() {
+                value.as_object_mut().unwrap().remove("frame_numbers");
+            }
+            value
+        })
+        .collect::<Vec<_>>();
+    let mut entry = json!({
+        "case_id":ctx.registry_case.case_id,
+        "profile_membership":ctx.registry_case.profiles,
+        "path":output.relative_path,
+        "sha256":output.sha256,
+        "size_bytes":output.size_bytes,
+        "determinism":ctx.registry_case.determinism,
+        "recipe":{"recipe_id":ctx.case_recipe.recipe_id,"recipe_version":ctx.case_recipe.recipe_version,"recipe_parameters":{}},
+        "dicom":{"sop_class_uid":required(&ctx.registry_case.sop_class_uid,"SOP Class UID")?,
+            "sop_class_name":required(&ctx.registry_case.sop_class_name,"SOP Class name")?,
+            "iod_name":required(&ctx.registry_case.iod_name,"IOD name")?,"modality":required(&ctx.registry_case.modality,"modality")?,
+            "transfer_syntax_uid":planned.encoding.transfer_syntax_uid,
+            "transfer_syntax_name":transfer_syntax_name(&planned.encoding.transfer_syntax_uid)?},
+        "uids":{"study_instance_uid":uid(planned,CompositionUidRole::StudyInstance)?,
+            "series_instance_uid":uid(planned,CompositionUidRole::SeriesInstance)?,
+            "sop_instance_uid":uid(planned,CompositionUidRole::SopInstance)?,
+            "implementation_class_uid":planned.encoding.implementation.class_uid,
+            "implementation_version_name":planned.encoding.implementation.version_name},
+        "image":Value::Null,"pixel_data":Value::Null,"references":references,
+        "validation":legacy_validation(&checks),"standards_evidence":deduplicate_reference_standards(&ctx.registry_case.standards_evidence)
+    });
+    if ctx.case_recipe.plan_provider_id == PRESENTATION_ADVANCED_PROVIDER_ID {
+        project_presentation_reference_fields(ctx, planned, &sources, &mut entry)?;
+    } else {
+        project_registration_reference_fields(ctx, planned, &sources, &mut entry)?;
+    }
+    Ok(entry)
+}
+
+fn deduplicate_reference_standards(values: &[Value]) -> Vec<Value> {
+    let mut seen = BTreeSet::new();
+    values
+        .iter()
+        .filter(|value| {
+            let source = value.get("source").and_then(Value::as_str).unwrap_or("");
+            let edition = value.get("edition").and_then(Value::as_str).unwrap_or("");
+            let key = if let Some(query) = value.get("query").and_then(Value::as_str) {
+                format!("query|{source}|{edition}|{query}")
+            } else {
+                format!(
+                    "anchor|{source}|{edition}|{}|{}",
+                    value.get("part").and_then(Value::as_str).unwrap_or(""),
+                    value.get("anchor").and_then(Value::as_str).unwrap_or("")
+                )
+            };
+            seen.insert(key)
+        })
+        .cloned()
+        .collect()
+}
+
+fn project_presentation_reference_fields(
+    ctx: &CuratedArtifactProjectionContext,
+    _: &PlannedDicomArtifact,
+    sources: &[(
+        &PlannedDicomArtifact,
+        &crate::corpus_plan::CaseBinding,
+        &crate::executor::evidence::OutputEvidence,
+        Value,
+    )],
+    entry: &mut Value,
+) -> Result<(), CuratedManifestError> {
+    const ICC: &str = "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef";
+    const PALETTE: &str = "f393097e80ec38db493eb054a0886181eb2c0e8cf7b5cdf1de392fbe94b0d1f5";
+    let parameters: PresentationProjectionParameters =
+        serde_json::from_value(Value::Object(ctx.case_recipe.provider_parameters.clone()))
+            .map_err(|error| err(format!("presentation projection parameters: {error}")))?;
+    let _ = (parameters.uid_reference_index, parameters.sources.len());
+    let source_case = &sources[0].1.case_id;
+    entry["expected_capabilities"] = match parameters.presentation {
+        PresentationKind::Grayscale(_) => json!([
+            "open_file",
+            "read_metadata",
+            "show_unsupported_but_recognized",
+            "apply_presentation_state"
+        ]),
+        PresentationKind::Color(_) => json!([
+            "open_file",
+            "read_metadata",
+            "resolve_references",
+            "apply_color_presentation_state",
+            "apply_displayed_area",
+            "color_manage_icc_profile"
+        ]),
+        PresentationKind::Blending(_) => json!([
+            "open_file",
+            "read_metadata",
+            "resolve_references",
+            "apply_blending_presentation_state",
+            "render_palette_color_blend",
+            "color_manage_icc_profile"
+        ]),
+        PresentationKind::AdvancedBlending(_) => json!([
+            "open_file",
+            "read_metadata",
+            "resolve_references",
+            "apply_advanced_blending_presentation_state",
+            "render_true_color_blend",
+            "color_manage_icc_profile"
+        ]),
+    };
+    entry["known_stressors"] = match &parameters.presentation {
+        PresentationKind::Grayscale(_) => json!([
+            "grayscale_softcopy_presentation_state",
+            "derived_source_reference",
+            "softcopy_voi_window",
+            "displayed_area"
+        ]),
+        PresentationKind::Color(_) => json!([
+            "color_softcopy_presentation_state_storage",
+            "same_study_reference",
+            "distinct_presentation_series",
+            "complete_instance_reference",
+            "global_displayed_area",
+            "one_based_display_coordinates",
+            "mandatory_exact_icc_profile",
+            "optional_rendering_modules_absent"
+        ]),
+        PresentationKind::Blending(_) => json!([
+            "blending_softcopy_presentation_state_storage",
+            "two_source_series",
+            "four_complete_instance_references",
+            "underlying_superimposed_positions",
+            "relative_opacity",
+            "per_item_rescale",
+            "global_displayed_area",
+            "mandatory_palette_color_lut",
+            "mandatory_exact_icc_profile",
+            "optional_modules_absent"
+        ]),
+        PresentationKind::AdvancedBlending(_) => json!([
+            "advanced_blending_presentation_state_storage",
+            "two_source_series",
+            "four_complete_instance_references",
+            "ordered_blending_graph",
+            "single_geometry_source",
+            "mandatory_exact_icc_profile",
+            "common_instance_reference_closure",
+            "optional_transformations_absent"
+        ]),
+    };
+    match &parameters.presentation {
+        PresentationKind::Grayscale(item) => {
+            entry["references"][0]["relationship"] = json!("source_image");
+            entry["recipe"]["recipe_parameters"] = json!({"source_case_id":source_case,"content_label":item.content_label,
+                "content_description":item.content_description,"displayed_area_top_left":item.displayed_area.top_left,
+                "displayed_area_bottom_right":item.displayed_area.bottom_right,"presentation_size_mode":item.displayed_area.size_mode,
+                "presentation_pixel_aspect_ratio":item.displayed_area.pixel_aspect_ratio,"window_center":item.window_center,
+                "window_width":item.window_width,"window_explanation":item.window_explanation,"presentation_lut_shape":item.presentation_lut_shape});
+            entry["expected_semantics"] = json!({"synthetic_data":"YES","source_case_id":source_case,
+                "source_sop_instance_uid":uid(sources[0].0,CompositionUidRole::SopInstance)?,"presentation_state":{
+                    "displayed_area_top_left":item.displayed_area.top_left,"displayed_area_bottom_right":item.displayed_area.bottom_right,
+                    "presentation_size_mode":item.displayed_area.size_mode,"presentation_pixel_aspect_ratio":item.displayed_area.pixel_aspect_ratio,
+                    "window_center":item.window_center,"window_width":item.window_width,"presentation_lut_shape":item.presentation_lut_shape}});
+            entry["expected_visual_checks"] = json!({"pattern":"source_ct_with_softcopy_window"});
+        }
+        PresentationKind::Color(item) => {
+            entry["references"][0]["relationship"] = json!("source_image");
+            let (src, binding, output, _) = &sources[0];
+            let source_fact = json!({"source_case_id":binding.case_id,"source_path":output.relative_path,"source_sha256":output.sha256,
+                "study_instance_uid":uid(src,CompositionUidRole::StudyInstance)?,"series_instance_uid":uid(src,CompositionUidRole::SeriesInstance)?,
+                "sop_class_uid":src.instance.sop_class_uid,"sop_instance_uid":uid(src,CompositionUidRole::SopInstance)?,"rows":2,"columns":2,
+                "photometric_interpretation":"RGB","samples_per_pixel":3,"planar_configuration":0,"complete_instance":true});
+            let displayed = json!({"items":1,"applies_to_all_references":true,"top_left":item.displayed_area.top_left,
+                "bottom_right":item.displayed_area.bottom_right,"presentation_size_mode":item.displayed_area.size_mode,
+                "presentation_pixel_aspect_ratio":item.displayed_area.pixel_aspect_ratio,"presentation_pixel_spacing":Value::Null,
+                "presentation_pixel_magnification_ratio":Value::Null});
+            let icc = json!({"vr":"OB","size_bytes":736,"sha256":ICC,"device_class":"scnr","data_color_space":"RGB ",
+                "profile_connection_space":"XYZ ","signature":"acsp","dicom_color_space":"SRGB"});
+            entry["recipe"]["recipe_parameters"] = json!({"source_case_id":source_case,"complete_instance":true,
+                "displayed_area_top_left":item.displayed_area.top_left,"displayed_area_bottom_right":item.displayed_area.bottom_right,
+                "presentation_size_mode":item.displayed_area.size_mode,"presentation_pixel_aspect_ratio":item.displayed_area.pixel_aspect_ratio,
+                "icc_profile_sha256":ICC});
+            entry["expected_semantics"] = json!({"synthetic_data":"YES","same_study_as_source":true,"different_series_from_source":true,
+                "complete_instance_reference":true,"global_displayed_area":true,"pixel_data_absent":true});
+            entry["expected_color_softcopy_presentation_state"] = json!({"presentation_state":{"modality":"PR","body_part_examined":"HAND",
+                "laterality":"R","content_label":item.content_label,"content_description":item.content_description,"presentation_creation_date":"20260101",
+                "presentation_creation_time":"000000","instance_number":1,"series_number":62},"source":source_fact,"same_study":true,
+                "different_series":true,"relationship":{"referenced_series_items":1,"referenced_image_items":1,"referenced_frame_numbers":[],
+                "applies_to_complete_instance":true},"displayed_area":displayed,"icc_profile":icc,"shutter_items":0,"graphic_annotation_items":0,
+                "graphic_layer_items":0,"overlay_items":0,"spatial_transform_present":false,"pixel_data_absent":true});
+            entry["expected_visual_checks"] =
+                json!({"pattern":"color_pr_displays_entire_2x2_rgb_source_with_srgb_profile"});
+        }
+        PresentationKind::Blending(item) => {
+            for reference in entry["references"].as_array_mut().unwrap() {
+                reference["relationship"] = json!("blending_source");
+            }
+            let source_manifest = presentation_source_manifest(sources)?;
+            let study = uid(sources[0].0, CompositionUidRole::StudyInstance)?;
+            let series = [
+                uid(sources[0].0, CompositionUidRole::SeriesInstance)?,
+                uid(sources[2].0, CompositionUidRole::SeriesInstance)?,
+            ];
+            let channel = |name| json!({"channel":name,"descriptor":[256,0,16],"data_vr":"OW","data_size_bytes":512,"data_sha256":PALETTE,"storage":"identity_u16_little_endian"});
+            entry["recipe"]["recipe_parameters"] = json!({"source_case_id":source_case,"blending_positions":item.positions,"relative_opacity":item.relative_opacity,
+                "palette_channel_sha256":PALETTE,"icc_profile_sha256":ICC});
+            entry["expected_semantics"] = json!({"synthetic_data":"YES","same_study_as_sources":true,"shared_source_frame_of_reference":true,
+                "underlying_superimposed_blend":true,"pixel_data_absent":true});
+            entry["expected_blending_presentation_state"] = json!({"presentation_state":{"study_instance_uid":study,
+                "series_instance_uid":entry["uids"]["series_instance_uid"],"sop_instance_uid":entry["uids"]["sop_instance_uid"],"modality":"PR","laterality":"R",
+                "content_label":item.content_label,"content_description":item.content_description,"content_creator_name":"DTS^Generator",
+                "presentation_creation_date":"20260101","presentation_creation_time":"000000","instance_number":1,"series_number":81},
+                "sources":source_manifest,"same_study":true,"shared_frame_of_reference":true,"different_series":true,
+                "blending_items":[{"blending_position":item.positions[0],"source_series_order":1,"study_instance_uid":study,"series_instance_uid":series[0],
+                    "referenced_source_indices":[1,2],"referenced_frame_numbers":[],"rescale_intercept":-1024,"rescale_slope":1,"rescale_type":item.rescale_type,
+                    "softcopy_voi_lut_items":0,"referenced_spatial_registration_items":0,"complete_instances":true},
+                    {"blending_position":item.positions[1],"source_series_order":2,"study_instance_uid":study,"series_instance_uid":series[1],
+                    "referenced_source_indices":[3,4],"referenced_frame_numbers":[],"rescale_intercept":-1024,"rescale_slope":1,"rescale_type":item.rescale_type,
+                    "softcopy_voi_lut_items":0,"referenced_spatial_registration_items":0,"complete_instances":true}],
+                "relative_opacity":item.relative_opacity,"displayed_area":{"items":1,"applies_to_all_references":true,"referenced_image_items":0,
+                    "top_left":item.displayed_area.top_left,"bottom_right":item.displayed_area.bottom_right,"presentation_size_mode":item.displayed_area.size_mode,
+                    "presentation_pixel_aspect_ratio":item.displayed_area.pixel_aspect_ratio,"presentation_pixel_spacing":Value::Null,"presentation_pixel_magnification_ratio":Value::Null},
+                "palette_color_lut":{"channels":[channel("red"),channel("green"),channel("blue")],"segmented_data_present":false,"palette_uid_present":false},
+                "icc_profile":{"vr":"OB","size_bytes":736,"sha256":ICC,"device_class":"scnr","data_color_space":"RGB ","profile_connection_space":"XYZ ","signature":"acsp","dicom_color_space":"SRGB"},
+                "absent_modules":blending_absent_modules(),"pixel_data_absent":true});
+            entry["expected_visual_checks"] = json!({"pattern":"equal_opacity_identity_palette_blend_of_two_registered_ct_series"});
+        }
+        PresentationKind::AdvancedBlending(item) => {
+            for reference in entry["references"].as_array_mut().unwrap() {
+                reference["relationship"] = json!("blending_input");
+            }
+            let source_manifest = presentation_source_manifest(sources)?;
+            let study = uid(sources[0].0, CompositionUidRole::StudyInstance)?;
+            let series = [
+                uid(sources[0].0, CompositionUidRole::SeriesInstance)?,
+                uid(sources[2].0, CompositionUidRole::SeriesInstance)?,
+            ];
+            let frame = uid(sources[0].0, CompositionUidRole::FrameOfReference)?;
+            entry["uids"]["frame_of_reference_uid"] = json!(frame);
+            entry["recipe"]["recipe_parameters"] = json!({"source_case_id":source_case,"blending_input_numbers":item.input_numbers,
+                "display_input_numbers":item.input_numbers,"blending_mode":item.blending_mode,"icc_profile_sha256":ICC});
+            entry["expected_capabilities"] = json!([
+                "open_file",
+                "read_metadata",
+                "resolve_references",
+                "apply_advanced_blending_presentation_state",
+                "render_true_color_blend",
+                "color_manage_icc_profile"
+            ]);
+            entry["expected_semantics"] = json!({"synthetic_data":"YES","same_study_as_sources":true,"shared_frame_of_reference":true,"two_input_equal_blend":true,"pixel_data_absent":true});
+            entry["expected_advanced_blending_presentation_state"] = json!({"presentation_state":{"study_instance_uid":study,"series_instance_uid":entry["uids"]["series_instance_uid"],
+                "sop_instance_uid":entry["uids"]["sop_instance_uid"],"frame_of_reference_uid":frame,"position_reference_indicator":"","modality":"PR","laterality":"R",
+                "content_label":item.content_label,"content_description":item.content_description,"content_creator_name":"DTS^Generator","presentation_creation_date":"20260101",
+                "presentation_creation_time":"000000","instance_number":1,"series_number":80},"sources":source_manifest,"same_study":true,"shared_frame_of_reference":true,
+                "different_series":true,"blending_inputs":[{"input_number":item.input_numbers[0],"source_series_order":1,"study_instance_uid":study,
+                    "series_instance_uid":series[0],"referenced_source_indices":[1,2],"time_series_blending":"FALSE","geometry_for_display":"TRUE","complete_instances":true},
+                    {"input_number":item.input_numbers[1],"source_series_order":2,"study_instance_uid":study,"series_instance_uid":series[1],"referenced_source_indices":[3,4],
+                    "time_series_blending":"FALSE","geometry_for_display":"FALSE","complete_instances":true}],"pixel_presentation":item.pixel_presentation,
+                "display_operation":{"items":1,"input_numbers":item.input_numbers,"blending_mode":item.blending_mode,"relative_opacity":Value::Null,
+                    "output_blending_input_number":Value::Null,"final_output":true},"icc_profile":{"vr":"OB","size_bytes":736,"sha256":ICC,"device_class":"scnr",
+                    "data_color_space":"RGB ","profile_connection_space":"XYZ ","signature":"acsp","dicom_color_space":"SRGB"},
+                "common_instance_reference":{"series":[{"series_order":1,"series_instance_uid":series[0],"referenced_source_indices":[1,2]},
+                    {"series_order":2,"series_instance_uid":series[1],"referenced_source_indices":[3,4]}],"other_study_items":0,"mirrors_blending_inputs":true},
+                "optional_transforms":{"referenced_spatial_registration_items":0,"optical_path_selection_items":0,"softcopy_voi_lut_items":0,"palette_color_lut_items":0,
+                    "threshold_items":0,"displayed_area_items":0,"graphic_annotation_items":0,"graphic_group_items":0,"specimen_items":0,"spatial_transform_present":false,
+                    "graphic_layer_items":0},"pixel_data_absent":true});
+            entry["expected_visual_checks"] =
+                json!({"pattern":"equal_true_color_blend_of_two_registered_ct_series"});
+        }
+    }
+    Ok(())
+}
+
+fn presentation_source_manifest(
+    sources: &[(
+        &PlannedDicomArtifact,
+        &crate::corpus_plan::CaseBinding,
+        &crate::executor::evidence::OutputEvidence,
+        Value,
+    )],
+) -> Result<Vec<Value>, CuratedManifestError> {
+    sources.iter().enumerate().map(|(index,(source,binding,output,_))| {
+        let image_order=index%2+1;
+        Ok(json!({"source_case_id":binding.case_id,"source_path":output.relative_path,"source_sha256":output.sha256,
+            "study_instance_uid":uid(source,CompositionUidRole::StudyInstance)?,"series_instance_uid":uid(source,CompositionUidRole::SeriesInstance)?,
+            "frame_of_reference_uid":uid(source,CompositionUidRole::FrameOfReference)?,"sop_class_uid":source.instance.sop_class_uid,
+            "sop_instance_uid":uid(source,CompositionUidRole::SopInstance)?,"series_order":index/2+1,"image_order":image_order,"rows":2,"columns":2,
+            "image_orientation_patient":[1,0,0,0,1,0],"image_position_patient_mm":[0,0,if image_order==1{0}else{5}],"referenced_frame_numbers":[],"complete_instance":true}))
+    }).collect()
+}
+
+fn blending_absent_modules() -> Value {
+    json!({"clinical_trial_subject":true,"clinical_trial_study":true,"clinical_trial_series":true,"clinical_trial_equipment":true,
+        "patient_study":true,"specimen":true,"graphic_annotation":true,"graphic_layer":true,"graphic_group":true,"spatial_transformation":true,
+        "frame_of_reference":true,"common_instance_reference":true,"softcopy_presentation_lut":true,"voi_lut":true,"softcopy_voi_lut":true,
+        "overlay_plane":true,"overlay_activation":true,"display_shutter":true,"bitmap_display_shutter":true})
+}
+
+fn project_registration_reference_fields(
+    ctx: &CuratedArtifactProjectionContext,
+    planned: &PlannedDicomArtifact,
+    sources: &[(
+        &PlannedDicomArtifact,
+        &crate::corpus_plan::CaseBinding,
+        &crate::executor::evidence::OutputEvidence,
+        Value,
+    )],
+    entry: &mut Value,
+) -> Result<(), CuratedManifestError> {
+    let params: RegistrationProjectionParameters =
+        serde_json::from_value(Value::Object(ctx.case_recipe.provider_parameters.clone()))
+            .map_err(|error| err(format!("registration projection parameters: {error}")))?;
+    let _ = (
+        &params.series_number,
+        &params.study_id,
+        &params.laterality,
+        &params.manufacturer_model_name,
+        &params.device_serial_number,
+        &params.content_label,
+        &params.content_description,
+        params.sources.len(),
+    );
+    let identities = sources.iter().map(|(source,binding,output,_)| Ok(json!({
+        "source_case_id":binding.case_id,"source_path":output.relative_path,"source_sha256":output.sha256,
+        "study_instance_uid":uid(source,CompositionUidRole::StudyInstance)?,"series_instance_uid":uid(source,CompositionUidRole::SeriesInstance)?,
+        "sop_class_uid":source.instance.sop_class_uid,"sop_instance_uid":uid(source,CompositionUidRole::SopInstance)?,
+        "frame_of_reference_uid":uid(source,CompositionUidRole::FrameOfReference)?
+    }))).collect::<Result<Vec<Value>,CuratedManifestError>>()?;
+    let target_for = uid(sources[0].0, CompositionUidRole::FrameOfReference)?;
+    entry["uids"]["frame_of_reference_uid"] = json!(target_for);
+    match &params.registration {
+        RegistrationKindInput::Spatial(spatial) => {
+            entry["references"][0]["relationship"] = json!("registered_target");
+            entry["references"][1]["relationship"] = json!("moving_source");
+            entry["known_stressors"] = json!([
+                "spatial_registration_storage",
+                "two_frames_of_reference",
+                "identity_and_nonidentity_rigid_matrices",
+                "matrix_directionality",
+                "cross_study_references",
+                "landmark_transform"
+            ]);
+            let target_matrix = spatial
+                .fixed_matrix
+                .iter()
+                .map(|v| v.parse::<f64>().map_err(|e| err(e.to_string())))
+                .collect::<Result<Vec<_>, _>>()?;
+            let source_matrix = spatial
+                .moving_matrix
+                .iter()
+                .map(|v| v.parse::<f64>().map_err(|e| err(e.to_string())))
+                .collect::<Result<Vec<_>, _>>()?;
+            entry["recipe"]["recipe_parameters"] = json!({"matrix_direction":"source_to_registered","target_identity_matrix":target_matrix,
+                "source_to_registered_matrix":source_matrix,"landmark_source_mm":[-0.625,-0.625,0.0],"landmark_registered_mm":[0.0,0.0,2.5]});
+            entry["expected_capabilities"] = json!([
+                "open_file",
+                "read_metadata",
+                "resolve_references",
+                "read_spatial_registration",
+                "apply_rigid_transform",
+                "fuse_registered_images"
+            ]);
+            entry["expected_semantics"] = json!({"synthetic_data":"YES","registered_frame_of_reference_uid":target_for,"matrix_direction":"source_to_registered","pixel_data_absent":true});
+            entry["expected_spatial_registration"] = json!({"registered_frame_of_reference_uid":target_for,"matrix_direction":"source_to_registered",
+                "registration_items":[{"role":"registered_target","source":identities[0],"complete_instance":true,"matrix_registration_items":1,
+                    "registration_type_code_items":0,"matrix_items":1,"matrix":{"type":"RIGID","values":target_matrix}},
+                    {"role":"moving_source","source":identities[1],"complete_instance":true,"matrix_registration_items":1,"registration_type_code_items":0,
+                    "matrix_items":1,"matrix":{"type":"RIGID","values":source_matrix}}],"rigid_tolerances":{"orthonormal_abs":0.000001,
+                    "determinant_abs":0.000001,"homogeneous_abs":0.000001},"landmark":{"source_point_mm":[-0.625,-0.625,0.0],
+                    "registered_point_mm":[0.0,0.0,2.5],"tolerance_mm":0.000001},"common_instance_reference":{"same_study":identities[0],
+                    "other_studies":[identities[1]]},"pixel_data_absent":true});
+            entry["expected_visual_checks"] =
+                json!({"pattern":"moving_ct_origin_maps_to_enhanced_ct_frame_2_origin"});
+        }
+        RegistrationKindInput::Deformable(deformable) => {
+            entry["references"][0]["relationship"] = json!("registered_target");
+            entry["references"][1]["relationship"] = json!("deformation_source");
+            entry["known_stressors"] = json!([
+                "deformable_spatial_registration_storage",
+                "two_frames_of_reference",
+                "identity_pre_and_post_matrices",
+                "registered_to_source_sampling",
+                "nonuniform_vector_grid",
+                "of_little_endian_binary32",
+                "i_fastest_vector_order",
+                "cross_study_references"
+            ]);
+            let matrix = deformable
+                .pre_deformation_matrix
+                .iter()
+                .map(|v| v.parse::<f64>().map_err(|e| err(e.to_string())))
+                .collect::<Result<Vec<_>, _>>()?;
+            let vectors = deformable
+                .vector_grid_data
+                .chunks_exact(3)
+                .map(|v| vec![v[0], v[1], v[2]])
+                .collect::<Vec<_>>();
+            let registered = [
+                [0.0, 0.0, 2.5],
+                [0.75, 0.0, 2.5],
+                [0.0, 0.75, 2.5],
+                [0.75, 0.75, 2.5],
+            ];
+            let source = [
+                [-0.625, -0.625, 0.0],
+                [0.0, -0.625, 0.0],
+                [-0.625, 0.0, 0.0],
+                [0.0, 0.0, 0.0],
+            ];
+            let mappings=registered.iter().zip(source.iter()).map(|(r,s)|json!({"registered_point_mm":r,"source_point_mm":s,"tolerance_mm":0.000001})).collect::<Vec<_>>();
+            entry["recipe"]["recipe_parameters"] = json!({"sampling_direction":"registered_to_source","pre_deformation_matrix":matrix,
+                "post_deformation_matrix":matrix,"grid_dimensions":deformable.grid_dimensions,"grid_resolution_mm":deformable.grid_resolution,
+                "vector_grid_data_sha256":"d0673d2da1b415db6465047e607b7f16f1a886dfae4ede91764c71bf7df72f47","vector_index_order":"i_fastest_then_j_then_k"});
+            entry["expected_capabilities"] = json!([
+                "open_file",
+                "read_metadata",
+                "resolve_references",
+                "read_deformable_spatial_registration",
+                "apply_deformation_field",
+                "resample_registered_image"
+            ]);
+            entry["expected_semantics"] = json!({"synthetic_data":"YES","registered_frame_of_reference_uid":target_for,"sampling_direction":"registered_to_source","pixel_data_absent":true});
+            entry["expected_deformable_spatial_registration"] = json!({"registered_frame_of_reference_uid":target_for,"sampling_direction":"registered_to_source",
+                "source":identities[1],"complete_instance":true,"deformable_registration_items":1,"registration_type_code_items":0,
+                "pre_deformation_matrix":{"items":1,"type":"RIGID","values":matrix},"post_deformation_matrix":{"items":1,"type":"RIGID","values":matrix},
+                "grid":{"items":1,"image_position_patient_mm":[0.0,0.0,2.5],"image_orientation_patient":[1.0,0.0,0.0,0.0,1.0,0.0],
+                    "dimensions":deformable.grid_dimensions,"resolution_mm":deformable.grid_resolution,"vector_data_vr":"OF","vector_data_vm":1,
+                    "vector_count":vectors.len(),"component_count":deformable.vector_grid_data.len(),"byte_length":deformable.vector_grid_data.len()*4,
+                    "payload_sha256":"d0673d2da1b415db6465047e607b7f16f1a886dfae4ede91764c71bf7df72f47","byte_order":"little_endian_ieee754_binary32",
+                    "index_order":"i_fastest_then_j_then_k","vectors_mm":vectors},"point_mappings":mappings,
+                "common_instance_reference":{"same_study":identities[0],"other_studies":[identities[1]]},"pixel_data_absent":true});
+            entry["expected_visual_checks"] =
+                json!({"pattern":"enhanced_ct_frame_2_grid_maps_to_classic_ct_pixel_centers"});
+        }
+    }
+    let _ = planned;
+    Ok(())
 }
 
 struct AdvancedManifestCommon<'a> {

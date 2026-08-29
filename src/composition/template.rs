@@ -7,6 +7,9 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use super::family::ClassicFamilyProfile;
+use super::{PhotometricInterpretation, SampleType};
+
 const TEMPLATE_CATALOG_SCHEMA: &str = include_str!("../../schemas/template-catalog.schema.json");
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -134,6 +137,31 @@ pub struct TemplateCatalog {
     pub templates: Vec<TemplateDescriptor>,
 }
 
+#[derive(Debug, Deserialize)]
+struct CatalogDocument {
+    template_catalog_schema_version: String,
+    standards_lock_sha256: String,
+    templates: Vec<TemplateDescriptor>,
+    #[serde(default)]
+    classic_family_templates: Vec<ClassicFamilyTemplateDeclaration>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ClassicFamilyTemplateDeclaration {
+    template_id: TemplateId,
+    template_version: TemplateVersion,
+    status: TemplateStatus,
+    iod_name: String,
+    sop_class_name: String,
+    sop_class_uid: String,
+    default_modality: String,
+    artifact_kind: String,
+    transfer_syntaxes: Vec<TransferSyntaxDescriptor>,
+    standards_evidence: Vec<Value>,
+    limitations: Vec<String>,
+    qualification_owner: String,
+}
+
 impl TemplateCatalog {
     pub fn load(path: impl AsRef<Path>) -> Result<Self, TemplateError> {
         let path = path.as_ref();
@@ -156,7 +184,17 @@ impl TemplateCatalog {
         if !errors.is_empty() {
             return Err(TemplateError::Schema(errors));
         }
-        let catalog: Self = serde_json::from_value(value).map_err(TemplateError::Parse)?;
+        let document: CatalogDocument =
+            serde_json::from_value(value).map_err(TemplateError::Parse)?;
+        let mut templates = document.templates;
+        for declaration in document.classic_family_templates {
+            templates.push(declaration.expand()?);
+        }
+        let catalog = Self {
+            template_catalog_schema_version: document.template_catalog_schema_version,
+            standards_lock_sha256: document.standards_lock_sha256,
+            templates,
+        };
         catalog.validate_uniqueness()?;
         Ok(catalog)
     }
@@ -266,6 +304,174 @@ impl TemplateCatalog {
             .find(|transfer_syntax| transfer_syntax.default)
             .expect("catalog uniqueness requires one default transfer syntax")
     }
+}
+
+impl ClassicFamilyTemplateDeclaration {
+    fn expand(self) -> Result<TemplateDescriptor, TemplateError> {
+        let profile = ClassicFamilyProfile::for_template(&self.template_id)
+            .ok_or_else(|| TemplateError::UnknownClassicFamily(self.template_id.clone()))?;
+        let declared = (
+            self.iod_name.as_str(),
+            self.sop_class_name.as_str(),
+            self.sop_class_uid.as_str(),
+            self.default_modality.as_str(),
+        );
+        let executable = (
+            profile.iod_name,
+            profile.sop_class_name,
+            profile.sop_class_uid,
+            profile.modality,
+        );
+        if declared != executable {
+            return Err(TemplateError::ClassicFamilyIdentityMismatch {
+                template_id: self.template_id,
+            });
+        }
+        let modules = classic_family_modules(&profile);
+        let attributes = classic_family_attribute_policies(&profile);
+        let content_slots = vec![classic_family_content_slot(&profile)];
+        Ok(TemplateDescriptor {
+            template_id: profile.template_id,
+            template_version: self.template_version,
+            status: self.status,
+            iod_name: self.iod_name,
+            sop_class_name: self.sop_class_name,
+            sop_class_uid: self.sop_class_uid,
+            default_modality: self.default_modality,
+            artifact_kind: self.artifact_kind,
+            determinism: "byte_stable".into(),
+            modules,
+            attributes,
+            content_slots,
+            reference_slots: Vec::new(),
+            default_bundle: serde_json::json!({ "dependencies": [] }),
+            transfer_syntaxes: self.transfer_syntaxes,
+            requirements: TemplateRequirements {
+                features: Vec::new(),
+                external_codecs: Vec::new(),
+                providers: Vec::new(),
+                external_validators: vec!["dicom_validator".into()],
+            },
+            validation: serde_json::json!({
+                "generic_rule_ids": ["meta_identity", "resolved_attributes"],
+                "template_rule_ids": ["classic_family_iod"],
+                "content_rule_ids": ["content_integrity", "native_pixel_length", "pixel_model"],
+                "independent_routes": [{
+                    "adapter_id": "dicom_validator",
+                    "kind": "iod",
+                    "required_for_qualification": true
+                }]
+            }),
+            standards_evidence: self.standards_evidence,
+            limitations: self.limitations,
+            qualification_owner: self.qualification_owner,
+        })
+    }
+}
+
+fn classic_family_modules(profile: &ClassicFamilyProfile) -> Vec<Value> {
+    let mut names = vec![
+        "Patient",
+        "General Study",
+        "General Series",
+        "General Equipment",
+        "General Image",
+        "Image Pixel",
+        "SOP Common",
+    ];
+    if profile.include_geometry {
+        names.push("Frame of Reference");
+        names.push("Image Plane");
+    }
+    names
+        .into_iter()
+        .map(|name| {
+            serde_json::json!({
+                "name": name,
+                "usage": "mandatory",
+                "condition": null
+            })
+        })
+        .collect()
+}
+
+fn classic_family_attribute_policies(profile: &ClassicFamilyProfile) -> Vec<Value> {
+    vec![
+        serde_json::json!({
+            "tag": "0008,0016", "keyword": "SOPClassUID", "vr": "UI",
+            "requirement": "1", "behavior": "protected", "condition": null,
+            "default": null, "description": "Protected by the selected family profile."
+        }),
+        serde_json::json!({
+            "tag": "0008,0018", "keyword": "SOPInstanceUID", "vr": "UI",
+            "requirement": "1", "behavior": "derived", "condition": null,
+            "default": null, "description": "Derived from the deterministic identity plan."
+        }),
+        serde_json::json!({
+            "tag": "0008,0060", "keyword": "Modality", "vr": "CS",
+            "requirement": "1", "behavior": "defaulted", "condition": null,
+            "default": { "kind": "literal", "value": profile.modality },
+            "description": "Stable family modality default."
+        }),
+        serde_json::json!({
+            "tag": "0010,0010", "keyword": "PatientName", "vr": "PN",
+            "requirement": "2", "behavior": "caller_settable", "condition": null,
+            "default": null, "description": "Caller may replace the synthetic non-PHI default."
+        }),
+        serde_json::json!({
+            "tag": "0020,0020", "keyword": "PatientOrientation", "vr": "CS",
+            "requirement": "2C", "behavior": "defaulted",
+            "condition": { "operator": "parameter_equals", "parameter": "patient_orientation_required", "value": true },
+            "default": { "kind": "empty" },
+            "description": "Conditional image-plane orientation is represented explicitly."
+        }),
+        serde_json::json!({
+            "tag": "0028,0010", "keyword": "Rows", "vr": "US",
+            "requirement": "1", "behavior": "protected", "condition": null,
+            "default": null, "description": "Derived from and protected by the pixel plan."
+        }),
+        serde_json::json!({
+            "tag": "7FE0,0010", "keyword": "PixelData", "vr": "OW",
+            "requirement": "1C", "behavior": "derived",
+            "condition": { "operator": "content_slot_set", "slot": "pixels" },
+            "default": null, "description": "Materialized from the validated native pixel slot."
+        }),
+    ]
+}
+
+fn classic_family_content_slot(profile: &ClassicFamilyProfile) -> Value {
+    let shape = &profile.default_shape;
+    let photometric = match shape.photometric_interpretation {
+        PhotometricInterpretation::Monochrome1 => "MONOCHROME1",
+        PhotometricInterpretation::Monochrome2 => "MONOCHROME2",
+        PhotometricInterpretation::Rgb => "RGB",
+        PhotometricInterpretation::PaletteColor => "PALETTE COLOR",
+        PhotometricInterpretation::YbrFull => "YBR_FULL",
+        PhotometricInterpretation::YbrFull422 => "YBR_FULL_422",
+    };
+    let sample_type = match shape.sample_type {
+        SampleType::UnsignedInteger => "uint",
+        SampleType::SignedInteger => "int",
+        SampleType::Bit1 => "bit1",
+        SampleType::Float32 => "float32",
+        SampleType::Float64 => "float64",
+    };
+    serde_json::json!({
+        "slot": "pixels",
+        "kind": "native_pixels",
+        "required": true,
+        "default_provider": "classic_family_default_pixels",
+        "allowed_sources": ["default", "local_file"],
+        "constraints": {
+            "photometric_interpretations": [photometric],
+            "samples_per_pixel": [shape.samples_per_pixel],
+            "bits_allocated": [shape.bits_allocated],
+            "sample_types": [sample_type],
+            "min_frames": shape.frames,
+            "max_frames": shape.frames
+        },
+        "description": "Native pixel input must match the qualified family pixel model exactly."
+    })
 }
 
 fn require_qualified(template: &TemplateDescriptor) -> Result<&TemplateDescriptor, TemplateError> {
@@ -387,6 +593,10 @@ pub enum TemplateError {
         template_id: TemplateId,
         uid: String,
     },
+    UnknownClassicFamily(TemplateId),
+    ClassicFamilyIdentityMismatch {
+        template_id: TemplateId,
+    },
 }
 
 impl fmt::Display for TemplateError {
@@ -448,6 +658,13 @@ impl fmt::Display for TemplateError {
             Self::UnsupportedTransferSyntax { template_id, uid } => write!(
                 formatter,
                 "template {template_id} does not support transfer syntax {uid}"
+            ),
+            Self::UnknownClassicFamily(template_id) => {
+                write!(formatter, "unknown classic family profile {template_id}")
+            }
+            Self::ClassicFamilyIdentityMismatch { template_id } => write!(
+                formatter,
+                "classic family declaration identity does not match executable profile {template_id}"
             ),
         }
     }
@@ -578,5 +795,91 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn expands_classic_family_declaration_into_public_descriptor() {
+        let mut value = fixture();
+        value["classic_family_templates"] = serde_json::json!([{
+            "template_id": "classic/ct",
+            "template_version": "1.0.0",
+            "status": "planned",
+            "iod_name": "CT Image",
+            "sop_class_name": "CT Image Storage",
+            "sop_class_uid": "1.2.840.10008.5.1.4.1.1.2",
+            "default_modality": "CT",
+            "artifact_kind": "classic_image",
+            "transfer_syntaxes": [{
+                "uid": "1.2.840.10008.1.2.1",
+                "name": "Explicit VR Little Endian",
+                "default": true,
+                "determinism": "byte_stable",
+                "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] },
+                "limitations": []
+            }],
+            "standards_evidence": [{
+                "source": "official-dicom-standard",
+                "part": "PS3.3",
+                "anchor": "CT Image IOD module table",
+                "reason": "Locks mandatory CT modules.",
+                "checked_date": "2026-08-28",
+                "source_note": "standards/source-notes/phase-2-ct-geometry.md"
+            }],
+            "limitations": ["Native pixels only."],
+            "qualification_owner": "classic_ct"
+        }]);
+        let catalog = TemplateCatalog::from_slice(&serde_json::to_vec(&value).unwrap()).unwrap();
+        let descriptor = catalog
+            .templates
+            .iter()
+            .find(|template| template.template_id.0 == "classic/ct")
+            .unwrap();
+        let behaviors = descriptor
+            .attributes
+            .iter()
+            .filter_map(|attribute| attribute["behavior"].as_str())
+            .collect::<BTreeSet<_>>();
+        assert_eq!(
+            behaviors,
+            BTreeSet::from(["caller_settable", "defaulted", "derived", "protected"])
+        );
+        assert_eq!(descriptor.content_slots[0]["slot"], "pixels");
+        assert!(
+            descriptor
+                .modules
+                .iter()
+                .any(|module| module["name"] == "Image Plane")
+        );
+    }
+
+    #[test]
+    fn rejects_classic_family_declaration_identity_drift() {
+        let mut value = fixture();
+        value["classic_family_templates"] = serde_json::json!([{
+            "template_id": "classic/ct",
+            "template_version": "1.0.0",
+            "status": "planned",
+            "iod_name": "CT Image",
+            "sop_class_name": "CT Image Storage",
+            "sop_class_uid": "1.2.840.10008.5.1.4.1.1.4",
+            "default_modality": "CT",
+            "artifact_kind": "classic_image",
+            "transfer_syntaxes": [{
+                "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian",
+                "default": true, "determinism": "byte_stable",
+                "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] },
+                "limitations": []
+            }],
+            "standards_evidence": [{
+                "source": "official-dicom-standard", "part": "PS3.3",
+                "anchor": "CT Image IOD module table", "reason": "Locks mandatory CT modules.",
+                "checked_date": "2026-08-28"
+            }],
+            "limitations": [], "qualification_owner": "classic_ct"
+        }]);
+        assert!(matches!(
+            TemplateCatalog::from_slice(&serde_json::to_vec(&value).unwrap()),
+            Err(TemplateError::ClassicFamilyIdentityMismatch { .. })
+        ));
     }
 }

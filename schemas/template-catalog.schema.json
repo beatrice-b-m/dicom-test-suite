@@ -10,6 +10,10 @@
     "templates": {
       "type": "array",
       "items": { "$ref": "#/$defs/template" }
+    },
+    "classic_family_templates": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/classic_family_template" }
     }
   },
   "additionalProperties": false,
@@ -102,6 +106,41 @@
         },
         "requirements": { "$ref": "#/$defs/requirements" },
         "validation": { "$ref": "#/$defs/validation" },
+        "standards_evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/standards_evidence" }
+        },
+        "limitations": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "qualification_owner": { "$ref": "#/$defs/id" }
+      },
+      "additionalProperties": false
+    },
+    "classic_family_template": {
+      "type": "object",
+      "required": [
+        "template_id", "template_version", "status", "iod_name", "sop_class_name",
+        "sop_class_uid", "default_modality", "artifact_kind", "transfer_syntaxes",
+        "standards_evidence", "limitations", "qualification_owner"
+      ],
+      "properties": {
+        "template_id": { "$ref": "#/$defs/template_id" },
+        "template_version": { "$ref": "#/$defs/semver" },
+        "status": { "enum": ["planned", "qualified", "unavailable", "deprecated"] },
+        "iod_name": { "type": "string", "minLength": 1 },
+        "sop_class_name": { "type": "string", "minLength": 1 },
+        "sop_class_uid": { "$ref": "#/$defs/uid" },
+        "default_modality": { "type": "string", "minLength": 1, "maxLength": 16 },
+        "artifact_kind": { "enum": ["classic_image", "visible_light"] },
+        "transfer_syntaxes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/transfer_syntax" }
+        },
         "standards_evidence": {
           "type": "array",
           "minItems": 1,

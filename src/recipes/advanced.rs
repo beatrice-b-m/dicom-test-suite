@@ -454,11 +454,14 @@ impl AdvancedPlanProviderOutput {
 }
 
 pub trait AdvancedPlanProvider: Send + Sync {
+    type ProviderInput: Send + Sync;
+
     fn provider_id(&self) -> &str;
 
     fn plan(
         &self,
         request: &AdvancedPlanProviderRequest,
+        input: &Self::ProviderInput,
     ) -> Result<AdvancedPlanProviderOutput, AdvancedProviderContractError>;
 }
 
@@ -590,6 +593,7 @@ pub enum AdvancedProviderContractError {
     DuplicateBinding(String),
     MissingBinding,
     BindingSlotMismatch(String),
+    InvalidProviderOutput(String),
     CorpusPlan(CorpusPlanError),
 }
 
@@ -671,6 +675,9 @@ impl fmt::Display for AdvancedProviderContractError {
                 formatter,
                 "execution slots do not match resolved content for `{id}`"
             ),
+            Self::InvalidProviderOutput(error) => {
+                write!(formatter, "advanced provider output is invalid: {error}")
+            }
             Self::CorpusPlan(error) => {
                 write!(formatter, "assembled corpus plan is invalid: {error}")
             }

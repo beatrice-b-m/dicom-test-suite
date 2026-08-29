@@ -19,6 +19,7 @@ pub enum CompositionUidRole {
     Concatenation,
     ConcatenationSource,
     Tracking,
+    ImplementationClass,
     TemplateDefined(String),
 }
 
@@ -34,6 +35,7 @@ impl CompositionUidRole {
             Self::Concatenation => "concatenation_uid",
             Self::ConcatenationSource => "sop_instance_uid_of_concatenation_source",
             Self::Tracking => "tracking_uid",
+            Self::ImplementationClass => "implementation_class_uid",
             Self::TemplateDefined(role) => role,
         }
     }

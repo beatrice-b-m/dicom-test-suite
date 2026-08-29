@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
@@ -68,9 +69,19 @@ pub struct ResolvedAttribute {
 pub struct CanonicalContent {
     pub slot: String,
     pub kind: String,
+    pub address: AttributeAddress,
+    pub vr: DicomVr,
     pub size_bytes: u64,
     pub sha256: String,
     pub properties: BTreeMap<String, String>,
+    #[serde(skip)]
+    pub materialization: Option<ContentMaterialization>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ContentMaterialization {
+    Inline(Vec<u8>),
+    StagedFile(PathBuf),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

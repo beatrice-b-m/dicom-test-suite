@@ -6,7 +6,7 @@ use std::path::{Component, Path, PathBuf};
 #[cfg(unix)]
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 
-use super::CanonicalContent;
+use super::{AttributeAddress, CanonicalContent, ContentMaterialization, DicomVr};
 
 const COPY_BUFFER_BYTES: usize = 64 * 1024;
 
@@ -19,9 +19,33 @@ pub struct ContentLimits {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StagedAsset {
-    pub provenance: CanonicalContent,
+    pub slot: String,
+    pub kind: String,
+    pub size_bytes: u64,
+    pub sha256: String,
     pub spec_relative_path: String,
     pub staged_path: PathBuf,
+}
+
+impl StagedAsset {
+    pub fn into_canonical_content(
+        self,
+        address: AttributeAddress,
+        vr: DicomVr,
+    ) -> CanonicalContent {
+        CanonicalContent {
+            slot: self.slot,
+            kind: self.kind,
+            address,
+            vr,
+            size_bytes: self.size_bytes,
+            sha256: self.sha256,
+            properties: [("spec_relative_path".to_string(), self.spec_relative_path)]
+                .into_iter()
+                .collect(),
+            materialization: Some(ContentMaterialization::StagedFile(self.staged_path)),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -158,15 +182,10 @@ impl LocalContentResolver {
         self.files += 1;
         self.total_bytes = projected_total;
         Ok(StagedAsset {
-            provenance: CanonicalContent {
-                slot: slot.to_string(),
-                kind: kind.to_string(),
-                size_bytes: observed_bytes,
-                sha256,
-                properties: [("spec_relative_path".to_string(), relative_text.clone())]
-                    .into_iter()
-                    .collect(),
-            },
+            slot: slot.to_string(),
+            kind: kind.to_string(),
+            size_bytes: observed_bytes,
+            sha256,
             spec_relative_path: relative_text,
             staged_path,
         })
@@ -562,8 +581,8 @@ mod tests {
                 Some(&expected),
             )
             .unwrap();
-        assert_eq!(asset.provenance.sha256, expected);
-        assert_eq!(asset.provenance.size_bytes, bytes.len() as u64);
+        assert_eq!(asset.sha256, expected);
+        assert_eq!(asset.size_bytes, bytes.len() as u64);
         assert_eq!(asset.spec_relative_path, "nested/frame.raw");
         assert_eq!(asset.staged_path.file_name().unwrap(), "asset-00000000.bin");
         assert_eq!(fs::read(asset.staged_path).unwrap(), bytes);

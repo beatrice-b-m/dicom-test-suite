@@ -1,13 +1,11 @@
 use super::icc_profile::{
-    ICC_CASE_ID, ICC_COLOR_SPACE, ICC_PROFILE_BYTES, ICC_PROFILE_SHA256, ICC_PROFILE_SIZE,
-    ICC_RECIPE_ID, validate_locked_icc_profile,
+    ICC_COLOR_SPACE, ICC_PROFILE_BYTES, ICC_PROFILE_SHA256, ICC_PROFILE_SIZE,
+    validate_locked_icc_profile,
 };
 use crate::sha256_hex;
 
 #[test]
 fn dcmtk_cc0_profile_matches_the_locked_dicom_input_contract() {
-    assert_eq!(ICC_CASE_ID, "vl/photo/rgb_icc_profile_explicit_le");
-    assert_eq!(ICC_RECIPE_ID, "vl_photo_rgb_icc_profile_explicit_le");
     assert_eq!(ICC_COLOR_SPACE, "SRGB");
     assert_eq!(ICC_PROFILE_BYTES.len(), ICC_PROFILE_SIZE);
     assert_eq!(sha256_hex(&ICC_PROFILE_BYTES), ICC_PROFILE_SHA256);

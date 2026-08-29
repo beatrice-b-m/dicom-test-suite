@@ -8,7 +8,6 @@ pub(super) mod encapsulated_stl;
 pub(super) mod general_ecg;
 pub(super) mod icc_profile;
 pub(super) mod metadata_sc;
-pub(super) mod nm;
 pub(super) mod pet;
 pub(super) mod private_creator_sc;
 pub(super) mod rt_image;
@@ -21,13 +20,10 @@ pub(super) mod spatial_registration;
 pub(super) mod string_boundary_sc;
 pub(super) mod timezone_sc;
 pub(super) mod twelve_lead_ecg;
-pub(super) mod us_multiframe;
 pub(super) mod wsi_multiple_optical_paths;
 pub(super) mod wsi_pyramid;
 pub(super) mod wsi_tiled_full;
 pub(super) mod wsi_tiled_sparse;
-pub(super) mod xa;
-pub(super) mod xrf;
 
 #[cfg(test)]
 mod advanced_blending_presentation_state_tests;
@@ -45,8 +41,6 @@ mod general_ecg_tests;
 mod icc_profile_tests;
 #[cfg(test)]
 mod metadata_sc_tests;
-#[cfg(test)]
-mod nm_tests;
 #[cfg(test)]
 mod pet_tests;
 #[cfg(test)]
@@ -70,12 +64,6 @@ mod string_boundary_sc_tests;
 #[cfg(test)]
 mod twelve_lead_ecg_tests;
 #[cfg(test)]
-mod us_multiframe_tests;
-#[cfg(test)]
 mod wsi_tiled_full_tests;
 #[cfg(test)]
 mod wsi_tiled_sparse_tests;
-#[cfg(test)]
-mod xa_tests;
-#[cfg(test)]
-mod xrf_tests;

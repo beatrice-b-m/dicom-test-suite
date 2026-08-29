@@ -5,8 +5,6 @@
 //! reviewed hex in source avoids platform profile discovery and generated
 //! binary assets. See `standards/source-notes/phase-2-icc-profile.md`.
 
-pub(in crate::generator) const ICC_CASE_ID: &str = "vl/photo/rgb_icc_profile_explicit_le";
-pub(in crate::generator) const ICC_RECIPE_ID: &str = "vl_photo_rgb_icc_profile_explicit_le";
 pub(in crate::generator) const ICC_COLOR_SPACE: &str = "SRGB";
 pub(in crate::generator) const ICC_PROFILE_SHA256: &str =
     "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef";

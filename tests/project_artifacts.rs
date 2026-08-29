@@ -6084,17 +6084,8 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
             "src/generator/native/empty_type2_sc.rs",
             &["case_id: \""][..],
         ),
-        (
-            "src/generator/native/icc_profile.rs",
-            &["ICC_CASE_ID: &str = \""][..],
-        ),
         ("src/generator/native/metadata_sc.rs", &["case_id: \""][..]),
-        ("src/generator/native/nm.rs", &["case_id: \""][..]),
         ("src/generator/native/pet.rs", &["case_id: \""][..]),
-        (
-            "src/generator/native/us_multiframe.rs",
-            &["case_id: \""][..],
-        ),
         (
             "src/generator/native/wsi_tiled_full.rs",
             &["WSI_TILED_FULL_CASE_ID: &str = \""][..],
@@ -6111,8 +6102,6 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
             "src/generator/native/wsi_multiple_optical_paths.rs",
             &["WSI_MULTIPLE_OPTICAL_PATHS_CASE_ID: &str =\n    \""][..],
         ),
-        ("src/generator/native/xa.rs", &["case_id: \""][..]),
-        ("src/generator/native/xrf.rs", &["case_id: \""][..]),
         (
             "src/generator/native/private_creator_sc.rs",
             &["case_id: \""][..],
@@ -6168,6 +6157,21 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
             }
         }
     }
+
+    let catalog = dicom_test_suite::recipes::RecipeCatalog::load(
+        "cases/recipes",
+        "cases/registry.json",
+        "templates/catalog.json",
+    )
+    .expect("case recipe catalog must load");
+    case_ids.extend(
+        catalog
+            .recipes()
+            .values()
+            .filter(|recipe| is_suite_case_id(&recipe.binding.case_id))
+            .map(|recipe| recipe.binding.case_id.clone()),
+    );
+
     assert!(
         !case_ids.is_empty(),
         "generator source should declare recipe case IDs"

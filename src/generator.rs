@@ -360,12 +360,6 @@ struct TransferSyntaxSpec {
     name: &'static str,
 }
 
-const IMPLICIT_VR_LITTLE_ENDIAN: TransferSyntaxSpec = TransferSyntaxSpec {
-    capability_keyword: "ImplicitVRLittleEndian",
-    capability_name: "Implicit VR Little Endian: Default Transfer Syntax for DICOM",
-    uid: uids::IMPLICIT_VR_LITTLE_ENDIAN,
-    name: "Implicit VR Little Endian",
-};
 const EXPLICIT_VR_LITTLE_ENDIAN: TransferSyntaxSpec = TransferSyntaxSpec {
     capability_keyword: "ExplicitVRLittleEndian",
     capability_name: "Explicit VR Little Endian",
@@ -27058,7 +27052,12 @@ mod tests {
             .expect("transfer syntax capability matrix should contain entries");
 
         for spec in [
-            IMPLICIT_VR_LITTLE_ENDIAN,
+            TransferSyntaxSpec {
+                capability_keyword: "ImplicitVRLittleEndian",
+                capability_name: "Implicit VR Little Endian: Default Transfer Syntax for DICOM",
+                uid: uids::IMPLICIT_VR_LITTLE_ENDIAN,
+                name: "Implicit VR Little Endian",
+            },
             EXPLICIT_VR_LITTLE_ENDIAN,
             EXPLICIT_VR_BIG_ENDIAN,
             DEFLATED_EXPLICIT_VR_LITTLE_ENDIAN,

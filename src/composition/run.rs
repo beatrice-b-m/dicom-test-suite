@@ -156,6 +156,7 @@ fn compose_loaded(
         path: staging.clone(),
         source,
     })?;
+    set_private_directory_permissions(&staging)?;
     let options = ComposeOptions {
         spec_path: spec_root.join("<in-memory-spec>"),
         out_dir: out_dir.to_path_buf(),
@@ -183,7 +184,7 @@ fn compose_loaded(
             Ok((summary, output))
         }
         Ok((mut summary, output)) => {
-            fs::rename(&staging, out_dir).map_err(|source| ComposeError::Io {
+            promote_no_replace(&staging, out_dir).map_err(|source| ComposeError::Io {
                 path: out_dir.to_path_buf(),
                 source,
             })?;
@@ -210,6 +211,12 @@ fn resolve_and_stage(
 ) -> Result<(ComposeSummary, Value), ComposeError> {
     let bundle_resolution = BundleResolver.resolve(spec.clone(), catalog)?;
     let mut spec = bundle_resolution.spec.clone();
+    if spec.instances.len() as u64 > spec.resource_limits.max_instances {
+        return Err(ComposeError::Spec(super::SpecError::InstanceLimit {
+            count: spec.instances.len(),
+            limit: spec.resource_limits.max_instances,
+        }));
+    }
     let output_root = staging.join("instances");
     let asset_root = staging.join(".assets");
     fs::create_dir(&output_root).map_err(|source| ComposeError::Io {
@@ -455,14 +462,20 @@ fn resolve_and_stage(
         &entries,
     )?;
     let manifest_path = staging.join("manifest.json");
-    fs::write(
-        &manifest_path,
-        format!(
-            "{}\n",
-            serde_json::to_string_pretty(&manifest).expect("manifest serializes")
-        ),
-    )
-    .map_err(|source| ComposeError::Io {
+    let manifest_bytes = format!(
+        "{}\n",
+        serde_json::to_string_pretty(&manifest).expect("manifest serializes")
+    );
+    let publication_bytes = output_bytes
+        .checked_add(manifest_bytes.len() as u64)
+        .ok_or(ComposeError::OutputSizeOverflow)?;
+    if publication_bytes > spec.resource_limits.max_total_output_bytes {
+        return Err(ComposeError::OutputLimit {
+            size: publication_bytes,
+            limit: spec.resource_limits.max_total_output_bytes,
+        });
+    }
+    fs::write(&manifest_path, manifest_bytes).map_err(|source| ComposeError::Io {
         path: manifest_path.clone(),
         source,
     })?;
@@ -1180,6 +1193,74 @@ fn remove_private_staging(path: &Path) -> Result<(), ComposeError> {
     })
 }
 
+fn set_private_directory_permissions(path: &Path) -> Result<(), ComposeError> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o700)).map_err(|source| {
+            ComposeError::Io {
+                path: path.to_path_buf(),
+                source,
+            }
+        })?;
+    }
+    Ok(())
+}
+
+fn promote_no_replace(source: &Path, destination: &Path) -> std::io::Result<()> {
+    #[cfg(target_os = "linux")]
+    {
+        use std::ffi::CString;
+        use std::os::unix::ffi::OsStrExt;
+        let source = CString::new(source.as_os_str().as_bytes())?;
+        let destination = CString::new(destination.as_os_str().as_bytes())?;
+        let result = unsafe {
+            libc::syscall(
+                libc::SYS_renameat2,
+                libc::AT_FDCWD,
+                source.as_ptr(),
+                libc::AT_FDCWD,
+                destination.as_ptr(),
+                libc::RENAME_NOREPLACE,
+            )
+        };
+        if result == 0 {
+            return Ok(());
+        }
+        return Err(std::io::Error::last_os_error());
+    }
+    #[cfg(target_os = "macos")]
+    {
+        use std::ffi::CString;
+        use std::os::unix::ffi::OsStrExt;
+        let source = CString::new(source.as_os_str().as_bytes())?;
+        let destination = CString::new(destination.as_os_str().as_bytes())?;
+        let result = unsafe {
+            libc::renameatx_np(
+                libc::AT_FDCWD,
+                source.as_ptr(),
+                libc::AT_FDCWD,
+                destination.as_ptr(),
+                libc::RENAME_EXCL,
+            )
+        };
+        if result == 0 {
+            return Ok(());
+        }
+        return Err(std::io::Error::last_os_error());
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    {
+        if destination.exists() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::AlreadyExists,
+                "composition destination already exists",
+            ));
+        }
+        fs::rename(source, destination)
+    }
+}
+
 #[derive(Debug)]
 pub enum ComposeError {
     OutputExists(PathBuf),
@@ -1419,6 +1500,25 @@ mod tests {
         assert!(summary.dry_run);
         assert!(!out.exists());
         assert_eq!(resolved["plans"].as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn atomic_promotion_never_replaces_a_destination_race() {
+        let root = output("promotion-race");
+        let source = root.join("source");
+        let destination = root.join("destination");
+        fs::create_dir_all(&source).unwrap();
+        fs::write(source.join("new"), b"new").unwrap();
+        fs::create_dir(&destination).unwrap();
+        fs::write(destination.join("owned"), b"owned").unwrap();
+        let error = promote_no_replace(&source, &destination).unwrap_err();
+        assert!(matches!(
+            error.kind(),
+            std::io::ErrorKind::AlreadyExists | std::io::ErrorKind::Other
+        ));
+        assert_eq!(fs::read(destination.join("owned")).unwrap(), b"owned");
+        assert!(source.join("new").exists());
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

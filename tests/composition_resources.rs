@@ -8,8 +8,8 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use dicom_test_suite::composition::{
-    ComposeCancellationToken, ComposeError, ComposeOptions, ContentError, RawContentError,
-    SpecError, compose, compose_with_cancellation,
+    BundleError, ComposeCancellationToken, ComposeError, ComposeOptions, ContentError,
+    RawContentError, SpecError, compose, compose_with_cancellation,
 };
 use dicom_test_suite::sha256_hex;
 use serde_json::{Value, json};
@@ -88,6 +88,59 @@ fn resource_envelopes_fail_transactionally_and_clean_staging() {
         Err(ComposeError::OutputLimit { .. })
     ));
     assert!(!output_out.exists());
+
+    let baseline_spec = root.join("baseline.json");
+    write_json(
+        &baseline_spec,
+        &json!({
+            "composition_spec_schema_version":"0.1.0",
+            "instances":[
+                {"instance_id":"one","template":{"id":"classic/secondary-capture/monochrome"}}
+            ]
+        }),
+    );
+    let baseline_out = root.join("baseline-out");
+    let (baseline, _) = compose(&options(baseline_spec, baseline_out.clone())).unwrap();
+    fs::remove_dir_all(baseline_out).unwrap();
+    let manifest_limited = root.join("manifest-limit.json");
+    write_json(
+        &manifest_limited,
+        &json!({
+            "composition_spec_schema_version":"0.1.0",
+            "resource_limits":{"max_total_output_bytes":baseline.output_bytes},
+            "instances":[
+                {"instance_id":"one","template":{"id":"classic/secondary-capture/monochrome"}}
+            ]
+        }),
+    );
+    let manifest_out = root.join("manifest-out");
+    assert!(matches!(
+        compose(&options(manifest_limited, manifest_out.clone())),
+        Err(ComposeError::OutputLimit { size, limit }) if size > limit
+    ));
+    assert!(!manifest_out.exists());
+
+    let bundle_limited = root.join("bundle-limit.json");
+    write_json(
+        &bundle_limited,
+        &json!({
+            "composition_spec_schema_version":"0.1.0",
+            "resource_limits":{"max_instances":1},
+            "instances":[
+                {"instance_id":"registration","template":{"id":"derived/registration/spatial"}}
+            ]
+        }),
+    );
+    let bundle_out = root.join("bundle-out");
+    let bundle_result = compose(&options(bundle_limited, bundle_out.clone()));
+    assert!(
+        matches!(
+            bundle_result,
+            Err(ComposeError::Bundle(BundleError::InstanceLimit { count, limit: 1 })) if count > 1
+        ),
+        "unexpected bundle limit result: {bundle_result:?}"
+    );
+    assert!(!bundle_out.exists());
 
     let pixels = vec![0_u8; 16 * 16 * 2];
     fs::write(root.join("pixels.raw"), &pixels).unwrap();

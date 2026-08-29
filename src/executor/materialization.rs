@@ -11,11 +11,11 @@ use serde_json::{Value, json};
 
 use crate::composition::{ContentMaterialization, Part10Materializer};
 use crate::corpus_plan::{
-    OffsetTablePolicy, PlannedArtifact, PlannedAuxiliaryArtifact, PlannedDicomArtifact,
-    PlannedMutationArtifact, PlannedMutationOperation, PlannedQualification,
+    FragmentationPolicy, OffsetTablePolicy, PlannedArtifact, PlannedAuxiliaryArtifact,
+    PlannedDicomArtifact, PlannedMutationArtifact, PlannedMutationOperation, PlannedQualification,
     QualificationPayloadPolicy,
 };
-use crate::encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData};
+use crate::encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData, encapsulate_frames};
 use crate::executor::cancellation::CancellationToken;
 use crate::mutation::{
     AcceptableOutcome, ByteRange, FailureLayer, LengthWidth, MutationParameters, MutationRequest,
@@ -137,8 +137,10 @@ impl MaterializationDispatcher {
         assets: &StagedAssetRegistry,
         cancellation: &CancellationToken,
     ) -> Result<MaterializationResult, MaterializationError> {
+        validate_dicom_encoding_bindings(artifact, &request.bindings)?;
         let mut instance = artifact.instance.clone();
         let mut materialized_content = Vec::new();
+        let mut extended_table_values = None;
         for content in &mut instance.content {
             if cancellation.is_cancelled() {
                 return Err(MaterializationError::Cancelled);
@@ -156,6 +158,11 @@ impl MaterializationDispatcher {
                         "sha256": content.sha256,
                         "basic_offset_table": [],
                         "compressed_frame_sha256": [],
+                        "fragment_count": 0,
+                        "compressed_lengths": [],
+                        "padded_fragment_lengths": [],
+                        "extended_offset_table": [],
+                        "extended_offset_table_lengths": [],
                         "writer_materialization": "stream_copy",
                     }));
                     ContentMaterialization::StagedFile(self.asset_path(asset, assets, false)?)
@@ -168,26 +175,93 @@ impl MaterializationDispatcher {
                     ContentMaterialization::Inline(bytes)
                 }
                 SlotExecutionBinding::EncodedFrames { frames } => {
-                    let encoded_frames = frames
+                    let mut ordered_frames = frames.iter().collect::<Vec<_>>();
+                    ordered_frames.sort_by_key(|frame| frame.frame_number);
+                    for (index, frame) in ordered_frames.iter().enumerate() {
+                        if frame.frame_number != index as u32 + 1 {
+                            return Err(MaterializationError::EncodedFrameOrder);
+                        }
+                    }
+                    let encoded_frames = ordered_frames
                         .iter()
-                        .map(|frame| self.read_binding(&frame.bytes, assets))
+                        .map(|frame| {
+                            let bytes = self.read_binding(&frame.bytes, assets)?;
+                            if bytes.len() as u64 != frame.encoded_size_bytes
+                                || sha256_hex(&bytes) != frame.encoded_sha256
+                            {
+                                return Err(MaterializationError::EncodedFrameIdentity(
+                                    frame.frame_number,
+                                ));
+                            }
+                            Ok(bytes)
+                        })
                         .collect::<Result<Vec<_>, _>>()?;
                     let policy = match artifact.encoding.offset_table {
                         OffsetTablePolicy::PopulatedBasic => BasicOffsetTablePolicy::Populated,
-                        OffsetTablePolicy::EmptyBasic | OffsetTablePolicy::NotApplicable => {
+                        OffsetTablePolicy::EmptyBasic | OffsetTablePolicy::Extended => {
                             BasicOffsetTablePolicy::Empty
                         }
-                        OffsetTablePolicy::Extended => {
-                            return Err(MaterializationError::UnsupportedOffsetTablePolicy(
-                                artifact.logical_id.clone(),
-                            ));
-                        }
+                        OffsetTablePolicy::NotApplicable => unreachable!("prevalidated"),
                     };
-                    let encapsulated =
-                        EncapsulatedPixelData::one_fragment_per_frame(&encoded_frames, policy)
-                            .map_err(MaterializationError::Encapsulation)?;
+                    let encapsulated = match artifact.encoding.fragmentation {
+                        FragmentationPolicy::OneFragmentPerFrame
+                        | FragmentationPolicy::PreserveEncodedFrames => {
+                            if artifact.encoding.offset_table == OffsetTablePolicy::Extended {
+                                EncapsulatedPixelData::one_fragment_per_frame_with_extended_offset_table(
+                                    &encoded_frames,
+                                )
+                            } else {
+                                EncapsulatedPixelData::one_fragment_per_frame(&encoded_frames, policy)
+                            }
+                        }
+                        FragmentationPolicy::FixedMaximumBytes { maximum_bytes } => {
+                            let maximum = usize::try_from(maximum_bytes)
+                                .map_err(|_| MaterializationError::FragmentMaximumRange)?;
+                            let even_maximum = maximum & !1;
+                            let fragments_per_frame = encoded_frames
+                                .iter()
+                                .map(|frame| {
+                                    if frame.len() <= maximum {
+                                        return Ok(1);
+                                    }
+                                    if even_maximum == 0 {
+                                        return Err(MaterializationError::FragmentMaximumTooSmall);
+                                    }
+                                    frame.len()
+                                        .checked_add(even_maximum - 1)
+                                        .map(|value| value / even_maximum)
+                                        .ok_or(MaterializationError::FragmentMaximumRange)
+                                })
+                                .collect::<Result<Vec<_>, _>>()?;
+                            encapsulate_frames(&encoded_frames, &fragments_per_frame, policy)
+                        }
+                        FragmentationPolicy::Native => unreachable!("prevalidated"),
+                    }
+                    .map_err(MaterializationError::Encapsulation)?;
                     let basic_offset_table = encapsulated.basic_offset_table.offsets.clone();
                     let compressed_frame_sha256 = encapsulated.compressed_frame_hashes.clone();
+                    let fragment_count = encapsulated.fragments.len() as u64;
+                    let compressed_lengths = encapsulated
+                        .fragments
+                        .iter()
+                        .map(|fragment| fragment.compressed_length as u64)
+                        .collect::<Vec<_>>();
+                    let padded_fragment_lengths = encapsulated
+                        .fragments
+                        .iter()
+                        .map(|fragment| fragment.padded_length as u64)
+                        .collect::<Vec<_>>();
+                    let (extended_offset_table, extended_offset_table_lengths) = encapsulated
+                        .extended_offset_table
+                        .as_ref()
+                        .map(|table| (table.offsets.clone(), table.lengths.clone()))
+                        .unwrap_or_default();
+                    if let Some(table) = &encapsulated.extended_offset_table {
+                        extended_table_values = Some((
+                            table.offset_value_bytes.clone(),
+                            table.length_value_bytes.clone(),
+                        ));
+                    }
                     let mut fragments = encapsulated.fragment_payloads;
                     for fragment in &mut fragments {
                         if fragment.len() % 2 != 0 {
@@ -212,6 +286,11 @@ impl MaterializationDispatcher {
                         "sha256": content.sha256,
                         "basic_offset_table": basic_offset_table,
                         "compressed_frame_sha256": compressed_frame_sha256,
+                        "fragment_count": fragment_count,
+                        "compressed_lengths": compressed_lengths,
+                        "padded_fragment_lengths": padded_fragment_lengths,
+                        "extended_offset_table": extended_offset_table,
+                        "extended_offset_table_lengths": extended_offset_table_lengths,
                         "writer_materialization": null,
                     }));
                     ContentMaterialization::Encapsulated {
@@ -229,10 +308,28 @@ impl MaterializationDispatcher {
                 }
             });
         }
+        if let Some((offsets, lengths)) = extended_table_values {
+            upsert_binary_attribute(
+                &mut instance,
+                "7FE0,0001",
+                crate::composition::DicomVr::OV,
+                offsets,
+            )?;
+            upsert_binary_attribute(
+                &mut instance,
+                "7FE0,0002",
+                crate::composition::DicomVr::OV,
+                lengths,
+            )?;
+        }
         let relative_path = artifact.output.relative_path.as_str();
         let path = self.output_path(relative_path)?;
-        Part10Materializer
-            .materialize_cancellable(&instance, &path, &|| cancellation.is_cancelled())?;
+        Part10Materializer.materialize_with_encoding_cancellable(
+            &instance,
+            &artifact.encoding,
+            &path,
+            &|| cancellation.is_cancelled(),
+        )?;
         let materialized_instance_plan_sha256 = instance.canonical_sha256();
         let output = self.produced_file(
             &artifact.logical_id,
@@ -240,6 +337,24 @@ impl MaterializationDispatcher {
             "application/dicom",
             artifact.output.publish,
         )?;
+        let artifact_bytes = fs::read(&path).map_err(|source| MaterializationError::Io {
+            path: path.clone(),
+            source,
+        })?;
+        let meta_end = standard_file_meta_end(&artifact_bytes)?;
+        let preamble_sha256 = sha256_hex(&artifact_bytes[..128]);
+        let file_meta_sha256 = sha256_hex(&artifact_bytes[132..meta_end]);
+        let file_meta_size_bytes = (meta_end - 132) as u64;
+        let materialized_encoding_sha256 = sha256_hex(
+            &serde_json::to_vec(&json!({
+                "encoding": artifact.encoding,
+                "content": materialized_content,
+                "preamble_sha256": preamble_sha256,
+                "file_meta_sha256": file_meta_sha256,
+            }))
+            .expect("materialized encoding evidence serializes"),
+        );
+        let materialized_artifact_sha256 = output.observed_sha256.clone();
         Ok(MaterializationResult {
             artifact_id: artifact.logical_id.clone(),
             output: Some(output),
@@ -256,6 +371,30 @@ impl MaterializationDispatcher {
                     (
                         "materialized_content".into(),
                         Value::Array(materialized_content),
+                    ),
+                    (
+                        "materialized_encoding_sha256".into(),
+                        json!(materialized_encoding_sha256),
+                    ),
+                    (
+                        "materialized_artifact_sha256".into(),
+                        json!(materialized_artifact_sha256),
+                    ),
+                    ("preamble_policy".into(), json!(artifact.encoding.preamble)),
+                    ("preamble_sha256".into(), json!(preamble_sha256)),
+                    (
+                        "file_meta_policy".into(),
+                        json!(artifact.encoding.file_meta),
+                    ),
+                    ("file_meta_sha256".into(), json!(file_meta_sha256)),
+                    ("file_meta_size_bytes".into(), json!(file_meta_size_bytes)),
+                    (
+                        "implementation_class_uid".into(),
+                        json!(artifact.encoding.implementation.class_uid),
+                    ),
+                    (
+                        "implementation_version_name".into(),
+                        json!(artifact.encoding.implementation.version_name),
                     ),
                 ]),
             }],
@@ -607,6 +746,54 @@ fn ensure_safe_parent(root: &Path, path: &Path) -> Result<(), MaterializationErr
     Ok(())
 }
 
+fn standard_file_meta_end(bytes: &[u8]) -> Result<usize, MaterializationError> {
+    if bytes.get(128..132) != Some(b"DICM") {
+        return Err(MaterializationError::InvalidPart10FileMeta);
+    }
+    let mut offset = 132usize;
+    while bytes.get(offset..offset + 2) == Some(&[0x02, 0x00]) {
+        let vr = bytes
+            .get(offset + 4..offset + 6)
+            .ok_or(MaterializationError::InvalidPart10FileMeta)?;
+        let long = matches!(
+            vr,
+            b"OB" | b"OD" | b"OF" | b"OL" | b"OV" | b"OW" | b"SQ" | b"UC" | b"UR" | b"UT" | b"UN"
+        );
+        let (header, length) = if long {
+            (
+                12usize,
+                u32::from_le_bytes(
+                    bytes
+                        .get(offset + 8..offset + 12)
+                        .and_then(|value| value.try_into().ok())
+                        .ok_or(MaterializationError::InvalidPart10FileMeta)?,
+                ) as usize,
+            )
+        } else {
+            (
+                8usize,
+                u16::from_le_bytes(
+                    bytes
+                        .get(offset + 6..offset + 8)
+                        .and_then(|value| value.try_into().ok())
+                        .ok_or(MaterializationError::InvalidPart10FileMeta)?,
+                ) as usize,
+            )
+        };
+        offset = offset
+            .checked_add(header)
+            .and_then(|value| value.checked_add(length))
+            .ok_or(MaterializationError::InvalidPart10FileMeta)?;
+        if offset > bytes.len() {
+            return Err(MaterializationError::InvalidPart10FileMeta);
+        }
+    }
+    if offset == 132 {
+        return Err(MaterializationError::InvalidPart10FileMeta);
+    }
+    Ok(offset)
+}
+
 fn write_new(path: &Path, bytes: &[u8]) -> Result<(), MaterializationError> {
     use std::io::Write;
     let mut file = fs::OpenOptions::new()
@@ -812,6 +999,89 @@ fn parse_outcome(value: &str) -> Result<AcceptableOutcome, MaterializationError>
     }
 }
 
+fn validate_dicom_encoding_bindings(
+    artifact: &PlannedDicomArtifact,
+    bindings: &ArtifactExecutionBindings,
+) -> Result<(), MaterializationError> {
+    artifact
+        .encoding
+        .validate()
+        .map_err(|error| MaterializationError::EncodingPolicy(error.to_string()))?;
+    for content in &artifact.instance.content {
+        let Some(ContentMaterialization::Encapsulated {
+            basic_offset_table, ..
+        }) = &content.materialization
+        else {
+            continue;
+        };
+        let matches_table = match artifact.encoding.offset_table {
+            OffsetTablePolicy::EmptyBasic => basic_offset_table.is_empty(),
+            OffsetTablePolicy::PopulatedBasic => !basic_offset_table.is_empty(),
+            OffsetTablePolicy::Extended | OffsetTablePolicy::NotApplicable => false,
+        };
+        if !matches_table {
+            return Err(MaterializationError::EncodingBindingMismatch {
+                artifact_id: artifact.logical_id.clone(),
+                slot: content.slot.clone(),
+            });
+        }
+    }
+    for (slot, binding) in &bindings.slots {
+        let is_pixel_data = artifact.instance.content.iter().any(|content| {
+            content.slot == *slot && content.address.normalized_tag() == "7FE0,0010"
+        });
+        if !is_pixel_data {
+            continue;
+        }
+        let encoded = matches!(binding, SlotExecutionBinding::EncodedFrames { .. });
+        if encoded != !matches!(artifact.encoding.fragmentation, FragmentationPolicy::Native) {
+            return Err(MaterializationError::EncodingBindingMismatch {
+                artifact_id: artifact.logical_id.clone(),
+                slot: slot.clone(),
+            });
+        }
+    }
+    Ok(())
+}
+
+fn upsert_binary_attribute(
+    instance: &mut crate::composition::ResolvedInstancePlan,
+    tag: &str,
+    vr: crate::composition::DicomVr,
+    bytes: Vec<u8>,
+) -> Result<(), MaterializationError> {
+    let address = crate::composition::AttributeAddress::from_normalized_tag(tag)
+        .map_err(|error| MaterializationError::EncodingPolicy(error.to_string()))?;
+    if instance
+        .content
+        .iter()
+        .any(|content| content.address == address)
+    {
+        return Err(MaterializationError::EncodingPolicy(format!(
+            "encoding-owned attribute {tag} conflicts with canonical content"
+        )));
+    }
+    let attribute = crate::composition::ResolvedAttribute {
+        address: address.clone(),
+        vr,
+        value: Some(crate::composition::AttributeValue::Binary(bytes)),
+        origin: crate::composition::ValueOrigin::InstanceOverride,
+    };
+    if let Some(existing) = instance
+        .attributes
+        .iter_mut()
+        .find(|existing| existing.address == address)
+    {
+        *existing = attribute;
+    } else {
+        instance.attributes.push(attribute);
+        instance
+            .attributes
+            .sort_by(|left, right| left.address.cmp(&right.address));
+    }
+    Ok(())
+}
+
 #[derive(Debug)]
 pub enum MaterializationError {
     Cancelled,
@@ -829,7 +1099,16 @@ pub enum MaterializationError {
         artifact_id: String,
         slot: String,
     },
-    UnsupportedOffsetTablePolicy(String),
+    EncodingPolicy(String),
+    EncodingBindingMismatch {
+        artifact_id: String,
+        slot: String,
+    },
+    FragmentMaximumRange,
+    FragmentMaximumTooSmall,
+    EncodedFrameOrder,
+    EncodedFrameIdentity(u32),
+    InvalidPart10FileMeta,
     MissingPrivateMutationSource(String),
     MutationSourceNotPrivate(StagedAssetHandle),
     StagedAssetChanged(StagedAssetHandle),
@@ -1049,6 +1328,162 @@ mod tests {
             &fs::read(root.join("instances/primary.dcm")).unwrap()[128..132],
             b"DICM"
         );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn extended_offsets_are_materialized_from_execution_local_frame_arithmetic() {
+        let root = root("extended-offsets");
+        let mut artifact = dicom("primary", "instances/primary.dcm", true);
+        let PlannedArtifact::Dicom(value) = &mut artifact else {
+            unreachable!()
+        };
+        value.instance.transfer_syntax_uid = "1.2.840.10008.1.2.5".into();
+        value.encoding.transfer_syntax_uid = "1.2.840.10008.1.2.5".into();
+        value.encoding.fragmentation = FragmentationPolicy::OneFragmentPerFrame;
+        value.encoding.offset_table = OffsetTablePolicy::Extended;
+        value.encoding.backend_id = "encoding.native.rle_lossless".into();
+        value
+            .instance
+            .content
+            .push(crate::composition::CanonicalContent {
+                slot: "pixels".into(),
+                kind: "encoded_frames".into(),
+                address: crate::composition::AttributeAddress::from_normalized_tag("7FE0,0010")
+                    .unwrap(),
+                vr: crate::composition::DicomVr::OB,
+                size_bytes: 0,
+                sha256: sha256_hex(&[]),
+                properties: BTreeMap::new(),
+                placement: crate::composition::ContentPlacement::TopLevel,
+                materialization: None,
+            });
+        let frames = [vec![1, 2, 3], vec![4, 5, 6, 7]];
+        let encoded = frames
+            .iter()
+            .enumerate()
+            .map(
+                |(index, bytes)| super::super::services::EncodedFrameResult {
+                    frame_number: index as u32 + 1,
+                    bytes: ByteBinding::Inline {
+                        bytes: bytes.clone(),
+                        sha256: sha256_hex(bytes),
+                    },
+                    encoded_size_bytes: bytes.len() as u64,
+                    encoded_sha256: sha256_hex(bytes),
+                },
+            )
+            .collect();
+        let request = MaterializationRequest {
+            bindings: ArtifactExecutionBindings {
+                artifact_id: "primary".into(),
+                slots: BTreeMap::from([(
+                    "pixels".into(),
+                    SlotExecutionBinding::EncodedFrames { frames: encoded },
+                )]),
+            },
+            artifact,
+        };
+        let result = dispatcher(&root)
+            .dispatch(&request, &StagedAssetRegistry::default())
+            .unwrap();
+        let claims = &result.evidence[0].claims;
+        let content = claims["materialized_content"].as_array().unwrap();
+        assert_eq!(content[0]["fragment_count"], 2);
+        assert_eq!(content[0]["compressed_lengths"], json!([3, 4]));
+        assert_eq!(content[0]["padded_fragment_lengths"], json!([4, 4]));
+        assert_eq!(content[0]["basic_offset_table"], json!([]));
+        assert_eq!(content[0]["extended_offset_table"], json!([0, 12]));
+        assert_eq!(content[0]["extended_offset_table_lengths"], json!([3, 4]));
+        assert_eq!(
+            claims["materialized_artifact_sha256"],
+            result.output.unwrap().observed_sha256
+        );
+
+        let object = dicom_object::open_file(root.join("instances/primary.dcm")).unwrap();
+        assert_eq!(
+            object
+                .element(dicom_core::Tag(0x7fe0, 0x0001))
+                .unwrap()
+                .to_bytes()
+                .unwrap()
+                .as_ref(),
+            &[0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0]
+        );
+        assert_eq!(
+            object
+                .element(dicom_core::Tag(0x7fe0, 0x0002))
+                .unwrap()
+                .to_bytes()
+                .unwrap()
+                .as_ref(),
+            &[3, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0]
+        );
+        let basic_offsets = object
+            .element(dicom_dictionary_std::tags::PIXEL_DATA)
+            .unwrap()
+            .value()
+            .offset_table()
+            .unwrap();
+        assert!(basic_offsets.is_empty());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn rejects_native_binding_for_encapsulated_policy_before_output_creation() {
+        let root = root("binding-reject");
+        let mut artifact = dicom("primary", "new/primary.dcm", true);
+        let PlannedArtifact::Dicom(value) = &mut artifact else {
+            unreachable!()
+        };
+        value.instance.transfer_syntax_uid = "1.2.840.10008.1.2.5".into();
+        value.encoding.transfer_syntax_uid = "1.2.840.10008.1.2.5".into();
+        value.encoding.fragmentation = FragmentationPolicy::OneFragmentPerFrame;
+        value.encoding.offset_table = OffsetTablePolicy::EmptyBasic;
+        value.encoding.backend_id = "encoding.native.rle_lossless".into();
+        value
+            .instance
+            .content
+            .push(crate::composition::CanonicalContent {
+                slot: "pixels".into(),
+                kind: "native_pixels".into(),
+                address: crate::composition::AttributeAddress::from_normalized_tag("7FE0,0010")
+                    .unwrap(),
+                vr: crate::composition::DicomVr::OB,
+                size_bytes: 2,
+                sha256: sha256_hex(&[1, 2]),
+                properties: BTreeMap::new(),
+                placement: crate::composition::ContentPlacement::TopLevel,
+                materialization: None,
+            });
+        let request = MaterializationRequest {
+            bindings: ArtifactExecutionBindings {
+                artifact_id: "primary".into(),
+                slots: BTreeMap::from([(
+                    "pixels".into(),
+                    SlotExecutionBinding::NativeFrames {
+                        frames: vec![super::super::services::NativeFrameBinding {
+                            frame_number: 1,
+                            bytes: ByteBinding::Inline {
+                                bytes: vec![1, 2],
+                                sha256: sha256_hex(&[1, 2]),
+                            },
+                            rows: 1,
+                            columns: 2,
+                            samples_per_pixel: 1,
+                            bits_allocated: 8,
+                            photometric_interpretation: "MONOCHROME2".into(),
+                        }],
+                    },
+                )]),
+            },
+            artifact,
+        };
+        assert!(matches!(
+            dispatcher(&root).dispatch(&request, &StagedAssetRegistry::default()),
+            Err(MaterializationError::EncodingBindingMismatch { .. })
+        ));
+        assert!(!root.join("new").exists());
         fs::remove_dir_all(root).unwrap();
     }
 

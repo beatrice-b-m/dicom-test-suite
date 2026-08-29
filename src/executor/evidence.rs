@@ -219,6 +219,27 @@ pub struct MaterializationEvidence {
     pub streamed_slots: Vec<String>,
     pub completed: bool,
     pub materialized_instance_plan_sha256: Option<String>,
+    /// Hash of the encoding policy together with the execution-observed
+    /// fragmentation/table facts. This deliberately excludes payload bytes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub materialized_encoding_sha256: Option<String>,
+    /// Hash of the completed staged artifact.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub materialized_artifact_sha256: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preamble_policy: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preamble_sha256: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_meta_policy: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_meta_sha256: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_meta_size_bytes: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub implementation_class_uid: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub implementation_version_name: Option<String>,
     #[serde(default)]
     pub content: Vec<MaterializedContentEvidence>,
 }
@@ -229,6 +250,18 @@ impl MaterializationEvidence {
         validate_unique_results("streamed slot", self.streamed_slots.iter())?;
         if let Some(hash) = &self.materialized_instance_plan_sha256 {
             validate_sha256("materialized instance plan", hash)?;
+        }
+        if let Some(hash) = &self.materialized_encoding_sha256 {
+            validate_sha256("materialized encoding", hash)?;
+        }
+        if let Some(hash) = &self.materialized_artifact_sha256 {
+            validate_sha256("materialized artifact", hash)?;
+        }
+        if let Some(hash) = &self.preamble_sha256 {
+            validate_sha256("Part 10 preamble", hash)?;
+        }
+        if let Some(hash) = &self.file_meta_sha256 {
+            validate_sha256("Part 10 File Meta", hash)?;
         }
         validate_unique_results(
             "materialized content slot",
@@ -258,6 +291,16 @@ pub struct MaterializedContentEvidence {
     pub basic_offset_table: Vec<u32>,
     #[serde(default)]
     pub compressed_frame_sha256: Vec<String>,
+    #[serde(default)]
+    pub fragment_count: u64,
+    #[serde(default)]
+    pub compressed_lengths: Vec<u64>,
+    #[serde(default)]
+    pub padded_fragment_lengths: Vec<u64>,
+    #[serde(default)]
+    pub extended_offset_table: Vec<u64>,
+    #[serde(default)]
+    pub extended_offset_table_lengths: Vec<u64>,
     /// How the writer consumed this slot when execution used a distinct
     /// materialization path (for example, bounded file streaming).
     #[serde(default, skip_serializing_if = "Option::is_none")]

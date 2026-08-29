@@ -426,6 +426,32 @@ fn adapt_artifact(
                 )
                 .and_then(Value::as_str)
                 .map(str::to_owned),
+                materialized_encoding_sha256: service_claim(result, "materialized_encoding_sha256")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned),
+                materialized_artifact_sha256: service_claim(result, "materialized_artifact_sha256")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned),
+                preamble_policy: service_claim(result, "preamble_policy")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned),
+                preamble_sha256: service_claim(result, "preamble_sha256")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned),
+                file_meta_policy: service_claim(result, "file_meta_policy")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned),
+                file_meta_sha256: service_claim(result, "file_meta_sha256")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned),
+                file_meta_size_bytes: service_claim(result, "file_meta_size_bytes")
+                    .and_then(Value::as_u64),
+                implementation_class_uid: service_claim(result, "implementation_class_uid")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned),
+                implementation_version_name: service_claim(result, "implementation_version_name")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned),
                 content: service_claim(result, "materialized_content")
                     .cloned()
                     .map(serde_json::from_value::<Vec<MaterializedContentEvidence>>)

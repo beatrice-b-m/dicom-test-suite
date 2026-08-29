@@ -1,0 +1,11 @@
+{
+  "composition_spec_schema_version": "0.1.0",
+  "instances": [
+    { "instance_id": "spatial", "template": { "id": "derived/registration/spatial" } },
+    { "instance_id": "deformable", "template": { "id": "derived/registration/deformable" } },
+    { "instance_id": "grayscale", "template": { "id": "derived/presentation-state/grayscale" } },
+    { "instance_id": "color", "template": { "id": "derived/presentation-state/color" } },
+    { "instance_id": "blending", "template": { "id": "derived/presentation-state/blending" } },
+    { "instance_id": "advanced_blending", "template": { "id": "derived/presentation-state/advanced-blending" } }
+  ]
+}

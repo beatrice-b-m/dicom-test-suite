@@ -461,7 +461,9 @@
               "parameters": { "type": "object" },
               "share_study": { "type": "boolean" },
               "share_series": { "type": "boolean" },
-              "share_frame_of_reference": { "type": "boolean" }
+              "share_frame_of_reference": { "type": "boolean" },
+              "share_series_with_role": { "$ref": "#/$defs/id" },
+              "share_frame_of_reference_with_role": { "$ref": "#/$defs/id" }
             },
             "additionalProperties": false
           }

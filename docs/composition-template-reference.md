@@ -20,6 +20,12 @@ This file is rendered from `templates/catalog.json`. Use `templates describe` fo
 | `classic/ultrasound/single-frame`@1.0.0 | Ultrasound Image | `1.2.840.10008.5.1.4.1.1.6.1` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
 | `classic/xa`@1.0.0 | X-Ray Angiographic Image | `1.2.840.10008.5.1.4.1.1.12.1` | `1.2.840.10008.1.2.1` (default)<br>`1.2.840.10008.1.2.5` | byte_stable | dicom_validator |
 | `classic/xrf`@1.0.0 | X-Ray Radiofluoroscopic Image | `1.2.840.10008.5.1.4.1.1.12.2` | `1.2.840.10008.1.2.1` (default)<br>`1.2.840.10008.1.2.5` | byte_stable | dicom_validator |
+| `derived/presentation-state/advanced-blending`@1.0.0 | Advanced Blending Presentation State | `1.2.840.10008.5.1.4.1.1.11.8` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
+| `derived/presentation-state/blending`@1.0.0 | Blending Softcopy Presentation State | `1.2.840.10008.5.1.4.1.1.11.4` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
+| `derived/presentation-state/color`@1.0.0 | Color Softcopy Presentation State | `1.2.840.10008.5.1.4.1.1.11.2` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
+| `derived/presentation-state/grayscale`@1.0.0 | Grayscale Softcopy Presentation State | `1.2.840.10008.5.1.4.1.1.11.1` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
+| `derived/registration/deformable`@1.0.0 | Deformable Spatial Registration | `1.2.840.10008.5.1.4.1.1.66.3` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
+| `derived/registration/spatial`@1.0.0 | Spatial Registration | `1.2.840.10008.5.1.4.1.1.66.1` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
 | `enhanced/ct`@1.0.0 | Enhanced CT Image | `1.2.840.10008.5.1.4.1.1.2.1` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
 | `enhanced/ct/concatenation-part-1`@1.0.0 | Enhanced CT Image | `1.2.840.10008.5.1.4.1.1.2.1` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
 | `enhanced/ct/concatenation-part-2`@1.0.0 | Enhanced CT Image | `1.2.840.10008.5.1.4.1.1.2.1` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |

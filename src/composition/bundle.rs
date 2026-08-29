@@ -32,6 +32,10 @@ pub struct DefaultBundleDependency {
     pub share_series: bool,
     #[serde(default)]
     pub share_frame_of_reference: bool,
+    #[serde(default)]
+    pub share_series_with_role: Option<String>,
+    #[serde(default)]
+    pub share_frame_of_reference_with_role: Option<String>,
 }
 
 const fn default_true() -> bool {
@@ -112,6 +116,7 @@ impl BundleResolver {
                     }
                 })?;
             let mut dependency_roles = BTreeSet::new();
+            let mut dependency_targets = BTreeMap::new();
             for dependency in bundle.dependencies {
                 validate_dependency(&template.template_id, &dependency)?;
                 if !dependency_roles.insert(dependency.reference_role.clone()) {
@@ -137,8 +142,11 @@ impl BundleResolver {
                     return Err(BundleError::GeneratedIdTooLong(target_id));
                 }
                 if !ids.contains(&target_id) {
-                    let identities =
-                        shared_identities(&provenance.bundle_root_instance_id, &dependency);
+                    let identities = shared_identities(
+                        &provenance.bundle_root_instance_id,
+                        &dependency,
+                        &dependency_targets,
+                    )?;
                     let target = SpecInstance {
                         instance_id: target_id.clone(),
                         template: TemplateSelector {
@@ -182,6 +190,7 @@ impl BundleResolver {
                         return Err(BundleError::GeneratedIdCollision(target_id));
                     }
                 }
+                dependency_targets.insert(dependency.logical_role.clone(), target_id.clone());
                 spec.instances[index].references.push(SpecReference {
                     role: dependency.reference_role,
                     target_instance_id: target_id,
@@ -207,9 +216,10 @@ impl BundleResolver {
 fn shared_identities(
     root: &str,
     dependency: &DefaultBundleDependency,
-) -> BTreeMap<String, IdentityChoice> {
+    dependency_targets: &BTreeMap<String, String>,
+) -> Result<BTreeMap<String, IdentityChoice>, BundleError> {
     let mut identities = BTreeMap::new();
-    let mut share = |role: &str| {
+    let share = |identities: &mut BTreeMap<String, IdentityChoice>, role: &str| {
         identities.insert(
             role.to_string(),
             IdentityChoice::Shared {
@@ -218,15 +228,43 @@ fn shared_identities(
         );
     };
     if dependency.share_study {
-        share("study");
+        share(&mut identities, "study");
     }
-    if dependency.share_series {
-        share("series");
+    if let Some(role) = &dependency.share_series_with_role {
+        let target =
+            dependency_targets
+                .get(role)
+                .ok_or_else(|| BundleError::UnknownIdentityShareRole {
+                    role: dependency.logical_role.clone(),
+                    share_with_role: role.clone(),
+                })?;
+        identities.insert(
+            "series".into(),
+            IdentityChoice::Shared {
+                share_with: target.clone(),
+            },
+        );
+    } else if dependency.share_series {
+        share(&mut identities, "series");
     }
-    if dependency.share_frame_of_reference {
-        share("frame_of_reference");
+    if let Some(role) = &dependency.share_frame_of_reference_with_role {
+        let target =
+            dependency_targets
+                .get(role)
+                .ok_or_else(|| BundleError::UnknownIdentityShareRole {
+                    role: dependency.logical_role.clone(),
+                    share_with_role: role.clone(),
+                })?;
+        identities.insert(
+            "frame_of_reference".into(),
+            IdentityChoice::Shared {
+                share_with: target.clone(),
+            },
+        );
+    } else if dependency.share_frame_of_reference {
+        share(&mut identities, "frame_of_reference");
     }
-    identities
+    Ok(identities)
 }
 
 fn validate_dependency(
@@ -286,6 +324,10 @@ pub enum BundleError {
     InvalidDependency {
         template_id: String,
         role: String,
+    },
+    UnknownIdentityShareRole {
+        role: String,
+        share_with_role: String,
     },
     InvalidDependencyFrames {
         template_id: String,
@@ -395,5 +437,37 @@ mod tests {
         let resolution = BundleResolver.resolve(spec, &catalog).unwrap();
         assert_eq!(resolution.spec.instances.len(), 2);
         assert!(!resolution.members.contains_key("root__source"));
+    }
+
+    #[test]
+    fn dependency_identity_can_share_with_an_earlier_bundle_role() {
+        let valid_catalog = catalog(serde_json::json!({"dependencies":[
+            {
+                "logical_role":"source_1", "reference_role":"source_1",
+                "template_id":"classic/source", "template_version":"1.0.0"
+            },
+            {
+                "logical_role":"source_2", "reference_role":"source_2",
+                "template_id":"classic/source", "template_version":"1.0.0",
+                "share_series_with_role":"source_1"
+            }
+        ]}));
+        let resolution = BundleResolver.resolve(spec(), &valid_catalog).unwrap();
+        assert_eq!(
+            resolution.spec.instances[2].identities["series"],
+            IdentityChoice::Shared {
+                share_with: "root__source_1".into()
+            }
+        );
+
+        let catalog = catalog(serde_json::json!({"dependencies":[{
+            "logical_role":"source_2", "reference_role":"source_2",
+            "template_id":"classic/source", "template_version":"1.0.0",
+            "share_series_with_role":"missing"
+        }]}));
+        assert!(matches!(
+            BundleResolver.resolve(spec(), &catalog),
+            Err(BundleError::UnknownIdentityShareRole { .. })
+        ));
     }
 }

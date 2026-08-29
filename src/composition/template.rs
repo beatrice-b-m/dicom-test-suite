@@ -435,13 +435,15 @@ impl ClassicFamilyTemplateDeclaration {
 impl ClassicFamilyTemplateDeclaration {
     fn expand_advanced(self) -> TemplateDescriptor {
         let wsi = self.artifact_kind == "whole_slide_image";
-        let attributes = [
+        let reference_only = matches!(
+            self.artifact_kind.as_str(),
+            "presentation_state" | "registration"
+        );
+        let mut attributes = [
             ("0008,0016", "SOPClassUID", "UI"),
             ("0008,0018", "SOPInstanceUID", "UI"),
             ("0020,000D", "StudyInstanceUID", "UI"),
             ("0020,000E", "SeriesInstanceUID", "UI"),
-            ("0028,0008", "NumberOfFrames", "IS"),
-            ("7FE0,0010", "PixelData", "OB"),
         ]
         .into_iter()
         .map(|(tag, keyword, vr)| {
@@ -456,7 +458,24 @@ impl ClassicFamilyTemplateDeclaration {
                 "description": "Derived from the selected template, identity plan, or typed frame content."
             })
         })
-        .collect();
+        .collect::<Vec<_>>();
+        if !reference_only {
+            attributes.extend(
+                [
+                    ("0028,0008", "NumberOfFrames", "IS"),
+                    ("7FE0,0010", "PixelData", "OB"),
+                ]
+                .into_iter()
+                .map(|(tag, keyword, vr)| {
+                    json!({
+                        "tag": tag, "keyword": keyword, "vr": vr,
+                        "requirement": "1", "behavior": "protected", "condition": null,
+                        "default": null,
+                        "description": "Derived from the selected template or typed content."
+                    })
+                }),
+            );
+        }
         TemplateDescriptor {
             template_id: self.template_id,
             template_version: self.template_version,
@@ -468,27 +487,31 @@ impl ClassicFamilyTemplateDeclaration {
             artifact_kind: self.artifact_kind,
             determinism: "byte_stable".into(),
             modules: vec![json!({
-                "name": if wsi { "VL Whole Slide Microscopy Image" } else { "Multi-frame Functional Groups" },
+                "name": if wsi { "VL Whole Slide Microscopy Image" } else if reference_only { "Reference Graph" } else { "Multi-frame Functional Groups" },
                 "usage": "mandatory",
                 "condition": null
             })],
             attributes,
-            content_slots: vec![json!({
-                "slot": "pixels",
-                "kind": "native_pixels",
-                "required": true,
-                "default_provider": "qualified_curated_default",
-                "allowed_sources": ["default", "local_file"],
-                "constraints": {
-                    "photometric_interpretations": if wsi { json!(["RGB"]) } else { json!(["MONOCHROME2"]) },
-                    "samples_per_pixel": if wsi { json!([3]) } else { json!([1]) },
-                    "bits_allocated": if wsi { json!([8]) } else { json!([16]) },
-                    "sample_types": ["uint"],
-                    "min_frames": 1,
-                    "max_frames": 65535
-                },
-                "description": "Default qualified frames or an exact-shape caller native frame payload."
-            })],
+            content_slots: if reference_only {
+                vec![]
+            } else {
+                vec![json!({
+                    "slot": "pixels",
+                    "kind": "native_pixels",
+                    "required": true,
+                    "default_provider": "qualified_curated_default",
+                    "allowed_sources": ["default", "local_file"],
+                    "constraints": {
+                        "photometric_interpretations": if wsi { json!(["RGB"]) } else { json!(["MONOCHROME2"]) },
+                        "samples_per_pixel": if wsi { json!([3]) } else { json!([1]) },
+                        "bits_allocated": if wsi { json!([8]) } else { json!([16]) },
+                        "sample_types": ["uint"],
+                        "min_frames": 1,
+                        "max_frames": 65535
+                    },
+                    "description": "Default qualified frames or an exact-shape caller native frame payload."
+                })]
+            },
             reference_slots: self.reference_slots,
             default_bundle: self
                 .default_bundle
@@ -502,8 +525,8 @@ impl ClassicFamilyTemplateDeclaration {
             },
             validation: json!({
                 "generic_rule_ids": ["meta_identity", "resolved_attributes"],
-                "template_rule_ids": ["functional_groups", "dimensions", if wsi { "tiling" } else { "enhanced_image" }],
-                "content_rule_ids": ["content_integrity", "native_pixel_length"],
+                "template_rule_ids": if reference_only { json!(["reference_closure", "derived_object"]) } else { json!(["functional_groups", "dimensions", if wsi { "tiling" } else { "enhanced_image" }]) },
+                "content_rule_ids": if reference_only { json!([]) } else { json!(["content_integrity", "native_pixel_length"]) },
                 "independent_routes": [{"adapter_id":"dicom_validator","kind":"iod","required_for_qualification":true}]
             }),
             standards_evidence: self.standards_evidence,

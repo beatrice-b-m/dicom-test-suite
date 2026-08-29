@@ -258,6 +258,7 @@ fn resolve_and_stage(
 
     super::advanced_family::validate_concatenation_closure(&plans, &bundle_resolution.members)?;
     materialize_reference_graph(&mut plans, spec, &bundle_resolution.members)?;
+    super::advanced_family::rewrite_materialized_dicom_references(&mut plans)?;
 
     let dry_run_output = json!({
         "composition_spec_schema_version": spec.composition_spec_schema_version,

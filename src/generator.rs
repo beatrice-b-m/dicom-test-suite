@@ -5889,31 +5889,104 @@ pub(crate) fn write_composition_default_artifacts(
     template_id: &str,
     variant: Option<&str>,
 ) -> Result<Vec<CompositionDefaultArtifact>, GenerateError> {
-    let (case_ids, selected_file): (&[&str], Option<&str>) = match (template_id, variant) {
-        ("enhanced/ct", _) => (&["enhanced/ct/multiframe_shared_perframe_explicit_le"], None),
-        ("enhanced/mr", _) => (&["enhanced/mr/multiframe_echo_perframe_explicit_le"], None),
-        ("enhanced/pet", _) => (&["enhanced/pet/multiframe_explicit_le"], None),
-        ("enhanced/ct/concatenation-part-1", _) => (
-            &["enhanced/ct/concatenation_two_part_explicit_le"],
-            Some("part-001.dcm"),
-        ),
-        ("enhanced/ct/concatenation-part-2", _) => (
-            &["enhanced/ct/concatenation_two_part_explicit_le"],
-            Some("part-002.dcm"),
-        ),
-        ("vl/wsi/tiled-full", _) => (&["vl/wsi/tiled_full_small"], None),
-        ("vl/wsi/tiled-sparse", _) => (&["vl/wsi/tiled_sparse_small"], None),
-        ("vl/wsi/multiple-optical-paths", _) => (&["vl/wsi/multiple_optical_paths"], None),
-        ("vl/wsi/pyramid-volume", _) => (&["vl/wsi/pyramid_multiresolution"], Some("volume.dcm")),
-        ("vl/wsi/pyramid-thumbnail", _) => (&["vl/wsi/pyramid_multiresolution"], Some("thumbnail.dcm")),
-        ("vl/wsi/pyramid-label", _) => (&["vl/wsi/pyramid_multiresolution"], Some("label.dcm")),
-        _ => {
-            return Err(GenerateError::MetadataShape {
-                path: PathBuf::from(template_id),
-                message: "composition template has no curated default artifact mapping",
-            });
-        }
-    };
+    let (case_ids, selected_case, selected_file): (&[&str], Option<&str>, Option<&str>) =
+        match (template_id, variant) {
+            ("enhanced/ct", _) => (
+                &["enhanced/ct/multiframe_shared_perframe_explicit_le"],
+                None,
+                None,
+            ),
+            ("enhanced/mr", _) => (
+                &["enhanced/mr/multiframe_echo_perframe_explicit_le"],
+                None,
+                None,
+            ),
+            ("enhanced/pet", _) => (&["enhanced/pet/multiframe_explicit_le"], None, None),
+            ("enhanced/ct/concatenation-part-1", _) => (
+                &["enhanced/ct/concatenation_two_part_explicit_le"],
+                None,
+                Some("part-001.dcm"),
+            ),
+            ("enhanced/ct/concatenation-part-2", _) => (
+                &["enhanced/ct/concatenation_two_part_explicit_le"],
+                None,
+                Some("part-002.dcm"),
+            ),
+            ("vl/wsi/tiled-full", _) => (&["vl/wsi/tiled_full_small"], None, None),
+            ("vl/wsi/tiled-sparse", _) => (&["vl/wsi/tiled_sparse_small"], None, None),
+            ("vl/wsi/multiple-optical-paths", _) => {
+                (&["vl/wsi/multiple_optical_paths"], None, None)
+            }
+            ("vl/wsi/pyramid-volume", _) => (
+                &["vl/wsi/pyramid_multiresolution"],
+                None,
+                Some("volume.dcm"),
+            ),
+            ("vl/wsi/pyramid-thumbnail", _) => (
+                &["vl/wsi/pyramid_multiresolution"],
+                None,
+                Some("thumbnail.dcm"),
+            ),
+            ("vl/wsi/pyramid-label", _) => {
+                (&["vl/wsi/pyramid_multiresolution"], None, Some("label.dcm"))
+            }
+            ("derived/registration/spatial", _) => (
+                &[
+                    "enhanced/ct/multiframe_shared_perframe_explicit_le",
+                    "classic/ct/mono2_i16_rescale_12bit_explicit_le",
+                    "derived/registration/spatial_ct_pair",
+                ],
+                Some("derived/registration/spatial_ct_pair"),
+                None,
+            ),
+            ("derived/registration/deformable", _) => (
+                &[
+                    "enhanced/ct/multiframe_shared_perframe_explicit_le",
+                    "classic/ct/mono2_i16_rescale_12bit_explicit_le",
+                    "derived/registration/deformable_ct_pair",
+                ],
+                Some("derived/registration/deformable_ct_pair"),
+                None,
+            ),
+            ("derived/presentation-state/grayscale", _) => (
+                &[
+                    "enhanced/ct/multiframe_shared_perframe_explicit_le",
+                    "derived/presentation-state/grayscale_softcopy_ct_window_explicit_le",
+                ],
+                Some("derived/presentation-state/grayscale_softcopy_ct_window_explicit_le"),
+                None,
+            ),
+            ("derived/presentation-state/color", _) => (
+                &[
+                    "classic/sc/rgb_planar0_explicit_le",
+                    "derived/presentation-state/color_softcopy",
+                ],
+                Some("derived/presentation-state/color_softcopy"),
+                None,
+            ),
+            ("derived/presentation-state/blending", _) => (
+                &[
+                    "geometry/ct/multiseries_shared_frame_of_reference",
+                    "derived/presentation-state/blending",
+                ],
+                Some("derived/presentation-state/blending"),
+                None,
+            ),
+            ("derived/presentation-state/advanced-blending", _) => (
+                &[
+                    "geometry/ct/multiseries_shared_frame_of_reference",
+                    "derived/presentation-state/advanced_blending",
+                ],
+                Some("derived/presentation-state/advanced_blending"),
+                None,
+            ),
+            _ => {
+                return Err(GenerateError::MetadataShape {
+                    path: PathBuf::from(template_id),
+                    message: "composition template has no curated default artifact mapping",
+                });
+            }
+        };
     let registry: Value = serde_json::from_str(include_str!("../cases/registry.json"))
         .expect("embedded case registry parses");
     let selected = registry["cases"]
@@ -5958,6 +6031,9 @@ pub(crate) fn write_composition_default_artifacts(
             })
         })
         .collect::<Result<Vec<_>, GenerateError>>()?;
+    if let Some(selected_case) = selected_case {
+        artifacts.retain(|artifact| artifact.case_id == selected_case);
+    }
     if let Some(selected_file) = selected_file {
         artifacts.retain(|artifact| {
             artifact.path.file_name().and_then(|name| name.to_str()) == Some(selected_file)

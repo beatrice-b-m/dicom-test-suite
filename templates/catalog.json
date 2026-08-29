@@ -450,6 +450,92 @@
       "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
       "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "VL Whole Slide Microscopy LABEL image flavor", "reason": "Locks label flavor and its deliberate exclusion from pyramid resolution levels.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-wsi.md" }],
       "limitations": ["Intended as a pyramid companion or explicit advanced composition."], "qualification_owner": "wsi_pyramid"
+    },
+    {
+      "template_id": "derived/registration/spatial", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "Spatial Registration", "sop_class_name": "Spatial Registration Storage", "sop_class_uid": "1.2.840.10008.5.1.4.1.1.66.1", "default_modality": "REG", "artifact_kind": "registration",
+      "reference_slots": [
+        { "role": "fixed_image", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.2.1"], "frame_roles": [], "cycle_policy": "forbidden", "default_dependency": "enhanced/ct", "description": "Fixed Enhanced CT image." },
+        { "role": "moving_image", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.2"], "frame_roles": [], "cycle_policy": "forbidden", "default_dependency": "classic/ct", "description": "Moving classic CT image." }
+      ],
+      "default_bundle": { "dependencies": [
+        { "logical_role": "fixed", "template_id": "enhanced/ct", "template_version": "1.0.0", "reference_role": "fixed_image", "share_study": true },
+        { "logical_role": "moving", "template_id": "classic/ct", "template_version": "1.0.0", "reference_role": "moving_image", "share_study": true }
+      ] },
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "Spatial Registration IOD", "reason": "Locks registered frames, source closure, and rigid matrix semantics.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-registration-presentation.md" }],
+      "limitations": ["Qualified for the deterministic rigid CT-pair transform."], "qualification_owner": "registration_presentation_state"
+    },
+    {
+      "template_id": "derived/registration/deformable", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "Deformable Spatial Registration", "sop_class_name": "Deformable Spatial Registration Storage", "sop_class_uid": "1.2.840.10008.5.1.4.1.1.66.3", "default_modality": "REG", "artifact_kind": "registration",
+      "reference_slots": [
+        { "role": "fixed_image", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.2.1"], "frame_roles": [], "cycle_policy": "forbidden", "default_dependency": "enhanced/ct", "description": "Fixed Enhanced CT image." },
+        { "role": "moving_image", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.2"], "frame_roles": [], "cycle_policy": "forbidden", "default_dependency": "classic/ct", "description": "Moving classic CT image." }
+      ],
+      "default_bundle": { "dependencies": [
+        { "logical_role": "fixed", "template_id": "enhanced/ct", "template_version": "1.0.0", "reference_role": "fixed_image", "share_study": true },
+        { "logical_role": "moving", "template_id": "classic/ct", "template_version": "1.0.0", "reference_role": "moving_image", "share_study": true }
+      ] },
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "Deformable Spatial Registration IOD", "reason": "Locks source closure, pre/post matrices, grid geometry, and vector data.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-registration-presentation.md" }],
+      "limitations": ["Qualified for the deterministic bounded CT-pair deformation grid."], "qualification_owner": "registration_presentation_state"
+    },
+    {
+      "template_id": "derived/presentation-state/grayscale", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "Grayscale Softcopy Presentation State", "sop_class_name": "Grayscale Softcopy Presentation State Storage", "sop_class_uid": "1.2.840.10008.5.1.4.1.1.11.1", "default_modality": "PR", "artifact_kind": "presentation_state",
+      "reference_slots": [{ "role": "source_image", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.2.1"], "frame_roles": [], "cycle_policy": "forbidden", "default_dependency": "enhanced/ct", "description": "Image receiving the qualified grayscale window presentation." }],
+      "default_bundle": { "dependencies": [{ "logical_role": "source", "template_id": "enhanced/ct", "template_version": "1.0.0", "reference_role": "source_image", "share_study": true }] },
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "Grayscale Softcopy Presentation State IOD", "reason": "Locks source references, displayed area, window, and presentation LUT semantics.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-registration-presentation.md" }],
+      "limitations": ["Qualified for the deterministic CT window presentation."], "qualification_owner": "registration_presentation_state"
+    },
+    {
+      "template_id": "derived/presentation-state/color", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "Color Softcopy Presentation State", "sop_class_name": "Color Softcopy Presentation State Storage", "sop_class_uid": "1.2.840.10008.5.1.4.1.1.11.2", "default_modality": "PR", "artifact_kind": "presentation_state",
+      "reference_slots": [{ "role": "source_image", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.7"], "frame_roles": [], "cycle_policy": "forbidden", "default_dependency": "classic/secondary-capture/rgb", "description": "RGB image receiving the qualified color presentation." }],
+      "default_bundle": { "dependencies": [{ "logical_role": "source", "template_id": "classic/secondary-capture/rgb", "template_version": "1.0.0", "reference_role": "source_image", "share_study": true }] },
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "Color Softcopy Presentation State IOD", "reason": "Locks source references, displayed area, and ICC color-management semantics.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-registration-presentation.md" }],
+      "limitations": ["Qualified for one deterministic RGB source image."], "qualification_owner": "registration_presentation_state"
+    },
+    {
+      "template_id": "derived/presentation-state/blending", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "Blending Softcopy Presentation State", "sop_class_name": "Blending Softcopy Presentation State Storage", "sop_class_uid": "1.2.840.10008.5.1.4.1.1.11.4", "default_modality": "PR", "artifact_kind": "presentation_state",
+      "reference_slots": [
+        { "role": "source_1", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.2"], "frame_roles": [], "cycle_policy": "forbidden", "default_dependency": "classic/ct", "description": "First underlying CT source." },
+        { "role": "source_2", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.2"], "frame_roles": [], "cycle_policy": "forbidden", "default_dependency": "classic/ct", "description": "Second underlying CT source." },
+        { "role": "source_3", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.2"], "frame_roles": [], "cycle_policy": "forbidden", "default_dependency": "classic/ct", "description": "First superimposed CT source." },
+        { "role": "source_4", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.2"], "frame_roles": [], "cycle_policy": "forbidden", "default_dependency": "classic/ct", "description": "Second superimposed CT source." }
+      ],
+      "default_bundle": { "dependencies": [
+        { "logical_role": "source_1", "template_id": "classic/ct", "template_version": "1.0.0", "reference_role": "source_1", "share_study": true, "share_frame_of_reference": true },
+        { "logical_role": "source_2", "template_id": "classic/ct", "template_version": "1.0.0", "reference_role": "source_2", "share_study": true, "share_series_with_role": "source_1", "share_frame_of_reference": true },
+        { "logical_role": "source_3", "template_id": "classic/ct", "template_version": "1.0.0", "reference_role": "source_3", "share_study": true, "share_frame_of_reference": true },
+        { "logical_role": "source_4", "template_id": "classic/ct", "template_version": "1.0.0", "reference_role": "source_4", "share_study": true, "share_series_with_role": "source_3", "share_frame_of_reference": true }
+      ] },
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "Blending Softcopy Presentation State IOD", "reason": "Locks two ordered input sets, source closure, palettes, opacity, and display semantics.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-registration-presentation.md" }],
+      "limitations": ["Qualified for two paired CT series sharing one Frame of Reference."], "qualification_owner": "registration_presentation_state"
+    },
+    {
+      "template_id": "derived/presentation-state/advanced-blending", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "Advanced Blending Presentation State", "sop_class_name": "Advanced Blending Presentation State Storage", "sop_class_uid": "1.2.840.10008.5.1.4.1.1.11.8", "default_modality": "PR", "artifact_kind": "presentation_state",
+      "reference_slots": [
+        { "role": "source_1", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.2"], "frame_roles": [], "cycle_policy": "forbidden", "default_dependency": "classic/ct", "description": "First source in blending input one." },
+        { "role": "source_2", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.2"], "frame_roles": [], "cycle_policy": "forbidden", "default_dependency": "classic/ct", "description": "Second source in blending input one." },
+        { "role": "source_3", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.2"], "frame_roles": [], "cycle_policy": "forbidden", "default_dependency": "classic/ct", "description": "First source in blending input two." },
+        { "role": "source_4", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.2"], "frame_roles": [], "cycle_policy": "forbidden", "default_dependency": "classic/ct", "description": "Second source in blending input two." }
+      ],
+      "default_bundle": { "dependencies": [
+        { "logical_role": "source_1", "template_id": "classic/ct", "template_version": "1.0.0", "reference_role": "source_1", "share_study": true, "share_frame_of_reference": true },
+        { "logical_role": "source_2", "template_id": "classic/ct", "template_version": "1.0.0", "reference_role": "source_2", "share_study": true, "share_series_with_role": "source_1", "share_frame_of_reference": true },
+        { "logical_role": "source_3", "template_id": "classic/ct", "template_version": "1.0.0", "reference_role": "source_3", "share_study": true, "share_frame_of_reference": true },
+        { "logical_role": "source_4", "template_id": "classic/ct", "template_version": "1.0.0", "reference_role": "source_4", "share_study": true, "share_series_with_role": "source_3", "share_frame_of_reference": true }
+      ] },
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "Advanced Blending Presentation State IOD", "reason": "Locks ordered blending inputs, source closure, display mapping, and ICC semantics.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-registration-presentation.md" }],
+      "limitations": ["Qualified for two paired CT series sharing one Frame of Reference."], "qualification_owner": "registration_presentation_state"
     }
   ]
 }

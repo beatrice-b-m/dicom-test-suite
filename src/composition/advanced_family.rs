@@ -17,6 +17,7 @@ pub enum AdvancedFamilyKind {
     EnhancedMr,
     EnhancedPet,
     WholeSlide,
+    DerivedReference,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -40,6 +41,14 @@ impl AdvancedFamilyProfile {
             | "vl/wsi/pyramid-volume"
             | "vl/wsi/pyramid-thumbnail"
             | "vl/wsi/pyramid-label" => AdvancedFamilyKind::WholeSlide,
+            "derived/registration/spatial"
+            | "derived/registration/deformable"
+            | "derived/presentation-state/grayscale"
+            | "derived/presentation-state/color"
+            | "derived/presentation-state/blending"
+            | "derived/presentation-state/advanced-blending" => {
+                AdvancedFamilyKind::DerivedReference
+            }
             _ => return None,
         };
         Some(Self {
@@ -120,15 +129,61 @@ impl AdvancedFamilyProfile {
                 qualify_enhanced_ct_concatenation(&mut plan)?;
             }
         }
+        normalize_derived_reference_defaults(&template.template_id.0, &mut plan)?;
         if self.kind == AdvancedFamilyKind::WholeSlide {
             validate_wsi_structure(&plan)?;
-        } else {
+        } else if self.kind != AdvancedFamilyKind::DerivedReference {
             validate_multiframe_structure(&plan)?;
         }
-        apply_caller_content(instance, &mut plan, content_resolver)?;
+        if self.kind == AdvancedFamilyKind::DerivedReference {
+            if !instance.content.is_empty() {
+                return Err(AdvancedFamilyError::UnsupportedContent(
+                    instance.instance_id.clone(),
+                ));
+            }
+        } else {
+            apply_caller_content(instance, &mut plan, content_resolver)?;
+        }
         apply_overrides(instance, &mut plan)?;
         Ok(plan)
     }
+}
+
+fn normalize_derived_reference_defaults(
+    template_id: &str,
+    plan: &mut ResolvedInstancePlan,
+) -> Result<(), AdvancedFamilyError> {
+    if template_id == "derived/presentation-state/grayscale" {
+        plan.attributes.retain(|attribute| {
+            !matches!(
+                attribute.address.normalized_tag().as_str(),
+                "0008,0023" | "0008,0033"
+            )
+        });
+        upsert(
+            &mut plan.attributes,
+            ResolvedAttribute {
+                address: super::AttributeAddress::from_normalized_tag("0020,0060")
+                    .map_err(|error| AdvancedFamilyError::DefaultArtifact(error.to_string()))?,
+                vr: super::DicomVr::CS,
+                value: Some(AttributeValue::Primitive(PrimitiveValue::String(
+                    "R".into(),
+                ))),
+                origin: ValueOrigin::TemplateDefault,
+            },
+        );
+    }
+    if template_id == "derived/presentation-state/advanced-blending" {
+        plan.attributes.retain(|attribute| {
+            !matches!(
+                attribute.address.normalized_tag().as_str(),
+                "0020,0052" | "0020,1040"
+            )
+        });
+    }
+    plan.attributes
+        .sort_by(|left, right| left.address.cmp(&right.address));
+    Ok(())
 }
 
 fn normalize_enhanced_ct_defined_terms(plan: &mut ResolvedInstancePlan) {
@@ -371,6 +426,221 @@ pub(crate) fn validate_concatenation_closure(
         validate_concatenation_summaries(&root, summaries)?;
     }
     Ok(())
+}
+
+pub(crate) fn rewrite_materialized_dicom_references(
+    plans: &mut [ResolvedInstancePlan],
+) -> Result<(), AdvancedFamilyError> {
+    #[derive(Clone)]
+    struct TargetIdentity {
+        sop: String,
+        series: Option<String>,
+        study: Option<String>,
+        frame_of_reference: Option<String>,
+    }
+    let targets = plans
+        .iter()
+        .map(|plan| {
+            (
+                plan.instance_id.clone(),
+                TargetIdentity {
+                    sop: plan
+                        .identities
+                        .get(&super::CompositionUidRole::SopInstance, 0)
+                        .expect("resolved plans allocate SOP identity")
+                        .to_string(),
+                    series: plan
+                        .identities
+                        .get(&super::CompositionUidRole::SeriesInstance, 0)
+                        .map(str::to_string),
+                    study: plan
+                        .identities
+                        .get(&super::CompositionUidRole::StudyInstance, 0)
+                        .map(str::to_string),
+                    frame_of_reference: plan
+                        .identities
+                        .get(&super::CompositionUidRole::FrameOfReference, 0)
+                        .map(str::to_string),
+                },
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+
+    for plan in plans {
+        if plan.references.is_empty()
+            || !(plan.template_id.0.starts_with("derived/registration/")
+                || plan
+                    .template_id
+                    .0
+                    .starts_with("derived/presentation-state/"))
+        {
+            continue;
+        }
+        let ordered = plan
+            .references
+            .iter()
+            .map(|reference| {
+                targets.get(&reference.target_instance_id).ok_or_else(|| {
+                    AdvancedFamilyError::DicomReferenceClosure(format!(
+                        "{} targets unknown {}",
+                        plan.instance_id, reference.target_instance_id
+                    ))
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        rewrite_nested_identity_axis(
+            plan,
+            "0008,1155",
+            ordered.iter().map(|identity| Some(identity.sop.clone())),
+            true,
+        )?;
+        rewrite_nested_identity_axis(
+            plan,
+            "0020,000E",
+            ordered.iter().map(|identity| identity.series.clone()),
+            false,
+        )?;
+        rewrite_nested_identity_axis(
+            plan,
+            "0020,000D",
+            ordered.iter().map(|identity| identity.study.clone()),
+            false,
+        )?;
+        rewrite_nested_identity_axis(
+            plan,
+            "0020,0052",
+            ordered
+                .iter()
+                .map(|identity| identity.frame_of_reference.clone()),
+            false,
+        )?;
+    }
+    Ok(())
+}
+
+fn rewrite_nested_identity_axis(
+    plan: &mut ResolvedInstancePlan,
+    tag: &str,
+    replacements: impl IntoIterator<Item = Option<String>>,
+    required: bool,
+) -> Result<(), AdvancedFamilyError> {
+    let mut old = Vec::new();
+    for attribute in &plan.attributes {
+        if let Some(value) = &attribute.value {
+            collect_nested_tag_strings(value, tag, &mut old);
+        }
+    }
+    old.dedup();
+    let mut new = replacements.into_iter().flatten().collect::<Vec<_>>();
+    let mut seen = std::collections::BTreeSet::new();
+    new.retain(|value| seen.insert(value.clone()));
+    if old.is_empty() {
+        if required {
+            return Err(AdvancedFamilyError::DicomReferenceClosure(format!(
+                "{} has logical references but no nested {tag}",
+                plan.instance_id
+            )));
+        }
+        return Ok(());
+    }
+    if old.len() != new.len() {
+        return Err(AdvancedFamilyError::DicomReferenceClosure(format!(
+            "{} {tag} identity cardinality differs: DICOM={}, graph={}",
+            plan.instance_id,
+            old.len(),
+            new.len()
+        )));
+    }
+    let mapping = old.into_iter().zip(new).collect::<BTreeMap<_, _>>();
+    for attribute in &mut plan.attributes {
+        if let Some(value) = &mut attribute.value {
+            rewrite_nested_tag_strings(value, tag, &mapping);
+        }
+    }
+    Ok(())
+}
+
+fn collect_nested_tag_strings(value: &AttributeValue, tag: &str, output: &mut Vec<String>) {
+    let AttributeValue::Sequence(items) = value else {
+        return;
+    };
+    for item in items {
+        for operation in &item.attributes {
+            if let AttributeOperation::Set {
+                address,
+                value: nested,
+                ..
+            } = operation
+            {
+                if address.normalized_tag() == tag {
+                    collect_primitive_strings(nested, output);
+                }
+                collect_nested_tag_strings(nested, tag, output);
+            }
+        }
+    }
+}
+
+fn collect_primitive_strings(value: &AttributeValue, output: &mut Vec<String>) {
+    match value {
+        AttributeValue::Primitive(PrimitiveValue::String(value)) => {
+            let value = value.trim().to_string();
+            if !output.contains(&value) {
+                output.push(value);
+            }
+        }
+        AttributeValue::Multi(values) => {
+            for value in values {
+                if let PrimitiveValue::String(value) = value {
+                    let value = value.trim().to_string();
+                    if !output.contains(&value) {
+                        output.push(value);
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn rewrite_nested_tag_strings(
+    value: &mut AttributeValue,
+    tag: &str,
+    mapping: &BTreeMap<String, String>,
+) {
+    let AttributeValue::Sequence(items) = value else {
+        return;
+    };
+    for item in items {
+        for operation in &mut item.attributes {
+            if let AttributeOperation::Set {
+                address,
+                value: nested,
+                ..
+            } = operation
+            {
+                if address.normalized_tag() == tag {
+                    rewrite_primitive_strings(nested, mapping);
+                }
+                rewrite_nested_tag_strings(nested, tag, mapping);
+            }
+        }
+    }
+}
+
+fn rewrite_primitive_strings(value: &mut AttributeValue, mapping: &BTreeMap<String, String>) {
+    let rewrite = |value: &mut PrimitiveValue| {
+        if let PrimitiveValue::String(current) = value {
+            if let Some(replacement) = mapping.get(current.trim()) {
+                *current = replacement.clone();
+            }
+        }
+    };
+    match value {
+        AttributeValue::Primitive(value) => rewrite(value),
+        AttributeValue::Multi(values) => values.iter_mut().for_each(rewrite),
+        _ => {}
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -671,7 +941,10 @@ fn apply_overrides(
             .validate()
             .map_err(|error| AdvancedFamilyError::Override(error.to_string()))?;
         let tag = operation.address().normalized_tag();
-        if protected.contains(&tag.as_str()) {
+        let existing_sequence = plan.attributes.iter().any(|attribute| {
+            attribute.address == *operation.address() && attribute.vr == super::DicomVr::SQ
+        });
+        if protected.contains(&tag.as_str()) || existing_sequence {
             return Err(AdvancedFamilyError::ProtectedOverride(tag));
         }
         match operation {
@@ -750,6 +1023,7 @@ pub enum AdvancedFamilyError {
     },
     InvalidTiling(String),
     ConcatenationClosure(String),
+    DicomReferenceClosure(String),
     ContentCardinality(String),
     UnsupportedContent(String),
     PixelShapeMismatch {

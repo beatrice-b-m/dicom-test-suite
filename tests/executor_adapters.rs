@@ -260,6 +260,9 @@ fn outputs(id: &str, path: &str, bytes: &[u8], include_services: bool) -> Artifa
             vec![CodecExecutionRecord {
                 request: codec_request,
                 result: codec_result,
+                backend_kind: "in_process".into(),
+                display_name: "Fake codec".into(),
+                feature_gate: None,
                 determinism: "byte_stable".into(),
                 decoded_frame_sha256: BTreeMap::from([(1, "d".repeat(64))]),
                 metrics: BTreeMap::from([("psnr".into(), 42.0)]),
@@ -366,6 +369,9 @@ fn adapter_orders_records_and_preserves_typed_service_evidence() {
         evidence.artifacts[0].codecs[0].decoded_frame_sha256,
         vec!["d".repeat(64)]
     );
+    assert_eq!(evidence.artifacts[0].codecs[0].backend_kind, "in_process");
+    assert_eq!(evidence.artifacts[0].codecs[0].display_name, "Fake codec");
+    assert_eq!(evidence.artifacts[0].codecs[0].feature_gate, None);
     assert_eq!(evidence.artifacts[0].validation[0].layer, "part10");
     assert_eq!(
         evidence.artifacts[0].obligations[0].route_id,

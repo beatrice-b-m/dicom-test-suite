@@ -111,6 +111,9 @@ pub fn execute_native_rle(
             frames: encoded,
             evidence: vec![],
         },
+        backend_kind: backend.backend_kind.as_str().into(),
+        display_name: backend.display_name.into(),
+        feature_gate: backend.feature_gate.map(str::to_owned),
         determinism: "byte_stable".into(),
         decoded_frame_sha256,
         metrics: BTreeMap::new(),
@@ -127,4 +130,47 @@ pub fn execute_native_rle(
             ("codec_availability".into(), json!("available")),
         ]),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::codecs::RLE_LOSSLESS_TRANSFER_SYNTAX_UID;
+    use crate::executor::services::NativeFrameBinding;
+
+    #[test]
+    fn native_rle_reports_typed_backend_identity() {
+        let native = vec![1, 2];
+        let request = CodecRequest {
+            request_id: "codec:test:pixels".into(),
+            artifact_id: "test".into(),
+            slot: "pixels".into(),
+            backend_id: NativeRleLosslessEncoder::BACKEND_ID.into(),
+            source_transfer_syntax_uid: "1.2.840.10008.1.2.1".into(),
+            target_transfer_syntax_uid: RLE_LOSSLESS_TRANSFER_SYNTAX_UID.into(),
+            frames: vec![NativeFrameBinding {
+                frame_number: 1,
+                bytes: ByteBinding::Inline {
+                    sha256: sha256_hex(&native),
+                    bytes: native,
+                },
+                rows: 1,
+                columns: 2,
+                samples_per_pixel: 1,
+                bits_allocated: 8,
+                photometric_interpretation: "MONOCHROME2".into(),
+            }],
+            parameters: BTreeMap::from([("bits_stored".into(), Value::from(8))]),
+        };
+        let outcome = execute_native_rle(&request, &CancellationToken::new(), |binding| {
+            let ByteBinding::Inline { bytes, .. } = binding else {
+                unreachable!()
+            };
+            Ok(bytes.clone())
+        })
+        .unwrap();
+        assert_eq!(outcome.backend_kind, "native");
+        assert_eq!(outcome.display_name, "Native project RLE Lossless encoder");
+        assert_eq!(outcome.feature_gate, None);
+    }
 }

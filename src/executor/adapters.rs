@@ -40,6 +40,12 @@ pub struct ProviderExecutionRecord {
 pub struct CodecExecutionRecord {
     pub request: CodecRequest,
     pub result: CodecResult,
+    #[serde(default)]
+    pub backend_kind: String,
+    #[serde(default)]
+    pub display_name: String,
+    #[serde(default)]
+    pub feature_gate: Option<String>,
     pub determinism: String,
     #[serde(default)]
     pub decoded_frame_sha256: BTreeMap<u32, String>,
@@ -633,6 +639,9 @@ fn adapt_codec(mut record: CodecExecutionRecord) -> Result<CodecEvidence, Adapte
     Ok(CodecEvidence {
         backend_id: record.result.backend.backend_id.clone(),
         backend_version: record.result.backend.version.clone(),
+        backend_kind: record.backend_kind,
+        display_name: record.display_name,
+        feature_gate: record.feature_gate,
         slot: record.request.slot.clone(),
         request_sha256: canonical_hash(&record.request)?,
         transfer_syntax_uid: record.request.target_transfer_syntax_uid,

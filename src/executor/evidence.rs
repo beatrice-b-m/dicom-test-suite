@@ -287,9 +287,37 @@ impl MaterializationEvidence {
                     content.slot.clone(),
                 ));
             }
+            content.validate_encoding_facts()?;
         }
         Ok(())
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MaterializedFragmentEvidence {
+    pub frame_index: u64,
+    pub item_start_offset: u64,
+    pub compressed_length: u64,
+    pub padded_length: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NativeByteOrderEvidence {
+    LittleEndian,
+    BigEndian,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct NativeBitPackingEvidence {
+    pub bit_order: String,
+    pub continuous_across_frames: bool,
+    pub stored_values_per_frame: u64,
+    pub total_stored_values: u64,
+    pub packed_size_bytes: u64,
+    pub unused_trailing_bits: u8,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -323,13 +351,156 @@ pub struct MaterializedContentEvidence {
     #[serde(default)]
     pub padded_fragment_lengths: Vec<u64>,
     #[serde(default)]
+    pub fragments_per_frame: Vec<u64>,
+    #[serde(default)]
+    pub fragments: Vec<MaterializedFragmentEvidence>,
+    #[serde(default)]
     pub extended_offset_table: Vec<u64>,
     #[serde(default)]
     pub extended_offset_table_lengths: Vec<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native_byte_order: Option<NativeByteOrderEvidence>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native_bit_packing: Option<NativeBitPackingEvidence>,
     /// How the writer consumed this slot when execution used a distinct
     /// materialization path (for example, bounded file streaming).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub writer_materialization: Option<String>,
+}
+
+impl MaterializedContentEvidence {
+    fn validate_encoding_facts(&self) -> Result<(), EvidenceError> {
+        let fragment_count = usize::try_from(self.fragment_count)
+            .map_err(|_| EvidenceError::FragmentEvidenceCardinality(self.slot.clone()))?;
+        if fragment_count != self.fragments.len()
+            || fragment_count != self.compressed_lengths.len()
+            || fragment_count != self.padded_fragment_lengths.len()
+        {
+            return Err(EvidenceError::FragmentEvidenceCardinality(
+                self.slot.clone(),
+            ));
+        }
+        let declared_fragments = self
+            .fragments_per_frame
+            .iter()
+            .try_fold(0_u64, |total, count| total.checked_add(*count));
+        if declared_fragments != Some(self.fragment_count)
+            || (!self.fragments_per_frame.is_empty()
+                && self.compressed_frame_sha256.len() != self.fragments_per_frame.len())
+        {
+            return Err(EvidenceError::FragmentEvidenceCardinality(
+                self.slot.clone(),
+            ));
+        }
+        if fragment_count > 0 {
+            let first_item_start = 8_u64
+                .checked_add(
+                    u64::try_from(self.basic_offset_table.len())
+                        .map_err(|_| EvidenceError::FragmentEvidenceArithmetic(self.slot.clone()))?
+                        .checked_mul(4)
+                        .ok_or_else(|| {
+                            EvidenceError::FragmentEvidenceArithmetic(self.slot.clone())
+                        })?,
+                )
+                .ok_or_else(|| EvidenceError::FragmentEvidenceArithmetic(self.slot.clone()))?;
+            let mut expected_start = first_item_start;
+            let mut fragment_index = 0usize;
+            let mut frame_item_offsets = Vec::with_capacity(self.fragments_per_frame.len());
+            let mut frame_compressed_lengths = Vec::with_capacity(self.fragments_per_frame.len());
+            for (frame_index, count) in self.fragments_per_frame.iter().enumerate() {
+                if *count == 0 {
+                    return Err(EvidenceError::FragmentEvidenceCardinality(
+                        self.slot.clone(),
+                    ));
+                }
+                frame_item_offsets.push(expected_start - first_item_start);
+                let mut frame_compressed_length = 0_u64;
+                for _ in 0..*count {
+                    let fragment = &self.fragments[fragment_index];
+                    let expected_padded_length = fragment
+                        .compressed_length
+                        .checked_add(fragment.compressed_length % 2)
+                        .ok_or_else(|| {
+                            EvidenceError::FragmentEvidenceArithmetic(self.slot.clone())
+                        })?;
+                    if fragment.frame_index != frame_index as u64
+                        || fragment.item_start_offset != expected_start
+                        || fragment.compressed_length != self.compressed_lengths[fragment_index]
+                        || fragment.padded_length != self.padded_fragment_lengths[fragment_index]
+                        || fragment.padded_length != expected_padded_length
+                    {
+                        return Err(EvidenceError::FragmentEvidenceArithmetic(self.slot.clone()));
+                    }
+                    expected_start = expected_start
+                        .checked_add(8)
+                        .and_then(|value| value.checked_add(fragment.padded_length))
+                        .ok_or_else(|| {
+                            EvidenceError::FragmentEvidenceArithmetic(self.slot.clone())
+                        })?;
+                    frame_compressed_length = frame_compressed_length
+                        .checked_add(fragment.compressed_length)
+                        .ok_or_else(|| {
+                            EvidenceError::FragmentEvidenceArithmetic(self.slot.clone())
+                        })?;
+                    fragment_index += 1;
+                }
+                frame_compressed_lengths.push(frame_compressed_length);
+            }
+            if (!self.basic_offset_table.is_empty()
+                && (self.basic_offset_table.len() != frame_item_offsets.len()
+                    || self
+                        .basic_offset_table
+                        .iter()
+                        .map(|offset| u64::from(*offset))
+                        .ne(frame_item_offsets.iter().copied())))
+                || (!self.extended_offset_table.is_empty()
+                    && (self.extended_offset_table != frame_item_offsets
+                        || self.extended_offset_table_lengths != frame_compressed_lengths))
+            {
+                return Err(EvidenceError::FragmentEvidenceArithmetic(self.slot.clone()));
+            }
+            let padded_total = self
+                .padded_fragment_lengths
+                .iter()
+                .try_fold(0_u64, |total, length| total.checked_add(*length));
+            if padded_total != Some(self.size_bytes) {
+                return Err(EvidenceError::FragmentEvidenceArithmetic(self.slot.clone()));
+            }
+        }
+        if self.extended_offset_table.len() != self.extended_offset_table_lengths.len()
+            || (!self.extended_offset_table.is_empty()
+                && self.extended_offset_table.len() != self.fragments_per_frame.len())
+        {
+            return Err(EvidenceError::FragmentEvidenceCardinality(
+                self.slot.clone(),
+            ));
+        }
+        if let Some(bits) = &self.native_bit_packing {
+            if bits.bit_order != "lsb_first"
+                || !bits.continuous_across_frames
+                || bits.stored_values_per_frame == 0
+                || bits.total_stored_values == 0
+                || bits
+                    .stored_values_per_frame
+                    .checked_mul(self.decoded_frame_lengths.len() as u64)
+                    != Some(bits.total_stored_values)
+                || self
+                    .decoded_frame_lengths
+                    .iter()
+                    .any(|length| *length != bits.stored_values_per_frame)
+                || bits.packed_size_bytes != self.size_bytes
+                || bits.unused_trailing_bits > 7
+                || bits
+                    .packed_size_bytes
+                    .checked_mul(8)
+                    .and_then(|value| value.checked_sub(u64::from(bits.unused_trailing_bits)))
+                    != Some(bits.total_stored_values)
+            {
+                return Err(EvidenceError::NativeBitPacking(self.slot.clone()));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -454,6 +625,12 @@ impl ProviderEvidence {
 pub struct CodecEvidence {
     pub backend_id: String,
     pub backend_version: String,
+    #[serde(default)]
+    pub backend_kind: String,
+    #[serde(default)]
+    pub display_name: String,
+    #[serde(default)]
+    pub feature_gate: Option<String>,
     pub slot: String,
     pub request_sha256: String,
     pub transfer_syntax_uid: String,
@@ -474,6 +651,18 @@ impl CodecEvidence {
     fn validate(&self) -> Result<(), EvidenceError> {
         validate_identifier("codec backend", &self.backend_id)?;
         validate_identifier("codec version", &self.backend_version)?;
+        if !self.backend_kind.is_empty() {
+            validate_identifier("codec backend kind", &self.backend_kind)?;
+        }
+        if self.display_name.trim().is_empty() && !self.backend_kind.is_empty() {
+            return Err(EvidenceError::InvalidIdentifier {
+                label: "codec display name",
+                value: self.display_name.clone(),
+            });
+        }
+        if let Some(feature_gate) = &self.feature_gate {
+            validate_identifier("codec feature gate", feature_gate)?;
+        }
         validate_identifier("codec slot", &self.slot)?;
         validate_sha256("codec request", &self.request_sha256)?;
         validate_identifier("codec determinism", &self.determinism)?;
@@ -719,6 +908,9 @@ pub enum EvidenceError {
         value: String,
     },
     FrameEvidenceCardinality(String),
+    FragmentEvidenceCardinality(String),
+    FragmentEvidenceArithmetic(String),
+    NativeBitPacking(String),
     UnsafeRelativePath(String),
     ArtifactOutputLimitExceeded,
     ArtifactWorkingLimitExceeded,
@@ -748,3 +940,116 @@ impl fmt::Display for EvidenceError {
 }
 
 impl std::error::Error for EvidenceError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn encapsulated_content() -> MaterializedContentEvidence {
+        MaterializedContentEvidence {
+            slot: "pixels".into(),
+            kind: "encapsulated_pixels".into(),
+            vr: "OB".into(),
+            size_bytes: 8,
+            sha256: "a".repeat(64),
+            basic_offset_table: vec![],
+            compressed_frame_sha256: vec!["b".repeat(64), "c".repeat(64)],
+            native_frame_sha256: vec![],
+            native_frame_lengths: vec![],
+            decoded_frame_sha256: vec![],
+            decoded_frame_lengths: vec![],
+            fragment_count: 2,
+            compressed_lengths: vec![3, 4],
+            padded_fragment_lengths: vec![4, 4],
+            fragments_per_frame: vec![1, 1],
+            fragments: vec![
+                MaterializedFragmentEvidence {
+                    frame_index: 0,
+                    item_start_offset: 8,
+                    compressed_length: 3,
+                    padded_length: 4,
+                },
+                MaterializedFragmentEvidence {
+                    frame_index: 1,
+                    item_start_offset: 20,
+                    compressed_length: 4,
+                    padded_length: 4,
+                },
+            ],
+            extended_offset_table: vec![],
+            extended_offset_table_lengths: vec![],
+            native_byte_order: None,
+            native_bit_packing: None,
+            writer_materialization: None,
+        }
+    }
+
+    #[test]
+    fn typed_fragment_evidence_validates_exact_item_arithmetic() {
+        encapsulated_content().validate_encoding_facts().unwrap();
+        let mut changed = encapsulated_content();
+        changed.fragments[1].item_start_offset += 2;
+        assert!(matches!(
+            changed.validate_encoding_facts(),
+            Err(EvidenceError::FragmentEvidenceArithmetic(slot)) if slot == "pixels"
+        ));
+        let mut changed = encapsulated_content();
+        changed.extended_offset_table = vec![0, 13];
+        changed.extended_offset_table_lengths = vec![3, 4];
+        assert!(matches!(
+            changed.validate_encoding_facts(),
+            Err(EvidenceError::FragmentEvidenceArithmetic(slot)) if slot == "pixels"
+        ));
+    }
+
+    #[test]
+    fn typed_fragment_and_u1_evidence_reject_cardinality_and_bit_drift() {
+        let mut changed = encapsulated_content();
+        changed.fragments_per_frame = vec![2];
+        assert!(matches!(
+            changed.validate_encoding_facts(),
+            Err(EvidenceError::FragmentEvidenceCardinality(slot)) if slot == "pixels"
+        ));
+
+        let mut native = MaterializedContentEvidence {
+            slot: "pixels".into(),
+            kind: "native_pixels".into(),
+            vr: "OB".into(),
+            size_bytes: 3,
+            sha256: "d".repeat(64),
+            basic_offset_table: vec![],
+            compressed_frame_sha256: vec![],
+            native_frame_sha256: vec!["e".repeat(64), "f".repeat(64)],
+            native_frame_lengths: vec![2, 1],
+            decoded_frame_sha256: vec!["1".repeat(64), "2".repeat(64)],
+            decoded_frame_lengths: vec![9, 9],
+            fragment_count: 0,
+            compressed_lengths: vec![],
+            padded_fragment_lengths: vec![],
+            fragments_per_frame: vec![],
+            fragments: vec![],
+            extended_offset_table: vec![],
+            extended_offset_table_lengths: vec![],
+            native_byte_order: None,
+            native_bit_packing: Some(NativeBitPackingEvidence {
+                bit_order: "lsb_first".into(),
+                continuous_across_frames: true,
+                stored_values_per_frame: 9,
+                total_stored_values: 18,
+                packed_size_bytes: 3,
+                unused_trailing_bits: 6,
+            }),
+            writer_materialization: None,
+        };
+        native.validate_encoding_facts().unwrap();
+        native
+            .native_bit_packing
+            .as_mut()
+            .unwrap()
+            .unused_trailing_bits = 5;
+        assert!(matches!(
+            native.validate_encoding_facts(),
+            Err(EvidenceError::NativeBitPacking(slot)) if slot == "pixels"
+        ));
+    }
+}

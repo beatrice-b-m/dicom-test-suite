@@ -133,6 +133,9 @@ pub trait ExecutionServiceFactory: Send + Sync {
 #[derive(Debug, Clone, PartialEq)]
 pub struct CodecServiceOutcome {
     pub result: CodecResult,
+    pub backend_kind: String,
+    pub display_name: String,
+    pub feature_gate: Option<String>,
     pub determinism: String,
     pub decoded_frame_sha256: BTreeMap<u32, String>,
     pub metrics: BTreeMap<String, f64>,
@@ -622,6 +625,9 @@ impl ArtifactWorker<ArtifactServiceOutputs, ArtifactExecutionError> for Executio
                     codecs.push(CodecExecutionRecord {
                         request,
                         result: outcome.result,
+                        backend_kind: outcome.backend_kind,
+                        display_name: outcome.display_name,
+                        feature_gate: outcome.feature_gate,
                         determinism: outcome.determinism,
                         decoded_frame_sha256: outcome.decoded_frame_sha256,
                         metrics: outcome.metrics,
@@ -700,6 +706,9 @@ impl ArtifactWorker<ArtifactServiceOutputs, ArtifactExecutionError> for Executio
                     codecs.push(CodecExecutionRecord {
                         request: codec,
                         result: outcome.result,
+                        backend_kind: outcome.backend_kind,
+                        display_name: outcome.display_name,
+                        feature_gate: outcome.feature_gate,
                         determinism: outcome.determinism,
                         decoded_frame_sha256: outcome.decoded_frame_sha256,
                         metrics: outcome.metrics,

@@ -211,6 +211,7 @@ impl MaterializationDispatcher {
                             actual: aggregate_sha256,
                         });
                     }
+                    let mut native_bit_packing = Value::Null;
                     let (decoded_frame_sha256, decoded_frame_lengths) = if first.bits_allocated == 1
                     {
                         let values_per_frame = u64::from(first.rows)
@@ -230,6 +231,18 @@ impl MaterializationDispatcher {
                                 actual: bytes.len() as u64,
                             });
                         }
+                        let unused_trailing_bits = required_bytes
+                            .checked_mul(8)
+                            .and_then(|value| value.checked_sub(total_values))
+                            .ok_or(MaterializationError::NativeFrameSizeOverflow)?;
+                        native_bit_packing = json!({
+                            "bit_order": "lsb_first",
+                            "continuous_across_frames": true,
+                            "stored_values_per_frame": values_per_frame,
+                            "total_stored_values": total_values,
+                            "packed_size_bytes": required_bytes,
+                            "unused_trailing_bits": unused_trailing_bits,
+                        });
                         let frame_capacity = usize::try_from(values_per_frame)
                             .map_err(|_| MaterializationError::NativeFrameSizeOverflow)?;
                         let mut hashes = Vec::with_capacity(ordered_frames.len());
@@ -250,6 +263,15 @@ impl MaterializationDispatcher {
                     } else {
                         (native_frame_sha256.clone(), native_frame_lengths.clone())
                     };
+                    let native_byte_order = if first.bits_allocated > 8 {
+                        if artifact.encoding.transfer_syntax_uid == "1.2.840.10008.1.2.2" {
+                            json!("big_endian")
+                        } else {
+                            json!("little_endian")
+                        }
+                    } else {
+                        Value::Null
+                    };
                     materialized_content.push(json!({
                         "slot": content.slot,
                         "kind": content.kind,
@@ -262,6 +284,8 @@ impl MaterializationDispatcher {
                         "native_frame_lengths": native_frame_lengths,
                         "decoded_frame_sha256": decoded_frame_sha256,
                         "decoded_frame_lengths": decoded_frame_lengths,
+                        "native_byte_order": native_byte_order,
+                        "native_bit_packing": native_bit_packing,
                         "fragment_count": 0,
                         "compressed_lengths": [],
                         "padded_fragment_lengths": [],
@@ -347,6 +371,23 @@ impl MaterializationDispatcher {
                         .iter()
                         .map(|fragment| fragment.padded_length as u64)
                         .collect::<Vec<_>>();
+                    let fragments_per_frame = encapsulated
+                        .fragments_per_frame
+                        .iter()
+                        .map(|count| *count as u64)
+                        .collect::<Vec<_>>();
+                    let fragment_evidence = encapsulated
+                        .fragments
+                        .iter()
+                        .map(|fragment| {
+                            json!({
+                                "frame_index": fragment.frame_index as u64,
+                                "item_start_offset": fragment.item_start_offset as u64,
+                                "compressed_length": fragment.compressed_length as u64,
+                                "padded_length": fragment.padded_length as u64,
+                            })
+                        })
+                        .collect::<Vec<_>>();
                     let (extended_offset_table, extended_offset_table_lengths) = encapsulated
                         .extended_offset_table
                         .as_ref()
@@ -385,6 +426,8 @@ impl MaterializationDispatcher {
                         "fragment_count": fragment_count,
                         "compressed_lengths": compressed_lengths,
                         "padded_fragment_lengths": padded_fragment_lengths,
+                        "fragments_per_frame": fragments_per_frame,
+                        "fragments": fragment_evidence,
                         "extended_offset_table": extended_offset_table,
                         "extended_offset_table_lengths": extended_offset_table_lengths,
                         "writer_materialization": null,
@@ -1511,8 +1554,8 @@ mod tests {
             "instances/native.dcm",
             &[1, 2, 3, 4],
             vec![
-                native_frame(2, vec![3, 4], 1, 2, 8),
-                native_frame(1, vec![1, 2], 1, 2, 8),
+                native_frame(2, vec![3, 4], 1, 1, 16),
+                native_frame(1, vec![1, 2], 1, 1, 16),
             ],
         );
         let result = dispatcher(&root)
@@ -1525,6 +1568,7 @@ mod tests {
             json!([sha256_hex(&[1, 2]), sha256_hex(&[3, 4])])
         );
         assert_eq!(content["decoded_frame_lengths"], json!([2, 2]));
+        assert_eq!(content["native_byte_order"], "little_endian");
         assert_eq!(content["fragment_count"], 0);
         assert_eq!(content["compressed_frame_sha256"], json!([]));
         assert_eq!(content["padded_fragment_lengths"], json!([]));
@@ -1614,6 +1658,13 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(content["native_frame_lengths"], json!([2, 1]));
         assert_eq!(content["decoded_frame_lengths"], json!([9, 9]));
+        assert_eq!(content["native_bit_packing"]["bit_order"], "lsb_first");
+        assert_eq!(
+            content["native_bit_packing"]["continuous_across_frames"],
+            true
+        );
+        assert_eq!(content["native_bit_packing"]["stored_values_per_frame"], 9);
+        assert_eq!(content["native_bit_packing"]["unused_trailing_bits"], 6);
         assert_eq!(
             content["decoded_frame_sha256"],
             json!([sha256_hex(&frame_one), sha256_hex(&frame_two)])
@@ -1682,6 +1733,24 @@ mod tests {
         assert_eq!(content[0]["fragment_count"], 2);
         assert_eq!(content[0]["compressed_lengths"], json!([3, 4]));
         assert_eq!(content[0]["padded_fragment_lengths"], json!([4, 4]));
+        assert_eq!(content[0]["fragments_per_frame"], json!([1, 1]));
+        assert_eq!(
+            content[0]["fragments"],
+            json!([
+                {
+                    "frame_index": 0,
+                    "item_start_offset": 8,
+                    "compressed_length": 3,
+                    "padded_length": 4
+                },
+                {
+                    "frame_index": 1,
+                    "item_start_offset": 20,
+                    "compressed_length": 4,
+                    "padded_length": 4
+                }
+            ])
+        );
         assert_eq!(content[0]["basic_offset_table"], json!([]));
         assert_eq!(content[0]["extended_offset_table"], json!([0, 12]));
         assert_eq!(content[0]["extended_offset_table_lengths"], json!([3, 4]));

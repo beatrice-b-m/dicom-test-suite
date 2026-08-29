@@ -5877,6 +5877,83 @@ pub(crate) fn write_supported_cases(
     Ok(context.into_output())
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct CompositionDefaultArtifact {
+    pub case_id: String,
+    pub path: PathBuf,
+}
+
+pub(crate) fn write_composition_default_artifacts(
+    staging_root: &Path,
+    seed: u64,
+    template_id: &str,
+    variant: Option<&str>,
+) -> Result<Vec<CompositionDefaultArtifact>, GenerateError> {
+    let case_ids: &[&str] = match (template_id, variant) {
+        ("enhanced/ct", _) => &["enhanced/ct/multiframe_shared_perframe_explicit_le"],
+        ("enhanced/mr", _) => &["enhanced/mr/multiframe_echo_perframe_explicit_le"],
+        ("enhanced/pet", _) => &["enhanced/pet/multiframe_explicit_le"],
+        _ => {
+            return Err(GenerateError::MetadataShape {
+                path: PathBuf::from(template_id),
+                message: "composition template has no curated default artifact mapping",
+            });
+        }
+    };
+    let registry: Value = serde_json::from_str(include_str!("../cases/registry.json"))
+        .expect("embedded case registry parses");
+    let selected = registry["cases"]
+        .as_array()
+        .expect("embedded registry cases")
+        .iter()
+        .filter(|case| {
+            case["case_id"]
+                .as_str()
+                .is_some_and(|case_id| case_ids.contains(&case_id))
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    if selected.len() != case_ids.len() {
+        return Err(GenerateError::MetadataShape {
+            path: PathBuf::from(template_id),
+            message: "composition default artifact mapping is absent from the registry",
+        });
+    }
+    let private_registry = serde_json::json!({ "cases": selected });
+    let run = PreparedGenerationRun {
+        profile: "all".into(),
+        out_dir: staging_root.to_path_buf(),
+        manifest_path: staging_root.join("manifest.json"),
+        seed,
+        include_stress: true,
+    };
+    let standards_lock_sha256 = sha256_hex(include_bytes!("../standards.lock.json"));
+    let output = write_supported_cases(&run, &private_registry, &standards_lock_sha256)?;
+    let mut artifacts = output
+        .files
+        .into_iter()
+        .map(|file| {
+            let relative_path = generated_manifest_str(
+                &file.manifest_entry,
+                "/path",
+                "composition default artifact path must be a string",
+            )?;
+            Ok(CompositionDefaultArtifact {
+                case_id: file.case_id,
+                path: staging_root.join(relative_path),
+            })
+        })
+        .collect::<Result<Vec<_>, GenerateError>>()?;
+    artifacts.sort_by(|left, right| left.path.cmp(&right.path));
+    if artifacts.is_empty() {
+        return Err(GenerateError::MetadataShape {
+            path: PathBuf::from(template_id),
+            message: "composition default artifact generation emitted no files",
+        });
+    }
+    Ok(artifacts)
+}
+
 struct FuzzSourceStagingGuard(PathBuf);
 
 impl Drop for FuzzSourceStagingGuard {

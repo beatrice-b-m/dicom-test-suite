@@ -20,6 +20,9 @@ This file is rendered from `templates/catalog.json`. Use `templates describe` fo
 | `classic/ultrasound/single-frame`@1.0.0 | Ultrasound Image | `1.2.840.10008.5.1.4.1.1.6.1` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
 | `classic/xa`@1.0.0 | X-Ray Angiographic Image | `1.2.840.10008.5.1.4.1.1.12.1` | `1.2.840.10008.1.2.1` (default)<br>`1.2.840.10008.1.2.5` | byte_stable | dicom_validator |
 | `classic/xrf`@1.0.0 | X-Ray Radiofluoroscopic Image | `1.2.840.10008.5.1.4.1.1.12.2` | `1.2.840.10008.1.2.1` (default)<br>`1.2.840.10008.1.2.5` | byte_stable | dicom_validator |
+| `enhanced/ct`@1.0.0 | Enhanced CT Image | `1.2.840.10008.5.1.4.1.1.2.1` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
+| `enhanced/mr`@1.0.0 | Enhanced MR Image | `1.2.840.10008.5.1.4.1.1.4.1` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
+| `enhanced/pet`@1.0.0 | Enhanced PET Image | `1.2.840.10008.5.1.4.1.1.130` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
 | `vl/endoscopic`@1.0.0 | VL Endoscopic Image | `1.2.840.10008.5.1.4.1.1.77.1.1` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
 | `vl/microscopic`@1.0.0 | VL Microscopic Image | `1.2.840.10008.5.1.4.1.1.77.1.2` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
 | `vl/photographic`@1.0.0 | VL Photographic Image | `1.2.840.10008.5.1.4.1.1.77.1.4` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |

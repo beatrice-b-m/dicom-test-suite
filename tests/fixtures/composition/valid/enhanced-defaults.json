@@ -1,0 +1,8 @@
+{
+  "composition_spec_schema_version": "0.1.0",
+  "instances": [
+    { "instance_id": "enhanced_ct", "template": { "id": "enhanced/ct" } },
+    { "instance_id": "enhanced_mr", "template": { "id": "enhanced/mr" } },
+    { "instance_id": "enhanced_pet", "template": { "id": "enhanced/pet" } }
+  ]
+}

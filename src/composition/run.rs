@@ -12,11 +12,11 @@ use crate::codecs::{FrameEncodeInput, FrameEncoder, NativeRleLosslessEncoder};
 use crate::encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData};
 
 use super::{
-    BundleResolver, CompositionManifestAssembler, CompositionManifestInputs, CompositionSpec,
-    CompositionUidRole, ContentLimits, ContentSource, CyclePolicy, DefaultPixelOutput,
-    IdentityAllocator, IdentityChoice, LocalContentResolver, LogicalReference, ManifestEntryInput,
-    Part10Materializer, ReferenceGraph, ReferenceNode, ResolvedInstancePlan, TemplateCatalog,
-    TemplateDescriptor, default_family_pixels, resolve_family_attributes,
+    AdvancedFamilyProfile, BundleResolver, CompositionManifestAssembler, CompositionManifestInputs,
+    CompositionSpec, CompositionUidRole, ContentLimits, ContentSource, CyclePolicy,
+    DefaultPixelOutput, IdentityAllocator, IdentityChoice, LocalContentResolver, LogicalReference,
+    ManifestEntryInput, Part10Materializer, ReferenceGraph, ReferenceNode, ResolvedInstancePlan,
+    TemplateCatalog, TemplateDescriptor, default_family_pixels, resolve_family_attributes,
     resolve_raw_native_pixels, resolved_sc_plan, sc_default_pixels,
 };
 use crate::{PACKAGE_NAME, PACKAGE_VERSION, RUSTC_VERSION, TARGET_TRIPLE, sha256_hex};
@@ -146,7 +146,8 @@ fn resolve_and_stage(
             "classic/secondary-capture/monochrome" | "classic/secondary-capture/rgb"
         );
         let family = super::ClassicFamilyProfile::for_template(&template.template_id);
-        if !p2_sc && family.is_none() {
+        let advanced = AdvancedFamilyProfile::for_template(&template.template_id.0);
+        if !p2_sc && family.is_none() && advanced.is_none() {
             return Err(ComposeError::UnsupportedTemplate(
                 template.template_id.0.clone(),
             ));
@@ -163,7 +164,9 @@ fn resolve_and_stage(
             (CompositionUidRole::SopInstance, 0),
             (CompositionUidRole::ImplementationClass, 0),
         ];
-        if family.is_some_and(|profile| profile.include_geometry) {
+        if family.is_some_and(|profile| profile.include_geometry)
+            || advanced.is_some_and(|profile| profile.include_frame_of_reference)
+        {
             roles.push((CompositionUidRole::FrameOfReference, 0));
         }
         let mut identities = allocator.allocate_plan(instance.instance_id.clone(), roles)?;
@@ -206,7 +209,20 @@ fn resolve_and_stage(
             content: vec![],
             references: vec![],
         };
-        if let Some(profile) = super::ClassicFamilyProfile::for_template(&template.template_id) {
+        if let Some(profile) = AdvancedFamilyProfile::for_template(&template.template_id.0) {
+            let private_root = staging.join(".defaults").join(&instance.instance_id);
+            let plan = profile.resolve_plan(
+                instance,
+                template,
+                base_plan.identities,
+                options.seed,
+                &private_root,
+                &mut content_resolver,
+            )?;
+            plans.push(plan);
+        } else if let Some(profile) =
+            super::ClassicFamilyProfile::for_template(&template.template_id)
+        {
             let mut pixel = resolve_family_pixels(instance, &profile, &mut content_resolver)?;
             validate_family_pixel_contract(&profile, &pixel)?;
             if transfer_syntax_uid == crate::codecs::RLE_LOSSLESS_TRANSFER_SYNTAX_UID {
@@ -233,6 +249,11 @@ fn resolve_and_stage(
                 pixel,
             )?);
         }
+    }
+
+    let private_defaults = staging.join(".defaults");
+    if private_defaults.exists() {
+        remove_private_staging(&private_defaults)?;
     }
 
     materialize_reference_graph(&mut plans, spec, &bundle_resolution.members)?;
@@ -492,7 +513,7 @@ fn resolved_frame_count(plan: &ResolvedInstancePlan) -> Result<u32, ComposeError
     };
     let frame_count = match attribute.value.as_ref() {
         Some(super::AttributeValue::Primitive(super::PrimitiveValue::String(value))) => {
-            value.parse::<u32>().ok()
+            value.trim().parse::<u32>().ok()
         }
         Some(super::AttributeValue::Primitive(super::PrimitiveValue::Unsigned(value))) => {
             u32::try_from(*value).ok()
@@ -793,6 +814,7 @@ pub enum ComposeError {
     Materialize(super::MaterializeError),
     Manifest(super::ManifestError),
     Family(super::FamilyError),
+    AdvancedFamily(super::AdvancedFamilyError),
     Bundle(super::BundleError),
     Reference(super::ReferenceError),
     Codec(crate::codecs::CodecError),
@@ -857,6 +879,7 @@ from_error!(super::DefaultError, Defaults);
 from_error!(super::MaterializeError, Materialize);
 from_error!(super::ManifestError, Manifest);
 from_error!(super::FamilyError, Family);
+from_error!(super::AdvancedFamilyError, AdvancedFamily);
 from_error!(super::BundleError, Bundle);
 from_error!(super::ReferenceError, Reference);
 from_error!(crate::codecs::CodecError, Codec);

@@ -179,9 +179,8 @@ fn attribute_value(
                             .map_err(|error| CuratedPlanError::Attribute(error.to_string()))?;
                         let vr = DicomVr::from_str(&element.vr().to_string())
                             .map_err(|error| CuratedPlanError::Attribute(error.to_string()))?;
-                        let Some(value) = attribute_value(element.value(), element.vr())? else {
-                            return Ok(AttributeOperation::Empty { address });
-                        };
+                        let value = attribute_value(element.value(), element.vr())?
+                            .unwrap_or_else(|| AttributeValue::Binary(vec![]));
                         Ok(AttributeOperation::Set { address, vr, value })
                     })
                     .collect::<Result<Vec<_>, CuratedPlanError>>()?;
@@ -194,20 +193,12 @@ fn attribute_value(
     }
 }
 
-fn primitive_value(
-    value: &DicomPrimitive,
-    vr: VR,
-) -> Result<AttributeValue, CuratedPlanError> {
+fn primitive_value(value: &DicomPrimitive, vr: VR) -> Result<AttributeValue, CuratedPlanError> {
     let strings = |values: Vec<String>| {
         if values.len() == 1 {
             AttributeValue::Primitive(PrimitiveValue::String(values[0].clone()))
         } else {
-            AttributeValue::Multi(
-                values
-                    .into_iter()
-                    .map(PrimitiveValue::String)
-                    .collect(),
-            )
+            AttributeValue::Multi(values.into_iter().map(PrimitiveValue::String).collect())
         }
     };
     Ok(match value {
@@ -227,40 +218,100 @@ fn primitive_value(
                 .collect::<Result<Vec<_>, _>>()?,
         ),
         DicomPrimitive::U8(values) => AttributeValue::Binary(values.to_vec()),
+        DicomPrimitive::I16(values) if vr == VR::IS => {
+            strings(values.iter().map(ToString::to_string).collect())
+        }
+        DicomPrimitive::U16(values) if vr == VR::IS => {
+            strings(values.iter().map(ToString::to_string).collect())
+        }
+        DicomPrimitive::I32(values) if vr == VR::IS => {
+            strings(values.iter().map(ToString::to_string).collect())
+        }
+        DicomPrimitive::U32(values) if vr == VR::IS => {
+            strings(values.iter().map(ToString::to_string).collect())
+        }
+        DicomPrimitive::I64(values) if vr == VR::IS => {
+            strings(values.iter().map(ToString::to_string).collect())
+        }
+        DicomPrimitive::U64(values) if vr == VR::IS => {
+            strings(values.iter().map(ToString::to_string).collect())
+        }
+        DicomPrimitive::F32(values) if vr == VR::DS => {
+            strings(values.iter().map(ToString::to_string).collect())
+        }
+        DicomPrimitive::F64(values) if vr == VR::DS => {
+            strings(values.iter().map(ToString::to_string).collect())
+        }
         DicomPrimitive::I16(values) if vr == VR::SS => multi_or_one(
-            values.iter().map(|value| PrimitiveValue::Signed(i64::from(*value))).collect(),
+            values
+                .iter()
+                .map(|value| PrimitiveValue::Signed(i64::from(*value)))
+                .collect(),
         ),
         DicomPrimitive::U16(values) if vr == VR::US => multi_or_one(
-            values.iter().map(|value| PrimitiveValue::Unsigned(u64::from(*value))).collect(),
+            values
+                .iter()
+                .map(|value| PrimitiveValue::Unsigned(u64::from(*value)))
+                .collect(),
         ),
         DicomPrimitive::I32(values) if vr == VR::SL => multi_or_one(
-            values.iter().map(|value| PrimitiveValue::Signed(i64::from(*value))).collect(),
+            values
+                .iter()
+                .map(|value| PrimitiveValue::Signed(i64::from(*value)))
+                .collect(),
         ),
         DicomPrimitive::U32(values) if vr == VR::UL => multi_or_one(
-            values.iter().map(|value| PrimitiveValue::Unsigned(u64::from(*value))).collect(),
+            values
+                .iter()
+                .map(|value| PrimitiveValue::Unsigned(u64::from(*value)))
+                .collect(),
         ),
         DicomPrimitive::I64(values) if vr == VR::SV => multi_or_one(
-            values.iter().map(|value| PrimitiveValue::Signed(*value)).collect(),
+            values
+                .iter()
+                .map(|value| PrimitiveValue::Signed(*value))
+                .collect(),
         ),
         DicomPrimitive::U64(values) if vr == VR::UV => multi_or_one(
-            values.iter().map(|value| PrimitiveValue::Unsigned(*value)).collect(),
+            values
+                .iter()
+                .map(|value| PrimitiveValue::Unsigned(*value))
+                .collect(),
         ),
         DicomPrimitive::F32(values) if vr == VR::FL => multi_or_one(
-            values.iter().map(|value| PrimitiveValue::Float32Bits(value.to_bits())).collect(),
+            values
+                .iter()
+                .map(|value| PrimitiveValue::Float32Bits(value.to_bits()))
+                .collect(),
         ),
         DicomPrimitive::F64(values) if vr == VR::FD => multi_or_one(
-            values.iter().map(|value| PrimitiveValue::Float64Bits(value.to_bits())).collect(),
+            values
+                .iter()
+                .map(|value| PrimitiveValue::Float64Bits(value.to_bits()))
+                .collect(),
         ),
         DicomPrimitive::U16(values) => binary_u16(values),
         DicomPrimitive::U32(values) => binary_u32(values),
         DicomPrimitive::U64(values) => binary_u64(values),
-        DicomPrimitive::I16(values) => binary_u16(&values.iter().map(|v| *v as u16).collect::<Vec<_>>()),
-        DicomPrimitive::I32(values) => binary_u32(&values.iter().map(|v| *v as u32).collect::<Vec<_>>()),
-        DicomPrimitive::I64(values) => binary_u64(&values.iter().map(|v| *v as u64).collect::<Vec<_>>()),
-        DicomPrimitive::F32(values) => binary_u32(&values.iter().map(|v| v.to_bits()).collect::<Vec<_>>()),
-        DicomPrimitive::F64(values) => binary_u64(&values.iter().map(|v| v.to_bits()).collect::<Vec<_>>()),
+        DicomPrimitive::I16(values) => {
+            binary_u16(&values.iter().map(|v| *v as u16).collect::<Vec<_>>())
+        }
+        DicomPrimitive::I32(values) => {
+            binary_u32(&values.iter().map(|v| *v as u32).collect::<Vec<_>>())
+        }
+        DicomPrimitive::I64(values) => {
+            binary_u64(&values.iter().map(|v| *v as u64).collect::<Vec<_>>())
+        }
+        DicomPrimitive::F32(values) => {
+            binary_u32(&values.iter().map(|v| v.to_bits()).collect::<Vec<_>>())
+        }
+        DicomPrimitive::F64(values) => {
+            binary_u64(&values.iter().map(|v| v.to_bits()).collect::<Vec<_>>())
+        }
         DicomPrimitive::Date(values) => strings(values.iter().map(ToString::to_string).collect()),
-        DicomPrimitive::DateTime(values) => strings(values.iter().map(ToString::to_string).collect()),
+        DicomPrimitive::DateTime(values) => {
+            strings(values.iter().map(ToString::to_string).collect())
+        }
         DicomPrimitive::Time(values) => strings(values.iter().map(ToString::to_string).collect()),
     })
 }
@@ -274,15 +325,30 @@ fn multi_or_one(values: Vec<PrimitiveValue>) -> AttributeValue {
 }
 
 fn binary_u16(values: &[u16]) -> AttributeValue {
-    AttributeValue::Binary(values.iter().flat_map(|value| value.to_le_bytes()).collect())
+    AttributeValue::Binary(
+        values
+            .iter()
+            .flat_map(|value| value.to_le_bytes())
+            .collect(),
+    )
 }
 
 fn binary_u32(values: &[u32]) -> AttributeValue {
-    AttributeValue::Binary(values.iter().flat_map(|value| value.to_le_bytes()).collect())
+    AttributeValue::Binary(
+        values
+            .iter()
+            .flat_map(|value| value.to_le_bytes())
+            .collect(),
+    )
 }
 
 fn binary_u64(values: &[u64]) -> AttributeValue {
-    AttributeValue::Binary(values.iter().flat_map(|value| value.to_le_bytes()).collect())
+    AttributeValue::Binary(
+        values
+            .iter()
+            .flat_map(|value| value.to_le_bytes())
+            .collect(),
+    )
 }
 
 #[derive(Debug)]
@@ -341,7 +407,11 @@ mod tests {
         ));
         object.put(DataElement::new(tags::SOP_INSTANCE_UID, VR::UI, "2.25.3"));
         object.put(DataElement::new(tags::STUDY_INSTANCE_UID, VR::UI, "2.25.1"));
-        object.put(DataElement::new(tags::SERIES_INSTANCE_UID, VR::UI, "2.25.2"));
+        object.put(DataElement::new(
+            tags::SERIES_INSTANCE_UID,
+            VR::UI,
+            "2.25.2",
+        ));
         object.put(DataElement::new(tags::PATIENT_NAME, VR::PN, "DTS^CURATED"));
         object.put(DataElement::new(
             tags::SAMPLES_PER_PIXEL,
@@ -391,7 +461,10 @@ mod tests {
     #[test]
     fn native_curated_dataset_round_trips_through_the_shared_plan_byte_exactly() {
         assert_exact_bridge(
-            dataset(PrimitiveValue::U8(vec![0_u8, 1, 2, 3].into()).into(), VR::OB),
+            dataset(
+                PrimitiveValue::U8(vec![0_u8, 1, 2, 3].into()).into(),
+                VR::OB,
+            ),
             "1.2.840.10008.1.2.1",
         );
     }

@@ -345,5 +345,37 @@
       "limitations": ["Qualified for native unsigned MONOCHROME2 8-bit multi-frame pixels only."],
       "qualification_owner": "secondary_capture"
     }
+  ],
+  "advanced_family_templates": [
+    {
+      "template_id": "enhanced/ct", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "Enhanced CT Image", "sop_class_name": "Enhanced CT Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.2.1", "default_modality": "CT",
+      "artifact_kind": "enhanced_image",
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "Enhanced CT Image IOD module table", "reason": "Locks functional groups, dimensions, frame anatomy, and CT acquisition semantics.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-enhanced.md" }],
+      "limitations": ["Caller frames must match the qualified default multi-frame shape and unsigned native 16-bit model."],
+      "qualification_owner": "enhanced_ct"
+    },
+    {
+      "template_id": "enhanced/mr", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "Enhanced MR Image", "sop_class_name": "Enhanced MR Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.4.1", "default_modality": "MR",
+      "artifact_kind": "enhanced_image",
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "Enhanced MR Image IOD module table", "reason": "Locks functional groups, dimensions, frame anatomy, and MR acquisition semantics.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-enhanced.md" }],
+      "limitations": ["Caller frames must match the qualified default multi-frame shape and unsigned native 16-bit model."],
+      "qualification_owner": "enhanced_mr"
+    },
+    {
+      "template_id": "enhanced/pet", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "Enhanced PET Image", "sop_class_name": "Enhanced PET Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.130", "default_modality": "PT",
+      "artifact_kind": "enhanced_image",
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "Enhanced PET Image IOD module table", "reason": "Locks functional groups, dimensions, PET isotope, correction, and rescale semantics.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-enhanced.md" }],
+      "limitations": ["Caller frames must match the qualified default multi-frame shape and unsigned native 16-bit model."],
+      "qualification_owner": "enhanced_pet"
+    }
   ]
 }

@@ -3,6 +3,7 @@
 //! This module is intentionally not wired to a public CLI until the P2 gate.
 
 pub mod attribute;
+pub mod advanced_family;
 pub mod bundle;
 pub mod classic;
 pub mod content;
@@ -27,6 +28,7 @@ pub use attribute::{
     AttributeAddress, AttributeError, AttributeItem, AttributeOperation, AttributeValue, DicomVr,
     PrimitiveValue,
 };
+pub use advanced_family::{AdvancedFamilyError, AdvancedFamilyKind, AdvancedFamilyProfile};
 pub use bundle::{
     BundleError, BundleMemberProvenance, BundleResolution, BundleResolver, DefaultBundleDependency,
     DefaultBundleDescriptor,

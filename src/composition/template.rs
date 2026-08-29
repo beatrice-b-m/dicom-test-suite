@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use super::family::ClassicFamilyProfile;
 use super::{PhotometricInterpretation, SampleType};
@@ -144,6 +144,8 @@ struct CatalogDocument {
     templates: Vec<TemplateDescriptor>,
     #[serde(default)]
     classic_family_templates: Vec<ClassicFamilyTemplateDeclaration>,
+    #[serde(default)]
+    advanced_family_templates: Vec<ClassicFamilyTemplateDeclaration>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -189,6 +191,9 @@ impl TemplateCatalog {
         let mut templates = document.templates;
         for declaration in document.classic_family_templates {
             templates.push(declaration.expand()?);
+        }
+        for declaration in document.advanced_family_templates {
+            templates.push(declaration.expand_advanced());
         }
         let catalog = Self {
             template_catalog_schema_version: document.template_catalog_schema_version,
@@ -420,6 +425,85 @@ impl ClassicFamilyTemplateDeclaration {
             limitations: self.limitations,
             qualification_owner: self.qualification_owner,
         })
+    }
+}
+
+impl ClassicFamilyTemplateDeclaration {
+    fn expand_advanced(self) -> TemplateDescriptor {
+        let wsi = self.artifact_kind == "whole_slide_image";
+        let attributes = [
+            ("0008,0016", "SOPClassUID", "UI"),
+            ("0008,0018", "SOPInstanceUID", "UI"),
+            ("0020,000D", "StudyInstanceUID", "UI"),
+            ("0020,000E", "SeriesInstanceUID", "UI"),
+            ("0028,0008", "NumberOfFrames", "IS"),
+            ("7FE0,0010", "PixelData", "OB"),
+        ]
+        .into_iter()
+        .map(|(tag, keyword, vr)| {
+            json!({
+                "tag": tag,
+                "keyword": keyword,
+                "vr": vr,
+                "requirement": "1",
+                "behavior": "protected",
+                "condition": null,
+                "default": null,
+                "description": "Derived from the selected template, identity plan, or typed frame content."
+            })
+        })
+        .collect();
+        TemplateDescriptor {
+            template_id: self.template_id,
+            template_version: self.template_version,
+            status: self.status,
+            iod_name: self.iod_name,
+            sop_class_name: self.sop_class_name,
+            sop_class_uid: self.sop_class_uid,
+            default_modality: self.default_modality,
+            artifact_kind: self.artifact_kind,
+            determinism: "byte_stable".into(),
+            modules: vec![json!({
+                "name": if wsi { "VL Whole Slide Microscopy Image" } else { "Multi-frame Functional Groups" },
+                "usage": "mandatory",
+                "condition": null
+            })],
+            attributes,
+            content_slots: vec![json!({
+                "slot": "pixels",
+                "kind": "native_pixels",
+                "required": true,
+                "default_provider": "qualified_curated_default",
+                "allowed_sources": ["default", "local_file"],
+                "constraints": {
+                    "photometric_interpretations": if wsi { json!(["RGB"]) } else { json!(["MONOCHROME2"]) },
+                    "samples_per_pixel": if wsi { json!([3]) } else { json!([1]) },
+                    "bits_allocated": if wsi { json!([8]) } else { json!([16]) },
+                    "sample_types": ["uint"],
+                    "min_frames": 1,
+                    "max_frames": 65535
+                },
+                "description": "Default qualified frames or an exact-shape caller native frame payload."
+            })],
+            reference_slots: vec![],
+            default_bundle: json!({ "dependencies": [] }),
+            transfer_syntaxes: self.transfer_syntaxes,
+            requirements: TemplateRequirements {
+                features: vec![],
+                external_codecs: vec![],
+                providers: vec![],
+                external_validators: vec!["dicom_validator".into()],
+            },
+            validation: json!({
+                "generic_rule_ids": ["meta_identity", "resolved_attributes"],
+                "template_rule_ids": ["functional_groups", "dimensions", if wsi { "tiling" } else { "enhanced_image" }],
+                "content_rule_ids": ["content_integrity", "native_pixel_length"],
+                "independent_routes": [{"adapter_id":"dicom_validator","kind":"iod","required_for_qualification":true}]
+            }),
+            standards_evidence: self.standards_evidence,
+            limitations: self.limitations,
+            qualification_owner: self.qualification_owner,
+        }
     }
 }
 

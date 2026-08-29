@@ -14,6 +14,10 @@
     "classic_family_templates": {
       "type": "array",
       "items": { "$ref": "#/$defs/classic_family_template" }
+    },
+    "advanced_family_templates": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/classic_family_template" }
     }
   },
   "additionalProperties": false,
@@ -135,7 +139,7 @@
         "sop_class_name": { "type": "string", "minLength": 1 },
         "sop_class_uid": { "$ref": "#/$defs/uid" },
         "default_modality": { "type": "string", "minLength": 1, "maxLength": 16 },
-        "artifact_kind": { "enum": ["classic_image", "visible_light"] },
+        "artifact_kind": { "enum": ["classic_image", "enhanced_image", "derived_image", "presentation_state", "registration", "structured_report", "radiotherapy", "waveform", "encapsulated_document", "mesh", "visible_light", "whole_slide_image"] },
         "transfer_syntaxes": {
           "type": "array",
           "minItems": 1,

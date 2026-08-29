@@ -4391,7 +4391,18 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
             }
         }
     }
-    if let Some(case) = registry_case(registry, SPATIAL_REGISTRATION_CASE_ID)? {
+    if let Some(files) = take_plan_first_advanced_case(
+        run,
+        registry,
+        &mut plan_first_files_by_case,
+        SPATIAL_REGISTRATION_CASE_ID,
+        "spatial registration stage",
+    )? {
+        context.record_many(files)?;
+    }
+    if let Some(case) = registry_case(registry, SPATIAL_REGISTRATION_CASE_ID)?
+        .filter(|_| !plan_first_case_ids.contains(SPATIAL_REGISTRATION_CASE_ID))
+    {
         if should_generate_case(case, run)? {
             if context
                 .source_registry()
@@ -4443,7 +4454,18 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
             )?)?;
         }
     }
-    if let Some(case) = registry_case(registry, DEFORMABLE_SPATIAL_REGISTRATION_CASE_ID)? {
+    if let Some(files) = take_plan_first_advanced_case(
+        run,
+        registry,
+        &mut plan_first_files_by_case,
+        DEFORMABLE_SPATIAL_REGISTRATION_CASE_ID,
+        "deformable registration stage",
+    )? {
+        context.record_many(files)?;
+    }
+    if let Some(case) = registry_case(registry, DEFORMABLE_SPATIAL_REGISTRATION_CASE_ID)?
+        .filter(|_| !plan_first_case_ids.contains(DEFORMABLE_SPATIAL_REGISTRATION_CASE_ID))
+    {
         if should_generate_case(case, run)? {
             if context
                 .source_registry()
@@ -4495,7 +4517,18 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
             )?)?;
         }
     }
-    if let Some(case) = registry_case(registry, COLOR_SOFTCOPY_PRESENTATION_STATE_CASE_ID)? {
+    if let Some(files) = take_plan_first_advanced_case(
+        run,
+        registry,
+        &mut plan_first_files_by_case,
+        COLOR_SOFTCOPY_PRESENTATION_STATE_CASE_ID,
+        "color presentation-state stage",
+    )? {
+        context.record_many(files)?;
+    }
+    if let Some(case) = registry_case(registry, COLOR_SOFTCOPY_PRESENTATION_STATE_CASE_ID)?
+        .filter(|_| !plan_first_case_ids.contains(COLOR_SOFTCOPY_PRESENTATION_STATE_CASE_ID))
+    {
         if should_generate_case(case, run)? {
             if context
                 .source_registry()
@@ -4524,7 +4557,18 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
             )?)?;
         }
     }
-    if let Some(case) = registry_case(registry, ADVANCED_BLENDING_PRESENTATION_STATE_CASE_ID)? {
+    if let Some(files) = take_plan_first_advanced_case(
+        run,
+        registry,
+        &mut plan_first_files_by_case,
+        ADVANCED_BLENDING_PRESENTATION_STATE_CASE_ID,
+        "advanced blending presentation-state stage",
+    )? {
+        context.record_many(files)?;
+    }
+    if let Some(case) = registry_case(registry, ADVANCED_BLENDING_PRESENTATION_STATE_CASE_ID)?
+        .filter(|_| !plan_first_case_ids.contains(ADVANCED_BLENDING_PRESENTATION_STATE_CASE_ID))
+    {
         if should_generate_case(case, run)? {
             if context
                 .source_registry()
@@ -4579,7 +4623,18 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
             )?)?;
         }
     }
-    if let Some(case) = registry_case(registry, BLENDING_PRESENTATION_STATE_CASE_ID)? {
+    if let Some(files) = take_plan_first_advanced_case(
+        run,
+        registry,
+        &mut plan_first_files_by_case,
+        BLENDING_PRESENTATION_STATE_CASE_ID,
+        "blending presentation-state stage",
+    )? {
+        context.record_many(files)?;
+    }
+    if let Some(case) = registry_case(registry, BLENDING_PRESENTATION_STATE_CASE_ID)?
+        .filter(|_| !plan_first_case_ids.contains(BLENDING_PRESENTATION_STATE_CASE_ID))
+    {
         if should_generate_case(case, run)? {
             if context
                 .source_registry()
@@ -4647,6 +4702,16 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
         }
     }
     for recipe in PRESENTATION_STATE_RECIPES {
+        if let Some(files) = take_plan_first_advanced_case(
+            run,
+            registry,
+            &mut plan_first_files_by_case,
+            recipe.case_id,
+            "grayscale presentation-state stage",
+        )? {
+            context.record_many(files)?;
+            continue;
+        }
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
         };

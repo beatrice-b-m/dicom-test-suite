@@ -24,7 +24,9 @@ use crate::corpus_plan::{
     ItemLengthPolicy, OffsetTablePolicy, OutputPlan, PlannedDicomArtifact, PreamblePolicy,
     SequenceLengthPolicy, ValidationPlan, ValidationRequirement, ValidationRule,
 };
-use crate::executor::services::ArtifactExecutionBindings;
+use crate::executor::services::{
+    ArtifactExecutionBindings, ByteBinding, NativeFrameBinding, SlotExecutionBinding,
+};
 use crate::planning::RecipeIdentity;
 
 use super::{
@@ -722,6 +724,32 @@ fn finish_native(
         .ok_or(QuantitativePlanError::MissingIdentity(
             "implementation_class_uid",
         ))?;
+    let slots = content
+        .iter()
+        .map(|item| {
+            let Some(ContentMaterialization::Inline(bytes)) = &item.materialization else {
+                return Err(QuantitativePlanError::MissingContent);
+            };
+            Ok((
+                item.slot.clone(),
+                SlotExecutionBinding::NativeFrames {
+                    frames: vec![NativeFrameBinding {
+                        frame_number: 1,
+                        bytes: ByteBinding::Inline {
+                            sha256: item.sha256.clone(),
+                            bytes: bytes.clone(),
+                        },
+                        rows: 1,
+                        columns: u32::try_from(bytes.len())
+                            .map_err(|_| QuantitativePlanError::ResourceOverflow)?,
+                        samples_per_pixel: 1,
+                        bits_allocated: 8,
+                        photometric_interpretation: "MONOCHROME2".into(),
+                    }],
+                },
+            ))
+        })
+        .collect::<Result<BTreeMap<_, _>, _>>()?;
     let planned = PlannedDicomArtifact {
         logical_id: context.target_instance_id.clone(),
         order: context.order,
@@ -765,7 +793,7 @@ fn finish_native(
     Ok(QuantitativePlanOutput::Native {
         bindings: ArtifactExecutionBindings {
             artifact_id: planned.logical_id.clone(),
-            slots: BTreeMap::new(),
+            slots,
         },
         dependencies: source_dependencies(context, sources),
         artifact: planned,
@@ -1097,16 +1125,17 @@ fn set_f64(tag: Tag, value: f64) -> AttributeOperation {
 }
 
 fn set_unsigned_multi(tag: Tag, vr: DicomVr, values: &[u32]) -> AttributeOperation {
-    set_value(
-        tag,
-        vr,
-        AttributeValue::Multi(
-            values
-                .iter()
-                .map(|value| PrimitiveValue::Unsigned(u64::from(*value)))
-                .collect(),
-        ),
-    )
+    let values = values
+        .iter()
+        .map(|value| {
+            if vr == DicomVr::IS {
+                PrimitiveValue::String(value.to_string())
+            } else {
+                PrimitiveValue::Unsigned(u64::from(*value))
+            }
+        })
+        .collect();
+    set_value(tag, vr, AttributeValue::Multi(values))
 }
 
 fn set_value(tag: Tag, vr: DicomVr, value: AttributeValue) -> AttributeOperation {

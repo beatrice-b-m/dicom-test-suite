@@ -11,6 +11,10 @@ const SCHEMAS: &[(&str, &str)] = &[
         "https://dicom-test-suite.local/schemas/composition-spec.schema.json",
     ),
     (
+        "schemas/template-catalog.schema.json",
+        "https://dicom-test-suite.local/schemas/template-catalog.schema.json",
+    ),
+    (
         "schemas/conformance-run.schema.json",
         "https://dicom-test-suite.local/schemas/conformance-run.schema.json",
     ),
@@ -80,6 +84,15 @@ fn committed_schema_files_are_parseable_json_schema_documents() {
             Some("object"),
             "{path} must describe an object at the root"
         );
+    }
+}
+
+#[test]
+fn committed_schema_files_compile() {
+    for (path, _) in SCHEMAS {
+        let schema = read_json(path);
+        jsonschema::validator_for(&schema)
+            .unwrap_or_else(|error| panic!("{path} must compile as JSON Schema: {error}"));
     }
 }
 

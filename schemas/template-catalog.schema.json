@@ -1,0 +1,528 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dicom-test-suite.local/schemas/template-catalog.schema.json",
+  "title": "DICOM Test Suite Composition Template Catalog",
+  "type": "object",
+  "required": ["template_catalog_schema_version", "standards_lock_sha256", "templates"],
+  "properties": {
+    "template_catalog_schema_version": { "const": "0.1.0" },
+    "standards_lock_sha256": { "$ref": "#/$defs/sha256" },
+    "templates": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/template" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]*$",
+      "maxLength": 128
+    },
+    "template_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_.-]*(/[a-z0-9][a-z0-9_.-]*)*$",
+      "maxLength": 160
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "uid": {
+      "type": "string",
+      "pattern": "^[0-9]+(\\.[0-9]+)+$",
+      "maxLength": 64
+    },
+    "tag": {
+      "type": "string",
+      "pattern": "^[0-9A-F]{4},[0-9A-F]{4}$"
+    },
+    "vr": {
+      "enum": [
+        "AE", "AS", "AT", "CS", "DA", "DS", "DT", "FD", "FL", "IS",
+        "LO", "LT", "OB", "OD", "OF", "OL", "OV", "OW", "PN", "SH",
+        "SL", "SQ", "SS", "ST", "SV", "TM", "UC", "UI", "UL", "UN",
+        "UR", "US", "UT", "UV"
+      ]
+    },
+    "determinism": {
+      "enum": ["byte_stable", "semantic_stable"]
+    },
+    "template": {
+      "type": "object",
+      "required": [
+        "template_id", "template_version", "status", "iod_name", "sop_class_name",
+        "sop_class_uid", "default_modality", "artifact_kind", "determinism", "modules",
+        "attributes", "content_slots", "reference_slots", "default_bundle",
+        "transfer_syntaxes", "requirements", "validation", "standards_evidence",
+        "limitations", "qualification_owner"
+      ],
+      "properties": {
+        "template_id": { "$ref": "#/$defs/template_id" },
+        "template_version": { "$ref": "#/$defs/semver" },
+        "status": { "enum": ["planned", "qualified", "unavailable", "deprecated"] },
+        "iod_name": { "type": "string", "minLength": 1 },
+        "sop_class_name": { "type": "string", "minLength": 1 },
+        "sop_class_uid": { "$ref": "#/$defs/uid" },
+        "default_modality": { "type": "string", "minLength": 1, "maxLength": 16 },
+        "artifact_kind": {
+          "enum": [
+            "classic_image", "enhanced_image", "derived_image", "presentation_state",
+            "registration", "structured_report", "radiotherapy", "waveform",
+            "encapsulated_document", "mesh", "visible_light", "whole_slide_image"
+          ]
+        },
+        "determinism": { "$ref": "#/$defs/determinism" },
+        "modules": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/module" }
+        },
+        "attributes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/attribute_policy" }
+        },
+        "content_slots": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/content_slot" }
+        },
+        "reference_slots": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reference_slot" }
+        },
+        "default_bundle": { "$ref": "#/$defs/default_bundle" },
+        "transfer_syntaxes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/transfer_syntax" }
+        },
+        "requirements": { "$ref": "#/$defs/requirements" },
+        "validation": { "$ref": "#/$defs/validation" },
+        "standards_evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/standards_evidence" }
+        },
+        "limitations": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "qualification_owner": { "$ref": "#/$defs/id" }
+      },
+      "additionalProperties": false
+    },
+    "module": {
+      "type": "object",
+      "required": ["name", "usage"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "usage": { "enum": ["mandatory", "conditional", "user_optional"] },
+        "condition": { "$ref": "#/$defs/nullable_condition" }
+      },
+      "additionalProperties": false
+    },
+    "attribute_policy": {
+      "type": "object",
+      "required": [
+        "tag", "keyword", "vr", "requirement", "behavior", "condition",
+        "default", "description"
+      ],
+      "properties": {
+        "tag": { "$ref": "#/$defs/tag" },
+        "keyword": { "type": "string", "pattern": "^[A-Z][A-Za-z0-9]*$" },
+        "vr": { "$ref": "#/$defs/vr" },
+        "requirement": { "enum": ["1", "1C", "2", "2C", "3"] },
+        "behavior": {
+          "enum": ["defaulted", "derived", "protected", "caller_settable"]
+        },
+        "condition": { "$ref": "#/$defs/nullable_condition" },
+        "default": {
+          "anyOf": [
+            { "$ref": "#/$defs/template_value" },
+            { "type": "null" }
+          ]
+        },
+        "description": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "behavior": { "const": "defaulted" } },
+            "required": ["behavior"]
+          },
+          "then": { "properties": { "default": { "$ref": "#/$defs/template_value" } } }
+        },
+        {
+          "if": {
+            "properties": { "requirement": { "enum": ["1C", "2C"] } },
+            "required": ["requirement"]
+          },
+          "then": { "properties": { "condition": { "$ref": "#/$defs/condition" } } }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "template_value": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "value"],
+          "properties": {
+            "kind": { "const": "literal" },
+            "value": { "type": ["string", "number", "integer"] }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "values"],
+          "properties": {
+            "kind": { "const": "multi" },
+            "values": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": ["string", "number", "integer"] }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "provider"],
+          "properties": {
+            "kind": { "const": "provider" },
+            "provider": { "$ref": "#/$defs/id" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind"],
+          "properties": { "kind": { "const": "empty" } },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "nullable_condition": {
+      "anyOf": [
+        { "$ref": "#/$defs/condition" },
+        { "type": "null" }
+      ]
+    },
+    "condition": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["operator", "tag"],
+          "properties": {
+            "operator": { "const": "present" },
+            "tag": { "$ref": "#/$defs/tag" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["operator", "tag", "value"],
+          "properties": {
+            "operator": { "const": "equals" },
+            "tag": { "$ref": "#/$defs/tag" },
+            "value": { "type": ["string", "number", "integer"] }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["operator", "slot"],
+          "properties": {
+            "operator": { "const": "content_slot_set" },
+            "slot": { "$ref": "#/$defs/id" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["operator", "parameter", "value"],
+          "properties": {
+            "operator": { "const": "parameter_equals" },
+            "parameter": { "$ref": "#/$defs/id" },
+            "value": { "type": ["string", "number", "integer", "boolean"] }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["operator", "conditions"],
+          "properties": {
+            "operator": { "enum": ["all", "any"] },
+            "conditions": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/condition" }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["operator", "condition"],
+          "properties": {
+            "operator": { "const": "not" },
+            "condition": { "$ref": "#/$defs/condition" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "content_slot": {
+      "type": "object",
+      "required": [
+        "slot", "kind", "required", "default_provider", "allowed_sources",
+        "constraints", "description"
+      ],
+      "properties": {
+        "slot": { "$ref": "#/$defs/id" },
+        "kind": {
+          "enum": [
+            "native_pixels", "encoded_frames", "float_pixels", "double_float_pixels",
+            "waveform_samples", "encapsulated_document", "mesh", "backend_payload"
+          ]
+        },
+        "required": { "type": "boolean" },
+        "default_provider": {
+          "anyOf": [
+            { "$ref": "#/$defs/id" },
+            { "type": "null" }
+          ]
+        },
+        "allowed_sources": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "enum": ["default", "local_file", "inline_small_fixture", "encoded_frames", "provider"] },
+          "uniqueItems": true
+        },
+        "constraints": { "$ref": "#/$defs/content_constraints" },
+        "description": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "required": { "const": true } },
+            "required": ["required"]
+          },
+          "then": {
+            "anyOf": [
+              { "properties": { "default_provider": { "$ref": "#/$defs/id" } } },
+              { "properties": { "allowed_sources": { "contains": { "const": "provider" } } } }
+            ]
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "content_constraints": {
+      "type": "object",
+      "properties": {
+        "photometric_interpretations": {
+          "type": "array",
+          "items": { "enum": ["MONOCHROME1", "MONOCHROME2", "PALETTE COLOR", "RGB", "YBR_FULL", "YBR_FULL_422"] },
+          "uniqueItems": true
+        },
+        "samples_per_pixel": {
+          "type": "array",
+          "items": { "enum": [1, 3] },
+          "uniqueItems": true
+        },
+        "bits_allocated": {
+          "type": "array",
+          "items": { "enum": [1, 8, 16, 32, 64] },
+          "uniqueItems": true
+        },
+        "sample_types": {
+          "type": "array",
+          "items": { "enum": ["uint", "int", "float32", "float64", "bit1"] },
+          "uniqueItems": true
+        },
+        "min_frames": { "type": "integer", "minimum": 1 },
+        "max_frames": { "type": "integer", "minimum": 1 },
+        "media_types": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "max_bytes": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "reference_slot": {
+      "type": "object",
+      "required": [
+        "role", "required", "cardinality", "target_sop_class_uids", "frame_roles",
+        "cycle_policy", "default_dependency", "description"
+      ],
+      "properties": {
+        "role": { "$ref": "#/$defs/id" },
+        "required": { "type": "boolean" },
+        "cardinality": { "enum": ["one", "one_or_more", "zero_or_one", "zero_or_more"] },
+        "target_sop_class_uids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/uid" },
+          "uniqueItems": true
+        },
+        "frame_roles": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" },
+          "uniqueItems": true
+        },
+        "cycle_policy": { "enum": ["forbidden", "allowed_within_bundle"] },
+        "default_dependency": {
+          "anyOf": [
+            { "$ref": "#/$defs/template_id" },
+            { "type": "null" }
+          ]
+        },
+        "description": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "default_bundle": {
+      "type": "object",
+      "required": ["dependencies"],
+      "properties": {
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["logical_role", "template_id", "template_version", "reference_role"],
+            "properties": {
+              "logical_role": { "$ref": "#/$defs/id" },
+              "template_id": { "$ref": "#/$defs/template_id" },
+              "template_version": { "$ref": "#/$defs/semver" },
+              "reference_role": { "$ref": "#/$defs/id" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "transfer_syntax": {
+      "type": "object",
+      "required": ["uid", "name", "default", "determinism", "requirements", "limitations"],
+      "properties": {
+        "uid": { "$ref": "#/$defs/uid" },
+        "name": { "type": "string", "minLength": 1 },
+        "default": { "type": "boolean" },
+        "determinism": { "$ref": "#/$defs/determinism" },
+        "requirements": { "$ref": "#/$defs/requirements" },
+        "limitations": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "requirements": {
+      "type": "object",
+      "required": ["features", "external_codecs", "providers", "external_validators"],
+      "properties": {
+        "features": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" },
+          "uniqueItems": true
+        },
+        "external_codecs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" },
+          "uniqueItems": true
+        },
+        "providers": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" },
+          "uniqueItems": true
+        },
+        "external_validators": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "validation": {
+      "type": "object",
+      "required": ["generic_rule_ids", "template_rule_ids", "content_rule_ids", "independent_routes"],
+      "properties": {
+        "generic_rule_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/id" },
+          "uniqueItems": true
+        },
+        "template_rule_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/id" },
+          "uniqueItems": true
+        },
+        "content_rule_ids": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" },
+          "uniqueItems": true
+        },
+        "independent_routes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["adapter_id", "kind", "required_for_qualification"],
+            "properties": {
+              "adapter_id": { "$ref": "#/$defs/id" },
+              "kind": { "enum": ["iod", "entity", "pixel", "waveform", "document", "mesh", "reference_graph"] },
+              "required_for_qualification": { "type": "boolean" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "standards_evidence": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["source", "edition", "query", "covered"],
+          "properties": {
+            "source": { "const": "dicom-standard-kb" },
+            "edition": { "const": "2026b" },
+            "query": { "type": "string", "minLength": 1 },
+            "covered": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["source", "part", "anchor", "reason", "checked_date"],
+          "properties": {
+            "source": { "const": "official-dicom-standard" },
+            "part": { "type": "string", "pattern": "^PS3\\.[0-9]+$" },
+            "anchor": { "type": "string", "minLength": 1 },
+            "reason": { "type": "string", "minLength": 1 },
+            "checked_date": { "type": "string", "format": "date" },
+            "source_note": {
+              "type": "string",
+              "pattern": "^standards/source-notes/[a-z0-9][a-z0-9_-]*\\.md$"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

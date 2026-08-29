@@ -41,6 +41,21 @@ pub struct ManifestEntryInput<'a> {
     pub determinism: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct EvidenceManifestEntryInput<'a> {
+    pub plan: &'a ResolvedInstancePlan,
+    pub resolved_plan_sha256: String,
+    pub relative_path: String,
+    pub size_bytes: u64,
+    pub sha256: String,
+    pub checks: Vec<ValidationCheck>,
+    pub requested: bool,
+    pub bundle_root_instance_id: String,
+    pub bundle_role: String,
+    pub source_provenance: String,
+    pub determinism: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ValidationCheck {
     pub layer: String,
@@ -326,6 +341,68 @@ fn validate_primitive_content(
 pub struct CompositionManifestAssembler;
 
 impl CompositionManifestAssembler {
+    /// Project an already-validated run without reopening materialized files.
+    pub fn assemble_from_evidence(
+        &self,
+        inputs: CompositionManifestInputs,
+        entries: &[EvidenceManifestEntryInput<'_>],
+    ) -> Result<Value, ManifestError> {
+        if entries.is_empty() {
+            return Err(ManifestError::NoEntries);
+        }
+        let mut manifest_entries = Vec::with_capacity(entries.len());
+        let mut assets = BTreeMap::<String, Value>::new();
+        let mut output_bytes = 0_u64;
+        for input in entries {
+            if input.checks.iter().any(|check| check.status == "failed") {
+                return Err(ManifestError::ValidationFailed {
+                    instance_id: input.plan.instance_id.clone(),
+                    checks: input.checks.clone(),
+                });
+            }
+            output_bytes = output_bytes
+                .checked_add(input.size_bytes)
+                .ok_or(ManifestError::OutputSizeOverflow)?;
+            collect_assets(input.plan, &mut assets)?;
+            let provenance = input
+                .plan
+                .attributes
+                .iter()
+                .map(|attribute| {
+                    json!({
+                        "tag": attribute.address.normalized_tag(),
+                        "origin": attribute.origin
+                    })
+                })
+                .collect::<Vec<_>>();
+            manifest_entries.push(json!({
+                "instance_id": input.plan.instance_id,
+                "template_id": input.plan.template_id,
+                "template_version": input.plan.template_version,
+                "requested": input.requested,
+                "bundle_root_instance_id": input.bundle_root_instance_id,
+                "bundle_role": input.bundle_role,
+                "source_provenance": input.source_provenance,
+                "path": input.relative_path,
+                "size_bytes": input.size_bytes,
+                "sha256": input.sha256,
+                "determinism": input.determinism,
+                "resolved_plan_sha256": input.resolved_plan_sha256,
+                "dicom": {
+                    "sop_class_uid": input.plan.sop_class_uid,
+                    "transfer_syntax_uid": input.plan.transfer_syntax_uid
+                },
+                "uids": input.plan.identities.identities,
+                "resolved_attributes": input.plan.attributes,
+                "value_provenance": provenance,
+                "content": input.plan.content,
+                "references": input.plan.references,
+                "validation": { "status": "passed", "checks": input.checks }
+            }));
+        }
+        finish_manifest(inputs, manifest_entries, assets, output_bytes)
+    }
+
     pub fn assemble(
         &self,
         inputs: CompositionManifestInputs,
@@ -542,6 +619,162 @@ impl CompositionManifestAssembler {
     }
 }
 
+fn collect_assets(
+    plan: &ResolvedInstancePlan,
+    assets: &mut BTreeMap<String, Value>,
+) -> Result<(), ManifestError> {
+    for content in &plan.content {
+        if let Some(spec_relative_path) = content.properties.get("spec_relative_path") {
+            let asset_id =
+                sha256_hex(format!("{spec_relative_path}\0{}", content.sha256).as_bytes());
+            let asset = assets.entry(asset_id.clone()).or_insert_with(|| {
+                json!({
+                    "asset_id": asset_id,
+                    "spec_relative_path": spec_relative_path,
+                    "kind": content.kind,
+                    "size_bytes": content.size_bytes,
+                    "sha256": content.sha256,
+                    "content_slots": [],
+                    "staging_method": content.properties.get("staging_method")
+                        .map(String::as_str).unwrap_or("stream_copy")
+                })
+            });
+            let slots = asset["content_slots"].as_array_mut().expect("asset slots");
+            if !slots
+                .iter()
+                .any(|slot| slot.as_str() == Some(&content.slot))
+            {
+                slots.push(Value::String(content.slot.clone()));
+                slots.sort_by(|left, right| left.as_str().cmp(&right.as_str()));
+            }
+        }
+        if let Some(encoded_assets) = content.properties.get("encoded_frame_assets") {
+            let encoded_assets: Vec<Value> =
+                serde_json::from_str(encoded_assets).map_err(|error| {
+                    ManifestError::Schema(format!(
+                        "encoded frame asset provenance is invalid: {error}"
+                    ))
+                })?;
+            for encoded_asset in encoded_assets {
+                let spec_relative_path =
+                    encoded_asset["spec_relative_path"]
+                        .as_str()
+                        .ok_or_else(|| {
+                            ManifestError::Schema("encoded frame asset path is missing".into())
+                        })?;
+                let sha256 = encoded_asset["sha256"].as_str().ok_or_else(|| {
+                    ManifestError::Schema("encoded frame asset SHA-256 is missing".into())
+                })?;
+                let asset_id = sha256_hex(format!("{spec_relative_path}\0{sha256}").as_bytes());
+                assets.entry(asset_id.clone()).or_insert_with(|| {
+                    json!({
+                        "asset_id": asset_id,
+                        "spec_relative_path": spec_relative_path,
+                        "kind": "encoded_frame",
+                        "size_bytes": encoded_asset["size_bytes"],
+                        "sha256": sha256,
+                        "content_slots": [content.slot],
+                        "staging_method": "stream_copy"
+                    })
+                });
+            }
+        }
+    }
+    Ok(())
+}
+
+fn finish_manifest(
+    inputs: CompositionManifestInputs,
+    mut manifest_entries: Vec<Value>,
+    assets: BTreeMap<String, Value>,
+    output_bytes: u64,
+) -> Result<Value, ManifestError> {
+    manifest_entries.sort_by(|left, right| {
+        left["instance_id"]
+            .as_str()
+            .cmp(&right["instance_id"].as_str())
+    });
+    let mut bundle_members = BTreeMap::<String, Vec<Value>>::new();
+    for entry in &manifest_entries {
+        let root = entry["bundle_root_instance_id"]
+            .as_str()
+            .expect("bundle root")
+            .to_string();
+        bundle_members.entry(root).or_default().push(json!({
+            "instance_id": entry["instance_id"],
+            "bundle_role": entry["bundle_role"],
+            "requested": entry["requested"],
+            "source_provenance": entry["source_provenance"]
+        }));
+    }
+    let bundles = bundle_members
+        .into_iter()
+        .map(|(root, mut members)| {
+            members.sort_by(|left, right| {
+                left["instance_id"]
+                    .as_str()
+                    .cmp(&right["instance_id"].as_str())
+            });
+            let member_ids = members
+                .iter()
+                .filter_map(|member| member["instance_id"].as_str())
+                .collect::<BTreeSet<_>>();
+            let references = manifest_entries
+                .iter()
+                .filter(|entry| {
+                    member_ids.contains(entry["instance_id"].as_str().expect("instance ID"))
+                })
+                .flat_map(|entry| {
+                    entry["references"]
+                        .as_array()
+                        .expect("references array")
+                        .iter()
+                        .cloned()
+                })
+                .collect::<Vec<_>>();
+            json!({
+                "bundle_root_instance_id": root,
+                "members": members,
+                "dependency_closure": member_ids,
+                "references": references
+            })
+        })
+        .collect::<Vec<_>>();
+    let manifest = json!({
+        "manifest_schema_version": "0.4.0",
+        "generated_at": inputs.generated_at,
+        "generator": inputs.generator,
+        "standards": inputs.standards,
+        "dependencies": inputs.dependencies,
+        "run": {
+            "kind": "composition",
+            "seed": inputs.seed,
+            "composition_spec_schema_version": inputs.composition_spec_schema_version,
+            "input_spec_sha256": inputs.input_spec_sha256,
+            "template_catalog_schema_version": inputs.template_catalog_schema_version,
+            "template_catalog_sha256": inputs.template_catalog_sha256,
+            "resource_limits": inputs.resource_limits,
+            "parallelism": { "requested": inputs.requested_parallelism, "used": inputs.used_parallelism }
+        },
+        "composition": {
+            "entries": manifest_entries,
+            "bundles": bundles,
+            "assets": assets.into_values().collect::<Vec<_>>(),
+            "unavailable_capabilities": [],
+            "publication": {
+                "staging_complete": true,
+                "validation_complete": true,
+                "expected_entries": manifest_entries.len(),
+                "expected_output_bytes": output_bytes,
+                "atomic_promotion": "complete",
+                "cleanup_complete": true
+            }
+        }
+    });
+    validate_manifest_schema(&manifest)?;
+    Ok(manifest)
+}
+
 pub(super) fn validate_manifest_schema(manifest: &Value) -> Result<(), ManifestError> {
     let schema: Value = serde_json::from_str(MANIFEST_SCHEMA)
         .map_err(|error| ManifestError::Schema(error.to_string()))?;
@@ -690,7 +923,28 @@ mod tests {
                 }],
             )
             .unwrap();
+        let bytes = fs::read(&path).unwrap();
+        let evidence_manifest = CompositionManifestAssembler
+            .assemble_from_evidence(
+                inputs(),
+                &[EvidenceManifestEntryInput {
+                    plan: &plan,
+                    resolved_plan_sha256: plan.canonical_sha256(),
+                    relative_path: "instances/primary.dcm".into(),
+                    size_bytes: bytes.len() as u64,
+                    sha256: sha256_hex(&bytes),
+                    checks: GenericPlanValidator.validate_file(&plan, &path),
+                    requested: true,
+                    bundle_root_instance_id: "primary".into(),
+                    bundle_role: "root".into(),
+                    source_provenance: "requested".into(),
+                    determinism: "byte_stable".into(),
+                }],
+            )
+            .unwrap();
         fs::remove_file(path).unwrap();
+
+        assert_eq!(evidence_manifest, manifest);
 
         assert_eq!(manifest["run"]["kind"], "composition");
         assert_eq!(

@@ -12,6 +12,7 @@ mod corpus_adapter;
 pub mod curated;
 pub mod defaults;
 pub mod enhanced;
+pub(crate) mod executor_adapter;
 pub mod family;
 pub mod identity;
 pub mod manifest;

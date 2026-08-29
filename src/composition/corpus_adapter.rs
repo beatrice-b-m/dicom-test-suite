@@ -4,7 +4,7 @@
 //! projector during U1, but every resolved instance is represented in one
 //! validated `CorpusPlan` before that materializer can run.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use crate::IMPLEMENTATION_VERSION_NAME;
 use crate::corpus_plan::{
@@ -28,10 +28,15 @@ pub(crate) fn resolved_composition_corpus_plan(
     limits: &ResourceLimits,
     parallelism: u32,
 ) -> Result<CorpusPlan, CorpusPlanError> {
+    let per_artifact_output_limit = limits
+        .max_total_output_bytes
+        .checked_div(plans.len().max(1) as u64)
+        .unwrap_or(limits.max_total_output_bytes)
+        .max(1);
     let artifacts = plans
         .iter()
         .enumerate()
-        .map(|(index, plan)| planned_artifact(index, plan, members))
+        .map(|(index, plan)| planned_artifact(index, plan, members, per_artifact_output_limit))
         .collect::<Result<Vec<_>, _>>()?;
     let dependencies = plans
         .iter()
@@ -72,6 +77,7 @@ fn planned_artifact(
     index: usize,
     plan: &ResolvedInstancePlan,
     members: &BTreeMap<String, BundleMemberProvenance>,
+    output_limit: u64,
 ) -> Result<PlannedArtifact, CorpusPlanError> {
     let member = members
         .get(&plan.instance_id)
@@ -114,7 +120,9 @@ fn planned_artifact(
         encoding: EncodingPlan {
             transfer_syntax_uid: plan.transfer_syntax_uid.clone(),
             dataset_length: DatasetLengthPolicy::WriterDefault,
-            fragmentation: if encapsulated.is_some() {
+            fragmentation: if encapsulated.is_some()
+                || plan.transfer_syntax_uid == crate::codecs::RLE_LOSSLESS_TRANSFER_SYNTAX_UID
+            {
                 FragmentationPolicy::PreserveEncodedFrames
             } else {
                 FragmentationPolicy::Native
@@ -122,6 +130,11 @@ fn planned_artifact(
             offset_table: match encapsulated {
                 Some(true) => OffsetTablePolicy::PopulatedBasic,
                 Some(false) => OffsetTablePolicy::EmptyBasic,
+                None if plan.transfer_syntax_uid
+                    == crate::codecs::RLE_LOSSLESS_TRANSFER_SYNTAX_UID =>
+                {
+                    OffsetTablePolicy::PopulatedBasic
+                }
                 None => OffsetTablePolicy::NotApplicable,
             },
             preamble: PreamblePolicy::ZeroFilled,
@@ -148,45 +161,14 @@ fn planned_artifact(
             }],
         },
         resources: ArtifactResourceEstimate {
-            // U1 preserves the existing post-encoding output-limit decision:
-            // exact Part 10 size is not known until the legacy materializer
-            // runs. U2 replaces this compatibility estimate with executor
-            // accounting.
-            output_bytes: 0,
-            peak_working_bytes: 1,
+            // The composition contract exposes a run-wide output ceiling, not
+            // exact Part 10 sizes. Divide that ceiling deterministically across
+            // planned artifacts; the executor enforces both this conservative
+            // per-artifact envelope and the aggregate observed total.
+            output_bytes: output_limit,
+            peak_working_bytes: output_limit,
         },
     }))
-}
-
-pub(crate) fn validate_materialization_alignment(
-    corpus_plan: &CorpusPlan,
-    resolved_plans: &[ResolvedInstancePlan],
-) -> Result<(), CorpusPlanError> {
-    corpus_plan.validate()?;
-    let expected = corpus_plan
-        .artifacts
-        .iter()
-        .map(|artifact| (artifact.order(), artifact.logical_id()))
-        .collect::<BTreeSet<_>>();
-    let actual = resolved_plans
-        .iter()
-        .enumerate()
-        .map(|(index, plan)| {
-            (
-                u64::try_from(index).unwrap_or(u64::MAX),
-                plan.instance_id.as_str(),
-            )
-        })
-        .collect::<BTreeSet<_>>();
-    if expected != actual {
-        let missing = actual
-            .symmetric_difference(&expected)
-            .next()
-            .map(|(_, id)| (*id).to_owned())
-            .unwrap_or_else(|| "composition materialization order".into());
-        return Err(CorpusPlanError::UnknownArtifact(missing));
-    }
-    Ok(())
 }
 
 #[cfg(test)]
@@ -288,21 +270,6 @@ mod tests {
             corpus.artifacts[1].provenance(),
             ArtifactProvenance::Dependency { requested_by }
                 if requested_by == &["first"]
-        ));
-    }
-
-    #[test]
-    fn materialization_gate_revalidates_the_complete_plan_before_writing() {
-        let plans = vec![resolved("first")];
-        let members = BTreeMap::from([("first".into(), member("first", true, "first"))]);
-        let mut corpus =
-            resolved_composition_corpus_plan(41, &plans, &members, &ResourceLimits::default(), 1)
-                .unwrap();
-        corpus.schema_version = "invalid".into();
-
-        assert!(matches!(
-            validate_materialization_alignment(&corpus, &plans),
-            Err(CorpusPlanError::UnsupportedSchemaVersion(_))
         ));
     }
 }

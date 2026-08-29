@@ -82,6 +82,7 @@ impl TransactionFs for RealTransactionFs {
 #[derive(Debug)]
 pub enum TransactionError {
     UnsafeDestination(PathBuf),
+    UnsafeStagingTarget(PathBuf),
     UnsafeRelativePath(PathBuf),
     DestinationExists(PathBuf),
     UnsafeFilesystemEntry {
@@ -111,6 +112,11 @@ impl fmt::Display for TransactionError {
                     path.display()
                 )
             }
+            Self::UnsafeStagingTarget(path) => write!(
+                formatter,
+                "staging target is not an exact destination sibling: {}",
+                path.display()
+            ),
             Self::UnsafeRelativePath(path) => {
                 write!(
                     formatter,
@@ -177,9 +183,13 @@ struct CreatedStaging {
 }
 
 impl CreatedStaging {
-    fn sibling(path: PathBuf, parent: &Path) -> Self {
-        debug_assert_eq!(path.parent(), Some(parent));
-        Self { path }
+    fn sibling(path: PathBuf, parent: &Path) -> Result<Self, TransactionError> {
+        if path.parent() != Some(parent)
+            || !matches!(path.file_name(), Some(name) if !name.is_empty())
+        {
+            return Err(TransactionError::UnsafeStagingTarget(path));
+        }
+        Ok(Self { path })
     }
 
     fn path(&self) -> &Path {
@@ -217,14 +227,20 @@ impl<F: TransactionFs> OutputTransaction<F> {
                 ".dicom-test-suite-staging-{}-{sequence}",
                 std::process::id()
             ));
-            let candidate = parent.join(name);
-            match fs.create_dir(&candidate) {
+            let candidate = CreatedStaging::sibling(parent.join(name), parent)?;
+            match fs.create_dir(candidate.path()) {
                 Ok(()) => {
                     staging = Some(candidate);
                     break;
                 }
                 Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
-                Err(error) => return Err(io_error("create staging directory", candidate, error)),
+                Err(error) => {
+                    return Err(io_error(
+                        "create staging directory",
+                        candidate.path(),
+                        error,
+                    ));
+                }
             }
         }
         let staging = staging.ok_or_else(|| {
@@ -238,7 +254,6 @@ impl<F: TransactionFs> OutputTransaction<F> {
             )
         })?;
 
-        let staging = CreatedStaging::sibling(staging, parent);
         if let Err(error) = fs.set_private_directory(staging.path()) {
             let primary = io_error("make staging directory private", staging.path(), error);
             return Err(cleanup_after_primary(&fs, &staging, primary));

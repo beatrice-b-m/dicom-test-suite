@@ -126,6 +126,157 @@ impl DicomVr {
             Self::SQ => false,
         }
     }
+
+    fn validate_primitive(self, value: &PrimitiveValue) -> bool {
+        if !self.permits(value) {
+            return false;
+        }
+        let PrimitiveValue::String(value) = value else {
+            return true;
+        };
+        validate_string_value(self, value)
+    }
+}
+
+fn validate_string_value(vr: DicomVr, value: &str) -> bool {
+    if value.contains('\\') || value.as_bytes().contains(&0) {
+        return false;
+    }
+    let length = value.len();
+    match vr {
+        DicomVr::AE => {
+            length <= 16
+                && value
+                    .bytes()
+                    .all(|byte| byte == b' ' || byte.is_ascii_graphic())
+        }
+        DicomVr::AS => {
+            length == 4
+                && value.as_bytes()[..3].iter().all(u8::is_ascii_digit)
+                && matches!(value.as_bytes()[3], b'D' | b'W' | b'M' | b'Y')
+        }
+        DicomVr::CS => {
+            length <= 16
+                && value.bytes().all(|byte| {
+                    byte == b' '
+                        || byte == b'_'
+                        || byte.is_ascii_uppercase()
+                        || byte.is_ascii_digit()
+                })
+        }
+        DicomVr::DA => valid_date(value),
+        DicomVr::DS => length <= 16 && value.parse::<f64>().is_ok_and(f64::is_finite),
+        DicomVr::DT => valid_datetime(value),
+        DicomVr::IS => length <= 12 && value.trim().parse::<i64>().is_ok(),
+        DicomVr::LO => length <= 64 && valid_text(value, false),
+        DicomVr::LT => length <= 10_240 && valid_text(value, true),
+        DicomVr::PN => value
+            .split('=')
+            .all(|group| group.len() <= 64 && valid_text(group, false)),
+        DicomVr::SH => length <= 16 && valid_text(value, false),
+        DicomVr::ST => length <= 1_024 && valid_text(value, true),
+        DicomVr::TM => valid_time(value),
+        DicomVr::UI => valid_uid(value),
+        DicomVr::UC | DicomVr::UT => valid_text(value, true),
+        DicomVr::UR => !value.chars().any(char::is_control),
+        _ => true,
+    }
+}
+
+fn valid_text(value: &str, allow_formatting: bool) -> bool {
+    value.chars().all(|character| {
+        !character.is_control()
+            || (allow_formatting && matches!(character, '\t' | '\n' | '\u{000C}' | '\r'))
+    })
+}
+
+fn valid_uid(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 64
+        && value.split('.').all(|component| {
+            !component.is_empty()
+                && component.bytes().all(|byte| byte.is_ascii_digit())
+                && (component == "0" || !component.starts_with('0'))
+        })
+}
+
+fn valid_date(value: &str) -> bool {
+    if value.len() != 8 || !value.bytes().all(|byte| byte.is_ascii_digit()) {
+        return false;
+    }
+    let year = value[0..4].parse::<u32>().unwrap_or(0);
+    let month = value[4..6].parse::<u32>().unwrap_or(0);
+    let day = value[6..8].parse::<u32>().unwrap_or(0);
+    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let maximum = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap => 29,
+        2 => 28,
+        _ => return false,
+    };
+    (1..=maximum).contains(&day)
+}
+
+fn valid_time(value: &str) -> bool {
+    let (whole, fraction) = value
+        .split_once('.')
+        .map_or((value, None), |(whole, fraction)| (whole, Some(fraction)));
+    if !matches!(whole.len(), 2 | 4 | 6)
+        || !whole.bytes().all(|byte| byte.is_ascii_digit())
+        || fraction.is_some_and(|fraction| {
+            fraction.is_empty()
+                || fraction.len() > 6
+                || !fraction.bytes().all(|byte| byte.is_ascii_digit())
+        })
+    {
+        return false;
+    }
+    let hour = whole[0..2].parse::<u32>().unwrap_or(24);
+    let minute = (whole.len() >= 4).then(|| whole[2..4].parse::<u32>().unwrap_or(60));
+    let second = (whole.len() == 6).then(|| whole[4..6].parse::<u32>().unwrap_or(60));
+    hour <= 23 && minute.is_none_or(|value| value <= 59) && second.is_none_or(|value| value <= 60)
+}
+
+fn valid_datetime(value: &str) -> bool {
+    if value.is_empty() || value.len() > 26 {
+        return false;
+    }
+    let timezone_start = value
+        .char_indices()
+        .skip(8)
+        .find_map(|(index, character)| matches!(character, '+' | '-').then_some(index));
+    let (local, timezone) = timezone_start.map_or((value, None), |index| {
+        (&value[..index], Some(&value[index..]))
+    });
+    if timezone.is_some_and(|zone| {
+        zone.len() != 5
+            || !zone[1..].bytes().all(|byte| byte.is_ascii_digit())
+            || zone[1..3].parse::<u32>().unwrap_or(24) > 23
+            || zone[3..5].parse::<u32>().unwrap_or(60) > 59
+    }) {
+        return false;
+    }
+    let (whole, fraction) = local
+        .split_once('.')
+        .map_or((local, None), |(whole, fraction)| (whole, Some(fraction)));
+    if !matches!(whole.len(), 4 | 6 | 8 | 10 | 12 | 14)
+        || !whole.bytes().all(|byte| byte.is_ascii_digit())
+        || fraction.is_some_and(|fraction| {
+            fraction.is_empty()
+                || fraction.len() > 6
+                || !fraction.bytes().all(|byte| byte.is_ascii_digit())
+        })
+    {
+        return false;
+    }
+    if whole.len() >= 8 && !valid_date(&whole[..8]) {
+        return false;
+    }
+    if whole.len() > 8 && !valid_time(&whole[8..]) {
+        return false;
+    }
+    true
 }
 
 impl fmt::Display for DicomVr {
@@ -326,7 +477,7 @@ impl AttributeOperation {
         validate_dictionary_vr(address, *vr)?;
         match value {
             AttributeValue::Primitive(value) => {
-                if !vr.permits(value) {
+                if !vr.validate_primitive(value) {
                     return Err(AttributeError::ValueVrMismatch {
                         tag: address.normalized_tag(),
                         vr: *vr,
@@ -334,7 +485,10 @@ impl AttributeOperation {
                 }
             }
             AttributeValue::Multi(values) => {
-                if values.is_empty() || values.iter().any(|value| !vr.permits(value)) {
+                if values.is_empty()
+                    || values.iter().any(|value| !vr.validate_primitive(value))
+                    || !valid_multi_value_count(address, values.len())
+                {
                     return Err(AttributeError::ValueVrMismatch {
                         tag: address.normalized_tag(),
                         vr: *vr,
@@ -373,6 +527,29 @@ impl AttributeOperation {
             }
         }
         Ok(())
+    }
+}
+
+fn valid_multi_value_count(address: &AttributeAddress, count: usize) -> bool {
+    if address.private_creator.is_some() {
+        return count > 0;
+    }
+    let tag = (address.group, address.element);
+    match tag {
+        (0x0008, 0x0005)
+        | (0x0008, 0x0054)
+        | (0x0008, 0x0058)
+        | (0x0008, 0x1160)
+        | (0x0010, 0x1000)
+        | (0x0018, 0x0086)
+        | (0x0028, 0x1050)
+        | (0x0028, 0x1051) => count >= 1,
+        (0x0008, 0x0008) => count >= 2,
+        (0x0018, 0x1310) => count == 4,
+        (0x0020, 0x0032) | (0x0020, 0x9157) | (0x0028, 0x3002) => count == 3,
+        (0x0020, 0x0037) => count == 6,
+        (0x0020, 0x0020) | (0x0028, 0x0030) | (0x0028, 0x0034) => count == 2,
+        _ => false,
     }
 }
 
@@ -567,6 +744,59 @@ mod tests {
                 rows,
                 DicomVr::US,
                 AttributeValue::Primitive(PrimitiveValue::Unsigned(65536))
+            )
+            .validate()
+            .is_err()
+        );
+
+        let image_type = AttributeAddress::from_keyword("ImageType").unwrap();
+        assert!(
+            set(
+                image_type,
+                DicomVr::CS,
+                AttributeValue::Multi(vec![
+                    PrimitiveValue::String("DERIVED".into()),
+                    PrimitiveValue::String("SECONDARY".into()),
+                ])
+            )
+            .validate()
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn string_lexemes_and_standard_value_multiplicity_are_checked() {
+        let birth_date = AttributeAddress::from_keyword("PatientBirthDate").unwrap();
+        assert!(
+            set(
+                birth_date,
+                DicomVr::DA,
+                AttributeValue::Primitive(PrimitiveValue::String("20260230".into()))
+            )
+            .validate()
+            .is_err()
+        );
+
+        let study_uid = AttributeAddress::from_keyword("StudyInstanceUID").unwrap();
+        assert!(
+            set(
+                study_uid,
+                DicomVr::UI,
+                AttributeValue::Primitive(PrimitiveValue::String("1.02.3".into()))
+            )
+            .validate()
+            .is_err()
+        );
+
+        let series_description = AttributeAddress::from_keyword("SeriesDescription").unwrap();
+        assert!(
+            set(
+                series_description,
+                DicomVr::LO,
+                AttributeValue::Multi(vec![
+                    PrimitiveValue::String("ONE".into()),
+                    PrimitiveValue::String("TWO".into()),
+                ])
             )
             .validate()
             .is_err()

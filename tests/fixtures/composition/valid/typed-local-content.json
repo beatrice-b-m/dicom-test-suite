@@ -23,14 +23,14 @@
       },
       "attributes": [
         {
-          "address": { "tag": "0008,103E" },
+          "address": { "tag": "0008,0008" },
           "operation": "set",
-          "vr": "LO",
+          "vr": "CS",
           "value": {
             "kind": "multi",
             "values": [
-              { "kind": "string", "value": "Synthetic" },
-              { "kind": "string", "value": "Composition" }
+              { "kind": "string", "value": "DERIVED" },
+              { "kind": "string", "value": "SECONDARY" }
             ]
           }
         },

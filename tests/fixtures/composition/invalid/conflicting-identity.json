@@ -1,0 +1,12 @@
+{
+  "composition_spec_schema_version": "0.1.0",
+  "instances": [
+    {
+      "instance_id": "primary",
+      "template": { "id": "classic/secondary-capture/monochrome" },
+      "identities": {
+        "study": { "auto": true, "uid": "2.25.1234" }
+      }
+    }
+  ]
+}

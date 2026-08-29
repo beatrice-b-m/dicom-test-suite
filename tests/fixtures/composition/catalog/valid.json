@@ -1,0 +1,102 @@
+{
+  "template_catalog_schema_version": "0.1.0",
+  "standards_lock_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "templates": [
+    {
+      "template_id": "classic/secondary-capture/monochrome",
+      "template_version": "1.0.0",
+      "status": "planned",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "default_modality": "OT",
+      "artifact_kind": "classic_image",
+      "determinism": "byte_stable",
+      "modules": [
+        { "name": "Patient", "usage": "mandatory", "condition": null },
+        { "name": "SC Equipment", "usage": "mandatory", "condition": null }
+      ],
+      "attributes": [
+        {
+          "tag": "0008,0016",
+          "keyword": "SOPClassUID",
+          "vr": "UI",
+          "requirement": "1",
+          "behavior": "protected",
+          "condition": null,
+          "default": null,
+          "description": "Derived from the selected template."
+        },
+        {
+          "tag": "0008,0060",
+          "keyword": "Modality",
+          "vr": "CS",
+          "requirement": "1",
+          "behavior": "defaulted",
+          "condition": null,
+          "default": { "kind": "literal", "value": "OT" },
+          "description": "Synthetic Secondary Capture modality default."
+        }
+      ],
+      "content_slots": [
+        {
+          "slot": "pixels",
+          "kind": "native_pixels",
+          "required": true,
+          "default_provider": "sc_monochrome_default_pixels",
+          "allowed_sources": ["default", "local_file", "inline_small_fixture"],
+          "constraints": {
+            "photometric_interpretations": ["MONOCHROME1", "MONOCHROME2"],
+            "samples_per_pixel": [1],
+            "bits_allocated": [8, 16],
+            "sample_types": ["uint", "int"],
+            "min_frames": 1,
+            "max_frames": 1
+          },
+          "description": "Single-frame native monochrome Pixel Data."
+        }
+      ],
+      "reference_slots": [],
+      "default_bundle": { "dependencies": [] },
+      "transfer_syntaxes": [
+        {
+          "uid": "1.2.840.10008.1.2.1",
+          "name": "Explicit VR Little Endian",
+          "default": true,
+          "determinism": "byte_stable",
+          "requirements": {
+            "features": [],
+            "external_codecs": [],
+            "providers": [],
+            "external_validators": []
+          },
+          "limitations": []
+        }
+      ],
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "providers": [],
+        "external_validators": ["dicom_validator"]
+      },
+      "validation": {
+        "generic_rule_ids": ["part10_identity", "typed_attributes"],
+        "template_rule_ids": ["sc_monochrome_iod"],
+        "content_rule_ids": ["native_pixel_length"],
+        "independent_routes": [
+          { "adapter_id": "dicom_validator", "kind": "iod", "required_for_qualification": true }
+        ]
+      },
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb iod modules 'Secondary Capture Image' --edition 2026b",
+          "covered": true
+        }
+      ],
+      "limitations": ["Native single-frame monochrome only in the initial descriptor."],
+      "qualification_owner": "secondary_capture"
+    }
+  ]
+}

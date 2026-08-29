@@ -1,0 +1,110 @@
+{
+  "composition_spec_schema_version": "0.1.0",
+  "defaults": {
+    "patient": {
+      "attributes": [
+        {
+          "address": { "tag": "0010,0020" },
+          "operation": "set",
+          "vr": "LO",
+          "value": { "kind": "string", "value": "DTS-COMPOSE-001" }
+        }
+      ]
+    }
+  },
+  "instances": [
+    {
+      "instance_id": "source",
+      "template": { "id": "classic/secondary-capture/monochrome", "version": "1.0.0" },
+      "identities": {
+        "study": { "auto": true },
+        "series": { "uid": "2.25.123456789" },
+        "frame_of_reference": { "share_with": "source" }
+      },
+      "attributes": [
+        {
+          "address": { "tag": "0008,103E" },
+          "operation": "set",
+          "vr": "LO",
+          "value": {
+            "kind": "multi",
+            "values": [
+              { "kind": "string", "value": "Synthetic" },
+              { "kind": "string", "value": "Composition" }
+            ]
+          }
+        },
+        {
+          "address": { "tag": "0010,0030" },
+          "operation": "empty"
+        },
+        {
+          "address": { "tag": "0010,1000" },
+          "operation": "remove"
+        },
+        {
+          "address": { "tag": "0008,1115" },
+          "operation": "set",
+          "vr": "SQ",
+          "value": {
+            "kind": "sequence",
+            "items": [
+              {
+                "attributes": [
+                  {
+                    "address": { "tag": "0020,000E" },
+                    "operation": "set",
+                    "vr": "UI",
+                    "value": { "kind": "string", "value": "2.25.987654321" }
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "address": { "tag": "0011,1010", "private_creator": "DTS_COMPOSE" },
+          "operation": "set",
+          "vr": "OB",
+          "value": { "kind": "binary", "base64": "AAECAw==" }
+        }
+      ],
+      "content": [
+        {
+          "slot": "pixels",
+          "source": {
+            "kind": "local_file",
+            "path": "assets/source.raw",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "pixel": {
+              "rows": 2,
+              "columns": 2,
+              "frames": 1,
+              "samples_per_pixel": 1,
+              "photometric_interpretation": "MONOCHROME2",
+              "sample_type": "uint",
+              "bits_allocated": 8,
+              "bits_stored": 8,
+              "high_bit": 7,
+              "byte_order": "little"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "derived",
+      "template": { "id": "derived/presentation-state/grayscale" },
+      "references": [
+        { "role": "displayed_area_source", "target_instance_id": "source", "frames": [1] }
+      ]
+    }
+  ],
+  "resource_limits": {
+    "max_instances": 8,
+    "max_input_files": 4,
+    "max_file_bytes": 1048576,
+    "max_total_input_bytes": 2097152,
+    "max_total_output_bytes": 4194304
+  }
+}

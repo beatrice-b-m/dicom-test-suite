@@ -1,0 +1,13 @@
+{
+  "case_recipe_schema_version": "0.1.0",
+  "recipe_id": "fixture_mismatch",
+  "recipe_version": "0.1.0",
+  "binding": { "case_id": "fixture/mismatch" },
+  "kind": "qualification",
+  "plan_provider_id": "qualification.bounded_plan",
+  "provider_parameters": {},
+  "dependencies": [],
+  "validation_rule_ids": ["validation.qualification"],
+  "projection_rule_ids": ["projection.qualification"],
+  "dicom": { "artifacts": [] }
+}

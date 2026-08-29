@@ -1,0 +1,60 @@
+{
+  "case_recipe_schema_version": "0.1.0",
+  "recipe_id": "fixture_unsafe",
+  "recipe_version": "0.1.0",
+  "binding": {
+    "case_id": "fixture/unsafe"
+  },
+  "kind": "dicom",
+  "plan_provider_id": "native.case_plan",
+  "provider_parameters": {
+  },
+  "dependencies": [
+
+  ],
+  "validation_rule_ids": [
+    "validation.shared"
+  ],
+  "projection_rule_ids": [
+    "projection.curated"
+  ],
+  "dicom": {
+    "artifacts": [
+      {
+        "logical_id": "primary",
+        "order": 0,
+        "output": {
+          "role": "primary",
+          "path": "../escape.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native"
+        },
+        "parameters": {
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.case_default",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+
+        ]
+      }
+    ]
+  }
+}

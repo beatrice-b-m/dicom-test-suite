@@ -58,6 +58,7 @@ pub mod part10_locator;
 pub mod planning;
 pub mod protocol;
 pub mod protocol_baseline;
+pub mod recipes;
 pub(crate) mod rt_manifest;
 pub(crate) mod rt_radiation_manifest;
 pub mod stress;

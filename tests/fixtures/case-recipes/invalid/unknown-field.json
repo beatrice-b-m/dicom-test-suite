@@ -1,0 +1,32 @@
+{
+  "case_recipe_schema_version": "0.1.0",
+  "recipe_id": "fixture_unknown",
+  "recipe_version": "0.1.0",
+  "binding": {
+    "case_id": "fixture/unknown"
+  },
+  "kind": "qualification",
+  "plan_provider_id": "qualification.bounded_plan",
+  "provider_parameters": {
+  },
+  "dependencies": [
+
+  ],
+  "validation_rule_ids": [
+    "validation.qualification"
+  ],
+  "projection_rule_ids": [
+    "projection.qualification"
+  ],
+  "qualification": {
+    "parameters": {
+    },
+    "resource_policy": {
+      "max_input_bytes": 0,
+      "max_output_bytes": 0,
+      "max_operations": 1
+    },
+    "retention": "evidence_only"
+  },
+  "unexpected": true
+}

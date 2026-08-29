@@ -1,0 +1,71 @@
+{
+  "case_recipe_schema_version": "0.1.0",
+  "recipe_id": "fixture_dicom",
+  "recipe_version": "0.1.0",
+  "binding": {
+    "case_id": "fixture/dicom"
+  },
+  "kind": "dicom",
+  "plan_provider_id": "native.case_plan",
+  "provider_parameters": {
+  },
+  "dependencies": [
+
+  ],
+  "validation_rule_ids": [
+    "validation.shared"
+  ],
+  "projection_rule_ids": [
+    "projection.curated"
+  ],
+  "dicom": {
+    "artifacts": [
+      {
+        "logical_id": "primary",
+        "template": {
+          "template_id": "classic/secondary-capture/monochrome",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "primary",
+          "path": "classic/fixture.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native"
+        },
+        "parameters": {
+          "rows": 2,
+          "columns": 2
+        },
+        "attribute_operations": [
+          {
+            "operation": "set",
+            "tag": "0008,0060",
+            "vr": "CS",
+            "value": "OT"
+          }
+        ],
+        "content": {
+          "provider_id": "content.case_default",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+
+        ],
+        "order": 0
+      }
+    ]
+  }
+}

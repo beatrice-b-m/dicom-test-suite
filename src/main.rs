@@ -374,6 +374,114 @@ fn run() -> Result<(), String> {
                 unknown => Err(format!("unknown interoperate subcommand: {unknown}")),
             }
         }
+        "templates" => {
+            let subcommand = args
+                .next()
+                .ok_or_else(|| "templates requires a subcommand".to_string())?;
+            let mut catalog_path = String::from("templates/catalog.json");
+            match subcommand.as_str() {
+                "list" => {
+                    let mut format = String::from("table");
+                    while let Some(argument) = args.next() {
+                        match argument.as_str() {
+                            "--catalog" => catalog_path = required_value(&mut args, "--catalog")?,
+                            "--format" => format = required_value(&mut args, "--format")?,
+                            "--help" | "-h" => {
+                                print_templates_usage();
+                                return Ok(());
+                            }
+                            unknown => {
+                                return Err(format!("unknown templates list argument: {unknown}"));
+                            }
+                        }
+                    }
+                    let catalog =
+                        dicom_test_suite::composition::TemplateCatalog::load(catalog_path)
+                            .map_err(|error| error.to_string())?;
+                    match format.as_str() {
+                        "json" => println!(
+                            "{}",
+                            serde_json::to_string_pretty(&catalog.templates)
+                                .map_err(|error| error.to_string())?
+                        ),
+                        "table" => {
+                            println!("template_id\tversion\tstatus\tsop_class_uid\tdeterminism");
+                            for template in &catalog.templates {
+                                println!(
+                                    "{}\t{}\t{:?}\t{}\t{}",
+                                    template.template_id,
+                                    template.template_version,
+                                    template.status,
+                                    template.sop_class_uid,
+                                    template.determinism
+                                );
+                            }
+                        }
+                        other => return Err(format!("unsupported templates format: {other}")),
+                    }
+                    Ok(())
+                }
+                "describe" => {
+                    let id = args
+                        .next()
+                        .ok_or_else(|| "templates describe requires a template ID".to_string())?;
+                    let mut version = None;
+                    let mut format = String::from("json");
+                    while let Some(argument) = args.next() {
+                        match argument.as_str() {
+                            "--catalog" => catalog_path = required_value(&mut args, "--catalog")?,
+                            "--version" => {
+                                version =
+                                    Some(required_value(&mut args, "--version")?.parse().map_err(
+                                        |error: dicom_test_suite::composition::TemplateError| {
+                                            error.to_string()
+                                        },
+                                    )?)
+                            }
+                            "--format" => format = required_value(&mut args, "--format")?,
+                            "--help" | "-h" => {
+                                print_templates_usage();
+                                return Ok(());
+                            }
+                            unknown => {
+                                return Err(format!(
+                                    "unknown templates describe argument: {unknown}"
+                                ));
+                            }
+                        }
+                    }
+                    let catalog =
+                        dicom_test_suite::composition::TemplateCatalog::load(catalog_path)
+                            .map_err(|error| error.to_string())?;
+                    let descriptor = catalog
+                        .resolve_qualified(&dicom_test_suite::composition::TemplateId(id), version)
+                        .map_err(|error| error.to_string())?;
+                    match format.as_str() {
+                        "json" => println!(
+                            "{}",
+                            serde_json::to_string_pretty(descriptor)
+                                .map_err(|error| error.to_string())?
+                        ),
+                        "text" => {
+                            println!(
+                                "template\t{}@{}",
+                                descriptor.template_id, descriptor.template_version
+                            );
+                            println!("iod\t{}", descriptor.iod_name);
+                            println!("sop_class_uid\t{}", descriptor.sop_class_uid);
+                            println!("content_slots\t{}", descriptor.content_slots.len());
+                        }
+                        other => return Err(format!("unsupported templates format: {other}")),
+                    }
+                    Ok(())
+                }
+                "--help" | "-h" => {
+                    print_templates_usage();
+                    Ok(())
+                }
+                unknown => Err(format!("unknown templates subcommand: {unknown}")),
+            }
+        }
         "list-cases" => {
             let mut registry_path = String::from("cases/registry.json");
             let mut profile_filter = None;
@@ -654,6 +762,7 @@ fn print_usage() {
     println!(
         "  dicom-test-suite list-cases [--profile PROFILE] [--status STATUS] [--registry PATH]"
     );
+    println!("  dicom-test-suite templates <list|describe> ...");
     println!("  dicom-test-suite interoperate <media-dicomdir|protocol-baseline> ...");
     println!("  dicom-test-suite validate GENERATED_ROOT");
     println!("  dicom-test-suite report GENERATED_ROOT --format json|markdown");
@@ -723,6 +832,14 @@ fn print_generate_usage() {
 fn print_list_cases_usage() {
     println!(
         "usage: dicom-test-suite list-cases [--profile PROFILE] [--status STATUS] [--registry PATH]"
+    );
+}
+
+fn print_templates_usage() {
+    println!("usage:");
+    println!("  dicom-test-suite templates list [--format table|json] [--catalog PATH]");
+    println!(
+        "  dicom-test-suite templates describe TEMPLATE_ID [--version VERSION] [--format json|text] [--catalog PATH]"
     );
 }
 

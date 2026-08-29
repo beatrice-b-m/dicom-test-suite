@@ -600,6 +600,38 @@ impl OrderedSeriesProvider {
         });
         Ok(instances)
     }
+
+    pub fn plan_scoped(
+        &self,
+        scope: &str,
+        requests: Vec<ClassicInstanceRequest>,
+    ) -> Result<Vec<ClassicPlannedInstance>, ClassicPlanError> {
+        require_identifier("classic plan scope", scope)?;
+        let mut instances = self.plan(requests)?;
+        let local_ids = instances
+            .iter()
+            .map(|instance| instance.logical_id.clone())
+            .collect::<BTreeSet<_>>();
+        for instance in &mut instances {
+            instance.dependencies = instance
+                .dependencies
+                .iter()
+                .map(|dependency| {
+                    if !local_ids.contains(dependency) {
+                        return Err(ClassicPlanError::InvalidDependency {
+                            instance: instance.logical_id.clone(),
+                            dependency: dependency.clone(),
+                        });
+                    }
+                    Ok(format!("{scope}_{dependency}"))
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            instance.logical_id = format!("{scope}_{}", instance.logical_id);
+            require_identifier("scoped logical instance", &instance.logical_id)?;
+            instance.identities.logical_instance_id = instance.logical_id.clone();
+        }
+        Ok(instances)
+    }
 }
 
 pub struct ClassicResolvedPlanInput<'a> {

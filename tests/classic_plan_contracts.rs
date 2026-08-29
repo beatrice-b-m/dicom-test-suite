@@ -418,6 +418,18 @@ fn ordered_series_is_deterministic_and_rejects_collisions() {
         duplicate_path,
         Err(ClassicPlanError::DuplicateOutputPath(_))
     ));
+
+    let scoped = OrderedSeriesProvider
+        .plan_scoped(
+            "curated_ct",
+            vec![make("slice_a", 1, "1"), make("slice_b", 2, "2")],
+        )
+        .unwrap();
+    assert_eq!(scoped[0].logical_id, "curated_ct_slice_a");
+    assert_eq!(
+        scoped[0].identities.logical_instance_id,
+        "curated_ct_slice_a"
+    );
 }
 
 #[test]

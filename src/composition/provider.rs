@@ -31,6 +31,7 @@ pub struct ProviderRequest {
     pub request_id: String,
     pub provider_id: String,
     pub expected_provider_version: String,
+    pub argument_sha256: String,
     pub instance_id: String,
     pub template_id: String,
     pub template_version: String,
@@ -89,6 +90,7 @@ pub struct ProviderResponse {
     pub provider_id: String,
     pub provider_version: String,
     pub executable_sha256: String,
+    pub argument_sha256: String,
     pub output: ProviderResponseOutput,
 }
 
@@ -116,6 +118,7 @@ pub struct ProviderOutput {
     pub provider_id: String,
     pub provider_version: String,
     pub executable_sha256: String,
+    pub argument_sha256: String,
     pub size_bytes: u64,
     pub sha256: String,
     pub stdout: Vec<u8>,
@@ -180,6 +183,10 @@ pub(crate) fn invoke_content_provider_cancellable(
             "provider executable hash is {executable_sha256}, expected {}",
             invocation.executable_sha256
         )));
+    }
+    let argument_sha256 = provider_arguments_sha256(&invocation.arguments);
+    if argument_sha256 != request.argument_sha256 {
+        return Err(invalid("provider argument hash does not match its request"));
     }
 
     let mut command = Command::new(&canonical_executable);
@@ -275,6 +282,7 @@ pub(crate) fn invoke_content_provider_cancellable(
         provider_id: response.provider_id,
         provider_version: response.provider_version,
         executable_sha256,
+        argument_sha256,
         size_bytes,
         sha256,
         stdout,
@@ -292,6 +300,7 @@ fn validate_response(
         && response.provider_id == request.provider_id
         && response.provider_version == request.expected_provider_version
         && response.executable_sha256 == executable_sha256
+        && response.argument_sha256 == request.argument_sha256
         && response.output.slot == request.output.slot
         && response.output.size_bytes == request.output.size_bytes
         && response.output.sha256 == request.output.sha256;
@@ -300,6 +309,15 @@ fn validate_response(
     } else {
         Err(invalid("provider response does not match its request"))
     }
+}
+
+pub fn provider_arguments_sha256(arguments: &[String]) -> String {
+    let mut canonical = Vec::new();
+    for argument in arguments {
+        canonical.extend_from_slice(&(argument.len() as u64).to_be_bytes());
+        canonical.extend_from_slice(argument.as_bytes());
+    }
+    sha256_hex(&canonical)
 }
 
 fn wait_for_provider(

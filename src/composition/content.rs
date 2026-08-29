@@ -148,6 +148,10 @@ impl LocalContentResolver {
                 output.executable_sha256.clone(),
             ),
             (
+                "provider_argument_sha256".into(),
+                output.argument_sha256.clone(),
+            ),
+            (
                 "provider_request_sha256".into(),
                 output.request_sha256.clone(),
             ),
@@ -155,6 +159,13 @@ impl LocalContentResolver {
                 "provider_response_sha256".into(),
                 output.response_sha256.clone(),
             ),
+            (
+                "provider_protocol_version".into(),
+                super::CONTENT_PROVIDER_PROTOCOL_VERSION.into(),
+            ),
+            ("provider_network_policy".into(), "disabled".into()),
+            ("provider_resource_outcome".into(), "within_limits".into()),
+            ("provider_termination".into(), "exit_zero".into()),
         ]);
         let asset = self.resolve_private(
             slot,

@@ -4,7 +4,7 @@
   "title": "DICOM Composition Content Provider Request",
   "type": "object",
   "required": [
-    "protocol_version", "request_id", "provider_id", "expected_provider_version",
+    "protocol_version", "request_id", "provider_id", "expected_provider_version", "argument_sha256",
     "instance_id", "template_id", "template_version", "identities", "output",
     "parameters", "network_policy"
   ],
@@ -13,6 +13,7 @@
     "request_id": { "$ref": "#/$defs/sha256" },
     "provider_id": { "$ref": "#/$defs/id" },
     "expected_provider_version": { "$ref": "#/$defs/semver" },
+    "argument_sha256": { "$ref": "#/$defs/sha256" },
     "instance_id": { "$ref": "#/$defs/id" },
     "template_id": { "type": "string", "minLength": 1, "maxLength": 160 },
     "template_version": { "$ref": "#/$defs/semver" },

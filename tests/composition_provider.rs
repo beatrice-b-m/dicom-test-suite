@@ -10,7 +10,7 @@ use std::time::Duration;
 use dicom_test_suite::composition::{
     CONTENT_PROVIDER_PROTOCOL_VERSION, ComposeError, ComposeOptions, ProviderError,
     ProviderInvocation, ProviderOutputDeclaration, ProviderRequest, compose,
-    invoke_content_provider,
+    invoke_content_provider, provider_arguments_sha256,
 };
 use dicom_test_suite::sha256_hex;
 use serde_json::json;
@@ -37,6 +37,7 @@ fn request() -> ProviderRequest {
         request_id: String::new(),
         provider_id: "fixture.provider".into(),
         expected_provider_version: "1.2.3".into(),
+        argument_sha256: provider_arguments_sha256(&[]),
         instance_id: "primary".into(),
         template_id: "classic/secondary-capture/monochrome".into(),
         template_version: "1.0.0".into(),
@@ -69,9 +70,10 @@ fn success_script(extra_output: bool) -> String {
     format!(
         r#"#!/bin/sh
 request_id=$(/usr/bin/sed -n 's/.*"request_id": "\([^"]*\)".*/\1/p' "$DTS_COMPOSITION_PROVIDER_REQUEST")
+argument_sha256=$(/usr/bin/sed -n 's/.*"argument_sha256": "\([^"]*\)".*/\1/p' "$DTS_COMPOSITION_PROVIDER_REQUEST")
 printf 'abc' > "$DTS_COMPOSITION_PROVIDER_OUTPUTS/content.bin"
 {extra}
-printf '{{"protocol_version":"1.0.0","request_id":"%s","provider_id":"fixture.provider","provider_version":"1.2.3","executable_sha256":"%s","output":{{"slot":"pixels","relative_path":"content.bin","size_bytes":3,"sha256":"{}"}}}}' "$request_id" "$1" > "$DTS_COMPOSITION_PROVIDER_RESPONSE"
+printf '{{"protocol_version":"1.0.0","request_id":"%s","provider_id":"fixture.provider","provider_version":"1.2.3","executable_sha256":"%s","argument_sha256":"%s","output":{{"slot":"pixels","relative_path":"content.bin","size_bytes":3,"sha256":"{}"}}}}' "$request_id" "$1" "$argument_sha256" > "$DTS_COMPOSITION_PROVIDER_RESPONSE"
 "#,
         sha256_hex(b"abc")
     )
@@ -84,14 +86,18 @@ fn provider_binds_request_identity_and_audited_output() {
     let executable = root.join("provider.sh");
     write_executable(&executable, &success_script(false));
     let executable_sha256 = sha256_hex(&fs::read(&executable).unwrap());
+    let arguments = vec![executable_sha256.clone()];
+    let mut request = request();
+    request.argument_sha256 = provider_arguments_sha256(&arguments);
+    request.request_id = request.canonical_request_id();
     let output = invoke_content_provider(
         &ProviderInvocation {
             executable,
             executable_sha256: executable_sha256.clone(),
-            arguments: vec![executable_sha256.clone()],
+            arguments,
             timeout: Duration::from_secs(2),
         },
-        &request(),
+        &request,
         &root.join("run"),
     )
     .unwrap();
@@ -108,14 +114,18 @@ fn provider_rejects_undeclared_files_without_publication() {
     let executable = root.join("provider.sh");
     write_executable(&executable, &success_script(true));
     let executable_sha256 = sha256_hex(&fs::read(&executable).unwrap());
+    let arguments = vec![executable_sha256.clone()];
+    let mut request = request();
+    request.argument_sha256 = provider_arguments_sha256(&arguments);
+    request.request_id = request.canonical_request_id();
     let error = invoke_content_provider(
         &ProviderInvocation {
             executable,
             executable_sha256: executable_sha256.clone(),
-            arguments: vec![executable_sha256],
+            arguments,
             timeout: Duration::from_secs(2),
         },
-        &request(),
+        &request,
         &root.join("run"),
     )
     .unwrap_err();
@@ -167,8 +177,9 @@ fn composition_script(payload_sha256: &str) -> String {
     format!(
         r#"#!/bin/sh
 request_id=$(/usr/bin/sed -n 's/.*"request_id": "\([^"]*\)".*/\1/p' "$DTS_COMPOSITION_PROVIDER_REQUEST")
+argument_sha256=$(/usr/bin/sed -n 's/.*"argument_sha256": "\([^"]*\)".*/\1/p' "$DTS_COMPOSITION_PROVIDER_REQUEST")
 printf 'abcd' > "$DTS_COMPOSITION_PROVIDER_OUTPUTS/pixels.raw"
-printf '{{"protocol_version":"1.0.0","request_id":"%s","provider_id":"fixture.provider","provider_version":"1.2.3","executable_sha256":"%s","output":{{"slot":"pixels","relative_path":"pixels.raw","size_bytes":4,"sha256":"{payload_sha256}"}}}}' "$request_id" "$1" > "$DTS_COMPOSITION_PROVIDER_RESPONSE"
+printf '{{"protocol_version":"1.0.0","request_id":"%s","provider_id":"fixture.provider","provider_version":"1.2.3","executable_sha256":"%s","argument_sha256":"%s","output":{{"slot":"pixels","relative_path":"pixels.raw","size_bytes":4,"sha256":"{payload_sha256}"}}}}' "$request_id" "$1" "$argument_sha256" > "$DTS_COMPOSITION_PROVIDER_RESPONSE"
 "#
     )
 }
@@ -248,6 +259,14 @@ fn compose_consumes_provider_content_and_records_full_provenance() {
     assert_eq!(properties["provider_id"], "fixture.provider");
     assert_eq!(properties["provider_version"], "1.2.3");
     assert_eq!(properties["provider_executable_sha256"], executable_sha256);
+    assert_eq!(
+        properties["provider_argument_sha256"],
+        provider_arguments_sha256(&[executable_sha256.clone()])
+    );
+    assert_eq!(properties["provider_protocol_version"], "1.0.0");
+    assert_eq!(properties["provider_network_policy"], "disabled");
+    assert_eq!(properties["provider_resource_outcome"], "within_limits");
+    assert_eq!(properties["provider_termination"], "exit_zero");
     assert!(properties["provider_request_sha256"].as_str().is_some());
     assert!(properties["provider_response_sha256"].as_str().is_some());
     assert!(!out.join(".providers").exists());

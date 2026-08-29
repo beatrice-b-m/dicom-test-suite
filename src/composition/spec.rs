@@ -160,6 +160,7 @@ pub struct ResolvedProviderContent {
     pub provider_id: String,
     pub provider_version: String,
     pub executable_sha256: String,
+    pub argument_sha256: String,
     pub request_sha256: String,
     pub response_sha256: String,
 }

@@ -79,6 +79,7 @@ pub use plan::{
 pub use provider::{
     CONTENT_PROVIDER_PROTOCOL_VERSION, ProviderError, ProviderInvocation, ProviderOutput,
     ProviderOutputDeclaration, ProviderRequest, ProviderResponse, invoke_content_provider,
+    provider_arguments_sha256,
 };
 pub use reference::{
     CyclePolicy, LogicalReference, MaterializedReference, ReferenceError, ReferenceGraph,

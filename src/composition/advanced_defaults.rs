@@ -16,11 +16,13 @@ use crate::recipes::{
     AdvancedPlanProviderRequest, AdvancedProviderFamily, AdvancedProviderLimits,
     AdvancedSourceRole, ContentProviderLimits, ENCAPSULATED_PAYLOAD_PLAN_PROVIDER_ID,
     EncapsulatedPayloadPlanProvider, EnhancedPlanProvider, PRESENTATION_ADVANCED_PROVIDER_ID,
-    PresentationPlanProvider, PresentationSourceInput, REGISTRATION_PLAN_PROVIDER_ID,
-    RecipeCatalog, RegistrationKindInput, RegistrationPlanProvider, RegistrationSourceInput,
-    TypedBulkPlanningContext, WAVEFORM_PLAN_PROVIDER_ID, WSI_ADVANCED_PROVIDER_ID,
-    WaveformPlanProvider, WsiAdvancedPlanProvider, encapsulated_payload_input_from_recipe,
-    waveform_input_from_recipe,
+    PresentationPlanProvider, PresentationSourceInput, QuantitativeArtifactContext,
+    QuantitativePlanInput, QuantitativePlanOutput, QuantitativePlanProvider,
+    QuantitativeProviderLimits, QuantitativeSourceInput, QuantitativeSourceRole,
+    REGISTRATION_PLAN_PROVIDER_ID, RecipeCatalog, RegistrationKindInput, RegistrationPlanProvider,
+    RegistrationSourceInput, TypedBulkPlanningContext, WAVEFORM_PLAN_PROVIDER_ID,
+    WSI_ADVANCED_PROVIDER_ID, WaveformPlanProvider, WsiAdvancedPlanProvider,
+    encapsulated_payload_input_from_recipe, waveform_input_from_recipe,
 };
 use crate::{DeterministicUidInput, UidRole, deterministic_uid};
 
@@ -130,6 +132,148 @@ pub(crate) fn plan_typed_bulk_default(
         bindings: BTreeMap::from([(member.instance.instance_id.clone(), output.bindings)]),
         dependencies: vec![],
     })
+}
+
+pub(crate) fn is_native_quantitative_default(template: &TemplateDescriptor) -> bool {
+    matches!(
+        template.template_id.0.as_str(),
+        "derived/segmentation/binary"
+            | "derived/segmentation/fractional-probability"
+            | "derived/segmentation/labelmap"
+            | "derived/real-world-value-mapping/linear"
+    )
+}
+
+pub(crate) fn plan_native_quantitative_default(
+    recipes: &RecipeCatalog,
+    member: &AdvancedDefaultMember<'_>,
+    source: &AdvancedSourceMember,
+) -> Result<AdvancedDefaultOutput, String> {
+    let (recipe_id, artifact_id, role) = match member.template.template_id.0.as_str() {
+        "derived/segmentation/binary" => (
+            "seg_binary_multiframe",
+            "segmentation",
+            QuantitativeSourceRole::SegmentationSourceImage,
+        ),
+        "derived/segmentation/fractional-probability" => (
+            "seg_fractional_probability_multiframe",
+            "segmentation",
+            QuantitativeSourceRole::SegmentationSourceImage,
+        ),
+        "derived/segmentation/labelmap" => (
+            "seg_labelmap_multiframe",
+            "segmentation",
+            QuantitativeSourceRole::SegmentationSourceImage,
+        ),
+        "derived/real-world-value-mapping/linear" => (
+            "rwvm_linear_ct_mapping",
+            "mapping",
+            QuantitativeSourceRole::RealWorldValueSourceImage,
+        ),
+        other => return Err(format!("unsupported native quantitative template {other}")),
+    };
+    let recipe = recipe_by_id(recipes, recipe_id)?;
+    let artifact_recipe = recipe
+        .dicom
+        .as_ref()
+        .and_then(|dicom| dicom.artifacts.first())
+        .ok_or_else(|| format!("quantitative recipe {recipe_id} has no artifact"))?;
+    let recipe_path = artifact_recipe
+        .output
+        .path
+        .as_deref()
+        .ok_or_else(|| format!("quantitative recipe {recipe_id} has no output path"))?;
+    let mut parser_identities = member.identities.clone();
+    parser_identities.logical_instance_id = artifact_id.into();
+    let parser_context = QuantitativeArtifactContext {
+        recipe_artifact_logical_id: artifact_id.into(),
+        target_instance_id: artifact_id.into(),
+        order: u64::from(artifact_recipe.order),
+        output: OutputPlan {
+            relative_path: OutputRelativePath::new(recipe_path).map_err(|e| e.to_string())?,
+            role: artifact_recipe.output.role.clone(),
+            publish: true,
+        },
+        identities: parser_identities,
+    };
+    let source_declaration = recipe
+        .provider_parameters
+        .get("sources")
+        .and_then(serde_json::Value::as_array)
+        .and_then(|sources| sources.first())
+        .ok_or_else(|| format!("quantitative recipe {recipe_id} has no source declaration"))?;
+    let source_artifact_id = source_declaration
+        .get("artifact_logical_id")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| format!("quantitative recipe {recipe_id} has no source artifact ID"))?;
+    let referenced_frames: Vec<u32> = source_declaration
+        .get("referenced_frames")
+        .cloned()
+        .map(serde_json::from_value)
+        .transpose()
+        .map_err(|error| error.to_string())?
+        .unwrap_or_default();
+    let mut parser_artifact = source.artifact.clone();
+    parser_artifact.logical_id = source_artifact_id.into();
+    let mut parser_binding = source.binding.clone();
+    parser_binding.artifact_id = source_artifact_id.into();
+    let parser_source = QuantitativeSourceInput {
+        role,
+        artifact: parser_artifact,
+        bindings: parser_binding,
+        referenced_frames: referenced_frames.clone(),
+    };
+    let mut input =
+        crate::recipes::quantitative_input_from_recipe(recipe, parser_context, vec![parser_source])
+            .map_err(|error| error.to_string())?
+            .ok_or_else(|| "quantitative recipe did not produce typed input".to_string())?;
+    let (context, sources) = match &mut input {
+        QuantitativePlanInput::NativeSeg {
+            artifact, sources, ..
+        }
+        | QuantitativePlanInput::NativeRwvm {
+            artifact, sources, ..
+        }
+        | QuantitativePlanInput::ExternalImport {
+            artifact, sources, ..
+        } => (artifact, sources),
+    };
+    context.target_instance_id = member.instance.instance_id.clone();
+    context.order = member.order;
+    context.output = composition_output(&member.instance.instance_id)?;
+    context.identities = member.identities.clone();
+    *sources = vec![QuantitativeSourceInput {
+        role,
+        artifact: source.artifact.clone(),
+        bindings: source.binding.clone(),
+        referenced_frames,
+    }];
+    let QuantitativePlanOutput::Native {
+        artifact,
+        bindings,
+        dependencies,
+    } = QuantitativePlanProvider
+        .plan(&input, QuantitativeProviderLimits::default())
+        .map_err(|error| error.to_string())?
+    else {
+        return Err("native quantitative recipe produced an import boundary".into());
+    };
+    Ok(AdvancedDefaultOutput {
+        artifacts: BTreeMap::from([(member.instance.instance_id.clone(), artifact)]),
+        bindings: BTreeMap::from([(member.instance.instance_id.clone(), bindings)]),
+        dependencies,
+    })
+}
+
+fn recipe_by_id<'a>(
+    recipes: &'a RecipeCatalog,
+    recipe_id: &str,
+) -> Result<&'a crate::recipes::CaseRecipe, String> {
+    recipes
+        .recipes()
+        .iter()
+        .find_map(|(identity, recipe)| (identity.recipe_id == recipe_id).then_some(recipe))
+        .ok_or_else(|| format!("missing recipe {recipe_id}"))
 }
 
 pub(crate) fn group_identity(

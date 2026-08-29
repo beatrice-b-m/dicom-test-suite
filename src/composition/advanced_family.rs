@@ -199,6 +199,10 @@ impl AdvancedFamilyProfile {
                 normalize_typed_bulk_direct_plan(family, plan)?;
                 apply_typed_bulk_content(family, instance, plan, content_resolver)?;
             }
+            AdvancedFamilyKind::Quantitative(family) => {
+                normalize_quantitative_content(family, plan)?;
+                apply_quantitative_content(family, instance, plan, content_resolver)?;
+            }
             _ => {
                 return Err(AdvancedFamilyError::DefaultArtifact(
                     "direct advanced customization is not registered for this provider".into(),
@@ -212,9 +216,13 @@ impl AdvancedFamilyProfile {
             AdvancedFamilyKind::WholeSlide => validate_wsi_structure(plan)?,
             AdvancedFamilyKind::DerivedReference => {}
             AdvancedFamilyKind::TypedBulk(_) => {}
+            AdvancedFamilyKind::Quantitative(_) => {}
             _ => unreachable!(),
         }
-        if !matches!(self.kind, AdvancedFamilyKind::TypedBulk(_)) {
+        if !matches!(
+            self.kind,
+            AdvancedFamilyKind::TypedBulk(_) | AdvancedFamilyKind::Quantitative(_)
+        ) {
             normalize_direct_legacy_plan(plan);
         }
         if self.kind == AdvancedFamilyKind::DerivedReference {

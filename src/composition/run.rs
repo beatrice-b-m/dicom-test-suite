@@ -16,8 +16,8 @@ use crate::encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData};
 
 use super::advanced_defaults::{
     AdvancedDefaultMember, AdvancedSourceMember, group_identity, is_direct_advanced_default,
-    is_reference_default, is_typed_bulk_default, plan_image_group, plan_reference_default,
-    plan_typed_bulk_default,
+    is_native_quantitative_default, is_reference_default, is_typed_bulk_default, plan_image_group,
+    plan_native_quantitative_default, plan_reference_default, plan_typed_bulk_default,
 };
 use super::executor_adapter::{
     CompositionExecutionBundle, CompositionExecutionServiceFactory,
@@ -590,6 +590,8 @@ fn resolve_execution_bundle(
             execution_bindings.extend(output.bindings);
             advanced_artifacts.insert(planned.logical_id.clone(), planned.clone());
             plans_by_id.insert(instance.instance_id.clone(), planned.instance);
+        } else if is_native_quantitative_default(template) {
+            continue;
         } else if let Some(profile) = AdvancedFamilyProfile::for_template(&template.template_id.0) {
             let scratch = match &planning_scratch {
                 Some(scratch) => scratch,
@@ -650,6 +652,72 @@ fn resolve_execution_bundle(
         .zip(templates.iter().copied())
         .enumerate()
     {
+        if is_native_quantitative_default(template) {
+            check_cancelled(cancellation)?;
+            let source_reference = instance.references.first().ok_or_else(|| {
+                ComposeError::AdvancedDefaults(format!(
+                    "quantitative target {} has no bundle source",
+                    instance.instance_id
+                ))
+            })?;
+            let source_index = spec
+                .instances
+                .iter()
+                .position(|candidate| candidate.instance_id == source_reference.target_instance_id)
+                .ok_or_else(|| {
+                    ComposeError::AdvancedDefaults(format!(
+                        "quantitative source {} is absent",
+                        source_reference.target_instance_id
+                    ))
+                })?;
+            let source = advanced_source_member(
+                &source_reference.target_instance_id,
+                source_index,
+                &plans_by_id,
+                &advanced_artifacts,
+                &execution_bindings,
+                &bundle_resolution.members,
+                &spec.resource_limits,
+            )?;
+            let member = AdvancedDefaultMember {
+                instance,
+                template,
+                identities: identity_plans
+                    .get(&instance.instance_id)
+                    .cloned()
+                    .expect("identity pass covered every instance"),
+                order: u64::try_from(instance_index).map_err(|_| ComposeError::ResourceRange)?,
+            };
+            let mut output = plan_native_quantitative_default(&recipes, &member, &source)
+                .map_err(ComposeError::AdvancedDefaults)?;
+            advanced_dependencies.extend(output.dependencies);
+            let mut planned = output
+                .artifacts
+                .remove(&instance.instance_id)
+                .ok_or_else(|| {
+                    ComposeError::AdvancedDefaults(
+                        "quantitative provider omitted composition target".into(),
+                    )
+                })?;
+            let profile = AdvancedFamilyProfile::for_template(&template.template_id.0)
+                .expect("quantitative template has an advanced profile");
+            profile.customize_direct_plan(
+                instance,
+                &mut planned.instance,
+                &mut content_resolver,
+            )?;
+            if instance
+                .content
+                .iter()
+                .any(|assignment| !matches!(assignment.source, ContentSource::Default))
+            {
+                output.bindings.remove(&instance.instance_id);
+            }
+            execution_bindings.extend(output.bindings);
+            advanced_artifacts.insert(planned.logical_id.clone(), planned.clone());
+            plans_by_id.insert(instance.instance_id.clone(), planned.instance);
+            continue;
+        }
         if !is_direct_advanced_default(template) || !is_reference_default(template) {
             continue;
         }

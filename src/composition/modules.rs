@@ -85,7 +85,6 @@ impl CommonModulePlans {
                         uid(&CompositionUidRole::SeriesInstance)?,
                     ),
                     set_string("0020,0011", DicomVr::IS, "1"),
-                    set_string("0020,0060", DicomVr::CS, "R"),
                 ],
             },
             frame_of_reference,

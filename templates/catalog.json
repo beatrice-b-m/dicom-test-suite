@@ -141,5 +141,49 @@
       "limitations": ["Native unsigned 8-bit RGB input only; compressed transfer syntaxes are deferred."],
       "qualification_owner": "secondary_capture"
     }
+  ],
+  "classic_family_templates": [
+    {
+      "template_id": "classic/cr",
+      "template_version": "1.0.0",
+      "status": "qualified",
+      "iod_name": "Computed Radiography Image",
+      "sop_class_name": "Computed Radiography Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.1",
+      "default_modality": "CR",
+      "artifact_kind": "classic_image",
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "Computed Radiography Image IOD module table", "reason": "Locks mandatory CR modules and acquisition semantics.", "checked_date": "2026-08-28", "source_note": "standards/source-notes/composition-classic-images.md" }, { "source": "official-dicom-standard", "part": "PS3.5", "anchor": "Native Pixel Data encoding", "reason": "Locks native CR sample layout and padding.", "checked_date": "2026-08-28", "source_note": "standards/source-notes/composition-classic-images.md" }],
+      "limitations": ["Qualified for deterministic native unsigned 12-bit-in-16-bit pixels only."],
+      "qualification_owner": "classic_cr"
+    },
+    {
+      "template_id": "classic/ct",
+      "template_version": "1.0.0",
+      "status": "qualified",
+      "iod_name": "CT Image",
+      "sop_class_name": "CT Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.2",
+      "default_modality": "CT",
+      "artifact_kind": "classic_image",
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "CT Image IOD module table", "reason": "Locks mandatory CT modules, geometry, and rescale semantics.", "checked_date": "2026-08-28", "source_note": "standards/source-notes/composition-classic-images.md" }, { "source": "official-dicom-standard", "part": "PS3.5", "anchor": "Native Pixel Data encoding", "reason": "Locks native signed CT sample layout and padding.", "checked_date": "2026-08-28", "source_note": "standards/source-notes/composition-classic-images.md" }],
+      "limitations": ["Qualified for deterministic native signed 12-bit-in-16-bit pixels only."],
+      "qualification_owner": "classic_ct"
+    },
+    {
+      "template_id": "classic/mr",
+      "template_version": "1.0.0",
+      "status": "qualified",
+      "iod_name": "MR Image",
+      "sop_class_name": "MR Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.4",
+      "default_modality": "MR",
+      "artifact_kind": "classic_image",
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "MR Image IOD module table", "reason": "Locks mandatory MR modules, acquisition, and geometry semantics.", "checked_date": "2026-08-28", "source_note": "standards/source-notes/composition-classic-images.md" }, { "source": "official-dicom-standard", "part": "PS3.5", "anchor": "Native Pixel Data encoding", "reason": "Locks native MR sample layout and padding.", "checked_date": "2026-08-28", "source_note": "standards/source-notes/composition-classic-images.md" }],
+      "limitations": ["Qualified for deterministic native unsigned 12-bit-in-16-bit pixels only."],
+      "qualification_owner": "classic_mr"
+    }
   ]
 }

@@ -298,6 +298,7 @@ impl ClassicFamilyProfile {
         )?;
         match self.kind {
             ClassicFamilyKind::Ct => {
+                plans.acquisition.image_type.push("AXIAL".into());
                 plans.pixel = PixelModulePlan {
                     rescale_intercept: Some("-1024".into()),
                     rescale_slope: Some("1".into()),
@@ -306,6 +307,7 @@ impl ClassicFamilyProfile {
                 plans.acquisition.body_part_examined = Some("HEAD".into());
             }
             ClassicFamilyKind::Mr => {
+                plans.acquisition.image_type.push("OTHER".into());
                 plans.acquisition.body_part_examined = Some("HEAD".into());
             }
             ClassicFamilyKind::Cr => {
@@ -342,12 +344,12 @@ impl ClassicFamilyProfile {
             ClassicFamilyKind::Cr => vec![
                 set_string("0018,0060", DicomVr::DS, "70"),
                 set_string("0018,1405", DicomVr::IS, "200"),
-                set_string("0018,1501", DicomVr::CS, "PA"),
                 set_string("0018,5101", DicomVr::CS, "PA"),
             ],
             ClassicFamilyKind::Ct => vec![
                 set_string("0018,0060", DicomVr::DS, "120"),
                 set_string("0018,1210", DicomVr::SH, "STANDARD"),
+                set_string("0018,5100", DicomVr::CS, "HFS"),
             ],
             ClassicFamilyKind::Mr => vec![
                 set_string("0018,0020", DicomVr::CS, "SE"),
@@ -358,6 +360,7 @@ impl ClassicFamilyProfile {
                 set_string("0018,0081", DicomVr::DS, "10"),
                 set_string("0018,0087", DicomVr::DS, "1.5"),
                 set_string("0018,0091", DicomVr::IS, "1"),
+                set_string("0018,5100", DicomVr::CS, "HFS"),
             ],
             ClassicFamilyKind::DxPresentation
             | ClassicFamilyKind::MammographyPresentation
@@ -371,7 +374,6 @@ impl ClassicFamilyProfile {
                         "FOR PRESENTATION"
                     },
                 ),
-                set_string("0018,1501", DicomVr::CS, "PA"),
                 set_string("0018,5101", DicomVr::CS, "PA"),
                 set_string("0020,0062", DicomVr::CS, "R"),
             ],

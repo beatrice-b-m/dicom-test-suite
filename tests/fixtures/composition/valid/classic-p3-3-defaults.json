@@ -1,0 +1,17 @@
+{
+  "composition_spec_schema_version": "0.1.0",
+  "instances": [
+    {
+      "instance_id": "cr",
+      "template": { "id": "classic/cr" }
+    },
+    {
+      "instance_id": "ct",
+      "template": { "id": "classic/ct" }
+    },
+    {
+      "instance_id": "mr",
+      "template": { "id": "classic/mr" }
+    }
+  ]
+}

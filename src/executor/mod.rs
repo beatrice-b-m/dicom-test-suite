@@ -4,6 +4,7 @@ pub mod adapters;
 pub mod cancellation;
 pub mod engine;
 pub mod evidence;
+pub mod frame_codec;
 pub mod materialization;
 pub mod native_codec;
 pub mod scheduler;

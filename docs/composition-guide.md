@@ -6,9 +6,10 @@ validator as the shared composition library. It is separate from `generate`:
 the latter selects curated registry cases and retains their case-specific
 qualification contracts; composition runs do not claim registry coverage.
 
-The catalog currently qualifies the Phase P2 Secondary Capture, completed
-Phase P3 classic and visible-light, and completed Phase P5 enhanced, WSI,
-registration, and presentation-state families:
+The catalog currently qualifies every valid DICOM SOP Class implemented by the
+curated registry through Phase P6: Phase P2 Secondary Capture, Phase P3 classic
+and visible-light, Phase P5 enhanced/reference-bearing images, and Phase P6
+derived, quantitative, RT, waveform, document, and mesh families:
 
 - `classic/secondary-capture/monochrome@1.0.0`: native unsigned 8- or 16-bit
   MONOCHROME1/MONOCHROME2;
@@ -58,6 +59,19 @@ registration, and presentation-state families:
   `blending@1.0.0`, and `advanced-blending@1.0.0`: source-closed presentation
   states. The last three IDs use the full
   `derived/presentation-state/<name>` prefix.
+- `derived/segmentation/*`, `derived/parametric-map/*`, and
+  `derived/real-world-value-mapping/linear@1.0.0`: fixed-shape quantitative
+  content with closed source-image bundles;
+- `derived/structured-report/*`: Basic Text, Comprehensive, Comprehensive 3D,
+  TID 1500, and Key Object documents with schema-bounded semantic parameters
+  and typed evidence roles rather than arbitrary content trees;
+- `non-image/rt/*`: RT Structure Set, Dose, Plan, Image, C-Arm
+  Photon-Electron Radiation, and Radiation Set with a deterministic closed RT
+  graph and fixed RT Dose/RT Image pixel slots;
+- `non-image/waveform/*`: Twelve-lead and General ECG with exact multiplex-group
+  waveform sample slots; and
+- `non-image/encapsulated-document/pdf@1.0.0` and
+  `non-image/mesh/stl@1.0.0`: bounded, format-checked document and mesh payloads.
 
 Inspect the current descriptors rather than copying this summary as an
 inventory invariant:
@@ -200,7 +214,7 @@ detects undeclared instance files. `report` groups only composition templates
 and transfer syntaxes. It deliberately has no registry `case_id`, profile, or
 coverage projection.
 
-These are strong same-project checks. Every qualified Phase P2/P3/P5 default
+These are strong same-project checks. Every qualified Phase P2-P6 default
 has pinned independent evidence documented in
 `docs/arbitrary-dicom-composition-status.md`; the general IOD route remains the
 pinned `dicom3tools-dciodvfy` adapter. Sparse WSI deliberately uses its separate

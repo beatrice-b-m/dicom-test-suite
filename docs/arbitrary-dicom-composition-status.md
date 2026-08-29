@@ -1,5 +1,43 @@
 # Arbitrary DICOM composition status
 
+## 2026-08-29 — Phase P6 completion gate
+
+Phase P6 is complete. The catalog and executable inventory audit now cover
+every currently implemented valid DICOM SOP Class with a qualified template or
+deterministic bundle. Newly qualified families include binary, fractional,
+label-map, and WSI-tile SEG; float and double-float Parametric Map; Real World
+Value Mapping; five structured-report roles; the six-object RT graph; Twelve-
+lead and General ECG; Encapsulated PDF; and Encapsulated STL.
+
+All pixel, float, waveform, document, and mesh content is represented by typed
+bulk plans. Composition manifests record the exact byte length, SHA-256,
+source provenance, placement, bounds, and family semantic validator for every
+materialized value. Caller content round-trips only within the qualified fixed
+shape or bounded format, and malformed lengths, non-finite values, invalid PDF
+or STL structure, unknown semantic parameters, and protected structural
+collisions abort before publication.
+
+Derived, SR, and RT templates use named reference roles. Their default bundles
+close source dependencies deterministically, rewrite embedded DICOM references
+from the logical graph, and reject unknown targets, invalid frames, cycles, or
+identity-cardinality conflicts. SR and RT expose only schema-bounded semantic
+controls; additional valid data uses the typed override policy rather than an
+untyped tree API.
+
+Every corresponding P5/P6 curated artifact now rematerializes through the
+shared resolved plan while retaining its specialized validation oracle.
+Byte-stable artifacts are required to remain identical. Semantic-stable
+backend artifacts retain their decoded/semantic contracts and refresh the
+published file hash and size after canonical rematerialization. The optional
+Deflated Image Frame SEG path is covered when the `deflate` feature is active
+and remains explicitly unavailable otherwise.
+
+The catalog binds each bulk-bearing template to required content rules and an
+independent semantic route in addition to the IOD route. Same-project focused
+tests prove provenance, graph closure, caller round trips, transactional
+failure, and two-run determinism; independent evidence remains scoped to the
+pinned adapters and qualified content domains named by each descriptor.
+
 ## 2026-08-29 — Phase P5 completion gate
 
 Phase P5 is complete. Qualified templates now cover Enhanced CT, Enhanced MR,

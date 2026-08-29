@@ -183,11 +183,14 @@ cargo run --locked -- report generated/composition-sc --format json
 
 Composition roots use `run.kind = "composition"` and composition entries. Their
 reports group templates and transfer syntaxes; they do not claim a registry
-profile or `case_id` coverage. The qualified public scope covers the cataloged
-classic and visible-light image families, including built-in RLE Lossless for
+profile or `case_id` coverage. The qualified public scope covers every currently
+implemented valid DICOM SOP Class through a catalog template or deterministic
+bundle, including enhanced/WSI, derived quantitative and SR, RT, waveform,
+document, and mesh families. Built-in RLE Lossless remains available for
 XA/XRF. Read [the composition guide](composition-guide.md) for the specification
 format and [the rendered template reference](composition-template-reference.md)
-for exact versions, transfer syntaxes, and independent routes.
+for exact versions, transfer syntaxes, content contracts, and independent
+routes.
 
 ## 6. Understand The Output
 

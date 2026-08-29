@@ -6,6 +6,7 @@ pub mod classic_mr_cr;
 pub mod classic_nuclear;
 pub mod classic_vl_projection;
 mod encoding;
+mod enhanced;
 mod error;
 mod loader;
 mod metadata_sc;
@@ -29,6 +30,11 @@ pub use classic::{
     resolved_classic_instance_plan,
 };
 pub use encoding::{RecipeEncodingError, encoding_plan_from_recipe};
+pub use enhanced::{
+    EnhancedCommonInput, EnhancedCtInput, EnhancedCtPartInput, EnhancedFrameGeometry,
+    EnhancedMrFrameAxis, EnhancedMrInput, EnhancedNativePixels, EnhancedPetInput,
+    EnhancedPlanError, EnhancedPlanProvider, EnhancedProviderInput,
+};
 pub use error::RecipeCatalogError;
 pub use loader::RecipeCatalog;
 pub use metadata_sc::{MetadataScPlanInput, MetadataScPlannerError, resolved_metadata_sc_plan};

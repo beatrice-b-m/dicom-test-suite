@@ -1,15 +1,17 @@
 # Composition Manifest Design
 
-**Status:** P0 contract for the manifest schema implemented in P1.9
+**Status:** P5 bundle and dependency-closure contract implemented
 
-**Version target:** manifest schema `0.3.0`
+**Version target:** manifest schema `0.4.0`
 
 ## Compatibility rule
 
-Schema `0.3.0` is an additive tagged union over the existing curated manifest
-shape. Existing generated manifests remain byte-for-byte unchanged and continue
-to validate as the legacy curated branch. The generator does not start emitting
-`run.kind` merely because the schema can represent it.
+Schema `0.4.0` is the composition-only successor to the P1 `0.3.0` contract.
+It adds explicit bundle summaries and source provenance to composition entries;
+curated generation continues to emit and validate its existing manifest shape.
+Existing generated manifests remain byte-for-byte unchanged and continue to
+validate through the curated schema. The generator does not start emitting
+`run.kind` merely because composition has its own versioned schema.
 
 The run discriminator has three interpretations:
 
@@ -30,7 +32,7 @@ The shared top-level provenance remains `generated_at`, `generator`,
 
 ```json
 {
-  "manifest_schema_version": "0.3.0",
+  "manifest_schema_version": "0.4.0",
   "generated_at": "20000101T000000Z",
   "generator": {},
   "standards": {},
@@ -45,6 +47,7 @@ The shared top-level provenance remains `generated_at`, `generator`,
   },
   "composition": {
     "entries": [],
+    "bundles": [],
     "assets": [],
     "unavailable_capabilities": [],
     "publication": {}
@@ -85,6 +88,7 @@ template_version
 requested
 bundle_root_instance_id
 bundle_role
+source_provenance
 path
 size_bytes
 sha256
@@ -103,6 +107,17 @@ standards_evidence
 deterministic logical suffix under the root instance. `template_id` and
 `template_version` identify the exact qualified descriptor. No composition
 entry has `case_id`, `profile_membership`, or a curated recipe block.
+`source_provenance` is `requested` for caller-declared instances and
+`default_template_dependency` for resolver-created closure members.
+
+## Bundle summaries
+
+Each requested root has one bundle summary containing its sorted members,
+complete dependency closure, and materialized references. Members repeat only
+the logical instance ID, role, requested flag, and source provenance; full
+instance, UID, content, and validation evidence remains in `entries`. Referenced
+frame numbers are carried by the materialized reference records, so reports do
+not need to reconstruct frame closure from DICOM files.
 
 `value_provenance` is sorted by normalized tag and records exactly one origin:
 

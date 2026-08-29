@@ -291,6 +291,7 @@ fn resolve_and_stage(
                 requested: member.requested,
                 bundle_root_instance_id: member.bundle_root_instance_id.clone(),
                 bundle_role: member.bundle_role.clone(),
+                source_provenance: member.source.clone(),
                 determinism: "byte_stable".into(),
             }
         })
@@ -958,6 +959,7 @@ mod tests {
             .find(|entry| entry["instance_id"] == "root__source")
             .unwrap();
         assert_eq!(source["requested"], false);
+        assert_eq!(source["source_provenance"], "default_template_dependency");
         assert_eq!(source["bundle_root_instance_id"], "root");
         assert_eq!(source["bundle_role"], "image_source");
         let root_entry = entries
@@ -972,6 +974,14 @@ mod tests {
             root_entry["references"][0]["referenced_sop_instance_uid"],
             source["uids"]["sop_instance_uid#0"]
         );
+        let bundle = &manifest["composition"]["bundles"][0];
+        assert_eq!(bundle["bundle_root_instance_id"], "root");
+        assert_eq!(bundle["members"].as_array().unwrap().len(), 2);
+        assert_eq!(
+            bundle["dependency_closure"],
+            json!(["root", "root__source"])
+        );
+        assert_eq!(bundle["references"][0]["referenced_frames"], json!([]));
         fs::remove_dir_all(root).unwrap();
     }
 

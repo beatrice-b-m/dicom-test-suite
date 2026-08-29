@@ -37,6 +37,7 @@ pub struct ManifestEntryInput<'a> {
     pub requested: bool,
     pub bundle_root_instance_id: String,
     pub bundle_role: String,
+    pub source_provenance: String,
     pub determinism: String,
 }
 
@@ -347,6 +348,7 @@ impl CompositionManifestAssembler {
                 "requested": input.requested,
                 "bundle_root_instance_id": input.bundle_root_instance_id,
                 "bundle_role": input.bundle_role,
+                "source_provenance": input.source_provenance,
                 "path": input.relative_path,
                 "size_bytes": bytes.len(),
                 "sha256": sha256_hex(&bytes),
@@ -369,8 +371,58 @@ impl CompositionManifestAssembler {
                 .as_str()
                 .cmp(&right["instance_id"].as_str())
         });
+        let mut bundle_members = BTreeMap::<String, Vec<Value>>::new();
+        for entry in &manifest_entries {
+            let root = entry["bundle_root_instance_id"]
+                .as_str()
+                .expect("manifest entry has bundle root")
+                .to_string();
+            bundle_members.entry(root).or_default().push(json!({
+                "instance_id": entry["instance_id"],
+                "bundle_role": entry["bundle_role"],
+                "requested": entry["requested"],
+                "source_provenance": entry["source_provenance"]
+            }));
+        }
+        let bundles = bundle_members
+            .into_iter()
+            .map(|(root, mut members)| {
+                members.sort_by(|left, right| {
+                    left["instance_id"]
+                        .as_str()
+                        .cmp(&right["instance_id"].as_str())
+                });
+                let member_ids = members
+                    .iter()
+                    .filter_map(|member| member["instance_id"].as_str())
+                    .collect::<BTreeSet<_>>();
+                let references = manifest_entries
+                    .iter()
+                    .filter(|entry| {
+                        member_ids.contains(
+                            entry["instance_id"]
+                                .as_str()
+                                .expect("manifest entry has instance ID"),
+                        )
+                    })
+                    .flat_map(|entry| {
+                        entry["references"]
+                            .as_array()
+                            .expect("manifest references are an array")
+                            .iter()
+                            .cloned()
+                    })
+                    .collect::<Vec<_>>();
+                json!({
+                    "bundle_root_instance_id": root,
+                    "members": members,
+                    "dependency_closure": member_ids,
+                    "references": references
+                })
+            })
+            .collect::<Vec<_>>();
         let manifest = json!({
-            "manifest_schema_version": "0.3.0",
+            "manifest_schema_version": "0.4.0",
             "generated_at": inputs.generated_at,
             "generator": inputs.generator,
             "standards": inputs.standards,
@@ -390,6 +442,7 @@ impl CompositionManifestAssembler {
             },
             "composition": {
                 "entries": manifest_entries,
+                "bundles": bundles,
                 "assets": assets.into_values().collect::<Vec<_>>(),
                 "unavailable_capabilities": [],
                 "publication": {
@@ -549,6 +602,7 @@ mod tests {
                     requested: true,
                     bundle_root_instance_id: "primary".into(),
                     bundle_role: "root".into(),
+                    source_provenance: "requested".into(),
                     determinism: "byte_stable".into(),
                 }],
             )

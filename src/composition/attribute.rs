@@ -426,6 +426,10 @@ pub enum PrimitiveValue {
 pub enum AttributeValue {
     Primitive(PrimitiveValue),
     Multi(Vec<PrimitiveValue>),
+    /// Exact bytes for character-set encoded text which must not be
+    /// transcoded through a Rust UTF-8 string. This is deliberately distinct
+    /// from binary-VR payloads.
+    EncodedText(Vec<u8>),
     Binary(Vec<u8>),
     Sequence(Vec<AttributeItem>),
 }
@@ -497,6 +501,14 @@ impl AttributeOperation {
                     || values.iter().any(|value| !vr.validate_primitive(value))
                     || (enforce_standard_vm && !valid_multi_value_count(address, values.len()))
                 {
+                    return Err(AttributeError::ValueVrMismatch {
+                        tag: address.normalized_tag(),
+                        vr: *vr,
+                    });
+                }
+            }
+            AttributeValue::EncodedText(bytes) => {
+                if *vr != DicomVr::PN || bytes.is_empty() || bytes.contains(&0) {
                     return Err(AttributeError::ValueVrMismatch {
                         tag: address.normalized_tag(),
                         vr: *vr,
@@ -717,6 +729,37 @@ mod tests {
             set(pixel_data, DicomVr::UN, AttributeValue::Binary(vec![0, 1]))
                 .validate()
                 .is_err()
+        );
+    }
+
+    #[test]
+    fn encoded_text_preserves_raw_person_name_bytes_only() {
+        let patient_name = AttributeAddress::from_normalized_tag("0010,0010").unwrap();
+        set(
+            patient_name.clone(),
+            DicomVr::PN,
+            AttributeValue::EncodedText(vec![0x1b, 0x24, 0x42, 0x30, 0x21]),
+        )
+        .validate()
+        .unwrap();
+        assert!(
+            set(
+                patient_name,
+                DicomVr::PN,
+                AttributeValue::EncodedText(Vec::new()),
+            )
+            .validate()
+            .is_err()
+        );
+        let pixel_data = AttributeAddress::from_normalized_tag("7FE0,0010").unwrap();
+        assert!(
+            set(
+                pixel_data,
+                DicomVr::OB,
+                AttributeValue::EncodedText(vec![1, 2]),
+            )
+            .validate()
+            .is_err()
         );
     }
 

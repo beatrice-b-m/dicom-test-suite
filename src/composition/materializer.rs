@@ -911,6 +911,7 @@ fn put_resolved_attribute(
         None => DicomPrimitiveValue::Empty.into(),
         Some(AttributeValue::Primitive(value)) => primitive(value, attribute.vr)?.into(),
         Some(AttributeValue::Multi(values)) => multi(values, attribute.vr)?.into(),
+        Some(AttributeValue::EncodedText(bytes)) => DicomPrimitiveValue::from(bytes.clone()).into(),
         Some(AttributeValue::Binary(bytes)) => DicomPrimitiveValue::from(bytes.clone()).into(),
         Some(AttributeValue::Sequence(items)) => {
             let items = items
@@ -1268,6 +1269,35 @@ mod tests {
                 .unwrap()
                 .len(),
             1
+        );
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn writes_character_set_encoded_person_name_without_transcoding() {
+        let path = std::env::temp_dir().join(format!(
+            "dts-composition-encoded-text-{}-{}.dcm",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        let raw = vec![0x1b, 0x24, 0x42, 0x30, 0x21, 0x1b, 0x28, 0x42];
+        let mut instance = plan(vec![0, 1, 2, 3]);
+        instance
+            .attributes
+            .iter_mut()
+            .find(|attribute| attribute.address.normalized_tag() == "0010,0010")
+            .unwrap()
+            .value = Some(AttributeValue::EncodedText(raw.clone()));
+        Part10Materializer.materialize(&instance, &path).unwrap();
+        let object = open_file(&path).unwrap();
+        assert_eq!(
+            object
+                .element(tags::PATIENT_NAME)
+                .unwrap()
+                .to_bytes()
+                .unwrap()
+                .as_ref(),
+            raw
         );
         fs::remove_file(path).unwrap();
     }

@@ -359,7 +359,7 @@ fn normalize_enhanced_ct_defined_terms(plan: &mut ResolvedInstancePlan) {
                     }
                 }
             }
-            AttributeValue::Binary(_) => {}
+            AttributeValue::EncodedText(_) | AttributeValue::Binary(_) => {}
         }
     }
     for attribute in &mut plan.attributes {
@@ -462,7 +462,7 @@ fn rewrite_uids(value: &mut AttributeValue, replacements: &BTreeMap<String, Stri
                 }
             }
         }
-        AttributeValue::Binary(_) => {}
+        AttributeValue::EncodedText(_) | AttributeValue::Binary(_) => {}
     }
 }
 

@@ -1,0 +1,66 @@
+{
+  "qualification_evidence_schema_version": "1.0.0",
+  "runtime_policy": "Independent routes run only with their pinned executable or lock-resolved environment. A missing runtime is reported as unavailable and never converted to a pass.",
+  "independent_routes": [
+    {
+      "adapter_id": "dicom_validator",
+      "runtime_policy": "pinned_or_explicitly_unavailable",
+      "evidence_paths": ["conformance/validator-lock.json", "tests/composition_sc_iod.rs", "tests/composition_classic_iod.rs", "tests/conformance_iod_routing.rs"]
+    },
+    {
+      "adapter_id": "highdicom-pydicom",
+      "runtime_policy": "pinned_or_explicitly_unavailable",
+      "evidence_paths": ["generation-backends.lock.json", "tests/parametric_map.rs", "docs/phase-3-derived-status.md"]
+    },
+    {
+      "adapter_id": "highdicom-scoord3d",
+      "runtime_policy": "pinned_or_explicitly_unavailable",
+      "evidence_paths": ["generation-backends.lock.json", "tests/scoord3d.rs", "docs/phase-3-derived-status.md"]
+    },
+    {
+      "adapter_id": "highdicom-tid1500",
+      "runtime_policy": "pinned_or_explicitly_unavailable",
+      "evidence_paths": ["generation-backends.lock.json", "tests/tid1500.rs", "docs/phase-3-derived-status.md"]
+    },
+    {
+      "adapter_id": "pdfinfo",
+      "runtime_policy": "pinned_or_explicitly_unavailable",
+      "evidence_paths": ["tests/composition_bulk.rs", "docs/phase-3-derived-status.md", "standards/source-notes/composition-bulk-content.md"]
+    },
+    {
+      "adapter_id": "pydicom-dicom-validator-waveform",
+      "runtime_policy": "pinned_or_explicitly_unavailable",
+      "evidence_paths": ["conformance/validator-lock.json", "tests/conformance_waveform.rs", "docs/phase-3-complex-object-status.md"]
+    },
+    {
+      "adapter_id": "pydicom-dicom-validator-wsi-tile-segmentation",
+      "runtime_policy": "pinned_or_explicitly_unavailable",
+      "evidence_paths": ["conformance/validator-lock.json", "tests/conformance_wsi.rs", "docs/phase-3-derived-status.md"]
+    },
+    {
+      "adapter_id": "pydicom-encapsulated-stl-payload",
+      "runtime_policy": "pinned_or_explicitly_unavailable",
+      "evidence_paths": ["conformance-backends/dicom-validator/encapsulated-stl-lock.json", "tests/composition_bulk.rs", "docs/phase-3-derived-status.md"]
+    },
+    {
+      "adapter_id": "pydicom-rt-graph",
+      "runtime_policy": "pinned_or_explicitly_unavailable",
+      "evidence_paths": ["conformance/validator-lock.json", "tests/conformance_rt.rs", "tests/composition_radiotherapy.rs"]
+    },
+    {
+      "adapter_id": "pydicom-rwvm",
+      "runtime_policy": "pinned_or_explicitly_unavailable",
+      "evidence_paths": ["tests/composition_quantitative.rs", "tests/composition_curated_migration.rs", "docs/phase-3-derived-status.md"]
+    },
+    {
+      "adapter_id": "pydicom-segmentation-payload",
+      "runtime_policy": "pinned_or_explicitly_unavailable",
+      "evidence_paths": ["tests/composition_quantitative.rs", "tests/composition_curated_migration.rs", "docs/phase-3-derived-status.md"]
+    },
+    {
+      "adapter_id": "pydicom-sr-content",
+      "runtime_policy": "pinned_or_explicitly_unavailable",
+      "evidence_paths": ["tests/conformance_sr.rs", "tests/composition_structured_reports.rs", "docs/phase-3-derived-status.md"]
+    }
+  ]
+}

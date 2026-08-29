@@ -1,5 +1,20 @@
 # Arbitrary DICOM composition status
 
+## 2026-08-29 — Phase P3.5 US, NM, and PET lane
+
+Single-frame and multi-frame Ultrasound, Nuclear Medicine, and PET Image
+Storage templates are qualified. The profiles cover ultrasound timing and
+color-presence semantics, NM energy-window/detector vectors and isotope and
+orientation sequences, and PET series, correction, geometry, isotope, and
+rescale requirements. NM vectors derive from the resolved caller frame count
+rather than assuming the bounded two-frame default.
+
+All four defaults pass root validation, reporting, caller native-pixel round
+trips, multi-frame derivation checks, wrong-model rejection, and two-run byte
+comparison. The pinned independent route identifies `USImage`,
+`USMultiFrameImage`, `NMImage`, and `PETImage` without warning or error
+findings. This closes P3.5 only; the remaining P3 lanes and gate stay open.
+
 ## 2026-08-28 — Phase P3.4 DX and mammography lane
 
 Digital X-Ray For Presentation and Digital Mammography For Presentation and

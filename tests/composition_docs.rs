@@ -40,6 +40,10 @@ fn docs_limit_public_templates_to_the_qualified_native_pixel_domains() {
         "classic/dx/for-presentation@1.0.0",
         "classic/mammography/for-presentation@1.0.0",
         "classic/mammography/for-processing@1.0.0",
+        "classic/ultrasound/single-frame@1.0.0",
+        "classic/ultrasound/multiframe@1.0.0",
+        "classic/nuclear-medicine@1.0.0",
+        "classic/pet@1.0.0",
         "not currently available",
     ] {
         assert!(

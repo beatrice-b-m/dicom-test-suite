@@ -25,6 +25,13 @@ the Phase P3.3 classic modality lane:
 - `classic/mammography/for-processing@1.0.0`: native unsigned MONOCHROME2
   12-bit-in-16-bit mammography with processing intent and no presentation
   window defaults.
+- `classic/ultrasound/single-frame@1.0.0` and
+  `classic/ultrasound/multiframe@1.0.0`: native unsigned MONOCHROME2 8-bit
+  ultrasound, with frame timing derived for multi-frame input;
+- `classic/nuclear-medicine@1.0.0`: native unsigned MONOCHROME2 16-bit static
+  multi-frame NM with frame vectors derived from the caller frame count;
+- `classic/pet@1.0.0`: native unsigned MONOCHROME2 16-bit static PET with
+  geometry, correction, and rescale defaults.
 
 Inspect the current descriptors rather than copying this summary as an
 inventory invariant:

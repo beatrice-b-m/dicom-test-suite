@@ -47,6 +47,8 @@ fn docs_limit_public_templates_to_the_qualified_native_pixel_domains() {
         "vl/endoscopic@1.0.0",
         "vl/microscopic@1.0.0",
         "vl/photographic@1.0.0",
+        "classic/xa@1.0.0",
+        "classic/xrf@1.0.0",
         "not currently available",
     ] {
         assert!(

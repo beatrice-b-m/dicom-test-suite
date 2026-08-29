@@ -1,5 +1,19 @@
 # Arbitrary DICOM composition status
 
+## 2026-08-29 — Phase P3.7 native XA/XRF checkpoint
+
+Native Explicit VR Little Endian XA and XRF composition templates are
+qualified. Their defaults model single-plane image type, X-ray acquisition,
+geometry, XA positioner angles, XRF column angulation, and intensity
+relationship semantics. Both pass caller native-pixel round trips,
+wrong-signedness rejection, root validation/reporting, byte comparison, and
+the pinned independent route without findings.
+
+This is a P3.7 checkpoint, not completion of that lane: existing codec-backed
+caller-frame integration remains scheduled under P7.5 and is not claimed by
+the current descriptors. Multi-frame SC and cross-family P3 closeout also
+remain open.
+
 ## 2026-08-29 — Phase P3.6 visible-light lane
 
 VL Endoscopic, VL Microscopic, and VL Photographic Image Storage are qualified

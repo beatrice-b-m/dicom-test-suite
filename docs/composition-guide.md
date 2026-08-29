@@ -35,6 +35,9 @@ the Phase P3.3 classic modality lane:
 - `vl/endoscopic@1.0.0`, `vl/microscopic@1.0.0`, and
   `vl/photographic@1.0.0`: native unsigned interleaved RGB 8-bit visible-light
   images with deterministic acquisition context.
+- `classic/xa@1.0.0` and `classic/xrf@1.0.0`: native unsigned MONOCHROME2
+  12-bit-in-16-bit projection images with modality-specific acquisition and
+  positioning defaults.
 
 Inspect the current descriptors rather than copying this summary as an
 inventory invariant:
@@ -147,6 +150,10 @@ The optional `resource_limits` block bounds instance count, input file count,
 per-file bytes, total input bytes, and total output bytes. Defaults are finite
 and are recorded in the composition manifest. Network content and provider
 execution are not currently available.
+
+XA/XRF composition is currently qualified only for native Explicit VR Little
+Endian. The repository's existing codec backends are not implied by those
+descriptors until the scheduled caller-frame codec integration is qualified.
 
 `validate` reconstructs each resolved plan from the manifest, verifies file
 size and SHA-256, reopens Part 10 and data elements, checks content hashes, and

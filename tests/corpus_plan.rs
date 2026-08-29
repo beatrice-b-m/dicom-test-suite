@@ -73,9 +73,19 @@ fn resources() -> ArtifactResourceEstimate {
     }
 }
 
+fn artifact_order(logical_id: &str) -> u64 {
+    match logical_id {
+        "source" | "z" | "fuzz" | "one" | "first" | "manifest-artifact" | "large" | "private" => 0,
+        "derived" | "a" | "private-source" | "second" | "consumer" => 1,
+        "evidence" | "b" | "c" | "invalid" => 2,
+        other => panic!("test artifact order is not declared for {other}"),
+    }
+}
+
 fn dicom(logical_id: &str, provenance: ArtifactProvenance, path: &str) -> PlannedArtifact {
     PlannedArtifact::Dicom(PlannedDicomArtifact {
         logical_id: logical_id.into(),
+        order: artifact_order(logical_id),
         provenance,
         case_binding: Some(CaseBinding {
             case_id: format!("classic/sc/{logical_id}"),
@@ -157,6 +167,7 @@ fn canonical_hash_normalizes_artifact_dependency_and_unavailable_order() {
     );
     let auxiliary = PlannedArtifact::Auxiliary(PlannedAuxiliaryArtifact {
         logical_id: "evidence".into(),
+        order: artifact_order("evidence"),
         provenance: ArtifactProvenance::Dependency {
             requested_by: vec!["derived".into()],
         },
@@ -217,7 +228,7 @@ fn canonical_hash_normalizes_artifact_dependency_and_unavailable_order() {
 }
 
 #[test]
-fn deterministic_topology_uses_logical_id_as_the_ready_node_tie_breaker() {
+fn deterministic_topology_uses_explicit_order_as_the_ready_node_tie_breaker() {
     let plan = plan(
         vec![
             dicom("z", ArtifactProvenance::Requested, "z.dcm"),
@@ -226,7 +237,21 @@ fn deterministic_topology_uses_logical_id_as_the_ready_node_tie_breaker() {
         ],
         vec![edge("c", "a")],
     );
-    assert_eq!(plan.topological_order().unwrap(), vec!["a", "c", "z"]);
+    assert_eq!(plan.topological_order().unwrap(), vec!["z", "a", "c"]);
+}
+
+#[test]
+fn artifact_order_is_unique_even_when_logical_ids_differ() {
+    let first = dicom("first", ArtifactProvenance::Requested, "first.dcm");
+    let mut second = dicom("second", ArtifactProvenance::Requested, "second.dcm");
+    let PlannedArtifact::Dicom(second_plan) = &mut second else {
+        unreachable!()
+    };
+    second_plan.order = 0;
+    assert!(matches!(
+        plan(vec![first, second], vec![]).validate(),
+        Err(CorpusPlanError::DuplicateArtifactOrder(0))
+    ));
 }
 
 #[test]
@@ -282,6 +307,7 @@ fn output_paths_are_platform_neutral_and_cannot_escape_the_publication_root() {
 fn all_artifact_kinds_and_unavailable_capabilities_are_canonical_data() {
     let mutation = PlannedArtifact::Mutation(PlannedMutationArtifact {
         logical_id: "invalid".into(),
+        order: artifact_order("invalid"),
         provenance: ArtifactProvenance::Requested,
         source_artifact_id: "private-source".into(),
         mutation: MutationPlan {
@@ -310,6 +336,7 @@ fn all_artifact_kinds_and_unavailable_capabilities_are_canonical_data() {
     });
     let qualification = PlannedArtifact::Qualification(PlannedQualification {
         logical_id: "fuzz".into(),
+        order: artifact_order("fuzz"),
         provenance: ArtifactProvenance::Requested,
         qualification_kind: "bounded_fuzz".into(),
         parameters: BTreeMap::new(),

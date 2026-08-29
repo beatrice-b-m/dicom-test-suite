@@ -42,6 +42,7 @@ impl CorpusPlan {
         self.resources.validate()?;
 
         let mut ids = BTreeSet::new();
+        let mut orders = BTreeSet::new();
         let mut output_paths = BTreeSet::new();
         let mut planned_output_bytes = 0_u64;
         let mut peak_working_bytes = 0_u64;
@@ -50,6 +51,9 @@ impl CorpusPlan {
             let id = artifact.logical_id();
             if !ids.insert(id.to_owned()) {
                 return Err(CorpusPlanError::DuplicateArtifact(id.to_owned()));
+            }
+            if !orders.insert(artifact.order()) {
+                return Err(CorpusPlanError::DuplicateArtifactOrder(artifact.order()));
             }
             if let Some(output) = artifact.output() {
                 if !output_paths.insert(output.relative_path.clone()) {
@@ -181,14 +185,20 @@ impl CorpusPlan {
 
     /// Return a deterministic dependency-first artifact order.
     ///
-    /// When several nodes are ready, their logical IDs provide the tie-breaker,
-    /// so worker count and input vector order cannot affect the result.
+    /// When several nodes are ready, explicit artifact order and then logical
+    /// ID provide the tie-breaker, so worker count and input vector order cannot
+    /// affect the result.
     pub fn topological_order(&self) -> Result<Vec<String>, CorpusPlanError> {
         let ids = self
             .artifacts
             .iter()
             .map(|artifact| artifact.logical_id().to_owned())
             .collect::<BTreeSet<_>>();
+        let artifact_orders = self
+            .artifacts
+            .iter()
+            .map(|artifact| (artifact.logical_id().to_owned(), artifact.order()))
+            .collect::<BTreeMap<_, _>>();
         let mut indegree = ids
             .iter()
             .map(|id| (id.clone(), 0_usize))
@@ -197,6 +207,7 @@ impl CorpusPlan {
             .iter()
             .map(|id| (id.clone(), BTreeSet::new()))
             .collect::<BTreeMap<_, _>>();
+        let mut dependency_pairs = BTreeSet::new();
 
         for dependency in &self.dependencies {
             let Some(degree) = indegree.get_mut(&dependency.artifact_id) else {
@@ -210,6 +221,12 @@ impl CorpusPlan {
                     depends_on: dependency.depends_on.clone(),
                 });
             }
+            if !dependency_pairs.insert((
+                dependency.artifact_id.clone(),
+                dependency.depends_on.clone(),
+            )) {
+                continue;
+            }
             *degree = degree
                 .checked_add(1)
                 .ok_or(CorpusPlanError::DependencyCountOverflow)?;
@@ -222,10 +239,15 @@ impl CorpusPlan {
         let mut ready = indegree
             .iter()
             .filter(|(_, degree)| **degree == 0)
-            .map(|(id, _)| id.clone())
+            .map(|(id, _)| {
+                (
+                    *artifact_orders.get(id).expect("all artifacts have order"),
+                    id.clone(),
+                )
+            })
             .collect::<BTreeSet<_>>();
         let mut ordered = Vec::with_capacity(ids.len());
-        while let Some(next) = ready.pop_first() {
+        while let Some((_, next)) = ready.pop_first() {
             ordered.push(next.clone());
             for dependent in dependents
                 .get(&next)
@@ -236,7 +258,12 @@ impl CorpusPlan {
                     .expect("all dependent nodes were indexed");
                 *degree -= 1;
                 if *degree == 0 {
-                    ready.insert(dependent.clone());
+                    ready.insert((
+                        *artifact_orders
+                            .get(dependent)
+                            .expect("all artifacts have order"),
+                        dependent.clone(),
+                    ));
                 }
             }
         }
@@ -330,6 +357,15 @@ impl PlannedArtifact {
         }
     }
 
+    pub fn order(&self) -> u64 {
+        match self {
+            Self::Dicom(value) => value.order,
+            Self::Mutation(value) => value.order,
+            Self::Qualification(value) => value.order,
+            Self::Auxiliary(value) => value.order,
+        }
+    }
+
     pub fn output(&self) -> Option<&OutputPlan> {
         match self {
             Self::Dicom(value) => Some(&value.output),
@@ -393,6 +429,7 @@ impl ArtifactProvenance {
 #[serde(deny_unknown_fields)]
 pub struct PlannedDicomArtifact {
     pub logical_id: String,
+    pub order: u64,
     pub provenance: ArtifactProvenance,
     pub case_binding: Option<CaseBinding>,
     pub instance: ResolvedInstancePlan,
@@ -433,6 +470,7 @@ impl PlannedDicomArtifact {
 #[serde(deny_unknown_fields)]
 pub struct PlannedMutationArtifact {
     pub logical_id: String,
+    pub order: u64,
     pub provenance: ArtifactProvenance,
     pub source_artifact_id: String,
     pub mutation: MutationPlan,
@@ -457,6 +495,7 @@ impl PlannedMutationArtifact {
 #[serde(deny_unknown_fields)]
 pub struct PlannedQualification {
     pub logical_id: String,
+    pub order: u64,
     pub provenance: ArtifactProvenance,
     pub qualification_kind: String,
     pub parameters: BTreeMap<String, Value>,
@@ -486,6 +525,7 @@ pub enum QualificationPayloadPolicy {
 #[serde(deny_unknown_fields)]
 pub struct PlannedAuxiliaryArtifact {
     pub logical_id: String,
+    pub order: u64,
     pub provenance: ArtifactProvenance,
     pub auxiliary_kind: String,
     pub output: OutputPlan,
@@ -977,6 +1017,7 @@ pub enum CorpusPlanError {
     UnsupportedSchemaVersion(String),
     Serialize(serde_json::Error),
     DuplicateArtifact(String),
+    DuplicateArtifactOrder(u64),
     DuplicateOutputPath(String),
     ManifestPathCollision(String),
     UnknownArtifact(String),
@@ -1066,6 +1107,9 @@ impl fmt::Display for CorpusPlanError {
             }
             Self::Serialize(error) => write!(formatter, "serialize canonical corpus plan: {error}"),
             Self::DuplicateArtifact(id) => write!(formatter, "duplicate artifact {id}"),
+            Self::DuplicateArtifactOrder(order) => {
+                write!(formatter, "duplicate artifact order {order}")
+            }
             Self::DuplicateOutputPath(path) => write!(formatter, "duplicate output path {path}"),
             Self::ManifestPathCollision(path) => {
                 write!(

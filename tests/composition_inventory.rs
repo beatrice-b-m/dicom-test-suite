@@ -136,3 +136,36 @@ fn p6_bulk_templates_bind_content_rules_and_independent_semantic_routes() {
         );
     }
 }
+
+#[test]
+fn descriptors_expose_every_executable_caller_content_source() {
+    let catalog = TemplateCatalog::load("templates/catalog.json").unwrap();
+    for template in &catalog.templates {
+        for slot in &template.content_slots {
+            let sources = slot["allowed_sources"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|source| source.as_str().unwrap())
+                .collect::<BTreeSet<_>>();
+            assert!(sources.contains("default"), "{}", template.template_id);
+            assert!(sources.contains("local_file"), "{}", template.template_id);
+            assert!(
+                sources.contains("inline_small_fixture"),
+                "{}",
+                template.template_id
+            );
+            assert!(sources.contains("provider"), "{}", template.template_id);
+            let encoded = matches!(
+                template.template_id.0.as_str(),
+                "classic/xa" | "classic/xrf"
+            );
+            assert_eq!(
+                sources.contains("encoded_frames"),
+                encoded,
+                "{}",
+                template.template_id
+            );
+        }
+    }
+}

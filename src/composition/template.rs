@@ -518,7 +518,7 @@ impl ClassicFamilyTemplateDeclaration {
                     "kind": "native_pixels",
                     "required": true,
                     "default_provider": "qualified_curated_default",
-                    "allowed_sources": ["default", "local_file"],
+                    "allowed_sources": ["default", "local_file", "inline_small_fixture", "provider"],
                     "constraints": {
                         "photometric_interpretations": if wsi { json!(["RGB"]) } else { json!(["MONOCHROME2"]) },
                         "samples_per_pixel": if wsi { json!([3]) } else { json!([1]) },
@@ -659,12 +659,24 @@ fn classic_family_content_slot(profile: &ClassicFamilyProfile) -> Value {
             | super::ClassicFamilyKind::UltrasoundMultiFrame
             | super::ClassicFamilyKind::NuclearMedicine
     );
+    let mut allowed_sources = vec![
+        "default",
+        "local_file",
+        "inline_small_fixture",
+        "provider",
+    ];
+    if matches!(
+        profile.kind,
+        super::ClassicFamilyKind::Xa | super::ClassicFamilyKind::Xrf
+    ) {
+        allowed_sources.push("encoded_frames");
+    }
     serde_json::json!({
         "slot": "pixels",
         "kind": "native_pixels",
         "required": true,
         "default_provider": "classic_family_default_pixels",
-        "allowed_sources": ["default", "local_file"],
+        "allowed_sources": allowed_sources,
         "constraints": {
             "photometric_interpretations": [photometric],
             "samples_per_pixel": [shape.samples_per_pixel],

@@ -6200,6 +6200,67 @@ pub(crate) fn write_composition_default_artifacts(
                 Some("derived/sr/key_object_selection_explicit_le"),
                 None,
             ),
+            ("non-image/rt/structure-set", _) => (
+                &[
+                    "enhanced/ct/multiframe_shared_perframe_explicit_le",
+                    "non-image/rt/structure_set_single_roi_explicit_le",
+                ],
+                Some("non-image/rt/structure_set_single_roi_explicit_le"),
+                None,
+            ),
+            ("non-image/rt/dose", _) => (
+                &[
+                    "enhanced/ct/multiframe_shared_perframe_explicit_le",
+                    "non-image/rt/structure_set_single_roi_explicit_le",
+                    "non-image/rt/dose_grid_u16_explicit_le",
+                ],
+                Some("non-image/rt/dose_grid_u16_explicit_le"),
+                None,
+            ),
+            ("non-image/rt/plan", _) => (
+                &[
+                    "enhanced/ct/multiframe_shared_perframe_explicit_le",
+                    "non-image/rt/structure_set_single_roi_explicit_le",
+                    "non-image/rt/dose_grid_u16_explicit_le",
+                    "non-image/rt/plan_linked",
+                ],
+                Some("non-image/rt/plan_linked"),
+                None,
+            ),
+            ("non-image/rt/image", _) => (
+                &[
+                    "enhanced/ct/multiframe_shared_perframe_explicit_le",
+                    "non-image/rt/structure_set_single_roi_explicit_le",
+                    "non-image/rt/dose_grid_u16_explicit_le",
+                    "non-image/rt/plan_linked",
+                    "non-image/rt/image_linked",
+                ],
+                Some("non-image/rt/image_linked"),
+                None,
+            ),
+            ("non-image/rt/c-arm-photon-electron-radiation", _) => (
+                &[
+                    "enhanced/ct/multiframe_shared_perframe_explicit_le",
+                    "non-image/rt/structure_set_single_roi_explicit_le",
+                    "non-image/rt/dose_grid_u16_explicit_le",
+                    "non-image/rt/plan_linked",
+                    "non-image/rt/carm_photon_electron_radiation_minimal",
+                ],
+                Some("non-image/rt/carm_photon_electron_radiation_minimal"),
+                None,
+            ),
+            ("non-image/rt/radiation-set", _) => (
+                &[
+                    "enhanced/ct/multiframe_shared_perframe_explicit_le",
+                    "non-image/rt/structure_set_single_roi_explicit_le",
+                    "non-image/rt/dose_grid_u16_explicit_le",
+                    "non-image/rt/plan_linked",
+                    "non-image/rt/carm_photon_electron_radiation_minimal",
+                    "non-image/rt/radiation_set_minimal",
+                ],
+                Some("non-image/rt/radiation_set_minimal"),
+                None,
+            ),
             _ => {
                 return Err(GenerateError::MetadataShape {
                     path: PathBuf::from(template_id),

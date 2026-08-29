@@ -45,6 +45,12 @@ This file is rendered from `templates/catalog.json`. Use `templates describe` fo
 | `enhanced/pet`@1.0.0 | Enhanced PET Image | `1.2.840.10008.5.1.4.1.1.130` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
 | `non-image/encapsulated-document/pdf`@1.0.0 | Encapsulated PDF | `1.2.840.10008.5.1.4.1.1.104.1` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator, pdfinfo |
 | `non-image/mesh/stl`@1.0.0 | Encapsulated STL | `1.2.840.10008.5.1.4.1.1.104.3` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator, pydicom-encapsulated-stl-payload |
+| `non-image/rt/c-arm-photon-electron-radiation`@1.0.0 | RT Radiation | `1.2.840.10008.5.1.4.1.1.481.13` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator, pydicom-rt-graph |
+| `non-image/rt/dose`@1.0.0 | RT Dose | `1.2.840.10008.5.1.4.1.1.481.2` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator, pydicom-rt-graph |
+| `non-image/rt/image`@1.0.0 | RT Image | `1.2.840.10008.5.1.4.1.1.481.1` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator, pydicom-rt-graph |
+| `non-image/rt/plan`@1.0.0 | RT Plan | `1.2.840.10008.5.1.4.1.1.481.5` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator, pydicom-rt-graph |
+| `non-image/rt/radiation-set`@1.0.0 | RT Radiation Set | `1.2.840.10008.5.1.4.1.1.481.12` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator, pydicom-rt-graph |
+| `non-image/rt/structure-set`@1.0.0 | RT Structure Set | `1.2.840.10008.5.1.4.1.1.481.3` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator, pydicom-rt-graph |
 | `non-image/waveform/general-ecg`@1.0.0 | General ECG Waveform | `1.2.840.10008.5.1.4.1.1.9.1.2` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator, pydicom-dicom-validator-waveform |
 | `non-image/waveform/twelve-lead-ecg`@1.0.0 | 12-lead ECG Waveform | `1.2.840.10008.5.1.4.1.1.9.1.1` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator, pydicom-dicom-validator-waveform |
 | `vl/endoscopic`@1.0.0 | VL Endoscopic Image | `1.2.840.10008.5.1.4.1.1.77.1.1` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |

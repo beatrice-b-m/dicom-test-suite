@@ -5,11 +5,11 @@ use std::path::Path;
 use dicom_object::open_file;
 
 use super::{
-    AttributeOperation, AttributeValue, BulkDataBounds, BulkDataPlan, BulkDataSource,
-    ContentSource, DoubleFloatPixelDataSlot, EncapsulatedDocumentSlot, FloatPixelDataSlot,
-    IdentityPlan, LocalContentResolver, MeshSlot, PixelDataSlot, PrimitiveValue, ResolvedAttribute,
-    ResolvedInstancePlan, SequenceItemPlacement, SpecInstance, TemplateDescriptor, ValueOrigin,
-    WaveformSamplesSlot, resolve_raw_native_pixels,
+    resolve_raw_native_pixels, AttributeOperation, AttributeValue, BulkDataBounds, BulkDataPlan,
+    BulkDataSource, ContentSource, DoubleFloatPixelDataSlot, EncapsulatedDocumentSlot,
+    FloatPixelDataSlot, IdentityPlan, LocalContentResolver, MeshSlot, PixelDataSlot,
+    PrimitiveValue, ResolvedAttribute, ResolvedInstancePlan, SequenceItemPlacement, SpecInstance,
+    TemplateDescriptor, ValueOrigin, WaveformSamplesSlot,
 };
 use crate::generator::write_composition_default_artifacts;
 
@@ -23,6 +23,7 @@ pub enum AdvancedFamilyKind {
     TypedBulk(TypedBulkFamily),
     Quantitative(QuantitativeFamily),
     StructuredReport(StructuredReportFamily),
+    Radiotherapy(RadiotherapyFamily),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -47,6 +48,16 @@ pub enum StructuredReportFamily {
     Comprehensive3d,
     Tid1500,
     KeyObject,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RadiotherapyFamily {
+    StructureSet,
+    Dose,
+    Plan,
+    Image,
+    Radiation,
+    RadiationSet,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -114,6 +125,18 @@ impl AdvancedFamilyProfile {
             }
             "derived/structured-report/key-object" => {
                 AdvancedFamilyKind::StructuredReport(StructuredReportFamily::KeyObject)
+            }
+            "non-image/rt/structure-set" => {
+                AdvancedFamilyKind::Radiotherapy(RadiotherapyFamily::StructureSet)
+            }
+            "non-image/rt/dose" => AdvancedFamilyKind::Radiotherapy(RadiotherapyFamily::Dose),
+            "non-image/rt/plan" => AdvancedFamilyKind::Radiotherapy(RadiotherapyFamily::Plan),
+            "non-image/rt/image" => AdvancedFamilyKind::Radiotherapy(RadiotherapyFamily::Image),
+            "non-image/rt/c-arm-photon-electron-radiation" => {
+                AdvancedFamilyKind::Radiotherapy(RadiotherapyFamily::Radiation)
+            }
+            "non-image/rt/radiation-set" => {
+                AdvancedFamilyKind::Radiotherapy(RadiotherapyFamily::RadiationSet)
             }
             _ => return None,
         };
@@ -213,6 +236,25 @@ impl AdvancedFamilyProfile {
                     "structured reports cannot carry bulk content".into(),
                 ));
             }
+        } else if let AdvancedFamilyKind::Radiotherapy(family) = self.kind {
+            if matches!(family, RadiotherapyFamily::Dose | RadiotherapyFamily::Image) {
+                normalize_quantitative_content(QuantitativeFamily::Segmentation, &mut plan)?;
+                if let Some(content) = plan.content.first_mut() {
+                    content.properties.insert(
+                        "semantic_validator".into(),
+                        match family {
+                            RadiotherapyFamily::Dose => "rt_dose_grid",
+                            RadiotherapyFamily::Image => "rt_image_pixels",
+                            _ => unreachable!(),
+                        }
+                        .into(),
+                    );
+                }
+            } else if !plan.content.is_empty() {
+                return Err(AdvancedFamilyError::TypedBulk(
+                    "non-pixel RT object unexpectedly contains bulk content".into(),
+                ));
+            }
         } else if self.kind == AdvancedFamilyKind::WholeSlide {
             validate_wsi_structure(&plan)?;
         } else if self.kind != AdvancedFamilyKind::DerivedReference {
@@ -235,6 +277,20 @@ impl AdvancedFamilyProfile {
                 ));
             }
             apply_structured_report_parameters(family, instance, &mut plan)?;
+        } else if let AdvancedFamilyKind::Radiotherapy(family) = self.kind {
+            if matches!(family, RadiotherapyFamily::Dose | RadiotherapyFamily::Image) {
+                apply_quantitative_content(
+                    QuantitativeFamily::Segmentation,
+                    instance,
+                    &mut plan,
+                    content_resolver,
+                )?;
+            } else if !instance.content.is_empty() {
+                return Err(AdvancedFamilyError::UnsupportedContent(
+                    instance.instance_id.clone(),
+                ));
+            }
+            apply_radiotherapy_parameters(family, instance, &mut plan)?;
         } else {
             apply_caller_content(instance, &mut plan, content_resolver)?;
         }
@@ -573,7 +629,8 @@ pub(crate) fn rewrite_materialized_dicom_references(
                     .template_id
                     .0
                     .starts_with("derived/real-world-value-mapping/")
-                || plan.template_id.0.starts_with("derived/structured-report/"))
+                || plan.template_id.0.starts_with("derived/structured-report/")
+                || plan.template_id.0.starts_with("non-image/rt/"))
         {
             continue;
         }
@@ -673,6 +730,9 @@ fn rewrite_nested_identity_axis(
             }
         }
         return Ok(());
+    }
+    if !required && old.len() < new.len() {
+        new.truncate(old.len());
     }
     if old.len() != new.len() {
         return Err(AdvancedFamilyError::DicomReferenceClosure(format!(
@@ -973,6 +1033,58 @@ fn apply_structured_report_parameters(
             }
         }
         StructuredReportFamily::KeyObject => {}
+    }
+    Ok(())
+}
+
+fn apply_radiotherapy_parameters(
+    family: RadiotherapyFamily,
+    instance: &SpecInstance,
+    plan: &mut ResolvedInstancePlan,
+) -> Result<(), AdvancedFamilyError> {
+    match family {
+        RadiotherapyFamily::StructureSet => {
+            if let Some(value) = instance
+                .parameters
+                .get("roi_name")
+                .and_then(serde_json::Value::as_str)
+            {
+                replace_first_sr_value(
+                    plan,
+                    "3006,0026",
+                    AttributeValue::Primitive(PrimitiveValue::String(value.into())),
+                )?;
+            }
+        }
+        RadiotherapyFamily::Dose => {
+            if let Some(value) = instance
+                .parameters
+                .get("dose_grid_scaling")
+                .and_then(serde_json::Value::as_f64)
+            {
+                replace_first_sr_value(
+                    plan,
+                    "3004,000E",
+                    AttributeValue::Primitive(PrimitiveValue::String(value.to_string())),
+                )?;
+            }
+        }
+        RadiotherapyFamily::Plan => {
+            if let Some(value) = instance
+                .parameters
+                .get("plan_label")
+                .and_then(serde_json::Value::as_str)
+            {
+                replace_first_sr_value(
+                    plan,
+                    "300A,0002",
+                    AttributeValue::Primitive(PrimitiveValue::String(value.into())),
+                )?;
+            }
+        }
+        RadiotherapyFamily::Image
+        | RadiotherapyFamily::Radiation
+        | RadiotherapyFamily::RadiationSet => {}
     }
     Ok(())
 }

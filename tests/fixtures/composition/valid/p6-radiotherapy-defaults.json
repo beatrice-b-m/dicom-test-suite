@@ -1,0 +1,11 @@
+{
+  "composition_spec_schema_version": "0.1.0",
+  "instances": [
+    { "instance_id": "structure", "template": { "id": "non-image/rt/structure-set" } },
+    { "instance_id": "dose", "template": { "id": "non-image/rt/dose" } },
+    { "instance_id": "plan", "template": { "id": "non-image/rt/plan" } },
+    { "instance_id": "image", "template": { "id": "non-image/rt/image" } },
+    { "instance_id": "radiation", "template": { "id": "non-image/rt/c-arm-photon-electron-radiation" } },
+    { "instance_id": "radiation-set", "template": { "id": "non-image/rt/radiation-set" } }
+  ]
+}

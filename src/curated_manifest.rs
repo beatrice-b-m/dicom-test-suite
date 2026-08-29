@@ -1,4 +1,6 @@
-//! Pure compatibility projection for plan-first curated Secondary Capture.
+//! Pure compatibility projection for plan-first curated generation.
+
+mod classic;
 
 use std::collections::BTreeSet;
 use std::fmt;
@@ -70,6 +72,9 @@ fn project_one(
         })
     {
         return fail("projection context differs from planned artifact");
+    }
+    if ctx.case_recipe.plan_provider_id == "native.classic_plan" {
+        return classic::project_classic_file_entry(ctx, pair);
     }
     let sc = ctx
         .artifact_recipe
@@ -192,7 +197,7 @@ fn project_one(
     Ok(manifest)
 }
 
-fn pixel_data(
+pub(super) fn pixel_data(
     planned: &PlannedDicomArtifact,
     execution: &ArtifactExecutionEvidence,
     pixels: &MaterializedContentEvidence,
@@ -270,7 +275,7 @@ fn pixel_data(
     }))
 }
 
-fn validation_checks(
+pub(super) fn validation_checks(
     execution: &ArtifactExecutionEvidence,
 ) -> Result<Vec<TypedValidationCheck>, CuratedManifestError> {
     let validation = execution
@@ -306,7 +311,7 @@ fn metadata_observation(
         .transpose()
         .map_err(|error| err(format!("invalid metadata observation: {error}")))
 }
-fn legacy_validation(checks: &[TypedValidationCheck]) -> Value {
+pub(super) fn legacy_validation(checks: &[TypedValidationCheck]) -> Value {
     let layer = |wanted| {
         checks
             .iter()
@@ -802,7 +807,7 @@ fn find_observed<'a>(
         .find(|a| a.tag == tag)
         .ok_or_else(|| err(format!("missing observed attribute {tag}")))
 }
-fn uid(
+pub(super) fn uid(
     planned: &PlannedDicomArtifact,
     role: CompositionUidRole,
 ) -> Result<&str, CuratedManifestError> {
@@ -812,29 +817,33 @@ fn uid(
         .get(&role, 0)
         .ok_or_else(|| err(format!("missing {role:?} UID")))
 }
-fn transfer_syntax_name(uid: &str) -> Result<&'static str, CuratedManifestError> {
+pub(super) fn transfer_syntax_name(uid: &str) -> Result<&'static str, CuratedManifestError> {
     match uid {
+        "1.2.840.10008.1.2" => Ok("Implicit VR Little Endian"),
         "1.2.840.10008.1.2.1" => Ok("Explicit VR Little Endian"),
         "1.2.840.10008.1.2.2" => Ok("Explicit VR Big Endian"),
         RLE => Ok("RLE Lossless"),
         _ => fail(format!("unsupported curated transfer syntax {uid}")),
     }
 }
-fn required<'a>(value: &'a Option<String>, label: &str) -> Result<&'a str, CuratedManifestError> {
+pub(super) fn required<'a>(
+    value: &'a Option<String>,
+    label: &str,
+) -> Result<&'a str, CuratedManifestError> {
     value
         .as_deref()
         .ok_or_else(|| err(format!("missing {label}")))
 }
-fn only<'a, T>(values: &'a [T], label: &str) -> Result<&'a T, CuratedManifestError> {
+pub(super) fn only<'a, T>(values: &'a [T], label: &str) -> Result<&'a T, CuratedManifestError> {
     if values.len() == 1 {
         Ok(&values[0])
     } else {
         fail(format!("expected exactly one {label}"))
     }
 }
-fn err(message: impl Into<String>) -> CuratedManifestError {
+pub(super) fn err(message: impl Into<String>) -> CuratedManifestError {
     CuratedManifestError(message.into())
 }
-fn fail<T>(message: impl Into<String>) -> Result<T, CuratedManifestError> {
+pub(super) fn fail<T>(message: impl Into<String>) -> Result<T, CuratedManifestError> {
     Err(err(message))
 }

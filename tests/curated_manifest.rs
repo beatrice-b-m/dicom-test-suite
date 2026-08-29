@@ -66,14 +66,25 @@ fn generate(profile: &str) -> Temp {
 
 #[test]
 fn production_projection_matches_every_historical_file_value() {
-    let all = generate("all");
-    let legacy = generate("legacy");
+    let generated;
+    let (roots, seed) = if let Ok(root) = std::env::var("DTS_CLASSIC_BASELINE_ROOT") {
+        (
+            vec![
+                PathBuf::from(&root).join("all"),
+                PathBuf::from(root).join("legacy"),
+            ],
+            1,
+        )
+    } else {
+        generated = vec![generate("all"), generate("legacy")];
+        (generated.iter().map(|root| root.0.clone()).collect(), 7)
+    };
     let provider =
         CuratedScCorpusPlanProvider::load(CuratedCatalogPaths::from_repository_root(".")).unwrap();
     let bundle = provider
         .plan(&CuratedScPlanRequest {
             selection: CuratedScSelection::AllFeatureFree,
-            seed: 7,
+            seed,
             max_parallelism: 4,
         })
         .unwrap();
@@ -98,7 +109,7 @@ fn production_projection_matches_every_historical_file_value() {
         })
         .collect::<std::collections::BTreeSet<_>>();
     let mut expected = Vec::new();
-    for root in [&all.0, &legacy.0] {
+    for root in &roots {
         let manifest: Value =
             serde_json::from_slice(&fs::read(root.join("manifest.json")).unwrap()).unwrap();
         expected.extend(
@@ -115,8 +126,25 @@ fn production_projection_matches_every_historical_file_value() {
                 .cloned(),
         );
     }
-    assert_eq!(actual.len(), 76);
-    for (index, (actual, expected)) in actual.iter().zip(&expected).enumerate() {
+    assert!(!expected.is_empty());
+    assert_eq!(actual.len(), expected.len());
+    let expected = expected
+        .into_iter()
+        .map(|file| {
+            (
+                (
+                    file["case_id"].as_str().unwrap().to_owned(),
+                    file["path"].as_str().unwrap().to_owned(),
+                ),
+                file,
+            )
+        })
+        .collect::<std::collections::BTreeMap<_, _>>();
+    for (index, actual) in actual.iter().enumerate() {
+        let expected = &expected[&(
+            actual["case_id"].as_str().unwrap().to_owned(),
+            actual["path"].as_str().unwrap().to_owned(),
+        )];
         if actual != expected {
             let (pointer, left, right) = first_difference(actual, expected, "").unwrap();
             panic!(

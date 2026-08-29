@@ -6,12 +6,82 @@
     "case_id": "derived/presentation-state/advanced_blending"
   },
   "kind": "dicom",
-  "plan_provider_id": "native.case_plan",
-  "dependencies": [
-
-  ],
+  "plan_provider_id": "native.presentation_state_plan",
+  "planning_order": 911,
   "provider_parameters": {
+    "presentation": {
+      "kind": "advanced_blending",
+      "expected_source_sop_class_uid": "1.2.840.10008.5.1.4.1.1.2",
+      "content_label": "DTSADVBLEND",
+      "content_description": "Synthetic DTSADVBLEND presentation state",
+      "input_numbers": [
+        1,
+        2
+      ],
+      "geometry_input_number": 1,
+      "blending_mode": "EQUAL",
+      "pixel_presentation": "TRUE_COLOR"
+    },
+    "sources": [
+      {
+        "recipe": {
+          "recipe_id": "geometry_ct_multiseries_shared_frame_of_reference",
+          "recipe_version": "0.1.0"
+        },
+        "artifact_logical_id": "series_001_slice_001",
+        "role": {
+          "kind": "presentation_blending_input",
+          "input_number": 1
+        },
+        "referenced_frames": []
+      },
+      {
+        "recipe": {
+          "recipe_id": "geometry_ct_multiseries_shared_frame_of_reference",
+          "recipe_version": "0.1.0"
+        },
+        "artifact_logical_id": "series_001_slice_002",
+        "role": {
+          "kind": "presentation_blending_input",
+          "input_number": 1
+        },
+        "referenced_frames": []
+      },
+      {
+        "recipe": {
+          "recipe_id": "geometry_ct_multiseries_shared_frame_of_reference",
+          "recipe_version": "0.1.0"
+        },
+        "artifact_logical_id": "series_002_slice_001",
+        "role": {
+          "kind": "presentation_blending_input",
+          "input_number": 2
+        },
+        "referenced_frames": []
+      },
+      {
+        "recipe": {
+          "recipe_id": "geometry_ct_multiseries_shared_frame_of_reference",
+          "recipe_version": "0.1.0"
+        },
+        "artifact_logical_id": "series_002_slice_002",
+        "role": {
+          "kind": "presentation_blending_input",
+          "input_number": 2
+        },
+        "referenced_frames": []
+      }
+    ]
   },
+  "dependencies": [
+    {
+      "recipe": {
+        "recipe_id": "geometry_ct_multiseries_shared_frame_of_reference",
+        "recipe_version": "0.1.0"
+      },
+      "role": "presentation_blending_inputs"
+    }
+  ],
   "validation_rule_ids": [
     "validation.shared"
   ],
@@ -21,27 +91,30 @@
   "dicom": {
     "artifacts": [
       {
-        "logical_id": "artifact_1",
+      "logical_id": "artifact_1",
+        "order": 0,
+        "template": {
+          "template_id": "derived/presentation-state/advanced-blending",
+          "template_version": "1.0.0"
+        },
         "output": {
-          "role": "primary_1",
-          "provider_derived": true
+          "role": "presentation_state",
+          "path": "derived/presentation-state/advanced_blending/instance.dcm"
         },
         "encoding": {
           "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-          "sequence_length_policy": "provider",
-          "item_length_policy": "provider",
-          "offset_table_policy": "provider",
-          "fragmentation_policy": "provider"
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
         },
-        "parameters": {
-        },
-        "attribute_operations": [
-
-        ],
+        "parameters": {},
+        "attribute_operations": [],
         "content": {
-          "provider_id": "content.case_default",
-          "parameters": {
-          }
+          "provider_id": "content.empty_dataset",
+          "parameters": {}
         },
         "validation_rule_ids": [
           "validation.shared"
@@ -50,15 +123,8 @@
           "projection.curated"
         ],
         "determinism": "byte_stable",
-        "stressors": [
-
-        ],
-        "algorithm_provider_id": "algorithm.case_provider",
-        "template": {
-          "template_id": "derived/presentation-state/advanced-blending",
-          "template_version": "1.0.0"
-        },
-        "order": 0
+        "stressors": [],
+        "algorithm_provider_id": "algorithm.presentation_state"
       }
     ]
   }

@@ -160,6 +160,8 @@ impl GenericPlanValidator {
 
         let mut seen = BTreeSet::new();
         let mut attribute_errors = Vec::new();
+        let explicit_vr =
+            plan.transfer_syntax_uid != dicom_dictionary_std::uids::IMPLICIT_VR_LITTLE_ENDIAN;
         for attribute in &plan.attributes {
             if !seen.insert(attribute.address.clone()) {
                 attribute_errors.push(format!(
@@ -169,6 +171,10 @@ impl GenericPlanValidator {
                 continue;
             }
             match object.element(attribute.address.tag()) {
+                // Implicit VR carries no VR on the wire. The reader must
+                // recover one from its dictionary, which can intentionally
+                // differ from a declared compatibility VR in the plan.
+                Ok(_) if !explicit_vr => {}
                 Ok(element) if element.vr() == attribute.vr.as_dicom() => {}
                 Ok(element) => attribute_errors.push(format!(
                     "{} reopened as {:?}, expected {}",
@@ -203,9 +209,12 @@ impl GenericPlanValidator {
         for content in &plan.content {
             if let super::ContentPlacement::Nested { sequence_path } = &content.placement {
                 match nested_content_bytes(&object, sequence_path, &content.address) {
-                    Ok((vr, _bytes)) if vr != content.vr.as_dicom() => content_errors.push(
-                        format!("{} has an unexpected VR", content.address.normalized_tag()),
-                    ),
+                    Ok((vr, _bytes)) if explicit_vr && vr != content.vr.as_dicom() => {
+                        content_errors.push(format!(
+                            "{} has an unexpected VR",
+                            content.address.normalized_tag()
+                        ))
+                    }
                     Ok((_, bytes)) => {
                         validate_primitive_content(content, &bytes, &mut content_errors)
                     }
@@ -217,9 +226,12 @@ impl GenericPlanValidator {
                 continue;
             }
             match object.element(content.address.tag()) {
-                Ok(element) if element.vr() != content.vr.as_dicom() => content_errors.push(
-                    format!("{} has an unexpected VR", content.address.normalized_tag()),
-                ),
+                Ok(element) if explicit_vr && element.vr() != content.vr.as_dicom() => {
+                    content_errors.push(format!(
+                        "{} has an unexpected VR",
+                        content.address.normalized_tag()
+                    ))
+                }
                 Ok(element) if content.kind == "encapsulated_pixels" => match element.value() {
                     DicomValue::PixelSequence(sequence) => {
                         let bytes = sequence.fragments().concat();
@@ -974,6 +986,35 @@ mod tests {
             checks
                 .iter()
                 .any(|check| { check.rule_id == "content_integrity" && check.status == "failed" })
+        );
+    }
+
+    #[test]
+    fn validator_does_not_invent_wire_vr_for_implicit_transfer_syntax() {
+        let path = std::env::temp_dir().join(format!(
+            "dts-composition-implicit-vr-{}-{}.dcm",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        let mut implicit = plan(vec![0, 1, 2, 3]);
+        implicit.transfer_syntax_uid = dicom_dictionary_std::uids::IMPLICIT_VR_LITTLE_ENDIAN.into();
+        implicit.attributes.push(ResolvedAttribute {
+            address: AttributeAddress::from_normalized_tag("0018,1149").unwrap(),
+            // This compatibility declaration intentionally differs from the
+            // standard dictionary VR. Implicit VR does not encode either VR.
+            vr: DicomVr::DS,
+            value: Some(AttributeValue::Multi(vec![
+                PrimitiveValue::String("2".into()),
+                PrimitiveValue::String("2".into()),
+            ])),
+            origin: ValueOrigin::InstanceOverride,
+        });
+        Part10Materializer.materialize(&implicit, &path).unwrap();
+        let checks = GenericPlanValidator.validate_file(&implicit, &path);
+        fs::remove_file(path).unwrap();
+        assert!(
+            checks.iter().all(|check| check.status == "passed"),
+            "{checks:#?}"
         );
     }
 }

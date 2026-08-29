@@ -1,13 +1,13 @@
 use std::collections::BTreeMap;
 use std::fmt;
 use std::fs;
+use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use serde_json::{Value, json};
 
-#[cfg(test)]
 use crate::codecs::{FrameDecodeInput, FrameDecoder};
 use crate::codecs::{FrameEncodeInput, FrameEncoder, NativeRleLosslessEncoder};
 use crate::encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData};
@@ -894,19 +894,24 @@ fn validate_family_pixel_contract(
 }
 
 fn encode_rle_pixels(mut pixel: DefaultPixelOutput) -> Result<DefaultPixelOutput, ComposeError> {
-    let native = match pixel.content.materialization.as_ref() {
-        Some(super::ContentMaterialization::Inline(bytes)) => bytes.clone(),
-        Some(super::ContentMaterialization::StagedFile(path)) => {
-            fs::read(path).map_err(|source| ComposeError::Io {
-                path: path.clone(),
-                source,
-            })?
-        }
+    let inline = match pixel.content.materialization.as_ref() {
+        Some(super::ContentMaterialization::Inline(bytes)) => Some(bytes.as_slice()),
+        Some(super::ContentMaterialization::StagedFile(_)) => None,
         Some(super::ContentMaterialization::Encapsulated { .. }) => {
             return Err(ComposeError::AlreadyEncapsulated);
         }
         None => return Err(ComposeError::MissingPixelMaterialization),
     };
+    let mut staged = match pixel.content.materialization.as_ref() {
+        Some(super::ContentMaterialization::StagedFile(path)) => {
+            Some(fs::File::open(path).map_err(|source| ComposeError::Io {
+                path: path.clone(),
+                source,
+            })?)
+        }
+        _ => None,
+    };
+    let native_sha256 = pixel.content.sha256.clone();
     let shape = &pixel.plan.shape;
     let photometric = match shape.photometric_interpretation {
         super::PhotometricInterpretation::Monochrome1 => "MONOCHROME1",
@@ -916,20 +921,42 @@ fn encode_rle_pixels(mut pixel: DefaultPixelOutput) -> Result<DefaultPixelOutput
         super::PhotometricInterpretation::YbrFull => "YBR_FULL",
         super::PhotometricInterpretation::YbrFull422 => "YBR_FULL_422",
     };
+    let encoder = NativeRleLosslessEncoder::new();
+    let backend = FrameEncoder::backend(&encoder);
     let mut encoded_frames = Vec::with_capacity(pixel.plan.frame_spans.len());
-    for frame in &pixel.plan.frame_spans {
+    let mut decoded_frame_sha256 = Vec::with_capacity(pixel.plan.frame_spans.len());
+    for (frame_index, frame) in pixel.plan.frame_spans.iter().enumerate() {
         if frame.bit_offset % 8 != 0 || frame.bit_length % 8 != 0 {
             return Err(ComposeError::CodecPixelAlignment);
         }
-        let start =
-            usize::try_from(frame.bit_offset / 8).map_err(|_| ComposeError::ResourceRange)?;
         let length =
             usize::try_from(frame.bit_length / 8).map_err(|_| ComposeError::ResourceRange)?;
-        let end = start
-            .checked_add(length)
-            .ok_or(ComposeError::ResourceRange)?;
-        let encoded = NativeRleLosslessEncoder::new().encode_frame(FrameEncodeInput {
-            native_frame: native.get(start..end).ok_or(ComposeError::ResourceRange)?,
+        let mut native_frame = vec![0_u8; length];
+        if let Some(bytes) = inline {
+            let start =
+                usize::try_from(frame.bit_offset / 8).map_err(|_| ComposeError::ResourceRange)?;
+            let end = start
+                .checked_add(length)
+                .ok_or(ComposeError::ResourceRange)?;
+            native_frame.copy_from_slice(bytes.get(start..end).ok_or(ComposeError::ResourceRange)?);
+        } else {
+            let file = staged
+                .as_mut()
+                .expect("staged pixel materialization opened");
+            file.seek(SeekFrom::Start(frame.bit_offset / 8))
+                .map_err(|source| ComposeError::CodecRead {
+                    frame: frame_index,
+                    source,
+                })?;
+            file.read_exact(&mut native_frame)
+                .map_err(|source| ComposeError::CodecRead {
+                    frame: frame_index,
+                    source,
+                })?;
+        }
+        let native_frame_sha256 = sha256_hex(&native_frame);
+        let encoded = encoder.encode_frame(FrameEncodeInput {
+            native_frame: &native_frame,
             rows: u16::try_from(shape.rows).map_err(|_| ComposeError::ResourceRange)?,
             columns: u16::try_from(shape.columns).map_err(|_| ComposeError::ResourceRange)?,
             samples_per_pixel: u16::from(shape.samples_per_pixel),
@@ -937,6 +964,20 @@ fn encode_rle_pixels(mut pixel: DefaultPixelOutput) -> Result<DefaultPixelOutput
             bits_stored: u16::from(shape.bits_stored),
             photometric_interpretation: photometric,
         })?;
+        let decoded = encoder.decode_frame(FrameDecodeInput {
+            encoded_frame: &encoded.bytes,
+            rows: u16::try_from(shape.rows).map_err(|_| ComposeError::ResourceRange)?,
+            columns: u16::try_from(shape.columns).map_err(|_| ComposeError::ResourceRange)?,
+            samples_per_pixel: u16::from(shape.samples_per_pixel),
+            bits_allocated: u16::from(shape.bits_allocated),
+            bits_stored: u16::from(shape.bits_stored),
+            photometric_interpretation: photometric,
+        })?;
+        let decoded_sha256 = sha256_hex(&decoded.native_bytes);
+        if decoded_sha256 != native_frame_sha256 {
+            return Err(ComposeError::CodecSemanticMismatch { frame: frame_index });
+        }
+        decoded_frame_sha256.push(decoded_sha256);
         encoded_frames.push(encoded.bytes);
     }
     let encapsulated = EncapsulatedPixelData::one_fragment_per_frame(
@@ -957,11 +998,35 @@ fn encode_rle_pixels(mut pixel: DefaultPixelOutput) -> Result<DefaultPixelOutput
     pixel
         .content
         .properties
-        .insert("native_sha256".into(), sha256_hex(&native));
+        .insert("native_sha256".into(), native_sha256);
     pixel.content.properties.insert(
         "codec_backend".into(),
         NativeRleLosslessEncoder::BACKEND_ID.into(),
     );
+    pixel.content.properties.extend(BTreeMap::from([
+        (
+            "codec_backend_kind".into(),
+            backend.backend_kind.as_str().into(),
+        ),
+        ("codec_version".into(), backend.version.into()),
+        (
+            "codec_feature_gate".into(),
+            backend.feature_gate.unwrap_or("none").into(),
+        ),
+        (
+            "codec_determinism".into(),
+            backend.determinism.as_str().into(),
+        ),
+        ("codec_availability".into(), "available".into()),
+        (
+            "decoded_frame_sha256".into(),
+            serde_json::to_string(&decoded_frame_sha256).expect("frame hashes serialize"),
+        ),
+        (
+            "codec_semantic_validation".into(),
+            "decoded_frame_hashes_match".into(),
+        ),
+    ]));
     pixel.content.properties.insert(
         "compressed_frame_sha256".into(),
         serde_json::to_string(&encapsulated.compressed_frame_hashes)
@@ -1105,6 +1170,13 @@ pub enum ComposeError {
     MissingPixelMaterialization,
     AlreadyEncapsulated,
     CodecPixelAlignment,
+    CodecRead {
+        frame: usize,
+        source: std::io::Error,
+    },
+    CodecSemanticMismatch {
+        frame: usize,
+    },
     OutputLimit {
         size: u64,
         limit: u64,

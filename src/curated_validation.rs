@@ -8,7 +8,7 @@ use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use dicom_core::{Tag, VR};
+use dicom_core::{Tag, VR, value::Value as DicomValue};
 use dicom_dictionary_std::tags;
 use dicom_object::open_file;
 use serde::{Deserialize, Serialize};
@@ -123,6 +123,13 @@ pub enum MetadataObservation {
         pixel_aspect_ratio: Option<Vec<String>>,
         patient_space_geometry_present: bool,
     },
+    ExtendedOffsetTable {
+        offsets: Vec<u64>,
+        lengths: Vec<u64>,
+        padded_fragment_lengths: Vec<u64>,
+        basic_offset_table_entries: u32,
+        page_numbers: Vec<i32>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -132,6 +139,20 @@ pub struct NonsquareValidationSpec {
     pub pixel_spacing: Option<Vec<String>>,
     pub nominal_scanned_pixel_spacing: Option<Vec<String>>,
     pub pixel_aspect_ratio: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExtendedOffsetTableValidationSpec {
+    pub offsets: Vec<u64>,
+    pub lengths: Vec<u64>,
+    pub compressed_fragment_lengths: Vec<u64>,
+    pub padded_fragment_lengths: Vec<u64>,
+    pub fragments_per_frame: Vec<u64>,
+    pub fragment_item_start_offsets: Vec<u64>,
+    pub page_numbers: Vec<i32>,
+    pub offset_origin: String,
+    pub item_header_bytes: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -484,6 +505,166 @@ pub fn validate_nonsquare_round_trip(
             pixel_aspect_ratio: expected("0028,0034"),
         },
     )
+}
+
+pub fn validate_extended_offset_table_round_trip(
+    path: &Path,
+    expected: &ExtendedOffsetTableValidationSpec,
+) -> Result<(TypedValidationCheck, MetadataObservation), CuratedValidationError> {
+    validate_eot_spec(path, expected)?;
+    let object = open_file(path).map_err(|error| {
+        fail(
+            path,
+            format!("reopen Extended Offset Table fixture: {error}"),
+        )
+    })?;
+    for (tag, label, words) in [
+        (
+            tags::EXTENDED_OFFSET_TABLE,
+            "Extended Offset Table",
+            expected.offsets.as_slice(),
+        ),
+        (
+            tags::EXTENDED_OFFSET_TABLE_LENGTHS,
+            "Extended Offset Table Lengths",
+            expected.lengths.as_slice(),
+        ),
+    ] {
+        let element = object
+            .element(tag)
+            .map_err(|error| fail(path, format!("read {label}: {error}")))?;
+        let actual = element
+            .value()
+            .to_bytes()
+            .map_err(|error| fail(path, format!("decode {label}: {error}")))?;
+        let expected_bytes = words
+            .iter()
+            .flat_map(|word| word.to_le_bytes())
+            .collect::<Vec<_>>();
+        if element.vr() != VR::OV || actual.as_ref() != expected_bytes {
+            return Err(fail(
+                path,
+                format!("{label} did not preserve its exact OV words"),
+            ));
+        }
+    }
+
+    let pixel_data = object
+        .element(tags::PIXEL_DATA)
+        .map_err(|error| fail(path, format!("read EOT Pixel Data: {error}")))?;
+    let DicomValue::PixelSequence(sequence) = pixel_data.value() else {
+        return Err(fail(path, "EOT fixture Pixel Data is not encapsulated"));
+    };
+    let page_numbers = object
+        .element(tags::PAGE_NUMBER_VECTOR)
+        .map_err(|error| fail(path, format!("read EOT Page Number Vector: {error}")))?
+        .to_multi_int::<i32>()
+        .map_err(|error| fail(path, format!("decode EOT Page Number Vector: {error}")))?;
+    for (tag, label, value) in [
+        (tags::RESCALE_INTERCEPT, "Rescale Intercept", "0"),
+        (tags::RESCALE_SLOPE, "Rescale Slope", "1"),
+        (tags::RESCALE_TYPE, "Rescale Type", "US"),
+        (
+            tags::PRESENTATION_LUT_SHAPE,
+            "Presentation LUT Shape",
+            "IDENTITY",
+        ),
+    ] {
+        let actual = object
+            .element(tag)
+            .map_err(|error| fail(path, format!("read EOT {label}: {error}")))?
+            .to_str()
+            .map_err(|error| fail(path, format!("decode EOT {label}: {error}")))?;
+        if actual.trim_end_matches([' ', '\0']) != value {
+            return Err(fail(
+                path,
+                format!("EOT {label} is {actual:?}, expected {value:?}"),
+            ));
+        }
+    }
+    let fragment_lengths = sequence
+        .fragments()
+        .iter()
+        .map(|fragment| fragment.len() as u64)
+        .collect::<Vec<_>>();
+    if !sequence.offset_table().is_empty()
+        || page_numbers != expected.page_numbers
+        || fragment_lengths != expected.padded_fragment_lengths
+    {
+        return Err(fail(
+            path,
+            format!(
+                "EOT Pixel Data expected an empty BOT and padded item lengths {:?}, found {:?}",
+                expected.padded_fragment_lengths, fragment_lengths
+            ),
+        ));
+    }
+    for (fragment, (compressed, padded)) in sequence.fragments().iter().zip(
+        expected
+            .compressed_fragment_lengths
+            .iter()
+            .zip(&expected.padded_fragment_lengths),
+    ) {
+        if padded > compressed && fragment.last() != Some(&0) {
+            return Err(fail(path, "EOT fragment padding byte is not zero"));
+        }
+    }
+    Ok((
+        TypedValidationCheck::passed_internal(
+            "extended_offset_table_round_trip",
+            "Exact OV offsets and lengths reopened with an empty Basic Offset Table and one RLE fragment per frame.",
+        ),
+        MetadataObservation::ExtendedOffsetTable {
+            offsets: expected.offsets.clone(),
+            lengths: expected.lengths.clone(),
+            padded_fragment_lengths: fragment_lengths,
+            basic_offset_table_entries: sequence.offset_table().len() as u32,
+            page_numbers,
+        },
+    ))
+}
+
+fn validate_eot_spec(
+    path: &Path,
+    expected: &ExtendedOffsetTableValidationSpec,
+) -> Result<(), CuratedValidationError> {
+    let count = expected.offsets.len();
+    if count == 0
+        || expected.offset_origin != "first_fragment_item_tag"
+        || expected.item_header_bytes != 8
+        || expected.lengths.len() != count
+        || expected.compressed_fragment_lengths.len() != count
+        || expected.padded_fragment_lengths.len() != count
+        || expected.fragments_per_frame.len() != count
+        || expected.fragment_item_start_offsets.len() != count
+        || expected.page_numbers.len() != count
+        || expected.lengths != expected.compressed_fragment_lengths
+        || expected.fragments_per_frame.iter().any(|count| *count != 1)
+    {
+        return Err(fail(path, "invalid typed Extended Offset Table evidence"));
+    }
+    let mut next_offset = 0_u64;
+    for index in 0..count {
+        let compressed = expected.compressed_fragment_lengths[index];
+        let padded = expected.padded_fragment_lengths[index];
+        if expected.offsets[index] != next_offset
+            || expected.fragment_item_start_offsets[index]
+                != next_offset + expected.item_header_bytes
+            || padded < compressed
+            || padded - compressed > 1
+            || padded % 2 != 0
+        {
+            return Err(fail(
+                path,
+                "inconsistent Extended Offset Table fragment arithmetic",
+            ));
+        }
+        next_offset = next_offset
+            .checked_add(expected.item_header_bytes)
+            .and_then(|value| value.checked_add(padded))
+            .ok_or_else(|| fail(path, "Extended Offset Table arithmetic overflow"))?;
+    }
+    Ok(())
 }
 
 pub fn validate_nonsquare_spec(

@@ -8,7 +8,8 @@ use dicom_test_suite::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
 };
 use dicom_test_suite::curated_validation::{
-    ScPart10ValidationInput, ScPixelLengthFormula, validate_metadata_round_trip, validate_sc_part10,
+    ExtendedOffsetTableValidationSpec, ScPart10ValidationInput, ScPixelLengthFormula,
+    validate_extended_offset_table_round_trip, validate_metadata_round_trip, validate_sc_part10,
 };
 use dicom_test_suite::executor::adapters::ManifestProjectionCompatibilityInput;
 use dicom_test_suite::executor::cancellation::CancellationToken;
@@ -335,4 +336,98 @@ fn metadata_validator_rejects_corrupted_encoded_person_name() {
         .unwrap();
     let error = validate_metadata_round_trip(&path, metadata).unwrap_err();
     assert!(error.to_string().contains("Patient Name"));
+}
+
+#[test]
+fn curated_eot_validation_is_evidence_backed_and_rejects_corrupted_ov_words() {
+    let provider =
+        CuratedScCorpusPlanProvider::load(CuratedCatalogPaths::from_repository_root(".")).unwrap();
+    let bundle = provider
+        .plan(&CuratedScPlanRequest {
+            selection: CuratedScSelection::CaseIds(vec![
+                "encapsulation/sc/eot_single_fragment_multiframe".into(),
+            ]),
+            seed: 7,
+            max_parallelism: 1,
+        })
+        .unwrap();
+    let destination = TempOutput::absent();
+    let result = CorpusExecutor::new(
+        CuratedExecutionServiceFactory::new(&bundle),
+        EvidenceProjector,
+    )
+    .execute(&bundle.plan, &destination.0, 1, &CancellationToken::new())
+    .unwrap();
+    let execution = &result.evidence.artifacts[0];
+    let checks = execution
+        .validation
+        .iter()
+        .find_map(|validation| validation.details.get("checks"))
+        .and_then(serde_json::Value::as_array)
+        .unwrap();
+    let internal_names = checks
+        .iter()
+        .filter(|check| check.get("layer").and_then(serde_json::Value::as_str) == Some("internal"))
+        .filter_map(|check| check.get("name").and_then(serde_json::Value::as_str))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        &internal_names[internal_names.len() - 2..],
+        &[
+            "curated_composition_plan",
+            "extended_offset_table_round_trip"
+        ]
+    );
+    assert!(checks.iter().any(|check| {
+        check.get("name").and_then(serde_json::Value::as_str)
+            == Some("extended_offset_table_round_trip")
+            && check.get("message").and_then(serde_json::Value::as_str)
+                == Some(
+                    "Exact OV offsets and lengths reopened with an empty Basic Offset Table and one RLE fragment per frame.",
+                )
+    }));
+
+    let content = execution
+        .materialization
+        .as_ref()
+        .unwrap()
+        .content
+        .iter()
+        .find(|content| content.slot == "pixels")
+        .unwrap();
+    let projection = bundle.projection.artifacts[0]
+        .artifact_recipe
+        .secondary_capture
+        .as_ref()
+        .unwrap()
+        .encapsulation_projection
+        .as_ref()
+        .unwrap();
+    let spec = ExtendedOffsetTableValidationSpec {
+        offsets: content.extended_offset_table.clone(),
+        lengths: content.extended_offset_table_lengths.clone(),
+        compressed_fragment_lengths: content.compressed_lengths.clone(),
+        padded_fragment_lengths: content.padded_fragment_lengths.clone(),
+        fragments_per_frame: content.fragments_per_frame.clone(),
+        fragment_item_start_offsets: content
+            .fragments
+            .iter()
+            .map(|fragment| fragment.item_start_offset)
+            .collect(),
+        page_numbers: vec![1, 2, 3],
+        offset_origin: projection.offset_origin.clone(),
+        item_header_bytes: u64::from(projection.item_header_bytes),
+    };
+    let path = destination
+        .0
+        .join(&execution.output.as_ref().unwrap().relative_path);
+    let mut bytes = fs::read(&path).unwrap();
+    let eot_header = [0xE0, 0x7F, 0x01, 0x00, b'O', b'V', 0, 0, 24, 0, 0, 0];
+    let offset = bytes
+        .windows(eot_header.len())
+        .position(|window| window == eot_header)
+        .expect("Extended Offset Table header");
+    bytes[offset + eot_header.len()] ^= 1;
+    fs::write(&path, bytes).unwrap();
+    let error = validate_extended_offset_table_round_trip(&path, &spec).unwrap_err();
+    assert!(error.to_string().contains("Extended Offset Table"));
 }

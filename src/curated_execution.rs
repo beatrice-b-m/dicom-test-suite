@@ -6,12 +6,15 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use crate::composition::{CompositionUidRole, GenericPlanValidator, ResolvedInstancePlan};
-use crate::corpus_plan::{EvidenceIndependence, EvidenceObligation, PlannedArtifact};
+use crate::corpus_plan::{
+    EvidenceIndependence, EvidenceObligation, OffsetTablePolicy, PlannedArtifact,
+};
 use crate::curated_plan::{CuratedArtifactProjectionContext, CuratedScCorpusPlan};
 use crate::curated_validation::{
-    ScPaddingValidation, ScPaletteValidation, ScPart10ValidationInput, ScPixelLengthFormula,
-    TypedValidationCheck, validate_metadata_round_trip, validate_nonsquare_round_trip,
-    validate_sc_part10,
+    ExtendedOffsetTableValidationSpec, ScPaddingValidation, ScPaletteValidation,
+    ScPart10ValidationInput, ScPixelLengthFormula, TypedValidationCheck,
+    validate_extended_offset_table_round_trip, validate_metadata_round_trip,
+    validate_nonsquare_round_trip, validate_sc_part10,
 };
 use crate::executor::cancellation::CancellationToken;
 use crate::executor::engine::{
@@ -378,6 +381,40 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
             "curated_composition_plan",
             "The curated dataset resolved through the shared composition plan before Part 10 materialization.",
         ));
+        if artifact.encoding.offset_table == OffsetTablePolicy::Extended {
+            let projection = sc.encapsulation_projection.as_ref().ok_or_else(|| {
+                ServiceInvocationError::new(
+                    "validation",
+                    "Extended offsets lack typed projection parameters",
+                )
+            })?;
+            let page_numbers = (1..=sc.frames)
+                .map(|value| {
+                    i32::try_from(value).map_err(|error| service_error("validation", error))
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            let (check, observation) = validate_extended_offset_table_round_trip(
+                &self.staging_root.join(declaration.relative_path.as_str()),
+                &ExtendedOffsetTableValidationSpec {
+                    offsets: pixel_content.extended_offset_table.clone(),
+                    lengths: pixel_content.extended_offset_table_lengths.clone(),
+                    compressed_fragment_lengths: pixel_content.compressed_lengths.clone(),
+                    padded_fragment_lengths: pixel_content.padded_fragment_lengths.clone(),
+                    fragments_per_frame: pixel_content.fragments_per_frame.clone(),
+                    fragment_item_start_offsets: pixel_content
+                        .fragments
+                        .iter()
+                        .map(|fragment| fragment.item_start_offset)
+                        .collect(),
+                    page_numbers,
+                    offset_origin: projection.offset_origin.clone(),
+                    item_header_bytes: u64::from(projection.item_header_bytes),
+                },
+            )
+            .map_err(|error| service_error("validation", error))?;
+            typed.append(check);
+            typed.metadata_observation = Some(observation);
+        }
         if let Some(metadata) = &context.artifact_recipe.metadata_sc {
             let (check, observation) = validate_metadata_round_trip(
                 &self.staging_root.join(declaration.relative_path.as_str()),

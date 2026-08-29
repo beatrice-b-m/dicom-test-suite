@@ -7,7 +7,7 @@ use std::time::Instant;
 
 use dicom_core::{
     DataElement, Length, PrimitiveValue, Tag, VR,
-    value::{DataSetSequence, PixelFragmentSequence, Value as DicomValue},
+    value::{DataSetSequence, PixelFragmentSequence},
 };
 use dicom_dictionary_std::{tags, uids};
 use dicom_object::{FileMetaTableBuilder, InMemDicomObject, open_file};
@@ -13358,130 +13358,26 @@ fn lossy_metrics_validation(codec_name: &str, metrics: &crate::codecs::LossyFram
 fn validate_extended_offset_table_round_trip(
     path: &std::path::Path,
 ) -> Result<Value, GenerateError> {
-    let obj = open_file(path).map_err(|error| GenerateError::ValidateDicomFile {
+    crate::curated_validation::validate_extended_offset_table_round_trip(
+        path,
+        &crate::curated_validation::ExtendedOffsetTableValidationSpec {
+            offsets: EOT_OFFSETS.to_vec(),
+            lengths: EOT_ENCODED_LENGTHS.to_vec(),
+            compressed_fragment_lengths: EOT_ENCODED_LENGTHS.to_vec(),
+            padded_fragment_lengths: vec![70, 66, 70],
+            fragments_per_frame: vec![1, 1, 1],
+            fragment_item_start_offsets: vec![8, 86, 160],
+            page_numbers: vec![1, 2, 3],
+            offset_origin: "first_fragment_item_tag".into(),
+            item_header_bytes: 8,
+        },
+    )
+    .map(|(check, _)| check.legacy_json())
+    .map_err(|error| GenerateError::ValidateDicomFile {
         path: path.to_path_buf(),
-        message: format!("reopen Extended Offset Table fixture: {error}"),
-    })?;
-    let expected_offsets = EOT_OFFSETS
-        .iter()
-        .flat_map(|word| word.to_le_bytes())
-        .collect::<Vec<_>>();
-    let expected_lengths = EOT_ENCODED_LENGTHS
-        .iter()
-        .flat_map(|word| word.to_le_bytes())
-        .collect::<Vec<_>>();
-    for (tag, label, expected) in [
-        (
-            tags::EXTENDED_OFFSET_TABLE,
-            "Extended Offset Table",
-            expected_offsets.as_slice(),
-        ),
-        (
-            tags::EXTENDED_OFFSET_TABLE_LENGTHS,
-            "Extended Offset Table Lengths",
-            expected_lengths.as_slice(),
-        ),
-    ] {
-        let element = obj
-            .element(tag)
-            .map_err(|error| GenerateError::ValidateDicomFile {
-                path: path.to_path_buf(),
-                message: format!("read {label}: {error}"),
-            })?;
-        let actual =
-            element
-                .value()
-                .to_bytes()
-                .map_err(|error| GenerateError::ValidateDicomFile {
-                    path: path.to_path_buf(),
-                    message: format!("decode {label}: {error}"),
-                })?;
-        if element.vr() != VR::OV || actual.as_ref() != expected {
-            return Err(GenerateError::ValidateDicomFile {
-                path: path.to_path_buf(),
-                message: format!("{label} did not preserve its exact OV words"),
-            });
-        }
-    }
-    let pixel_data =
-        obj.element(tags::PIXEL_DATA)
-            .map_err(|error| GenerateError::ValidateDicomFile {
-                path: path.to_path_buf(),
-                message: format!("read EOT Pixel Data: {error}"),
-            })?;
-    let DicomValue::PixelSequence(sequence) = pixel_data.value() else {
-        return Err(GenerateError::ValidateDicomFile {
-            path: path.to_path_buf(),
-            message: "EOT fixture Pixel Data is not encapsulated".to_string(),
-        });
-    };
-    let page_numbers = obj
-        .element(tags::PAGE_NUMBER_VECTOR)
-        .map_err(|error| GenerateError::ValidateDicomFile {
-            path: path.to_path_buf(),
-            message: format!("read EOT Page Number Vector: {error}"),
-        })?
-        .to_multi_int::<i32>()
-        .map_err(|error| GenerateError::ValidateDicomFile {
-            path: path.to_path_buf(),
-            message: format!("decode EOT Page Number Vector: {error}"),
-        })?;
-    for (tag, label, expected) in [
-        (tags::RESCALE_INTERCEPT, "Rescale Intercept", "0"),
-        (tags::RESCALE_SLOPE, "Rescale Slope", "1"),
-        (tags::RESCALE_TYPE, "Rescale Type", "US"),
-        (
-            tags::PRESENTATION_LUT_SHAPE,
-            "Presentation LUT Shape",
-            "IDENTITY",
-        ),
-    ] {
-        let actual = obj
-            .element(tag)
-            .map_err(|error| GenerateError::ValidateDicomFile {
-                path: path.to_path_buf(),
-                message: format!("read EOT {label}: {error}"),
-            })?
-            .to_str()
-            .map_err(|error| GenerateError::ValidateDicomFile {
-                path: path.to_path_buf(),
-                message: format!("decode EOT {label}: {error}"),
-            })?;
-        if actual.trim_end_matches([' ', '\0']) != expected {
-            return Err(GenerateError::ValidateDicomFile {
-                path: path.to_path_buf(),
-                message: format!("EOT {label} is {actual:?}, expected {expected:?}"),
-            });
-        }
-    }
-    let fragment_lengths = sequence
-        .fragments()
-        .iter()
-        .map(|fragment| fragment.len() as u64)
-        .collect::<Vec<_>>();
-    let padded_fragment_lengths = [70_u64, 66, 70];
-    if !sequence.offset_table().is_empty()
-        || page_numbers != [1, 2, 3]
-        || sequence.fragments().len() != EOT_ENCODED_LENGTHS.len()
-        || fragment_lengths != padded_fragment_lengths
-        || sequence.fragments()[0].last() != Some(&0)
-        || sequence.fragments()[2].last() != Some(&0)
-    {
-        return Err(GenerateError::ValidateDicomFile {
-            path: path.to_path_buf(),
-            message: format!(
-                "EOT Pixel Data expected an empty BOT and padded item lengths {:?}, found {:?}",
-                padded_fragment_lengths, fragment_lengths
-            ),
-        });
-    }
-    Ok(serde_json::json!({
-        "name": "extended_offset_table_round_trip",
-        "status": "passed",
-        "message": "Exact OV offsets and lengths reopened with an empty Basic Offset Table and one RLE fragment per frame."
-    }))
+        message: error.to_string(),
+    })
 }
-
 fn validate_nonsquare_geometry_round_trip(
     path: &std::path::Path,
     variant: NonsquareGeometryVariant,

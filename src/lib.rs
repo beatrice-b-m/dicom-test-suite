@@ -39,6 +39,7 @@ use dicom_transfer_syntax_registry::entries::{
 };
 
 pub mod codecs;
+pub mod composition;
 pub mod conformance;
 pub mod coverage_gaps;
 pub mod encapsulation;

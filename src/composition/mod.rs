@@ -4,6 +4,7 @@
 
 pub mod attribute;
 pub mod content;
+pub mod defaults;
 pub mod identity;
 pub mod manifest;
 pub mod materializer;
@@ -17,6 +18,10 @@ pub use attribute::{
     PrimitiveValue,
 };
 pub use content::{ContentError, ContentLimits, LocalContentResolver, StagedAsset};
+pub use defaults::{
+    DefaultError, DefaultPixelOutput, canonical_native_pixels, resolved_sc_plan, sc_default_pixels,
+    sc_derived_layer, sc_template_default_layer,
+};
 pub use identity::{CompositionUidRole, IdentityAllocator, IdentityError, IdentityPlan};
 pub use manifest::{
     CompositionManifestAssembler, CompositionManifestInputs, GenericPlanValidator,

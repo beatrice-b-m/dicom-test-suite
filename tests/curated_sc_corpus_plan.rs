@@ -70,6 +70,13 @@ fn source_inventory() -> (Vec<(String, String, String)>, BTreeSet<String>) {
                 | "native.classic_plan"
                 | "native.enhanced_plan"
                 | "native.wsi_plan"
+                | "native.registration_plan"
+                | "native.presentation_state_plan"
+                | "native.waveform_plan"
+                | "native.encapsulated_payload_plan"
+                | "native.quantitative_plan"
+                | "native.sr_plan"
+                | "native.rt_plan"
         ) {
             continue;
         }
@@ -97,6 +104,90 @@ fn source_inventory() -> (Vec<(String, String, String)>, BTreeSet<String>) {
         }
     }
     (artifacts, pending)
+}
+
+#[test]
+fn native_sr_and_rt_close_sources_while_external_sr_remains_outside_the_plan() {
+    let recipes = RecipeCatalog::load(
+        "cases/recipes",
+        "cases/registry.json",
+        "templates/catalog.json",
+    )
+    .unwrap();
+    let native_cases = recipes
+        .recipes()
+        .values()
+        .filter(|recipe| {
+            matches!(
+                recipe.plan_provider_id.as_str(),
+                "native.sr_plan" | "native.rt_plan"
+            )
+        })
+        .map(|recipe| recipe.binding.case_id.clone())
+        .collect::<BTreeSet<_>>();
+    let external_sr = recipes
+        .recipes()
+        .values()
+        .filter(|recipe| recipe.plan_provider_id == "external.highdicom_sr_import_plan")
+        .map(|recipe| recipe.binding.case_id.clone())
+        .collect::<BTreeSet<_>>();
+    assert!(!native_cases.is_empty());
+    assert_eq!(
+        external_sr,
+        BTreeSet::from([
+            "derived/sr/comprehensive3d_scoord3d".into(),
+            "derived/sr/tid1500_ct_measurement_report".into(),
+        ])
+    );
+
+    let bundle = provider()
+        .plan(&CuratedScPlanRequest {
+            selection: CuratedScSelection::CaseIds(native_cases.iter().cloned().collect()),
+            seed: 1,
+            max_parallelism: 2,
+        })
+        .unwrap();
+    bundle.plan.validate().unwrap();
+    let planned_cases = bundle
+        .plan
+        .artifacts
+        .iter()
+        .filter_map(|artifact| match artifact {
+            PlannedArtifact::Dicom(artifact) => artifact
+                .case_binding
+                .as_ref()
+                .map(|binding| binding.case_id.clone()),
+            _ => None,
+        })
+        .collect::<BTreeSet<_>>();
+    assert!(native_cases.is_subset(&planned_cases));
+    assert!(external_sr.is_disjoint(&planned_cases));
+    for artifact in &bundle.plan.artifacts {
+        let native = matches!(artifact, PlannedArtifact::Dicom(planned) if planned
+            .case_binding
+            .as_ref()
+            .is_some_and(|binding| native_cases.contains(&binding.case_id)));
+        if native {
+            let dependencies = bundle
+                .plan
+                .dependencies
+                .iter()
+                .filter(|dependency| dependency.artifact_id == artifact.logical_id())
+                .collect::<Vec<_>>();
+            assert!(
+                !dependencies.is_empty(),
+                "{} lacks source closure",
+                artifact.logical_id()
+            );
+            assert!(dependencies.iter().all(|dependency| {
+                bundle
+                    .plan
+                    .artifacts
+                    .iter()
+                    .any(|candidate| candidate.logical_id() == dependency.depends_on)
+            }));
+        }
+    }
 }
 
 #[test]

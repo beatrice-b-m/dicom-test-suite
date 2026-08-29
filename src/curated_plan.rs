@@ -11,13 +11,15 @@ use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use dicom_core::Tag;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::codecs::{NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID};
 use crate::composition::{
-    CompositionUidRole, ContentMaterialization, IdentityPlan, MaterializedReference,
-    TemplateCatalog, TemplateId,
+    AttributeAddress, AttributeValue, CompositionUidRole, ContentMaterialization, DicomVr,
+    IdentityPlan, MaterializedReference, PrimitiveValue, ResolvedAttribute, TemplateCatalog,
+    TemplateId, ValueOrigin,
 };
 use crate::corpus_plan::{
     ArtifactDependency, ArtifactProvenance, ArtifactResourceEstimate, CORPUS_PLAN_SCHEMA_VERSION,
@@ -46,12 +48,14 @@ use crate::recipes::{
     PresentationPlanProvider, PresentationSourceInput, QUANTITATIVE_NATIVE_PROVIDER_ID,
     QuantitativeArtifactContext, QuantitativePlanInput, QuantitativePlanOutput,
     QuantitativePlanProvider, QuantitativeProviderLimits, QuantitativeSourceInput,
-    QuantitativeSourceRole, REGISTRATION_PLAN_PROVIDER_ID, RecipeCatalog, RecipeReference,
-    RegistrationPlanProvider, RegistrationSourceInput, SecondaryCapturePlanInput,
-    TypedBulkPlanningContext, WAVEFORM_PLAN_PROVIDER_ID, WSI_ADVANCED_PROVIDER_ID,
+    QuantitativeSourceRole, REGISTRATION_PLAN_PROVIDER_ID, RT_PLAN_PROVIDER_ID, RecipeCatalog,
+    RecipeReference, RegistrationPlanProvider, RegistrationSourceInput, RtPlanProvider,
+    SR_PLAN_PROVIDER_ID, SecondaryCapturePlanInput, SemanticPlanContext, SemanticSource,
+    SrPlanProvider, TypedBulkPlanningContext, WAVEFORM_PLAN_PROVIDER_ID, WSI_ADVANCED_PROVIDER_ID,
     WaveformPlanProvider, WsiAdvancedPlanProvider, encapsulated_payload_input_from_recipe,
     encoding_plan_from_recipe, native_pixel_request_from_recipe, resolved_classic_instance_plan,
-    resolved_metadata_sc_plan, resolved_secondary_capture_plan, waveform_input_from_recipe,
+    resolved_metadata_sc_plan, resolved_secondary_capture_plan, rt_input_from_recipe,
+    sr_input_from_recipe, waveform_input_from_recipe,
 };
 use crate::sha256_hex;
 use crate::uid::{DeterministicUidInput, UidRole, deterministic_uid};
@@ -90,6 +94,20 @@ struct QuantitativeSourceDeclaration {
 #[derive(Debug, Deserialize)]
 struct QuantitativeProviderParameters {
     sources: Vec<QuantitativeSourceDeclaration>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct SemanticSourceDeclaration {
+    recipe: RecipeReference,
+    artifact_logical_id: String,
+    role: String,
+    #[serde(default)]
+    referenced_frames: Vec<u32>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SemanticProviderParameters {
+    sources: Vec<SemanticSourceDeclaration>,
 }
 
 #[derive(Debug, Clone)]
@@ -615,6 +633,84 @@ impl CuratedScCorpusPlanProvider {
                 )?;
                 continue;
             }
+            if matches!(
+                recipe.plan_provider_id.as_str(),
+                SR_PLAN_PROVIDER_ID | RT_PLAN_PROVIDER_ID
+            ) {
+                let artifact_recipe = recipe
+                    .dicom
+                    .as_ref()
+                    .and_then(|dicom| dicom.artifacts.first())
+                    .ok_or_else(|| CuratedPlanError::MissingDicom(recipe.recipe_id.clone()))?;
+                let target_id = artifact_id(recipe, &artifact_recipe.logical_id);
+                let declarations = semantic_source_declarations(recipe)?;
+                let sources = semantic_sources(&declarations, &source_artifacts, &target_id)?;
+                let mut context = semantic_context(
+                    recipe,
+                    artifact_recipe,
+                    &target_id,
+                    artifacts.len(),
+                    request.seed,
+                    &self.standards_lock_sha256,
+                    sources,
+                    &source_artifacts,
+                )?;
+                // Recipe parsers verify the document-local ID. The unified spine
+                // scopes that ID globally before the provider constructs output.
+                let scoped_id = context.logical_id.clone();
+                context.logical_id = artifact_recipe.logical_id.clone();
+                let output = if recipe.plan_provider_id == SR_PLAN_PROVIDER_ID {
+                    let mut input = sr_input_from_recipe(recipe, context)
+                        .map_err(|error| CuratedPlanError::AdvancedPlan {
+                            recipe_id: recipe.recipe_id.clone(),
+                            message: error.to_string(),
+                        })?
+                        .ok_or_else(|| CuratedPlanError::MissingAdvancedInput {
+                            case_id: registry_case.case_id.clone(),
+                            provider_id: recipe.plan_provider_id.clone(),
+                        })?;
+                    input.context.logical_id = scoped_id.clone();
+                    SrPlanProvider.plan_native(&input).map_err(|error| {
+                        CuratedPlanError::AdvancedPlan {
+                            recipe_id: recipe.recipe_id.clone(),
+                            message: error.to_string(),
+                        }
+                    })?
+                } else {
+                    let mut input = rt_input_from_recipe(recipe, context)
+                        .map_err(|error| CuratedPlanError::AdvancedPlan {
+                            recipe_id: recipe.recipe_id.clone(),
+                            message: error.to_string(),
+                        })?
+                        .ok_or_else(|| CuratedPlanError::MissingAdvancedInput {
+                            case_id: registry_case.case_id.clone(),
+                            provider_id: recipe.plan_provider_id.clone(),
+                        })?;
+                    input.context.logical_id = scoped_id.clone();
+                    RtPlanProvider
+                        .plan(&input)
+                        .map_err(|error| CuratedPlanError::AdvancedPlan {
+                            recipe_id: recipe.recipe_id.clone(),
+                            message: error.to_string(),
+                        })?
+                };
+                merge_typed_artifact(
+                    recipe,
+                    registry_case,
+                    registry_order[registry_case.case_id.as_str()],
+                    artifact_recipe,
+                    output.artifact,
+                    output.bindings,
+                    semantic_dependencies(&target_id, &declarations, &source_artifacts)?,
+                    &mut artifacts,
+                    &mut bindings,
+                    &mut projection_artifacts,
+                    &mut artifact_by_recipe_role,
+                    &mut source_artifacts,
+                    &mut advanced_dependencies,
+                )?;
+                continue;
+            }
             if recipe.plan_provider_id == QUANTITATIVE_NATIVE_PROVIDER_ID {
                 let artifact_recipe = recipe
                     .dicom
@@ -1130,6 +1226,262 @@ fn quantitative_source_declarations(
         recipe_id: recipe.recipe_id.clone(),
         message: format!("quantitative source declarations: {error}"),
     })
+}
+
+fn semantic_source_declarations(
+    recipe: &CaseRecipe,
+) -> Result<Vec<SemanticSourceDeclaration>, CuratedPlanError> {
+    serde_json::from_value::<SemanticProviderParameters>(Value::Object(
+        recipe.provider_parameters.clone(),
+    ))
+    .map(|parameters| parameters.sources)
+    .map_err(|error| CuratedPlanError::AdvancedPlan {
+        recipe_id: recipe.recipe_id.clone(),
+        message: format!("semantic source declarations: {error}"),
+    })
+}
+
+fn semantic_sources(
+    declarations: &[SemanticSourceDeclaration],
+    sources: &BTreeMap<(RecipeIdentity, String), CuratedSourceArtifact>,
+    target_id: &str,
+) -> Result<Vec<SemanticSource>, CuratedPlanError> {
+    declarations
+        .iter()
+        .map(|declaration| {
+            let source = sources
+                .get(&(
+                    declaration.recipe.identity(),
+                    declaration.artifact_logical_id.clone(),
+                ))
+                .ok_or_else(|| CuratedPlanError::MissingDependency {
+                    recipe: declaration.recipe.identity(),
+                    dependency: declaration.recipe.identity(),
+                    role: declaration.role.clone(),
+                })?;
+            let sop_instance_uid = source
+                .planned
+                .instance
+                .identities
+                .get(&CompositionUidRole::SopInstance, 0)
+                .ok_or_else(|| {
+                    CuratedPlanError::MissingImplementation(source.planned.logical_id.clone())
+                })?;
+            Ok(SemanticSource {
+                recipe: declaration.recipe.identity(),
+                recipe_artifact_logical_id: declaration.artifact_logical_id.clone(),
+                artifact_id: source.planned.logical_id.clone(),
+                role: declaration.role.clone(),
+                reference: MaterializedReference {
+                    source_instance_id: target_id.into(),
+                    target_instance_id: source.planned.logical_id.clone(),
+                    role: declaration.role.clone(),
+                    frame_role: None,
+                    referenced_sop_class_uid: source.planned.instance.sop_class_uid.clone(),
+                    referenced_sop_instance_uid: sop_instance_uid.into(),
+                    referenced_frames: declaration.referenced_frames.clone(),
+                },
+            })
+        })
+        .collect()
+}
+
+fn semantic_dependencies(
+    target_id: &str,
+    declarations: &[SemanticSourceDeclaration],
+    sources: &BTreeMap<(RecipeIdentity, String), CuratedSourceArtifact>,
+) -> Result<Vec<ArtifactDependency>, CuratedPlanError> {
+    declarations
+        .iter()
+        .map(|declaration| {
+            let source = sources
+                .get(&(
+                    declaration.recipe.identity(),
+                    declaration.artifact_logical_id.clone(),
+                ))
+                .ok_or_else(|| CuratedPlanError::MissingDependency {
+                    recipe: declaration.recipe.identity(),
+                    dependency: declaration.recipe.identity(),
+                    role: declaration.role.clone(),
+                })?;
+            Ok(ArtifactDependency {
+                artifact_id: target_id.into(),
+                depends_on: source.planned.logical_id.clone(),
+                relationship: format!("semantic_reference:{}", declaration.role),
+                frame_numbers: declaration.referenced_frames.clone(),
+            })
+        })
+        .collect()
+}
+
+fn semantic_context(
+    recipe: &CaseRecipe,
+    artifact: &crate::recipes::PlannedArtifactRecipe,
+    target_id: &str,
+    order: usize,
+    seed: u64,
+    standards_lock_sha256: &str,
+    sources: Vec<SemanticSource>,
+    source_artifacts: &BTreeMap<(RecipeIdentity, String), CuratedSourceArtifact>,
+) -> Result<SemanticPlanContext, CuratedPlanError> {
+    let source = sources
+        .first()
+        .ok_or_else(|| CuratedPlanError::MissingDependency {
+            recipe: recipe.identity(),
+            dependency: recipe.identity(),
+            role: "semantic_source".into(),
+        })?;
+    let planned_source = source_artifacts
+        .get(&(
+            source.recipe.clone(),
+            source.recipe_artifact_logical_id.clone(),
+        ))
+        .ok_or_else(|| CuratedPlanError::MissingDependency {
+            recipe: recipe.identity(),
+            dependency: source.recipe.clone(),
+            role: source.role.clone(),
+        })?;
+    let identity = |role: CompositionUidRole| {
+        planned_source
+            .planned
+            .instance
+            .identities
+            .get(&role, 0)
+            .map(str::to_owned)
+    };
+    let uid = |role| {
+        deterministic_uid(&DeterministicUidInput {
+            standards_lock_sha256,
+            case_id: &recipe.binding.case_id,
+            recipe_version: &recipe.recipe_version,
+            run_seed: seed,
+            file_index: 0,
+            frame_index: None,
+            referenced_object_index: Some(0),
+            role,
+        })
+    };
+    let implementation = deterministic_uid(&DeterministicUidInput {
+        standards_lock_sha256,
+        case_id: "dicom-test-suite/implementation",
+        recipe_version: crate::PACKAGE_VERSION,
+        run_seed: 0,
+        file_index: 0,
+        frame_index: None,
+        referenced_object_index: None,
+        role: UidRole::ImplementationClass,
+    });
+    let mut exact = vec![
+        (
+            CompositionUidRole::StudyInstance,
+            0,
+            identity(CompositionUidRole::StudyInstance).ok_or_else(|| {
+                CuratedPlanError::MissingImplementation(source.artifact_id.clone())
+            })?,
+        ),
+        (
+            CompositionUidRole::SeriesInstance,
+            0,
+            uid(UidRole::SeriesInstance),
+        ),
+        (
+            CompositionUidRole::SopInstance,
+            0,
+            uid(UidRole::SopInstance),
+        ),
+        (
+            CompositionUidRole::ImplementationClass,
+            0,
+            implementation.clone(),
+        ),
+    ];
+    if let Some(value) = identity(CompositionUidRole::FrameOfReference) {
+        exact.push((CompositionUidRole::FrameOfReference, 0, value));
+    }
+    let template = artifact
+        .template
+        .as_ref()
+        .ok_or_else(|| CuratedPlanError::MissingTemplate(target_id.into()))?;
+    let output = OutputPlan {
+        relative_path: OutputRelativePath::new(
+            artifact
+                .output
+                .path
+                .clone()
+                .ok_or_else(|| CuratedPlanError::ProviderDerivedOutput(target_id.into()))?,
+        )?,
+        role: artifact.output.role.clone(),
+        publish: true,
+    };
+    Ok(SemanticPlanContext {
+        case_id: recipe.binding.case_id.clone(),
+        recipe: recipe.identity(),
+        logical_id: target_id.into(),
+        order: u64::try_from(order).map_err(|_| CuratedPlanError::ResourceOverflow)?,
+        output,
+        template_id: template.template_id.clone(),
+        template_version: template.template_version.clone(),
+        identities: IdentityPlan::from_exact_values(target_id, exact).map_err(|error| {
+            CuratedPlanError::AdvancedPlan {
+                recipe_id: recipe.recipe_id.clone(),
+                message: error.to_string(),
+            }
+        })?,
+        encoding: encoding_plan_from_recipe(
+            &artifact.encoding,
+            crate::corpus_plan::ImplementationIdentityPlan {
+                class_uid: implementation,
+                version_name: Some(crate::IMPLEMENTATION_VERSION_NAME.into()),
+            },
+        )
+        .map_err(|error| CuratedPlanError::Encoding {
+            artifact_id: target_id.into(),
+            message: error.to_string(),
+        })?,
+        base_attributes: semantic_common_attributes(recipe)?,
+        sources,
+        resources: ArtifactResourceEstimate {
+            output_bytes: 1024 * 1024,
+            peak_working_bytes: 2 * 1024 * 1024,
+        },
+    })
+}
+
+fn semantic_common_attributes(
+    recipe: &CaseRecipe,
+) -> Result<Vec<ResolvedAttribute>, CuratedPlanError> {
+    let values = [
+        (Tag(0x0008, 0x001C), DicomVr::CS, "YES"),
+        (Tag(0x0010, 0x0010), DicomVr::PN, "DTS^Synthetic^Patient001"),
+        (Tag(0x0010, 0x0020), DicomVr::LO, "DTS-PATIENT-001"),
+        (Tag(0x0010, 0x0030), DicomVr::DA, "19700101"),
+        (Tag(0x0010, 0x0040), DicomVr::CS, "O"),
+        (Tag(0x0008, 0x0020), DicomVr::DA, "20260101"),
+        (Tag(0x0008, 0x0030), DicomVr::TM, "000000"),
+        (Tag(0x0008, 0x0090), DicomVr::PN, ""),
+        (Tag(0x0008, 0x0050), DicomVr::SH, ""),
+        (Tag(0x0008, 0x0070), DicomVr::LO, "dicom-test-suite"),
+        (Tag(0x0008, 0x1090), DicomVr::LO, recipe.recipe_id.as_str()),
+        (Tag(0x0018, 0x1020), DicomVr::LO, crate::PACKAGE_VERSION),
+    ];
+    values
+        .into_iter()
+        .map(|(tag, vr, value)| {
+            Ok(ResolvedAttribute {
+                address: AttributeAddress::standard(tag).map_err(|error| {
+                    CuratedPlanError::AdvancedPlan {
+                        recipe_id: recipe.recipe_id.clone(),
+                        message: error.to_string(),
+                    }
+                })?,
+                vr,
+                value: Some(AttributeValue::Primitive(PrimitiveValue::String(
+                    value.into(),
+                ))),
+                origin: ValueOrigin::DerivedStructural,
+            })
+        })
+        .collect()
 }
 
 fn quantitative_sources(

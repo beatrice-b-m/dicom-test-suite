@@ -43,7 +43,7 @@ pub fn project_curated_file_entries(
     if context.artifacts.len() != input.artifacts.len() {
         return fail("projection context and execution artifact counts differ");
     }
-    context
+    let mut entries = context
         .artifacts
         .iter()
         .zip(&input.artifacts)
@@ -59,7 +59,164 @@ pub fn project_curated_file_entries(
             }
             project_one(ctx, artifact)
         })
-        .collect()
+        .collect::<Result<Vec<_>, _>>()?;
+    project_wsi_pyramid_group(context, input, &mut entries)?;
+    Ok(entries)
+}
+
+fn project_wsi_pyramid_group(
+    context: &CuratedScProjectionContext,
+    input: &ManifestProjectionCompatibilityInput,
+    entries: &mut [Value],
+) -> Result<(), CuratedManifestError> {
+    const CASE_ID: &str = "vl/wsi/pyramid_multiresolution";
+    let indexes = context
+        .artifacts
+        .iter()
+        .enumerate()
+        .filter_map(|(index, artifact)| {
+            (artifact.registry_case.case_id == CASE_ID).then_some(index)
+        })
+        .collect::<Vec<_>>();
+    if indexes.is_empty() {
+        return Ok(());
+    }
+    if indexes.len() != 3 {
+        return fail("WSI pyramid compatibility projection requires all three members");
+    }
+
+    let by_role = |role: &str| {
+        indexes
+            .iter()
+            .copied()
+            .find(|index| context.artifacts[*index].artifact_recipe.output.role == role)
+            .ok_or_else(|| err(format!("WSI pyramid is missing its {role} member")))
+    };
+    let ordered = [by_role("volume")?, by_role("thumbnail")?, by_role("label")?];
+    let planned = ordered
+        .map(|index| match &input.artifacts[index].planned {
+            PlannedArtifact::Dicom(artifact) => Ok(artifact),
+            _ => fail("WSI pyramid member is not DICOM"),
+        })
+        .into_iter()
+        .collect::<Result<Vec<_>, _>>()?;
+    let output = ordered
+        .map(|index| {
+            input.artifacts[index]
+                .execution
+                .output
+                .as_ref()
+                .ok_or_else(|| err("WSI pyramid member has no output evidence"))
+        })
+        .into_iter()
+        .collect::<Result<Vec<_>, _>>()?;
+    let first = planned[0];
+    let identity = |role| {
+        first
+            .instance
+            .identities
+            .get(&role, 0)
+            .ok_or_else(|| err("WSI pyramid is missing a shared identity"))
+    };
+    let study = identity(CompositionUidRole::StudyInstance)?;
+    let series = identity(CompositionUidRole::SeriesInstance)?;
+    let frame_of_reference = identity(CompositionUidRole::FrameOfReference)?;
+    let specimen = identity(CompositionUidRole::TemplateDefined("specimen_uid".into()))?;
+    let pyramid = identity(CompositionUidRole::TemplateDefined("pyramid_uid".into()))?;
+    let sops = planned
+        .iter()
+        .map(|artifact| {
+            artifact
+                .instance
+                .identities
+                .get(&CompositionUidRole::SopInstance, 0)
+                .ok_or_else(|| err("WSI pyramid member is missing its SOP Instance UID"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let contract = crate::wsi_pyramid_locked_contract(crate::WsiPyramidLockedInputs {
+        study_instance_uid: study,
+        series_instance_uid: series,
+        frame_of_reference_uid: frame_of_reference,
+        specimen_uid: specimen,
+        pyramid_uid: pyramid,
+        members: [
+            crate::WsiPyramidMemberIdentity {
+                role: crate::WsiPyramidRole::Volume,
+                path: &output[0].relative_path,
+                sha256: &output[0].sha256,
+                size_bytes: output[0].size_bytes,
+                sop_instance_uid: sops[0],
+            },
+            crate::WsiPyramidMemberIdentity {
+                role: crate::WsiPyramidRole::Thumbnail,
+                path: &output[1].relative_path,
+                sha256: &output[1].sha256,
+                size_bytes: output[1].size_bytes,
+                sop_instance_uid: sops[1],
+            },
+            crate::WsiPyramidMemberIdentity {
+                role: crate::WsiPyramidRole::Label,
+                path: &output[2].relative_path,
+                sha256: &output[2].sha256,
+                size_bytes: output[2].size_bytes,
+                sop_instance_uid: sops[2],
+            },
+        ],
+    });
+
+    for (ordinal, index) in ordered.into_iter().enumerate() {
+        let role = ["volume", "thumbnail", "label"][ordinal];
+        let membership = ["pyramid_layer", "pyramid_apex", "non_member_companion"][ordinal];
+        let pattern = [
+            "4x4_red_green_blue_white_quadrants",
+            "2x2_volume_quadrant_reduction",
+            "2x2_synthetic_label_companion",
+        ][ordinal];
+        let entry = &mut entries[index];
+        entry["wsi_pyramid_role"] = json!(role);
+        entry["wsi_pyramid_ordinal"] = json!(ordinal + 1);
+        entry["recipe"] = json!({
+            "recipe_id":"vl_wsi_pyramid_multiresolution",
+            "recipe_version":"0.1.0",
+            "recipe_parameters":{
+                "group_role":role,
+                "group_ordinal":ordinal + 1,
+                "ordered_roles":["volume","thumbnail","label"],
+                "pyramid_membership":membership,
+                "thumbnail_provenance":if ordinal == 1 { json!("deterministic_quadrant_reduction_of_volume") } else { Value::Null },
+                "icc_profile_sha256":"8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef"
+            }
+        });
+        entry["expected_capabilities"] = json!([
+            "open_file",
+            "read_metadata",
+            "render_native_pixels",
+            "navigate_multiframe",
+            "reconstruct_wsi_pyramid"
+        ]);
+        entry["expected_semantics"] = json!({
+            "synthetic_data":"YES",
+            "image_type":planned_string(planned[ordinal], "0008,0008")?
+                .split('\\')
+                .collect::<Vec<_>>(),
+            "shared_study_series_frame_of_reference":true,
+            "shared_specimen_and_optical_path":true,
+            "pyramid_membership":membership,
+            "ordered_group_member":true,
+            "reference_free":true
+        });
+        entry["expected_wsi_pyramid"] = contract.clone();
+        entry["expected_visual_checks"] = json!({"pattern":pattern});
+        entry["known_stressors"] = json!([
+            "vl_whole_slide_microscopy_image_storage",
+            "multi_resolution_pyramid_membership",
+            "thumbnail_apex_reduction",
+            "label_non_member_companion",
+            "shared_specimen_and_optical_path_metadata",
+            "three_instance_group_closure"
+        ]);
+    }
+    Ok(())
 }
 
 fn project_one(

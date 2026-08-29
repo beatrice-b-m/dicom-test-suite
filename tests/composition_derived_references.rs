@@ -7,6 +7,7 @@ use dicom_core::header::Header;
 use dicom_dictionary_std::tags;
 use dicom_object::{InMemDicomObject, open_file};
 use dicom_test_suite::composition::{ComposeOptions, compose};
+use dicom_test_suite::sha256_hex;
 use serde_json::{Value, json};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -17,6 +18,24 @@ fn root(label: &str) -> PathBuf {
         std::process::id(),
         NEXT.fetch_add(1, Ordering::Relaxed)
     ))
+}
+
+fn oracle_digest(root: &PathBuf) -> String {
+    let manifest: Value =
+        serde_json::from_slice(&fs::read(root.join("manifest.json")).unwrap()).unwrap();
+    let entries=manifest["composition"]["entries"].as_array().unwrap().iter().map(|entry| {
+        let path=entry["path"].as_str().unwrap();
+        json!({"instance_id":entry["instance_id"],"template_id":entry["template_id"],
+            "uids":entry["uids"],"resolved_plan_sha256":entry["resolved_plan_sha256"],
+            "content":entry["content"],"references":entry["references"],"path":path,
+            "sha256":entry["sha256"],"payload_sha256":sha256_hex(&fs::read(root.join(path)).unwrap())})
+    }).collect::<Vec<_>>();
+    sha256_hex(
+        &serde_json::to_vec(
+            &json!({"entries":entries,"bundles":manifest["composition"]["bundles"]}),
+        )
+        .unwrap(),
+    )
 }
 
 fn run(spec: impl Into<PathBuf>, out: PathBuf, seed: u64) {
@@ -103,6 +122,10 @@ fn registration_and_presentation_defaults_are_closed_and_reproducible() {
             fs::read(second.join(entry["path"].as_str().unwrap())).unwrap()
         );
     }
+    assert_eq!(
+        oracle_digest(&first),
+        "f7a01cfcf7046d43a70fad9304345509f49f72a9d300a1b86312b5cd539439ce"
+    );
     fs::remove_dir_all(first).unwrap();
     fs::remove_dir_all(second).unwrap();
 }

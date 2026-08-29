@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use dicom_object::open_file;
 use dicom_test_suite::composition::{ComposeOptions, compose};
+use dicom_test_suite::sha256_hex;
 use serde_json::{Value, json};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -14,6 +15,24 @@ fn root(label: &str) -> PathBuf {
         std::process::id(),
         NEXT.fetch_add(1, Ordering::Relaxed)
     ))
+}
+
+fn oracle_digest(root: &PathBuf) -> String {
+    let manifest: Value =
+        serde_json::from_slice(&fs::read(root.join("manifest.json")).unwrap()).unwrap();
+    let entries = manifest["composition"]["entries"].as_array().unwrap().iter().map(|entry| {
+        let path=entry["path"].as_str().unwrap();
+        json!({"instance_id":entry["instance_id"],"template_id":entry["template_id"],
+            "uids":entry["uids"],"resolved_plan_sha256":entry["resolved_plan_sha256"],
+            "content":entry["content"],"references":entry["references"],"path":path,
+            "sha256":entry["sha256"],"payload_sha256":sha256_hex(&fs::read(root.join(path)).unwrap())})
+    }).collect::<Vec<_>>();
+    sha256_hex(
+        &serde_json::to_vec(
+            &json!({"entries":entries,"bundles":manifest["composition"]["bundles"]}),
+        )
+        .unwrap(),
+    )
 }
 
 fn compose_spec(spec_path: impl Into<PathBuf>, out_dir: PathBuf, seed: u64) {
@@ -68,6 +87,10 @@ fn wsi_defaults_and_pyramid_closure_are_byte_reproducible() {
             fs::read(second.join(path)).unwrap()
         );
     }
+    assert_eq!(
+        oracle_digest(&first),
+        "1ab1fa2404fd5a19c76b3ae6cef18e604a630323e3b5fbb2e83e199389cd7be8"
+    );
     fs::remove_dir_all(first).unwrap();
     fs::remove_dir_all(second).unwrap();
 }
@@ -120,6 +143,10 @@ fn every_wsi_variant_accepts_exact_shape_caller_frames() {
     .unwrap();
     let out = workspace.join("out");
     compose_spec(&spec_path, out.clone(), 57);
+    assert_eq!(
+        oracle_digest(&out),
+        "78ab6a8c851ea7d78aa8113fbdc4a76b4b0dac6bbe9821bf24182a17fa5b1590"
+    );
     for (instance_id, _, _) in variants {
         let expected = fs::read(workspace.join(format!("{instance_id}.raw"))).unwrap();
         let object = open_file(out.join(format!("instances/{instance_id}.dcm"))).unwrap();

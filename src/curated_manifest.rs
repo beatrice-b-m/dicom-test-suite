@@ -438,13 +438,20 @@ fn project_advanced_file_entry(
         .instance
         .identities
         .get(&CompositionUidRole::DimensionOrganization, 0);
+    let reduced_stress_wsi = ctx.case_recipe.plan_provider_id == "native.wsi_plan"
+        && wsi_artifact_parameters(ctx).is_ok_and(|item| {
+            matches!(
+                item.pixel_algorithm,
+                WsiPixelAlgorithm::ReducedStress { .. }
+            )
+        });
     let compatibility_checks = checks
         .iter()
         .filter(|check| {
             !matches!(
                 check.name.as_str(),
                 "enhanced_plan_materialization_round_trip" | "wsi_plan_materialization_round_trip"
-            )
+            ) && !(reduced_stress_wsi && check.name == "curated_composition_plan")
         })
         .cloned()
         .collect::<Vec<_>>();
@@ -1551,6 +1558,71 @@ fn project_wsi_manifest(
                 "tiled_full_implicit_optical_path_order",
                 "multiple_nested_icc_profiles",
                 "separate_optical_path_matrix_reconstruction"
+            ]);
+        }
+        WsiPixelAlgorithm::ReducedStress { level_index, .. } => {
+            let pyramid = planned
+                .instance
+                .identities
+                .get(
+                    &CompositionUidRole::TemplateDefined("pyramid_uid".into()),
+                    0,
+                )
+                .ok_or_else(|| err("missing reduced-stress WSI Pyramid UID"))?;
+            manifest["recipe"] = json!({
+                "recipe_id":ctx.case_recipe.recipe_id,
+                "recipe_version":ctx.case_recipe.recipe_version,
+                "recipe_parameters":{
+                    "scale":"reduced",
+                    "level_index":level_index,
+                    "level_number":level_index + 1,
+                    "pyramid_levels":ctx.case_recipe.dicom.as_ref().map_or(0, |dicom| dicom.artifacts.len()),
+                    "total_pixel_matrix_rows":params.matrix_rows,
+                    "total_pixel_matrix_columns":params.matrix_columns,
+                    "tile_rows":params.rows,
+                    "tile_columns":params.columns,
+                    "frames":params.frames,
+                    "pixel_spacing":params.spacing,
+                    "native_payload_bytes":common.pixels.size_bytes
+                }
+            });
+            manifest["expected_capabilities"] = json!([
+                "open_file",
+                "read_metadata",
+                "render_native_pixels",
+                "navigate_multiframe",
+                "reconstruct_wsi_pyramid"
+            ]);
+            let spacing = params
+                .spacing
+                .split('\\')
+                .map(|value| value.parse::<f64>().map_err(|error| err(error.to_string())))
+                .collect::<Result<Vec<_>, _>>()?;
+            if spacing.len() != 2 {
+                return fail("reduced-stress WSI Pixel Spacing must contain two values");
+            }
+            manifest["expected_semantics"] = json!({
+                "synthetic_data":"YES",
+                "image_type":params.image_type.split('\\').collect::<Vec<_>>(),
+                "shared_study_series_frame_of_reference":true,
+                "shared_pyramid_uid":pyramid,
+                "tiled_full":true,
+                "ordered_level":level_index + 1,
+                "level_count":ctx.case_recipe.dicom.as_ref().map_or(0, |dicom| dicom.artifacts.len()),
+                "physical_extent_mm":[
+                    spacing[1] * f64::from(params.matrix_columns),
+                    spacing[0] * f64::from(params.matrix_rows)
+                ]
+            });
+            manifest["expected_visual_checks"] =
+                json!({"pattern":"rgb_xy_ramps_with_64_pixel_checkerboard_edges"});
+            manifest["known_stressors"] = json!([
+                "reduced_stress_scale",
+                "vl_whole_slide_microscopy_image_storage",
+                "three_level_pyramid",
+                "1024_square_total_pixel_matrix",
+                "256_square_tiles",
+                "tiled_full_frame_inference"
             ]);
         }
         _ => {

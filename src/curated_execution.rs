@@ -10,7 +10,8 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::composition::{
-    CompositionUidRole, GenericPlanValidator, ResolvedInstancePlan, ValidationCheck,
+    CompositionUidRole, GenericPlanValidator, Part10Materializer, ResolvedInstancePlan,
+    ValidationCheck,
 };
 use crate::corpus_plan::{
     EvidenceIndependence, EvidenceObligation, OffsetTablePolicy, PlannedArtifact,
@@ -38,7 +39,8 @@ use crate::executor::materialization::{
 use crate::executor::services::{
     ArtifactExecutionBindings, ByteBinding, CodecRequest, MaterializationRequest,
     MaterializationResult, ProviderRequest, ProviderResult, RuleExecutionResult,
-    StagedAssetRegistry, ToolIdentity, ValidationRequest, ValidationResult, ValidationStatus,
+    SlotExecutionBinding, StagedAssetRegistry, ToolIdentity, ValidationRequest, ValidationResult,
+    ValidationStatus,
 };
 use crate::recipes::classic_ct::{ClassicCtArtifactParameters, ClassicCtProviderParameters};
 use crate::recipes::classic_dx_mg::{DxMgArtifactParameters, DxMgFamily};
@@ -67,10 +69,13 @@ use crate::validation::{
     validate_advanced_blending_presentation_state_file, validate_blending_presentation_state_file,
     validate_color_softcopy_presentation_state_file, validate_deformable_spatial_registration_file,
     validate_part10_file, validate_presentation_state_file, validate_spatial_registration_file,
-    validate_wsi_multiple_optical_paths_file, validate_wsi_tiled_full_file,
-    validate_wsi_tiled_sparse_file,
+    validate_wsi_multiple_optical_paths_file, validate_wsi_pyramid_file,
+    validate_wsi_tiled_full_file, validate_wsi_tiled_sparse_file,
 };
-use crate::{PACKAGE_VERSION, sha256_hex};
+use crate::{
+    PACKAGE_VERSION, WsiPyramidLockedInputs, WsiPyramidMemberIdentity, WsiPyramidRole, sha256_hex,
+    wsi_pyramid_locked_contract,
+};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "family", rename_all = "snake_case", deny_unknown_fields)]
@@ -598,6 +603,10 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
                             &self.staging_root.join(declaration.relative_path.as_str()),
                             artifact,
                             context,
+                            &content,
+                            &self.projection,
+                            &self.planned_artifacts,
+                            &self.bindings,
                         )?,
                         "curated_wsi_plan_validator",
                     )
@@ -1758,6 +1767,10 @@ fn validate_wsi_compatibility(
     path: &Path,
     artifact: &crate::corpus_plan::PlannedDicomArtifact,
     context: &CuratedArtifactProjectionContext,
+    content: &[MaterializedContentEvidence],
+    contexts: &BTreeMap<String, CuratedArtifactProjectionContext>,
+    planned_artifacts: &BTreeMap<String, crate::corpus_plan::PlannedDicomArtifact>,
+    bindings: &BTreeMap<String, ArtifactExecutionBindings>,
 ) -> Result<TypedValidationReport, ServiceInvocationError> {
     let item = wsi_artifact_parameters(context)?;
     let sop = required_identity(artifact, CompositionUidRole::SopInstance)?;
@@ -1768,6 +1781,22 @@ fn validate_wsi_compatibility(
         artifact,
         CompositionUidRole::TemplateDefined("specimen_uid".into()),
     )?;
+    let frame_hashes = content
+        .iter()
+        .find(|item| item.slot == "pixels")
+        .map(|item| {
+            if item.decoded_frame_sha256.is_empty() {
+                item.native_frame_sha256.as_slice()
+            } else {
+                item.decoded_frame_sha256.as_slice()
+            }
+        })
+        .unwrap_or(&[]);
+    let frame_hash_refs = frame_hashes.iter().map(String::as_str).collect::<Vec<_>>();
+    let stress = matches!(
+        item.pixel_algorithm,
+        WsiPixelAlgorithm::ReducedStress { .. }
+    );
     let expected = base_advanced_expectations(
         artifact,
         sop,
@@ -1781,7 +1810,7 @@ fn validate_wsi_compatibility(
         0,
         Some(0),
         VR::OB,
-        &[],
+        if stress { &frame_hash_refs } else { &[] },
     );
     let validated = match item.pixel_algorithm {
         WsiPixelAlgorithm::TiledColorQuadrants if !item.parameters.pyramid_membership => {
@@ -1809,18 +1838,215 @@ fn validate_wsi_compatibility(
                 ),
             )
         }
-        _ => {
-            return Ok(TypedValidationReport {
-                bytes: Vec::new(),
-                checks: vec![TypedValidationCheck::passed_internal(
-                    "wsi_plan_materialization_round_trip",
-                    "WSI pyramid geometry, identities, and content reopened through the shared resolved-plan validator.",
-                )],
-                metadata_observation: None,
-            });
+        WsiPixelAlgorithm::ReducedStress { .. } => validate_part10_file(path, &expected),
+        WsiPixelAlgorithm::Thumbnail
+        | WsiPixelAlgorithm::Label
+        | WsiPixelAlgorithm::TiledColorQuadrants => {
+            let Some((contract, role)) =
+                wsi_pyramid_group_contract(context, contexts, planned_artifacts, bindings)?
+            else {
+                return Err(ServiceInvocationError::new(
+                    "advanced validation",
+                    "WSI pyramid member has no complete typed group contract",
+                ));
+            };
+            validate_wsi_pyramid_file(path, &expected, &contract, role)
+        }
+        WsiPixelAlgorithm::SparseDiagonalTiles | WsiPixelAlgorithm::MultipleOpticalPaths => {
+            return Err(ServiceInvocationError::new(
+                "advanced validation",
+                "non-pyramid WSI algorithm unexpectedly declares pyramid membership",
+            ));
         }
     };
     legacy_validated_report(validated)
+}
+
+fn wsi_pyramid_group_contract(
+    current: &CuratedArtifactProjectionContext,
+    contexts: &BTreeMap<String, CuratedArtifactProjectionContext>,
+    planned_artifacts: &BTreeMap<String, crate::corpus_plan::PlannedDicomArtifact>,
+    bindings: &BTreeMap<String, ArtifactExecutionBindings>,
+) -> Result<Option<(Value, WsiPyramidRole)>, ServiceInvocationError> {
+    let same_case = contexts
+        .iter()
+        .filter(|(_, context)| {
+            context.registry_case.case_id == current.registry_case.case_id
+                && context.case_recipe.plan_provider_id == "native.wsi_plan"
+        })
+        .collect::<Vec<_>>();
+    let find = |role: &str| {
+        same_case
+            .iter()
+            .find(|(_, context)| context.artifact_recipe.output.role == role)
+            .copied()
+    };
+    let (Some(volume), Some(thumbnail), Some(label)) =
+        (find("volume"), find("thumbnail"), find("label"))
+    else {
+        return Ok(None);
+    };
+    if same_case.len() != 3 {
+        return Err(ServiceInvocationError::new(
+            "advanced validation",
+            "WSI pyramid group contains unexpected extra artifacts",
+        ));
+    }
+    let ordered = [
+        (WsiPyramidRole::Volume, volume),
+        (WsiPyramidRole::Thumbnail, thumbnail),
+        (WsiPyramidRole::Label, label),
+    ];
+    let mut members = Vec::with_capacity(3);
+    for (role, (logical_id, context)) in ordered {
+        let planned = planned_artifacts.get(logical_id).ok_or_else(|| {
+            ServiceInvocationError::new(
+                "advanced validation",
+                format!("WSI pyramid plan is missing {logical_id}"),
+            )
+        })?;
+        let preview_plan = inline_preview_plan(
+            planned,
+            bindings.get(logical_id).ok_or_else(|| {
+                ServiceInvocationError::new(
+                    "advanced validation",
+                    format!("WSI pyramid bindings are missing {logical_id}"),
+                )
+            })?,
+        )?;
+        let bytes = Part10Materializer
+            .preview_part10_bytes_with_encoding(
+                &preview_plan,
+                &planned.encoding,
+                planned.resources.output_bytes,
+            )
+            .map_err(|error| service_error("advanced validation", error))?;
+        let path = context
+            .artifact_recipe
+            .output
+            .path
+            .as_deref()
+            .ok_or_else(|| {
+                ServiceInvocationError::new(
+                    "advanced validation",
+                    "WSI pyramid member has no output path",
+                )
+            })?;
+        members.push((
+            role,
+            path.to_owned(),
+            sha256_hex(&bytes),
+            bytes.len() as u64,
+            required_identity(planned, CompositionUidRole::SopInstance)?.to_owned(),
+        ));
+    }
+    let root = planned_artifacts.get(volume.0).ok_or_else(|| {
+        ServiceInvocationError::new("advanced validation", "WSI pyramid volume plan is missing")
+    })?;
+    let contract = wsi_pyramid_locked_contract(WsiPyramidLockedInputs {
+        study_instance_uid: required_identity(root, CompositionUidRole::StudyInstance)?,
+        series_instance_uid: required_identity(root, CompositionUidRole::SeriesInstance)?,
+        frame_of_reference_uid: required_identity(root, CompositionUidRole::FrameOfReference)?,
+        specimen_uid: required_identity(
+            root,
+            CompositionUidRole::TemplateDefined("specimen_uid".into()),
+        )?,
+        pyramid_uid: required_identity(
+            root,
+            CompositionUidRole::TemplateDefined("pyramid_uid".into()),
+        )?,
+        members: [
+            WsiPyramidMemberIdentity {
+                role: members[0].0,
+                path: &members[0].1,
+                sha256: &members[0].2,
+                size_bytes: members[0].3,
+                sop_instance_uid: &members[0].4,
+            },
+            WsiPyramidMemberIdentity {
+                role: members[1].0,
+                path: &members[1].1,
+                sha256: &members[1].2,
+                size_bytes: members[1].3,
+                sop_instance_uid: &members[1].4,
+            },
+            WsiPyramidMemberIdentity {
+                role: members[2].0,
+                path: &members[2].1,
+                sha256: &members[2].2,
+                size_bytes: members[2].3,
+                sop_instance_uid: &members[2].4,
+            },
+        ],
+    });
+    let selected = match current.artifact_recipe.output.role.as_str() {
+        "volume" => WsiPyramidRole::Volume,
+        "thumbnail" => WsiPyramidRole::Thumbnail,
+        "label" => WsiPyramidRole::Label,
+        role => {
+            return Err(ServiceInvocationError::new(
+                "advanced validation",
+                format!("unknown WSI pyramid role {role}"),
+            ));
+        }
+    };
+    Ok(Some((contract, selected)))
+}
+
+fn inline_preview_plan(
+    artifact: &crate::corpus_plan::PlannedDicomArtifact,
+    bindings: &ArtifactExecutionBindings,
+) -> Result<ResolvedInstancePlan, ServiceInvocationError> {
+    let mut plan = artifact.instance.clone();
+    for content in &mut plan.content {
+        let Some(binding) = bindings.slots.get(&content.slot) else {
+            continue;
+        };
+        let SlotExecutionBinding::NativeFrames { frames } = binding else {
+            return Err(ServiceInvocationError::new(
+                "advanced validation",
+                format!("preview requires inline native frames for {}", content.slot),
+            ));
+        };
+        let mut frames = frames.iter().collect::<Vec<_>>();
+        frames.sort_by_key(|frame| frame.frame_number);
+        let capacity = usize::try_from(content.size_bytes)
+            .map_err(|error| service_error("advanced validation", error))?;
+        let mut bytes = Vec::with_capacity(capacity);
+        for (index, frame) in frames.into_iter().enumerate() {
+            if frame.frame_number != index as u32 + 1 {
+                return Err(ServiceInvocationError::new(
+                    "advanced validation",
+                    "preview native frame order is not contiguous",
+                ));
+            }
+            let ByteBinding::Inline {
+                bytes: frame_bytes,
+                sha256,
+            } = &frame.bytes
+            else {
+                return Err(ServiceInvocationError::new(
+                    "advanced validation",
+                    "preview native frame is not inline",
+                ));
+            };
+            if sha256_hex(frame_bytes) != *sha256 {
+                return Err(ServiceInvocationError::new(
+                    "advanced validation",
+                    "preview native frame hash differs from its binding",
+                ));
+            }
+            bytes.extend_from_slice(frame_bytes);
+        }
+        if bytes.len() as u64 != content.size_bytes || sha256_hex(&bytes) != content.sha256 {
+            return Err(ServiceInvocationError::new(
+                "advanced validation",
+                "preview native content differs from its planned identity",
+            ));
+        }
+        content.materialization = Some(crate::composition::ContentMaterialization::Inline(bytes));
+    }
+    Ok(plan)
 }
 
 #[allow(clippy::too_many_arguments)]

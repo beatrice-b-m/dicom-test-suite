@@ -273,6 +273,57 @@ fn ordinary_wsi_direct_plans_match_fresh_seed_one_bytes_and_manifest_facts() {
             assert_eq!(manifest["pixel_data"]["native_or_encapsulated"], "native");
         }
     }
+
+    let pyramid = stress_manifest["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|file| file["case_id"] == "vl/wsi/pyramid_multiresolution")
+        .collect::<Vec<_>>();
+    assert_eq!(pyramid.len(), 3);
+    assert_eq!(
+        pyramid
+            .iter()
+            .map(|file| file["validation"]["internal"].as_array().unwrap().len())
+            .collect::<Vec<_>>(),
+        vec![112, 109, 109]
+    );
+    for file in pyramid {
+        let names = file["validation"]["internal"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|check| check["name"].as_str().unwrap())
+            .collect::<BTreeSet<_>>();
+        assert!(names.contains("wsi_pyramid_expected_contract"));
+        assert!(names.contains("wsi_pyramid_identity_contract"));
+        assert!(names.contains("curated_composition_plan"));
+    }
+
+    let reduced_stress = stress_manifest["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|file| file["case_id"] == "stress/wsi/large_pyramid")
+        .collect::<Vec<_>>();
+    assert_eq!(reduced_stress.len(), 3);
+    assert_eq!(
+        reduced_stress
+            .iter()
+            .map(|file| file["validation"]["internal"].as_array().unwrap().len())
+            .collect::<Vec<_>>(),
+        vec![27, 27, 26]
+    );
+    for file in reduced_stress {
+        let names = file["validation"]["internal"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|check| check["name"].as_str().unwrap())
+            .collect::<BTreeSet<_>>();
+        assert!(names.contains("native_frame_hashes"));
+        assert!(!names.contains("curated_composition_plan"));
+    }
 }
 
 #[test]

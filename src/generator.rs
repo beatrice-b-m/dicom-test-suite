@@ -12268,6 +12268,12 @@ fn write_pixel_case_with_metadata(
     #[cfg(not(feature = "legacy_jpeg_dcmtk"))]
     let output_implementation_version_name = crate::IMPLEMENTATION_VERSION_NAME.to_string();
 
+    if path.exists() {
+        fs::remove_file(&path).map_err(|source| GenerateError::WriteDicomFile {
+            path: path.clone(),
+            message: format!("replace reserved curated instance: {source}"),
+        })?;
+    }
     if is_dcmtk_legacy_jpeg {
         #[cfg(feature = "legacy_jpeg_dcmtk")]
         {
@@ -12525,6 +12531,12 @@ fn materialize_curated_classic_dataset(
         path: path.to_path_buf(),
         message: format!("resolve curated composition plan: {error}"),
     })?;
+    if path.exists() {
+        fs::remove_file(path).map_err(|source| GenerateError::WriteDicomFile {
+            path: path.to_path_buf(),
+            message: format!("replace reserved curated instance: {source}"),
+        })?;
+    }
     crate::composition::Part10Materializer
         .materialize(&plan, path)
         .map_err(|error| GenerateError::WriteDicomFile {

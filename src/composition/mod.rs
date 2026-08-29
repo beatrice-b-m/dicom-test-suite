@@ -12,6 +12,7 @@ pub mod native_content;
 pub mod pixel;
 pub mod plan;
 pub mod reference;
+pub mod spec;
 pub mod template;
 
 pub use attribute::{
@@ -42,6 +43,11 @@ pub use plan::{
 pub use reference::{
     CyclePolicy, LogicalReference, MaterializedReference, ReferenceError, ReferenceGraph,
     ReferenceNode,
+};
+pub use spec::{
+    AttributeScope, CompositionSpec, ContentAssignment, ContentSource, EncodedFrame,
+    IdentityChoice, PixelDeclaration, ResourceLimits, SpecDefaults, SpecError, SpecInstance,
+    SpecReference, SpecSampleType, TemplateSelector,
 };
 pub use template::{
     CapabilitySet, RequirementGap, TemplateCatalog, TemplateDescriptor, TemplateError, TemplateId,

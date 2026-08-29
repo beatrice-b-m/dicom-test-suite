@@ -215,7 +215,7 @@ impl ClassicImageModulePlans {
         operations.extend(self.pixel.operations(pixels)?);
         ensure_unique(&operations)?;
         for operation in &operations {
-            operation.validate()?;
+            operation.validate_trusted()?;
         }
         Ok(operations)
     }

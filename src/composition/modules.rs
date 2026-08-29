@@ -135,7 +135,7 @@ impl CommonModulePlans {
     pub fn validate_unique(&self) -> Result<(), ModuleError> {
         let mut tags = BTreeSet::new();
         for operation in self.operations() {
-            operation.validate()?;
+            operation.validate_trusted()?;
             let tag = operation.address().normalized_tag();
             if !tags.insert(tag.clone()) {
                 return Err(ModuleError::DuplicateAttribute(tag));

@@ -461,10 +461,18 @@ impl AttributeOperation {
     }
 
     pub fn validate(&self) -> Result<(), AttributeError> {
-        self.validate_at_depth(0)
+        self.validate_at_depth(0, true)
     }
 
-    fn validate_at_depth(&self, depth: usize) -> Result<(), AttributeError> {
+    pub(crate) fn validate_trusted(&self) -> Result<(), AttributeError> {
+        self.validate_at_depth(0, false)
+    }
+
+    fn validate_at_depth(
+        &self,
+        depth: usize,
+        enforce_standard_vm: bool,
+    ) -> Result<(), AttributeError> {
         if depth > MAX_SEQUENCE_DEPTH {
             return Err(AttributeError::SequenceDepthExceeded {
                 maximum: MAX_SEQUENCE_DEPTH,
@@ -487,7 +495,7 @@ impl AttributeOperation {
             AttributeValue::Multi(values) => {
                 if values.is_empty()
                     || values.iter().any(|value| !vr.validate_primitive(value))
-                    || !valid_multi_value_count(address, values.len())
+                    || (enforce_standard_vm && !valid_multi_value_count(address, values.len()))
                 {
                     return Err(AttributeError::ValueVrMismatch {
                         tag: address.normalized_tag(),
@@ -521,7 +529,7 @@ impl AttributeOperation {
                 }
                 for item in items {
                     for operation in &item.attributes {
-                        operation.validate_at_depth(depth + 1)?;
+                        operation.validate_at_depth(depth + 1, enforce_standard_vm)?;
                     }
                 }
             }

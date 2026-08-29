@@ -681,7 +681,7 @@ fn apply_operation(
     caller: bool,
     protected: &BTreeSet<&'static str>,
 ) -> Result<(), FamilyError> {
-    operation.validate()?;
+    operation.validate_trusted()?;
     let address = operation.address().clone();
     let tag = address.normalized_tag();
     if caller && protected.contains(tag.as_str()) {

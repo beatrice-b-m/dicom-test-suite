@@ -191,7 +191,7 @@ impl AttributeResolver {
         for layer in layers {
             let mut seen = BTreeSet::new();
             for operation in &layer.operations {
-                operation.validate()?;
+                operation.validate_trusted()?;
                 let address = operation.address().clone();
                 if !seen.insert(address.clone()) {
                     return Err(ResolveError::DuplicateLayerOperation {

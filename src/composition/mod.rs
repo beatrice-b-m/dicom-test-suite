@@ -15,6 +15,7 @@ pub mod reference;
 pub mod run;
 pub mod spec;
 pub mod template;
+pub mod validation;
 
 pub use attribute::{
     AttributeAddress, AttributeError, AttributeItem, AttributeOperation, AttributeValue, DicomVr,
@@ -54,4 +55,7 @@ pub use spec::{
 pub use template::{
     CapabilitySet, RequirementGap, TemplateCatalog, TemplateDescriptor, TemplateError, TemplateId,
     TemplateStatus, TemplateVersion, TransferSyntaxDescriptor,
+};
+pub use validation::{
+    composition_report, render_composition_report_markdown, validate_composition_root,
 };

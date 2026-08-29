@@ -667,6 +667,14 @@ pub fn validate_generated_root(
             source,
         }
     })?;
+    if manifest.pointer("/run/kind").and_then(Value::as_str) == Some("composition") {
+        let (files_checked, failures) = composition::validate_composition_root(root_dir, &manifest);
+        return Ok(ValidationSummary {
+            manifest_path,
+            files_checked,
+            failures,
+        });
+    }
     let files =
         manifest
             .get("files")
@@ -17497,6 +17505,9 @@ pub fn build_coverage_report(root_dir: impl AsRef<Path>) -> Result<Value, Report
     let root_dir = root_dir.as_ref();
     let manifest_path = root_dir.join("manifest.json");
     let manifest = read_report_json(&manifest_path)?;
+    if manifest.pointer("/run/kind").and_then(Value::as_str) == Some("composition") {
+        return Ok(composition::composition_report(&manifest));
+    }
     let registry_path = Path::new("cases/registry.json");
     let registry = read_report_json(registry_path)?;
     let files =
@@ -17918,6 +17929,9 @@ fn validate_wsi_pyramid_report_group(
 }
 
 pub fn render_coverage_report_markdown(report: &Value) -> String {
+    if report.get("report_kind").and_then(Value::as_str) == Some("composition") {
+        return composition::render_composition_report_markdown(report);
+    }
     let mut output = String::new();
     output.push_str("# DICOM Test Suite Coverage Report\n\n");
     output.push_str(&format!(

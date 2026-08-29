@@ -66,7 +66,7 @@
     },
     "entry": {
       "type": "object",
-      "required": ["instance_id", "template_id", "template_version", "requested", "bundle_root_instance_id", "bundle_role", "path", "size_bytes", "sha256", "determinism", "resolved_plan_sha256", "dicom", "uids", "value_provenance", "content", "references", "validation"],
+      "required": ["instance_id", "template_id", "template_version", "requested", "bundle_root_instance_id", "bundle_role", "path", "size_bytes", "sha256", "determinism", "resolved_plan_sha256", "dicom", "uids", "resolved_attributes", "value_provenance", "content", "references", "validation"],
       "properties": {
         "instance_id": { "$ref": "#/$defs/id" },
         "template_id": { "type": "string", "minLength": 1 },
@@ -89,6 +89,7 @@
           "additionalProperties": false
         },
         "uids": { "type": "object", "additionalProperties": { "$ref": "#/$defs/uid" } },
+        "resolved_attributes": { "type": "array", "items": { "type": "object" } },
         "value_provenance": {
           "type": "array",
           "items": {

@@ -107,3 +107,50 @@ fn compose_rejects_protected_rows_before_promotion() {
     assert!(!out.exists());
     fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn validate_and_report_dispatch_on_composition_manifests() {
+    let out = output("validate-report");
+    let composed = Command::new(binary())
+        .args([
+            "compose",
+            "--spec",
+            "tests/fixtures/composition/valid/template-only.json",
+            "--out",
+            out.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(composed.status.success());
+
+    let validated = Command::new(binary())
+        .args(["validate", out.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        validated.status.success(),
+        "{}",
+        String::from_utf8_lossy(&validated.stderr)
+    );
+    assert!(String::from_utf8_lossy(&validated.stdout).contains("validation_failures\t0"));
+
+    let report = Command::new(binary())
+        .args(["report", out.to_str().unwrap(), "--format", "json"])
+        .output()
+        .unwrap();
+    assert!(report.status.success());
+    let report: serde_json::Value = serde_json::from_slice(&report.stdout).unwrap();
+    assert_eq!(report["report_kind"], "composition");
+    assert_eq!(report["counts"]["instances"], 1);
+    assert!(!report.to_string().contains("case_id"));
+    assert!(!report.to_string().contains("profile"));
+
+    fs::write(out.join("instances/primary.dcm"), b"tampered").unwrap();
+    let rejected = Command::new(binary())
+        .args(["validate", out.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(!rejected.status.success());
+    assert!(String::from_utf8_lossy(&rejected.stdout).contains("output SHA-256 differs"));
+    fs::remove_dir_all(out).unwrap();
+}

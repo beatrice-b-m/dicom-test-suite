@@ -341,6 +341,7 @@ impl CompositionManifestAssembler {
                     "transfer_syntax_uid": input.plan.transfer_syntax_uid
                 },
                 "uids": input.plan.identities.identities,
+                "resolved_attributes": input.plan.attributes,
                 "value_provenance": provenance,
                 "content": input.plan.content,
                 "references": input.plan.references,
@@ -390,7 +391,7 @@ impl CompositionManifestAssembler {
     }
 }
 
-fn validate_manifest_schema(manifest: &Value) -> Result<(), ManifestError> {
+pub(super) fn validate_manifest_schema(manifest: &Value) -> Result<(), ManifestError> {
     let schema: Value = serde_json::from_str(MANIFEST_SCHEMA)
         .map_err(|error| ManifestError::Schema(error.to_string()))?;
     let validator = jsonschema::validator_for(&schema)

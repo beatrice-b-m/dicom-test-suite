@@ -4,12 +4,14 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::str::FromStr;
 
 use dicom_dictionary_std::tags;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use super::{
     AdvancedArtifactProvenance, AdvancedArtifactRole, AdvancedPlanProvider,
     AdvancedPlanProviderOutput, AdvancedPlanProviderRequest, AdvancedPlannedArtifact,
     AdvancedProviderContractError, AdvancedProviderFamily, AdvancedSourceConsumer,
-    AdvancedSourceReference, AdvancedSourceRole,
+    AdvancedSourceReference, AdvancedSourceRole, CaseRecipe, RecipeReference,
 };
 use crate::composition::{
     AttributeAddress, AttributeItem, AttributeOperation, AttributeValue, CompositionUidRole,
@@ -25,7 +27,8 @@ use crate::corpus_plan::{
 use crate::executor::services::ArtifactExecutionBindings;
 use crate::{DeterministicUidInput, UidRole, deterministic_uid};
 
-pub const PRESENTATION_ADVANCED_PROVIDER_ID: &str = "native.presentation_plan";
+pub const PRESENTATION_ADVANCED_PROVIDER_ID: &str = "native.presentation_state_plan";
+pub const PRESENTATION_ALGORITHM_PROVIDER_ID: &str = "algorithm.presentation_state";
 const TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.1";
 const ICC_COLOR_SPACE: &str = "SRGB";
 const ICC_PROFILE_SIZE: usize = 736;
@@ -44,13 +47,15 @@ impl PresentationPlanProvider {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PresentationPlanInput {
     pub recipe: PresentationRecipe,
     pub sources: Vec<PresentationSourceInput>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PresentationSourceInput {
     pub ordinal: u32,
     pub role: AdvancedSourceRole,
@@ -60,7 +65,8 @@ pub struct PresentationSourceInput {
     pub binding: ArtifactExecutionBindings,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PresentationRecipe {
     pub case_id: String,
     pub recipe_id: String,
@@ -71,7 +77,8 @@ pub struct PresentationRecipe {
     pub kind: PresentationKind,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum PresentationKind {
     Grayscale(GrayscalePresentationParameters),
     Color(ColorPresentationParameters),
@@ -79,7 +86,8 @@ pub enum PresentationKind {
     AdvancedBlending(AdvancedBlendingPresentationParameters),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DisplayedAreaParameters {
     pub top_left: [i32; 2],
     pub bottom_right: [i32; 2],
@@ -87,7 +95,8 @@ pub struct DisplayedAreaParameters {
     pub pixel_aspect_ratio: [i32; 2],
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct GrayscalePresentationParameters {
     pub expected_source_sop_class_uid: String,
     pub content_label: String,
@@ -99,7 +108,8 @@ pub struct GrayscalePresentationParameters {
     pub presentation_lut_shape: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ColorPresentationParameters {
     pub expected_source_sop_class_uid: String,
     pub content_label: String,
@@ -107,7 +117,8 @@ pub struct ColorPresentationParameters {
     pub displayed_area: DisplayedAreaParameters,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BlendingPresentationParameters {
     pub expected_source_sop_class_uid: String,
     pub content_label: String,
@@ -120,7 +131,8 @@ pub struct BlendingPresentationParameters {
     pub rescale_type: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AdvancedBlendingPresentationParameters {
     pub expected_source_sop_class_uid: String,
     pub content_label: String,
@@ -129,6 +141,117 @@ pub struct AdvancedBlendingPresentationParameters {
     pub geometry_input_number: u16,
     pub blending_mode: String,
     pub pixel_presentation: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PresentationDocumentParameters {
+    #[serde(default)]
+    uid_reference_index: Option<u32>,
+    presentation: PresentationKind,
+    sources: Vec<PresentationSourceDeclaration>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PresentationSourceDeclaration {
+    recipe: RecipeReference,
+    artifact_logical_id: String,
+    role: AdvancedSourceRole,
+    referenced_frames: Vec<u32>,
+}
+
+pub(crate) fn presentation_input_from_recipe(
+    recipe: &CaseRecipe,
+    sources: Vec<PresentationSourceInput>,
+) -> Result<Option<PresentationPlanInput>, String> {
+    if recipe.plan_provider_id != PRESENTATION_ADVANCED_PROVIDER_ID {
+        return Ok(None);
+    }
+    let parameters: PresentationDocumentParameters =
+        serde_json::from_value(Value::Object(recipe.provider_parameters.clone()))
+            .map_err(|error| format!("presentation provider_parameters: {error}"))?;
+    let dicom = recipe
+        .dicom
+        .as_ref()
+        .ok_or_else(|| "presentation provider requires DICOM artifacts".to_string())?;
+    let [target] = dicom.artifacts.as_slice() else {
+        return Err("presentation provider requires exactly one public artifact".into());
+    };
+    if !target.parameters.is_empty() {
+        return Err("presentation target stores static facts in provider_parameters".into());
+    }
+    let template = target
+        .template
+        .as_ref()
+        .ok_or_else(|| "presentation target requires a template".to_string())?;
+    let output = target
+        .output
+        .path
+        .as_ref()
+        .ok_or_else(|| "presentation target requires an exact output path".to_string())?;
+    if template.template_id != template_id(&parameters.presentation) {
+        return Err("presentation template does not match presentation kind".into());
+    }
+    if parameters.sources.len() != sources.len() {
+        return Err("presentation source declaration cardinality mismatch".into());
+    }
+    let declared_dependencies = recipe
+        .dependencies
+        .iter()
+        .map(|dependency| dependency.recipe.identity())
+        .collect::<BTreeSet<_>>();
+    let mut remaining = sources;
+    let mut ordered = Vec::with_capacity(parameters.sources.len());
+    for (index, declaration) in parameters.sources.iter().enumerate() {
+        if !declared_dependencies.contains(&declaration.recipe.identity()) {
+            return Err("presentation source lacks an outer recipe dependency".into());
+        }
+        let position = remaining
+            .iter()
+            .position(|source| {
+                source.artifact.logical_id == declaration.artifact_logical_id
+                    && source
+                        .artifact
+                        .case_binding
+                        .as_ref()
+                        .is_some_and(|binding| {
+                            binding.recipe_id == declaration.recipe.recipe_id
+                                && binding.recipe_version == declaration.recipe.recipe_version
+                        })
+            })
+            .ok_or_else(|| {
+                format!(
+                    "missing presentation source {}",
+                    declaration.artifact_logical_id
+                )
+            })?;
+        let mut source = remaining.remove(position);
+        if source.role != declaration.role {
+            return Err(format!(
+                "wrong role for presentation source {}",
+                declaration.artifact_logical_id
+            ));
+        }
+        source.ordinal = u32::try_from(index + 1).map_err(|_| "source ordinal overflow")?;
+        source.referenced_frames = declaration.referenced_frames.clone();
+        ordered.push(source);
+    }
+    if !remaining.is_empty() {
+        return Err("presentation contains undeclared sources".into());
+    }
+    Ok(Some(PresentationPlanInput {
+        recipe: PresentationRecipe {
+            case_id: recipe.binding.case_id.clone(),
+            recipe_id: recipe.recipe_id.clone(),
+            recipe_version: recipe.recipe_version.clone(),
+            output_relative_path: output.clone(),
+            logical_id: target.logical_id.clone(),
+            uid_reference_index: parameters.uid_reference_index,
+            kind: parameters.presentation,
+        },
+        sources: ordered,
+    }))
 }
 
 impl AdvancedPlanProvider for PresentationPlanProvider {

@@ -9,6 +9,7 @@ use std::error::Error;
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::composition::{
     AttributeAddress, AttributeItem, AttributeOperation, AttributeValue, CompositionUidRole,
@@ -30,7 +31,7 @@ use super::{
     AdvancedArtifactProvenance, AdvancedArtifactRole, AdvancedPlanProvider,
     AdvancedPlanProviderOutput, AdvancedPlanProviderRequest, AdvancedPlannedArtifact,
     AdvancedProviderContractError, AdvancedProviderFamily, AdvancedSourceConsumer,
-    AdvancedSourceReference, AdvancedSourceRole,
+    AdvancedSourceReference, AdvancedSourceRole, CaseRecipe, RecipeReference,
 };
 
 const EXPLICIT_VR_LE: &str = "1.2.840.10008.1.2.1";
@@ -40,6 +41,7 @@ const SPATIAL_REGISTRATION_SOP: &str = "1.2.840.10008.5.1.4.1.1.66.1";
 const DEFORMABLE_REGISTRATION_SOP: &str = "1.2.840.10008.5.1.4.1.1.66.3";
 
 pub const REGISTRATION_PLAN_PROVIDER_ID: &str = "native.registration_plan";
+pub const REGISTRATION_ALGORITHM_PROVIDER_ID: &str = "algorithm.registration";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -102,6 +104,138 @@ pub struct RegistrationProviderInput {
     /// independently of map iteration or scheduler order.
     pub sources: Vec<RegistrationSourceInput>,
     pub registration: RegistrationKindInput,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RegistrationDocumentParameters {
+    series_number: String,
+    study_id: String,
+    laterality: String,
+    manufacturer_model_name: String,
+    device_serial_number: String,
+    content_label: String,
+    content_description: String,
+    registration: RegistrationKindInput,
+    sources: Vec<RegistrationSourceDeclaration>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RegistrationSourceDeclaration {
+    recipe: RecipeReference,
+    artifact_logical_id: String,
+    role: AdvancedSourceRole,
+}
+
+pub(crate) fn registration_input_from_recipe(
+    recipe: &CaseRecipe,
+    sources: Vec<RegistrationSourceInput>,
+) -> Result<Option<RegistrationProviderInput>, String> {
+    if recipe.plan_provider_id != REGISTRATION_PLAN_PROVIDER_ID {
+        return Ok(None);
+    }
+    let parameters: RegistrationDocumentParameters =
+        serde_json::from_value(Value::Object(recipe.provider_parameters.clone()))
+            .map_err(|error| format!("registration provider_parameters: {error}"))?;
+    let dicom = recipe
+        .dicom
+        .as_ref()
+        .ok_or_else(|| "registration provider requires DICOM artifacts".to_string())?;
+    let [target] = dicom.artifacts.as_slice() else {
+        return Err("registration provider requires exactly one public artifact".into());
+    };
+    if !target.parameters.is_empty() {
+        return Err("registration target stores static facts in provider_parameters".into());
+    }
+    let template_id = target
+        .template
+        .as_ref()
+        .ok_or_else(|| "registration target requires a template".to_string())?
+        .template_id
+        .clone();
+    let output_path = OutputRelativePath::new(
+        target
+            .output
+            .path
+            .as_ref()
+            .ok_or_else(|| "registration target requires an exact output path".to_string())?
+            .clone(),
+    )
+    .map_err(|error| error.to_string())?;
+    let expected_template = match &parameters.registration {
+        RegistrationKindInput::Spatial(_) => "derived/registration/spatial",
+        RegistrationKindInput::Deformable(_) => "derived/registration/deformable",
+    };
+    if template_id != expected_template {
+        return Err("registration template does not match registration kind".into());
+    }
+    if parameters.sources.len() != 2 || sources.len() != 2 {
+        return Err("registration requires exactly two declared sources".into());
+    }
+    let declared_dependencies = recipe
+        .dependencies
+        .iter()
+        .map(|dependency| dependency.recipe.identity())
+        .collect::<BTreeSet<_>>();
+    let mut remaining = sources;
+    let mut ordered = Vec::with_capacity(2);
+    for (index, declaration) in parameters.sources.iter().enumerate() {
+        if !declared_dependencies.contains(&declaration.recipe.identity()) {
+            return Err("registration source lacks an outer recipe dependency".into());
+        }
+        let position = remaining
+            .iter()
+            .position(|source| {
+                source.artifact.logical_id == declaration.artifact_logical_id
+                    && source
+                        .artifact
+                        .case_binding
+                        .as_ref()
+                        .is_some_and(|binding| {
+                            binding.recipe_id == declaration.recipe.recipe_id
+                                && binding.recipe_version == declaration.recipe.recipe_version
+                        })
+            })
+            .ok_or_else(|| {
+                format!(
+                    "missing registration source {}",
+                    declaration.artifact_logical_id
+                )
+            })?;
+        let mut source = remaining.remove(position);
+        if source.role != declaration.role {
+            return Err(format!(
+                "wrong role for registration source {}",
+                declaration.artifact_logical_id
+            ));
+        }
+        source.artifact.order = index as u64;
+        ordered.push(source);
+    }
+    if !remaining.is_empty()
+        || ordered[0].role != AdvancedSourceRole::RegistrationFixed
+        || ordered[1].role != AdvancedSourceRole::RegistrationMoving
+    {
+        return Err("registration roles must be exactly fixed then moving".into());
+    }
+    Ok(Some(RegistrationProviderInput {
+        common: RegistrationCommonInput {
+            logical_id: target.logical_id.clone(),
+            order: 2,
+            output_path,
+            template_id,
+            series_number: parameters.series_number,
+            study_id: parameters.study_id,
+            laterality: parameters.laterality,
+            manufacturer_model_name: parameters.manufacturer_model_name,
+            device_serial_number: parameters.device_serial_number,
+            content_label: parameters.content_label,
+            content_description: parameters.content_description,
+        },
+        sources: ordered,
+        registration: parameters.registration,
+    }))
 }
 
 #[derive(Debug, Clone)]

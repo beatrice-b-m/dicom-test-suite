@@ -4129,6 +4129,21 @@ const PLAN_FIRST_CLASSIC_MG_DX_NM_CASE_IDS: &[&str] = &[
 
 const PLAN_FIRST_CLASSIC_PET_CASE_IDS: &[&str] = &["classic/pet/rescaled_activity_explicit_le"];
 
+// Temporary U9 dispatcher compatibility lists. The unified curated planner
+// owns the enhanced recipes and their artifact construction; this legacy
+// dispatcher retains only their historical insertion positions until U9.3
+// removes the manual generation stages entirely.
+const U9_PLAN_FIRST_ENHANCED_CT_CASE_IDS: &[&str] =
+    &["enhanced/ct/multiframe_shared_perframe_explicit_le"];
+const U9_PLAN_FIRST_ENHANCED_CT_CONCATENATION_CASE_IDS: &[&str] =
+    &["enhanced/ct/concatenation_two_part_explicit_le"];
+const U9_PLAN_FIRST_ENHANCED_MR_CASE_IDS: &[&str] = &[
+    "enhanced/mr/multiframe_echo_perframe_explicit_le",
+    "enhanced/mr/multiframe_temporal_position_explicit_le",
+    "enhanced/mr/multiframe_phase_velocity_encoding_explicit_le",
+];
+const U9_PLAN_FIRST_ENHANCED_PET_CASE_IDS: &[&str] = &["enhanced/pet/multiframe_explicit_le"];
+
 const PLAN_FIRST_CLASSIC_US_MULTIFRAME_XA_XRF_CASE_IDS: &[&str] = &[
     "classic/us/multiframe_explicit_le",
     "classic/xa/monoplane_explicit_le",
@@ -4663,12 +4678,12 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
         )?;
         context.record_stress_files(STRESS_ENHANCED_CT_CASE_ID, request, started, files)?;
     }
-    for recipe in ENHANCED_CT_RECIPES {
+    for case_id in U9_PLAN_FIRST_ENHANCED_CT_CASE_IDS {
         if let Some(files) = take_plan_first_advanced_case(
             run,
             registry,
             &mut plan_first_files_by_case,
-            recipe.case_id,
+            case_id,
             "enhanced CT stage",
         )? {
             context.record_many(files)?;
@@ -5312,23 +5327,23 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
             standards_lock_sha256,
         )?)?;
     }
-    for recipe in ENHANCED_CT_CONCATENATION_RECIPES {
+    for case_id in U9_PLAN_FIRST_ENHANCED_CT_CONCATENATION_CASE_IDS {
         if let Some(files) = take_plan_first_advanced_case(
             run,
             registry,
             &mut plan_first_files_by_case,
-            recipe.base.case_id,
+            case_id,
             "enhanced CT concatenation stage",
         )? {
             context.record_many(files)?;
         }
     }
-    for recipe in ENHANCED_MR_RECIPES {
+    for case_id in U9_PLAN_FIRST_ENHANCED_MR_CASE_IDS {
         if let Some(files) = take_plan_first_advanced_case(
             run,
             registry,
             &mut plan_first_files_by_case,
-            recipe.case_id,
+            case_id,
             "enhanced MR stage",
         )? {
             context.record_many(files)?;
@@ -5342,12 +5357,12 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
         CuratedRecipeStage::ClassicImagesBeforeEnhancedPet,
         &mut plan_first_files_by_case,
     )?;
-    for recipe in ENHANCED_PET_RECIPES {
+    for case_id in U9_PLAN_FIRST_ENHANCED_PET_CASE_IDS {
         if let Some(files) = take_plan_first_advanced_case(
             run,
             registry,
             &mut plan_first_files_by_case,
-            recipe.case_id,
+            case_id,
             "enhanced PET stage",
         )? {
             context.record_many(files)?;
@@ -25172,6 +25187,30 @@ mod tests {
                 }) if entry_stage == stage
             )));
         }
+    }
+
+    #[test]
+    fn enhanced_plan_first_compatibility_lists_preserve_historical_order() {
+        assert_eq!(
+            U9_PLAN_FIRST_ENHANCED_CT_CASE_IDS,
+            &["enhanced/ct/multiframe_shared_perframe_explicit_le"]
+        );
+        assert_eq!(
+            U9_PLAN_FIRST_ENHANCED_CT_CONCATENATION_CASE_IDS,
+            &["enhanced/ct/concatenation_two_part_explicit_le"]
+        );
+        assert_eq!(
+            U9_PLAN_FIRST_ENHANCED_MR_CASE_IDS,
+            &[
+                "enhanced/mr/multiframe_echo_perframe_explicit_le",
+                "enhanced/mr/multiframe_temporal_position_explicit_le",
+                "enhanced/mr/multiframe_phase_velocity_encoding_explicit_le",
+            ]
+        );
+        assert_eq!(
+            U9_PLAN_FIRST_ENHANCED_PET_CASE_IDS,
+            &["enhanced/pet/multiframe_explicit_le"]
+        );
     }
 
     #[test]

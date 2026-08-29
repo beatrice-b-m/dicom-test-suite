@@ -1,7 +1,7 @@
 {
   "case_recipe_schema_version": "0.1.0",
   "recipe_id": "sr_key_object_selection",
-  "recipe_version": "0.1.0",
+  "recipe_version": "0.2.0",
   "binding": {
     "case_id": "derived/sr/key_object_selection_explicit_le"
   },

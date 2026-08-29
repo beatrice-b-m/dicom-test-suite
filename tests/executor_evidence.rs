@@ -24,6 +24,8 @@ fn artifact(logical_id: &str, order: u64, path: &str) -> ArtifactExecutionEviden
             transfer_syntax_uid: Some("1.2.840.10008.1.2.1".into()),
             streamed_slots: vec!["pixels".into()],
             completed: true,
+            materialized_instance_plan_sha256: Some(HASH.into()),
+            content: vec![],
         }),
         validation: vec![ValidationResult {
             rule_id: "meta_identity".into(),
@@ -31,6 +33,7 @@ fn artifact(logical_id: &str, order: u64, path: &str) -> ArtifactExecutionEviden
             required: true,
             status: ResultStatus::Passed,
             message: "identity matches".into(),
+            details: BTreeMap::new(),
         }],
         obligations: vec![ObligationResult {
             obligation_id: "same_project_validation".into(),
@@ -157,3 +160,4 @@ fn uncancelled_checkpoint_passes_and_default_cancel_reason_is_stable() {
     assert!(token.cancel());
     assert_eq!(token.reason().as_deref(), Some("requested"));
 }
+use std::collections::BTreeMap;

@@ -227,6 +227,7 @@ impl BoundExecutionServices for Services {
         &self,
         request: &ProviderRequest,
         _: &StagedAssetRegistry,
+        _: &CancellationToken,
     ) -> Result<ProviderResult, ServiceInvocationError> {
         if self.0 == Mode::Panic {
             panic!("injected worker panic");
@@ -278,6 +279,7 @@ impl BoundExecutionServices for Services {
             determinism: "byte_stable".into(),
             decoded_frame_sha256: BTreeMap::from([(1, "d".repeat(64))]),
             metrics: BTreeMap::new(),
+            claims: BTreeMap::new(),
         })
     }
 
@@ -404,9 +406,10 @@ impl BoundExecutionServices for ConcurrentServices {
         &self,
         request: &ProviderRequest,
         assets: &StagedAssetRegistry,
+        cancellation: &CancellationToken,
     ) -> Result<ProviderResult, ServiceInvocationError> {
         self.0.rendezvous()?;
-        Services(Mode::Success).invoke_provider(request, assets)
+        Services(Mode::Success).invoke_provider(request, assets, cancellation)
     }
 
     fn invoke_codec(

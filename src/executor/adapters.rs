@@ -8,6 +8,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::corpus_plan::{
     CapabilityKind, CorpusPlan, EvidenceIndependence as PlannedIndependence, EvidencePlan,
@@ -16,9 +17,9 @@ use crate::corpus_plan::{
 use crate::executor::evidence::{
     ArtifactExecutionEvidence, ArtifactKind, ArtifactResourceEvidence, CodecEvidence,
     EvidenceError, EvidenceIndependence, ExecutionStatus, MaterializationEvidence,
-    ObligationResult, OutputEvidence, ProviderEvidence, PublicationEvidence, PublicationState,
-    RUN_EVIDENCE_SCHEMA_VERSION, ResultStatus, RunEvidence, RunResourceEvidence, ToolEvidence,
-    UnavailableExecutionEvidence, ValidationResult,
+    MaterializedContentEvidence, ObligationResult, OutputEvidence, ProviderEvidence,
+    PublicationEvidence, PublicationState, RUN_EVIDENCE_SCHEMA_VERSION, ResultStatus, RunEvidence,
+    RunResourceEvidence, ToolEvidence, UnavailableExecutionEvidence, ValidationResult,
 };
 use crate::executor::scheduler::{ScheduleOutcome, ScheduledArtifact};
 use crate::executor::services::{
@@ -44,6 +45,8 @@ pub struct CodecExecutionRecord {
     pub decoded_frame_sha256: BTreeMap<u32, String>,
     #[serde(default)]
     pub metrics: BTreeMap<String, f64>,
+    #[serde(default)]
+    pub claims: BTreeMap<String, Value>,
 }
 
 /// Complete service-side outcome for one scheduled artifact.
@@ -402,12 +405,12 @@ fn adapt_artifact(
             planned.logical_id().to_owned(),
         ));
     }
-    let materialization =
-        scheduled
-            .value
-            .materialization
-            .as_ref()
-            .map(|result| MaterializationEvidence {
+    let materialization = scheduled
+        .value
+        .materialization
+        .as_ref()
+        .map(|result| -> Result<MaterializationEvidence, AdapterError> {
+            Ok(MaterializationEvidence {
                 backend_id: result.backend.backend_id.clone(),
                 transfer_syntax_uid: match planned {
                     PlannedArtifact::Dicom(value) => {
@@ -417,7 +420,21 @@ fn adapt_artifact(
                 },
                 streamed_slots,
                 completed: scheduled.value.status == ExecutionStatus::Succeeded,
-            });
+                materialized_instance_plan_sha256: service_claim(
+                    result,
+                    "materialized_instance_plan_sha256",
+                )
+                .and_then(Value::as_str)
+                .map(str::to_owned),
+                content: service_claim(result, "materialized_content")
+                    .cloned()
+                    .map(serde_json::from_value::<Vec<MaterializedContentEvidence>>)
+                    .transpose()
+                    .map_err(AdapterError::Serialize)?
+                    .unwrap_or_default(),
+            })
+        })
+        .transpose()?;
     let (artifact_kind, instance_plan_sha256) = match planned {
         PlannedArtifact::Dicom(value) => {
             (ArtifactKind::Dicom, Some(value.instance.canonical_sha256()))
@@ -495,6 +512,7 @@ fn adapt_validation(
                     ValidationStatus::Unavailable => ResultStatus::Unavailable,
                 },
                 message: actual.message.clone(),
+                details: actual.measurements.clone(),
             })
         })
         .collect()
@@ -552,6 +570,12 @@ fn adapt_provider(record: ProviderExecutionRecord) -> Result<ProviderEvidence, A
             Ok((slot.clone(), asset.observed_sha256.clone()))
         })
         .collect::<Result<BTreeMap<_, _>, AdapterError>>()?;
+    let claims = record
+        .result
+        .evidence
+        .iter()
+        .flat_map(|evidence| evidence.claims.clone())
+        .collect();
     Ok(ProviderEvidence {
         provider_id: record.result.provider.backend_id.clone(),
         provider_version: record.result.provider.version.clone(),
@@ -561,6 +585,7 @@ fn adapt_provider(record: ProviderExecutionRecord) -> Result<ProviderEvidence, A
         request_sha256: canonical_hash(&record.request)?,
         response_sha256: canonical_hash(&record.result)?,
         outputs,
+        claims,
     })
 }
 
@@ -590,6 +615,7 @@ fn adapt_codec(mut record: CodecExecutionRecord) -> Result<CodecEvidence, Adapte
         encoded_frame_sha256,
         decoded_frame_sha256: record.decoded_frame_sha256.into_values().collect(),
         metrics: record.metrics,
+        claims: record.claims,
         tool: tool_evidence(&record.result.backend),
     })
 }
@@ -603,6 +629,13 @@ fn tool_evidence(identity: &ToolIdentity) -> Option<ToolEvidence> {
             version: identity.version.clone(),
             executable_sha256: digest.clone(),
         })
+}
+
+fn service_claim<'a>(result: &'a MaterializationResult, key: &str) -> Option<&'a Value> {
+    result
+        .evidence
+        .iter()
+        .find_map(|evidence| evidence.claims.get(key))
 }
 
 fn artifact_contracts(artifact: &PlannedArtifact) -> (&ValidationPlan, &EvidencePlan) {

@@ -30,6 +30,14 @@ use crate::executor::transaction::{OutputTransaction, TransactionError};
 use crate::sha256_hex;
 
 pub trait BoundExecutionServices: Send + Sync {
+    /// Verified caller inputs copied beneath private transaction staging during
+    /// service binding. These seed the registry before any DAG node runs.
+    fn initial_assets(
+        &self,
+    ) -> Result<Vec<crate::executor::services::ProducedAsset>, ServiceInvocationError> {
+        Ok(Vec::new())
+    }
+
     fn bindings_for(
         &self,
         artifact: &PlannedArtifact,
@@ -39,6 +47,7 @@ pub trait BoundExecutionServices: Send + Sync {
         &self,
         request: &ProviderRequest,
         assets: &StagedAssetRegistry,
+        cancellation: &CancellationToken,
     ) -> Result<ProviderResult, ServiceInvocationError>;
 
     fn invoke_codec(
@@ -75,6 +84,14 @@ pub trait BoundExecutionServices: Send + Sync {
         artifact: &PlannedArtifact,
         materialization: &MaterializationResult,
     ) -> Result<u64, ServiceInvocationError>;
+
+    /// Remove execution-only assets before the transaction is made public.
+    fn finalize_private_assets(
+        &self,
+        _assets: &StagedAssetRegistry,
+    ) -> Result<(), ServiceInvocationError> {
+        Ok(())
+    }
 }
 
 pub trait ExecutionServiceFactory: Send + Sync {
@@ -90,6 +107,7 @@ pub struct CodecServiceOutcome {
     pub determinism: String,
     pub decoded_frame_sha256: BTreeMap<u32, String>,
     pub metrics: BTreeMap<String, f64>,
+    pub claims: BTreeMap<String, serde_json::Value>,
 }
 
 pub trait ManifestProjector: Send + Sync {
@@ -200,7 +218,20 @@ where
             Ok(services) => services,
             Err(error) => return Err(cleanup_failure(transaction, error.into())),
         };
-        let registry = Arc::new(Mutex::new(StagedAssetRegistry::default()));
+        let mut initial_registry = StagedAssetRegistry::default();
+        let initial_assets = match services.initial_assets() {
+            Ok(assets) => assets,
+            Err(error) => return Err(cleanup_failure(transaction, error.into())),
+        };
+        for asset in initial_assets {
+            if let Err(error) = initial_registry.register(asset) {
+                return Err(cleanup_failure(
+                    transaction,
+                    CorpusExecutorError::ServiceContract(error),
+                ));
+            }
+        }
+        let registry = Arc::new(Mutex::new(initial_registry));
         let worker = ExecutionWorker {
             services,
             registry,
@@ -239,6 +270,14 @@ where
             Ok(manifest) => manifest,
             Err(error) => return Err(cleanup_failure(transaction, error.into())),
         };
+        let asset_snapshot = worker
+            .registry
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .clone();
+        if let Err(error) = worker.services.finalize_private_assets(&asset_snapshot) {
+            return Err(cleanup_failure(transaction, error.into()));
+        }
         let manifest_sha256 = sha256_hex(&manifest);
         let evidence = match evidence_for(
             plan,
@@ -266,6 +305,7 @@ where
             destination,
             manifest_sha256,
             manifest_size_bytes: manifest.len() as u64,
+            manifest_bytes: manifest,
             evidence,
         })
     }
@@ -320,7 +360,18 @@ impl ArtifactWorker<ArtifactServiceOutputs, ArtifactExecutionError> for Executio
                     self.checkpoint(CancellationStage::BeforeProvider, artifact_id)?;
                     let assets = self.asset_snapshot();
                     request.validate(&assets)?;
-                    let result = self.services.invoke_provider(&request, &assets)?;
+                    let result =
+                        match self
+                            .services
+                            .invoke_provider(&request, &assets, self.cancellation)
+                        {
+                            Ok(result) => result,
+                            Err(error) => {
+                                self.checkpoint(CancellationStage::BeforeProvider, artifact_id)?;
+                                return Err(error.into());
+                            }
+                        };
+                    self.checkpoint(CancellationStage::BeforeProvider, artifact_id)?;
                     result.validate(&request)?;
                     let selected_handle = select_provider_output(&slot, &result)?
                         .declaration
@@ -357,6 +408,7 @@ impl ArtifactWorker<ArtifactServiceOutputs, ArtifactExecutionError> for Executio
                         determinism: outcome.determinism,
                         decoded_frame_sha256: outcome.decoded_frame_sha256,
                         metrics: outcome.metrics,
+                        claims: outcome.claims,
                     });
                 }
                 _ => {}
@@ -562,6 +614,7 @@ pub struct CorpusExecutionResult {
     pub destination: PathBuf,
     pub manifest_sha256: String,
     pub manifest_size_bytes: u64,
+    pub manifest_bytes: Vec<u8>,
     pub evidence: RunEvidence,
 }
 
@@ -642,6 +695,7 @@ pub enum CorpusExecutorError {
     EmptyPlan,
     UnsupportedManifestPath(String),
     Service(ServiceInvocationError),
+    ServiceContract(crate::executor::services::ServiceError),
     Cancelled(Cancelled),
     Scheduler(SchedulerError<ArtifactExecutionError>),
     Adapter(AdapterError),

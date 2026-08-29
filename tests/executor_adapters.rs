@@ -260,6 +260,7 @@ fn outputs(id: &str, path: &str, bytes: &[u8], include_services: bool) -> Artifa
                 determinism: "byte_stable".into(),
                 decoded_frame_sha256: BTreeMap::from([(1, "d".repeat(64))]),
                 metrics: BTreeMap::from([("psnr".into(), 42.0)]),
+                claims: BTreeMap::new(),
             }],
         )
     } else {

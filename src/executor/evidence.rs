@@ -218,13 +218,50 @@ pub struct MaterializationEvidence {
     #[serde(default)]
     pub streamed_slots: Vec<String>,
     pub completed: bool,
+    pub materialized_instance_plan_sha256: Option<String>,
+    #[serde(default)]
+    pub content: Vec<MaterializedContentEvidence>,
 }
 
 impl MaterializationEvidence {
     fn validate(&self) -> Result<(), EvidenceError> {
         validate_identifier("materialization backend", &self.backend_id)?;
-        validate_unique_results("streamed slot", self.streamed_slots.iter())
+        validate_unique_results("streamed slot", self.streamed_slots.iter())?;
+        if let Some(hash) = &self.materialized_instance_plan_sha256 {
+            validate_sha256("materialized instance plan", hash)?;
+        }
+        validate_unique_results(
+            "materialized content slot",
+            self.content.iter().map(|c| &c.slot),
+        )?;
+        for content in &self.content {
+            validate_identifier("materialized content kind", &content.kind)?;
+            validate_identifier("materialized content VR", &content.vr)?;
+            validate_sha256("materialized content", &content.sha256)?;
+            for hash in &content.compressed_frame_sha256 {
+                validate_sha256("compressed frame", hash)?;
+            }
+        }
+        Ok(())
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MaterializedContentEvidence {
+    pub slot: String,
+    pub kind: String,
+    pub vr: String,
+    pub size_bytes: u64,
+    pub sha256: String,
+    #[serde(default)]
+    pub basic_offset_table: Vec<u32>,
+    #[serde(default)]
+    pub compressed_frame_sha256: Vec<String>,
+    /// How the writer consumed this slot when execution used a distinct
+    /// materialization path (for example, bounded file streaming).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub writer_materialization: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -244,6 +281,8 @@ pub struct ValidationResult {
     pub required: bool,
     pub status: ResultStatus,
     pub message: String,
+    #[serde(default)]
+    pub details: BTreeMap<String, serde_json::Value>,
 }
 
 impl ValidationResult {
@@ -313,6 +352,8 @@ pub struct ProviderEvidence {
     pub request_sha256: String,
     pub response_sha256: String,
     pub outputs: BTreeMap<String, String>,
+    #[serde(default)]
+    pub claims: BTreeMap<String, serde_json::Value>,
 }
 
 impl ProviderEvidence {
@@ -356,6 +397,8 @@ pub struct CodecEvidence {
     pub decoded_frame_sha256: Vec<String>,
     #[serde(default)]
     pub metrics: BTreeMap<String, f64>,
+    #[serde(default)]
+    pub claims: BTreeMap<String, serde_json::Value>,
     pub tool: Option<ToolEvidence>,
 }
 

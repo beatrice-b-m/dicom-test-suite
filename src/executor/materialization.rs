@@ -11,9 +11,11 @@ use serde_json::{Value, json};
 
 use crate::composition::{ContentMaterialization, Part10Materializer};
 use crate::corpus_plan::{
-    PlannedArtifact, PlannedAuxiliaryArtifact, PlannedDicomArtifact, PlannedMutationArtifact,
-    PlannedMutationOperation, PlannedQualification, QualificationPayloadPolicy,
+    OffsetTablePolicy, PlannedArtifact, PlannedAuxiliaryArtifact, PlannedDicomArtifact,
+    PlannedMutationArtifact, PlannedMutationOperation, PlannedQualification,
+    QualificationPayloadPolicy,
 };
+use crate::encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData};
 use crate::mutation::{
     AcceptableOutcome, ByteRange, FailureLayer, LengthWidth, MutationParameters, MutationRequest,
     TruncationTarget, apply_named_mutation,
@@ -116,12 +118,23 @@ impl MaterializationDispatcher {
         assets: &StagedAssetRegistry,
     ) -> Result<MaterializationResult, MaterializationError> {
         let mut instance = artifact.instance.clone();
+        let mut materialized_content = Vec::new();
         for content in &mut instance.content {
             let Some(binding) = request.bindings.slots.get(&content.slot) else {
                 continue;
             };
             content.materialization = Some(match binding {
                 SlotExecutionBinding::StagedAsset { asset } => {
+                    materialized_content.push(json!({
+                        "slot": content.slot,
+                        "kind": content.kind,
+                        "vr": content.vr.to_string(),
+                        "size_bytes": content.size_bytes,
+                        "sha256": content.sha256,
+                        "basic_offset_table": [],
+                        "compressed_frame_sha256": [],
+                        "writer_materialization": "stream_copy",
+                    }));
                     ContentMaterialization::StagedFile(self.asset_path(asset, assets, false)?)
                 }
                 SlotExecutionBinding::NativeFrames { frames } => {
@@ -132,12 +145,54 @@ impl MaterializationDispatcher {
                     ContentMaterialization::Inline(bytes)
                 }
                 SlotExecutionBinding::EncodedFrames { frames } => {
-                    let fragments = frames
+                    let encoded_frames = frames
                         .iter()
                         .map(|frame| self.read_binding(&frame.bytes, assets))
                         .collect::<Result<Vec<_>, _>>()?;
+                    let policy = match artifact.encoding.offset_table {
+                        OffsetTablePolicy::PopulatedBasic => BasicOffsetTablePolicy::Populated,
+                        OffsetTablePolicy::EmptyBasic | OffsetTablePolicy::NotApplicable => {
+                            BasicOffsetTablePolicy::Empty
+                        }
+                        OffsetTablePolicy::Extended => {
+                            return Err(MaterializationError::UnsupportedOffsetTablePolicy(
+                                artifact.logical_id.clone(),
+                            ));
+                        }
+                    };
+                    let encapsulated =
+                        EncapsulatedPixelData::one_fragment_per_frame(&encoded_frames, policy)
+                            .map_err(MaterializationError::Encapsulation)?;
+                    let basic_offset_table = encapsulated.basic_offset_table.offsets.clone();
+                    let compressed_frame_sha256 = encapsulated.compressed_frame_hashes.clone();
+                    let mut fragments = encapsulated.fragment_payloads;
+                    for fragment in &mut fragments {
+                        if fragment.len() % 2 != 0 {
+                            fragment.push(0);
+                        }
+                    }
+                    let aggregate = fragments.concat();
+                    content.kind = "encapsulated_pixels".into();
+                    content.vr = crate::composition::DicomVr::OB;
+                    content.size_bytes = aggregate.len() as u64;
+                    content.sha256 = sha256_hex(&aggregate);
+                    content.properties.insert(
+                        "compressed_frame_sha256".into(),
+                        serde_json::to_string(&compressed_frame_sha256)
+                            .expect("frame hashes serialize"),
+                    );
+                    materialized_content.push(json!({
+                        "slot": content.slot,
+                        "kind": content.kind,
+                        "vr": content.vr.to_string(),
+                        "size_bytes": content.size_bytes,
+                        "sha256": content.sha256,
+                        "basic_offset_table": basic_offset_table,
+                        "compressed_frame_sha256": compressed_frame_sha256,
+                        "writer_materialization": null,
+                    }));
                     ContentMaterialization::Encapsulated {
-                        basic_offset_table: Vec::new(),
+                        basic_offset_table,
                         fragments,
                     }
                 }
@@ -153,6 +208,7 @@ impl MaterializationDispatcher {
         let relative_path = artifact.output.relative_path.as_str();
         let path = self.output_path(relative_path)?;
         Part10Materializer.materialize(&instance, &path)?;
+        let materialized_instance_plan_sha256 = instance.canonical_sha256();
         let output = self.produced_file(
             &artifact.logical_id,
             relative_path,
@@ -163,7 +219,21 @@ impl MaterializationDispatcher {
             artifact_id: artifact.logical_id.clone(),
             output: Some(output),
             backend: built_in_identity("part10_materializer"),
-            evidence: vec![],
+            evidence: vec![ServiceEvidence {
+                evidence_id: format!("materialized_plan:{}", artifact.logical_id),
+                evidence_kind: "materialized_instance_plan".into(),
+                producer: built_in_identity("part10_materializer"),
+                claims: BTreeMap::from([
+                    (
+                        "materialized_instance_plan_sha256".into(),
+                        json!(materialized_instance_plan_sha256),
+                    ),
+                    (
+                        "materialized_content".into(),
+                        Value::Array(materialized_content),
+                    ),
+                ]),
+            }],
         })
     }
 
@@ -462,10 +532,26 @@ fn ensure_safe_parent(root: &Path, path: &Path) -> Result<(), MaterializationErr
             }
             Ok(_) => {}
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                fs::create_dir(&current).map_err(|source| MaterializationError::Io {
-                    path: current.clone(),
-                    source,
-                })?;
+                match fs::create_dir(&current) {
+                    Ok(()) => {}
+                    Err(source) if source.kind() == std::io::ErrorKind::AlreadyExists => {
+                        let metadata = fs::symlink_metadata(&current).map_err(|source| {
+                            MaterializationError::Io {
+                                path: current.clone(),
+                                source,
+                            }
+                        })?;
+                        if metadata.file_type().is_symlink() || !metadata.is_dir() {
+                            return Err(MaterializationError::UnsafeOutputPath(path.to_path_buf()));
+                        }
+                    }
+                    Err(source) => {
+                        return Err(MaterializationError::Io {
+                            path: current.clone(),
+                            source,
+                        });
+                    }
+                }
             }
             Err(source) => {
                 return Err(MaterializationError::Io {
@@ -694,10 +780,12 @@ pub enum MaterializationError {
     Service(ServiceError),
     Dicom(crate::composition::MaterializeError),
     Mutation(crate::mutation::MutationError),
+    Encapsulation(crate::encapsulation::EncapsulationError),
     UnresolvedProviderBinding {
         artifact_id: String,
         slot: String,
     },
+    UnsupportedOffsetTablePolicy(String),
     MissingPrivateMutationSource(String),
     MutationSourceNotPrivate(StagedAssetHandle),
     StagedAssetChanged(StagedAssetHandle),

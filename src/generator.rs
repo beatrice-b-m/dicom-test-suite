@@ -12156,6 +12156,26 @@ fn write_pixel_case_with_metadata(
     } else {
         recipe.transfer_syntax
     };
+    let curated_plan = crate::composition::resolved_plan_from_curated_dataset(
+        &obj,
+        crate::composition::CuratedPlanInput {
+            instance_id: recipe.recipe_id,
+            template_id: crate::composition::TemplateId(
+                curated_pixel_template_family(recipe).to_string(),
+            ),
+            template_version: "1.0.0".parse().expect("static template version"),
+            sop_class_uid,
+            transfer_syntax_uid: file_transfer_syntax.uid,
+            study_instance_uid: Some(&study_instance_uid),
+            series_instance_uid: Some(&series_instance_uid),
+            sop_instance_uid: &sop_instance_uid,
+            implementation_class_uid: &implementation_class_uid,
+        },
+    )
+    .map_err(|error| GenerateError::WriteDicomFile {
+        path: path.clone(),
+        message: format!("resolve curated composition plan: {error}"),
+    })?;
     let file_obj = obj
         .with_meta(
             FileMetaTableBuilder::new()
@@ -12182,8 +12202,8 @@ fn write_pixel_case_with_metadata(
         {
             let process = dcmtk_lossless_process_for_transfer_syntax(recipe.transfer_syntax)?;
             let source_path = path.with_extension("native-source.dcm");
-            file_obj
-                .write_to_file(&source_path)
+            crate::composition::Part10Materializer
+                .materialize(&curated_plan, &source_path)
                 .map_err(|err| GenerateError::WriteDicomFile {
                     path: source_path.clone(),
                     message: err.to_string(),
@@ -12250,8 +12270,8 @@ fn write_pixel_case_with_metadata(
     } else if matches!(metadata, Some(ScMetadataPayload::SequenceLength(_))) {
         write_part10_preserving_sequence_lengths(&file_obj, &path)?;
     } else {
-        file_obj
-            .write_to_file(&path)
+        crate::composition::Part10Materializer
+            .materialize(&curated_plan, &path)
             .map_err(|err| GenerateError::WriteDicomFile {
                 path: path.clone(),
                 message: err.to_string(),
@@ -12322,6 +12342,14 @@ fn write_pixel_case_with_metadata(
             segmentation: None,
         },
     )?;
+    append_internal_validation(
+        &mut validated.validation,
+        serde_json::json!({
+            "name": "curated_composition_plan",
+            "status": "passed",
+            "message": "The curated dataset resolved through the shared composition plan before Part 10 materialization."
+        }),
+    );
     for result in codec_internal_validation {
         append_internal_validation(&mut validated.validation, result);
     }
@@ -12378,6 +12406,21 @@ fn write_pixel_case_with_metadata(
             metadata,
         ),
     })
+}
+
+fn curated_pixel_template_family(recipe: PixelRecipe) -> &'static str {
+    match pixel_single_frame_vl_kind(recipe) {
+        Some(SingleFrameVlKind::Endoscopic) => "vl/endoscopic",
+        Some(SingleFrameVlKind::Microscopic) => "vl/microscopic",
+        Some(SingleFrameVlKind::Photographic) => "vl/photographic",
+        None if recipe.case_id == U1_SC_RECIPE.case_id => {
+            "classic/secondary-capture/multiframe-single-bit"
+        }
+        None if recipe.case_id == EOT_CASE_ID => {
+            "classic/secondary-capture/multiframe-grayscale-byte"
+        }
+        None => "classic/secondary-capture",
+    }
 }
 
 #[allow(clippy::too_many_arguments)]

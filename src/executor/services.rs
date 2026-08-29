@@ -66,6 +66,16 @@ pub struct AssetDeclaration {
     pub size_bytes: u64,
     pub sha256: String,
     pub media_type: String,
+    #[serde(default)]
+    pub visibility: AssetVisibility,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AssetVisibility {
+    #[default]
+    Private,
+    PublicationCandidate,
 }
 
 impl AssetDeclaration {
@@ -99,6 +109,7 @@ impl ProducedAsset {
                 size_bytes,
                 sha256: sha256.clone(),
                 media_type: media_type.into(),
+                visibility: AssetVisibility::Private,
             },
             observed_size_bytes: size_bytes,
             observed_sha256: sha256,
@@ -575,7 +586,7 @@ impl MaterializationRequest {
 #[serde(deny_unknown_fields)]
 pub struct MaterializationResult {
     pub artifact_id: String,
-    pub output: ProducedAsset,
+    pub output: Option<ProducedAsset>,
     pub backend: ToolIdentity,
     #[serde(default)]
     pub evidence: Vec<ServiceEvidence>,
@@ -588,7 +599,11 @@ impl MaterializationResult {
                 self.artifact_id.clone(),
             ));
         }
-        self.output.validate()?;
+        match (request.artifact.output(), &self.output) {
+            (Some(_), Some(output)) => output.validate()?,
+            (None, None) => {}
+            _ => return Err(ServiceError::ResultOutputMismatch(self.artifact_id.clone())),
+        }
         self.backend.validate()?;
         validate_evidence(&self.evidence)
     }

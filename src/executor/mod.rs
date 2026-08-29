@@ -2,5 +2,6 @@
 
 pub mod cancellation;
 pub mod evidence;
+pub mod materialization;
 pub mod scheduler;
 pub mod services;

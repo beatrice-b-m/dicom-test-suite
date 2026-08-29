@@ -117,7 +117,9 @@ fn ordinary_generate_preserves_locked_curated_history_for_public_profiles() {
         ),
         (
             "all",
-            "6c6a0dd8fd0689f041746672d78b93434555e9710ef5aadd2c4f025a00e95730",
+            // U4 expands this derived selection from the SC slice to the
+            // byte- and manifest-parity-qualified classic families.
+            "c24bbafcbbd0ab7d72a47d38fadc3a28ad4233434438e72fba7685b931744f22",
         ),
         (
             "legacy",

@@ -37,7 +37,20 @@ fn source_inventory() -> (Vec<(String, String, String)>, BTreeSet<String>) {
     .unwrap();
     let mut artifacts = Vec::new();
     let pending = BTreeSet::new();
-    for case in registry["cases"].as_array().unwrap() {
+    let mut registry_cases = registry["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .collect::<Vec<_>>();
+    registry_cases.sort_by_key(|case| {
+        case["case_id"]
+            .as_str()
+            .and_then(|case_id| recipes.binding_for_case(case_id))
+            .and_then(|identity| recipes.recipes().get(identity))
+            .and_then(|recipe| recipe.planning_order)
+            .unwrap_or(u32::MAX)
+    });
+    for case in registry_cases {
         let requirements = &case["requirements"];
         let feature_free = ["features", "external_codecs", "external_validators"]
             .iter()
@@ -169,6 +182,72 @@ fn full_feature_free_slice_joins_registry_recipe_template_and_order_exactly() {
         );
     }
     assert!(bundle.plan.dependencies.is_empty());
+}
+
+#[test]
+fn projection_context_is_lossless_ordered_and_one_to_one_with_plan() {
+    let bundle = provider().plan(&all_request()).unwrap();
+    bundle.projection.validate(&bundle.plan).unwrap();
+    assert_eq!(
+        bundle.projection.artifacts.len(),
+        bundle.plan.artifacts.len()
+    );
+
+    let registry: Value =
+        serde_json::from_slice(&fs::read("cases/registry.json").unwrap()).unwrap();
+    let registry_by_id = registry["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .enumerate()
+        .map(|(order, case)| (case["case_id"].as_str().unwrap(), (order, case)))
+        .collect::<BTreeMap<_, _>>();
+    for (planned, projected) in bundle
+        .plan
+        .artifacts
+        .iter()
+        .zip(&bundle.projection.artifacts)
+    {
+        assert_eq!(projected.artifact_id, planned.logical_id());
+        assert_eq!(projected.plan_order, planned.order());
+        let (registry_order, source_case) =
+            registry_by_id[projected.registry_case.case_id.as_str()];
+        assert_eq!(projected.registry_order, registry_order as u64);
+        assert_eq!(
+            serde_json::to_value(&projected.registry_case).unwrap(),
+            *source_case
+        );
+        assert_eq!(
+            projected.case_recipe.planning_order,
+            Some(projected.historical_recipe_order)
+        );
+        assert_eq!(
+            projected.artifact_recipe.order,
+            projected.historical_artifact_order
+        );
+    }
+
+    let encoded = serde_json::to_vec(&bundle.projection).unwrap();
+    let decoded: dicom_test_suite::curated_plan::CuratedScProjectionContext =
+        serde_json::from_slice(&encoded).unwrap();
+    assert_eq!(decoded, bundle.projection);
+}
+
+#[test]
+fn projection_context_rejects_missing_duplicate_and_cross_bound_artifacts() {
+    let bundle = provider().plan(&all_request()).unwrap();
+
+    let mut missing = bundle.projection.clone();
+    missing.artifacts.pop();
+    assert!(missing.validate(&bundle.plan).is_err());
+
+    let mut duplicate = bundle.projection.clone();
+    duplicate.artifacts[1] = duplicate.artifacts[0].clone();
+    assert!(duplicate.validate(&bundle.plan).is_err());
+
+    let mut crossed = bundle.projection.clone();
+    crossed.artifacts.swap(0, 1);
+    assert!(crossed.validate(&bundle.plan).is_err());
 }
 
 #[test]

@@ -108,7 +108,87 @@ pub struct CuratedScCorpusPlan {
     pub plan: CorpusPlan,
     pub bindings: BTreeMap<String, ArtifactExecutionBindings>,
     pub native_content_requests: Vec<NativeContentServiceRequest>,
+    pub projection: CuratedScProjectionContext,
     pub pending: Vec<PendingCuratedCase>,
+}
+
+/// Immutable source metadata needed to project a curated artifact after
+/// execution. It contains no output-root path and no materialized bytes.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CuratedArtifactProjectionContext {
+    pub artifact_id: String,
+    pub plan_order: u64,
+    /// Stable order of the case in the authoritative registry.
+    pub registry_order: u64,
+    /// Historical generator order carried by the versioned case recipe.
+    pub historical_recipe_order: u32,
+    pub historical_artifact_order: u32,
+    pub registry_case: RegistryCaseProjection,
+    pub case_recipe: CaseRecipe,
+    pub artifact_recipe: crate::recipes::PlannedArtifactRecipe,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CuratedScProjectionContext {
+    pub artifacts: Vec<CuratedArtifactProjectionContext>,
+}
+
+impl CuratedScProjectionContext {
+    pub fn validate(&self, plan: &CorpusPlan) -> Result<(), CuratedPlanError> {
+        if self.artifacts.len() != plan.artifacts.len() {
+            return Err(CuratedPlanError::ProjectionArtifactSetMismatch);
+        }
+        let mut ids = BTreeSet::new();
+        for (planned, projected) in plan.artifacts.iter().zip(&self.artifacts) {
+            if !ids.insert(projected.artifact_id.clone())
+                || planned.logical_id() != projected.artifact_id
+                || planned.order() != projected.plan_order
+                || projected.registry_case.case_id != projected.case_recipe.binding.case_id
+                || projected.registry_case.recipe_id != projected.case_recipe.recipe_id
+                || projected.registry_case.recipe_version != projected.case_recipe.recipe_version
+                || artifact_id(
+                    &projected.case_recipe,
+                    &projected.artifact_recipe.logical_id,
+                ) != projected.artifact_id
+                || projected.artifact_recipe.order != projected.historical_artifact_order
+                || projected.case_recipe.planning_order != Some(projected.historical_recipe_order)
+            {
+                return Err(CuratedPlanError::ProjectionArtifactMismatch(
+                    projected.artifact_id.clone(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Lossless typed copy of an authoritative registry case. Open-ended nested
+/// policy records stay as JSON values so projection retains their exact shape.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RegistryCaseProjection {
+    pub case_id: String,
+    pub status: String,
+    pub profiles: Vec<String>,
+    pub recipe_id: String,
+    pub recipe_version: String,
+    pub iod_name: Option<String>,
+    pub sop_class_name: Option<String>,
+    pub sop_class_uid: Option<String>,
+    pub transfer_syntax_uid: Option<String>,
+    pub determinism: String,
+    pub requirements: RegistryRequirements,
+    pub skip: Value,
+    pub standards_evidence: Vec<Value>,
+    pub provider: Value,
+    pub roadmap: Value,
+    pub blockers: Vec<Value>,
+    pub modality: Option<String>,
+    pub object_family: String,
+    pub compatibility_axes: Vec<String>,
+    pub artifact_kind: String,
 }
 
 #[derive(Debug)]
@@ -155,10 +235,18 @@ impl CuratedScCorpusPlanProvider {
         let mut artifacts = Vec::new();
         let mut bindings = BTreeMap::new();
         let mut native_content_requests = Vec::new();
+        let mut projection_artifacts = Vec::new();
         let pending = Vec::new();
         let mut artifact_by_recipe_role = BTreeMap::new();
         let mut selected_recipes = Vec::new();
 
+        let registry_order = self
+            .registry
+            .cases
+            .iter()
+            .enumerate()
+            .map(|(order, case)| (case.case_id.as_str(), order as u64))
+            .collect::<BTreeMap<_, _>>();
         let mut selected_registry_cases = self.registry.cases.iter().collect::<Vec<_>>();
         selected_registry_cases.sort_by_key(|registry_case| {
             self.recipes
@@ -297,6 +385,9 @@ impl CuratedScCorpusPlanProvider {
                 let validation = validation_plan(recipe, artifact_recipe);
                 let order = u64::try_from(artifacts.len())
                     .map_err(|_| CuratedPlanError::ResourceOverflow)?;
+                let historical_recipe_order = recipe.planning_order.ok_or_else(|| {
+                    CuratedPlanError::MissingProjectionOrder(recipe.recipe_id.clone())
+                })?;
                 artifacts.push(PlannedArtifact::Dicom(PlannedDicomArtifact {
                     logical_id: global_id.clone(),
                     order,
@@ -325,6 +416,16 @@ impl CuratedScCorpusPlanProvider {
                     },
                     resources,
                 }));
+                projection_artifacts.push(CuratedArtifactProjectionContext {
+                    artifact_id: global_id.clone(),
+                    plan_order: order,
+                    registry_order: registry_order[registry_case.case_id.as_str()],
+                    historical_recipe_order,
+                    historical_artifact_order: artifact_recipe.order,
+                    registry_case: registry_case.clone().into(),
+                    case_recipe: recipe.clone(),
+                    artifact_recipe: artifact_recipe.clone(),
+                });
                 artifact_by_recipe_role.insert(
                     (recipe.identity(), artifact_recipe.output.role.clone()),
                     global_id.clone(),
@@ -386,10 +487,15 @@ impl CuratedScCorpusPlanProvider {
             },
         };
         plan.validate()?;
+        let projection = CuratedScProjectionContext {
+            artifacts: projection_artifacts,
+        };
+        projection.validate(&plan)?;
         Ok(CuratedScCorpusPlan {
             plan,
             bindings,
             native_content_requests,
+            projection,
             pending,
         })
     }
@@ -664,19 +770,63 @@ struct RegistryDocument {
     cases: Vec<RegistryCase>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 struct RegistryCase {
     case_id: String,
     status: String,
     profiles: Vec<String>,
+    recipe_id: String,
+    recipe_version: String,
+    iod_name: Option<String>,
+    sop_class_name: Option<String>,
+    sop_class_uid: Option<String>,
+    transfer_syntax_uid: Option<String>,
+    determinism: String,
     requirements: RegistryRequirements,
+    skip: Value,
+    standards_evidence: Vec<Value>,
+    provider: Value,
+    roadmap: Value,
+    blockers: Vec<Value>,
+    modality: Option<String>,
+    object_family: String,
+    compatibility_axes: Vec<String>,
+    artifact_kind: String,
 }
 
-#[derive(Debug, Deserialize)]
-struct RegistryRequirements {
-    features: Vec<String>,
-    external_codecs: Vec<String>,
-    external_validators: Vec<String>,
+impl From<RegistryCase> for RegistryCaseProjection {
+    fn from(case: RegistryCase) -> Self {
+        Self {
+            case_id: case.case_id,
+            status: case.status,
+            profiles: case.profiles,
+            recipe_id: case.recipe_id,
+            recipe_version: case.recipe_version,
+            iod_name: case.iod_name,
+            sop_class_name: case.sop_class_name,
+            sop_class_uid: case.sop_class_uid,
+            transfer_syntax_uid: case.transfer_syntax_uid,
+            determinism: case.determinism,
+            requirements: case.requirements,
+            skip: case.skip,
+            standards_evidence: case.standards_evidence,
+            provider: case.provider,
+            roadmap: case.roadmap,
+            blockers: case.blockers,
+            modality: case.modality,
+            object_family: case.object_family,
+            compatibility_axes: case.compatibility_axes,
+            artifact_kind: case.artifact_kind,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RegistryRequirements {
+    pub features: Vec<String>,
+    pub external_codecs: Vec<String>,
+    pub external_validators: Vec<String>,
 }
 
 impl RegistryRequirements {
@@ -726,6 +876,9 @@ pub enum CuratedPlanError {
         dependency: RecipeIdentity,
         role: String,
     },
+    MissingProjectionOrder(String),
+    ProjectionArtifactSetMismatch,
+    ProjectionArtifactMismatch(String),
     ZeroParallelism,
     ResourceOverflow,
     CorpusPlan(CorpusPlanError),

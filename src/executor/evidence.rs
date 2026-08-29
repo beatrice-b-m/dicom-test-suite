@@ -274,6 +274,19 @@ impl MaterializationEvidence {
             for hash in &content.compressed_frame_sha256 {
                 validate_sha256("compressed frame", hash)?;
             }
+            for hash in &content.native_frame_sha256 {
+                validate_sha256("native frame", hash)?;
+            }
+            for hash in &content.decoded_frame_sha256 {
+                validate_sha256("decoded frame", hash)?;
+            }
+            if content.native_frame_sha256.len() != content.native_frame_lengths.len()
+                || content.decoded_frame_sha256.len() != content.decoded_frame_lengths.len()
+            {
+                return Err(EvidenceError::FrameEvidenceCardinality(
+                    content.slot.clone(),
+                ));
+            }
         }
         Ok(())
     }
@@ -291,6 +304,18 @@ pub struct MaterializedContentEvidence {
     pub basic_offset_table: Vec<u32>,
     #[serde(default)]
     pub compressed_frame_sha256: Vec<String>,
+    /// Execution-observed hashes of the ordered native frame bindings. For
+    /// continuously packed U1, these retain the binding chunk identities.
+    #[serde(default)]
+    pub native_frame_sha256: Vec<String>,
+    #[serde(default)]
+    pub native_frame_lengths: Vec<u64>,
+    /// Hashes of logical decoded frames. U1 frames are expanded to one 0/1
+    /// byte per sample from the continuous LSB-first aggregate.
+    #[serde(default)]
+    pub decoded_frame_sha256: Vec<String>,
+    #[serde(default)]
+    pub decoded_frame_lengths: Vec<u64>,
     #[serde(default)]
     pub fragment_count: u64,
     #[serde(default)]
@@ -693,6 +718,7 @@ pub enum EvidenceError {
         label: &'static str,
         value: String,
     },
+    FrameEvidenceCardinality(String),
     UnsafeRelativePath(String),
     ArtifactOutputLimitExceeded,
     ArtifactWorkingLimitExceeded,

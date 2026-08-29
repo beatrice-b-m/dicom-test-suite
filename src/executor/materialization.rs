@@ -168,10 +168,106 @@ impl MaterializationDispatcher {
                     ContentMaterialization::StagedFile(self.asset_path(asset, assets, false)?)
                 }
                 SlotExecutionBinding::NativeFrames { frames } => {
-                    let mut bytes = Vec::new();
-                    for frame in frames {
-                        bytes.extend(self.read_binding(&frame.bytes, assets)?);
+                    let mut ordered_frames = frames.iter().collect::<Vec<_>>();
+                    ordered_frames.sort_by_key(|frame| frame.frame_number);
+                    for (index, frame) in ordered_frames.iter().enumerate() {
+                        if frame.frame_number != index as u32 + 1 {
+                            return Err(MaterializationError::NativeFrameOrder {
+                                expected: index as u32 + 1,
+                                actual: frame.frame_number,
+                            });
+                        }
                     }
+                    let first = ordered_frames[0];
+                    let mut bytes = Vec::new();
+                    let mut native_frame_sha256 = Vec::with_capacity(ordered_frames.len());
+                    let mut native_frame_lengths = Vec::with_capacity(ordered_frames.len());
+                    for frame in &ordered_frames {
+                        if frame.rows != first.rows
+                            || frame.columns != first.columns
+                            || frame.samples_per_pixel != first.samples_per_pixel
+                            || frame.bits_allocated != first.bits_allocated
+                            || frame.photometric_interpretation != first.photometric_interpretation
+                        {
+                            return Err(MaterializationError::NativeFrameShape(frame.frame_number));
+                        }
+                        let frame_bytes = self.read_binding(&frame.bytes, assets)?;
+                        native_frame_lengths.push(frame_bytes.len() as u64);
+                        native_frame_sha256.push(sha256_hex(&frame_bytes));
+                        bytes.extend(frame_bytes);
+                    }
+                    if bytes.len() as u64 != content.size_bytes {
+                        return Err(MaterializationError::NativeContentSize {
+                            slot: content.slot.clone(),
+                            expected: content.size_bytes,
+                            actual: bytes.len() as u64,
+                        });
+                    }
+                    let aggregate_sha256 = sha256_hex(&bytes);
+                    if aggregate_sha256 != content.sha256 {
+                        return Err(MaterializationError::NativeContentHash {
+                            slot: content.slot.clone(),
+                            expected: content.sha256.clone(),
+                            actual: aggregate_sha256,
+                        });
+                    }
+                    let (decoded_frame_sha256, decoded_frame_lengths) = if first.bits_allocated == 1
+                    {
+                        let values_per_frame = u64::from(first.rows)
+                            .checked_mul(u64::from(first.columns))
+                            .and_then(|value| value.checked_mul(u64::from(first.samples_per_pixel)))
+                            .ok_or(MaterializationError::NativeFrameSizeOverflow)?;
+                        let total_values = values_per_frame
+                            .checked_mul(ordered_frames.len() as u64)
+                            .ok_or(MaterializationError::NativeFrameSizeOverflow)?;
+                        let required_bytes = total_values
+                            .checked_add(7)
+                            .ok_or(MaterializationError::NativeFrameSizeOverflow)?
+                            / 8;
+                        if required_bytes != bytes.len() as u64 {
+                            return Err(MaterializationError::NativeBitPackingSize {
+                                expected: required_bytes,
+                                actual: bytes.len() as u64,
+                            });
+                        }
+                        let frame_capacity = usize::try_from(values_per_frame)
+                            .map_err(|_| MaterializationError::NativeFrameSizeOverflow)?;
+                        let mut hashes = Vec::with_capacity(ordered_frames.len());
+                        let mut lengths = Vec::with_capacity(ordered_frames.len());
+                        for frame_index in 0..ordered_frames.len() {
+                            let start = (frame_index as u64)
+                                .checked_mul(values_per_frame)
+                                .ok_or(MaterializationError::NativeFrameSizeOverflow)?;
+                            let mut decoded = Vec::with_capacity(frame_capacity);
+                            for offset in 0..values_per_frame {
+                                let bit = start + offset;
+                                decoded.push((bytes[(bit / 8) as usize] >> (bit % 8)) & 1);
+                            }
+                            lengths.push(decoded.len() as u64);
+                            hashes.push(sha256_hex(&decoded));
+                        }
+                        (hashes, lengths)
+                    } else {
+                        (native_frame_sha256.clone(), native_frame_lengths.clone())
+                    };
+                    materialized_content.push(json!({
+                        "slot": content.slot,
+                        "kind": content.kind,
+                        "vr": content.vr.to_string(),
+                        "size_bytes": content.size_bytes,
+                        "sha256": content.sha256,
+                        "basic_offset_table": [],
+                        "compressed_frame_sha256": [],
+                        "native_frame_sha256": native_frame_sha256,
+                        "native_frame_lengths": native_frame_lengths,
+                        "decoded_frame_sha256": decoded_frame_sha256,
+                        "decoded_frame_lengths": decoded_frame_lengths,
+                        "fragment_count": 0,
+                        "compressed_lengths": [],
+                        "padded_fragment_lengths": [],
+                        "extended_offset_table": [],
+                        "extended_offset_table_lengths": [],
+                    }));
                     ContentMaterialization::Inline(bytes)
                 }
                 SlotExecutionBinding::EncodedFrames { frames } => {
@@ -1108,6 +1204,26 @@ pub enum MaterializationError {
     FragmentMaximumTooSmall,
     EncodedFrameOrder,
     EncodedFrameIdentity(u32),
+    NativeFrameOrder {
+        expected: u32,
+        actual: u32,
+    },
+    NativeFrameShape(u32),
+    NativeFrameSizeOverflow,
+    NativeBitPackingSize {
+        expected: u64,
+        actual: u64,
+    },
+    NativeContentSize {
+        slot: String,
+        expected: u64,
+        actual: u64,
+    },
+    NativeContentHash {
+        slot: String,
+        expected: String,
+        actual: String,
+    },
     InvalidPart10FileMeta,
     MissingPrivateMutationSource(String),
     MutationSourceNotPrivate(StagedAssetHandle),
@@ -1304,6 +1420,63 @@ mod tests {
         MaterializationDispatcher::new(root, Arc::new(TextAuxiliary)).unwrap()
     }
 
+    fn native_request(
+        path: &str,
+        bytes: &[u8],
+        frames: Vec<super::super::services::NativeFrameBinding>,
+    ) -> MaterializationRequest {
+        let mut artifact = dicom("primary", path, true);
+        let PlannedArtifact::Dicom(value) = &mut artifact else {
+            unreachable!()
+        };
+        value
+            .instance
+            .content
+            .push(crate::composition::CanonicalContent {
+                slot: "pixels".into(),
+                kind: "native_pixels".into(),
+                address: crate::composition::AttributeAddress::from_normalized_tag("7FE0,0010")
+                    .unwrap(),
+                vr: crate::composition::DicomVr::OB,
+                size_bytes: bytes.len() as u64,
+                sha256: sha256_hex(bytes),
+                properties: BTreeMap::new(),
+                placement: crate::composition::ContentPlacement::TopLevel,
+                materialization: None,
+            });
+        MaterializationRequest {
+            bindings: ArtifactExecutionBindings {
+                artifact_id: "primary".into(),
+                slots: BTreeMap::from([(
+                    "pixels".into(),
+                    SlotExecutionBinding::NativeFrames { frames },
+                )]),
+            },
+            artifact,
+        }
+    }
+
+    fn native_frame(
+        number: u32,
+        bytes: Vec<u8>,
+        rows: u32,
+        columns: u32,
+        bits_allocated: u16,
+    ) -> super::super::services::NativeFrameBinding {
+        super::super::services::NativeFrameBinding {
+            frame_number: number,
+            bytes: ByteBinding::Inline {
+                sha256: sha256_hex(&bytes),
+                bytes,
+            },
+            rows,
+            columns,
+            samples_per_pixel: 1,
+            bits_allocated,
+            photometric_interpretation: "MONOCHROME2".into(),
+        }
+    }
+
     #[test]
     fn dicom_dispatch_writes_and_verifies_only_beneath_private_staging() {
         let root = root("dicom");
@@ -1327,6 +1500,123 @@ mod tests {
         assert_eq!(
             &fs::read(root.join("instances/primary.dcm")).unwrap()[128..132],
             b"DICM"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn native_frames_are_ordered_verified_and_report_typed_frame_evidence() {
+        let root = root("native-evidence");
+        let request = native_request(
+            "instances/native.dcm",
+            &[1, 2, 3, 4],
+            vec![
+                native_frame(2, vec![3, 4], 1, 2, 8),
+                native_frame(1, vec![1, 2], 1, 2, 8),
+            ],
+        );
+        let result = dispatcher(&root)
+            .dispatch(&request, &StagedAssetRegistry::default())
+            .unwrap();
+        let content = &result.evidence[0].claims["materialized_content"][0];
+        assert_eq!(content["native_frame_lengths"], json!([2, 2]));
+        assert_eq!(
+            content["native_frame_sha256"],
+            json!([sha256_hex(&[1, 2]), sha256_hex(&[3, 4])])
+        );
+        assert_eq!(content["decoded_frame_lengths"], json!([2, 2]));
+        assert_eq!(content["fragment_count"], 0);
+        assert_eq!(content["compressed_frame_sha256"], json!([]));
+        assert_eq!(content["padded_fragment_lengths"], json!([]));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn native_frame_gaps_and_aggregate_drift_fail_before_output_creation() {
+        let duplicate_root = root("native-duplicate");
+        let duplicate = native_request(
+            "new/native.dcm",
+            &[1, 2],
+            vec![
+                native_frame(1, vec![1], 1, 1, 8),
+                native_frame(1, vec![2], 1, 1, 8),
+            ],
+        );
+        assert!(matches!(
+            dispatcher(&duplicate_root).dispatch(&duplicate, &StagedAssetRegistry::default()),
+            Err(MaterializationError::Service(
+                ServiceError::DuplicateFrameNumber { .. }
+            ))
+        ));
+        assert!(!duplicate_root.join("new").exists());
+
+        let gap_root = root("native-gap");
+        let gap = native_request(
+            "new/native.dcm",
+            &[1, 2],
+            vec![
+                native_frame(1, vec![1], 1, 1, 8),
+                native_frame(3, vec![2], 1, 1, 8),
+            ],
+        );
+        assert!(matches!(
+            dispatcher(&gap_root).dispatch(&gap, &StagedAssetRegistry::default()),
+            Err(MaterializationError::NativeFrameOrder {
+                expected: 2,
+                actual: 3
+            })
+        ));
+        assert!(!gap_root.join("new").exists());
+
+        let drift_root = root("native-drift");
+        let mut drift = native_request(
+            "new/native.dcm",
+            &[1, 2],
+            vec![native_frame(1, vec![1, 3], 1, 2, 8)],
+        );
+        let PlannedArtifact::Dicom(artifact) = &mut drift.artifact else {
+            unreachable!()
+        };
+        artifact.instance.content[0].sha256 = sha256_hex(&[1, 2]);
+        assert!(matches!(
+            dispatcher(&drift_root).dispatch(&drift, &StagedAssetRegistry::default()),
+            Err(MaterializationError::NativeContentHash { .. })
+        ));
+        assert!(!drift_root.join("new").exists());
+        fs::remove_dir_all(duplicate_root).unwrap();
+        fs::remove_dir_all(gap_root).unwrap();
+        fs::remove_dir_all(drift_root).unwrap();
+    }
+
+    #[test]
+    fn u1_frames_decode_from_one_continuous_lsb_first_bitstream() {
+        let root = root("native-u1");
+        // Eighteen alternating samples. Frame two begins at bit 9, not a byte
+        // boundary; the input chunks must first be concatenated exactly.
+        let packed = [0x55, 0x55, 0x01];
+        let request = native_request(
+            "instances/u1.dcm",
+            &packed,
+            vec![
+                native_frame(2, vec![0x01], 3, 3, 1),
+                native_frame(1, vec![0x55, 0x55], 3, 3, 1),
+            ],
+        );
+        let result = dispatcher(&root)
+            .dispatch(&request, &StagedAssetRegistry::default())
+            .unwrap();
+        let content = &result.evidence[0].claims["materialized_content"][0];
+        let frame_one = (0..9)
+            .map(|index| (packed[index / 8] >> (index % 8)) & 1)
+            .collect::<Vec<_>>();
+        let frame_two = (9..18)
+            .map(|index| (packed[index / 8] >> (index % 8)) & 1)
+            .collect::<Vec<_>>();
+        assert_eq!(content["native_frame_lengths"], json!([2, 1]));
+        assert_eq!(content["decoded_frame_lengths"], json!([9, 9]));
+        assert_eq!(
+            content["decoded_frame_sha256"],
+            json!([sha256_hex(&frame_one), sha256_hex(&frame_two)])
         );
         fs::remove_dir_all(root).unwrap();
     }

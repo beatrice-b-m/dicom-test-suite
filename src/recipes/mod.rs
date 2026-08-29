@@ -5,6 +5,7 @@ pub mod classic_dx_mg;
 pub mod classic_mr_cr;
 pub mod classic_nuclear;
 pub mod classic_vl_projection;
+mod content_provider;
 mod encoding;
 mod enhanced;
 mod error;
@@ -32,6 +33,14 @@ pub use classic::{
     FrameOfReferenceModuleInput, ImageModuleInput, ModuleFragment, OrderedSeriesProvider,
     PatientModuleInput, RescalePlan, SeriesModuleInput, StudyModuleInput, WindowPlan,
     resolved_classic_instance_plan,
+};
+pub use content_provider::{
+    ByteOrder as ContentByteOrder, BytePayloadContract, CodedConcept, CompletionFlag,
+    ContentDigest, ContentProviderError, ContentProviderLimits, ContentProviderOutput,
+    ContentProviderRequest, ContentTarget, FloatPixelsContract, FloatSamples,
+    IntegerPixelsContract, IntegerSamples, MeshContract, MeshFormat, NeutralContentProvider,
+    RtObjectKind, RtSemanticContract, SemanticReference, SemanticReferenceRole,
+    StructuredReportContract, VerificationFlag, WaveformContract,
 };
 pub use encoding::{RecipeEncodingError, encoding_plan_from_recipe};
 pub use enhanced::{

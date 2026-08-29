@@ -522,6 +522,39 @@ fn run() -> Result<(), String> {
                     }
                     Ok(())
                 }
+                "reference" => {
+                    let mut format = String::from("markdown");
+                    while let Some(argument) = args.next() {
+                        match argument.as_str() {
+                            "--catalog" => catalog_path = required_value(&mut args, "--catalog")?,
+                            "--format" => format = required_value(&mut args, "--format")?,
+                            "--help" | "-h" => {
+                                print_templates_usage();
+                                return Ok(());
+                            }
+                            unknown => {
+                                return Err(format!(
+                                    "unknown templates reference argument: {unknown}"
+                                ));
+                            }
+                        }
+                    }
+                    let catalog =
+                        dicom_test_suite::composition::TemplateCatalog::load(catalog_path)
+                            .map_err(|error| error.to_string())?;
+                    match format.as_str() {
+                        "markdown" => print!("{}", catalog.render_reference_markdown()),
+                        "json" => println!(
+                            "{}",
+                            serde_json::to_string_pretty(&catalog.templates)
+                                .map_err(|error| error.to_string())?
+                        ),
+                        other => {
+                            return Err(format!("unsupported templates reference format: {other}"));
+                        }
+                    }
+                    Ok(())
+                }
                 "--help" | "-h" => {
                     print_templates_usage();
                     Ok(())
@@ -810,7 +843,7 @@ fn print_usage() {
     println!(
         "  dicom-test-suite list-cases [--profile PROFILE] [--status STATUS] [--registry PATH]"
     );
-    println!("  dicom-test-suite templates <list|describe> ...");
+    println!("  dicom-test-suite templates <list|describe|reference> ...");
     println!("  dicom-test-suite interoperate <media-dicomdir|protocol-baseline> ...");
     println!("  dicom-test-suite validate GENERATED_ROOT");
     println!("  dicom-test-suite report GENERATED_ROOT --format json|markdown");
@@ -895,6 +928,7 @@ fn print_templates_usage() {
     println!(
         "  dicom-test-suite templates describe TEMPLATE_ID [--version VERSION] [--format json|text] [--catalog PATH]"
     );
+    println!("  dicom-test-suite templates reference [--format markdown|json] [--catalog PATH]");
 }
 
 fn print_validate_usage() {

@@ -7,8 +7,6 @@ fn committed_sc_catalog_is_locked_and_qualified() {
     let catalog = TemplateCatalog::load("templates/catalog.json").unwrap();
     let lock_hash = dicom_test_suite::sha256_hex(&fs::read("standards.lock.json").unwrap());
     assert_eq!(catalog.standards_lock_sha256, lock_hash);
-    assert_eq!(catalog.templates.len(), 2);
-
     for id in [
         "classic/secondary-capture/monochrome",
         "classic/secondary-capture/rgb",

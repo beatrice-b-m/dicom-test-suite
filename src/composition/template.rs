@@ -304,6 +304,50 @@ impl TemplateCatalog {
             .find(|transfer_syntax| transfer_syntax.default)
             .expect("catalog uniqueness requires one default transfer syntax")
     }
+
+    pub fn render_reference_markdown(&self) -> String {
+        let mut output = String::from(
+            "# Composition template reference\n\n\
+             This file is rendered from `templates/catalog.json`. Use `templates describe` for the complete attribute policies, content constraints, requirements, evidence, and limitations of one template.\n\n\
+             | Template | IOD | SOP Class UID | Transfer syntaxes | Determinism | Independent routes |\n\
+             |---|---|---|---|---|---|\n",
+        );
+        let mut templates = self.templates.iter().collect::<Vec<_>>();
+        templates.sort_by_key(|template| (&template.template_id, template.template_version));
+        for template in templates {
+            let transfer_syntaxes = template
+                .transfer_syntaxes
+                .iter()
+                .map(|transfer_syntax| {
+                    if transfer_syntax.default {
+                        format!("`{}` (default)", transfer_syntax.uid)
+                    } else {
+                        format!("`{}`", transfer_syntax.uid)
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join("<br>");
+            let routes = template.validation["independent_routes"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|route| route["adapter_id"].as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
+            let iod = template.iod_name.replace('|', "\\|");
+            output.push_str(&format!(
+                "| `{}`@{} | {} | `{}` | {} | {} | {} |\n",
+                template.template_id,
+                template.template_version,
+                iod,
+                template.sop_class_uid,
+                transfer_syntaxes,
+                template.determinism,
+                routes,
+            ));
+        }
+        output
+    }
 }
 
 impl ClassicFamilyTemplateDeclaration {
@@ -905,5 +949,17 @@ mod tests {
             TemplateCatalog::from_slice(&serde_json::to_vec(&value).unwrap()),
             Err(TemplateError::ClassicFamilyIdentityMismatch { .. })
         ));
+    }
+
+    #[test]
+    fn markdown_reference_is_sorted_and_descriptor_driven() {
+        let catalog = TemplateCatalog::load("templates/catalog.json").unwrap();
+        let reference = catalog.render_reference_markdown();
+        assert!(reference.contains("classic/ct`@1.0.0"));
+        assert!(reference.contains("dicom_validator"));
+        assert_eq!(reference.matches("\n| `").count(), catalog.templates.len());
+        let cr = reference.find("classic/cr`@1.0.0").unwrap();
+        let ct = reference.find("classic/ct`@1.0.0").unwrap();
+        assert!(cr < ct);
     }
 }

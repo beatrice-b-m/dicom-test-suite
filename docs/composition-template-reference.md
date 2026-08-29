@@ -1,0 +1,25 @@
+# Composition template reference
+
+This file is rendered from `templates/catalog.json`. Use `templates describe` for the complete attribute policies, content constraints, requirements, evidence, and limitations of one template.
+
+| Template | IOD | SOP Class UID | Transfer syntaxes | Determinism | Independent routes |
+|---|---|---|---|---|---|
+| `classic/cr`@1.0.0 | Computed Radiography Image | `1.2.840.10008.5.1.4.1.1.1` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
+| `classic/ct`@1.0.0 | CT Image | `1.2.840.10008.5.1.4.1.1.2` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
+| `classic/dx/for-presentation`@1.0.0 | Digital X-Ray Image | `1.2.840.10008.5.1.4.1.1.1.1` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
+| `classic/mammography/for-presentation`@1.0.0 | Digital Mammography X-Ray Image | `1.2.840.10008.5.1.4.1.1.1.2` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
+| `classic/mammography/for-processing`@1.0.0 | Digital Mammography X-Ray Image | `1.2.840.10008.5.1.4.1.1.1.2.1` | `1.2.840.10008.1.2` (default) | byte_stable | dicom_validator |
+| `classic/mr`@1.0.0 | MR Image | `1.2.840.10008.5.1.4.1.1.4` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
+| `classic/nuclear-medicine`@1.0.0 | Nuclear Medicine Image | `1.2.840.10008.5.1.4.1.1.20` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
+| `classic/pet`@1.0.0 | PET Image | `1.2.840.10008.5.1.4.1.1.128` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
+| `classic/secondary-capture/monochrome`@1.0.0 | Secondary Capture Image | `1.2.840.10008.5.1.4.1.1.7` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
+| `classic/secondary-capture/multiframe-grayscale-byte`@1.0.0 | Multi-frame Grayscale Byte Secondary Capture Image | `1.2.840.10008.5.1.4.1.1.7.2` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
+| `classic/secondary-capture/multiframe-single-bit`@1.0.0 | Multi-frame Single Bit Secondary Capture Image | `1.2.840.10008.5.1.4.1.1.7.1` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
+| `classic/secondary-capture/rgb`@1.0.0 | Secondary Capture Image | `1.2.840.10008.5.1.4.1.1.7` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
+| `classic/ultrasound/multiframe`@1.0.0 | Ultrasound Multi-frame Image | `1.2.840.10008.5.1.4.1.1.3.1` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
+| `classic/ultrasound/single-frame`@1.0.0 | Ultrasound Image | `1.2.840.10008.5.1.4.1.1.6.1` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
+| `classic/xa`@1.0.0 | X-Ray Angiographic Image | `1.2.840.10008.5.1.4.1.1.12.1` | `1.2.840.10008.1.2.1` (default)<br>`1.2.840.10008.1.2.5` | byte_stable | dicom_validator |
+| `classic/xrf`@1.0.0 | X-Ray Radiofluoroscopic Image | `1.2.840.10008.5.1.4.1.1.12.2` | `1.2.840.10008.1.2.1` (default)<br>`1.2.840.10008.1.2.5` | byte_stable | dicom_validator |
+| `vl/endoscopic`@1.0.0 | VL Endoscopic Image | `1.2.840.10008.5.1.4.1.1.77.1.1` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
+| `vl/microscopic`@1.0.0 | VL Microscopic Image | `1.2.840.10008.5.1.4.1.1.77.1.2` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
+| `vl/photographic`@1.0.0 | VL Photographic Image | `1.2.840.10008.5.1.4.1.1.77.1.4` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |

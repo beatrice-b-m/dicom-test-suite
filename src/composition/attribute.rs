@@ -215,6 +215,20 @@ impl AttributeAddress {
         Self::standard(entry.tag())
     }
 
+    pub fn from_normalized_tag(value: &str) -> Result<Self, AttributeError> {
+        if value.len() != 9 || value.as_bytes()[4] != b',' {
+            return Err(AttributeError::MalformedTag(value.to_string()));
+        }
+        let group = u16::from_str_radix(&value[..4], 16)
+            .map_err(|_| AttributeError::MalformedTag(value.to_string()))?;
+        let element = u16::from_str_radix(&value[5..], 16)
+            .map_err(|_| AttributeError::MalformedTag(value.to_string()))?;
+        if value != format!("{group:04X},{element:04X}") {
+            return Err(AttributeError::MalformedTag(value.to_string()));
+        }
+        Self::standard(Tag(group, element))
+    }
+
     pub const fn tag(&self) -> Tag {
         Tag(self.group, self.element)
     }
@@ -392,6 +406,7 @@ fn validate_dictionary_vr(address: &AttributeAddress, vr: DicomVr) -> Result<(),
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AttributeError {
     MalformedVr(String),
+    MalformedTag(String),
     UnknownKeyword(String),
     UnknownStandardTag(String),
     MissingPrivateCreator {
@@ -421,6 +436,7 @@ impl fmt::Display for AttributeError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::MalformedVr(vr) => write!(formatter, "malformed DICOM VR {vr:?}"),
+            Self::MalformedTag(tag) => write!(formatter, "malformed normalized DICOM tag {tag:?}"),
             Self::UnknownKeyword(keyword) => write!(formatter, "unknown DICOM keyword {keyword:?}"),
             Self::UnknownStandardTag(tag) => write!(formatter, "unknown standard DICOM tag {tag}"),
             Self::MissingPrivateCreator { tag } => {

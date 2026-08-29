@@ -4,6 +4,7 @@
 
 pub mod attribute;
 pub mod identity;
+pub mod plan;
 pub mod reference;
 pub mod template;
 
@@ -12,6 +13,10 @@ pub use attribute::{
     PrimitiveValue,
 };
 pub use identity::{CompositionUidRole, IdentityAllocator, IdentityError, IdentityPlan};
+pub use plan::{
+    AttributeLayer, AttributePolicy, AttributeResolver, CanonicalContent, Condition,
+    ResolveContext, ResolveError, ResolvedAttribute, ResolvedInstancePlan, ValueOrigin,
+};
 pub use reference::{
     CyclePolicy, LogicalReference, MaterializedReference, ReferenceError, ReferenceGraph,
     ReferenceNode,

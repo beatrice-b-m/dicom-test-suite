@@ -5,6 +5,7 @@
 pub mod attribute;
 pub mod content;
 pub mod identity;
+pub mod manifest;
 pub mod materializer;
 pub mod pixel;
 pub mod plan;
@@ -17,6 +18,10 @@ pub use attribute::{
 };
 pub use content::{ContentError, ContentLimits, LocalContentResolver, StagedAsset};
 pub use identity::{CompositionUidRole, IdentityAllocator, IdentityError, IdentityPlan};
+pub use manifest::{
+    CompositionManifestAssembler, CompositionManifestInputs, GenericPlanValidator,
+    ManifestEntryInput, ManifestError, ValidationCheck,
+};
 pub use materializer::{MaterializeError, Part10Materializer};
 pub use pixel::{
     ByteOrder, FrameSpan, NativePixelPlan, PhotometricInterpretation, PixelElement, PixelError,

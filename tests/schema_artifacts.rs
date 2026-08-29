@@ -11,6 +11,10 @@ const SCHEMAS: &[(&str, &str)] = &[
         "https://dicom-test-suite.local/schemas/composition-spec.schema.json",
     ),
     (
+        "schemas/composition-manifest.schema.json",
+        "https://dicom-test-suite.local/schemas/composition-manifest.schema.json",
+    ),
+    (
         "schemas/template-catalog.schema.json",
         "https://dicom-test-suite.local/schemas/template-catalog.schema.json",
     ),

@@ -438,10 +438,47 @@ pub struct NativeSegManifestProjection {
     pub dimension_organization_uid: String,
     pub pixel_min: u16,
     pub pixel_max: u16,
-    pub frame_sha256: Vec<String>,
-    pub pixel_value_length: Option<u64>,
+    pub pixel_data: SegPixelDataProjection,
     pub visual_pattern: String,
     pub stressors: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum SegPixelDataProjection {
+    Native {
+        value_length: u64,
+        frame_sha256: Vec<String>,
+    },
+    Encapsulated {
+        frame_sha256: Vec<String>,
+        codec: CodecManifestProjection,
+        basic_offset_table_offsets: Vec<u32>,
+        fragments_per_frame: Vec<usize>,
+        fragments: Vec<FragmentManifestProjection>,
+        compressed_frame_hashes: Vec<String>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CodecManifestProjection {
+    pub backend_id: String,
+    pub backend_kind: String,
+    pub display_name: String,
+    pub version: String,
+    pub transfer_syntax_uid: String,
+    pub feature_gate: Option<String>,
+    pub determinism: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FragmentManifestProjection {
+    pub frame_index: usize,
+    pub item_start_offset: u64,
+    pub compressed_length: usize,
+    pub padded_length: usize,
 }
 
 pub fn project_native_seg_manifest_fields(
@@ -456,6 +493,31 @@ pub fn project_native_seg_manifest_fields(
             "multi_frame_dimension".into(),
         ])
         .collect::<Vec<_>>();
+    let pixel_data = match &input.pixel_data {
+        SegPixelDataProjection::Native {
+            value_length,
+            frame_sha256,
+        } => {
+            json!({"vr": "OB", "native_or_encapsulated": "native", "value_length": value_length, "frame_count": input.frames, "frame_hashes": frame_sha256})
+        }
+        SegPixelDataProjection::Encapsulated {
+            frame_sha256,
+            codec,
+            basic_offset_table_offsets,
+            fragments_per_frame,
+            fragments,
+            compressed_frame_hashes,
+        } => json!({
+            "vr": "OB", "native_or_encapsulated": "encapsulated", "value_length": Value::Null,
+            "frame_count": input.frames, "frame_hashes": frame_sha256, "codec": codec,
+            "encapsulated_pixel_data": {
+                "basic_offset_table": {"present": true, "populated": !basic_offset_table_offsets.is_empty(), "offset_count": basic_offset_table_offsets.len(), "offsets": basic_offset_table_offsets},
+                "fragments_per_frame": fragments_per_frame, "fragments": fragments,
+                "extended_offset_table": {"present": false, "lengths_present": false, "offset_count": 0, "length_count": 0},
+                "compressed_frame_hashes": compressed_frame_hashes
+            }
+        }),
+    };
     json!({
         "recipe_parameters": {
             "source_case_id": input.source_case_id,
@@ -472,7 +534,7 @@ pub fn project_native_seg_manifest_fields(
             "dimension_index": {"dimension_organization_uid": input.dimension_organization_uid, "dimension_index_pointer": "ReferencedSegmentNumber", "functional_group_pointer": "SegmentIdentificationSequence"}
         },
         "image": {"rows": input.rows, "columns": input.columns, "frames": input.frames, "samples_per_pixel": 1, "photometric_interpretation": "MONOCHROME2", "bits_allocated": input.bits_allocated, "bits_stored": input.bits_stored, "high_bit": input.high_bit, "pixel_representation": 0, "planar_configuration": Value::Null},
-        "pixel_data": {"vr": "OB", "native_or_encapsulated": if input.pixel_value_length.is_some() { "native" } else { "encapsulated" }, "value_length": input.pixel_value_length, "frame_count": input.frames, "frame_hashes": input.frame_sha256},
+        "pixel_data": pixel_data,
         "expected_capabilities": ["open_file", "read_metadata", "show_unsupported_but_recognized", "parse_segmentation"],
         "expected_semantics": {"synthetic_data": "YES", "pixel_min": input.pixel_min, "pixel_max": input.pixel_max, "segmentation_type": input.segmentation_type, "segmentation_fractional_type": input.segmentation_fractional_type, "maximum_fractional_value": input.maximum_fractional_value, "segment_sequence_items": 1, "shared_functional_groups_sequence_items": 1, "per_frame_functional_groups_sequence_items": input.frames, "source_case_id": input.source_case_id, "source_sop_instance_uid": input.source_sop_instance_uid, "referenced_frame_numbers": input.referenced_frame_numbers},
         "expected_visual_checks": {"pattern": input.visual_pattern},

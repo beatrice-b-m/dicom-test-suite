@@ -168,8 +168,10 @@ fn native_projection_preserves_nulls_and_public_semantics() {
             dimension_organization_uid: "2.25.10".into(),
             pixel_min: 0,
             pixel_max: 1,
-            frame_sha256: contract.frame_sha256,
-            pixel_value_length: Some(2),
+            pixel_data: SegPixelDataProjection::Native {
+                value_length: 2,
+                frame_sha256: contract.frame_sha256,
+            },
             visual_pattern: "two_frame_binary_segmentation_mask".into(),
             stressors: vec!["binary_bit_packed_pixel_data".into()],
         },
@@ -179,6 +181,67 @@ fn native_projection_preserves_nulls_and_public_semantics() {
     assert_eq!(projected["pixel_data"]["native_or_encapsulated"], "native");
     assert_eq!(projected["known_stressors"][0], "segmentation_storage");
     assert_eq!(projected["validation"], report.legacy_json());
+
+    let codec = CodecManifestProjection {
+        backend_id: "dicom-rs-deflate".into(),
+        backend_kind: "in_process".into(),
+        display_name: "dicom-rs Deflated Image Frame".into(),
+        version: "0.1.0".into(),
+        transfer_syntax_uid: "1.2.840.10008.1.2.8.1".into(),
+        feature_gate: Some("deflate".into()),
+        determinism: "byte_stable".into(),
+    };
+    let encapsulated_input = NativeSegManifestProjection {
+        source_case_id: "source".into(),
+        source_sop_instance_uid: "2.25.11".into(),
+        rows: 2,
+        columns: 2,
+        frames: 2,
+        bits_allocated: 1,
+        bits_stored: 1,
+        high_bit: 0,
+        pixel_values: vec![1, 0, 0, 1, 0, 1, 1, 0],
+        segmentation_type: "BINARY".into(),
+        segmentation_fractional_type: None,
+        maximum_fractional_value: None,
+        segment_label: "DTS_SYNTHETIC_REGION".into(),
+        referenced_frame_numbers: vec![1, 2],
+        dimension_organization_uid: "2.25.10".into(),
+        pixel_min: 0,
+        pixel_max: 1,
+        pixel_data: SegPixelDataProjection::Encapsulated {
+            frame_sha256: vec!["a".repeat(64), "b".repeat(64)],
+            codec,
+            basic_offset_table_offsets: vec![0, 18],
+            fragments_per_frame: vec![1, 1],
+            fragments: vec![
+                FragmentManifestProjection {
+                    frame_index: 0,
+                    item_start_offset: 0,
+                    compressed_length: 9,
+                    padded_length: 10,
+                },
+                FragmentManifestProjection {
+                    frame_index: 1,
+                    item_start_offset: 18,
+                    compressed_length: 9,
+                    padded_length: 10,
+                },
+            ],
+            compressed_frame_hashes: vec!["c".repeat(64), "d".repeat(64)],
+        },
+        visual_pattern: "mask".into(),
+        stressors: vec!["deflated_image_frame_transfer_syntax".into()],
+    };
+    let compressed = project_native_seg_manifest_fields(&encapsulated_input, &report);
+    assert_eq!(
+        compressed["pixel_data"]["value_length"],
+        serde_json::Value::Null
+    );
+    assert_eq!(
+        compressed["pixel_data"]["encapsulated_pixel_data"]["basic_offset_table"]["offsets"],
+        serde_json::json!([0, 18])
+    );
 }
 
 #[test]

@@ -10,8 +10,9 @@ use dicom_test_suite::corpus_plan::{
 };
 use dicom_test_suite::planning::RecipeIdentity;
 use dicom_test_suite::recipes::{
-    CodedConcept, CompletionFlag, ContentProviderRequest, DoseParameters, RtDocumentParameters,
-    RtObjectParameters, RtPlanInput, RtPlanProvider, RtSourceDeclaration, SemanticPlanContext,
+    CodedConcept, CompletionFlag, ContentProviderRequest, DoseParameters,
+    HIGH_DICOM_SR_IMPORT_PROVIDER_ID, RecipeCatalog, RtDocumentParameters, RtObjectParameters,
+    RtPlanInput, RtPlanProvider, RtSourceDeclaration, SR_PLAN_PROVIDER_ID, SemanticPlanContext,
     SemanticSource, SrDocumentKind, SrDocumentParameters, SrPlanInput, SrPlanProvider,
     SrSourceDeclaration, VerificationFlag,
 };
@@ -231,6 +232,69 @@ fn semantic_provider_sources_have_no_filesystem_or_frontend_dependencies() {
             "write_to_file",
         ] {
             assert!(!source.contains(forbidden), "{path} contains {forbidden}");
+        }
+    }
+}
+
+#[test]
+fn sr_recipe_documents_are_typed_ordered_and_dependency_complete() {
+    let catalog = RecipeCatalog::load(
+        "cases/recipes",
+        "cases/registry.json",
+        "templates/catalog.json",
+    )
+    .unwrap();
+    let recipes = catalog
+        .recipes()
+        .values()
+        .filter(|recipe| {
+            matches!(
+                recipe.plan_provider_id.as_str(),
+                SR_PLAN_PROVIDER_ID | HIGH_DICOM_SR_IMPORT_PROVIDER_ID
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(!recipes.is_empty());
+    let orders = recipes
+        .iter()
+        .map(|recipe| recipe.planning_order.unwrap())
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(orders.len(), recipes.len());
+    for recipe in recipes {
+        let parameters: SrDocumentParameters = serde_json::from_value(serde_json::Value::Object(
+            recipe.provider_parameters.clone(),
+        ))
+        .unwrap();
+        assert_eq!(parameters.sources.len(), recipe.dependencies.len());
+        assert!(parameters.sources.iter().all(|source| {
+            recipe.dependencies.iter().any(|dependency| {
+                dependency.recipe == source.recipe && dependency.role == source.role
+            })
+        }));
+        let [artifact] = recipe.dicom.as_ref().unwrap().artifacts.as_slice() else {
+            panic!("SR recipes have one output")
+        };
+        assert!(artifact.output.path.is_some());
+        if recipe.plan_provider_id == HIGH_DICOM_SR_IMPORT_PROVIDER_ID {
+            let boundary = match parameters.document {
+                SrDocumentKind::Comprehensive3d { import, .. }
+                | SrDocumentKind::Tid1500 { import, .. } => import,
+                _ => panic!("external SR recipe must declare an import boundary"),
+            };
+            assert_eq!(boundary.provider_id, "highdicom_pydicom");
+            assert_eq!(
+                boundary.tool_fingerprint_policy,
+                "runtime_composite_sha256_required"
+            );
+            assert_eq!(boundary.dependency_sha256.len(), 64);
+            assert!(!boundary.semantic_evidence.is_empty());
+        } else {
+            assert!(matches!(
+                parameters.document,
+                SrDocumentKind::BasicText { .. }
+                    | SrDocumentKind::Comprehensive { .. }
+                    | SrDocumentKind::KeyObjectSelection { .. }
+            ));
         }
     }
 }

@@ -6,59 +6,125 @@
     "case_id": "derived/sr/comprehensive3d_scoord3d"
   },
   "kind": "dicom",
-  "plan_provider_id": "external.import_plan",
+  "plan_provider_id": "external.highdicom_sr_import_plan",
+  "planning_order": 1003,
   "dependencies": [
-
+    {
+      "recipe": {
+        "recipe_id": "enhanced_ct_multiframe_shared_perframe",
+        "recipe_version": "0.1.0"
+      },
+      "role": "source_image"
+    }
   ],
   "provider_parameters": {
+    "series_number": "66",
+    "instance_number": 1,
+    "content_date": "20260101",
+    "content_time": "000000",
+    "completion_flag": "COMPLETE",
+    "verification_flag": "UNVERIFIED",
+    "continuity_of_content": "SEPARATE",
+    "title": {
+      "code_value": "126000",
+      "coding_scheme_designator": "DCM",
+      "code_meaning": "Imaging Measurement Report"
+    },
+    "document": {
+      "kind": "comprehensive3d",
+      "graphic_type": "POLYGON",
+      "graphic_data": [
+        "0",
+        "0",
+        "0",
+        "1.5",
+        "0",
+        "0",
+        "1.5",
+        "1.5",
+        "0",
+        "0",
+        "1.5",
+        "0"
+      ],
+      "fiducial_uid": "2.25.760000000000000000000000000000000001",
+      "import": {
+        "provider_id": "highdicom_pydicom",
+        "dependency": "highdicom",
+        "required_version": "0.28.1",
+        "dependency_sha256": "253612f2a540d29071556c238e15abeb00929167e348edd6fa15e267e5189378",
+        "tool_fingerprint_policy": "runtime_composite_sha256_required",
+        "request_schema_version": "0.1.0",
+        "response_schema_version": "0.1.0",
+        "output_media_type": "application/dicom",
+        "maximum_output_bytes": 1048576,
+        "determinism": "semantic_stable",
+        "semantic_evidence": [
+          "scoord3d_geometry",
+          "source_reference_closure",
+          "part10_identity"
+        ]
+      }
+    },
+    "sources": [
+      {
+        "recipe": {
+          "recipe_id": "enhanced_ct_multiframe_shared_perframe",
+          "recipe_version": "0.1.0"
+        },
+        "artifact_logical_id": "advanced_enhanced_ct_multiframe_shared_perframe_artifact_1",
+        "role": "source_image",
+        "referenced_frames": [
+          1
+        ]
+      }
+    ]
   },
   "validation_rule_ids": [
-    "validation.shared"
+    "validation.sr_external_import"
   ],
   "projection_rule_ids": [
-    "projection.curated"
+    "projection.sr"
   ],
   "dicom": {
     "artifacts": [
       {
         "logical_id": "artifact_1",
+        "order": 0,
         "output": {
           "role": "primary_1",
-          "provider_derived": true
+          "path": "derived/sr/comprehensive3d_scoord3d/scoord3d-report.dcm"
         },
         "encoding": {
           "transfer_syntax_uid": "1.2.840.10008.1.2.1",
           "sequence_length_policy": "provider",
           "item_length_policy": "provider",
           "offset_table_policy": "provider",
-          "fragmentation_policy": "provider"
+          "fragmentation_policy": "provider",
+          "preamble_policy": "provider",
+          "file_meta_policy": "provider"
         },
-        "parameters": {
-        },
-        "attribute_operations": [
-
-        ],
+        "parameters": {},
+        "attribute_operations": [],
         "content": {
-          "provider_id": "content.case_default",
-          "parameters": {
-          }
+          "provider_id": "content.external_import",
+          "parameters": {}
         },
         "validation_rule_ids": [
-          "validation.shared"
+          "validation.sr_external_import"
         ],
         "projection_rule_ids": [
-          "projection.curated"
+          "projection.sr"
         ],
         "determinism": "semantic_stable",
         "stressors": [
-
+          "external_generation_backend"
         ],
-        "algorithm_provider_id": "algorithm.case_provider",
+        "algorithm_provider_id": "algorithm.highdicom_sr",
         "template": {
           "template_id": "derived/structured-report/comprehensive-3d",
           "template_version": "1.0.0"
-        },
-        "order": 0
+        }
       }
     ]
   }

@@ -5058,12 +5058,6 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
         CuratedRecipeStage::SecondaryCapture,
         &mut plan_first_files_by_case,
     )?;
-    if !plan_first_files_by_case.is_empty() {
-        return Err(GenerateError::MetadataShape {
-            path: PathBuf::from("curated-sc-plan"),
-            message: "plan-first SC output did not match the curated recipe dispatcher",
-        });
-    }
     if let Some(case) = registry_case(registry, STRESS_HIGH_INSTANCE_CT_CASE_ID)? {
         if should_generate_case(case, run)? {
             let (request, started) = context.preflight_stress(
@@ -5145,7 +5139,7 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
         registry,
         standards_lock_sha256,
         CuratedRecipeStage::ClassicCt,
-        &mut BTreeMap::new(),
+        &mut plan_first_files_by_case,
     )?;
     for spec in [FLOAT32_SPEC, FLOAT64_SPEC] {
         if let Some(case) = registry_case(registry, spec.case_id)? {
@@ -5885,7 +5879,7 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
         registry,
         standards_lock_sha256,
         CuratedRecipeStage::ClassicImagesBeforeEnhancedPet,
-        &mut BTreeMap::new(),
+        &mut plan_first_files_by_case,
     )?;
     for recipe in ENHANCED_PET_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
@@ -5907,8 +5901,14 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
         registry,
         standards_lock_sha256,
         CuratedRecipeStage::ClassicImagesAfterEnhancedPet,
-        &mut BTreeMap::new(),
+        &mut plan_first_files_by_case,
     )?;
+    if !plan_first_files_by_case.is_empty() {
+        return Err(GenerateError::MetadataShape {
+            path: PathBuf::from("curated-plan"),
+            message: "plan-first output did not match the curated recipe dispatcher",
+        });
+    }
     migrate_shared_plan_curated_files(run, &mut context.generated_files)?;
     Ok(context.into_output())
 }

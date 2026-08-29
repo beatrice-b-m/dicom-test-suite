@@ -833,4 +833,103 @@ mod tests {
         fs::remove_dir_all(first).unwrap();
         fs::remove_dir_all(second).unwrap();
     }
+
+    #[test]
+    fn p3_4_defaults_materialize_and_are_byte_stable() {
+        let first = output("p3-4-repro-a");
+        let second = output("p3-4-repro-b");
+        for out in [&first, &second] {
+            let (summary, _) = compose(&ComposeOptions {
+                spec_path: "tests/fixtures/composition/valid/classic-p3-4-defaults.json".into(),
+                out_dir: out.clone(),
+                seed: 36,
+                catalog_path: "templates/catalog.json".into(),
+                dry_run: false,
+            })
+            .unwrap();
+            assert_eq!(summary.instances_written, 3);
+        }
+        for name in ["dx", "mg_presentation", "mg_processing"] {
+            assert_eq!(
+                fs::read(first.join(format!("instances/{name}.dcm"))).unwrap(),
+                fs::read(second.join(format!("instances/{name}.dcm"))).unwrap()
+            );
+        }
+        fs::remove_dir_all(first).unwrap();
+        fs::remove_dir_all(second).unwrap();
+    }
+
+    #[test]
+    fn p3_4_caller_pixels_round_trip_with_family_photometric_contracts() {
+        let root = output("p3-4-caller");
+        fs::create_dir(&root).unwrap();
+        let raw = (0_u16..256).flat_map(u16::to_le_bytes).collect::<Vec<_>>();
+        for name in ["dx", "mg-presentation", "mg-processing"] {
+            fs::write(root.join(format!("{name}.raw")), &raw).unwrap();
+        }
+        let assignment = |name: &str, photometric: &str| {
+            json!([{
+                "slot": "pixels",
+                "source": {
+                    "kind": "local_file", "path": format!("{name}.raw"),
+                    "sha256": sha256_hex(&raw),
+                    "pixel": {
+                        "rows": 16, "columns": 16, "frames": 1,
+                        "samples_per_pixel": 1,
+                        "photometric_interpretation": photometric,
+                        "sample_type": "uint", "bits_allocated": 16,
+                        "bits_stored": 12, "high_bit": 11, "byte_order": "little"
+                    }
+                }
+            }])
+        };
+        let spec = json!({
+            "composition_spec_schema_version": "0.1.0",
+            "instances": [
+                { "instance_id": "dx", "template": { "id": "classic/dx/for-presentation" }, "content": assignment("dx", "MONOCHROME2") },
+                { "instance_id": "mg_presentation", "template": { "id": "classic/mammography/for-presentation" }, "content": assignment("mg-presentation", "MONOCHROME1") },
+                { "instance_id": "mg_processing", "template": { "id": "classic/mammography/for-processing" }, "content": assignment("mg-processing", "MONOCHROME2") }
+            ]
+        });
+        let spec_path = root.join("spec.json");
+        fs::write(&spec_path, serde_json::to_vec_pretty(&spec).unwrap()).unwrap();
+        let out = root.join("out");
+        compose(&ComposeOptions {
+            spec_path: spec_path.clone(),
+            out_dir: out.clone(),
+            seed: 37,
+            catalog_path: "templates/catalog.json".into(),
+            dry_run: false,
+        })
+        .unwrap();
+        for name in ["dx", "mg_presentation", "mg_processing"] {
+            let object =
+                dicom_object::open_file(out.join(format!("instances/{name}.dcm"))).unwrap();
+            assert_eq!(
+                object
+                    .element_by_name("PixelData")
+                    .unwrap()
+                    .to_bytes()
+                    .unwrap()
+                    .as_ref(),
+                raw.as_slice()
+            );
+        }
+
+        let mut wrong = spec;
+        wrong["instances"][1]["content"] = assignment("mg-presentation", "MONOCHROME2");
+        let wrong_spec = root.join("wrong.json");
+        fs::write(&wrong_spec, serde_json::to_vec_pretty(&wrong).unwrap()).unwrap();
+        let wrong_out = root.join("wrong-out");
+        assert!(matches!(
+            compose(&ComposeOptions {
+                spec_path: wrong_spec, out_dir: wrong_out.clone(), seed: 37,
+                catalog_path: "templates/catalog.json".into(), dry_run: false,
+            }),
+            Err(ComposeError::PixelContract(template))
+                if template == "classic/mammography/for-presentation"
+        ));
+        assert!(!wrong_out.exists());
+        fs::remove_dir_all(root).unwrap();
+    }
 }

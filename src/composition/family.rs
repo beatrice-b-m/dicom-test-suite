@@ -5,7 +5,7 @@ use dicom_core::dictionary::{DataDictionary, DataDictionaryEntry, VirtualVr};
 use dicom_dictionary_std::StandardDataDictionary;
 
 use super::{
-    AttributeAddress, AttributeOperation, AttributeValue, CanonicalContent,
+    AttributeAddress, AttributeItem, AttributeOperation, AttributeValue, CanonicalContent,
     ClassicImageModulePlans, ClassicPlanError, ContentMaterialization, DetectorPlan, DicomVr,
     DisplayTransformPlan, IdentityPlan, NativePixelPlan, PhotometricInterpretation,
     PixelModulePlan, PixelShape, PlanarConfiguration, PrimitiveValue, ResolvedAttribute,
@@ -323,6 +323,10 @@ impl ClassicFamilyProfile {
             }
             ClassicFamilyKind::MammographyProcessing => {
                 plans.acquisition.body_part_examined = Some("CHEST".into());
+                plans.detector = Some(DetectorPlan {
+                    detector_type: "DIRECT".into(),
+                    detector_configuration: Some("AREA".into()),
+                });
             }
             _ => {}
         }
@@ -364,19 +368,100 @@ impl ClassicFamilyProfile {
             ],
             ClassicFamilyKind::DxPresentation
             | ClassicFamilyKind::MammographyPresentation
-            | ClassicFamilyKind::MammographyProcessing => vec![
-                set_string(
-                    "0008,0068",
-                    DicomVr::CS,
-                    if self.kind == ClassicFamilyKind::MammographyProcessing {
-                        "FOR PROCESSING"
-                    } else {
-                        "FOR PRESENTATION"
-                    },
-                ),
-                set_string("0018,5101", DicomVr::CS, "PA"),
-                set_string("0020,0062", DicomVr::CS, "R"),
-            ],
+            | ClassicFamilyKind::MammographyProcessing => {
+                let mammography = self.kind != ClassicFamilyKind::DxPresentation;
+                let presentation = self.kind != ClassicFamilyKind::MammographyProcessing;
+                let mut operations = vec![
+                    set_string(
+                        "0008,0068",
+                        DicomVr::CS,
+                        if presentation {
+                            "FOR PRESENTATION"
+                        } else {
+                            "FOR PROCESSING"
+                        },
+                    ),
+                    set_sequence(
+                        "0008,2218",
+                        vec![
+                            set_string(
+                                "0008,0100",
+                                DicomVr::SH,
+                                if mammography { "76752008" } else { "51185008" },
+                            ),
+                            set_string("0008,0102", DicomVr::SH, "SCT"),
+                            set_string(
+                                "0008,0104",
+                                DicomVr::LO,
+                                if mammography { "Breast" } else { "Chest" },
+                            ),
+                        ],
+                    ),
+                    set_string(
+                        "0018,1508",
+                        DicomVr::CS,
+                        if mammography { "MAMMOGRAPHIC" } else { "CARM" },
+                    ),
+                    set_multi_strings("0018,1164", DicomVr::DS, ["0.15", "0.15"]),
+                    set_multi_strings("0020,0020", DicomVr::CS, ["P", "F"]),
+                    set_string("0020,0062", DicomVr::CS, "R"),
+                    set_string("0028,0301", DicomVr::CS, "NO"),
+                    set_string("0028,1040", DicomVr::CS, "LIN"),
+                    set_signed("0028,1041", DicomVr::SS, -1),
+                    set_string("0028,1052", DicomVr::DS, "0"),
+                    set_string("0028,1053", DicomVr::DS, "1"),
+                    set_string("0028,1054", DicomVr::LO, "US"),
+                    set_string("0028,2110", DicomVr::CS, "00"),
+                    set_string(
+                        "2050,0020",
+                        DicomVr::CS,
+                        if mammography && presentation {
+                            "INVERSE"
+                        } else {
+                            "IDENTITY"
+                        },
+                    ),
+                    set_string("0040,0555", DicomVr::SQ, ""),
+                    set_sequence(
+                        "0054,0220",
+                        vec![
+                            set_string(
+                                "0008,0100",
+                                DicomVr::SH,
+                                if mammography {
+                                    "399368009"
+                                } else {
+                                    "399033003"
+                                },
+                            ),
+                            set_string("0008,0102", DicomVr::SH, "SCT"),
+                            set_string(
+                                "0008,0104",
+                                DicomVr::LO,
+                                if mammography {
+                                    "Medio-lateral oblique"
+                                } else {
+                                    "Postero-anterior"
+                                },
+                            ),
+                            set_string("0054,0222", DicomVr::SQ, ""),
+                        ],
+                    ),
+                ];
+                if !mammography {
+                    operations.push(set_string("0018,5101", DicomVr::CS, "PA"));
+                }
+                if presentation {
+                    operations.extend([
+                        set_string("0028,1050", DicomVr::DS, "2048"),
+                        set_string("0028,1051", DicomVr::DS, "4096"),
+                    ]);
+                }
+                if mammography {
+                    operations.push(set_string("0040,0318", DicomVr::CS, "BREAST"));
+                }
+                operations
+            }
             ClassicFamilyKind::UltrasoundSingleFrame | ClassicFamilyKind::UltrasoundMultiFrame => {
                 vec![
                     set_string("0018,6011", DicomVr::SQ, ""),
@@ -618,6 +703,31 @@ fn set_unsigned(tag: &str, value: u64) -> AttributeOperation {
         address: AttributeAddress::from_normalized_tag(tag).unwrap(),
         vr: DicomVr::US,
         value: AttributeValue::Primitive(PrimitiveValue::Unsigned(value)),
+    }
+}
+
+fn set_multi_strings(
+    tag: &str,
+    vr: DicomVr,
+    values: impl IntoIterator<Item = impl Into<String>>,
+) -> AttributeOperation {
+    AttributeOperation::Set {
+        address: AttributeAddress::from_normalized_tag(tag).unwrap(),
+        vr,
+        value: AttributeValue::Multi(
+            values
+                .into_iter()
+                .map(|value| PrimitiveValue::String(value.into()))
+                .collect(),
+        ),
+    }
+}
+
+fn set_sequence(tag: &str, attributes: Vec<AttributeOperation>) -> AttributeOperation {
+    AttributeOperation::Set {
+        address: AttributeAddress::from_normalized_tag(tag).unwrap(),
+        vr: DicomVr::SQ,
+        value: AttributeValue::Sequence(vec![AttributeItem { attributes }]),
     }
 }
 

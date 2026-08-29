@@ -327,6 +327,16 @@ impl ClassicFamilyTemplateDeclaration {
                 template_id: self.template_id,
             });
         }
+        let declared_default = self
+            .transfer_syntaxes
+            .iter()
+            .find(|syntax| syntax.default)
+            .map(|syntax| syntax.uid.as_str());
+        if declared_default != Some(profile.default_transfer_syntax_uid) {
+            return Err(TemplateError::ClassicFamilyDefaultTransferSyntaxMismatch {
+                template_id: self.template_id,
+            });
+        }
         let modules = classic_family_modules(&profile);
         let attributes = classic_family_attribute_policies(&profile);
         let content_slots = vec![classic_family_content_slot(&profile)];
@@ -597,6 +607,9 @@ pub enum TemplateError {
     ClassicFamilyIdentityMismatch {
         template_id: TemplateId,
     },
+    ClassicFamilyDefaultTransferSyntaxMismatch {
+        template_id: TemplateId,
+    },
 }
 
 impl fmt::Display for TemplateError {
@@ -665,6 +678,10 @@ impl fmt::Display for TemplateError {
             Self::ClassicFamilyIdentityMismatch { template_id } => write!(
                 formatter,
                 "classic family declaration identity does not match executable profile {template_id}"
+            ),
+            Self::ClassicFamilyDefaultTransferSyntaxMismatch { template_id } => write!(
+                formatter,
+                "classic family declaration default transfer syntax does not match executable profile {template_id}"
             ),
         }
     }

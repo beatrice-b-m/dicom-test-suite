@@ -1,0 +1,17 @@
+{
+  "composition_spec_schema_version": "0.1.0",
+  "instances": [
+    {
+      "instance_id": "dx",
+      "template": { "id": "classic/dx/for-presentation" }
+    },
+    {
+      "instance_id": "mg_presentation",
+      "template": { "id": "classic/mammography/for-presentation" }
+    },
+    {
+      "instance_id": "mg_processing",
+      "template": { "id": "classic/mammography/for-processing" }
+    }
+  ]
+}

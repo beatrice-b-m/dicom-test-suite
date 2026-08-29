@@ -29,11 +29,12 @@ fn locked_dciodvfy_sha256() -> String {
         .to_string()
 }
 
-#[test]
-fn p3_3_defaults_pass_pinned_independent_iod_validation_when_available() {
+fn pinned_validator() -> Option<PathBuf> {
     let Some(executable) = executable("dciodvfy") else {
-        eprintln!("dciodvfy unavailable; independent P3.3 evidence is environment-unavailable");
-        return;
+        eprintln!(
+            "dciodvfy unavailable; independent classic IOD evidence is environment-unavailable"
+        );
+        return None;
     };
     let executable = fs::canonicalize(executable).unwrap();
     assert_eq!(
@@ -41,20 +42,27 @@ fn p3_3_defaults_pass_pinned_independent_iod_validation_when_available() {
         locked_dciodvfy_sha256(),
         "the independent validator must match conformance/validator-lock.json"
     );
+    Some(executable)
+}
+
+fn qualify_defaults(spec_path: &str, seed: u64, expectations: &[(&str, &str)]) {
+    let Some(executable) = pinned_validator() else {
+        return;
+    };
     let root = std::env::temp_dir().join(format!(
         "dts-composition-classic-iod-{}-{}",
         std::process::id(),
         NEXT.fetch_add(1, Ordering::Relaxed)
     ));
     compose(&ComposeOptions {
-        spec_path: "tests/fixtures/composition/valid/classic-p3-3-defaults.json".into(),
+        spec_path: spec_path.into(),
         out_dir: root.clone(),
-        seed: 33,
+        seed,
         catalog_path: "templates/catalog.json".into(),
         dry_run: false,
     })
     .unwrap();
-    for (instance, iod) in [("cr", "CRImage"), ("ct", "CTImage"), ("mr", "MRImage")] {
+    for &(instance, iod) in expectations {
         let result = Command::new(&executable)
             .args(["-new"])
             .arg(root.join(format!("instances/{instance}.dcm")))
@@ -71,4 +79,26 @@ fn p3_3_defaults_pass_pinned_independent_iod_validation_when_available() {
         assert!(findings.contains(iod), "{instance}: {findings}");
     }
     fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn p3_3_defaults_pass_pinned_independent_iod_validation_when_available() {
+    qualify_defaults(
+        "tests/fixtures/composition/valid/classic-p3-3-defaults.json",
+        33,
+        &[("cr", "CRImage"), ("ct", "CTImage"), ("mr", "MRImage")],
+    );
+}
+
+#[test]
+fn p3_4_defaults_pass_pinned_independent_iod_validation_when_available() {
+    qualify_defaults(
+        "tests/fixtures/composition/valid/classic-p3-4-defaults.json",
+        34,
+        &[
+            ("dx", "DXImageForPresentation"),
+            ("mg_presentation", "MammographyImageForPresentation"),
+            ("mg_processing", "MammographyImageForProcessing"),
+        ],
+    );
 }

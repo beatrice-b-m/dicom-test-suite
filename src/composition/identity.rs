@@ -151,6 +151,27 @@ pub struct IdentityPlan {
 }
 
 impl IdentityPlan {
+    pub fn from_exact_values(
+        logical_instance_id: impl Into<String>,
+        values: impl IntoIterator<Item = (CompositionUidRole, u32, String)>,
+    ) -> Result<Self, IdentityError> {
+        let logical_instance_id = logical_instance_id.into();
+        if !is_valid_logical_id(&logical_instance_id) {
+            return Err(IdentityError::InvalidLogicalInstanceId(logical_instance_id));
+        }
+        let mut identities = BTreeMap::new();
+        for (role, index, value) in values {
+            let key = identity_key(&role, index);
+            if identities.insert(key, value).is_some() {
+                return Err(IdentityError::DuplicateRoleIndex { role, index });
+            }
+        }
+        Ok(Self {
+            logical_instance_id,
+            identities,
+        })
+    }
+
     pub fn get(&self, role: &CompositionUidRole, index: u32) -> Option<&str> {
         self.identities
             .get(&identity_key(role, index))

@@ -5,6 +5,7 @@
 pub mod attribute;
 pub mod classic;
 pub mod content;
+pub mod curated;
 pub mod defaults;
 pub mod family;
 pub mod identity;
@@ -29,6 +30,7 @@ pub use classic::{
     GeometryPlan, PixelModulePlan,
 };
 pub use content::{ContentError, ContentLimits, LocalContentResolver, StagedAsset};
+pub use curated::{CuratedPlanError, CuratedPlanInput, resolved_plan_from_curated_dataset};
 pub use defaults::{
     DefaultError, DefaultPixelOutput, canonical_native_pixels, resolved_sc_plan, sc_default_pixels,
     sc_derived_layer, sc_template_default_layer,

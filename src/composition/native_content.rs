@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::fmt;
 use std::fs::File;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::Cursor;
 use std::path::{Path, PathBuf};
 
 use super::{
@@ -81,20 +81,11 @@ fn hash_inline_frames(
     bytes: &[u8],
     spans: &[crate::composition::FrameSpan],
 ) -> Result<Vec<String>, RawContentError> {
-    spans
-        .iter()
-        .map(|span| {
-            let start = usize::try_from(span.bit_offset / 8).map_err(|_| RawContentError::Range)?;
-            let length =
-                usize::try_from(span.bit_length / 8).map_err(|_| RawContentError::Range)?;
-            let end = start.checked_add(length).ok_or(RawContentError::Range)?;
-            let frame = bytes.get(start..end).ok_or(RawContentError::Range)?;
-            Ok(crate::sha256_hex(frame))
-        })
-        .collect()
+    let source_length = u64::try_from(bytes.len()).map_err(|_| RawContentError::Range)?;
+    let mut reader = Cursor::new(bytes);
+    crate::native_pixel::hash_native_frames(&mut reader, source_length, &neutral_frame_spans(spans))
+        .map_err(|_| RawContentError::Range)
 }
-
-const HASH_BUFFER_BYTES: usize = 64 * 1024;
 
 fn hash_staged_frames(
     path: &Path,
@@ -104,79 +95,34 @@ fn hash_staged_frames(
         path: path.to_path_buf(),
         source,
     })?;
-    frames
-        .iter()
-        .map(|frame| hash_staged_frame(&mut file, path, frame))
-        .collect()
-}
-
-fn hash_staged_frame(
-    file: &mut File,
-    path: &Path,
-    frame: &super::FrameSpan,
-) -> Result<String, RawContentError> {
-    let mut hasher = super::content::StreamingSha256::new();
-    if frame.bit_offset % 8 == 0 && frame.bit_length % 8 == 0 {
-        file.seek(SeekFrom::Start(frame.first_byte_offset))
-            .map_err(|source| RawContentError::Io {
+    let source_length = file
+        .metadata()
+        .map_err(|source| RawContentError::Io {
+            path: path.to_path_buf(),
+            source,
+        })?
+        .len();
+    crate::native_pixel::hash_native_frames(&mut file, source_length, &neutral_frame_spans(frames))
+        .map_err(|error| match error {
+            crate::native_pixel::NativeFrameHashError::Io(source) => RawContentError::Io {
                 path: path.to_path_buf(),
                 source,
-            })?;
-        let mut remaining = frame.bit_length / 8;
-        let mut buffer = [0_u8; HASH_BUFFER_BYTES];
-        while remaining > 0 {
-            let take = usize::try_from(remaining.min(HASH_BUFFER_BYTES as u64))
-                .map_err(|_| RawContentError::Range)?;
-            file.read_exact(&mut buffer[..take])
-                .map_err(|source| RawContentError::Io {
-                    path: path.to_path_buf(),
-                    source,
-                })?;
-            hasher.update(&buffer[..take]);
-            remaining -= take as u64;
-        }
-        return Ok(hasher.finish_hex());
-    }
+            },
+            crate::native_pixel::NativeFrameHashError::InvalidSpan
+            | crate::native_pixel::NativeFrameHashError::ArithmeticOverflow
+            | crate::native_pixel::NativeFrameHashError::Range => RawContentError::Range,
+        })
+}
 
-    let first_source_byte = frame.bit_offset / 8;
-    file.seek(SeekFrom::Start(first_source_byte))
-        .map_err(|source| RawContentError::Io {
-            path: path.to_path_buf(),
-            source,
-        })?;
-    let mut source = [0_u8; 1];
-    file.read_exact(&mut source)
-        .map_err(|source| RawContentError::Io {
-            path: path.to_path_buf(),
-            source,
-        })?;
-    let mut source_byte_index = first_source_byte;
-    let mut output_byte = 0_u8;
-    for destination_bit in 0..frame.bit_length {
-        let source_bit = frame
-            .bit_offset
-            .checked_add(destination_bit)
-            .ok_or(RawContentError::Range)?;
-        let wanted_source_byte = source_bit / 8;
-        if wanted_source_byte != source_byte_index {
-            file.read_exact(&mut source)
-                .map_err(|source| RawContentError::Io {
-                    path: path.to_path_buf(),
-                    source,
-                })?;
-            source_byte_index = wanted_source_byte;
-        }
-        let bit = source[0] >> (source_bit % 8) & 1;
-        output_byte |= bit << (destination_bit % 8);
-        if destination_bit % 8 == 7 {
-            hasher.update(&[output_byte]);
-            output_byte = 0;
-        }
-    }
-    if frame.bit_length % 8 != 0 {
-        hasher.update(&[output_byte]);
-    }
-    Ok(hasher.finish_hex())
+fn neutral_frame_spans(frames: &[super::FrameSpan]) -> Vec<crate::native_pixel::FrameHashSpan> {
+    frames
+        .iter()
+        .map(|frame| crate::native_pixel::FrameHashSpan {
+            frame_number: frame.frame_number,
+            bit_offset: frame.bit_offset,
+            bit_length: frame.bit_length,
+        })
+        .collect()
 }
 
 #[derive(Debug)]
@@ -252,6 +198,39 @@ mod tests {
         .unwrap()
     }
 
+    fn read_materialized(content: &CanonicalContent) -> Vec<u8> {
+        match content.materialization.as_ref().unwrap() {
+            super::super::ContentMaterialization::Inline(bytes) => bytes.clone(),
+            super::super::ContentMaterialization::StagedFile(path) => fs::read(path).unwrap(),
+            other => panic!("unexpected native pixel materialization {other:?}"),
+        }
+    }
+
+    fn inline_and_staged(
+        label: &str,
+        bytes: &[u8],
+        shape: PixelShape,
+    ) -> (PathBuf, RawNativePixelOutput, RawNativePixelOutput) {
+        let (root, spec, staging) = roots(label);
+        let limits = ContentLimits {
+            max_files: 2,
+            max_file_bytes: 4096,
+            max_total_bytes: 8192,
+        };
+        let mut inline_resolver = LocalContentResolver::new_read_only(&spec, limits).unwrap();
+        let inline_asset = inline_resolver
+            .resolve_inline("pixels", "native_pixels", bytes, Some(&sha256_hex(bytes)))
+            .unwrap();
+        let inline = resolve_staged_native_pixels(inline_asset, shape.clone()).unwrap();
+
+        let mut staged_resolver = LocalContentResolver::new(&spec, &staging, limits).unwrap();
+        let staged_asset = staged_resolver
+            .resolve_inline("pixels", "native_pixels", bytes, Some(&sha256_hex(bytes)))
+            .unwrap();
+        let staged = resolve_staged_native_pixels(staged_asset, shape).unwrap();
+        (root, inline, staged)
+    }
+
     #[test]
     fn monochrome_multiframe_hashes_each_exact_frame() {
         let (root, spec, staging) = roots("mono");
@@ -315,6 +294,70 @@ mod tests {
                 sha256_hex(&[0b1011_0001, 0b0000_0001]),
             ]
         );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn inline_and_staged_u1_frames_have_identical_canonical_hashes_and_bytes() {
+        let bytes = vec![0b1010_0101, 0b0110_0011, 0b0000_0011];
+        let (root, inline, staged) = inline_and_staged(
+            "bit1-equivalence",
+            &bytes,
+            PixelShape {
+                rows: 3,
+                columns: 3,
+                frames: 2,
+                samples_per_pixel: 1,
+                photometric_interpretation: PhotometricInterpretation::Monochrome2,
+                sample_type: SampleType::Bit1,
+                bits_allocated: 1,
+                bits_stored: 1,
+                high_bit: 0,
+                byte_order: ByteOrder::Little,
+                planar_configuration: None,
+            },
+        );
+        let expected = vec![
+            sha256_hex(&[0b1010_0101, 0b0000_0001]),
+            sha256_hex(&[0b1011_0001, 0b0000_0001]),
+        ];
+        assert_eq!(inline.frame_sha256, expected);
+        assert_eq!(staged.frame_sha256, expected);
+        assert_eq!(read_materialized(&inline.content), bytes);
+        assert_eq!(read_materialized(&staged.content), bytes);
+        assert_eq!(inline.content.sha256, staged.content.sha256);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn inline_and_staged_planar_color_frames_preserve_exact_hashes_and_bytes() {
+        let bytes = vec![
+            255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 0, 255, 255, 0, 255, 0, 255, 0, 255,
+            255, 0, 0,
+        ];
+        let (root, inline, staged) = inline_and_staged(
+            "rgb-planar-equivalence",
+            &bytes,
+            PixelShape {
+                rows: 2,
+                columns: 2,
+                frames: 2,
+                samples_per_pixel: 3,
+                photometric_interpretation: PhotometricInterpretation::Rgb,
+                sample_type: SampleType::UnsignedInteger,
+                bits_allocated: 8,
+                bits_stored: 8,
+                high_bit: 7,
+                byte_order: ByteOrder::Little,
+                planar_configuration: Some(PlanarConfiguration::Planar),
+            },
+        );
+        let expected = vec![sha256_hex(&bytes[..12]), sha256_hex(&bytes[12..])];
+        assert_eq!(inline.frame_sha256, expected);
+        assert_eq!(staged.frame_sha256, expected);
+        assert_eq!(read_materialized(&inline.content), bytes);
+        assert_eq!(read_materialized(&staged.content), bytes);
+        assert_eq!(inline.content.sha256, staged.content.sha256);
         fs::remove_dir_all(root).unwrap();
     }
 

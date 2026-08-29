@@ -6,6 +6,7 @@
 //! and frame identities.
 
 use std::fmt;
+use std::io::{Read, Seek, SeekFrom};
 
 use serde::{Deserialize, Serialize};
 
@@ -130,6 +131,127 @@ pub struct FrameSpan {
     pub first_byte_offset: u64,
     pub bytes_touched: u64,
 }
+
+/// Minimal frame range accepted by the neutral streaming hash helper.
+///
+/// Non-byte-aligned ranges are copied bit-for-bit into a fresh LSB-first frame
+/// buffer before hashing. This makes a frame identity independent of whether
+/// its source was inline memory or a staged reader.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FrameHashSpan {
+    pub frame_number: u32,
+    pub bit_offset: u64,
+    pub bit_length: u64,
+}
+
+impl From<&FrameSpan> for FrameHashSpan {
+    fn from(span: &FrameSpan) -> Self {
+        Self {
+            frame_number: span.frame_number,
+            bit_offset: span.bit_offset,
+            bit_length: span.bit_length,
+        }
+    }
+}
+
+const FRAME_HASH_BUFFER_BYTES: usize = 64 * 1024;
+
+pub fn hash_native_frames<R: Read + Seek>(
+    reader: &mut R,
+    source_length_bytes: u64,
+    frames: &[FrameHashSpan],
+) -> Result<Vec<String>, NativeFrameHashError> {
+    frames
+        .iter()
+        .map(|frame| hash_native_frame(reader, source_length_bytes, *frame))
+        .collect()
+}
+
+pub fn hash_native_frame<R: Read + Seek>(
+    reader: &mut R,
+    source_length_bytes: u64,
+    frame: FrameHashSpan,
+) -> Result<String, NativeFrameHashError> {
+    if frame.frame_number == 0 || frame.bit_length == 0 {
+        return Err(NativeFrameHashError::InvalidSpan);
+    }
+    let source_bits = source_length_bytes
+        .checked_mul(8)
+        .ok_or(NativeFrameHashError::ArithmeticOverflow)?;
+    let end_bit = frame
+        .bit_offset
+        .checked_add(frame.bit_length)
+        .ok_or(NativeFrameHashError::ArithmeticOverflow)?;
+    if end_bit > source_bits {
+        return Err(NativeFrameHashError::Range);
+    }
+
+    let mut hasher = StreamingSha256::new();
+    if frame.bit_offset % 8 == 0 && frame.bit_length % 8 == 0 {
+        reader.seek(SeekFrom::Start(frame.bit_offset / 8))?;
+        let mut remaining = frame.bit_length / 8;
+        let mut buffer = [0_u8; FRAME_HASH_BUFFER_BYTES];
+        while remaining > 0 {
+            let take = usize::try_from(remaining.min(FRAME_HASH_BUFFER_BYTES as u64))
+                .map_err(|_| NativeFrameHashError::ArithmeticOverflow)?;
+            reader.read_exact(&mut buffer[..take])?;
+            hasher.update(&buffer[..take]);
+            remaining -= take as u64;
+        }
+        return Ok(hasher.finish_hex());
+    }
+
+    let first_source_byte = frame.bit_offset / 8;
+    reader.seek(SeekFrom::Start(first_source_byte))?;
+    let mut source = [0_u8; 1];
+    reader.read_exact(&mut source)?;
+    let mut source_byte_index = first_source_byte;
+    let mut output_byte = 0_u8;
+    for destination_bit in 0..frame.bit_length {
+        let source_bit = frame
+            .bit_offset
+            .checked_add(destination_bit)
+            .ok_or(NativeFrameHashError::ArithmeticOverflow)?;
+        let wanted_source_byte = source_bit / 8;
+        if wanted_source_byte != source_byte_index {
+            reader.read_exact(&mut source)?;
+            source_byte_index = wanted_source_byte;
+        }
+        let bit = source[0] >> (source_bit % 8) & 1;
+        output_byte |= bit << (destination_bit % 8);
+        if destination_bit % 8 == 7 {
+            hasher.update(&[output_byte]);
+            output_byte = 0;
+        }
+    }
+    if frame.bit_length % 8 != 0 {
+        hasher.update(&[output_byte]);
+    }
+    Ok(hasher.finish_hex())
+}
+
+#[derive(Debug)]
+pub enum NativeFrameHashError {
+    InvalidSpan,
+    ArithmeticOverflow,
+    Range,
+    Io(std::io::Error),
+}
+
+impl From<std::io::Error> for NativeFrameHashError {
+    fn from(error: std::io::Error) -> Self {
+        Self::Io(error)
+    }
+}
+
+impl fmt::Display for NativeFrameHashError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "{self:?}")
+    }
+}
+
+impl std::error::Error for NativeFrameHashError {}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

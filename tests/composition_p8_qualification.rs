@@ -7,6 +7,7 @@ use dicom_test_suite::composition::{
     ComposeOptions, TemplateCatalog, TemplateStatus, compose, composition_report,
     validate_composition_root,
 };
+use dicom_test_suite::sha256_hex;
 use serde_json::{Value, json};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -161,6 +162,14 @@ fn every_qualified_default_and_bundle_passes_p8_reproducibility_validation_and_r
     }
 
     assert_eq!(projection(&sequential), projection(&parallel));
+    let projection_sha256 = sha256_hex(
+        &serde_json::to_vec(&projection(&sequential))
+            .expect("full-catalog composition projection should serialize"),
+    );
+    assert_eq!(
+        projection_sha256, "d41165570cf24e211a67b64df933715b05656cc1b2d6532c2904c99935089e07",
+        "the pre-U5 full-catalog plan, identity, content, and reference projection changed"
+    );
     let observed_templates = sequential["composition"]["entries"]
         .as_array()
         .unwrap()

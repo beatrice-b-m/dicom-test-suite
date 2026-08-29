@@ -446,14 +446,14 @@ impl CuratedScCorpusPlanProvider {
                 let execution_binding = if artifact_recipe.encoding.transfer_syntax_uid
                     == RLE_LOSSLESS_TRANSFER_SYNTAX_UID
                 {
-                    rle_execution_binding(&global_id, sc, &native)
+                    rle_execution_binding(&global_id, &native)
                 } else {
                     ArtifactExecutionBindings {
                         artifact_id: global_id.clone(),
                         slots: BTreeMap::from([(
                             "pixels".into(),
                             SlotExecutionBinding::NativeFrames {
-                                frames: native_frame_bindings(sc, &native)?,
+                                frames: native_frame_bindings(&native)?,
                             },
                         )]),
                     }
@@ -520,9 +520,9 @@ fn patch_native_content(
 
 fn rle_execution_binding(
     artifact_id: &str,
-    sc: &crate::recipes::SecondaryCaptureParameters,
     native: &crate::native_pixel::NativePixelContent,
 ) -> ArtifactExecutionBindings {
+    let shape = &native.plan.shape;
     let frames = native
         .frames
         .iter()
@@ -532,11 +532,11 @@ fn rle_execution_binding(
                 bytes: frame.decoded_bytes.clone(),
                 sha256: frame.decoded_sha256.clone(),
             },
-            rows: sc.rows,
-            columns: sc.columns,
-            samples_per_pixel: sc.samples_per_pixel,
-            bits_allocated: sc.bits_allocated,
-            photometric_interpretation: sc.photometric_interpretation.clone(),
+            rows: shape.rows,
+            columns: shape.columns,
+            samples_per_pixel: shape.samples_per_pixel,
+            bits_allocated: shape.bits_allocated,
+            photometric_interpretation: photometric_name(shape.photometric_interpretation).into(),
         })
         .collect::<Vec<_>>();
     ArtifactExecutionBindings {
@@ -554,7 +554,7 @@ fn rle_execution_binding(
                     frames,
                     parameters: BTreeMap::from([(
                         "bits_stored".into(),
-                        Value::from(sc.bits_stored),
+                        Value::from(shape.bits_stored),
                     )]),
                 },
             },
@@ -563,9 +563,9 @@ fn rle_execution_binding(
 }
 
 fn native_frame_bindings(
-    sc: &crate::recipes::SecondaryCaptureParameters,
     native: &crate::native_pixel::NativePixelContent,
 ) -> Result<Vec<NativeFrameBinding>, CuratedPlanError> {
+    let shape = &native.plan.shape;
     let mut previous_end = 0usize;
     native
         .plan
@@ -595,14 +595,26 @@ fn native_frame_bindings(
                     sha256: sha256_hex(&bytes),
                     bytes,
                 },
-                rows: sc.rows,
-                columns: sc.columns,
-                samples_per_pixel: sc.samples_per_pixel,
-                bits_allocated: sc.bits_allocated,
-                photometric_interpretation: sc.photometric_interpretation.clone(),
+                rows: shape.rows,
+                columns: shape.columns,
+                samples_per_pixel: shape.samples_per_pixel,
+                bits_allocated: shape.bits_allocated,
+                photometric_interpretation: photometric_name(shape.photometric_interpretation)
+                    .into(),
             })
         })
         .collect()
+}
+
+fn photometric_name(value: crate::native_pixel::PhotometricInterpretation) -> &'static str {
+    match value {
+        crate::native_pixel::PhotometricInterpretation::Monochrome1 => "MONOCHROME1",
+        crate::native_pixel::PhotometricInterpretation::Monochrome2 => "MONOCHROME2",
+        crate::native_pixel::PhotometricInterpretation::PaletteColor => "PALETTE COLOR",
+        crate::native_pixel::PhotometricInterpretation::Rgb => "RGB",
+        crate::native_pixel::PhotometricInterpretation::YbrFull => "YBR_FULL",
+        crate::native_pixel::PhotometricInterpretation::YbrFull422 => "YBR_FULL_422",
+    }
 }
 
 fn validation_plan(

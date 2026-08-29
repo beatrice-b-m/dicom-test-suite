@@ -4688,6 +4688,17 @@ enum CuratedRecipeStage {
     ClassicImagesAfterEnhancedPet,
 }
 
+const PLAN_FIRST_CLASSIC_PIXEL_CASE_IDS: &[&str] = &[
+    "vl/photo/rgb_planar0_explicit_le",
+    "vl/endoscopic/rgb_explicit_le",
+    "vl/microscopic/rgb_explicit_le",
+    "vl/photo/rgb_icc_profile_explicit_le",
+    "vl/photo/palette_color_explicit_le",
+    "vl/photo/rgb_planar0_rle_lossless",
+    "vl/photo/rgb_planar1_rle_lossless",
+    "vl/photo/palette_color_rle_lossless",
+];
+
 #[derive(Debug, Clone, Copy)]
 enum CuratedRecipeImplementation {
     Pixel(PixelRecipe),
@@ -4828,13 +4839,16 @@ fn curated_recipe_registry(stage: CuratedRecipeStage) -> Vec<CuratedStageEntry> 
     let mut recipes = Vec::new();
     match stage {
         CuratedRecipeStage::SecondaryCapture => {
-            recipes.extend(
-                PIXEL_RECIPES
-                    .iter()
-                    .copied()
-                    .map(CuratedRecipeImplementation::Pixel)
-                    .map(CuratedStageEntry::Legacy),
-            );
+            recipes.extend(PIXEL_RECIPES.iter().copied().map(|recipe| {
+                if PLAN_FIRST_CLASSIC_PIXEL_CASE_IDS.contains(&recipe.case_id) {
+                    CuratedStageEntry::PlanFirst(PlanFirstStageEntry {
+                        stage,
+                        case_id: recipe.case_id,
+                    })
+                } else {
+                    CuratedStageEntry::Legacy(CuratedRecipeImplementation::Pixel(recipe))
+                }
+            }));
             recipes.extend(
                 METADATA_SC_RECIPES
                     .iter()
@@ -31815,6 +31829,36 @@ mod tests {
                 }) if entry_stage == stage
             )));
         }
+    }
+
+    #[test]
+    fn migrated_classic_pixel_symbols_are_plan_first_only() {
+        let entries = curated_recipe_registry(CuratedRecipeStage::SecondaryCapture);
+        let migrated = entries
+            .iter()
+            .copied()
+            .filter(|entry| PLAN_FIRST_CLASSIC_PIXEL_CASE_IDS.contains(&entry.case_id()))
+            .collect::<Vec<_>>();
+        assert_eq!(migrated.len(), PLAN_FIRST_CLASSIC_PIXEL_CASE_IDS.len());
+        for case_id in PLAN_FIRST_CLASSIC_PIXEL_CASE_IDS {
+            let matching = migrated
+                .iter()
+                .copied()
+                .filter(|entry| entry.case_id() == *case_id)
+                .collect::<Vec<_>>();
+            assert!(matches!(
+                matching.as_slice(),
+                [CuratedStageEntry::PlanFirst(PlanFirstStageEntry {
+                    stage: CuratedRecipeStage::SecondaryCapture,
+                    case_id: dispatched,
+                })] if dispatched == case_id
+            ));
+        }
+        assert!(entries.iter().any(|entry| matches!(
+            entry,
+            CuratedStageEntry::Legacy(CuratedRecipeImplementation::Pixel(recipe))
+                if !PLAN_FIRST_CLASSIC_PIXEL_CASE_IDS.contains(&recipe.case_id)
+        )));
     }
 
     #[test]

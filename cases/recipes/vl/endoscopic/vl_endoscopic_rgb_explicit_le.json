@@ -85,7 +85,11 @@
           "projection.curated"
         ],
         "determinism": "byte_stable",
-        "stressors": [],
+        "stressors": [
+          "vl_endoscopic_image_storage",
+          "vl_rgb_pixels",
+          "native_ob_pixel_data"
+        ],
         "algorithm_provider_id": "algorithm.classic_vl_projection",
         "template": {
           "template_id": "vl/endoscopic",
@@ -101,7 +105,74 @@
           "visual_pattern": "2x2_vl_endoscopic_rgb_red_green_blue_white",
           "semantic_labels": {
             "photometric_semantics": "VL Endoscopic RGB samples are interleaved color-by-pixel"
-          }
+          },
+          "standards_evidence_append": [
+            {
+              "anchor": "table_B.5-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.4",
+              "query": "lookup_sop_class VL Endoscopic Image Storage",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_A.32.1-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "lookup_iod VL Endoscopic Image",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_A.32.1-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "list_modules_for_iod VL Endoscopic Image",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.8-77",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "list_attributes_for_module VL Image --expand-macros",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.7-5a",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "list_attributes_for_module General Series --expand-macros",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "sect_A.32.1.4.1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "retrieve_standard_text sect_A.32.1.4.1",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_6-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.6",
+              "query": "lookup_data_element PlanarConfiguration",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "sect_C.7.6.3.1.3",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "retrieve_standard_text sect_C.7.6.3.1.3",
+              "source": "dicom-standard-kb"
+            }
+          ],
+          "include_implementation_version_name": true
         }
       }
     ]

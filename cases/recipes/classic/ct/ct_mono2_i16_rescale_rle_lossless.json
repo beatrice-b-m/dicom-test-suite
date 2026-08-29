@@ -144,7 +144,9 @@
             "apply_modality_rescale",
             "apply_window"
           ],
-          "visual_pattern": "2x2_signed_ct_hu_gradient"
+          "visual_pattern": "2x2_signed_ct_hu_gradient",
+          "standards_evidence_append": [],
+          "include_implementation_version_name": false
         }
       }
     ]

@@ -117,8 +117,10 @@
         ],
         "determinism": "byte_stable",
         "stressors": [
+          "x_ray_radiofluoroscopic_image_storage",
           "single_plane_projection",
-          "xrf_geometry"
+          "xrf_column_angulation",
+          "native_u8_pixels"
         ],
         "algorithm_provider_id": "algorithm.classic_vl_projection",
         "template": {
@@ -133,7 +135,9 @@
             "render_native_pixels",
             "interpret_projection_geometry"
           ],
-          "visual_pattern": "single_plane_synthetic_radiofluoroscopic_projection"
+          "visual_pattern": "single_plane_synthetic_radiofluoroscopic_projection",
+          "standards_evidence_append": [],
+          "include_implementation_version_name": false
         }
       }
     ]

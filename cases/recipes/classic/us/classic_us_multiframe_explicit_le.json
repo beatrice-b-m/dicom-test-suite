@@ -187,7 +187,18 @@
             "navigate_multiframe",
             "interpret_frame_time"
           ],
-          "visual_pattern": "four_frame_moving_ultrasound_echo"
+          "visual_pattern": "four_frame_moving_ultrasound_echo",
+          "standards_evidence_append": [
+            {
+              "anchor": "table_A.7-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "lookup_iod Ultrasound Multi-frame Image",
+              "source": "dicom-standard-kb"
+            }
+          ],
+          "include_implementation_version_name": false
         }
       }
     ]

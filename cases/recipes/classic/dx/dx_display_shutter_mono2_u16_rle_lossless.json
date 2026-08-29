@@ -130,7 +130,34 @@
             "apply_window",
             "apply_display_shutter"
           ],
-          "visual_pattern": "2x2_dx_mono2_12bit_display_shutter"
+          "visual_pattern": "2x2_dx_mono2_12bit_display_shutter",
+          "standards_evidence_append": [
+            {
+              "anchor": "table_6-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.6",
+              "query": "lookup_data_element PresentationIntentType",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_6-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.6",
+              "query": "lookup_data_element ShutterShape",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_6-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.6",
+              "query": "lookup_data_element ShutterPresentationValue",
+              "source": "dicom-standard-kb"
+            }
+          ],
+          "include_implementation_version_name": false
         }
       }
     ]

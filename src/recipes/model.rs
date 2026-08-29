@@ -321,8 +321,57 @@ pub struct ClassicProjection {
     pub family: ClassicProjectionFamily,
     pub expected_capabilities: Vec<String>,
     pub visual_pattern: String,
+    pub include_implementation_version_name: bool,
     #[serde(default)]
     pub semantic_labels: Option<ClassicSemanticLabels>,
+    #[serde(default)]
+    pub standards_evidence_append: Vec<ClassicStandardEvidence>,
+    #[serde(default)]
+    pub mr: Option<ClassicMrProjection>,
+    #[serde(default)]
+    pub icc: Option<ClassicIccProjection>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ClassicIccProjection {
+    pub tag: String,
+    pub vr: String,
+    pub profile_signature: String,
+    pub device_class: String,
+    pub data_color_space: String,
+    pub profile_connection_space: String,
+    pub profile_version: String,
+    pub rendering_intent: String,
+    pub rendering_intent_code: u32,
+    pub profile_description: String,
+    pub copyright: String,
+    pub tag_count: u32,
+    pub source_identity: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ClassicMrProjection {
+    pub scanning_sequence: String,
+    pub sequence_variant: String,
+    pub scan_options: String,
+    pub mr_acquisition_type: String,
+    pub repetition_time: String,
+    pub echo_time: String,
+    pub echo_train_length: String,
+    pub magnetic_field_strength: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ClassicStandardEvidence {
+    pub source: String,
+    pub edition: String,
+    pub query: String,
+    pub covered: bool,
+    pub part: String,
+    pub anchor: String,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

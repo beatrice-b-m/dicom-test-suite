@@ -129,7 +129,9 @@
           "visual_pattern": "2x2_mammography_mono1_12bit_gradient",
           "semantic_labels": {
             "photometric_semantics": "MONOCHROME1 with Presentation LUT Shape INVERSE maps stored values to P-Values for presentation"
-          }
+          },
+          "standards_evidence_append": [],
+          "include_implementation_version_name": false
         }
       }
     ]

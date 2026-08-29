@@ -111,7 +111,9 @@
             "read_metadata",
             "decode_rle_lossless_pixels"
           ],
-          "visual_pattern": "2x2_ultrasound_mono2_gradient"
+          "visual_pattern": "2x2_ultrasound_mono2_gradient",
+          "standards_evidence_append": [],
+          "include_implementation_version_name": false
         }
       }
     ]

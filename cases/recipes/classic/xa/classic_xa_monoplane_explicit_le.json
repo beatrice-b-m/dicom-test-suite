@@ -118,8 +118,10 @@
         ],
         "determinism": "byte_stable",
         "stressors": [
+          "x_ray_angiographic_image_storage",
           "single_plane_projection",
-          "xa_positioner_geometry"
+          "xa_positioner_geometry",
+          "native_u8_pixels"
         ],
         "algorithm_provider_id": "algorithm.classic_vl_projection",
         "template": {
@@ -134,7 +136,18 @@
             "render_native_pixels",
             "interpret_projection_geometry"
           ],
-          "visual_pattern": "single_plane_synthetic_angiographic_projection"
+          "visual_pattern": "single_plane_synthetic_angiographic_projection",
+          "standards_evidence_append": [
+            {
+              "anchor": "table_C.8-26",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "list_attributes_for_module X-Ray Image; X-Ray Acquisition; XA Positioner",
+              "source": "dicom-standard-kb"
+            }
+          ],
+          "include_implementation_version_name": false
         }
       }
     ]

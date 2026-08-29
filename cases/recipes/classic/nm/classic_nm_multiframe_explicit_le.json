@@ -200,7 +200,9 @@
             "navigate_multiframe",
             "interpret_nm_dimensions"
           ],
-          "visual_pattern": "four_frame_nm_two_energy_windows_two_detectors"
+          "visual_pattern": "four_frame_nm_two_energy_windows_two_detectors",
+          "standards_evidence_append": [],
+          "include_implementation_version_name": false
         }
       }
     ]

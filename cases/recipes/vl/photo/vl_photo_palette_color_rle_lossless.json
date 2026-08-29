@@ -101,9 +101,11 @@
         ],
         "determinism": "byte_stable",
         "stressors": [
+          "vl_photographic_image_storage",
+          "vl_palette_color_pixels",
           "encapsulated_pixel_data",
           "rle_lossless_transfer_syntax",
-          "palette_color"
+          "palette_color_pixels"
         ],
         "algorithm_provider_id": "algorithm.classic_vl_projection",
         "template": {
@@ -121,7 +123,58 @@
           "visual_pattern": "2x2_vl_photo_palette_rle_lossless_red_green_blue_white",
           "semantic_labels": {
             "photometric_semantics": "VL Photographic stored RLE Lossless pixel values index 16-bit RGB palette lookup tables after decode"
-          }
+          },
+          "standards_evidence_append": [
+            {
+              "anchor": "table_A.32.4-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "list_modules_for_iod VL Photographic Image",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.8-77",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "list_attributes_for_module VL Image --expand-macros",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.7.6.14-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "list_attributes_for_module Acquisition Context --expand-macros",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "sect_C.7.6.3.1.5",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "retrieve_standard_text sect_C.7.6.3.1.5",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "sect_8.2.2",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.5",
+              "query": "search_standard_text RLE Lossless Transfer Syntax encapsulated Pixel Data",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "sect_A.4",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.5",
+              "query": "search_standard_text Basic Offset Table encapsulated Pixel Data Item padding Extended Offset Table",
+              "source": "dicom-standard-kb"
+            }
+          ],
+          "include_implementation_version_name": true
         }
       }
     ]

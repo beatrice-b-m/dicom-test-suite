@@ -83,7 +83,11 @@
           "projection.curated"
         ],
         "determinism": "byte_stable",
-        "stressors": [],
+        "stressors": [
+          "vl_photographic_image_storage",
+          "vl_rgb_pixels",
+          "native_ob_pixel_data"
+        ],
         "algorithm_provider_id": "algorithm.classic_vl_projection",
         "template": {
           "template_id": "vl/photographic",
@@ -99,7 +103,42 @@
           "visual_pattern": "2x2_vl_photo_rgb_red_green_blue_white",
           "semantic_labels": {
             "photometric_semantics": "VL Photographic RGB samples are interleaved color-by-pixel"
-          }
+          },
+          "standards_evidence_append": [
+            {
+              "anchor": "table_A.32.4-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "lookup_iod VL Photographic Image",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.8-77",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "list_attributes_for_module VL Image --expand-macros",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.7.6.14-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "list_attributes_for_module Acquisition Context --expand-macros",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "sect_C.7.6.3.1.3",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "retrieve_standard_text sect_C.7.6.3.1.3",
+              "source": "dicom-standard-kb"
+            }
+          ],
+          "include_implementation_version_name": true
         }
       }
     ]

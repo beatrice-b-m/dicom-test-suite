@@ -86,6 +86,7 @@
         ],
         "determinism": "byte_stable",
         "stressors": [
+          "mr_image_storage",
           "multi_instance_series",
           "oblique_image_orientation_patient",
           "geometry_slice_sorting"
@@ -99,7 +100,19 @@
             "render_native_pixels",
             "sort_series_by_geometry"
           ],
-          "visual_pattern": "3_slice_oblique_mr_gradient_stack"
+          "visual_pattern": "3_slice_oblique_mr_gradient_stack",
+          "standards_evidence_append": [],
+          "mr": {
+            "scanning_sequence": "SE",
+            "sequence_variant": "NONE",
+            "scan_options": "",
+            "mr_acquisition_type": "2D",
+            "repetition_time": "500",
+            "echo_time": "20",
+            "echo_train_length": "1",
+            "magnetic_field_strength": "1.5"
+          },
+          "include_implementation_version_name": false
         }
       },
       {
@@ -170,6 +183,7 @@
         ],
         "determinism": "byte_stable",
         "stressors": [
+          "mr_image_storage",
           "multi_instance_series",
           "oblique_image_orientation_patient",
           "geometry_slice_sorting"
@@ -183,7 +197,19 @@
             "render_native_pixels",
             "sort_series_by_geometry"
           ],
-          "visual_pattern": "3_slice_oblique_mr_gradient_stack"
+          "visual_pattern": "3_slice_oblique_mr_gradient_stack",
+          "standards_evidence_append": [],
+          "mr": {
+            "scanning_sequence": "SE",
+            "sequence_variant": "NONE",
+            "scan_options": "",
+            "mr_acquisition_type": "2D",
+            "repetition_time": "500",
+            "echo_time": "20",
+            "echo_train_length": "1",
+            "magnetic_field_strength": "1.5"
+          },
+          "include_implementation_version_name": false
         }
       },
       {
@@ -254,6 +280,7 @@
         ],
         "determinism": "byte_stable",
         "stressors": [
+          "mr_image_storage",
           "multi_instance_series",
           "oblique_image_orientation_patient",
           "geometry_slice_sorting"
@@ -267,7 +294,19 @@
             "render_native_pixels",
             "sort_series_by_geometry"
           ],
-          "visual_pattern": "3_slice_oblique_mr_gradient_stack"
+          "visual_pattern": "3_slice_oblique_mr_gradient_stack",
+          "standards_evidence_append": [],
+          "mr": {
+            "scanning_sequence": "SE",
+            "sequence_variant": "NONE",
+            "scan_options": "",
+            "mr_acquisition_type": "2D",
+            "repetition_time": "500",
+            "echo_time": "20",
+            "echo_train_length": "1",
+            "magnetic_field_strength": "1.5"
+          },
+          "include_implementation_version_name": false
         }
       }
     ]

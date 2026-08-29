@@ -126,7 +126,9 @@
             "apply_window",
             "apply_display_shutter"
           ],
-          "visual_pattern": "2x2_dx_mono2_12bit_display_shutter"
+          "visual_pattern": "2x2_dx_mono2_12bit_display_shutter",
+          "standards_evidence_append": [],
+          "include_implementation_version_name": false
         }
       }
     ]

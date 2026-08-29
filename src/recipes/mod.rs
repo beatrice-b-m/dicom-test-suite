@@ -26,10 +26,11 @@ pub use error::RecipeCatalogError;
 pub use loader::RecipeCatalog;
 pub use metadata_sc::{MetadataScPlanInput, MetadataScPlannerError, resolved_metadata_sc_plan};
 pub use model::{
-    AttributeOperation, BitPackingParameters, CaseBinding, CaseRecipe, ClassicProjection,
-    ClassicProjectionFamily, ClassicSemanticLabels, ColorParameters, ContentBinding,
-    DependencyBinding, DicomRecipe, EmptyType2AttributeMetadata, EncapsulationProjectionParameters,
-    EncodingPolicy, IntegerWordParameters, MetadataScParameters, MutationEdit, MutationRecipe,
+    AttributeOperation, BitPackingParameters, CaseBinding, CaseRecipe, ClassicIccProjection,
+    ClassicMrProjection, ClassicProjection, ClassicProjectionFamily, ClassicSemanticLabels,
+    ClassicStandardEvidence, ColorParameters, ContentBinding, DependencyBinding, DicomRecipe,
+    EmptyType2AttributeMetadata, EncapsulationProjectionParameters, EncodingPolicy,
+    IntegerWordParameters, MetadataScParameters, MutationEdit, MutationRecipe,
     NonsquareGeometryParameters, OutputBinding, PaletteParameters, PersonNameComponentGroup,
     PersonNameMetadata, PixelPaddingParameters, PlannedArtifactRecipe, PrivateCreatorBlockMetadata,
     PrivateElementMetadata, PrivateElementValue, QualificationRecipe, RecipeKind, RecipeReference,

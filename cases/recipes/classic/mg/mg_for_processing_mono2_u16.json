@@ -124,7 +124,26 @@
           "visual_pattern": "2x2_mammography_mono2_12bit_processing_gradient",
           "semantic_labels": {
             "photometric_semantics": "MONOCHROME2 with Presentation LUT Shape IDENTITY preserves increasing stored values for processing"
-          }
+          },
+          "standards_evidence_append": [
+            {
+              "anchor": "table_6-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.6",
+              "query": "lookup_data_element ImagerPixelSpacing",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_6-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.6",
+              "query": "lookup_data_element PresentationLUTShape",
+              "source": "dicom-standard-kb"
+            }
+          ],
+          "include_implementation_version_name": false
         }
       }
     ]

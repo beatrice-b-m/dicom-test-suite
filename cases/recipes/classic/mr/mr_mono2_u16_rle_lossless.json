@@ -87,6 +87,7 @@
         ],
         "determinism": "byte_stable",
         "stressors": [
+          "mr_image_storage",
           "encapsulated_pixel_data",
           "rle_lossless_transfer_syntax",
           "compressed_modality_pixels"
@@ -100,7 +101,19 @@
             "decode_rle_lossless_pixels",
             "sort_series_by_geometry"
           ],
-          "visual_pattern": "single_slice_mr_rle_lossless_gradient"
+          "visual_pattern": "single_slice_mr_rle_lossless_gradient",
+          "standards_evidence_append": [],
+          "mr": {
+            "scanning_sequence": "SE",
+            "sequence_variant": "NONE",
+            "scan_options": "",
+            "mr_acquisition_type": "2D",
+            "repetition_time": "500",
+            "echo_time": "20",
+            "echo_train_length": "1",
+            "magnetic_field_strength": "1.5"
+          },
+          "include_implementation_version_name": false
         }
       }
     ]

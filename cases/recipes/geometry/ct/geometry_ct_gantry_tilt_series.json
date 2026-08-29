@@ -148,7 +148,82 @@
             "sort_series_by_geometry",
             "interpret_gantry_tilt"
           ],
-          "visual_pattern": "2x2_signed_ct_hu_gradient"
+          "visual_pattern": "2x2_signed_ct_hu_gradient",
+          "standards_evidence_append": [
+            {
+              "anchor": "table_A.3-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "lookup_iod CT Image",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_A.3-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "list_modules_for_iod CT Image",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.8-3",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "list_attributes_for_module CT Image",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.7-10",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "list_attributes_for_module Image Plane",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.7-6",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "list_attributes_for_module Frame of Reference",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.8-3",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "resolve_attribute_context RescaleIntercept --iod CT Image",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.8-3",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "resolve_attribute_context RescaleSlope --iod CT Image",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.11-2b",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "resolve_attribute_context WindowCenter --iod CT Image",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.11-2b",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "resolve_attribute_context WindowWidth --iod CT Image",
+              "source": "dicom-standard-kb"
+            }
+          ],
+          "include_implementation_version_name": false
         }
       },
       {
@@ -234,7 +309,82 @@
             "sort_series_by_geometry",
             "interpret_gantry_tilt"
           ],
-          "visual_pattern": "2x2_signed_ct_hu_gradient"
+          "visual_pattern": "2x2_signed_ct_hu_gradient",
+          "standards_evidence_append": [
+            {
+              "anchor": "table_A.3-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "lookup_iod CT Image",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_A.3-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "list_modules_for_iod CT Image",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.8-3",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "list_attributes_for_module CT Image",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.7-10",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "list_attributes_for_module Image Plane",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.7-6",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "list_attributes_for_module Frame of Reference",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.8-3",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "resolve_attribute_context RescaleIntercept --iod CT Image",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.8-3",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "resolve_attribute_context RescaleSlope --iod CT Image",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.11-2b",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "resolve_attribute_context WindowCenter --iod CT Image",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.11-2b",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "resolve_attribute_context WindowWidth --iod CT Image",
+              "source": "dicom-standard-kb"
+            }
+          ],
+          "include_implementation_version_name": false
         }
       },
       {
@@ -320,7 +470,82 @@
             "sort_series_by_geometry",
             "interpret_gantry_tilt"
           ],
-          "visual_pattern": "2x2_signed_ct_hu_gradient"
+          "visual_pattern": "2x2_signed_ct_hu_gradient",
+          "standards_evidence_append": [
+            {
+              "anchor": "table_A.3-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "lookup_iod CT Image",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_A.3-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "list_modules_for_iod CT Image",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.8-3",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "list_attributes_for_module CT Image",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.7-10",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "list_attributes_for_module Image Plane",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.7-6",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "list_attributes_for_module Frame of Reference",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.8-3",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "resolve_attribute_context RescaleIntercept --iod CT Image",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.8-3",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "resolve_attribute_context RescaleSlope --iod CT Image",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.11-2b",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "resolve_attribute_context WindowCenter --iod CT Image",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.11-2b",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "resolve_attribute_context WindowWidth --iod CT Image",
+              "source": "dicom-standard-kb"
+            }
+          ],
+          "include_implementation_version_name": false
         }
       }
     ]

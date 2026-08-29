@@ -140,7 +140,9 @@
             "overlay_pattern": "2x2_diagonal_overlay",
             "modality_lut": "stored values 0..3 map through a four-entry 16-bit Modality LUT",
             "voi_lut": "post-modality values can be windowed through a four-entry 16-bit VOI LUT"
-          }
+          },
+          "standards_evidence_append": [],
+          "include_implementation_version_name": false
         }
       }
     ]

@@ -88,8 +88,11 @@
         ],
         "determinism": "byte_stable",
         "stressors": [
-          "icc_profile",
-          "color_management"
+          "vl_photographic_image_storage",
+          "vl_rgb_pixels",
+          "native_ob_pixel_data",
+          "embedded_icc_input_profile",
+          "srgb_color_management"
         ],
         "algorithm_provider_id": "algorithm.classic_vl_projection",
         "template": {
@@ -107,6 +110,88 @@
           "visual_pattern": "2x2_vl_photo_rgb_red_green_blue_white_with_srgb_icc",
           "semantic_labels": {
             "photometric_semantics": "VL Photographic RGB samples are interpreted through the embedded SRGB input profile"
+          },
+          "standards_evidence_append": [
+            {
+              "anchor": "table_B.5-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.4",
+              "query": "lookup_sop_class VL Photographic Image Storage",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_A.32.4-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "lookup_iod VL Photographic Image",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_A.32.4-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "list_modules_for_iod VL Photographic Image",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.8-77",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "list_attributes_for_module VL Image --expand-macros",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.7.6.14-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "list_attributes_for_module Acquisition Context --expand-macros",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.11.15-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "list_attributes_for_module ICC Profile --expand-macros",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_6-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.6",
+              "query": "lookup_data_element PlanarConfiguration",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "sect_C.7.6.3.1.3",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "retrieve_standard_text sect_C.7.6.3.1.3",
+              "source": "dicom-standard-kb"
+            }
+          ],
+          "include_implementation_version_name": true,
+          "icc": {
+            "tag": "(0028,2000)",
+            "vr": "OB",
+            "profile_signature": "acsp",
+            "device_class": "scnr",
+            "data_color_space": "RGB",
+            "profile_connection_space": "XYZ",
+            "profile_version": "2.1.0",
+            "rendering_intent": "perceptual",
+            "rendering_intent_code": 0,
+            "profile_description": "sRGB",
+            "copyright": "CC0",
+            "tag_count": 9,
+            "source_identity": "DCMTK 3.7.0 DCMTK_SRGB_ICC_SAMPLE"
           }
         }
       }

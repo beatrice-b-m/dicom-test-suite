@@ -411,6 +411,71 @@ impl ArtifactWorker<ArtifactServiceOutputs, ArtifactExecutionError> for Executio
                         claims: outcome.claims,
                     });
                 }
+                SlotExecutionBinding::ProviderCodecPipeline { provider, codec } => {
+                    self.checkpoint(CancellationStage::BeforeProvider, artifact_id)?;
+                    let assets = self.asset_snapshot();
+                    provider.validate(&assets)?;
+                    let provider_result =
+                        match self
+                            .services
+                            .invoke_provider(&provider, &assets, self.cancellation)
+                        {
+                            Ok(result) => result,
+                            Err(error) => {
+                                self.checkpoint(CancellationStage::BeforeProvider, artifact_id)?;
+                                return Err(error.into());
+                            }
+                        };
+                    self.checkpoint(CancellationStage::BeforeProvider, artifact_id)?;
+                    provider_result.validate(&provider)?;
+                    select_provider_output(&slot, &provider_result)?;
+                    let produced_handles = provider_result
+                        .outputs
+                        .values()
+                        .map(|output| output.declaration.handle.clone())
+                        .collect::<std::collections::BTreeSet<_>>();
+                    if codec.frames.iter().any(|frame| match &frame.bytes {
+                        crate::executor::services::ByteBinding::VerifiedAssetRange {
+                            asset,
+                            ..
+                        } => !produced_handles.contains(asset),
+                        _ => true,
+                    }) {
+                        return Err(ArtifactExecutionError::PipelineAssetMismatch {
+                            request_id: provider.request_id.clone(),
+                            codec_request_id: codec.request_id.clone(),
+                        });
+                    }
+                    let mut registry = self.registry.lock().unwrap_or_else(|e| e.into_inner());
+                    for output in provider_result.outputs.values() {
+                        registry.register(output.clone())?;
+                    }
+                    drop(registry);
+                    providers.push(ProviderExecutionRecord {
+                        request: provider,
+                        result: provider_result,
+                    });
+
+                    self.checkpoint(CancellationStage::BeforeCodec, artifact_id)?;
+                    let assets = self.asset_snapshot();
+                    codec.validate(&assets)?;
+                    let outcome = self.services.invoke_codec(&codec, &assets)?;
+                    outcome.result.validate(&codec, &assets)?;
+                    bindings.slots.insert(
+                        slot,
+                        SlotExecutionBinding::EncodedFrames {
+                            frames: outcome.result.frames.clone(),
+                        },
+                    );
+                    codecs.push(CodecExecutionRecord {
+                        request: codec,
+                        result: outcome.result,
+                        determinism: outcome.determinism,
+                        decoded_frame_sha256: outcome.decoded_frame_sha256,
+                        metrics: outcome.metrics,
+                        claims: outcome.claims,
+                    });
+                }
                 _ => {}
             }
         }
@@ -661,6 +726,10 @@ pub enum ArtifactExecutionError {
     AmbiguousProviderOutput {
         request_id: String,
         slot: String,
+    },
+    PipelineAssetMismatch {
+        request_id: String,
+        codec_request_id: String,
     },
     ValidationFailed {
         rule_id: String,

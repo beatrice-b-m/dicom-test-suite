@@ -382,6 +382,105 @@ fn compose_consumes_provider_content_and_records_full_provenance() {
 }
 
 #[test]
+fn compose_pipelines_provider_native_pixels_through_rle_without_planning_bytes() {
+    let root = private_root("compose-provider-rle");
+    fs::create_dir(&root).unwrap();
+    let native = vec![0_u8; 512];
+    let native_sha256 = sha256_hex(&native);
+    let executable = root.join("provider.sh");
+    write_executable(
+        &executable,
+        &format!(
+            r#"#!/bin/sh
+request_id=$(/usr/bin/sed -n 's/.*"request_id": "\([^"]*\)".*/\1/p' "$DTS_COMPOSITION_PROVIDER_REQUEST")
+argument_sha256=$(/usr/bin/sed -n 's/.*"argument_sha256": "\([^"]*\)".*/\1/p' "$DTS_COMPOSITION_PROVIDER_REQUEST")
+/usr/bin/head -c 512 /dev/zero > "$DTS_COMPOSITION_PROVIDER_OUTPUTS/pixels.raw"
+printf '{{"protocol_version":"1.0.0","request_id":"%s","provider_id":"fixture.provider","provider_version":"1.2.3","executable_sha256":"%s","argument_sha256":"%s","output":{{"slot":"pixels","relative_path":"pixels.raw","size_bytes":512,"sha256":"{native_sha256}"}}}}' "$request_id" "$1" "$argument_sha256" > "$DTS_COMPOSITION_PROVIDER_RESPONSE"
+"#
+        ),
+    );
+    let executable_sha256 = sha256_hex(&fs::read(&executable).unwrap());
+
+    let mut provider = provider_spec(&executable, &executable_sha256);
+    provider["instances"][0]["template"]["id"] = json!("classic/xa");
+    provider["instances"][0]["transfer_syntax_uid"] = json!("1.2.840.10008.1.2.5");
+    provider["instances"][0]["content"][0]["source"]["size_bytes"] = json!(512);
+    provider["instances"][0]["content"][0]["source"]["sha256"] = json!(native_sha256);
+    provider["instances"][0]["content"][0]["source"]["pixel"] = json!({
+        "rows": 16, "columns": 16, "frames": 1,
+        "samples_per_pixel": 1, "photometric_interpretation": "MONOCHROME2",
+        "sample_type": "uint", "bits_allocated": 16,
+        "bits_stored": 12, "high_bit": 11, "byte_order": "little"
+    });
+    let provider_spec_path = root.join("provider.json");
+    fs::write(
+        &provider_spec_path,
+        serde_json::to_vec_pretty(&provider).unwrap(),
+    )
+    .unwrap();
+    let provider_out = root.join("provider-out");
+    let (_, provider_manifest) = compose(&ComposeOptions {
+        spec_path: provider_spec_path,
+        out_dir: provider_out.clone(),
+        seed: 91,
+        catalog_path: "templates/catalog.json".into(),
+        dry_run: false,
+    })
+    .unwrap();
+
+    fs::write(root.join("pixels.raw"), &native).unwrap();
+    let local = json!({
+        "composition_spec_schema_version": "0.1.0",
+        "instances": [{
+            "instance_id": "primary",
+            "template": {"id": "classic/xa"},
+            "transfer_syntax_uid": "1.2.840.10008.1.2.5",
+            "content": [{
+                "slot": "pixels",
+                "source": {
+                    "kind": "local_file",
+                    "path": "pixels.raw",
+                    "sha256": sha256_hex(&native),
+                    "pixel": {
+                        "rows": 16, "columns": 16, "frames": 1,
+                        "samples_per_pixel": 1,
+                        "photometric_interpretation": "MONOCHROME2",
+                        "sample_type": "uint", "bits_allocated": 16,
+                        "bits_stored": 12, "high_bit": 11, "byte_order": "little"
+                    }
+                }
+            }]
+        }]
+    });
+    let local_spec_path = root.join("local.json");
+    fs::write(&local_spec_path, serde_json::to_vec_pretty(&local).unwrap()).unwrap();
+    let local_out = root.join("local-out");
+    compose(&ComposeOptions {
+        spec_path: local_spec_path,
+        out_dir: local_out.clone(),
+        seed: 91,
+        catalog_path: "templates/catalog.json".into(),
+        dry_run: false,
+    })
+    .unwrap();
+
+    assert_eq!(
+        fs::read(provider_out.join("instances/primary.dcm")).unwrap(),
+        fs::read(local_out.join("instances/primary.dcm")).unwrap()
+    );
+    let properties = &provider_manifest["composition"]["entries"][0]["content"][0]["properties"];
+    assert_eq!(properties["content_origin"], "provider");
+    assert_eq!(properties["codec_backend_kind"], "native");
+    assert_eq!(
+        properties["codec_semantic_validation"],
+        "decoded_frame_hashes_match"
+    );
+    assert!(!provider_out.join(".providers").exists());
+    assert!(!provider_out.join(".composition-inputs").exists());
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn compose_provider_crash_cannot_publish_a_partial_corpus() {
     let root = private_root("compose-crash");
     fs::create_dir(&root).unwrap();

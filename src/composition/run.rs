@@ -597,12 +597,26 @@ fn bind_execution_content(
             };
 
             if let Some(native) = native_codec_plans.get(&plan.instance_id) {
-                if artifact_bindings.slots.contains_key(&content.slot) {
-                    return Err(ComposeError::ExecutionBinding(format!(
-                        "provider-to-codec composition is not representable for {}:{}",
-                        plan.instance_id, content.slot
-                    )));
-                }
+                let provider_request =
+                    artifact_bindings
+                        .slots
+                        .get(&content.slot)
+                        .and_then(|binding| match binding {
+                            SlotExecutionBinding::ProviderRequest { request } => {
+                                Some(request.clone())
+                            }
+                            _ => None,
+                        });
+                let provider_asset = provider_request
+                    .as_ref()
+                    .map(|request| {
+                        StagedAssetHandle::new(format!(
+                            "provider:{}:{}",
+                            request.request_id, content.slot
+                        ))
+                    })
+                    .transpose()
+                    .map_err(|error| ComposeError::ExecutionBinding(error.to_string()))?;
                 let frames = native
                     .frame_spans
                     .iter()
@@ -664,6 +678,16 @@ fn bind_execution_content(
                                     sha256: sha256_hex(&frame),
                                 }
                             }
+                            (None, _) if provider_asset.is_some() => {
+                                ByteBinding::VerifiedAssetRange {
+                                    asset: provider_asset
+                                        .as_ref()
+                                        .expect("provider asset was checked")
+                                        .clone(),
+                                    offset,
+                                    length,
+                                }
+                            }
                             _ => return Err(ComposeError::MissingPixelMaterialization),
                         };
                         Ok(NativeFrameBinding {
@@ -680,25 +704,28 @@ fn bind_execution_content(
                         })
                     })
                     .collect::<Result<Vec<_>, ComposeError>>()?;
-                artifact_bindings.slots.insert(
-                    content.slot.clone(),
-                    SlotExecutionBinding::CodecRequest {
-                        request: CodecRequest {
-                            request_id: format!("composition-rle-{}", artifact_index),
-                            artifact_id: plan.instance_id.clone(),
-                            slot: content.slot.clone(),
-                            backend_id: NativeRleLosslessEncoder::BACKEND_ID.into(),
-                            source_transfer_syntax_uid: "1.2.840.10008.1.2.1".into(),
-                            target_transfer_syntax_uid:
-                                crate::codecs::RLE_LOSSLESS_TRANSFER_SYNTAX_UID.into(),
-                            frames,
-                            parameters: BTreeMap::from([(
-                                "bits_stored".into(),
-                                json!(native.shape.bits_stored),
-                            )]),
-                        },
-                    },
-                );
+                let codec = CodecRequest {
+                    request_id: format!("composition-rle-{}", artifact_index),
+                    artifact_id: plan.instance_id.clone(),
+                    slot: content.slot.clone(),
+                    backend_id: NativeRleLosslessEncoder::BACKEND_ID.into(),
+                    source_transfer_syntax_uid: "1.2.840.10008.1.2.1".into(),
+                    target_transfer_syntax_uid: crate::codecs::RLE_LOSSLESS_TRANSFER_SYNTAX_UID
+                        .into(),
+                    frames,
+                    parameters: BTreeMap::from([(
+                        "bits_stored".into(),
+                        json!(native.shape.bits_stored),
+                    )]),
+                };
+                let binding = if let Some(provider) = provider_request {
+                    SlotExecutionBinding::ProviderCodecPipeline { provider, codec }
+                } else {
+                    SlotExecutionBinding::CodecRequest { request: codec }
+                };
+                artifact_bindings
+                    .slots
+                    .insert(content.slot.clone(), binding);
             } else if let Some(handle) = source_handle {
                 artifact_bindings.slots.insert(
                     content.slot.clone(),

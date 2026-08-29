@@ -788,6 +788,36 @@ fn binding_bytes(
             }
             Ok(selected.to_vec())
         }
+        ByteBinding::VerifiedAssetRange {
+            asset,
+            offset,
+            length,
+        } => {
+            let declaration = assets
+                .resolve(asset)
+                .map_err(|error| service_error("codec", error))?;
+            let bytes = fs::read(root.join(declaration.relative_path.as_str()))
+                .map_err(|error| service_error("codec", error))?;
+            if bytes.len() as u64 != declaration.size_bytes
+                || sha256_hex(&bytes) != declaration.sha256
+            {
+                return Err(ServiceInvocationError::new(
+                    "codec",
+                    "verified provider asset changed before codec execution",
+                ));
+            }
+            let start = usize::try_from(*offset).map_err(|error| service_error("codec", error))?;
+            let end = offset
+                .checked_add(*length)
+                .and_then(|value| usize::try_from(value).ok())
+                .ok_or_else(|| ServiceInvocationError::new("codec", "frame range overflow"))?;
+            Ok(bytes
+                .get(start..end)
+                .ok_or_else(|| {
+                    ServiceInvocationError::new("codec", "frame range is out of bounds")
+                })?
+                .to_vec())
+        }
     }
 }
 

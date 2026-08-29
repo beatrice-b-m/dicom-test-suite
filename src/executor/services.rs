@@ -229,6 +229,14 @@ pub enum ByteBinding {
         length: u64,
         sha256: String,
     },
+    /// A range of a provider-produced asset whose complete declared identity
+    /// is verified by the provider result and rechecked by the consuming
+    /// service. This is intentionally unavailable for unverified seed assets.
+    VerifiedAssetRange {
+        asset: StagedAssetHandle,
+        offset: u64,
+        length: u64,
+    },
 }
 
 impl ByteBinding {
@@ -251,6 +259,23 @@ impl ByteBinding {
                 sha256,
             } => {
                 validate_sha256("staged range SHA-256", sha256)?;
+                let declaration = registry.resolve(asset)?;
+                let end = offset
+                    .checked_add(*length)
+                    .ok_or(ServiceError::AssetRangeOverflow)?;
+                if end > declaration.size_bytes {
+                    return Err(ServiceError::AssetRangeOutOfBounds {
+                        handle: asset.clone(),
+                        end,
+                        size: declaration.size_bytes,
+                    });
+                }
+            }
+            Self::VerifiedAssetRange {
+                asset,
+                offset,
+                length,
+            } => {
                 let declaration = registry.resolve(asset)?;
                 let end = offset
                     .checked_add(*length)
@@ -301,11 +326,25 @@ impl NativeFrameBinding {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum SlotExecutionBinding {
-    StagedAsset { asset: StagedAssetHandle },
-    ProviderRequest { request: ProviderRequest },
-    NativeFrames { frames: Vec<NativeFrameBinding> },
-    CodecRequest { request: CodecRequest },
-    EncodedFrames { frames: Vec<EncodedFrameResult> },
+    StagedAsset {
+        asset: StagedAssetHandle,
+    },
+    ProviderRequest {
+        request: ProviderRequest,
+    },
+    NativeFrames {
+        frames: Vec<NativeFrameBinding>,
+    },
+    CodecRequest {
+        request: CodecRequest,
+    },
+    ProviderCodecPipeline {
+        provider: ProviderRequest,
+        codec: CodecRequest,
+    },
+    EncodedFrames {
+        frames: Vec<EncodedFrameResult>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -327,6 +366,10 @@ impl ArtifactExecutionBindings {
                 }
                 SlotExecutionBinding::ProviderRequest { request } => request.validate(registry)?,
                 SlotExecutionBinding::CodecRequest { request } => request.validate(registry)?,
+                SlotExecutionBinding::ProviderCodecPipeline { provider, codec } => {
+                    provider.validate(registry)?;
+                    codec.validate_provider_pipeline()?;
+                }
                 SlotExecutionBinding::NativeFrames { frames } => {
                     if frames.is_empty() {
                         return Err(ServiceError::EmptyNativeFrames(slot.clone()));
@@ -486,6 +529,52 @@ pub struct CodecRequest {
 }
 
 impl CodecRequest {
+    fn validate_provider_pipeline(&self) -> Result<(), ServiceError> {
+        validate_identifier("codec request ID", &self.request_id)?;
+        validate_identifier("codec artifact ID", &self.artifact_id)?;
+        validate_identifier("codec slot", &self.slot)?;
+        validate_identifier("codec backend ID", &self.backend_id)?;
+        validate_uid(
+            "codec source transfer syntax",
+            &self.source_transfer_syntax_uid,
+        )?;
+        validate_uid(
+            "codec target transfer syntax",
+            &self.target_transfer_syntax_uid,
+        )?;
+        if self.frames.is_empty() {
+            return Err(ServiceError::EmptyNativeFrames(self.slot.clone()));
+        }
+        let mut frame_numbers = BTreeSet::new();
+        for frame in &self.frames {
+            if frame.frame_number == 0
+                || frame.rows == 0
+                || frame.columns == 0
+                || frame.samples_per_pixel == 0
+                || frame.bits_allocated == 0
+            {
+                return Err(ServiceError::InvalidFrameShape(frame.frame_number));
+            }
+            validate_identifier(
+                "photometric interpretation",
+                &frame.photometric_interpretation,
+            )?;
+            let ByteBinding::VerifiedAssetRange { offset, length, .. } = &frame.bytes else {
+                return Err(ServiceError::ResultOutputMismatch(self.slot.clone()));
+            };
+            offset
+                .checked_add(*length)
+                .ok_or(ServiceError::AssetRangeOverflow)?;
+            if !frame_numbers.insert(frame.frame_number) {
+                return Err(ServiceError::DuplicateFrameNumber {
+                    slot: self.slot.clone(),
+                    frame: frame.frame_number,
+                });
+            }
+        }
+        Ok(())
+    }
+
     pub fn validate(&self, registry: &StagedAssetRegistry) -> Result<(), ServiceError> {
         validate_identifier("codec request ID", &self.request_id)?;
         validate_identifier("codec artifact ID", &self.artifact_id)?;
@@ -891,6 +980,10 @@ fn byte_binding_identity(
             } else {
                 Ok((*length, sha256.clone()))
             }
+        }
+        ByteBinding::VerifiedAssetRange { asset, length, .. } => {
+            let declaration = registry.resolve(asset)?;
+            Ok((*length, declaration.sha256.clone()))
         }
     }
 }

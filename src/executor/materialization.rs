@@ -197,7 +197,8 @@ impl MaterializationDispatcher {
                     }
                 }
                 SlotExecutionBinding::ProviderRequest { .. }
-                | SlotExecutionBinding::CodecRequest { .. } => {
+                | SlotExecutionBinding::CodecRequest { .. }
+                | SlotExecutionBinding::ProviderCodecPipeline { .. } => {
                     return Err(MaterializationError::UnresolvedProviderBinding {
                         artifact_id: artifact.logical_id.clone(),
                         slot: content.slot.clone(),
@@ -468,6 +469,24 @@ impl MaterializationDispatcher {
                     return Err(MaterializationError::InlineBindingChanged);
                 }
                 Ok(selected)
+            }
+            ByteBinding::VerifiedAssetRange {
+                asset,
+                offset,
+                length,
+            } => {
+                let bytes = self.read_asset(asset, assets, false)?;
+                let start =
+                    usize::try_from(*offset).map_err(|_| MaterializationError::BindingRange)?;
+                let length =
+                    usize::try_from(*length).map_err(|_| MaterializationError::BindingRange)?;
+                let end = start
+                    .checked_add(length)
+                    .ok_or(MaterializationError::BindingRange)?;
+                Ok(bytes
+                    .get(start..end)
+                    .ok_or(MaterializationError::BindingRange)?
+                    .to_vec())
             }
         }
     }

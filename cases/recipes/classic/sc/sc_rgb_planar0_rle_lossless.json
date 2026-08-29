@@ -1,0 +1,66 @@
+{
+  "case_recipe_schema_version": "0.1.0",
+  "recipe_id": "sc_rgb_planar0_rle_lossless",
+  "recipe_version": "0.1.0",
+  "binding": {
+    "case_id": "classic/sc/rgb_planar0_rle_lossless"
+  },
+  "kind": "dicom",
+  "plan_provider_id": "native.case_plan",
+  "dependencies": [
+
+  ],
+  "provider_parameters": {
+  },
+  "validation_rule_ids": [
+    "validation.shared"
+  ],
+  "projection_rule_ids": [
+    "projection.curated"
+  ],
+  "dicom": {
+    "artifacts": [
+      {
+        "logical_id": "artifact_1",
+        "output": {
+          "role": "primary_1",
+          "provider_derived": true
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.5",
+          "sequence_length_policy": "provider",
+          "item_length_policy": "provider",
+          "offset_table_policy": "provider",
+          "fragmentation_policy": "provider",
+          "non_template_encoding_provider_id": "encoding.transfer_syntax_plan"
+        },
+        "parameters": {
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.case_default",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+
+        ],
+        "algorithm_provider_id": "algorithm.case_provider",
+        "template": {
+          "template_id": "classic/secondary-capture/rgb",
+          "template_version": "1.0.0"
+        },
+        "order": 0
+      }
+    ]
+  }
+}

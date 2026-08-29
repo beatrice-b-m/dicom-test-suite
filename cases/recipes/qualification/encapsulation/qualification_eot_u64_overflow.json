@@ -1,0 +1,31 @@
+{
+  "case_recipe_schema_version": "0.1.0",
+  "recipe_id": "qualification_eot_u64_overflow",
+  "recipe_version": "0.1.0",
+  "binding": {
+    "case_id": "qualification/encapsulation/eot_u64_overflow"
+  },
+  "kind": "qualification",
+  "plan_provider_id": "qualification.bounded_plan",
+  "dependencies": [
+
+  ],
+  "provider_parameters": {
+  },
+  "validation_rule_ids": [
+    "validation.qualification"
+  ],
+  "projection_rule_ids": [
+    "projection.qualification"
+  ],
+  "qualification": {
+    "parameters": {
+    },
+    "resource_policy": {
+      "max_input_bytes": 8388608,
+      "max_output_bytes": 8388608,
+      "max_operations": 100000000
+    },
+    "retention": "evidence_only"
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "case_recipe_schema_version": "0.1.0",
+  "recipe_id": "negative_dataset_truncated_sequence_item",
+  "recipe_version": "0.1.0",
+  "binding": {
+    "case_id": "negative/dataset/truncated_sequence_item"
+  },
+  "kind": "mutation",
+  "plan_provider_id": "mutation.named_plan",
+  "dependencies": [
+    {
+      "recipe": {
+        "recipe_id": "metadata_sc_defined_undefined_sequence_lengths",
+        "recipe_version": "0.1.0"
+      },
+      "role": "mutation_source"
+    }
+  ],
+  "provider_parameters": {
+  },
+  "validation_rule_ids": [
+    "validation.mutation"
+  ],
+  "projection_rule_ids": [
+    "projection.mutation"
+  ],
+  "mutation": {
+    "source": {
+      "recipe_id": "metadata_sc_defined_undefined_sequence_lengths",
+      "recipe_version": "0.1.0"
+    },
+    "source_logical_role": "primary_1",
+    "edits": [
+      {
+        "edit_id": "edit_1",
+        "mutation_id": "mutation.registry_named",
+        "parameters": {
+        }
+      }
+    ],
+    "failure_layers": [
+      "provider_defined"
+    ],
+    "acceptable_outcomes": [
+      "provider_defined"
+    ],
+    "output": {
+      "role": "expected_invalid",
+      "provider_derived": true
+    },
+    "retention": "expected_invalid_only"
+  }
+}

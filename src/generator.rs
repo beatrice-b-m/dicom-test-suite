@@ -12424,6 +12424,56 @@ fn curated_pixel_template_family(recipe: PixelRecipe) -> &'static str {
 }
 
 #[allow(clippy::too_many_arguments)]
+fn materialize_curated_classic_dataset(
+    object: &InMemDicomObject,
+    path: &Path,
+    instance_id: &str,
+    template_family: &str,
+    sop_class_uid: &str,
+    transfer_syntax_uid: &str,
+    study_instance_uid: &str,
+    series_instance_uid: &str,
+    sop_instance_uid: &str,
+    implementation_class_uid: &str,
+) -> Result<(), GenerateError> {
+    let plan = crate::composition::resolved_plan_from_curated_dataset(
+        object,
+        crate::composition::CuratedPlanInput {
+            instance_id,
+            template_id: crate::composition::TemplateId(template_family.to_string()),
+            template_version: "1.0.0".parse().expect("static template version"),
+            sop_class_uid,
+            transfer_syntax_uid,
+            study_instance_uid: Some(study_instance_uid),
+            series_instance_uid: Some(series_instance_uid),
+            sop_instance_uid,
+            implementation_class_uid,
+        },
+    )
+    .map_err(|error| GenerateError::WriteDicomFile {
+        path: path.to_path_buf(),
+        message: format!("resolve curated composition plan: {error}"),
+    })?;
+    crate::composition::Part10Materializer
+        .materialize(&plan, path)
+        .map_err(|error| GenerateError::WriteDicomFile {
+            path: path.to_path_buf(),
+            message: error.to_string(),
+        })
+}
+
+fn append_curated_plan_validation(validation: &mut Value) {
+    append_internal_validation(
+        validation,
+        serde_json::json!({
+            "name": "curated_composition_plan",
+            "status": "passed",
+            "message": "The curated dataset resolved through the shared composition plan before Part 10 materialization."
+        }),
+    );
+}
+
+#[allow(clippy::too_many_arguments)]
 #[cfg(any(feature = "jpegxl", feature = "htj2k_openjph"))]
 fn lossy_metrics_manifest(
     recipe: PixelRecipe,
@@ -15569,28 +15619,22 @@ fn write_classic_ct_case(
                 None
             };
 
-            let file_obj = obj
-                .with_meta(
-                    FileMetaTableBuilder::new()
-                        .transfer_syntax(recipe.transfer_syntax.uid)
-                        .implementation_class_uid(&implementation_class_uid)
-                        .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
-                )
-                .map_err(|err| GenerateError::WriteDicomFile {
-                    path: path.clone(),
-                    message: err.to_string(),
-                })?;
-
-            file_obj
-                .write_to_file(&path)
-                .map_err(|err| GenerateError::WriteDicomFile {
-                    path: path.clone(),
-                    message: err.to_string(),
-                })?;
+            materialize_curated_classic_dataset(
+                &obj,
+                &path,
+                recipe.recipe_id,
+                "classic/ct",
+                uids::CT_IMAGE_STORAGE,
+                recipe.transfer_syntax.uid,
+                &study_instance_uid,
+                &series_instance_uid,
+                &sop_instance_uid,
+                &implementation_class_uid,
+            )?;
 
             let decoded_frame_hash = sha256_hex(slice.pixel_bytes);
             let decoded_frame_hashes = [decoded_frame_hash.as_str()];
-            let validated = validate_part10_file(
+            let mut validated = validate_part10_file(
                 &path,
                 &Part10Expectations {
                     sop_class_uid: uids::CT_IMAGE_STORAGE,
@@ -15662,6 +15706,7 @@ fn write_classic_ct_case(
                     segmentation: None,
                 },
             )?;
+            append_curated_plan_validation(&mut validated.validation);
 
             generated_files.push(GeneratedFile {
                 case_id: recipe.case_id.to_string(),
@@ -23675,7 +23720,6 @@ fn write_enhanced_mr_case(
             segmentation: None,
         },
     )?;
-
     Ok(GeneratedFile {
         case_id: recipe.case_id.to_string(),
         manifest_entry: enhanced_mr_manifest_entry(
@@ -29462,28 +29506,22 @@ fn write_classic_cr_case(
         None
     };
 
-    let file_obj = obj
-        .with_meta(
-            FileMetaTableBuilder::new()
-                .transfer_syntax(recipe.transfer_syntax.uid)
-                .implementation_class_uid(&implementation_class_uid)
-                .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
-        )
-        .map_err(|err| GenerateError::WriteDicomFile {
-            path: path.clone(),
-            message: err.to_string(),
-        })?;
-
-    file_obj
-        .write_to_file(&path)
-        .map_err(|err| GenerateError::WriteDicomFile {
-            path: path.clone(),
-            message: err.to_string(),
-        })?;
+    materialize_curated_classic_dataset(
+        &obj,
+        &path,
+        recipe.recipe_id,
+        "classic/cr",
+        uids::COMPUTED_RADIOGRAPHY_IMAGE_STORAGE,
+        recipe.transfer_syntax.uid,
+        &study_instance_uid,
+        &series_instance_uid,
+        &sop_instance_uid,
+        &implementation_class_uid,
+    )?;
 
     let decoded_frame_hash = sha256_hex(recipe.pixel_bytes);
     let decoded_frame_hashes = [decoded_frame_hash.as_str()];
-    let validated = validate_part10_file(
+    let mut validated = validate_part10_file(
         &path,
         &Part10Expectations {
             sop_class_uid: uids::COMPUTED_RADIOGRAPHY_IMAGE_STORAGE,
@@ -29551,6 +29589,7 @@ fn write_classic_cr_case(
             segmentation: None,
         },
     )?;
+    append_curated_plan_validation(&mut validated.validation);
 
     Ok(GeneratedFile {
         case_id: recipe.case_id.to_string(),
@@ -30071,28 +30110,22 @@ fn write_classic_mr_case(
             None
         };
 
-        let file_obj = obj
-            .with_meta(
-                FileMetaTableBuilder::new()
-                    .transfer_syntax(recipe.transfer_syntax.uid)
-                    .implementation_class_uid(&implementation_class_uid)
-                    .implementation_version_name(crate::IMPLEMENTATION_VERSION_NAME),
-            )
-            .map_err(|err| GenerateError::WriteDicomFile {
-                path: path.clone(),
-                message: err.to_string(),
-            })?;
-
-        file_obj
-            .write_to_file(&path)
-            .map_err(|err| GenerateError::WriteDicomFile {
-                path: path.clone(),
-                message: err.to_string(),
-            })?;
+        materialize_curated_classic_dataset(
+            &obj,
+            &path,
+            recipe.recipe_id,
+            "classic/mr",
+            uids::MR_IMAGE_STORAGE,
+            recipe.transfer_syntax.uid,
+            &study_instance_uid,
+            &series_instance_uid,
+            &sop_instance_uid,
+            &implementation_class_uid,
+        )?;
 
         let decoded_frame_hash = sha256_hex(slice.pixel_bytes);
         let decoded_frame_hashes = [decoded_frame_hash.as_str()];
-        let validated = validate_part10_file(
+        let mut validated = validate_part10_file(
             &path,
             &Part10Expectations {
                 sop_class_uid: uids::MR_IMAGE_STORAGE,
@@ -30169,6 +30202,7 @@ fn write_classic_mr_case(
                 segmentation: None,
             },
         )?;
+        append_curated_plan_validation(&mut validated.validation);
 
         generated_files.push(GeneratedFile {
             case_id: recipe.case_id.to_string(),

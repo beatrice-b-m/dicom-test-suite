@@ -14,7 +14,7 @@ fn output(label: &str) -> PathBuf {
 }
 
 #[test]
-fn generated_sc_and_vl_pixel_recipes_record_shared_plan_materialization() {
+fn migrated_classic_recipes_record_shared_plan_materialization() {
     let root = output("sc-vl");
     let result = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args([
@@ -39,6 +39,10 @@ fn generated_sc_and_vl_pixel_recipes_record_shared_plan_materialization() {
     let migrated = entries.iter().filter(|entry| {
         entry["case_id"].as_str().is_some_and(|case_id| {
             case_id.starts_with("classic/sc/")
+                || case_id.starts_with("classic/cr/")
+                || case_id.starts_with("classic/ct/")
+                || case_id.starts_with("classic/mr/")
+                || case_id.starts_with("geometry/ct/")
                 || case_id.starts_with("metadata/sc/")
                 || case_id.starts_with("encapsulation/sc/")
                 || case_id.starts_with("vl/endoscopic/")

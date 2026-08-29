@@ -340,6 +340,52 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
                 "curated_classic_plan_validator",
             );
         }
+        if matches!(
+            context.case_recipe.plan_provider_id.as_str(),
+            "native.enhanced_plan" | "native.wsi_plan"
+        ) {
+            let planned_slots = plan
+                .content
+                .iter()
+                .map(|item| item.slot.as_str())
+                .collect::<BTreeSet<_>>();
+            let observed_slots = content
+                .iter()
+                .map(|item| item.slot.as_str())
+                .collect::<BTreeSet<_>>();
+            if planned_slots != observed_slots {
+                return Err(ServiceInvocationError::new(
+                    "validation",
+                    "advanced materialized content evidence does not close over planned slots",
+                ));
+            }
+            let (check_id, validator_id, message) = if context.case_recipe.plan_provider_id
+                == "native.enhanced_plan"
+            {
+                (
+                    "enhanced_plan_materialization_round_trip",
+                    "curated_enhanced_plan_validator",
+                    "Enhanced functional groups, dimensions, identities, and content reopened through the shared resolved-plan validator.",
+                )
+            } else {
+                (
+                    "wsi_plan_materialization_round_trip",
+                    "curated_wsi_plan_validator",
+                    "WSI tiled geometry, optical paths, identities, and content reopened through the shared resolved-plan validator.",
+                )
+            };
+            return validation_result(
+                request,
+                artifact,
+                checks,
+                TypedValidationReport {
+                    bytes: Vec::new(),
+                    checks: vec![TypedValidationCheck::passed_internal(check_id, message)],
+                    metadata_observation: None,
+                },
+                validator_id,
+            );
+        }
         let sc = context
             .artifact_recipe
             .secondary_capture

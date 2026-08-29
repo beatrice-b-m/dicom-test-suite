@@ -76,6 +76,12 @@ fn project_one(
     if ctx.case_recipe.plan_provider_id == "native.classic_plan" {
         return classic::project_classic_file_entry(ctx, pair);
     }
+    if matches!(
+        ctx.case_recipe.plan_provider_id.as_str(),
+        "native.enhanced_plan" | "native.wsi_plan"
+    ) {
+        return project_advanced_file_entry(ctx, pair, planned);
+    }
     let sc = ctx
         .artifact_recipe
         .secondary_capture
@@ -195,6 +201,176 @@ fn project_one(
     });
     add_special(&mut manifest, ctx, planned, pixels, observation.as_ref())?;
     Ok(manifest)
+}
+
+fn project_advanced_file_entry(
+    ctx: &CuratedArtifactProjectionContext,
+    pair: &ManifestProjectionArtifact,
+    planned: &PlannedDicomArtifact,
+) -> Result<Value, CuratedManifestError> {
+    let execution = &pair.execution;
+    let output = execution
+        .output
+        .as_ref()
+        .ok_or_else(|| err("missing advanced output evidence"))?;
+    if output.relative_path != planned.output.relative_path.as_str()
+        || output.relative_path != ctx.artifact_recipe.output.path.as_deref().unwrap_or("")
+        || !output.publish
+        || execution.status != crate::executor::evidence::ExecutionStatus::Succeeded
+    {
+        return fail("advanced output evidence differs from plan/recipe");
+    }
+    let materialization = execution
+        .materialization
+        .as_ref()
+        .ok_or_else(|| err("missing advanced materialization evidence"))?;
+    if materialization.transfer_syntax_uid.as_deref() != Some(&planned.encoding.transfer_syntax_uid)
+        || materialization.implementation_class_uid.as_deref()
+            != Some(&planned.encoding.implementation.class_uid)
+        || materialization.materialized_artifact_sha256.as_deref() != Some(&output.sha256)
+    {
+        return fail("advanced materialization identity differs from plan/output");
+    }
+    let pixels = materialization
+        .content
+        .iter()
+        .find(|content| content.slot == "pixels")
+        .ok_or_else(|| err("missing advanced pixel materialization evidence"))?;
+    let frame_hashes = if pixels.decoded_frame_sha256.is_empty() {
+        &pixels.native_frame_sha256
+    } else {
+        &pixels.decoded_frame_sha256
+    };
+    let rows = planned_unsigned(planned, "0028,0010")?;
+    let columns = planned_unsigned(planned, "0028,0011")?;
+    let samples_per_pixel = planned_unsigned(planned, "0028,0002")?;
+    let photometric = planned_string(planned, "0028,0004")?;
+    let frames = planned_optional_unsigned(planned, "0028,0008")?.unwrap_or(1);
+    let bits_allocated = planned_unsigned(planned, "0028,0100")?;
+    let bits_stored = planned_unsigned(planned, "0028,0101")?;
+    let high_bit = planned_unsigned(planned, "0028,0102")?;
+    let pixel_representation = planned_unsigned(planned, "0028,0103")?;
+    let planar_configuration = planned_optional_unsigned(planned, "0028,0006")?;
+    if frame_hashes.len() as u64 != frames {
+        return fail("advanced frame evidence cardinality differs from Number of Frames");
+    }
+    let checks = validation_checks(execution)?;
+    let study = uid(planned, CompositionUidRole::StudyInstance)?;
+    let series = uid(planned, CompositionUidRole::SeriesInstance)?;
+    let sop = uid(planned, CompositionUidRole::SopInstance)?;
+    let frame_of_reference = planned
+        .instance
+        .identities
+        .get(&CompositionUidRole::FrameOfReference, 0);
+    let dimension = planned
+        .instance
+        .identities
+        .get(&CompositionUidRole::DimensionOrganization, 0);
+    let image = json!({
+        "rows":rows,"columns":columns,"frames":frames,"samples_per_pixel":samples_per_pixel,
+        "photometric_interpretation":photometric,"bits_allocated":bits_allocated,
+        "bits_stored":bits_stored,"high_bit":high_bit,"pixel_representation":pixel_representation,
+        "planar_configuration":planar_configuration,
+    });
+    let pixel_data = json!({
+        "vr":pixels.vr,"native_or_encapsulated":if planned.encoding.transfer_syntax_uid == RLE {"encapsulated"} else {"native"},
+        "value_length":pixels.native_value_field_size_bytes.unwrap_or(pixels.size_bytes),
+        "frame_count":frames,"frame_hashes":frame_hashes,
+    });
+    Ok(json!({
+        "case_id":ctx.registry_case.case_id,
+        "profile_membership":ctx.artifact_recipe.public_profile_membership.as_ref().unwrap_or(&ctx.registry_case.profiles),
+        "path":output.relative_path,"sha256":output.sha256,"size_bytes":output.size_bytes,
+        "determinism":ctx.registry_case.determinism,
+        "recipe":{"recipe_id":ctx.case_recipe.recipe_id,"recipe_version":ctx.case_recipe.recipe_version,
+            "recipe_parameters":{"provider":ctx.case_recipe.provider_parameters,"artifact":ctx.artifact_recipe.parameters}},
+        "dicom":{"sop_class_uid":required(&ctx.registry_case.sop_class_uid,"registry SOP Class UID")?,
+            "sop_class_name":required(&ctx.registry_case.sop_class_name,"registry SOP Class name")?,
+            "iod_name":required(&ctx.registry_case.iod_name,"registry IOD name")?,
+            "modality":required(&ctx.registry_case.modality,"registry modality")?,
+            "transfer_syntax_uid":planned.encoding.transfer_syntax_uid,
+            "transfer_syntax_name":transfer_syntax_name(&planned.encoding.transfer_syntax_uid)?},
+        "uids":{"study_instance_uid":study,"series_instance_uid":series,"sop_instance_uid":sop,
+            "frame_of_reference_uid":frame_of_reference,"dimension_organization_uid":dimension,
+            "implementation_class_uid":planned.encoding.implementation.class_uid,
+            "implementation_version_name":planned.encoding.implementation.version_name},
+        "image":image,"pixel_data":pixel_data,
+        "expected_capabilities":ctx.registry_case.compatibility_axes,
+        "expected_semantics":{"synthetic_data":"YES"},
+        "expected_visual_checks":{"pattern":ctx.artifact_recipe.content.provider_id},
+        "validation":legacy_validation(&checks),
+        "known_stressors":ctx.registry_case.compatibility_axes,
+        "standards_evidence":ctx.registry_case.standards_evidence,
+    }))
+}
+
+fn planned_attribute<'a>(
+    planned: &'a PlannedDicomArtifact,
+    tag: &str,
+) -> Result<&'a crate::composition::AttributeValue, CuratedManifestError> {
+    planned
+        .instance
+        .attributes
+        .iter()
+        .find(|attribute| attribute.address.normalized_tag() == tag)
+        .and_then(|attribute| attribute.value.as_ref())
+        .ok_or_else(|| err(format!("advanced plan is missing attribute {tag}")))
+}
+
+fn planned_unsigned(
+    planned: &PlannedDicomArtifact,
+    tag: &str,
+) -> Result<u64, CuratedManifestError> {
+    planned_optional_unsigned(planned, tag)?
+        .ok_or_else(|| err(format!("advanced plan is missing unsigned attribute {tag}")))
+}
+
+fn planned_optional_unsigned(
+    planned: &PlannedDicomArtifact,
+    tag: &str,
+) -> Result<Option<u64>, CuratedManifestError> {
+    let Some(attribute) = planned
+        .instance
+        .attributes
+        .iter()
+        .find(|attribute| attribute.address.normalized_tag() == tag)
+    else {
+        return Ok(None);
+    };
+    match attribute.value.as_ref() {
+        Some(crate::composition::AttributeValue::Primitive(
+            crate::composition::PrimitiveValue::Unsigned(value),
+        )) => Ok(Some(*value)),
+        Some(crate::composition::AttributeValue::Primitive(
+            crate::composition::PrimitiveValue::String(value),
+        )) => value
+            .parse()
+            .map(Some)
+            .map_err(|error| err(format!("invalid unsigned attribute {tag}: {error}"))),
+        _ => fail(format!(
+            "advanced attribute {tag} is not an unsigned primitive"
+        )),
+    }
+}
+
+fn planned_string(
+    planned: &PlannedDicomArtifact,
+    tag: &str,
+) -> Result<String, CuratedManifestError> {
+    match planned_attribute(planned, tag)? {
+        crate::composition::AttributeValue::Primitive(
+            crate::composition::PrimitiveValue::String(value),
+        ) => Ok(value.clone()),
+        crate::composition::AttributeValue::Multi(values) => values
+            .iter()
+            .map(|value| match value {
+                crate::composition::PrimitiveValue::String(value) => Ok(value.as_str()),
+                _ => fail(format!("advanced attribute {tag} has a non-string value")),
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .map(|values| values.join("\\")),
+        _ => fail(format!("advanced attribute {tag} is not a string")),
+    }
 }
 
 pub(super) fn pixel_data(

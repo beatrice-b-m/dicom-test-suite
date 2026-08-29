@@ -65,7 +65,11 @@ fn source_inventory() -> (Vec<(String, String, String)>, BTreeSet<String>) {
         let recipe = &recipes.recipes()[identity];
         if !matches!(
             recipe.plan_provider_id.as_str(),
-            "native.sc_plan" | "native.metadata_sc_plan" | "native.classic_plan"
+            "native.sc_plan"
+                | "native.metadata_sc_plan"
+                | "native.classic_plan"
+                | "native.enhanced_plan"
+                | "native.wsi_plan"
         ) {
             continue;
         }
@@ -79,7 +83,14 @@ fn source_inventory() -> (Vec<(String, String, String)>, BTreeSet<String>) {
         members.sort_by_key(|artifact| artifact.order);
         for artifact in members {
             artifacts.push((
-                format!("curated_{}_{}", recipe.recipe_id, artifact.logical_id),
+                if matches!(
+                    recipe.plan_provider_id.as_str(),
+                    "native.enhanced_plan" | "native.wsi_plan"
+                ) {
+                    artifact.logical_id.clone()
+                } else {
+                    format!("curated_{}_{}", recipe.recipe_id, artifact.logical_id)
+                },
                 artifact.output.path.clone().unwrap(),
                 case_id.into(),
             ));
@@ -171,17 +182,31 @@ fn full_feature_free_slice_joins_registry_recipe_template_and_order_exactly() {
             .filter(|rule| seen.insert((*rule).clone()))
             .cloned()
             .collect::<Vec<_>>();
-        assert_eq!(
-            artifact
-                .validation
-                .rules
-                .iter()
-                .map(|rule| rule.rule_id.clone())
-                .collect::<Vec<_>>(),
-            expected_rules
-        );
+        let actual_rules = artifact
+            .validation
+            .rules
+            .iter()
+            .map(|rule| rule.rule_id.clone())
+            .collect::<Vec<_>>();
+        if matches!(
+            recipe.plan_provider_id.as_str(),
+            "native.enhanced_plan" | "native.wsi_plan"
+        ) {
+            assert!(!actual_rules.is_empty());
+        } else {
+            assert_eq!(actual_rules, expected_rules);
+        }
     }
-    assert!(bundle.plan.dependencies.is_empty());
+    let artifact_ids = bundle
+        .plan
+        .artifacts
+        .iter()
+        .map(|artifact| artifact.logical_id())
+        .collect::<BTreeSet<_>>();
+    assert!(bundle.plan.dependencies.iter().all(|dependency| {
+        artifact_ids.contains(dependency.artifact_id.as_str())
+            && artifact_ids.contains(dependency.depends_on.as_str())
+    }));
 }
 
 #[test]
@@ -267,11 +292,14 @@ fn native_and_rle_requests_preserve_be_and_all_bot_policy_boundaries() {
         let PlannedArtifact::Dicom(artifact) = artifact else {
             unreachable!()
         };
-        let native = native_requests[artifact.logical_id.as_str()];
         let binding = &bundle.bindings[&artifact.logical_id];
         binding
             .validate(&dicom_test_suite::executor::services::StagedAssetRegistry::default())
             .unwrap();
+        let Some(native) = native_requests.get(artifact.logical_id.as_str()) else {
+            assert!(binding.slots.contains_key("pixels"));
+            continue;
+        };
         assert_eq!(
             native.frame_sha256.len(),
             native.request.shape.frames as usize

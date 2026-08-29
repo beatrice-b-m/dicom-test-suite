@@ -182,6 +182,7 @@ fn feature_free_native_sc_set_is_derived_and_fully_data_first() {
         let identity = catalog.binding_for_case(&case_id).unwrap();
         let recipe = &catalog.recipes()[identity];
         assert_eq!(recipe.plan_provider_id, "native.sc_plan");
+        assert!(recipe.planning_order.is_some());
         assert!(recipe.provider_parameters.is_empty());
         assert!(!recipe.validation_rule_ids.is_empty());
 
@@ -303,6 +304,7 @@ fn feature_free_metadata_sc_set_is_derived_and_fully_data_first() {
 
     for case_id in expected {
         let recipe = &catalog.recipes()[catalog.binding_for_case(&case_id).unwrap()];
+        assert!(recipe.planning_order.is_some());
         assert!(recipe.provider_parameters.is_empty());
         let artifacts = &recipe.dicom.as_ref().unwrap().artifacts;
         assert_eq!(
@@ -377,6 +379,56 @@ fn data_first_sc_and_metadata_values_and_hashes_match_current_generator_bytes() 
         "templates/catalog.json",
     )
     .unwrap();
+    let mut migrated = catalog
+        .recipes()
+        .values()
+        .filter(|recipe| {
+            matches!(
+                recipe.plan_provider_id.as_str(),
+                "native.sc_plan" | "native.metadata_sc_plan"
+            )
+        })
+        .collect::<Vec<_>>();
+    migrated.sort_by_key(|recipe| recipe.planning_order.unwrap());
+    let planning_orders = migrated
+        .iter()
+        .map(|recipe| recipe.planning_order.unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        planning_orders,
+        (0..u32::try_from(migrated.len()).unwrap()).collect::<Vec<_>>()
+    );
+    let migrated_case_ids = migrated
+        .iter()
+        .map(|recipe| recipe.binding.case_id.as_str())
+        .collect::<BTreeSet<_>>();
+    let oracle_paths = files
+        .iter()
+        .filter(|file| {
+            file["case_id"]
+                .as_str()
+                .is_some_and(|case_id| migrated_case_ids.contains(case_id))
+        })
+        .map(|file| file["path"].as_str().unwrap())
+        .collect::<Vec<_>>();
+    let planned_paths = migrated
+        .iter()
+        .flat_map(|recipe| {
+            let mut artifacts = recipe
+                .dicom
+                .as_ref()
+                .unwrap()
+                .artifacts
+                .iter()
+                .collect::<Vec<_>>();
+            artifacts.sort_by_key(|artifact| artifact.order);
+            artifacts
+                .into_iter()
+                .map(|artifact| artifact.output.path.as_deref().unwrap())
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(planned_paths, oracle_paths);
+
     for recipe in catalog
         .recipes()
         .values()

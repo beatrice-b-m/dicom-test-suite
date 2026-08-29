@@ -114,6 +114,7 @@ impl RecipeCatalog {
         }
 
         validate_registry_bindings(&registry, &recipes, &bindings, &templates)?;
+        validate_migrated_planning_orders(&recipes)?;
         validate_dependencies(&recipes)?;
         let ordered = topological_order(&recipes)?;
         Ok(Self {
@@ -1222,6 +1223,36 @@ fn validate_registry_bindings(
     Ok(())
 }
 
+fn validate_migrated_planning_orders(
+    recipes: &BTreeMap<RecipeIdentity, CaseRecipe>,
+) -> Result<(), RecipeCatalogError> {
+    let mut owners = BTreeMap::new();
+    for recipe in recipes.values().filter(|recipe| {
+        matches!(
+            recipe.plan_provider_id.as_str(),
+            "native.sc_plan" | "native.metadata_sc_plan"
+        )
+    }) {
+        let order = recipe
+            .planning_order
+            .ok_or_else(|| RecipeCatalogError::Completeness {
+                message: format!(
+                    "{} requires planning_order for migrated provider {}",
+                    recipe.binding.case_id, recipe.plan_provider_id
+                ),
+            })?;
+        if let Some(previous) = owners.insert(order, recipe.binding.case_id.as_str()) {
+            return Err(RecipeCatalogError::Completeness {
+                message: format!(
+                    "planning_order {order} is shared by migrated cases {previous} and {}",
+                    recipe.binding.case_id
+                ),
+            });
+        }
+    }
+    Ok(())
+}
+
 fn validate_dependencies(
     recipes: &BTreeMap<RecipeIdentity, CaseRecipe>,
 ) -> Result<(), RecipeCatalogError> {
@@ -1317,6 +1348,7 @@ mod tests {
             },
             kind: RecipeKind::Qualification,
             plan_provider_id: "qualification.bounded_plan".into(),
+            planning_order: None,
             provider_parameters: Default::default(),
             dependencies: dependency
                 .map(|dependency| DependencyBinding {

@@ -572,6 +572,14 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
                     )
                 };
             typed.append(TypedValidationCheck::passed_internal(
+                if context.case_recipe.plan_provider_id == "native.enhanced_plan" {
+                    "enhanced_plan_materialization_round_trip"
+                } else {
+                    "wsi_plan_materialization_round_trip"
+                },
+                "The provider-owned advanced plan identities, structure, and content survived shared materialization and typed reopen validation.",
+            ));
+            typed.append(TypedValidationCheck::passed_internal(
                 "curated_composition_plan",
                 "The curated dataset resolved through the shared composition plan before Part 10 materialization.",
             ));

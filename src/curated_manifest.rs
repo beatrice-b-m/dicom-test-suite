@@ -273,6 +273,16 @@ fn project_advanced_file_entry(
         .instance
         .identities
         .get(&CompositionUidRole::DimensionOrganization, 0);
+    let compatibility_checks = checks
+        .iter()
+        .filter(|check| {
+            !matches!(
+                check.name.as_str(),
+                "enhanced_plan_materialization_round_trip" | "wsi_plan_materialization_round_trip"
+            )
+        })
+        .cloned()
+        .collect::<Vec<_>>();
     let common = AdvancedManifestCommon {
         output,
         pixels,
@@ -292,7 +302,7 @@ fn project_advanced_file_entry(
         sop,
         frame_of_reference,
         dimension,
-        validation: legacy_validation(&checks),
+        validation: legacy_validation(&compatibility_checks),
     };
     if ctx.case_recipe.plan_provider_id == "native.enhanced_plan" {
         project_enhanced_manifest(ctx, planned, &common)

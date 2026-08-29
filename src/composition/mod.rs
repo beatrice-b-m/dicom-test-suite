@@ -3,6 +3,7 @@
 //! This module is intentionally not wired to a public CLI until the P2 gate.
 
 pub mod attribute;
+pub mod content;
 pub mod identity;
 pub mod plan;
 pub mod reference;
@@ -12,6 +13,7 @@ pub use attribute::{
     AttributeAddress, AttributeError, AttributeItem, AttributeOperation, AttributeValue, DicomVr,
     PrimitiveValue,
 };
+pub use content::{ContentError, ContentLimits, LocalContentResolver, StagedAsset};
 pub use identity::{CompositionUidRole, IdentityAllocator, IdentityError, IdentityPlan};
 pub use plan::{
     AttributeLayer, AttributePolicy, AttributeResolver, CanonicalContent, Condition,

@@ -348,6 +348,24 @@
   ],
   "advanced_family_templates": [
     {
+      "template_id": "enhanced/ct/concatenation-part-1", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "Enhanced CT Image", "sop_class_name": "Enhanced CT Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.2.1", "default_modality": "CT", "artifact_kind": "enhanced_image",
+      "reference_slots": [{ "role": "concatenation_part", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.2.1"], "frame_roles": [], "cycle_policy": "forbidden", "default_dependency": "enhanced/ct/concatenation-part-2", "description": "Next part in the qualified two-part concatenation closure." }],
+      "default_bundle": { "dependencies": [{ "logical_role": "part_2", "template_id": "enhanced/ct/concatenation-part-2", "template_version": "1.0.0", "reference_role": "concatenation_part", "share_study": true, "share_series": true, "share_frame_of_reference": true }] },
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "Concatenation attributes and Enhanced CT Image IOD", "reason": "Locks shared concatenation identity, one-based part numbering, totals, and cumulative frame offsets.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-enhanced.md" }],
+      "limitations": ["Qualified as the root of the deterministic two-part native Enhanced CT concatenation."], "qualification_owner": "enhanced_ct"
+    },
+    {
+      "template_id": "enhanced/ct/concatenation-part-2", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "Enhanced CT Image", "sop_class_name": "Enhanced CT Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.2.1", "default_modality": "CT", "artifact_kind": "enhanced_image",
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "Concatenation attributes and Enhanced CT Image IOD", "reason": "Locks shared concatenation identity, one-based part numbering, totals, and cumulative frame offsets.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-enhanced.md" }],
+      "limitations": ["Qualified as the companion of the deterministic two-part native Enhanced CT concatenation."], "qualification_owner": "enhanced_ct"
+    },
+    {
       "template_id": "enhanced/ct", "template_version": "1.0.0", "status": "qualified",
       "iod_name": "Enhanced CT Image", "sop_class_name": "Enhanced CT Image Storage",
       "sop_class_uid": "1.2.840.10008.5.1.4.1.1.2.1", "default_modality": "CT",

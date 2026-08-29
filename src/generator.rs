@@ -5893,6 +5893,14 @@ pub(crate) fn write_composition_default_artifacts(
         ("enhanced/ct", _) => (&["enhanced/ct/multiframe_shared_perframe_explicit_le"], None),
         ("enhanced/mr", _) => (&["enhanced/mr/multiframe_echo_perframe_explicit_le"], None),
         ("enhanced/pet", _) => (&["enhanced/pet/multiframe_explicit_le"], None),
+        ("enhanced/ct/concatenation-part-1", _) => (
+            &["enhanced/ct/concatenation_two_part_explicit_le"],
+            Some("part-001.dcm"),
+        ),
+        ("enhanced/ct/concatenation-part-2", _) => (
+            &["enhanced/ct/concatenation_two_part_explicit_le"],
+            Some("part-002.dcm"),
+        ),
         ("vl/wsi/tiled-full", _) => (&["vl/wsi/tiled_full_small"], None),
         ("vl/wsi/tiled-sparse", _) => (&["vl/wsi/tiled_sparse_small"], None),
         ("vl/wsi/multiple-optical-paths", _) => (&["vl/wsi/multiple_optical_paths"], None),

@@ -1,0 +1,9 @@
+{
+  "composition_spec_schema_version": "0.1.0",
+  "instances": [
+    {
+      "instance_id": "ct_concat",
+      "template": { "id": "enhanced/ct/concatenation-part-1" }
+    }
+  ]
+}

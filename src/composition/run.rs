@@ -256,6 +256,7 @@ fn resolve_and_stage(
         remove_private_staging(&private_defaults)?;
     }
 
+    super::advanced_family::validate_concatenation_closure(&plans, &bundle_resolution.members)?;
     materialize_reference_graph(&mut plans, spec, &bundle_resolution.members)?;
 
     let dry_run_output = json!({

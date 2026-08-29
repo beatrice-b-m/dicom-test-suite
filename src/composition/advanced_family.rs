@@ -29,6 +29,9 @@ impl AdvancedFamilyProfile {
     pub fn for_template(template_id: &str) -> Option<Self> {
         let kind = match template_id {
             "enhanced/ct" => AdvancedFamilyKind::EnhancedCt,
+            "enhanced/ct/concatenation-part-1" | "enhanced/ct/concatenation-part-2" => {
+                AdvancedFamilyKind::EnhancedCt
+            }
             "enhanced/mr" => AdvancedFamilyKind::EnhancedMr,
             "enhanced/pet" => AdvancedFamilyKind::EnhancedPet,
             "vl/wsi/tiled-full"
@@ -109,6 +112,13 @@ impl AdvancedFamilyProfile {
         rewrite_plan_identities(&mut plan)?;
         if self.kind == AdvancedFamilyKind::EnhancedCt {
             normalize_enhanced_ct_defined_terms(&mut plan);
+            if template
+                .template_id
+                .0
+                .starts_with("enhanced/ct/concatenation-")
+            {
+                qualify_enhanced_ct_concatenation(&mut plan)?;
+            }
         }
         if self.kind == AdvancedFamilyKind::WholeSlide {
             validate_wsi_structure(&plan)?;
@@ -152,6 +162,35 @@ fn normalize_enhanced_ct_defined_terms(plan: &mut ResolvedInstancePlan) {
             normalize(value);
         }
     }
+}
+
+fn qualify_enhanced_ct_concatenation(
+    plan: &mut ResolvedInstancePlan,
+) -> Result<(), AdvancedFamilyError> {
+    for (tag, vr, value) in [
+        ("0018,5100", super::DicomVr::CS, None),
+        ("0018,9004", super::DicomVr::CS, Some("RESEARCH")),
+        ("0028,0301", super::DicomVr::CS, Some("NO")),
+        ("0028,2110", super::DicomVr::CS, Some("00")),
+        ("2050,0020", super::DicomVr::CS, Some("IDENTITY")),
+    ] {
+        let address = super::AttributeAddress::from_normalized_tag(tag)
+            .map_err(|error| AdvancedFamilyError::DefaultArtifact(error.to_string()))?;
+        upsert(
+            &mut plan.attributes,
+            ResolvedAttribute {
+                address,
+                vr,
+                value: value.map(|value| {
+                    AttributeValue::Primitive(PrimitiveValue::String(value.to_string()))
+                }),
+                origin: ValueOrigin::TemplateDefault,
+            },
+        );
+    }
+    plan.attributes
+        .sort_by(|left, right| left.address.cmp(&right.address));
+    Ok(())
 }
 
 fn rewrite_plan_identities(plan: &mut ResolvedInstancePlan) -> Result<(), AdvancedFamilyError> {
@@ -287,6 +326,94 @@ fn validate_multiframe_structure(plan: &ResolvedInstancePlan) -> Result<(), Adva
                 actual: values.unwrap_or(0),
             });
         }
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_concatenation_closure(
+    plans: &[ResolvedInstancePlan],
+    members: &BTreeMap<String, super::BundleMemberProvenance>,
+) -> Result<(), AdvancedFamilyError> {
+    let mut groups = BTreeMap::<String, Vec<&ResolvedInstancePlan>>::new();
+    for plan in plans {
+        if plan
+            .attributes
+            .iter()
+            .any(|attribute| attribute.address.normalized_tag() == "0020,9161")
+        {
+            let bundle_root = &members
+                .get(&plan.instance_id)
+                .ok_or_else(|| {
+                    AdvancedFamilyError::ConcatenationClosure(format!(
+                        "{} has no bundle provenance",
+                        plan.instance_id
+                    ))
+                })?
+                .bundle_root_instance_id;
+            groups.entry(bundle_root.clone()).or_default().push(plan);
+        }
+    }
+    for (root, group) in groups {
+        let summaries = group
+            .into_iter()
+            .map(|plan| {
+                Ok(ConcatenationPartSummary {
+                    instance_id: plan.instance_id.clone(),
+                    concatenation_uid: string_attribute(plan, "0020,9161")?,
+                    source_uid: string_attribute(plan, "0020,0242")?,
+                    number: numeric_attribute(plan, "0020,9162")?,
+                    total: numeric_attribute(plan, "0020,9163")?,
+                    offset: numeric_attribute(plan, "0020,9228")?,
+                    frames: numeric_attribute(plan, "0028,0008")?,
+                })
+            })
+            .collect::<Result<Vec<_>, AdvancedFamilyError>>()?;
+        validate_concatenation_summaries(&root, summaries)?;
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ConcatenationPartSummary {
+    instance_id: String,
+    concatenation_uid: String,
+    source_uid: String,
+    number: u32,
+    total: u32,
+    offset: u32,
+    frames: u32,
+}
+
+fn validate_concatenation_summaries(
+    root: &str,
+    mut group: Vec<ConcatenationPartSummary>,
+) -> Result<(), AdvancedFamilyError> {
+    group.sort_by_key(|part| part.number);
+    let expected_total = u32::try_from(group.len()).map_err(|_| {
+        AdvancedFamilyError::ConcatenationClosure(format!("{root} has too many parts"))
+    })?;
+    let Some(first) = group.first() else {
+        return Ok(());
+    };
+    let concatenation_uid = &first.concatenation_uid;
+    let source_uid = &first.source_uid;
+    let mut expected_offset = 0_u32;
+    for (index, part) in group.iter().enumerate() {
+        let expected_number = index as u32 + 1;
+        if part.number != expected_number
+            || part.total != expected_total
+            || part.offset != expected_offset
+            || &part.concatenation_uid != concatenation_uid
+            || &part.source_uid != source_uid
+        {
+            return Err(AdvancedFamilyError::ConcatenationClosure(format!(
+                "{root} part {} breaks UID, numbering, total, or frame-offset continuity",
+                part.instance_id
+            )));
+        }
+        expected_offset = expected_offset.checked_add(part.frames).ok_or_else(|| {
+            AdvancedFamilyError::ConcatenationClosure(format!("{root} frame offsets overflow"))
+        })?;
     }
     Ok(())
 }
@@ -523,6 +650,11 @@ fn apply_overrides(
         "0020,9221",
         "0020,9222",
         "0020,9311",
+        "0020,9161",
+        "0020,9162",
+        "0020,9163",
+        "0020,9228",
+        "0020,0242",
         "0048,0006",
         "0048,0007",
         "0048,0105",
@@ -617,6 +749,7 @@ pub enum AdvancedFamilyError {
         actual: usize,
     },
     InvalidTiling(String),
+    ConcatenationClosure(String),
     ContentCardinality(String),
     UnsupportedContent(String),
     PixelShapeMismatch {
@@ -636,3 +769,39 @@ impl fmt::Display for AdvancedFamilyError {
 }
 
 impl std::error::Error for AdvancedFamilyError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn concatenation() -> Vec<ConcatenationPartSummary> {
+        (0..2)
+            .map(|index| ConcatenationPartSummary {
+                instance_id: format!("part_{}", index + 1),
+                concatenation_uid: "2.25.1".into(),
+                source_uid: "2.25.2".into(),
+                number: index + 1,
+                total: 2,
+                offset: index,
+                frames: 1,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn concatenation_closure_rejects_gaps_totals_and_identity_drift() {
+        validate_concatenation_summaries("root", concatenation()).unwrap();
+
+        let mut invalid = concatenation();
+        invalid[1].offset = 2;
+        assert!(validate_concatenation_summaries("root", invalid).is_err());
+
+        let mut invalid = concatenation();
+        invalid[1].total = 3;
+        assert!(validate_concatenation_summaries("root", invalid).is_err());
+
+        let mut invalid = concatenation();
+        invalid[1].concatenation_uid = "2.25.3".into();
+        assert!(validate_concatenation_summaries("root", invalid).is_err());
+    }
+}

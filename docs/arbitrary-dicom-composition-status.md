@@ -1,5 +1,18 @@
 # Arbitrary DICOM composition status
 
+## 2026-08-29 — Phase P3.6 visible-light lane
+
+VL Endoscopic, VL Microscopic, and VL Photographic Image Storage are qualified
+composition templates. Each has a bounded synthetic RGB default, documented
+acquisition-context behavior, and an exact single-frame interleaved RGB 8-bit
+caller slot. Planar input contradicting that contract is rejected before
+publication.
+
+All three profiles pass root validation and reporting, caller-pixel round
+trips, two-run byte comparison, and the pinned independent route without
+warning or error findings. This closes P3.6 only; XA/XRF, multi-frame SC, and
+the cross-family P3 gate evidence remain open.
+
 ## 2026-08-29 — Phase P3.5 US, NM, and PET lane
 
 Single-frame and multi-frame Ultrasound, Nuclear Medicine, and PET Image

@@ -44,6 +44,9 @@ fn docs_limit_public_templates_to_the_qualified_native_pixel_domains() {
         "classic/ultrasound/multiframe@1.0.0",
         "classic/nuclear-medicine@1.0.0",
         "classic/pet@1.0.0",
+        "vl/endoscopic@1.0.0",
+        "vl/microscopic@1.0.0",
+        "vl/photographic@1.0.0",
         "not currently available",
     ] {
         assert!(

@@ -32,6 +32,9 @@ the Phase P3.3 classic modality lane:
   multi-frame NM with frame vectors derived from the caller frame count;
 - `classic/pet@1.0.0`: native unsigned MONOCHROME2 16-bit static PET with
   geometry, correction, and rescale defaults.
+- `vl/endoscopic@1.0.0`, `vl/microscopic@1.0.0`, and
+  `vl/photographic@1.0.0`: native unsigned interleaved RGB 8-bit visible-light
+  images with deterministic acquisition context.
 
 Inspect the current descriptors rather than copying this summary as an
 inventory invariant:

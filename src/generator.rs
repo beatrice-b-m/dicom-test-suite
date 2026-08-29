@@ -11525,6 +11525,199 @@ enum ScMetadataPayload {
     Nonsquare(NonsquareGeometryVariant),
 }
 
+fn legacy_metadata_validation_contract(
+    metadata: ScMetadataPayload,
+) -> crate::recipes::MetadataScParameters {
+    use crate::recipes::{
+        EmptyType2AttributeMetadata, MetadataScParameters, PersonNameComponentGroup,
+        PersonNameMetadata, PrivateCreatorBlockMetadata, PrivateElementMetadata,
+        PrivateElementValue, SequenceLengthMetadata, StringBoundaryElementMetadata,
+        StringValueSource, TimezoneBoundaryMetadata,
+    };
+    match metadata {
+        ScMetadataPayload::PersonName(recipe) => {
+            MetadataScParameters::PersonName(PersonNameMetadata {
+                specific_character_sets: recipe
+                    .specific_character_sets
+                    .iter()
+                    .map(|value| (*value).to_string())
+                    .collect(),
+                patient_name_decoded: recipe.patient_name_decoded.to_string(),
+                patient_name_raw_hex: uppercase_hex(recipe.patient_name_raw),
+                patient_name_raw_sha256: sha256_hex(recipe.patient_name_raw),
+                native_unicode_round_trip: recipe.native_unicode_round_trip,
+                component_groups: recipe
+                    .component_groups
+                    .iter()
+                    .map(|group| PersonNameComponentGroup {
+                        kind: group.kind.to_string(),
+                        decoded_value: group.decoded_value.to_string(),
+                        components: group.components.map(str::to_string),
+                    })
+                    .collect(),
+            })
+        }
+        ScMetadataPayload::Temporal(boundary) => {
+            MetadataScParameters::TimezoneBoundary(TimezoneBoundaryMetadata {
+                boundary_id: boundary.boundary_id.to_string(),
+                study_date: boundary.study_date.to_string(),
+                study_time: boundary.study_time.to_string(),
+                acquisition_date_time: boundary.acquisition_date_time.to_string(),
+                timezone_offset: boundary.timezone_offset.to_string(),
+                offset_minutes: boundary.offset_minutes,
+                normalized_utc: boundary.normalized_utc.to_string(),
+            })
+        }
+        ScMetadataPayload::EmptyType2(recipe) => MetadataScParameters::EmptyType2 {
+            attributes: recipe
+                .attributes
+                .iter()
+                .map(|attribute| EmptyType2AttributeMetadata {
+                    tag: format!("{:04X},{:04X}", attribute.tag.0, attribute.tag.1),
+                    keyword: attribute.keyword.to_string(),
+                    vr: attribute.vr.to_string().to_owned(),
+                })
+                .collect(),
+        },
+        ScMetadataPayload::StringBoundary(recipe) => {
+            let elements = [
+                legacy_string_element(
+                    "0020,4000",
+                    "ImageComments",
+                    "LT",
+                    StringValueSource::Repeated {
+                        pattern: recipe.image_comments_pattern.to_string(),
+                        repetitions: recipe.image_comments_repetitions as u32,
+                    },
+                ),
+                legacy_string_element(
+                    "0018,1020",
+                    "SoftwareVersions",
+                    "LO",
+                    StringValueSource::Literal {
+                        values: recipe.software_versions.map(str::to_string).to_vec(),
+                    },
+                ),
+                legacy_string_element(
+                    "0028,0030",
+                    "PixelSpacing",
+                    "DS",
+                    StringValueSource::Literal {
+                        values: recipe.pixel_spacing.map(str::to_string).to_vec(),
+                    },
+                ),
+                legacy_string_element(
+                    "0020,0012",
+                    "AcquisitionNumber",
+                    "IS",
+                    StringValueSource::Literal {
+                        values: vec![recipe.acquisition_number.to_string()],
+                    },
+                ),
+            ];
+            MetadataScParameters::StringBoundaries {
+                elements: elements
+                    .into_iter()
+                    .collect::<Vec<StringBoundaryElementMetadata>>(),
+            }
+        }
+        ScMetadataPayload::PrivateCreator(recipe) => MetadataScParameters::PrivateCreators {
+            blocks: recipe
+                .blocks
+                .iter()
+                .map(|block| PrivateCreatorBlockMetadata {
+                    creator_tag: block.creator_tag_text.to_string(),
+                    creator_id: block.creator_id.to_string(),
+                    block_start_tag: block.block_start_tag.to_string(),
+                    block_end_tag: block.block_end_tag.to_string(),
+                    elements: block
+                        .elements
+                        .iter()
+                        .map(|element| PrivateElementMetadata {
+                            tag: element.tag_text.to_string(),
+                            value: match element.value {
+                                PrivateValue::Lo(text) => PrivateElementValue::Lo {
+                                    text: text.to_string(),
+                                },
+                                PrivateValue::Us(number) => PrivateElementValue::Us { number },
+                            },
+                        })
+                        .collect(),
+                })
+                .collect(),
+        },
+        ScMetadataPayload::SequenceLength(variant) => {
+            let defined = variant.variant_id == SequenceLengthVariantId::Defined;
+            MetadataScParameters::SequenceLengths(SequenceLengthMetadata {
+                variant_id: variant.variant_id.as_str().to_string(),
+                sequence_tag: "0008,2218".to_string(),
+                sequence_vr: "SQ".to_string(),
+                code_value: SEQUENCE_CODE_VALUE.to_string(),
+                coding_scheme_designator: SEQUENCE_CODING_SCHEME_DESIGNATOR.to_string(),
+                code_meaning: SEQUENCE_CODE_MEANING.to_string(),
+                item_dataset_encoded_length: ITEM_DATASET_ENCODED_LENGTH,
+                undefined_item_encoded_length: UNDEFINED_ITEM_ENCODED_LENGTH,
+                sequence_length_field_hex: if defined { "38000000" } else { "FFFFFFFF" }
+                    .to_string(),
+                item_length_field_hex: "FFFFFFFF".to_string(),
+                item_delimitation_present: true,
+                sequence_delimitation_present: !defined,
+            })
+        }
+        ScMetadataPayload::Nonsquare(_) => {
+            unreachable!("nonsquare validation uses its dedicated typed contract")
+        }
+    }
+}
+
+fn legacy_string_element(
+    tag: &str,
+    keyword: &str,
+    vr: &str,
+    source: crate::recipes::StringValueSource,
+) -> crate::recipes::StringBoundaryElementMetadata {
+    let values = match &source {
+        crate::recipes::StringValueSource::Repeated {
+            pattern,
+            repetitions,
+        } => vec![pattern.repeat(*repetitions as usize)],
+        crate::recipes::StringValueSource::Literal { values } => values.clone(),
+    };
+    let mut raw = values.join("\\").into_bytes();
+    let padding = if raw.len() % 2 == 1 {
+        raw.push(b' ');
+        "space"
+    } else {
+        "none"
+    };
+    crate::recipes::StringBoundaryElementMetadata {
+        tag: tag.to_string(),
+        keyword: keyword.to_string(),
+        vr: vr.to_string(),
+        source,
+        padding: padding.to_string(),
+        raw_value_byte_length: raw.len() as u32,
+        raw_value_sha256: sha256_hex(&raw),
+    }
+}
+
+fn legacy_nonsquare_validation_spec(
+    variant: NonsquareGeometryVariant,
+) -> crate::curated_validation::NonsquareValidationSpec {
+    crate::curated_validation::NonsquareValidationSpec {
+        variant_id: variant.variant_id.as_str().to_string(),
+        pixel_spacing: variant
+            .pixel_spacing_mm
+            .map(|values| values.map(str::to_string).to_vec()),
+        nominal_scanned_pixel_spacing: variant
+            .nominal_scanned_pixel_spacing_mm
+            .map(|values| values.map(str::to_string).to_vec()),
+        pixel_aspect_ratio: variant
+            .pixel_aspect_ratio
+            .map(|values| values.map(|value| value.to_string()).to_vec()),
+    }
+}
+
 fn write_metadata_sc_case(
     run: &PreparedGenerationRun,
     case: &Value,
@@ -12874,14 +13067,13 @@ fn write_pixel_case_with_metadata(
         .iter()
         .map(String::as_str)
         .collect::<Vec<_>>();
-    let mut validated = validate_part10_file(
+    let typed_validation = crate::curated_validation::validate_sc_part10(
         &path,
-        &Part10Expectations {
+        &crate::curated_validation::ScPart10ValidationInput {
             sop_class_uid,
             sop_instance_uid: &sop_instance_uid,
             transfer_syntax_uid: recipe.transfer_syntax.uid,
             implementation_class_uid: &output_implementation_class_uid,
-            synthetic_data: "YES",
             rows: recipe.rows,
             columns: recipe.columns,
             frames: frame_count,
@@ -12895,39 +13087,57 @@ fn write_pixel_case_with_metadata(
             pixel_data_vr: recipe.pixel_vr,
             pixel_data_length_formula: compressed_pixel_data
                 .as_ref()
-                .map(
-                    |(_, encapsulated, _)| PixelDataLengthFormula::Encapsulated {
+                .map(|(_, encapsulated, _)| {
+                    crate::curated_validation::ScPixelLengthFormula::Encapsulated {
                         fragments: encapsulated.fragments.len(),
                         basic_offset_table_offsets: encapsulated.basic_offset_table.offsets.len(),
-                    },
-                )
-                .unwrap_or_else(|| pixel_data_length_formula(recipe)),
+                    }
+                })
+                .unwrap_or_else(|| match pixel_data_length_formula(recipe) {
+                    PixelDataLengthFormula::ContiguousSamples => {
+                        crate::curated_validation::ScPixelLengthFormula::ContiguousSamples
+                    }
+                    PixelDataLengthFormula::YbrFull422 => {
+                        crate::curated_validation::ScPixelLengthFormula::YbrFull422
+                    }
+                    PixelDataLengthFormula::BitPackedContinuousFrames => {
+                        crate::curated_validation::ScPixelLengthFormula::BitPackedContinuousFrames
+                    }
+                    PixelDataLengthFormula::BitPackedFrames => {
+                        unreachable!("SC recipes do not use per-frame bit packing")
+                    }
+                    PixelDataLengthFormula::Encapsulated { .. } => {
+                        unreachable!("encapsulation is handled above")
+                    }
+                }),
             decoded_frame_hashes: if compressed_pixel_data.is_some() {
                 &decoded_frame_hash_refs
             } else {
                 &[]
             },
-            palette: recipe.palette.map(|palette| palette.into()),
-            padding: recipe.padding.map(|padding| padding.into()),
-            ct_image: None,
-            enhanced_ct_image: None,
-            enhanced_mr_image: None,
-            enhanced_pet_image: None,
-            mg_image: None,
-            dx_image: None,
-            xa_image: None,
-            xrf_image: None,
-            us_image: None,
-            us_multiframe: None,
-            nm_image: None,
-            pet_image: None,
-            cr_image: None,
-            mr_image: None,
-            segmentation: None,
+            palette: recipe
+                .palette
+                .map(|palette| crate::curated_validation::ScPaletteValidation {
+                    descriptor: palette.descriptor,
+                    red_data_length: palette.red_data.len(),
+                    green_data_length: palette.green_data.len(),
+                    blue_data_length: palette.blue_data.len(),
+                }),
+            padding: recipe
+                .padding
+                .map(|padding| crate::curated_validation::ScPaddingValidation {
+                    value: padding.value,
+                    range_limit: padding.range_limit,
+                }),
         },
-    )?;
+    )
+    .map_err(|error| GenerateError::ValidateDicomFile {
+        path: path.clone(),
+        message: error.to_string(),
+    })?;
+    let mut validation = typed_validation.legacy_validation_json();
     append_internal_validation(
-        &mut validated.validation,
+        &mut validation,
         serde_json::json!({
             "name": "curated_composition_plan",
             "status": "passed",
@@ -12935,13 +13145,10 @@ fn write_pixel_case_with_metadata(
         }),
     );
     for result in codec_internal_validation {
-        append_internal_validation(&mut validated.validation, result);
+        append_internal_validation(&mut validation, result);
     }
     if pixel_has_icc_profile(recipe) {
-        append_internal_validation(
-            &mut validated.validation,
-            validate_icc_profile_round_trip(&path)?,
-        );
+        append_internal_validation(&mut validation, validate_icc_profile_round_trip(&path)?);
     }
     if let Some(metadata) = metadata {
         let result = match metadata {
@@ -12967,7 +13174,7 @@ fn write_pixel_case_with_metadata(
                 validate_nonsquare_geometry_round_trip(&path, variant)?
             }
         };
-        append_internal_validation(&mut validated.validation, result);
+        append_internal_validation(&mut validation, result);
     }
 
     Ok(GeneratedFile {
@@ -12981,8 +13188,8 @@ fn write_pixel_case_with_metadata(
             &sop_instance_uid,
             &output_implementation_class_uid,
             &output_implementation_version_name,
-            &validated.bytes,
-            validated.validation,
+            &typed_validation.bytes,
+            validation,
             compressed_pixel_data.as_ref(),
             lossy_image_compression_ratio.as_deref(),
             expected_lossy_metrics,
@@ -13279,54 +13486,16 @@ fn validate_nonsquare_geometry_round_trip(
     path: &std::path::Path,
     variant: NonsquareGeometryVariant,
 ) -> Result<Value, GenerateError> {
-    let file = open_file(path).map_err(|err| GenerateError::ValidateDicomFile {
+    crate::curated_validation::validate_nonsquare_spec(
+        path,
+        &legacy_nonsquare_validation_spec(variant),
+    )
+    .map(|(check, _)| check.legacy_json())
+    .map_err(|error| GenerateError::ValidateDicomFile {
         path: path.to_path_buf(),
-        message: err.to_string(),
-    })?;
-    let values = |tag: Tag| {
-        file.element(tag)
-            .ok()
-            .and_then(|element| element.to_multi_str().ok())
-            .map(|values| values.iter().map(ToString::to_string).collect::<Vec<_>>())
-    };
-    let pixel_spacing = values(tags::PIXEL_SPACING);
-    let nominal_spacing = values(tags::NOMINAL_SCANNED_PIXEL_SPACING);
-    let pixel_aspect_ratio = values(tags::PIXEL_ASPECT_RATIO);
-    let expected_spacing = variant
-        .pixel_spacing_mm
-        .map(|spacing| spacing.iter().map(ToString::to_string).collect::<Vec<_>>());
-    let expected_nominal = variant
-        .nominal_scanned_pixel_spacing_mm
-        .map(|spacing| spacing.iter().map(ToString::to_string).collect::<Vec<_>>());
-    let expected_aspect = variant
-        .pixel_aspect_ratio
-        .map(|[vertical, horizontal]| vec![vertical.to_string(), horizontal.to_string()]);
-    let forbidden_geometry_absent = file.element(tags::IMAGE_POSITION_PATIENT).is_err()
-        && file.element(tags::IMAGE_ORIENTATION_PATIENT).is_err()
-        && file.element(tags::FRAME_OF_REFERENCE_UID).is_err();
-    if pixel_spacing != expected_spacing
-        || nominal_spacing != expected_nominal
-        || pixel_aspect_ratio != expected_aspect
-        || !forbidden_geometry_absent
-    {
-        return Err(GenerateError::ValidateDicomFile {
-            path: path.to_path_buf(),
-            message: format!(
-                "{} spatial metadata did not preserve its exclusive row/column geometry contract",
-                variant.variant_id.as_str()
-            ),
-        });
-    }
-    Ok(serde_json::json!({
-        "name": "nonsquare_geometry_round_trip",
-        "status": "passed",
-        "message": format!(
-            "The {} variant preserved exclusive 2:1 row-to-column geometry without patient-space geometry.",
-            variant.variant_id.as_str()
-        )
-    }))
+        message: error.to_string(),
+    })
 }
-
 fn validate_icc_profile_round_trip(path: &std::path::Path) -> Result<Value, GenerateError> {
     let obj = open_file(path).map_err(|error| GenerateError::ValidateDicomFile {
         path: path.to_path_buf(),
@@ -13394,244 +13563,65 @@ fn validate_text_metadata_round_trip(
     path: &std::path::Path,
     recipe: MetadataScRecipe,
 ) -> Result<Value, GenerateError> {
-    let obj = open_file(path).map_err(|error| GenerateError::ValidateDicomFile {
+    let (check, _) = crate::curated_validation::validate_metadata_round_trip(
+        path,
+        &legacy_metadata_validation_contract(ScMetadataPayload::PersonName(recipe)),
+    )
+    .map_err(|error| GenerateError::ValidateDicomFile {
         path: path.to_path_buf(),
-        message: format!("reopen metadata SC fixture: {error}"),
+        message: error.to_string(),
     })?;
-    let character_set = obj.element(tags::SPECIFIC_CHARACTER_SET).map_err(|error| {
-        GenerateError::ValidateDicomFile {
-            path: path.to_path_buf(),
-            message: format!("read Specific Character Set from metadata SC fixture: {error}"),
-        }
-    })?;
-    let actual_character_sets =
-        character_set
-            .to_multi_str()
-            .map_err(|error| GenerateError::ValidateDicomFile {
-                path: path.to_path_buf(),
-                message: format!("decode Specific Character Set from metadata SC fixture: {error}"),
-            })?;
-    let actual_character_sets = actual_character_sets
-        .iter()
-        .map(|value| value.trim().to_string())
-        .collect::<Vec<_>>();
-    if actual_character_sets != recipe.specific_character_sets {
+    if check.name != recipe.validation_name || check.message != recipe.validation_message {
         return Err(GenerateError::ValidateDicomFile {
             path: path.to_path_buf(),
-            message: format!(
-                "metadata SC character sets decoded as {actual_character_sets:?}, expected {:?}",
-                recipe.specific_character_sets
-            ),
+            message: "shared Person Name validation identity differs from the legacy contract"
+                .to_string(),
         });
     }
-
-    let patient_name =
-        obj.element(tags::PATIENT_NAME)
-            .map_err(|error| GenerateError::ValidateDicomFile {
-                path: path.to_path_buf(),
-                message: format!("read Patient Name from metadata SC fixture: {error}"),
-            })?;
-    let actual_bytes =
-        patient_name
-            .value()
-            .to_bytes()
-            .map_err(|error| GenerateError::ValidateDicomFile {
-                path: path.to_path_buf(),
-                message: format!("read encoded Patient Name bytes: {error}"),
-            })?;
-    if actual_bytes.as_ref() != recipe.patient_name_raw {
-        return Err(GenerateError::ValidateDicomFile {
-            path: path.to_path_buf(),
-            message: "metadata SC Patient Name bytes changed during write/reopen".to_string(),
-        });
-    }
-    if recipe.native_unicode_round_trip {
-        let actual = patient_name
-            .to_str()
-            .map_err(|error| GenerateError::ValidateDicomFile {
-                path: path.to_path_buf(),
-                message: format!("decode Patient Name from metadata SC fixture: {error}"),
-            })?;
-        if actual.trim_end_matches([' ', '\0']) != recipe.patient_name_decoded {
-            return Err(GenerateError::ValidateDicomFile {
-                path: path.to_path_buf(),
-                message: format!(
-                    "metadata SC Patient Name decoded as {:?}, expected {:?}",
-                    actual.trim_end_matches([' ', '\0']),
-                    recipe.patient_name_decoded
-                ),
-            });
-        }
-    }
-    Ok(serde_json::json!({
-        "name": recipe.validation_name,
-        "status": "passed",
-        "message": recipe.validation_message
-    }))
+    Ok(check.legacy_json())
 }
-
 fn validate_temporal_metadata_round_trip(
     path: &std::path::Path,
     boundary: TimezoneBoundary,
 ) -> Result<Value, GenerateError> {
-    let obj = open_file(path).map_err(|error| GenerateError::ValidateDicomFile {
+    crate::curated_validation::validate_metadata_round_trip(
+        path,
+        &legacy_metadata_validation_contract(ScMetadataPayload::Temporal(boundary)),
+    )
+    .map(|(check, _)| check.legacy_json())
+    .map_err(|error| GenerateError::ValidateDicomFile {
         path: path.to_path_buf(),
-        message: format!("reopen temporal SC fixture: {error}"),
-    })?;
-    for (tag, label, expected) in [
-        (tags::STUDY_DATE, "Study Date", boundary.study_date),
-        (tags::STUDY_TIME, "Study Time", boundary.study_time),
-        (
-            tags::ACQUISITION_DATE_TIME,
-            "Acquisition DateTime",
-            boundary.acquisition_date_time,
-        ),
-        (
-            tags::TIMEZONE_OFFSET_FROM_UTC,
-            "Timezone Offset From UTC",
-            boundary.timezone_offset,
-        ),
-    ] {
-        let actual = obj
-            .element(tag)
-            .map_err(|error| GenerateError::ValidateDicomFile {
-                path: path.to_path_buf(),
-                message: format!("read {label} from temporal SC fixture: {error}"),
-            })?
-            .to_str()
-            .map_err(|error| GenerateError::ValidateDicomFile {
-                path: path.to_path_buf(),
-                message: format!("decode {label} from temporal SC fixture: {error}"),
-            })?;
-        if actual.trim_end_matches([' ', '\0']) != expected {
-            return Err(GenerateError::ValidateDicomFile {
-                path: path.to_path_buf(),
-                message: format!(
-                    "temporal SC {label} decoded as {:?}, expected {expected:?}",
-                    actual.trim_end_matches([' ', '\0'])
-                ),
-            });
-        }
-    }
-    Ok(serde_json::json!({
-        "name": "timezone_boundary_round_trip",
-        "status": "passed",
-        "message": format!(
-            "The {} fixture reopened with exact DA, TM, DT, and Timezone Offset values.",
-            boundary.boundary_id
-        )
-    }))
+        message: error.to_string(),
+    })
 }
-
 fn validate_empty_type2_metadata_round_trip(
     path: &std::path::Path,
     recipe: EmptyType2ScRecipe,
 ) -> Result<Value, GenerateError> {
-    let obj = open_file(path).map_err(|error| GenerateError::ValidateDicomFile {
+    crate::curated_validation::validate_metadata_round_trip(
+        path,
+        &legacy_metadata_validation_contract(ScMetadataPayload::EmptyType2(recipe)),
+    )
+    .map(|(check, _)| check.legacy_json())
+    .map_err(|error| GenerateError::ValidateDicomFile {
         path: path.to_path_buf(),
-        message: format!("reopen empty Type 2 SC fixture: {error}"),
-    })?;
-    for attribute in recipe.attributes {
-        let element =
-            obj.element(attribute.tag)
-                .map_err(|error| GenerateError::ValidateDicomFile {
-                    path: path.to_path_buf(),
-                    message: format!(
-                        "read {} from empty Type 2 SC fixture: {error}",
-                        attribute.keyword
-                    ),
-                })?;
-        if element.vr() != attribute.vr
-            || element
-                .to_bytes()
-                .map_err(|error| GenerateError::ValidateDicomFile {
-                    path: path.to_path_buf(),
-                    message: format!(
-                        "decode {} from empty Type 2 SC fixture: {error}",
-                        attribute.keyword
-                    ),
-                })?
-                .len()
-                != 0
-        {
-            return Err(GenerateError::ValidateDicomFile {
-                path: path.to_path_buf(),
-                message: format!(
-                    "{} must reopen as {:?} with an empty value",
-                    attribute.keyword, attribute.vr
-                ),
-            });
-        }
-    }
-    Ok(serde_json::json!({
-        "name": "empty_type2_round_trip",
-        "status": "passed",
-        "message": "The five required Type 2 attributes reopened at their declared VRs with empty values."
-    }))
+        message: error.to_string(),
+    })
 }
-
 fn validate_string_boundary_metadata_round_trip(
     path: &std::path::Path,
     recipe: StringBoundaryScRecipe,
 ) -> Result<Value, GenerateError> {
-    let obj = open_file(path).map_err(|error| GenerateError::ValidateDicomFile {
+    crate::curated_validation::validate_metadata_round_trip(
+        path,
+        &legacy_metadata_validation_contract(ScMetadataPayload::StringBoundary(recipe)),
+    )
+    .map(|(check, _)| check.legacy_json())
+    .map_err(|error| GenerateError::ValidateDicomFile {
         path: path.to_path_buf(),
-        message: format!("reopen string boundary SC fixture: {error}"),
-    })?;
-    let comments = recipe
-        .image_comments_pattern
-        .repeat(recipe.image_comments_repetitions);
-    for (tag, keyword, vr, expected) in [
-        (tags::IMAGE_COMMENTS, "ImageComments", VR::LT, comments),
-        (
-            tags::SOFTWARE_VERSIONS,
-            "SoftwareVersions",
-            VR::LO,
-            recipe.software_versions.join("\\"),
-        ),
-        (
-            tags::PIXEL_SPACING,
-            "PixelSpacing",
-            VR::DS,
-            recipe.pixel_spacing.join("\\"),
-        ),
-        (
-            tags::ACQUISITION_NUMBER,
-            "AcquisitionNumber",
-            VR::IS,
-            recipe.acquisition_number.to_string(),
-        ),
-    ] {
-        let element = obj
-            .element(tag)
-            .map_err(|error| GenerateError::ValidateDicomFile {
-                path: path.to_path_buf(),
-                message: format!("read {keyword} from string boundary SC fixture: {error}"),
-            })?;
-        let actual = element
-            .to_multi_str()
-            .map_err(|error| GenerateError::ValidateDicomFile {
-                path: path.to_path_buf(),
-                message: format!("decode {keyword} from string boundary SC fixture: {error}"),
-            })?
-            .join("\\");
-        if element.vr() != vr || actual != expected {
-            return Err(GenerateError::ValidateDicomFile {
-                path: path.to_path_buf(),
-                message: format!(
-                    "{keyword} reopened as {:?} {actual:?}, expected {vr:?} {expected:?}",
-                    element.vr()
-                ),
-            });
-        }
-    }
-    Ok(serde_json::json!({
-        "name": "string_boundary_round_trip",
-        "status": "passed",
-        "message": "The LT, LO, DS, and IS boundary values reopened with exact VRs and lexical components."
-    }))
+        message: error.to_string(),
+    })
 }
-
 fn put_private_creator_blocks(
     obj: &mut InMemDicomObject,
     recipe: PrivateCreatorScRecipe,
@@ -13734,56 +13724,16 @@ fn validate_private_creator_metadata_round_trip(
     path: &std::path::Path,
     recipe: PrivateCreatorScRecipe,
 ) -> Result<Value, GenerateError> {
-    let obj = open_file(path).map_err(|error| GenerateError::ValidateDicomFile {
+    crate::curated_validation::validate_metadata_round_trip(
+        path,
+        &legacy_metadata_validation_contract(ScMetadataPayload::PrivateCreator(recipe)),
+    )
+    .map(|(check, _)| check.legacy_json())
+    .map_err(|error| GenerateError::ValidateDicomFile {
         path: path.to_path_buf(),
-        message: format!("reopen private creator SC fixture: {error}"),
-    })?;
-    for block in recipe.blocks {
-        let creator =
-            obj.element(block.creator_tag)
-                .map_err(|error| GenerateError::ValidateDicomFile {
-                    path: path.to_path_buf(),
-                    message: format!("read private creator {}: {error}", block.creator_tag_text),
-                })?;
-        if creator.vr() != VR::LO || creator.to_str().ok().as_deref() != Some(block.creator_id) {
-            return Err(GenerateError::ValidateDicomFile {
-                path: path.to_path_buf(),
-                message: format!(
-                    "private creator {} did not round-trip",
-                    block.creator_tag_text
-                ),
-            });
-        }
-        for element in block.elements {
-            let actual =
-                obj.element(element.tag)
-                    .map_err(|error| GenerateError::ValidateDicomFile {
-                        path: path.to_path_buf(),
-                        message: format!("read private element {}: {error}", element.tag_text),
-                    })?;
-            let matches = match element.value {
-                PrivateValue::Lo(value) => {
-                    actual.vr() == VR::LO && actual.to_str().ok().as_deref() == Some(value)
-                }
-                PrivateValue::Us(value) => {
-                    actual.vr() == VR::US && actual.to_int::<u16>().ok() == Some(value)
-                }
-            };
-            if !matches {
-                return Err(GenerateError::ValidateDicomFile {
-                    path: path.to_path_buf(),
-                    message: format!("private element {} did not round-trip", element.tag_text),
-                });
-            }
-        }
-    }
-    Ok(serde_json::json!({
-        "name": "private_creator_block_round_trip",
-        "status": "passed",
-        "message": "All private creators and typed block elements reopened at their exact tags, VRs, and values."
-    }))
+        message: error.to_string(),
+    })
 }
-
 fn sequence_code_item() -> InMemDicomObject {
     InMemDicomObject::from_element_iter([
         DataElement::new(tags::CODE_VALUE, VR::SH, SEQUENCE_CODE_VALUE),
@@ -13894,155 +13844,16 @@ fn validate_sequence_length_metadata_round_trip(
     path: &std::path::Path,
     variant: SequenceLengthVariant,
 ) -> Result<Value, GenerateError> {
-    let obj = open_file(path).map_err(|error| GenerateError::ValidateDicomFile {
+    crate::curated_validation::validate_metadata_round_trip(
+        path,
+        &legacy_metadata_validation_contract(ScMetadataPayload::SequenceLength(variant)),
+    )
+    .map(|(check, _)| check.legacy_json())
+    .map_err(|error| GenerateError::ValidateDicomFile {
         path: path.to_path_buf(),
-        message: format!("reopen sequence length SC fixture: {error}"),
-    })?;
-    let sequence_element = obj
-        .element(tags::ANATOMIC_REGION_SEQUENCE)
-        .map_err(|error| GenerateError::ValidateDicomFile {
-            path: path.to_path_buf(),
-            message: format!("read Anatomic Region Sequence: {error}"),
-        })?;
-    let sequence = sequence_element
-        .items()
-        .ok_or_else(|| GenerateError::ValidateDicomFile {
-            path: path.to_path_buf(),
-            message: "Anatomic Region Sequence does not decode as SQ items".to_string(),
-        })?;
-    if sequence.len() != 1 {
-        return Err(GenerateError::ValidateDicomFile {
-            path: path.to_path_buf(),
-            message: format!(
-                "Anatomic Region Sequence has {} items, expected 1",
-                sequence.len()
-            ),
-        });
-    }
-    for (tag, expected) in [
-        (tags::CODE_VALUE, SEQUENCE_CODE_VALUE),
-        (
-            tags::CODING_SCHEME_DESIGNATOR,
-            SEQUENCE_CODING_SCHEME_DESIGNATOR,
-        ),
-        (tags::CODE_MEANING, SEQUENCE_CODE_MEANING),
-    ] {
-        let element =
-            sequence[0]
-                .element(tag)
-                .map_err(|error| GenerateError::ValidateDicomFile {
-                    path: path.to_path_buf(),
-                    message: format!("read sequence code field {tag:?}: {error}"),
-                })?;
-        let actual = element
-            .to_str()
-            .map_err(|error| GenerateError::ValidateDicomFile {
-                path: path.to_path_buf(),
-                message: format!("decode sequence code field {tag:?}: {error}"),
-            })?;
-        if actual.as_ref() != expected {
-            return Err(GenerateError::ValidateDicomFile {
-                path: path.to_path_buf(),
-                message: format!(
-                    "sequence code field {tag:?} is {actual:?}, expected {expected:?}"
-                ),
-            });
-        }
-    }
-
-    let bytes = fs::read(path).map_err(|error| GenerateError::ValidateDicomFile {
-        path: path.to_path_buf(),
-        message: format!("read sequence length SC bytes: {error}"),
-    })?;
-    let offset = find_top_level_explicit_vr_element(&bytes, tags::ANATOMIC_REGION_SEQUENCE)
-        .ok_or_else(|| GenerateError::ValidateDicomFile {
-            path: path.to_path_buf(),
-            message: "raw Anatomic Region Sequence header is missing".to_string(),
-        })?;
-    if bytes.get(offset + 4..offset + 6) != Some(b"SQ") {
-        return Err(GenerateError::ValidateDicomFile {
-            path: path.to_path_buf(),
-            message: "Anatomic Region Sequence raw VR is not SQ".to_string(),
-        });
-    }
-    let raw_length = u32::from_le_bytes(
-        bytes
-            .get(offset + 8..offset + 12)
-            .and_then(|value| value.try_into().ok())
-            .ok_or_else(|| GenerateError::ValidateDicomFile {
-                path: path.to_path_buf(),
-                message: "Anatomic Region Sequence raw length field is truncated".to_string(),
-            })?,
-    );
-    let value_offset = offset + 12;
-    let item_delimiter_offset = value_offset + 8 + ITEM_DATASET_ENCODED_LENGTH as usize;
-    let item_header_matches = bytes.get(value_offset..value_offset + 8)
-        == Some(&[0xFE, 0xFF, 0x00, 0xE0, 0xFF, 0xFF, 0xFF, 0xFF]);
-    let item_delimiter_matches = bytes.get(item_delimiter_offset..item_delimiter_offset + 8)
-        == Some(&[0xFE, 0xFF, 0x0D, 0xE0, 0, 0, 0, 0]);
-    let sequence_delimiter_offset = item_delimiter_offset + 8;
-    let sequence_delimiter_present = bytes
-        .get(sequence_delimiter_offset..sequence_delimiter_offset + 8)
-        == Some(&[0xFE, 0xFF, 0xDD, 0xE0, 0, 0, 0, 0]);
-    let expected_raw_length = match variant.variant_id {
-        SequenceLengthVariantId::Defined => UNDEFINED_ITEM_ENCODED_LENGTH,
-        SequenceLengthVariantId::Undefined => u32::MAX,
-    };
-    let expected_sequence_delimiter = variant.variant_id == SequenceLengthVariantId::Undefined;
-    if !item_header_matches
-        || !item_delimiter_matches
-        || raw_length != expected_raw_length
-        || sequence_delimiter_present != expected_sequence_delimiter
-    {
-        return Err(GenerateError::ValidateDicomFile {
-            path: path.to_path_buf(),
-            message: format!(
-                "{} sequence encoding has VL {raw_length:#010X}, item header {item_header_matches}, item delimiter {item_delimiter_matches}, sequence delimiter {sequence_delimiter_present}",
-                variant.variant_id.as_str()
-            ),
-        });
-    }
-    Ok(serde_json::json!({
-        "name": "sequence_length_encoding_round_trip",
-        "status": "passed",
-        "message": format!("The {} SQ length variant preserved exact raw delimiters and decoded code content.", variant.variant_id.as_str())
-    }))
+        message: error.to_string(),
+    })
 }
-
-fn find_top_level_explicit_vr_element(bytes: &[u8], wanted: Tag) -> Option<usize> {
-    if bytes.get(128..132)? != b"DICM" {
-        return None;
-    }
-    let mut offset = 132;
-    loop {
-        let group = u16::from_le_bytes(bytes.get(offset..offset + 2)?.try_into().ok()?);
-        let element = u16::from_le_bytes(bytes.get(offset + 2..offset + 4)?.try_into().ok()?);
-        let vr = std::str::from_utf8(bytes.get(offset + 4..offset + 6)?).ok()?;
-        let long_vr = matches!(
-            vr,
-            "OB" | "OD" | "OF" | "OL" | "OV" | "OW" | "SQ" | "UC" | "UR" | "UT" | "UN"
-        );
-        let (length, value_offset) = if long_vr {
-            (
-                u32::from_le_bytes(bytes.get(offset + 8..offset + 12)?.try_into().ok()?),
-                offset + 12,
-            )
-        } else {
-            (
-                u16::from_le_bytes(bytes.get(offset + 6..offset + 8)?.try_into().ok()?) as u32,
-                offset + 8,
-            )
-        };
-        if Tag(group, element) == wanted {
-            return Some(offset);
-        }
-        if length == u32::MAX {
-            return None;
-        }
-        offset = value_offset.checked_add(length as usize)?;
-    }
-}
-
 fn append_internal_validation(validation: &mut Value, result: Value) {
     if let Some(internal) = validation
         .get_mut("internal")

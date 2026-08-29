@@ -204,7 +204,7 @@ impl ClassicFamilyProfile {
                     "Nuclear Medicine Image Storage",
                     "1.2.840.10008.5.1.4.1.1.20",
                     "NM",
-                    true,
+                    false,
                     PixelShape {
                         frames: 2,
                         ..mono(16, 16, SampleType::UnsignedInteger)
@@ -310,6 +310,14 @@ impl ClassicFamilyProfile {
                 plans.acquisition.image_type.push("OTHER".into());
                 plans.acquisition.body_part_examined = Some("HEAD".into());
             }
+            ClassicFamilyKind::Pet => {
+                plans.acquisition.body_part_examined = Some("HEAD".into());
+                plans.pixel = PixelModulePlan {
+                    rescale_intercept: Some("0".into()),
+                    rescale_slope: Some("1".into()),
+                    rescale_type: None,
+                };
+            }
             ClassicFamilyKind::Cr => {
                 plans.acquisition.body_part_examined = Some("CHEST".into());
             }
@@ -333,7 +341,7 @@ impl ClassicFamilyProfile {
         Ok(plans)
     }
 
-    pub fn family_operations(&self) -> Vec<AttributeOperation> {
+    pub fn family_operations(&self, pixels: &NativePixelPlan) -> Vec<AttributeOperation> {
         match self.kind {
             ClassicFamilyKind::ScSingleBit | ClassicFamilyKind::ScGrayscaleByte => vec![
                 set_string("0008,0064", DicomVr::CS, "WSD"),
@@ -462,24 +470,70 @@ impl ClassicFamilyProfile {
                 }
                 operations
             }
-            ClassicFamilyKind::UltrasoundSingleFrame | ClassicFamilyKind::UltrasoundMultiFrame => {
-                vec![
-                    set_string("0018,6011", DicomVr::SQ, ""),
-                    set_string("0028,2110", DicomVr::CS, "00"),
-                ]
-            }
+            ClassicFamilyKind::UltrasoundSingleFrame => vec![
+                set_string("0020,0060", DicomVr::CS, "R"),
+                set_unsigned("0028,0014", 0),
+                set_string("0028,2110", DicomVr::CS, "00"),
+            ],
+            ClassicFamilyKind::UltrasoundMultiFrame => vec![
+                set_string(
+                    "0008,0008",
+                    DicomVr::CS,
+                    "ORIGINAL\\PRIMARY\\ABDOMINAL\\0001",
+                ),
+                set_string("0018,0015", DicomVr::CS, "ABDOMEN"),
+                set_string("0018,1063", DicomVr::DS, "100"),
+                set_string("0028,0009", DicomVr::AT, "0018,1063"),
+                set_unsigned("0028,0014", 0),
+                set_string("0028,2110", DicomVr::CS, "00"),
+            ],
             ClassicFamilyKind::NuclearMedicine => vec![
-                set_string("0008,0008", DicomVr::CS, "ORIGINAL\\PRIMARY\\STATIC"),
+                set_string(
+                    "0008,0008",
+                    DicomVr::CS,
+                    "ORIGINAL\\PRIMARY\\STATIC\\EMISSION",
+                ),
+                set_string("0020,0060", DicomVr::CS, "R"),
+                set_string("0018,0070", DicomVr::IS, "2"),
+                set_string("0018,1242", DicomVr::IS, "1000"),
+                set_tags("0028,0009", ["0054,0010", "0054,0020"]),
+                set_multi_strings("0028,0030", DicomVr::DS, ["4", "4"]),
+                set_unsigned_multi(
+                    "0054,0010",
+                    std::iter::repeat_n(1, pixels.shape.frames as usize),
+                ),
                 set_unsigned("0054,0011", 1),
+                set_string("0054,0012", DicomVr::SQ, ""),
+                set_string("0054,0016", DicomVr::SQ, ""),
+                set_unsigned_multi(
+                    "0054,0020",
+                    std::iter::repeat_n(1, pixels.shape.frames as usize),
+                ),
                 set_unsigned("0054,0021", 1),
-                set_unsigned("0054,0051", 1),
-                set_unsigned("0054,0061", 1),
+                set_string("0054,0022", DicomVr::SQ, ""),
+                set_string("0054,0410", DicomVr::SQ, ""),
+                set_string("0054,0414", DicomVr::SQ, ""),
             ],
             ClassicFamilyKind::Pet => vec![
+                set_string("0008,0021", DicomVr::DA, "20000101"),
+                set_string("0008,0022", DicomVr::DA, "20000101"),
+                set_string("0008,0031", DicomVr::TM, "000000"),
+                set_string("0008,0032", DicomVr::TM, "000000"),
+                set_string("0018,1181", DicomVr::CS, "NONE"),
+                set_string("0018,1242", DicomVr::IS, "1000"),
+                set_string("0028,0051", DicomVr::CS, "DCAL"),
+                set_string("0028,2110", DicomVr::CS, "00"),
+                set_string("0054,0016", DicomVr::SQ, ""),
+                set_unsigned("0054,0081", 1),
+                set_string("0054,0410", DicomVr::SQ, ""),
+                set_string("0054,0414", DicomVr::SQ, ""),
+                set_string("0054,1000", DicomVr::CS, "STATIC\\IMAGE"),
                 set_string("0054,1001", DicomVr::CS, "BQML"),
-                set_string("0054,1102", DicomVr::CS, "START"),
-                set_string("0054,1103", DicomVr::CS, "NONE"),
-                set_string("0028,0051", DicomVr::CS, "NONE"),
+                set_string("0054,1002", DicomVr::CS, "EMISSION"),
+                set_string("0054,1102", DicomVr::CS, "NONE"),
+                set_string("0054,1103", DicomVr::LO, "NONE"),
+                set_string("0054,1300", DicomVr::DS, "0"),
+                set_unsigned("0054,1330", 1),
             ],
             ClassicFamilyKind::VlEndoscopic
             | ClassicFamilyKind::VlMicroscopic
@@ -539,7 +593,7 @@ pub fn resolve_family_attributes(
 ) -> Result<Vec<ResolvedAttribute>, FamilyError> {
     let module_plans = profile.module_plans(identities)?;
     let mut template_operations = module_plans.operations(pixels)?;
-    template_operations.extend(profile.family_operations());
+    template_operations.extend(profile.family_operations(pixels));
     let protected = protected_tags();
     let mut state = BTreeMap::<AttributeAddress, ResolvedAttribute>::new();
     let mut known_vrs = BTreeMap::<AttributeAddress, DicomVr>::new();
@@ -703,6 +757,29 @@ fn set_unsigned(tag: &str, value: u64) -> AttributeOperation {
         address: AttributeAddress::from_normalized_tag(tag).unwrap(),
         vr: DicomVr::US,
         value: AttributeValue::Primitive(PrimitiveValue::Unsigned(value)),
+    }
+}
+
+fn set_unsigned_multi(tag: &str, values: impl IntoIterator<Item = u64>) -> AttributeOperation {
+    AttributeOperation::Set {
+        address: AttributeAddress::from_normalized_tag(tag).unwrap(),
+        vr: DicomVr::US,
+        value: AttributeValue::Multi(values.into_iter().map(PrimitiveValue::Unsigned).collect()),
+    }
+}
+
+fn set_tags(tag: &str, values: impl IntoIterator<Item = &'static str>) -> AttributeOperation {
+    AttributeOperation::Set {
+        address: AttributeAddress::from_normalized_tag(tag).unwrap(),
+        vr: DicomVr::AT,
+        value: AttributeValue::Multi(
+            values
+                .into_iter()
+                .map(|value| {
+                    PrimitiveValue::Tag(AttributeAddress::from_normalized_tag(value).unwrap())
+                })
+                .collect(),
+        ),
     }
 }
 

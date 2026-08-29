@@ -102,3 +102,17 @@ fn p3_4_defaults_pass_pinned_independent_iod_validation_when_available() {
         ],
     );
 }
+
+#[test]
+fn p3_5_defaults_pass_pinned_independent_iod_validation_when_available() {
+    qualify_defaults(
+        "tests/fixtures/composition/valid/classic-p3-5-defaults.json",
+        35,
+        &[
+            ("us_single", "USImage"),
+            ("us_multi", "USMultiFrameImage"),
+            ("nm", "NMImage"),
+            ("pet", "PETImage"),
+        ],
+    );
+}

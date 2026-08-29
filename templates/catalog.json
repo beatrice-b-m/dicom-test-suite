@@ -226,6 +226,50 @@
       "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "Digital Mammography X-Ray Image IOD module table", "reason": "Locks mammography For Processing detector and non-presentation semantics.", "checked_date": "2026-08-28", "source_note": "standards/source-notes/composition-classic-images.md" }],
       "limitations": ["Qualified for deterministic native unsigned MONOCHROME2 12-bit-in-16-bit pixels only."],
       "qualification_owner": "classic_mammography"
+    },
+    {
+      "template_id": "classic/ultrasound/single-frame",
+      "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "Ultrasound Image", "sop_class_name": "Ultrasound Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.6.1", "default_modality": "US",
+      "artifact_kind": "classic_image",
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "Ultrasound Image IOD module table", "reason": "Locks single-frame ultrasound image and region-calibration semantics.", "checked_date": "2026-08-28", "source_note": "standards/source-notes/composition-classic-images.md" }],
+      "limitations": ["Qualified for deterministic single-frame native MONOCHROME2 8-bit pixels only."],
+      "qualification_owner": "classic_ultrasound"
+    },
+    {
+      "template_id": "classic/ultrasound/multiframe",
+      "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "Ultrasound Multi-frame Image", "sop_class_name": "Ultrasound Multi-frame Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.3.1", "default_modality": "US",
+      "artifact_kind": "classic_image",
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "Ultrasound Multi-frame Image IOD module table", "reason": "Locks frame increment and ultrasound pixel semantics.", "checked_date": "2026-08-28", "source_note": "standards/source-notes/composition-classic-images.md" }],
+      "limitations": ["Qualified for native MONOCHROME2 8-bit multi-frame pixels only."],
+      "qualification_owner": "classic_ultrasound"
+    },
+    {
+      "template_id": "classic/nuclear-medicine",
+      "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "Nuclear Medicine Image", "sop_class_name": "Nuclear Medicine Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.20", "default_modality": "NM",
+      "artifact_kind": "classic_image",
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "Nuclear Medicine Image IOD module table", "reason": "Locks NM frame vectors, energy-window, detector, and orientation semantics.", "checked_date": "2026-08-28", "source_note": "standards/source-notes/composition-classic-images.md" }],
+      "limitations": ["Qualified for bounded native MONOCHROME2 16-bit static multi-frame pixels only."],
+      "qualification_owner": "classic_nuclear_medicine"
+    },
+    {
+      "template_id": "classic/pet",
+      "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "PET Image", "sop_class_name": "Positron Emission Tomography Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.128", "default_modality": "PT",
+      "artifact_kind": "classic_image",
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "PET Image IOD module table", "reason": "Locks PET series, acquisition, correction, geometry, and rescale semantics.", "checked_date": "2026-08-28", "source_note": "standards/source-notes/composition-classic-images.md" }],
+      "limitations": ["Qualified for deterministic native MONOCHROME2 unsigned 16-bit static PET pixels only."],
+      "qualification_owner": "classic_pet"
     }
   ]
 }

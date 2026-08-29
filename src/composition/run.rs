@@ -932,4 +932,128 @@ mod tests {
         assert!(!wrong_out.exists());
         fs::remove_dir_all(root).unwrap();
     }
+
+    #[test]
+    fn p3_5_defaults_materialize_and_are_byte_stable() {
+        let first = output("p3-5-repro-a");
+        let second = output("p3-5-repro-b");
+        for out in [&first, &second] {
+            let (summary, _) = compose(&ComposeOptions {
+                spec_path: "tests/fixtures/composition/valid/classic-p3-5-defaults.json".into(),
+                out_dir: out.clone(),
+                seed: 38,
+                catalog_path: "templates/catalog.json".into(),
+                dry_run: false,
+            })
+            .unwrap();
+            assert_eq!(summary.instances_written, 4);
+        }
+        for name in ["us_single", "us_multi", "nm", "pet"] {
+            assert_eq!(
+                fs::read(first.join(format!("instances/{name}.dcm"))).unwrap(),
+                fs::read(second.join(format!("instances/{name}.dcm"))).unwrap()
+            );
+        }
+        fs::remove_dir_all(first).unwrap();
+        fs::remove_dir_all(second).unwrap();
+    }
+
+    #[test]
+    fn p3_5_caller_pixels_round_trip_with_derived_multiframe_vectors() {
+        let root = output("p3-5-caller");
+        fs::create_dir(&root).unwrap();
+        let us_single = vec![17_u8; 16 * 16];
+        let us_multi = vec![23_u8; 16 * 16 * 3];
+        let nm = vec![31_u8; 16 * 16 * 3 * 2];
+        let pet = vec![47_u8; 16 * 16 * 2];
+        for (name, bytes) in [
+            ("us-single", &us_single),
+            ("us-multi", &us_multi),
+            ("nm", &nm),
+            ("pet", &pet),
+        ] {
+            fs::write(root.join(format!("{name}.raw")), bytes).unwrap();
+        }
+        let assignment = |name: &str, bytes: &[u8], frames: u32, bits: u8| {
+            json!([{
+                "slot": "pixels",
+                "source": {
+                    "kind": "local_file", "path": format!("{name}.raw"),
+                    "sha256": sha256_hex(bytes),
+                    "pixel": {
+                        "rows": 16, "columns": 16, "frames": frames,
+                        "samples_per_pixel": 1, "photometric_interpretation": "MONOCHROME2",
+                        "sample_type": "uint", "bits_allocated": bits,
+                        "bits_stored": bits, "high_bit": bits - 1, "byte_order": "little"
+                    }
+                }
+            }])
+        };
+        let spec = json!({
+            "composition_spec_schema_version": "0.1.0",
+            "instances": [
+                { "instance_id": "us_single", "template": { "id": "classic/ultrasound/single-frame" }, "content": assignment("us-single", &us_single, 1, 8) },
+                { "instance_id": "us_multi", "template": { "id": "classic/ultrasound/multiframe" }, "content": assignment("us-multi", &us_multi, 3, 8) },
+                { "instance_id": "nm", "template": { "id": "classic/nuclear-medicine" }, "content": assignment("nm", &nm, 3, 16) },
+                { "instance_id": "pet", "template": { "id": "classic/pet" }, "content": assignment("pet", &pet, 1, 16) }
+            ]
+        });
+        let spec_path = root.join("spec.json");
+        fs::write(&spec_path, serde_json::to_vec_pretty(&spec).unwrap()).unwrap();
+        let out = root.join("out");
+        compose(&ComposeOptions {
+            spec_path: spec_path.clone(),
+            out_dir: out.clone(),
+            seed: 39,
+            catalog_path: "templates/catalog.json".into(),
+            dry_run: false,
+        })
+        .unwrap();
+        for (name, expected) in [
+            ("us_single", us_single.as_slice()),
+            ("us_multi", us_multi.as_slice()),
+            ("nm", nm.as_slice()),
+            ("pet", pet.as_slice()),
+        ] {
+            let object =
+                dicom_object::open_file(out.join(format!("instances/{name}.dcm"))).unwrap();
+            assert_eq!(
+                object
+                    .element_by_name("PixelData")
+                    .unwrap()
+                    .to_bytes()
+                    .unwrap()
+                    .as_ref(),
+                expected
+            );
+        }
+        let nm_object = dicom_object::open_file(out.join("instances/nm.dcm")).unwrap();
+        assert_eq!(
+            nm_object
+                .element_by_name("EnergyWindowVector")
+                .unwrap()
+                .to_multi_int::<u16>()
+                .unwrap()
+                .len(),
+            3
+        );
+
+        let mut wrong = spec;
+        wrong["instances"][0]["content"] = assignment("us-single", &us_single, 2, 8);
+        let wrong_spec = root.join("wrong.json");
+        fs::write(&wrong_spec, serde_json::to_vec_pretty(&wrong).unwrap()).unwrap();
+        let wrong_out = root.join("wrong-out");
+        assert!(matches!(
+            compose(&ComposeOptions {
+                spec_path: wrong_spec,
+                out_dir: wrong_out.clone(),
+                seed: 39,
+                catalog_path: "templates/catalog.json".into(),
+                dry_run: false,
+            }),
+            Err(ComposeError::RawContent(_)) | Err(ComposeError::PixelContract(_))
+        ));
+        assert!(!wrong_out.exists());
+        fs::remove_dir_all(root).unwrap();
+    }
 }

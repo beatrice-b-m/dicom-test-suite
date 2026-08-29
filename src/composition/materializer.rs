@@ -282,6 +282,16 @@ fn multi(values: &[PrimitiveValue], vr: DicomVr) -> Result<DicomPrimitiveValue, 
         }};
     }
     Ok(match vr {
+        DicomVr::AT => {
+            let tags = values
+                .iter()
+                .map(|value| match value {
+                    PrimitiveValue::Tag(value) => Ok(value.tag()),
+                    _ => Err(MaterializeError::NumericRange),
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            DicomPrimitiveValue::Tags(tags.into())
+        }
         DicomVr::SS => numeric_vec!(I16, Signed, i16),
         DicomVr::SL => numeric_vec!(I32, Signed, i32),
         DicomVr::SV => numeric_vec!(I64, Signed, i64),
@@ -460,6 +470,32 @@ mod tests {
             1
         );
         fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn materializes_multi_valued_attribute_tags_without_string_coercion() {
+        let value = multi(
+            &[
+                PrimitiveValue::Tag(AttributeAddress::from_normalized_tag("0054,0010").unwrap()),
+                PrimitiveValue::Tag(AttributeAddress::from_normalized_tag("0054,0020").unwrap()),
+            ],
+            DicomVr::AT,
+        )
+        .unwrap();
+        assert_eq!(
+            value,
+            DicomPrimitiveValue::Tags(
+                vec![
+                    AttributeAddress::from_normalized_tag("0054,0010")
+                        .unwrap()
+                        .tag(),
+                    AttributeAddress::from_normalized_tag("0054,0020")
+                        .unwrap()
+                        .tag(),
+                ]
+                .into()
+            )
+        );
     }
 
     #[test]

@@ -1,0 +1,9 @@
+{
+  "composition_spec_schema_version": "0.1.0",
+  "instances": [
+    { "instance_id": "us_single", "template": { "id": "classic/ultrasound/single-frame" } },
+    { "instance_id": "us_multi", "template": { "id": "classic/ultrasound/multiframe" } },
+    { "instance_id": "nm", "template": { "id": "classic/nuclear-medicine" } },
+    { "instance_id": "pet", "template": { "id": "classic/pet" } }
+  ]
+}

@@ -466,6 +466,13 @@ fn classic_family_content_slot(profile: &ClassicFamilyProfile) -> Value {
         SampleType::Float32 => "float32",
         SampleType::Float64 => "float64",
     };
+    let multiframe = matches!(
+        profile.kind,
+        super::ClassicFamilyKind::ScSingleBit
+            | super::ClassicFamilyKind::ScGrayscaleByte
+            | super::ClassicFamilyKind::UltrasoundMultiFrame
+            | super::ClassicFamilyKind::NuclearMedicine
+    );
     serde_json::json!({
         "slot": "pixels",
         "kind": "native_pixels",
@@ -477,8 +484,8 @@ fn classic_family_content_slot(profile: &ClassicFamilyProfile) -> Value {
             "samples_per_pixel": [shape.samples_per_pixel],
             "bits_allocated": [shape.bits_allocated],
             "sample_types": [sample_type],
-            "min_frames": shape.frames,
-            "max_frames": shape.frames
+            "min_frames": 1,
+            "max_frames": if multiframe { 65535 } else { 1 }
         },
         "description": "Native pixel input must match the qualified family pixel model exactly."
     })

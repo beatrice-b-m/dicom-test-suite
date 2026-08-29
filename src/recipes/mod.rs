@@ -1,4 +1,9 @@
 mod classic;
+pub mod classic_ct;
+pub mod classic_dx_mg;
+pub mod classic_mr_cr;
+pub mod classic_nuclear;
+pub mod classic_vl_projection;
 mod encoding;
 mod error;
 mod loader;

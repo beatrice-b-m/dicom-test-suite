@@ -238,6 +238,7 @@ fn resolve_and_stage(
         },
     )?;
     let run_defaults = spec.defaults.typed_attributes()?;
+    reject_structural_overrides("composition defaults", &run_defaults)?;
     let mut plans = Vec::with_capacity(spec.instances.len());
     let mut templates = Vec::with_capacity(spec.instances.len());
     let mut identity_plans = BTreeMap::new();
@@ -308,7 +309,7 @@ fn resolve_and_stage(
             });
         }
         let overrides = instance.typed_attributes()?;
-        reject_content_element_override(&instance.instance_id, &overrides)?;
+        reject_structural_overrides(&instance.instance_id, &overrides)?;
         let base_plan = ResolvedInstancePlan {
             plan_schema_version: "0.1.0".into(),
             instance_id: instance.instance_id.clone(),
@@ -369,6 +370,8 @@ fn resolve_and_stage(
             )?);
         }
     }
+
+    enforce_synthetic_data(&mut plans)?;
 
     let private_providers = staging.join(".providers");
     if private_providers.exists() {
@@ -498,6 +501,36 @@ fn resolve_and_stage(
         },
         manifest,
     ))
+}
+
+fn enforce_synthetic_data(plans: &mut [ResolvedInstancePlan]) -> Result<(), ComposeError> {
+    let address = super::AttributeAddress::from_normalized_tag("0008,001C")
+        .expect("Synthetic Data is a standard DICOM tag");
+    for plan in plans {
+        if let Some(attribute) = plan
+            .attributes
+            .iter_mut()
+            .find(|attribute| attribute.address == address)
+        {
+            attribute.vr = super::DicomVr::CS;
+            attribute.value = Some(super::AttributeValue::Primitive(
+                super::PrimitiveValue::String("YES".into()),
+            ));
+            attribute.origin = super::ValueOrigin::DerivedStructural;
+            continue;
+        }
+        plan.attributes.push(super::ResolvedAttribute {
+            address: address.clone(),
+            vr: super::DicomVr::CS,
+            value: Some(super::AttributeValue::Primitive(
+                super::PrimitiveValue::String("YES".into()),
+            )),
+            origin: super::ValueOrigin::DerivedStructural,
+        });
+        plan.attributes
+            .sort_by(|left, right| left.address.cmp(&right.address));
+    }
+    Ok(())
 }
 
 fn materialize_plans(
@@ -1345,7 +1378,7 @@ fn validate_sc_pixel_contract(
     }
 }
 
-fn reject_content_element_override(
+fn reject_structural_overrides(
     instance_id: &str,
     operations: &[super::AttributeOperation],
 ) -> Result<(), ComposeError> {
@@ -1358,6 +1391,14 @@ fn reject_content_element_override(
         return Err(ComposeError::ProtectedContentOverride {
             instance_id: instance_id.into(),
             tag: operation.address().normalized_tag(),
+        });
+    }
+    if operations
+        .iter()
+        .any(|operation| operation.address().normalized_tag() == "0008,001C")
+    {
+        return Err(ComposeError::ProtectedSyntheticDataOverride {
+            instance_id: instance_id.into(),
         });
     }
     Ok(())
@@ -1507,6 +1548,9 @@ pub enum ComposeError {
     ProtectedContentOverride {
         instance_id: String,
         tag: String,
+    },
+    ProtectedSyntheticDataOverride {
+        instance_id: String,
     },
     ParameterSchema {
         instance_id: String,

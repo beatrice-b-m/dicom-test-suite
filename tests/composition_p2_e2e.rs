@@ -101,6 +101,14 @@ fn raw_monochrome_and_rgb_pixels_round_trip_exactly() {
         let object = open_file(out.join("instances/primary.dcm")).unwrap();
         assert_eq!(
             object
+                .element(Tag(0x0008, 0x001C))
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            "YES"
+        );
+        assert_eq!(
+            object
                 .element(Tag(0x7FE0, 0x0010))
                 .unwrap()
                 .to_bytes()

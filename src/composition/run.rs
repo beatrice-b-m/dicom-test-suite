@@ -9,18 +9,32 @@ use std::time::Duration;
 
 use serde_json::{Value, json};
 
-use crate::codecs::{FrameDecodeInput, FrameDecoder};
-use crate::codecs::{FrameEncodeInput, FrameEncoder, NativeRleLosslessEncoder};
+use crate::codecs::{FrameDecodeInput, FrameDecoder, NativeRleLosslessEncoder};
+#[cfg(test)]
+use crate::codecs::{FrameEncodeInput, FrameEncoder};
 use crate::encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData};
 
+use super::executor_adapter::{
+    CompositionExecutionBundle, CompositionExecutionServiceFactory,
+    CompositionExecutorManifestProjector, CompositionProjectionContext, CompositionSourceAsset,
+    DeferredCompositionProvider,
+};
 use super::{
-    AdvancedFamilyProfile, BundleResolver, CompositionManifestAssembler, CompositionManifestInputs,
-    CompositionSpec, CompositionUidRole, ContentLimits, ContentSource, CyclePolicy,
-    DefaultPixelOutput, IdentityAllocator, IdentityChoice, LocalContentResolver, LogicalReference,
-    ManifestEntryInput, Part10Materializer, ProviderInvocation, ProviderOutputDeclaration,
-    ProviderRequest, ReferenceGraph, ReferenceNode, ResolvedInstancePlan, ResolvedProviderContent,
-    TemplateCatalog, TemplateDescriptor, default_family_pixels, resolve_family_attributes,
-    resolve_raw_native_pixels, resolved_sc_plan, sc_default_pixels,
+    AdvancedFamilyProfile, BundleResolver, CompositionManifestInputs, CompositionSpec,
+    CompositionUidRole, ContentLimits, ContentSource, CyclePolicy, DefaultPixelOutput,
+    IdentityAllocator, IdentityChoice, LocalContentResolver, LogicalReference, ProviderInvocation,
+    ProviderOutputDeclaration, ProviderRequest, ReferenceGraph, ReferenceNode,
+    ResolvedInstancePlan, TemplateCatalog, TemplateDescriptor, default_family_pixels,
+    resolve_family_attributes, resolve_raw_native_pixels, resolved_sc_plan, sc_default_pixels,
+};
+use crate::executor::engine::{CorpusExecutor, CorpusExecutorError};
+use crate::executor::materialization::{
+    AuxiliaryMaterializationHandler, AuxiliaryPayload, MaterializationError,
+};
+use crate::executor::services::{
+    ArtifactExecutionBindings, ByteBinding, CodecRequest, NativeFrameBinding,
+    ProviderOutputExpectation, ProviderRequest as ExecutorProviderRequest, SlotExecutionBinding,
+    StagedAssetHandle, StagedAssetRegistry, StagingRelativePath,
 };
 use crate::{PACKAGE_NAME, PACKAGE_VERSION, RUSTC_VERSION, TARGET_TRIPLE, sha256_hex};
 
@@ -56,6 +70,7 @@ pub struct ComposeSummary {
 #[derive(Debug, Clone, Default)]
 pub struct ComposeCancellationToken {
     cancelled: Arc<AtomicBool>,
+    executor: crate::executor::cancellation::CancellationToken,
 }
 
 impl ComposeCancellationToken {
@@ -65,10 +80,15 @@ impl ComposeCancellationToken {
 
     pub fn cancel(&self) {
         self.cancelled.store(true, Ordering::Release);
+        self.executor.cancel();
     }
 
     pub fn is_cancelled(&self) -> bool {
         self.cancelled.load(Ordering::Acquire)
+    }
+
+    fn executor_token(&self) -> &crate::executor::cancellation::CancellationToken {
+        &self.executor
     }
 }
 
@@ -167,7 +187,7 @@ fn compose_loaded(
         catalog_path: catalog_path.to_path_buf(),
         dry_run,
     };
-    let result = resolve_and_stage(
+    let result = resolve_execution_bundle(
         &options,
         &spec,
         &catalog,
@@ -177,29 +197,99 @@ fn compose_loaded(
         spec_root,
         cancellation,
     );
-    match result {
-        Ok(_) if cancellation.is_cancelled() => {
-            remove_private_staging(&staging)?;
-            Err(ComposeError::Cancelled)
-        }
-        Ok((summary, output)) if dry_run => {
-            remove_private_staging(&staging)?;
-            Ok((summary, output))
-        }
-        Ok((mut summary, output)) => {
-            promote_or_cleanup(&staging, out_dir)?;
-            summary.out_dir = out_dir.to_path_buf();
-            summary.manifest_path = out_dir.join("manifest.json");
-            Ok((summary, output))
-        }
+    let planned = match result {
+        Ok(planned) => planned,
         Err(error) => {
             let _ = remove_private_staging(&staging);
-            Err(error)
+            return Err(error);
         }
+    };
+    if cancellation.is_cancelled() {
+        remove_private_staging(&staging)?;
+        return Err(ComposeError::Cancelled);
+    }
+    if dry_run {
+        remove_private_staging(&staging)?;
+        return Ok((
+            ComposeSummary {
+                out_dir: out_dir.to_path_buf(),
+                manifest_path: out_dir.join("manifest.json"),
+                instances_written: 0,
+                output_bytes: 0,
+                dry_run: true,
+            },
+            planned.dry_run_output,
+        ));
+    }
+    let services = CompositionExecutionServiceFactory::new(
+        &planned.bundle,
+        Arc::new(RejectCompositionAuxiliary),
+    );
+    let projector = CompositionExecutorManifestProjector::new(planned.bundle.projection.clone());
+    let executor = CorpusExecutor::new(services, projector);
+    // macOS exposes its temporary directory through `/var`, a system symlink
+    // to `/private/var`. Resolve the existing parent so the shared transaction
+    // receives a symlink-free destination while the public path stays intact.
+    let execution_out = fs::canonicalize(parent)
+        .map_err(|source| ComposeError::Io {
+            path: parent.to_path_buf(),
+            source,
+        })?
+        .join(
+            out_dir
+                .file_name()
+                .ok_or_else(|| ComposeError::Executor("output has no final component".into()))?,
+        );
+    let execution = executor.execute(
+        &planned.bundle.plan,
+        &execution_out,
+        spec.parallelism,
+        cancellation.executor_token(),
+    );
+    let cleanup = remove_private_staging(&staging);
+    let execution = execution.map_err(|error| map_executor_error(error, &spec.resource_limits));
+    match (execution, cleanup) {
+        (Ok(execution), Ok(())) => {
+            let manifest = serde_json::from_slice(&execution.manifest_bytes)
+                .map_err(|error| ComposeError::ExecutorManifest(error.to_string()))?;
+            Ok((
+                ComposeSummary {
+                    out_dir: out_dir.to_path_buf(),
+                    manifest_path: out_dir.join("manifest.json"),
+                    instances_written: planned.bundle.plan.artifacts.len(),
+                    output_bytes: execution.evidence.resources.actual_artifact_output_bytes,
+                    dry_run: false,
+                },
+                manifest,
+            ))
+        }
+        (Err(error), _) => Err(error),
+        (Ok(_), Err(error)) => Err(error),
     }
 }
 
-fn resolve_and_stage(
+struct PlannedCompositionExecution {
+    bundle: CompositionExecutionBundle,
+    dry_run_output: Value,
+}
+
+struct RejectCompositionAuxiliary;
+
+impl AuxiliaryMaterializationHandler for RejectCompositionAuxiliary {
+    fn render(
+        &self,
+        artifact: &crate::corpus_plan::PlannedAuxiliaryArtifact,
+        _: &ArtifactExecutionBindings,
+        _: &StagedAssetRegistry,
+    ) -> Result<AuxiliaryPayload, MaterializationError> {
+        Err(MaterializationError::Auxiliary(format!(
+            "composition does not plan auxiliary artifact {}",
+            artifact.logical_id
+        )))
+    }
+}
+
+fn resolve_execution_bundle(
     options: &ComposeOptions,
     spec: &CompositionSpec,
     catalog: &TemplateCatalog,
@@ -208,21 +298,16 @@ fn resolve_and_stage(
     staging: &Path,
     spec_root: &Path,
     cancellation: &ComposeCancellationToken,
-) -> Result<(ComposeSummary, Value), ComposeError> {
+) -> Result<PlannedCompositionExecution, ComposeError> {
     let bundle_resolution = BundleResolver.resolve(spec.clone(), catalog)?;
-    let mut spec = bundle_resolution.spec.clone();
+    let spec = bundle_resolution.spec.clone();
     if spec.instances.len() as u64 > spec.resource_limits.max_instances {
         return Err(ComposeError::Spec(super::SpecError::InstanceLimit {
             count: spec.instances.len(),
             limit: spec.resource_limits.max_instances,
         }));
     }
-    let output_root = staging.join("instances");
     let asset_root = staging.join(".assets");
-    fs::create_dir(&output_root).map_err(|source| ComposeError::Io {
-        path: output_root.clone(),
-        source,
-    })?;
     fs::create_dir(&asset_root).map_err(|source| ComposeError::Io {
         path: asset_root.clone(),
         source,
@@ -240,6 +325,7 @@ fn resolve_and_stage(
     let run_defaults = spec.defaults.typed_attributes()?;
     reject_structural_overrides("composition defaults", &run_defaults)?;
     let mut plans = Vec::with_capacity(spec.instances.len());
+    let mut native_codec_plans = BTreeMap::new();
     let mut templates = Vec::with_capacity(spec.instances.len());
     let mut identity_plans = BTreeMap::new();
 
@@ -282,13 +368,8 @@ fn resolve_and_stage(
         templates.push(template);
     }
     apply_shared_identities(&spec, &mut identity_plans)?;
-    invoke_spec_providers(
-        &mut spec,
-        &templates,
-        &identity_plans,
-        staging,
-        cancellation,
-    )?;
+    let (mut execution_bindings, deferred_providers) =
+        plan_spec_providers(&spec, &templates, &identity_plans)?;
 
     for (instance, template) in spec.instances.iter().zip(templates) {
         check_cancelled(cancellation)?;
@@ -338,15 +419,20 @@ fn resolve_and_stage(
         } else if let Some(profile) =
             super::ClassicFamilyProfile::for_template(&template.template_id)
         {
-            let mut pixel = resolve_family_pixels(
+            let pixel = resolve_family_pixels(
                 instance,
                 &profile,
                 transfer_syntax_uid,
                 &mut content_resolver,
             )?;
             validate_family_pixel_contract(&profile, &pixel)?;
-            if transfer_syntax_uid == crate::codecs::RLE_LOSSLESS_TRANSFER_SYNTAX_UID {
-                pixel = encode_rle_pixels(pixel)?;
+            if transfer_syntax_uid == crate::codecs::RLE_LOSSLESS_TRANSFER_SYNTAX_UID
+                && !matches!(
+                    pixel.content.materialization,
+                    Some(super::ContentMaterialization::Encapsulated { .. })
+                )
+            {
+                native_codec_plans.insert(instance.instance_id.clone(), pixel.plan.clone());
             }
             let mut plan = base_plan;
             plan.attributes = resolve_family_attributes(
@@ -373,10 +459,6 @@ fn resolve_and_stage(
 
     enforce_synthetic_data(&mut plans)?;
 
-    let private_providers = staging.join(".providers");
-    if private_providers.exists() {
-        remove_private_staging(&private_providers)?;
-    }
     let private_defaults = staging.join(".defaults");
     if private_defaults.exists() {
         remove_private_staging(&private_defaults)?;
@@ -386,10 +468,8 @@ fn resolve_and_stage(
     materialize_reference_graph(&mut plans, &spec, &bundle_resolution.members)?;
     super::advanced_family::rewrite_materialized_dicom_references(&mut plans)?;
 
-    // U1 no-op adapter: the complete neutral plan is validated before the
-    // composition publication materializer runs. Existing projection remains based
-    // on the resolved instance plans so public bytes and manifest fields do
-    // not change during this contract-only phase.
+    let source_assets =
+        bind_execution_content(&plans, &native_codec_plans, &mut execution_bindings)?;
     let corpus_plan = super::resolved_composition_corpus_plan(
         options.seed,
         &plans,
@@ -403,66 +483,12 @@ fn resolve_and_stage(
         "seed": options.seed,
         "plans": plans
     });
-    if options.dry_run {
-        return Ok((
-            ComposeSummary {
-                out_dir: options.out_dir.clone(),
-                manifest_path: options.out_dir.join("manifest.json"),
-                instances_written: 0,
-                output_bytes: 0,
-                dry_run: true,
-            },
-            dry_run_output,
-        ));
-    }
-
     let used_parallelism = usize::try_from(spec.parallelism)
         .map_err(|_| ComposeError::ResourceRange)?
         .min(plans.len())
         .max(1);
-    let entry_paths = materialize_plans(
-        &mut plans,
-        &corpus_plan,
-        staging,
-        used_parallelism,
-        cancellation,
-    )?;
-    let output_bytes = entry_paths.iter().try_fold(0_u64, |total, (path, _)| {
-        let size = fs::metadata(path)
-            .map_err(|source| ComposeError::Io {
-                path: path.clone(),
-                source,
-            })?
-            .len();
-        total
-            .checked_add(size)
-            .ok_or(ComposeError::OutputSizeOverflow)
-    })?;
-    if output_bytes > spec.resource_limits.max_total_output_bytes {
-        return Err(ComposeError::OutputLimit {
-            size: output_bytes,
-            limit: spec.resource_limits.max_total_output_bytes,
-        });
-    }
-    let entries = plans
-        .iter()
-        .zip(&entry_paths)
-        .map(|(plan, (path, relative_path))| {
-            let member = bundle_resolution.member(&plan.instance_id);
-            ManifestEntryInput {
-                plan,
-                output_path: path,
-                relative_path: relative_path.clone(),
-                requested: member.requested,
-                bundle_root_instance_id: member.bundle_root_instance_id.clone(),
-                bundle_role: member.bundle_role.clone(),
-                source_provenance: member.source.clone(),
-                determinism: "byte_stable".into(),
-            }
-        })
-        .collect::<Vec<_>>();
-    let manifest = CompositionManifestAssembler.assemble(
-        CompositionManifestInputs {
+    let projection = Arc::new(CompositionProjectionContext {
+        inputs: CompositionManifestInputs {
             generated_at: "2000-01-01T00:00:00Z".into(),
             generator: json!({
                 "name": PACKAGE_NAME,
@@ -485,40 +511,18 @@ fn resolve_and_stage(
             used_parallelism: u32::try_from(used_parallelism)
                 .map_err(|_| ComposeError::ResourceRange)?,
         },
-        &entries,
-    )?;
-    let manifest_path = staging.join("manifest.json");
-    let manifest_bytes = format!(
-        "{}\n",
-        serde_json::to_string_pretty(&manifest).expect("manifest serializes")
-    );
-    let publication_bytes = output_bytes
-        .checked_add(manifest_bytes.len() as u64)
-        .ok_or(ComposeError::OutputSizeOverflow)?;
-    if publication_bytes > spec.resource_limits.max_total_output_bytes {
-        return Err(ComposeError::OutputLimit {
-            size: publication_bytes,
-            limit: spec.resource_limits.max_total_output_bytes,
-        });
-    }
-    fs::write(&manifest_path, manifest_bytes).map_err(|source| ComposeError::Io {
-        path: manifest_path.clone(),
-        source,
-    })?;
-    fs::remove_dir_all(&asset_root).map_err(|source| ComposeError::Io {
-        path: asset_root,
-        source,
-    })?;
-    Ok((
-        ComposeSummary {
-            out_dir: staging.to_path_buf(),
-            manifest_path,
-            instances_written: plans.len(),
-            output_bytes,
-            dry_run: false,
+        members: bundle_resolution.members.clone(),
+    });
+    Ok(PlannedCompositionExecution {
+        bundle: CompositionExecutionBundle {
+            plan: corpus_plan,
+            bindings: execution_bindings,
+            projection,
+            source_assets,
+            providers: deferred_providers,
         },
-        manifest,
-    ))
+        dry_run_output,
+    })
 }
 
 fn enforce_synthetic_data(plans: &mut [ResolvedInstancePlan]) -> Result<(), ComposeError> {
@@ -551,61 +555,187 @@ fn enforce_synthetic_data(plans: &mut [ResolvedInstancePlan]) -> Result<(), Comp
     Ok(())
 }
 
-fn materialize_plans(
-    plans: &mut [ResolvedInstancePlan],
-    corpus_plan: &crate::corpus_plan::CorpusPlan,
-    staging: &Path,
-    workers: usize,
-    cancellation: &ComposeCancellationToken,
-) -> Result<Vec<(PathBuf, String)>, ComposeError> {
-    super::corpus_adapter::validate_materialization_alignment(corpus_plan, plans)?;
-    let chunk_size = plans.len().div_ceil(workers);
-    let chunks = std::thread::scope(|scope| {
-        let mut handles = Vec::new();
-        for chunk in plans.chunks_mut(chunk_size) {
-            handles.push(scope.spawn(move || {
-                let mut paths = Vec::with_capacity(chunk.len());
-                for plan in chunk {
-                    check_cancelled(cancellation)?;
-                    let relative_path = format!("instances/{}.dcm", plan.instance_id);
-                    let path = staging.join(&relative_path);
-                    let outcome = Part10Materializer.materialize_with_outcome(plan, &path)?;
-                    for content in &mut plan.content {
-                        if outcome.streamed_slots.contains(&content.slot) {
-                            content
-                                .properties
-                                .insert("writer_materialization".into(), "stream_copy".into());
-                        }
-                    }
-                    paths.push((path, relative_path));
+fn bind_execution_content(
+    plans: &[ResolvedInstancePlan],
+    native_codec_plans: &BTreeMap<String, super::NativePixelPlan>,
+    bindings: &mut BTreeMap<String, ArtifactExecutionBindings>,
+) -> Result<Vec<CompositionSourceAsset>, ComposeError> {
+    let mut sources = Vec::new();
+    for (artifact_index, plan) in plans.iter().enumerate() {
+        let artifact_bindings =
+            bindings
+                .entry(plan.instance_id.clone())
+                .or_insert_with(|| ArtifactExecutionBindings {
+                    artifact_id: plan.instance_id.clone(),
+                    slots: BTreeMap::new(),
+                });
+        for content in &plan.content {
+            let source_handle = if let Some(super::ContentMaterialization::StagedFile(path)) =
+                &content.materialization
+            {
+                let handle = StagedAssetHandle::new(format!(
+                    "composition-source-{}-{}",
+                    artifact_index, content.slot
+                ))
+                .map_err(|error| ComposeError::ExecutionBinding(error.to_string()))?;
+                let relative_path = StagingRelativePath::new(format!(
+                    ".composition-inputs/{artifact_index}/{}.bin",
+                    content.slot
+                ))
+                .map_err(|error| ComposeError::ExecutionBinding(error.to_string()))?;
+                sources.push(CompositionSourceAsset {
+                    handle: handle.clone(),
+                    source_path: path.clone(),
+                    staging_relative_path: relative_path,
+                    media_type: "application/octet-stream".into(),
+                    expected_size_bytes: content.size_bytes,
+                    expected_sha256: content.sha256.clone(),
+                });
+                Some(handle)
+            } else {
+                None
+            };
+
+            if let Some(native) = native_codec_plans.get(&plan.instance_id) {
+                if artifact_bindings.slots.contains_key(&content.slot) {
+                    return Err(ComposeError::ExecutionBinding(format!(
+                        "provider-to-codec composition is not representable for {}:{}",
+                        plan.instance_id, content.slot
+                    )));
                 }
-                Ok::<_, ComposeError>(paths)
-            }));
+                let frames = native
+                    .frame_spans
+                    .iter()
+                    .map(|span| {
+                        if span.bit_offset % 8 != 0 || span.bit_length % 8 != 0 {
+                            return Err(ComposeError::CodecPixelAlignment);
+                        }
+                        let offset = span.bit_offset / 8;
+                        let length = span.bit_length / 8;
+                        let bytes = match (&content.materialization, &source_handle) {
+                            (Some(super::ContentMaterialization::Inline(all)), _) => {
+                                let start = usize::try_from(offset)
+                                    .map_err(|_| ComposeError::ResourceRange)?;
+                                let end = usize::try_from(
+                                    offset
+                                        .checked_add(length)
+                                        .ok_or(ComposeError::ResourceRange)?,
+                                )
+                                .map_err(|_| ComposeError::ResourceRange)?;
+                                let frame = all
+                                    .get(start..end)
+                                    .ok_or(ComposeError::ResourceRange)?
+                                    .to_vec();
+                                ByteBinding::Inline {
+                                    sha256: sha256_hex(&frame),
+                                    bytes: frame,
+                                }
+                            }
+                            (
+                                Some(super::ContentMaterialization::StagedFile(path)),
+                                Some(handle),
+                            ) => {
+                                let mut file =
+                                    fs::File::open(path).map_err(|source| ComposeError::Io {
+                                        path: path.clone(),
+                                        source,
+                                    })?;
+                                file.seek(SeekFrom::Start(offset)).map_err(|source| {
+                                    ComposeError::CodecRead {
+                                        frame: span.frame_number as usize,
+                                        source,
+                                    }
+                                })?;
+                                let mut frame = vec![
+                                    0;
+                                    usize::try_from(length)
+                                        .map_err(|_| ComposeError::ResourceRange)?
+                                ];
+                                file.read_exact(&mut frame).map_err(|source| {
+                                    ComposeError::CodecRead {
+                                        frame: span.frame_number as usize,
+                                        source,
+                                    }
+                                })?;
+                                ByteBinding::StagedRange {
+                                    asset: handle.clone(),
+                                    offset,
+                                    length,
+                                    sha256: sha256_hex(&frame),
+                                }
+                            }
+                            _ => return Err(ComposeError::MissingPixelMaterialization),
+                        };
+                        Ok(NativeFrameBinding {
+                            frame_number: span.frame_number,
+                            bytes,
+                            rows: native.shape.rows,
+                            columns: native.shape.columns,
+                            samples_per_pixel: u16::from(native.shape.samples_per_pixel),
+                            bits_allocated: u16::from(native.shape.bits_allocated),
+                            photometric_interpretation: photometric_name(
+                                native.shape.photometric_interpretation,
+                            )
+                            .into(),
+                        })
+                    })
+                    .collect::<Result<Vec<_>, ComposeError>>()?;
+                artifact_bindings.slots.insert(
+                    content.slot.clone(),
+                    SlotExecutionBinding::CodecRequest {
+                        request: CodecRequest {
+                            request_id: format!("composition-rle-{}", artifact_index),
+                            artifact_id: plan.instance_id.clone(),
+                            slot: content.slot.clone(),
+                            backend_id: NativeRleLosslessEncoder::BACKEND_ID.into(),
+                            source_transfer_syntax_uid: "1.2.840.10008.1.2.1".into(),
+                            target_transfer_syntax_uid:
+                                crate::codecs::RLE_LOSSLESS_TRANSFER_SYNTAX_UID.into(),
+                            frames,
+                            parameters: BTreeMap::from([(
+                                "bits_stored".into(),
+                                json!(native.shape.bits_stored),
+                            )]),
+                        },
+                    },
+                );
+            } else if let Some(handle) = source_handle {
+                artifact_bindings.slots.insert(
+                    content.slot.clone(),
+                    SlotExecutionBinding::StagedAsset { asset: handle },
+                );
+            }
         }
-        handles
-            .into_iter()
-            .map(|handle| {
-                handle
-                    .join()
-                    .map_err(|_| ComposeError::ParallelWorkerPanic)?
-            })
-            .collect::<Result<Vec<_>, ComposeError>>()
-    })?;
-    Ok(chunks.into_iter().flatten().collect())
+    }
+    Ok(sources)
 }
 
-fn invoke_spec_providers(
-    spec: &mut CompositionSpec,
+fn photometric_name(value: super::PhotometricInterpretation) -> &'static str {
+    match value {
+        super::PhotometricInterpretation::Monochrome1 => "MONOCHROME1",
+        super::PhotometricInterpretation::Monochrome2 => "MONOCHROME2",
+        super::PhotometricInterpretation::PaletteColor => "PALETTE COLOR",
+        super::PhotometricInterpretation::Rgb => "RGB",
+        super::PhotometricInterpretation::YbrFull => "YBR_FULL",
+        super::PhotometricInterpretation::YbrFull422 => "YBR_FULL_422",
+    }
+}
+
+fn plan_spec_providers(
+    spec: &CompositionSpec,
     templates: &[&TemplateDescriptor],
     identity_plans: &BTreeMap<String, super::IdentityPlan>,
-    staging: &Path,
-    cancellation: &ComposeCancellationToken,
-) -> Result<(), ComposeError> {
-    let provider_root = staging.join(".providers");
-    let mut provider_index = 0_u64;
-    for (instance, template) in spec.instances.iter_mut().zip(templates) {
-        for assignment in &mut instance.content {
-            check_cancelled(cancellation)?;
+) -> Result<
+    (
+        BTreeMap<String, ArtifactExecutionBindings>,
+        BTreeMap<String, DeferredCompositionProvider>,
+    ),
+    ComposeError,
+> {
+    let mut bindings = BTreeMap::new();
+    let mut providers = BTreeMap::new();
+    for (instance, template) in spec.instances.iter().zip(templates) {
+        for assignment in &instance.content {
             let ContentSource::Provider {
                 provider_id,
                 provider_version,
@@ -622,12 +752,6 @@ fn invoke_spec_providers(
             else {
                 continue;
             };
-            if provider_index == 0 {
-                fs::create_dir(&provider_root).map_err(|source| ComposeError::Io {
-                    path: provider_root.clone(),
-                    source,
-                })?;
-            }
             let identities = identity_plans
                 .get(&instance.instance_id)
                 .expect("identity pass covers provider instance")
@@ -657,40 +781,49 @@ fn invoke_spec_providers(
                 network_policy: "disabled".into(),
             };
             request.request_id = request.canonical_request_id();
-            let output = super::provider::invoke_content_provider_cancellable(
-                &ProviderInvocation {
-                    executable: PathBuf::from(executable),
-                    executable_sha256,
-                    arguments,
-                    timeout: Duration::from_millis(timeout_ms),
-                },
-                &request,
-                &provider_root.join(format!("provider-{provider_index:08}")),
-                &|| cancellation.is_cancelled(),
-            )
-            .map_err(|error| match error {
-                super::ProviderError::Cancelled => ComposeError::Cancelled,
-                other => ComposeError::Provider(other),
-            })?;
-            assignment.source = ContentSource::ResolvedProvider {
-                output: ResolvedProviderContent {
-                    path: output.path,
-                    size_bytes: output.size_bytes,
-                    sha256: output.sha256,
-                    provider_id: output.provider_id,
-                    provider_version: output.provider_version,
-                    executable_sha256: output.executable_sha256,
-                    argument_sha256: output.argument_sha256,
-                    request_sha256: output.request_sha256,
-                    response_sha256: output.response_sha256,
-                },
-                media_type,
-                pixel,
+            let invocation = ProviderInvocation {
+                executable: PathBuf::from(executable),
+                executable_sha256,
+                arguments,
+                timeout: Duration::from_millis(timeout_ms),
             };
-            provider_index += 1;
+            let executor_request = ExecutorProviderRequest {
+                request_id: request.request_id.clone(),
+                artifact_id: instance.instance_id.clone(),
+                provider_id,
+                required_version: request.expected_provider_version.clone(),
+                parameters: request.parameters.clone(),
+                input_assets: BTreeMap::new(),
+                expected_outputs: vec![ProviderOutputExpectation {
+                    slot: assignment.slot.clone(),
+                    media_type: media_type.unwrap_or_else(|| "application/octet-stream".into()),
+                    maximum_size_bytes: spec.resource_limits.max_file_bytes,
+                    expected_sha256: Some(request.output.sha256.clone()),
+                }],
+            };
+            let artifact_bindings =
+                bindings
+                    .entry(instance.instance_id.clone())
+                    .or_insert_with(|| ArtifactExecutionBindings {
+                        artifact_id: instance.instance_id.clone(),
+                        slots: BTreeMap::new(),
+                    });
+            artifact_bindings.slots.insert(
+                assignment.slot.clone(),
+                SlotExecutionBinding::ProviderRequest {
+                    request: executor_request,
+                },
+            );
+            providers.insert(
+                request.request_id.clone(),
+                DeferredCompositionProvider {
+                    request,
+                    invocation,
+                },
+            );
         }
     }
-    Ok(())
+    Ok((bindings, providers))
 }
 
 fn check_cancelled(cancellation: &ComposeCancellationToken) -> Result<(), ComposeError> {
@@ -698,6 +831,51 @@ fn check_cancelled(cancellation: &ComposeCancellationToken) -> Result<(), Compos
         Err(ComposeError::Cancelled)
     } else {
         Ok(())
+    }
+}
+
+fn map_executor_error(error: CorpusExecutorError, limits: &super::ResourceLimits) -> ComposeError {
+    use crate::executor::engine::ArtifactExecutionError;
+    use crate::executor::scheduler::SchedulerError;
+
+    match error {
+        CorpusExecutorError::Cancelled(_)
+        | CorpusExecutorError::Scheduler(SchedulerError::Cancelled)
+        | CorpusExecutorError::Scheduler(SchedulerError::Worker {
+            source: ArtifactExecutionError::Cancelled(_),
+            ..
+        }) => ComposeError::Cancelled,
+        CorpusExecutorError::Scheduler(SchedulerError::Worker {
+            source: ArtifactExecutionError::Service(service),
+            ..
+        }) if service.stage == "provider" => {
+            ComposeError::Provider(super::ProviderError::Invalid {
+                message: service.message,
+            })
+        }
+        CorpusExecutorError::Scheduler(SchedulerError::ResourceLimitExceeded {
+            observed, ..
+        }) => ComposeError::OutputLimit {
+            size: observed.total_output_bytes,
+            limit: limits.max_total_output_bytes,
+        },
+        CorpusExecutorError::PrimaryAndCleanup { primary, .. } => {
+            map_executor_error(*primary, limits)
+        }
+        other => {
+            let message = other.to_string();
+            if message.contains("ResourceLimitExceeded")
+                || message.contains("ArtifactOutputLimitExceeded")
+                || message.contains("RunResourceLimitExceeded")
+            {
+                ComposeError::OutputLimit {
+                    size: limits.max_total_output_bytes.saturating_add(1),
+                    limit: limits.max_total_output_bytes,
+                }
+            } else {
+                ComposeError::Executor(message)
+            }
+        }
     }
 }
 
@@ -955,6 +1133,27 @@ fn resolve_sc_pixels(
         ContentSource::ResolvedProvider { pixel: None, .. } => Err(
             ComposeError::MissingPixelDeclaration(instance.instance_id.clone()),
         ),
+        ContentSource::Provider {
+            provider_id,
+            provider_version,
+            executable_sha256,
+            arguments,
+            size_bytes,
+            sha256,
+            pixel: Some(pixel),
+            ..
+        } => resolve_declared_provider_pixels(
+            provider_id,
+            provider_version,
+            executable_sha256,
+            arguments,
+            *size_bytes,
+            sha256,
+            pixel,
+        ),
+        ContentSource::Provider { pixel: None, .. } => Err(ComposeError::MissingPixelDeclaration(
+            instance.instance_id.clone(),
+        )),
         _ => Err(ComposeError::UnsupportedP2Content(
             instance.instance_id.clone(),
         )),
@@ -1049,10 +1248,94 @@ fn resolve_family_pixels(
         ContentSource::ResolvedProvider { pixel: None, .. } => Err(
             ComposeError::MissingPixelDeclaration(instance.instance_id.clone()),
         ),
-        _ => Err(ComposeError::UnsupportedFamilyContent(
+        ContentSource::Provider {
+            provider_id,
+            provider_version,
+            executable_sha256,
+            arguments,
+            size_bytes,
+            sha256,
+            pixel: Some(pixel),
+            ..
+        } => resolve_declared_provider_pixels(
+            provider_id,
+            provider_version,
+            executable_sha256,
+            arguments,
+            *size_bytes,
+            sha256,
+            pixel,
+        ),
+        ContentSource::Provider { pixel: None, .. } => Err(ComposeError::MissingPixelDeclaration(
             instance.instance_id.clone(),
         )),
     }
+}
+
+fn resolve_declared_provider_pixels(
+    provider_id: &str,
+    provider_version: &str,
+    executable_sha256: &str,
+    arguments: &[String],
+    size_bytes: u64,
+    sha256: &str,
+    pixel: &super::PixelDeclaration,
+) -> Result<DefaultPixelOutput, ComposeError> {
+    let shape = pixel.shape()?;
+    let plan = super::NativePixelPlan::plan(shape)?;
+    if size_bytes != plan.unpadded_value_bytes {
+        return Err(ComposeError::RawContent(super::RawContentError::Length {
+            path: format!("providers/{provider_id}/pixels"),
+            expected: plan.unpadded_value_bytes,
+            actual: size_bytes,
+        }));
+    }
+    let vr = if plan.shape.bits_allocated <= 8 {
+        super::DicomVr::OB
+    } else {
+        super::DicomVr::OW
+    };
+    Ok(DefaultPixelOutput {
+        plan,
+        content: super::CanonicalContent {
+            slot: "pixels".into(),
+            kind: "native_pixels".into(),
+            address: super::AttributeAddress::from_normalized_tag("7FE0,0010")
+                .expect("Pixel Data is a known tag"),
+            vr,
+            size_bytes,
+            sha256: sha256.into(),
+            properties: BTreeMap::from([
+                ("content_origin".into(), "provider".into()),
+                ("provider_id".into(), provider_id.into()),
+                ("provider_version".into(), provider_version.into()),
+                (
+                    "provider_executable_sha256".into(),
+                    executable_sha256.into(),
+                ),
+                (
+                    "provider_argument_sha256".into(),
+                    super::provider_arguments_sha256(arguments),
+                ),
+                (
+                    "provider_protocol_version".into(),
+                    super::CONTENT_PROVIDER_PROTOCOL_VERSION.into(),
+                ),
+                ("provider_network_policy".into(), "disabled".into()),
+                (
+                    "spec_relative_path".into(),
+                    format!("providers/{provider_id}/pixels"),
+                ),
+                ("staging_method".into(), "stream_copy".into()),
+                (
+                    "pixel_shape".into(),
+                    serde_json::to_string(&pixel.shape()?).expect("pixel shape serializes"),
+                ),
+            ]),
+            placement: super::ContentPlacement::TopLevel,
+            materialization: None,
+        },
+    })
 }
 
 fn validate_family_pixel_contract(
@@ -1088,158 +1371,6 @@ fn validate_family_pixel_contract(
     } else {
         Err(ComposeError::PixelContract(profile.template_id.0.clone()))
     }
-}
-
-fn encode_rle_pixels(mut pixel: DefaultPixelOutput) -> Result<DefaultPixelOutput, ComposeError> {
-    if matches!(
-        pixel.content.materialization,
-        Some(super::ContentMaterialization::Encapsulated { .. })
-    ) {
-        return Ok(pixel);
-    }
-    let inline = match pixel.content.materialization.as_ref() {
-        Some(super::ContentMaterialization::Inline(bytes)) => Some(bytes.as_slice()),
-        Some(super::ContentMaterialization::StagedFile(_)) => None,
-        Some(super::ContentMaterialization::Encapsulated { .. }) => {
-            return Err(ComposeError::AlreadyEncapsulated);
-        }
-        None => return Err(ComposeError::MissingPixelMaterialization),
-    };
-    let mut staged = match pixel.content.materialization.as_ref() {
-        Some(super::ContentMaterialization::StagedFile(path)) => {
-            Some(fs::File::open(path).map_err(|source| ComposeError::Io {
-                path: path.clone(),
-                source,
-            })?)
-        }
-        _ => None,
-    };
-    let native_sha256 = pixel.content.sha256.clone();
-    let shape = &pixel.plan.shape;
-    let photometric = match shape.photometric_interpretation {
-        super::PhotometricInterpretation::Monochrome1 => "MONOCHROME1",
-        super::PhotometricInterpretation::Monochrome2 => "MONOCHROME2",
-        super::PhotometricInterpretation::PaletteColor => "PALETTE COLOR",
-        super::PhotometricInterpretation::Rgb => "RGB",
-        super::PhotometricInterpretation::YbrFull => "YBR_FULL",
-        super::PhotometricInterpretation::YbrFull422 => "YBR_FULL_422",
-    };
-    let encoder = NativeRleLosslessEncoder::new();
-    let backend = FrameEncoder::backend(&encoder);
-    let mut encoded_frames = Vec::with_capacity(pixel.plan.frame_spans.len());
-    let mut decoded_frame_sha256 = Vec::with_capacity(pixel.plan.frame_spans.len());
-    for (frame_index, frame) in pixel.plan.frame_spans.iter().enumerate() {
-        if frame.bit_offset % 8 != 0 || frame.bit_length % 8 != 0 {
-            return Err(ComposeError::CodecPixelAlignment);
-        }
-        let length =
-            usize::try_from(frame.bit_length / 8).map_err(|_| ComposeError::ResourceRange)?;
-        let mut native_frame = vec![0_u8; length];
-        if let Some(bytes) = inline {
-            let start =
-                usize::try_from(frame.bit_offset / 8).map_err(|_| ComposeError::ResourceRange)?;
-            let end = start
-                .checked_add(length)
-                .ok_or(ComposeError::ResourceRange)?;
-            native_frame.copy_from_slice(bytes.get(start..end).ok_or(ComposeError::ResourceRange)?);
-        } else {
-            let file = staged
-                .as_mut()
-                .expect("staged pixel materialization opened");
-            file.seek(SeekFrom::Start(frame.bit_offset / 8))
-                .map_err(|source| ComposeError::CodecRead {
-                    frame: frame_index,
-                    source,
-                })?;
-            file.read_exact(&mut native_frame)
-                .map_err(|source| ComposeError::CodecRead {
-                    frame: frame_index,
-                    source,
-                })?;
-        }
-        let native_frame_sha256 = sha256_hex(&native_frame);
-        let encoded = encoder.encode_frame(FrameEncodeInput {
-            native_frame: &native_frame,
-            rows: u16::try_from(shape.rows).map_err(|_| ComposeError::ResourceRange)?,
-            columns: u16::try_from(shape.columns).map_err(|_| ComposeError::ResourceRange)?,
-            samples_per_pixel: u16::from(shape.samples_per_pixel),
-            bits_allocated: u16::from(shape.bits_allocated),
-            bits_stored: u16::from(shape.bits_stored),
-            photometric_interpretation: photometric,
-        })?;
-        let decoded = encoder.decode_frame(FrameDecodeInput {
-            encoded_frame: &encoded.bytes,
-            rows: u16::try_from(shape.rows).map_err(|_| ComposeError::ResourceRange)?,
-            columns: u16::try_from(shape.columns).map_err(|_| ComposeError::ResourceRange)?,
-            samples_per_pixel: u16::from(shape.samples_per_pixel),
-            bits_allocated: u16::from(shape.bits_allocated),
-            bits_stored: u16::from(shape.bits_stored),
-            photometric_interpretation: photometric,
-        })?;
-        let decoded_sha256 = sha256_hex(&decoded.native_bytes);
-        if decoded_sha256 != native_frame_sha256 {
-            return Err(ComposeError::CodecSemanticMismatch { frame: frame_index });
-        }
-        decoded_frame_sha256.push(decoded_sha256);
-        encoded_frames.push(encoded.bytes);
-    }
-    let encapsulated = EncapsulatedPixelData::one_fragment_per_frame(
-        &encoded_frames,
-        BasicOffsetTablePolicy::Populated,
-    )?;
-    let mut fragments = encapsulated.fragment_payloads;
-    for fragment in &mut fragments {
-        if fragment.len() % 2 != 0 {
-            fragment.push(0);
-        }
-    }
-    let bytes = fragments.concat();
-    pixel.content.kind = "encapsulated_pixels".into();
-    pixel.content.vr = super::DicomVr::OB;
-    pixel.content.size_bytes = bytes.len() as u64;
-    pixel.content.sha256 = sha256_hex(&bytes);
-    pixel
-        .content
-        .properties
-        .insert("native_sha256".into(), native_sha256);
-    pixel.content.properties.insert(
-        "codec_backend".into(),
-        NativeRleLosslessEncoder::BACKEND_ID.into(),
-    );
-    pixel.content.properties.extend(BTreeMap::from([
-        (
-            "codec_backend_kind".into(),
-            backend.backend_kind.as_str().into(),
-        ),
-        ("codec_version".into(), backend.version.into()),
-        (
-            "codec_feature_gate".into(),
-            backend.feature_gate.unwrap_or("none").into(),
-        ),
-        (
-            "codec_determinism".into(),
-            backend.determinism.as_str().into(),
-        ),
-        ("codec_availability".into(), "available".into()),
-        (
-            "decoded_frame_sha256".into(),
-            serde_json::to_string(&decoded_frame_sha256).expect("frame hashes serialize"),
-        ),
-        (
-            "codec_semantic_validation".into(),
-            "decoded_frame_hashes_match".into(),
-        ),
-    ]));
-    pixel.content.properties.insert(
-        "compressed_frame_sha256".into(),
-        serde_json::to_string(&encapsulated.compressed_frame_hashes)
-            .expect("frame hashes serialize"),
-    );
-    pixel.content.materialization = Some(super::ContentMaterialization::Encapsulated {
-        basic_offset_table: encapsulated.basic_offset_table.offsets,
-        fragments,
-    });
-    Ok(pixel)
 }
 
 fn resolve_encoded_rle_pixels(
@@ -1478,90 +1609,12 @@ fn set_private_directory_permissions(path: &Path) -> Result<(), ComposeError> {
     Ok(())
 }
 
-fn promote_no_replace(source: &Path, destination: &Path) -> std::io::Result<()> {
-    #[cfg(target_os = "linux")]
-    {
-        use std::ffi::CString;
-        use std::os::unix::ffi::OsStrExt;
-        let source = CString::new(source.as_os_str().as_bytes())?;
-        let destination = CString::new(destination.as_os_str().as_bytes())?;
-        let result = unsafe {
-            libc::syscall(
-                libc::SYS_renameat2,
-                libc::AT_FDCWD,
-                source.as_ptr(),
-                libc::AT_FDCWD,
-                destination.as_ptr(),
-                libc::RENAME_NOREPLACE,
-            )
-        };
-        if result == 0 {
-            return Ok(());
-        }
-        return Err(std::io::Error::last_os_error());
-    }
-    #[cfg(target_os = "macos")]
-    {
-        use std::ffi::CString;
-        use std::os::unix::ffi::OsStrExt;
-        let source = CString::new(source.as_os_str().as_bytes())?;
-        let destination = CString::new(destination.as_os_str().as_bytes())?;
-        let result = unsafe {
-            libc::renameatx_np(
-                libc::AT_FDCWD,
-                source.as_ptr(),
-                libc::AT_FDCWD,
-                destination.as_ptr(),
-                libc::RENAME_EXCL,
-            )
-        };
-        if result == 0 {
-            return Ok(());
-        }
-        return Err(std::io::Error::last_os_error());
-    }
-    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
-    {
-        if destination.exists() {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::AlreadyExists,
-                "composition destination already exists",
-            ));
-        }
-        fs::rename(source, destination)
-    }
-}
-
-fn promote_or_cleanup(source: &Path, destination: &Path) -> Result<(), ComposeError> {
-    match promote_no_replace(source, destination) {
-        Ok(()) => Ok(()),
-        Err(promotion) => match fs::remove_dir_all(source) {
-            Ok(()) => Err(ComposeError::Io {
-                path: destination.to_path_buf(),
-                source: promotion,
-            }),
-            Err(cleanup) => Err(ComposeError::PromotionCleanup {
-                staging: source.to_path_buf(),
-                destination: destination.to_path_buf(),
-                promotion,
-                cleanup,
-            }),
-        },
-    }
-}
-
 #[derive(Debug)]
 pub enum ComposeError {
     OutputExists(PathBuf),
     Io {
         path: PathBuf,
         source: std::io::Error,
-    },
-    PromotionCleanup {
-        staging: PathBuf,
-        destination: PathBuf,
-        promotion: std::io::Error,
-        cleanup: std::io::Error,
     },
     Spec(super::SpecError),
     Template(super::TemplateError),
@@ -1580,9 +1633,11 @@ pub enum ComposeError {
     Encapsulation(crate::encapsulation::EncapsulationError),
     Provider(super::ProviderError),
     CorpusPlan(crate::corpus_plan::CorpusPlanError),
+    ExecutionBinding(String),
+    Executor(String),
+    ExecutorManifest(String),
     Cancelled,
     ResourceRange,
-    ParallelWorkerPanic,
     UnsupportedTemplate(String),
     UnsupportedP2Content(String),
     UnsupportedFamilyContent(String),
@@ -1623,14 +1678,10 @@ pub enum ComposeError {
     },
     OutputSizeOverflow,
     MissingPixelMaterialization,
-    AlreadyEncapsulated,
     CodecPixelAlignment,
     CodecRead {
         frame: usize,
         source: std::io::Error,
-    },
-    CodecSemanticMismatch {
-        frame: usize,
     },
     EncodedTransferSyntaxMismatch {
         source: String,
@@ -1826,26 +1877,6 @@ mod tests {
         assert!(summary.dry_run);
         assert!(!out.exists());
         assert_eq!(resolved["plans"].as_array().unwrap().len(), 1);
-    }
-
-    #[test]
-    fn atomic_promotion_never_replaces_a_destination_race() {
-        let root = output("promotion-race");
-        let source = root.join("source");
-        let destination = root.join("destination");
-        fs::create_dir_all(&source).unwrap();
-        fs::write(source.join("new"), b"new").unwrap();
-        fs::create_dir(&destination).unwrap();
-        fs::write(destination.join("owned"), b"owned").unwrap();
-        let error = promote_or_cleanup(&source, &destination).unwrap_err();
-        assert!(matches!(
-            error,
-            ComposeError::Io { source, .. }
-                if matches!(source.kind(), std::io::ErrorKind::AlreadyExists | std::io::ErrorKind::Other)
-        ));
-        assert_eq!(fs::read(destination.join("owned")).unwrap(), b"owned");
-        assert!(!source.exists());
-        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

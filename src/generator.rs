@@ -4698,17 +4698,6 @@ enum CuratedRecipeImplementation {
     PrivateCreatorSc(PrivateCreatorScRecipe),
     SequenceLengthSc(SequenceLengthScRecipe),
     NonsquareSpacingSc(NonsquareSpacingScRecipe),
-    Ct(ClassicCtRecipe),
-    Mg(ClassicMgRecipe),
-    Dx(ClassicDxRecipe),
-    Nm(ClassicNmRecipe),
-    Pet(ClassicPetRecipe),
-    UsMultiframe(ClassicUsMultiframeRecipe),
-    Xa(ClassicXaRecipe),
-    Xrf(ClassicXrfRecipe),
-    Us(ClassicUsRecipe),
-    Cr(ClassicCrRecipe),
-    Mr(ClassicMrRecipe),
 }
 
 impl CuratedRecipeImplementation {
@@ -4722,17 +4711,6 @@ impl CuratedRecipeImplementation {
             Self::PrivateCreatorSc(recipe) => recipe.pixel.case_id,
             Self::SequenceLengthSc(recipe) => recipe.pixel.case_id,
             Self::NonsquareSpacingSc(recipe) => recipe.pixel.case_id,
-            Self::Ct(recipe) => recipe.case_id,
-            Self::Mg(recipe) => recipe.case_id,
-            Self::Dx(recipe) => recipe.case_id,
-            Self::Nm(recipe) => recipe.case_id,
-            Self::Pet(recipe) => recipe.case_id,
-            Self::UsMultiframe(recipe) => recipe.case_id,
-            Self::Xa(recipe) => recipe.case_id,
-            Self::Xrf(recipe) => recipe.case_id,
-            Self::Us(recipe) => recipe.case_id,
-            Self::Cr(recipe) => recipe.case_id,
-            Self::Mr(recipe) => recipe.case_id,
         }
     }
 
@@ -4782,67 +4760,71 @@ impl CuratedRecipeImplementation {
             Self::NonsquareSpacingSc(recipe) => {
                 write_nonsquare_spacing_sc_case(run, case, recipe, standards_lock_sha256)
             }
-            Self::Ct(recipe) => write_classic_ct_case(run, case, recipe, standards_lock_sha256),
-            Self::Mg(recipe) => Ok(vec![write_classic_mg_case(
-                run,
-                case,
-                recipe,
-                standards_lock_sha256,
-            )?]),
-            Self::Dx(recipe) => Ok(vec![write_classic_dx_case(
-                run,
-                case,
-                recipe,
-                standards_lock_sha256,
-            )?]),
-            Self::Nm(recipe) => Ok(vec![write_classic_nm_case(
-                run,
-                case,
-                recipe,
-                standards_lock_sha256,
-            )?]),
-            Self::Pet(recipe) => Ok(vec![write_classic_pet_case(
-                run,
-                case,
-                recipe,
-                standards_lock_sha256,
-            )?]),
-            Self::UsMultiframe(recipe) => Ok(vec![write_classic_us_multiframe_case(
-                run,
-                case,
-                recipe,
-                standards_lock_sha256,
-            )?]),
-            Self::Xa(recipe) => Ok(vec![write_classic_xa_case(
-                run,
-                case,
-                recipe,
-                standards_lock_sha256,
-            )?]),
-            Self::Xrf(recipe) => Ok(vec![write_classic_xrf_case(
-                run,
-                case,
-                recipe,
-                standards_lock_sha256,
-            )?]),
-            Self::Us(recipe) => Ok(vec![write_classic_us_case(
-                run,
-                case,
-                recipe,
-                standards_lock_sha256,
-            )?]),
-            Self::Cr(recipe) => Ok(vec![write_classic_cr_case(
-                run,
-                case,
-                recipe,
-                standards_lock_sha256,
-            )?]),
-            Self::Mr(recipe) => write_classic_mr_case(run, case, recipe, standards_lock_sha256),
         }
     }
 }
 
-fn curated_recipe_registry(stage: CuratedRecipeStage) -> Vec<CuratedRecipeImplementation> {
+#[derive(Debug, Clone, Copy)]
+struct PlanFirstStageEntry {
+    stage: CuratedRecipeStage,
+    case_id: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum PlanFirstStageError {
+    MissingSelectedCase {
+        stage: CuratedRecipeStage,
+        case_id: &'static str,
+    },
+    UnmatchedCases {
+        case_ids: Vec<String>,
+    },
+}
+
+impl std::fmt::Display for PlanFirstStageError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::MissingSelectedCase { stage, case_id } => write!(
+                formatter,
+                "selected classic case {case_id} has no plan-first output in {}",
+                stage.name()
+            ),
+            Self::UnmatchedCases { case_ids } => write!(
+                formatter,
+                "plan-first outputs did not match the curated stage dispatcher: {}",
+                case_ids.join(", ")
+            ),
+        }
+    }
+}
+
+impl CuratedRecipeStage {
+    fn name(self) -> &'static str {
+        match self {
+            Self::SecondaryCapture => "secondary-capture stage",
+            Self::ClassicCt => "classic CT stage",
+            Self::ClassicImagesBeforeEnhancedPet => "classic pre-enhanced-PET stage",
+            Self::ClassicImagesAfterEnhancedPet => "classic post-enhanced-PET stage",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum CuratedStageEntry {
+    Legacy(CuratedRecipeImplementation),
+    PlanFirst(PlanFirstStageEntry),
+}
+
+impl CuratedStageEntry {
+    fn case_id(self) -> &'static str {
+        match self {
+            Self::Legacy(implementation) => implementation.case_id(),
+            Self::PlanFirst(entry) => entry.case_id,
+        }
+    }
+}
+
+fn curated_recipe_registry(stage: CuratedRecipeStage) -> Vec<CuratedStageEntry> {
     let mut recipes = Vec::new();
     match stage {
         CuratedRecipeStage::SecondaryCapture => {
@@ -4850,91 +4832,138 @@ fn curated_recipe_registry(stage: CuratedRecipeStage) -> Vec<CuratedRecipeImplem
                 PIXEL_RECIPES
                     .iter()
                     .copied()
-                    .map(CuratedRecipeImplementation::Pixel),
+                    .map(CuratedRecipeImplementation::Pixel)
+                    .map(CuratedStageEntry::Legacy),
             );
             recipes.extend(
                 METADATA_SC_RECIPES
                     .iter()
                     .copied()
-                    .map(CuratedRecipeImplementation::MetadataSc),
+                    .map(CuratedRecipeImplementation::MetadataSc)
+                    .map(CuratedStageEntry::Legacy),
             );
             recipes.extend([
-                CuratedRecipeImplementation::TimezoneSc(TIMEZONE_SC_RECIPE),
-                CuratedRecipeImplementation::EmptyType2Sc(EMPTY_TYPE2_SC_RECIPE),
-                CuratedRecipeImplementation::StringBoundarySc(STRING_BOUNDARY_SC_RECIPE),
-                CuratedRecipeImplementation::PrivateCreatorSc(PRIVATE_CREATOR_SC_RECIPE),
-                CuratedRecipeImplementation::SequenceLengthSc(SEQUENCE_LENGTH_SC_RECIPE),
-                CuratedRecipeImplementation::NonsquareSpacingSc(NONSQUARE_SPACING_SC_RECIPE),
+                CuratedStageEntry::Legacy(CuratedRecipeImplementation::TimezoneSc(
+                    TIMEZONE_SC_RECIPE,
+                )),
+                CuratedStageEntry::Legacy(CuratedRecipeImplementation::EmptyType2Sc(
+                    EMPTY_TYPE2_SC_RECIPE,
+                )),
+                CuratedStageEntry::Legacy(CuratedRecipeImplementation::StringBoundarySc(
+                    STRING_BOUNDARY_SC_RECIPE,
+                )),
+                CuratedStageEntry::Legacy(CuratedRecipeImplementation::PrivateCreatorSc(
+                    PRIVATE_CREATOR_SC_RECIPE,
+                )),
+                CuratedStageEntry::Legacy(CuratedRecipeImplementation::SequenceLengthSc(
+                    SEQUENCE_LENGTH_SC_RECIPE,
+                )),
+                CuratedStageEntry::Legacy(CuratedRecipeImplementation::NonsquareSpacingSc(
+                    NONSQUARE_SPACING_SC_RECIPE,
+                )),
             ]);
         }
         CuratedRecipeStage::ClassicCt => recipes.extend(
             CLASSIC_CT_RECIPES
                 .iter()
-                .copied()
-                .map(CuratedRecipeImplementation::Ct),
+                .map(|recipe| PlanFirstStageEntry {
+                    stage,
+                    case_id: recipe.case_id,
+                })
+                .map(CuratedStageEntry::PlanFirst),
         ),
         CuratedRecipeStage::ClassicImagesBeforeEnhancedPet => {
             recipes.extend(
                 CLASSIC_MG_RECIPES
                     .iter()
-                    .copied()
-                    .map(CuratedRecipeImplementation::Mg),
+                    .map(|recipe| PlanFirstStageEntry {
+                        stage,
+                        case_id: recipe.case_id,
+                    })
+                    .map(CuratedStageEntry::PlanFirst),
             );
             recipes.extend(
                 CLASSIC_DX_RECIPES
                     .iter()
-                    .copied()
-                    .map(CuratedRecipeImplementation::Dx),
+                    .map(|recipe| PlanFirstStageEntry {
+                        stage,
+                        case_id: recipe.case_id,
+                    })
+                    .map(CuratedStageEntry::PlanFirst),
             );
             recipes.extend(
                 CLASSIC_NM_RECIPES
                     .iter()
-                    .copied()
-                    .map(CuratedRecipeImplementation::Nm),
+                    .map(|recipe| PlanFirstStageEntry {
+                        stage,
+                        case_id: recipe.case_id,
+                    })
+                    .map(CuratedStageEntry::PlanFirst),
             );
             recipes.extend(
                 CLASSIC_PET_RECIPES
                     .iter()
-                    .copied()
-                    .map(CuratedRecipeImplementation::Pet),
+                    .map(|recipe| PlanFirstStageEntry {
+                        stage,
+                        case_id: recipe.case_id,
+                    })
+                    .map(CuratedStageEntry::PlanFirst),
             );
         }
         CuratedRecipeStage::ClassicImagesAfterEnhancedPet => {
             recipes.extend(
                 CLASSIC_US_MULTIFRAME_RECIPES
                     .iter()
-                    .copied()
-                    .map(CuratedRecipeImplementation::UsMultiframe),
+                    .map(|recipe| PlanFirstStageEntry {
+                        stage,
+                        case_id: recipe.case_id,
+                    })
+                    .map(CuratedStageEntry::PlanFirst),
             );
             recipes.extend(
                 CLASSIC_XA_RECIPES
                     .iter()
-                    .copied()
-                    .map(CuratedRecipeImplementation::Xa),
+                    .map(|recipe| PlanFirstStageEntry {
+                        stage,
+                        case_id: recipe.case_id,
+                    })
+                    .map(CuratedStageEntry::PlanFirst),
             );
             recipes.extend(
                 CLASSIC_XRF_RECIPES
                     .iter()
-                    .copied()
-                    .map(CuratedRecipeImplementation::Xrf),
+                    .map(|recipe| PlanFirstStageEntry {
+                        stage,
+                        case_id: recipe.case_id,
+                    })
+                    .map(CuratedStageEntry::PlanFirst),
             );
             recipes.extend(
                 CLASSIC_US_RECIPES
                     .iter()
-                    .copied()
-                    .map(CuratedRecipeImplementation::Us),
+                    .map(|recipe| PlanFirstStageEntry {
+                        stage,
+                        case_id: recipe.case_id,
+                    })
+                    .map(CuratedStageEntry::PlanFirst),
             );
             recipes.extend(
                 CLASSIC_CR_RECIPES
                     .iter()
-                    .copied()
-                    .map(CuratedRecipeImplementation::Cr),
+                    .map(|recipe| PlanFirstStageEntry {
+                        stage,
+                        case_id: recipe.case_id,
+                    })
+                    .map(CuratedStageEntry::PlanFirst),
             );
             recipes.extend(
                 CLASSIC_MR_RECIPES
                     .iter()
-                    .copied()
-                    .map(CuratedRecipeImplementation::Mr),
+                    .map(|recipe| PlanFirstStageEntry {
+                        stage,
+                        case_id: recipe.case_id,
+                    })
+                    .map(CuratedStageEntry::PlanFirst),
             );
         }
     }
@@ -4949,8 +4978,8 @@ fn write_curated_recipe_stage(
     stage: CuratedRecipeStage,
     plan_first_files: &mut BTreeMap<String, Vec<GeneratedFile>>,
 ) -> Result<(), GenerateError> {
-    for implementation in curated_recipe_registry(stage) {
-        let case_id = implementation.case_id();
+    for entry in curated_recipe_registry(stage) {
+        let case_id = entry.case_id();
         let Some(case) = registry_case(registry, case_id)? else {
             continue;
         };
@@ -4958,11 +4987,21 @@ fn write_curated_recipe_stage(
             if let Some(files) = plan_first_files.remove(case_id) {
                 context.record_many(files)?;
             } else {
-                context.record_many(implementation.generate(
-                    run,
-                    case,
-                    standards_lock_sha256,
-                )?)?;
+                match entry {
+                    CuratedStageEntry::Legacy(implementation) => context.record_many(
+                        implementation.generate(run, case, standards_lock_sha256)?,
+                    )?,
+                    CuratedStageEntry::PlanFirst(entry) => {
+                        return Err(GenerateError::PlanFirst {
+                            stage: "classic stage dispatch",
+                            message: PlanFirstStageError::MissingSelectedCase {
+                                stage: entry.stage,
+                                case_id: entry.case_id,
+                            }
+                            .to_string(),
+                        });
+                    }
+                }
             }
         }
     }
@@ -5904,9 +5943,12 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
         &mut plan_first_files_by_case,
     )?;
     if !plan_first_files_by_case.is_empty() {
-        return Err(GenerateError::MetadataShape {
-            path: PathBuf::from("curated-plan"),
-            message: "plan-first output did not match the curated recipe dispatcher",
+        return Err(GenerateError::PlanFirst {
+            stage: "curated stage dispatch",
+            message: PlanFirstStageError::UnmatchedCases {
+                case_ids: plan_first_files_by_case.into_keys().collect(),
+            }
+            .to_string(),
         });
     }
     migrate_shared_plan_curated_files(run, &mut context.generated_files)?;
@@ -31682,7 +31724,7 @@ mod tests {
         ]
         .into_iter()
         .flat_map(curated_recipe_registry)
-        .map(CuratedRecipeImplementation::case_id)
+        .map(CuratedStageEntry::case_id)
         .collect::<Vec<_>>();
         let unique = actual.iter().copied().collect::<BTreeSet<_>>();
         assert_eq!(unique.len(), actual.len(), "recipe IDs must be unique");
@@ -31719,6 +31761,102 @@ mod tests {
         expected.extend(CLASSIC_MR_RECIPES.iter().map(|recipe| recipe.case_id));
 
         assert_eq!(unique, expected);
+    }
+
+    #[test]
+    fn classic_curated_stages_are_plan_first_only() {
+        let expected = [
+            (
+                CuratedRecipeStage::ClassicCt,
+                CLASSIC_CT_RECIPES
+                    .iter()
+                    .map(|recipe| recipe.case_id)
+                    .collect::<Vec<_>>(),
+            ),
+            (
+                CuratedRecipeStage::ClassicImagesBeforeEnhancedPet,
+                CLASSIC_MG_RECIPES
+                    .iter()
+                    .map(|recipe| recipe.case_id)
+                    .chain(CLASSIC_DX_RECIPES.iter().map(|recipe| recipe.case_id))
+                    .chain(CLASSIC_NM_RECIPES.iter().map(|recipe| recipe.case_id))
+                    .chain(CLASSIC_PET_RECIPES.iter().map(|recipe| recipe.case_id))
+                    .collect::<Vec<_>>(),
+            ),
+            (
+                CuratedRecipeStage::ClassicImagesAfterEnhancedPet,
+                CLASSIC_US_MULTIFRAME_RECIPES
+                    .iter()
+                    .map(|recipe| recipe.case_id)
+                    .chain(CLASSIC_XA_RECIPES.iter().map(|recipe| recipe.case_id))
+                    .chain(CLASSIC_XRF_RECIPES.iter().map(|recipe| recipe.case_id))
+                    .chain(CLASSIC_US_RECIPES.iter().map(|recipe| recipe.case_id))
+                    .chain(CLASSIC_CR_RECIPES.iter().map(|recipe| recipe.case_id))
+                    .chain(CLASSIC_MR_RECIPES.iter().map(|recipe| recipe.case_id))
+                    .collect::<Vec<_>>(),
+            ),
+        ];
+        for (stage, expected_case_ids) in expected {
+            let entries = curated_recipe_registry(stage);
+            assert!(!entries.is_empty());
+            assert_eq!(
+                entries
+                    .iter()
+                    .copied()
+                    .map(CuratedStageEntry::case_id)
+                    .collect::<Vec<_>>(),
+                expected_case_ids
+            );
+            assert!(entries.into_iter().all(|entry| matches!(
+                entry,
+                CuratedStageEntry::PlanFirst(PlanFirstStageEntry {
+                    stage: entry_stage,
+                    ..
+                }) if entry_stage == stage
+            )));
+        }
+    }
+
+    #[test]
+    fn missing_selected_classic_output_is_a_typed_plan_first_error() {
+        let stage = CuratedRecipeStage::ClassicCt;
+        let entry = curated_recipe_registry(stage)
+            .into_iter()
+            .next()
+            .expect("classic CT dispatch entry");
+        let case_id = entry.case_id();
+        let registry = serde_json::json!({
+            "cases": [{
+                "case_id": case_id,
+                "status": "implemented",
+                "profiles": ["core"],
+                "requirements": {"features": [], "external_codecs": [], "external_validators": []}
+            }]
+        });
+        let run = PreparedGenerationRun {
+            profile: "core".into(),
+            out_dir: PathBuf::from("unused-plan-first-stage-output"),
+            manifest_path: PathBuf::from("unused-plan-first-stage-output/manifest.json"),
+            seed: 7,
+            include_stress: false,
+        };
+        let error = write_curated_recipe_stage(
+            &mut GenerationContext::default(),
+            &run,
+            &registry,
+            "unused-lock-hash",
+            stage,
+            &mut BTreeMap::new(),
+        )
+        .expect_err("selected classic case must not fall back to its legacy writer");
+        assert!(matches!(
+            error,
+            GenerateError::PlanFirst {
+                stage: "classic stage dispatch",
+                ref message,
+            } if message.contains(case_id) && message.contains(stage.name())
+        ));
+        assert!(!run.out_dir.exists());
     }
 
     #[cfg(feature = "jpegxl")]

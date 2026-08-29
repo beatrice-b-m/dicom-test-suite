@@ -330,10 +330,17 @@ fn resolve_and_stage(
 
     let mut entry_paths = Vec::with_capacity(plans.len());
     let mut output_bytes = 0_u64;
-    for plan in &plans {
+    for plan in &mut plans {
         let relative_path = format!("instances/{}.dcm", plan.instance_id);
         let path = staging.join(&relative_path);
-        Part10Materializer.materialize(plan, &path)?;
+        let outcome = Part10Materializer.materialize_with_outcome(plan, &path)?;
+        for content in &mut plan.content {
+            if outcome.streamed_slots.contains(&content.slot) {
+                content
+                    .properties
+                    .insert("writer_materialization".into(), "stream_copy".into());
+            }
+        }
         output_bytes = output_bytes
             .checked_add(
                 fs::metadata(&path)

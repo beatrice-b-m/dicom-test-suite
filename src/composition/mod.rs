@@ -63,7 +63,7 @@ pub use manifest::{
     CompositionManifestAssembler, CompositionManifestInputs, GenericPlanValidator,
     ManifestEntryInput, ManifestError, ValidationCheck,
 };
-pub use materializer::{MaterializeError, Part10Materializer};
+pub use materializer::{MaterializeError, MaterializeOutcome, Part10Materializer};
 pub use modules::{CommonModulePlans, ModuleError, ModulePlan, sop_common_operations};
 pub use native_content::{RawContentError, RawNativePixelOutput, resolve_raw_native_pixels};
 pub use pixel::{

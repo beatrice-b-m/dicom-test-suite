@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
-use std::fs;
+use std::fs::{self, File, OpenOptions};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use dicom_core::value::{
@@ -21,12 +22,25 @@ type Dataset = InMemDicomObject<StandardDataDictionary>;
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Part10Materializer;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MaterializeOutcome {
+    pub streamed_slots: Vec<String>,
+}
+
 impl Part10Materializer {
     pub fn materialize(
         &self,
         plan: &ResolvedInstancePlan,
         path: impl AsRef<Path>,
     ) -> Result<(), MaterializeError> {
+        self.materialize_with_outcome(plan, path).map(|_| ())
+    }
+
+    pub fn materialize_with_outcome(
+        &self,
+        plan: &ResolvedInstancePlan,
+        path: impl AsRef<Path>,
+    ) -> Result<MaterializeOutcome, MaterializeError> {
         let path = path.as_ref();
         if path.exists() {
             return Err(MaterializeError::OutputExists(path.to_path_buf()));
@@ -39,7 +53,25 @@ impl Part10Materializer {
             source,
         })?;
 
-        let mut object = build_dataset(plan)?;
+        let deferred = plan
+            .content
+            .iter()
+            .filter(|content| {
+                matches!(content.placement, super::ContentPlacement::TopLevel)
+                    && matches!(
+                        content.materialization,
+                        Some(ContentMaterialization::StagedFile(_))
+                    )
+            })
+            .collect::<Vec<_>>();
+        let stream_content = if deferred.len() == 1
+            && plan.transfer_syntax_uid == crate::part10_locator::EXPLICIT_VR_LITTLE_ENDIAN_UID
+        {
+            Some(deferred[0])
+        } else {
+            None
+        };
+        let mut object = build_dataset(plan, stream_content.map(|content| content.slot.as_str()))?;
         let sop_instance_uid = plan
             .identities
             .get(&CompositionUidRole::SopInstance, 0)
@@ -74,6 +106,10 @@ impl Part10Materializer {
             .write_to_file(path)
             .map_err(|error| MaterializeError::Dicom(error.to_string()))?;
 
+        if let Some(content) = stream_content {
+            stream_staged_content(path, content)?;
+        }
+
         let reopened =
             open_file(path).map_err(|error| MaterializeError::Dicom(error.to_string()))?;
         if reopened.meta().transfer_syntax() != plan.transfer_syntax_uid
@@ -82,11 +118,18 @@ impl Part10Materializer {
         {
             return Err(MaterializeError::IdentityRoundTrip);
         }
-        Ok(())
+        Ok(MaterializeOutcome {
+            streamed_slots: stream_content
+                .map(|content| vec![content.slot.clone()])
+                .unwrap_or_default(),
+        })
     }
 }
 
-fn build_dataset(plan: &ResolvedInstancePlan) -> Result<Dataset, MaterializeError> {
+fn build_dataset(
+    plan: &ResolvedInstancePlan,
+    deferred_slot: Option<&str>,
+) -> Result<Dataset, MaterializeError> {
     let mut object = Dataset::new_empty();
     let mut creators = BTreeMap::new();
     let mut element_tags = BTreeSet::new();
@@ -149,8 +192,15 @@ fn build_dataset(plan: &ResolvedInstancePlan) -> Result<Dataset, MaterializeErro
             ));
             continue;
         }
-        let bytes = materialized_primitive_bytes(content)?;
-        validate_content_bytes(content, &bytes)?;
+        let deferred = deferred_slot == Some(content.slot.as_str());
+        let bytes = if deferred {
+            Vec::new()
+        } else {
+            materialized_primitive_bytes(content)?
+        };
+        if !deferred {
+            validate_content_bytes(content, &bytes)?;
+        }
         put_private_creator(&mut object, &content.address, &mut creators)?;
         object.put(DataElement::new(
             content.address.tag(),
@@ -159,6 +209,107 @@ fn build_dataset(plan: &ResolvedInstancePlan) -> Result<Dataset, MaterializeErro
         ));
     }
     Ok(object)
+}
+
+fn stream_staged_content(
+    path: &Path,
+    content: &super::CanonicalContent,
+) -> Result<(), MaterializeError> {
+    let Some(ContentMaterialization::StagedFile(staged_path)) = &content.materialization else {
+        return Err(MaterializeError::MissingContent(content.slot.clone()));
+    };
+    let skeleton = fs::read(path).map_err(|source| MaterializeError::Io {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let located = crate::part10_locator::locate_explicit_vr_le_part10(
+        &skeleton,
+        crate::part10_locator::LocatorLimits::default(),
+    )
+    .map_err(|error| MaterializeError::Dicom(error.to_string()))?;
+    let tag = crate::part10_locator::Tag(content.address.group, content.address.element);
+    let element = located
+        .first(tag)
+        .ok_or_else(|| MaterializeError::MissingContent(content.slot.clone()))?;
+    if element.depth != 0 || element.declared_length != Some(0) {
+        return Err(MaterializeError::InvalidContentPlacement(content.slot.clone()));
+    }
+    let padded_size = content
+        .size_bytes
+        .checked_add(content.size_bytes & 1)
+        .ok_or(MaterializeError::NumericRange)?;
+    let encoded_size = u32::try_from(padded_size).map_err(|_| MaterializeError::NumericRange)?;
+    if element.length_field.len() != 4 {
+        return Err(MaterializeError::Dicom(
+            "streaming bulk content requires a 32-bit Explicit VR length field".into(),
+        ));
+    }
+
+    let temporary = path.with_extension("dts-streaming");
+    let mut destination = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temporary)
+        .map_err(|source| MaterializeError::Io {
+            path: temporary.clone(),
+            source,
+        })?;
+    destination
+        .write_all(&skeleton[..element.length_field.start])
+        .and_then(|_| destination.write_all(&encoded_size.to_le_bytes()))
+        .and_then(|_| {
+            destination.write_all(&skeleton[element.length_field.end..element.value.start])
+        })
+        .map_err(|source| MaterializeError::Io {
+            path: temporary.clone(),
+            source,
+        })?;
+    let mut staged = File::open(staged_path).map_err(|source| MaterializeError::Io {
+        path: staged_path.clone(),
+        source,
+    })?;
+    let (size, sha256) = super::content::copy_and_hash(
+        &mut staged,
+        &mut destination,
+        content.size_bytes,
+    )
+    .map_err(|error| MaterializeError::Dicom(error.to_string()))?;
+    if size != content.size_bytes {
+        return Err(MaterializeError::ContentSize {
+            slot: content.slot.clone(),
+            expected: content.size_bytes,
+            actual: size,
+        });
+    }
+    if sha256 != content.sha256 {
+        return Err(MaterializeError::ContentHash {
+            slot: content.slot.clone(),
+            expected: content.sha256.clone(),
+            actual: sha256,
+        });
+    }
+    if content.size_bytes & 1 == 1 {
+        destination.write_all(&[0]).map_err(|source| MaterializeError::Io {
+            path: temporary.clone(),
+            source,
+        })?;
+    }
+    destination
+        .write_all(&skeleton[element.value.end..])
+        .and_then(|_| destination.flush())
+        .map_err(|source| MaterializeError::Io {
+            path: temporary.clone(),
+            source,
+        })?;
+    fs::remove_file(path).map_err(|source| MaterializeError::Io {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    fs::rename(&temporary, path).map_err(|source| MaterializeError::Io {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    Ok(())
 }
 
 fn materialized_primitive_bytes(

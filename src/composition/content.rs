@@ -269,7 +269,7 @@ fn same_file(before: &fs::Metadata, after: &fs::Metadata) -> bool {
         && before.modified().ok() == after.modified().ok()
 }
 
-fn copy_and_hash(
+pub(crate) fn copy_and_hash(
     source: &mut File,
     destination: &mut File,
     maximum: u64,

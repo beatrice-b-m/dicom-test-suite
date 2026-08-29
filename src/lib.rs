@@ -9,6 +9,14 @@ use dicom_dictionary_std::{StandardDataDictionary, tags, uids};
 use dicom_object::{FileDicomObject, InMemDicomObject, open_file};
 use serde_json::Value;
 
+use crate::curated_execution::CuratedExecutionServiceFactory;
+use crate::curated_manifest::project_curated_file_entries;
+use crate::curated_plan::{
+    CuratedCatalogPaths, CuratedScCorpusPlan, CuratedScCorpusPlanProvider, CuratedScPlanRequest,
+    CuratedScSelection,
+};
+use crate::executor::cancellation::CancellationToken;
+use crate::executor::engine::{CorpusExecutor, ManifestProjectionError, ManifestProjector};
 use crate::executor::transaction::{OutputTransaction, TransactionError};
 
 use crate::codecs::{
@@ -242,6 +250,10 @@ pub enum GenerateError {
         path: PathBuf,
         message: &'static str,
     },
+    PlanFirst {
+        stage: &'static str,
+        message: String,
+    },
     SerializeManifest {
         path: PathBuf,
         source: serde_json::Error,
@@ -316,6 +328,9 @@ impl fmt::Display for GenerateError {
             Self::MetadataShape { path, message } => {
                 write!(f, "invalid metadata shape in {}: {message}", path.display())
             }
+            Self::PlanFirst { stage, message } => {
+                write!(f, "plan-first generation failed during {stage}: {message}")
+            }
             Self::SerializeManifest { path, source } => {
                 write!(
                     f,
@@ -387,6 +402,7 @@ impl Error for GenerateError {
             Self::ReadMetadata { source, .. } => Some(source),
             Self::ParseMetadata { source, .. } => Some(source),
             Self::MetadataShape { .. } => None,
+            Self::PlanFirst { .. } => None,
             Self::SerializeManifest { source, .. } => Some(source),
             Self::WriteManifest { source, .. } => Some(source),
             Self::PromoteOutputDir { source, .. } => Some(source),
@@ -556,12 +572,133 @@ pub fn prepare_generation_run(
     })
 }
 
+const CURATED_EXECUTOR_PARALLELISM: u32 = 4;
+
+struct StagedOnlyManifestProjector;
+
+impl ManifestProjector for StagedOnlyManifestProjector {
+    fn project(
+        &self,
+        _: &crate::executor::adapters::ManifestProjectionCompatibilityInput,
+    ) -> Result<Vec<u8>, ManifestProjectionError> {
+        Err(ManifestProjectionError(
+            "staged-only curated execution must use the curated manifest projector".to_string(),
+        ))
+    }
+}
+
+fn prepare_curated_sc_plan(
+    run: &PreparedGenerationRun,
+) -> Result<Option<CuratedScCorpusPlan>, GenerateError> {
+    if matches!(run.profile.as_str(), "negative" | "fuzz") {
+        return Ok(None);
+    }
+    let provider = CuratedScCorpusPlanProvider::load(curated_catalog_paths()).map_err(|error| {
+        GenerateError::PlanFirst {
+            stage: "curated SC catalog loading",
+            message: error.to_string(),
+        }
+    })?;
+    provider
+        .plan(&CuratedScPlanRequest {
+            selection: CuratedScSelection::Profile {
+                profile: run.profile.clone(),
+                include_stress: run.include_stress,
+            },
+            seed: run.seed,
+            max_parallelism: CURATED_EXECUTOR_PARALLELISM,
+        })
+        .map(Some)
+        .map_err(|error| GenerateError::PlanFirst {
+            stage: "curated SC planning",
+            message: error.to_string(),
+        })
+}
+
+fn curated_catalog_paths() -> CuratedCatalogPaths {
+    let working = CuratedCatalogPaths::from_repository_root(Path::new("."));
+    let repository =
+        CuratedCatalogPaths::from_repository_root(Path::new(env!("CARGO_MANIFEST_DIR")));
+    CuratedCatalogPaths {
+        recipes_root: if working.recipes_root.is_dir() {
+            working.recipes_root
+        } else {
+            repository.recipes_root
+        },
+        registry_path: if working.registry_path.is_file() {
+            working.registry_path
+        } else {
+            repository.registry_path
+        },
+        template_catalog_path: if working.template_catalog_path.is_file() {
+            working.template_catalog_path
+        } else {
+            repository.template_catalog_path
+        },
+        standards_lock_path: if working.standards_lock_path.is_file() {
+            working.standards_lock_path
+        } else {
+            repository.standards_lock_path
+        },
+    }
+}
+
+fn execute_curated_sc_plan(
+    bundle: Option<&CuratedScCorpusPlan>,
+    staging_root: &Path,
+) -> Result<Vec<generator::GeneratedFile>, GenerateError> {
+    let Some(bundle) = bundle else {
+        return Ok(Vec::new());
+    };
+    if bundle.plan.artifacts.is_empty() {
+        return Ok(Vec::new());
+    }
+    let staged = CorpusExecutor::new(
+        CuratedExecutionServiceFactory::new(bundle),
+        StagedOnlyManifestProjector,
+    )
+    .execute_into_staging(
+        &bundle.plan,
+        staging_root,
+        CURATED_EXECUTOR_PARALLELISM,
+        &CancellationToken::new(),
+    )
+    .map_err(|error| GenerateError::PlanFirst {
+        stage: "curated SC execution",
+        message: error.to_string(),
+    })?;
+    project_curated_file_entries(&bundle.projection, &staged.projection)
+        .map_err(|error| GenerateError::PlanFirst {
+            stage: "curated SC manifest projection",
+            message: error.to_string(),
+        })?
+        .into_iter()
+        .map(|manifest_entry| {
+            let case_id = manifest_entry
+                .get("case_id")
+                .and_then(Value::as_str)
+                .ok_or_else(|| GenerateError::PlanFirst {
+                    stage: "curated SC manifest projection",
+                    message: "projected file entry has no string case_id".to_string(),
+                })?
+                .to_string();
+            Ok(generator::GeneratedFile {
+                case_id,
+                manifest_entry,
+            })
+        })
+        .collect()
+}
+
 pub fn write_generation_run(
     run: &PreparedGenerationRun,
 ) -> Result<GenerationSummary, GenerateError> {
     if fs::symlink_metadata(&run.out_dir).is_ok() {
         return Err(GenerateError::OutputPathExists(run.out_dir.clone()));
     }
+    // Planning is deliberately complete before a publication transaction or
+    // private staging directory exists.
+    let curated_sc_plan = prepare_curated_sc_plan(run)?;
     let parent = run
         .out_dir
         .parent()
@@ -612,10 +749,13 @@ pub fn write_generation_run(
     let registry = read_json_metadata(registry_path)?;
     validate_case_registry_semantics(&registry).map_err(GenerateError::InvalidRegistry)?;
 
-    let generated = generator::write_supported_cases(
+    let plan_first_sc_files = execute_curated_sc_plan(curated_sc_plan.as_ref(), &staging_root)?;
+
+    let generated = generator::write_supported_cases_with_plan_first_sc(
         &staged_run,
         &registry,
         &sha256_hex(&standards_lock_bytes),
+        plan_first_sc_files,
     )?;
     let files_written = generated.files.len();
     let mut generated_case_ids: Vec<String> = generated

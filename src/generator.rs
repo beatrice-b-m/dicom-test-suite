@@ -4947,6 +4947,7 @@ fn write_curated_recipe_stage(
     registry: &Value,
     standards_lock_sha256: &str,
     stage: CuratedRecipeStage,
+    plan_first_files: &mut BTreeMap<String, Vec<GeneratedFile>>,
 ) -> Result<(), GenerateError> {
     for implementation in curated_recipe_registry(stage) {
         let case_id = implementation.case_id();
@@ -4954,7 +4955,15 @@ fn write_curated_recipe_stage(
             continue;
         };
         if should_generate_case(case, run)? {
-            context.record_many(implementation.generate(run, case, standards_lock_sha256)?)?;
+            if let Some(files) = plan_first_files.remove(case_id) {
+                context.record_many(files)?;
+            } else {
+                context.record_many(implementation.generate(
+                    run,
+                    case,
+                    standards_lock_sha256,
+                )?)?;
+            }
         }
     }
     Ok(())
@@ -4965,11 +4974,27 @@ pub(crate) fn write_supported_cases(
     registry: &Value,
     standards_lock_sha256: &str,
 ) -> Result<GenerationOutput, GenerateError> {
+    write_supported_cases_with_plan_first_sc(run, registry, standards_lock_sha256, Vec::new())
+}
+
+pub(crate) fn write_supported_cases_with_plan_first_sc(
+    run: &PreparedGenerationRun,
+    registry: &Value,
+    standards_lock_sha256: &str,
+    plan_first_files: Vec<GeneratedFile>,
+) -> Result<GenerationOutput, GenerateError> {
     if run.profile == "negative" {
         return write_negative_cases(run, registry, standards_lock_sha256);
     }
     if run.profile == "fuzz" {
         return write_fuzz_cases(run, registry, standards_lock_sha256);
+    }
+    let mut plan_first_files_by_case = BTreeMap::<String, Vec<GeneratedFile>>::new();
+    for file in plan_first_files {
+        plan_first_files_by_case
+            .entry(file.case_id.clone())
+            .or_default()
+            .push(file);
     }
     let mut context = GenerationContext::default();
     if let Some(case) = registry_case(registry, WSI_TILED_FULL_CASE_ID)? {
@@ -5031,7 +5056,14 @@ pub(crate) fn write_supported_cases(
         registry,
         standards_lock_sha256,
         CuratedRecipeStage::SecondaryCapture,
+        &mut plan_first_files_by_case,
     )?;
+    if !plan_first_files_by_case.is_empty() {
+        return Err(GenerateError::MetadataShape {
+            path: PathBuf::from("curated-sc-plan"),
+            message: "plan-first SC output did not match the curated recipe dispatcher",
+        });
+    }
     if let Some(case) = registry_case(registry, STRESS_HIGH_INSTANCE_CT_CASE_ID)? {
         if should_generate_case(case, run)? {
             let (request, started) = context.preflight_stress(
@@ -5113,6 +5145,7 @@ pub(crate) fn write_supported_cases(
         registry,
         standards_lock_sha256,
         CuratedRecipeStage::ClassicCt,
+        &mut BTreeMap::new(),
     )?;
     for spec in [FLOAT32_SPEC, FLOAT64_SPEC] {
         if let Some(case) = registry_case(registry, spec.case_id)? {
@@ -5852,6 +5885,7 @@ pub(crate) fn write_supported_cases(
         registry,
         standards_lock_sha256,
         CuratedRecipeStage::ClassicImagesBeforeEnhancedPet,
+        &mut BTreeMap::new(),
     )?;
     for recipe in ENHANCED_PET_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
@@ -5873,6 +5907,7 @@ pub(crate) fn write_supported_cases(
         registry,
         standards_lock_sha256,
         CuratedRecipeStage::ClassicImagesAfterEnhancedPet,
+        &mut BTreeMap::new(),
     )?;
     migrate_shared_plan_curated_files(run, &mut context.generated_files)?;
     Ok(context.into_output())

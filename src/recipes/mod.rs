@@ -12,6 +12,7 @@ mod loader;
 mod metadata_sc;
 mod model;
 mod sc;
+mod wsi;
 
 pub use crate::planning::RecipeIdentity;
 pub use advanced::{
@@ -53,4 +54,8 @@ pub use model::{
 pub use sc::{
     ScPlanError, SecondaryCapturePlanInput, native_pixel_content_from_recipe,
     native_pixel_request_from_recipe, resolved_secondary_capture_plan,
+};
+pub use wsi::{
+    WSI_ADVANCED_PROVIDER_ID, WsiAdvancedPlanProvider, WsiArtifactParameters, WsiArtifactRecipe,
+    WsiOpticalPath, WsiPixelAlgorithm, WsiPlanRecipe, curated_wsi_recipes,
 };

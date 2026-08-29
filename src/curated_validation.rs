@@ -23,6 +23,62 @@ use crate::validation::{
     validate_part10_file,
 };
 
+pub(crate) fn validate_part10_with_expectations(
+    path: &Path,
+    expected: &Part10Expectations<'_>,
+) -> Result<TypedValidationReport, CuratedValidationError> {
+    let validated = validate_part10_file(path, expected)
+        .map_err(|error| CuratedValidationError::Part10(error.to_string()))?;
+    Ok(TypedValidationReport {
+        bytes: validated.bytes,
+        checks: checks_from_legacy(&validated.validation)?,
+        metadata_observation: None,
+    })
+}
+
+pub(crate) fn validate_icc_profile_round_trip(
+    path: &Path,
+    expected_sha256: &str,
+    expected_size: usize,
+    expected_color_space: &str,
+) -> Result<TypedValidationCheck, CuratedValidationError> {
+    let object = open_file(path).map_err(|error| fail(path, error.to_string()))?;
+    let profile = object
+        .element(tags::ICC_PROFILE)
+        .map_err(|error| fail(path, format!("read ICC Profile: {error}")))?;
+    if profile.vr() != VR::OB {
+        return Err(fail(
+            path,
+            format!("ICC Profile uses {:?}, expected OB", profile.vr()),
+        ));
+    }
+    let bytes = profile
+        .value()
+        .to_bytes()
+        .map_err(|error| fail(path, format!("read ICC Profile bytes: {error}")))?;
+    if bytes.len() != expected_size || sha256_hex(bytes.as_ref()) != expected_sha256 {
+        return Err(fail(
+            path,
+            "ICC Profile bytes do not match the typed recipe declaration",
+        ));
+    }
+    let color_space = object
+        .element(tags::COLOR_SPACE)
+        .map_err(|error| fail(path, format!("read Color Space: {error}")))?
+        .to_str()
+        .map_err(|error| fail(path, format!("decode Color Space: {error}")))?;
+    if color_space.trim() != expected_color_space {
+        return Err(fail(
+            path,
+            "DICOM Color Space does not match the typed ICC recipe declaration",
+        ));
+    }
+    Ok(TypedValidationCheck::passed_internal(
+        "icc_profile_round_trip",
+        "ICC Profile OB bytes, hash, size, and DICOM Color Space match the typed recipe declaration.",
+    ))
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ScPixelLengthFormula {

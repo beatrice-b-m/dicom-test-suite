@@ -7,6 +7,9 @@ use super::{
     NativePixelPlan, PhotometricInterpretation, PixelShape, PlanarConfiguration, PrimitiveValue,
     ResolvedInstancePlan, SampleType, TemplateDescriptor, TemplateId, ValueOrigin,
 };
+use crate::native_pixel::{
+    NativePixelContent as NeutralPixelContent, NativePixelFactory, NativePixelPatternRequest,
+};
 use crate::sha256_hex;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -25,53 +28,94 @@ pub fn sc_template_default_layer(
 }
 
 pub fn sc_default_pixels(template_id: &TemplateId) -> Result<DefaultPixelOutput, DefaultError> {
-    let (shape, bytes) = match template_id.0.as_str() {
+    let pattern = match template_id.0.as_str() {
         "classic/secondary-capture/monochrome" => {
-            let shape = PixelShape {
+            NativePixelPatternRequest::MonochromeHorizontalRamp {
                 rows: 64,
                 columns: 64,
                 frames: 1,
-                samples_per_pixel: 1,
-                photometric_interpretation: PhotometricInterpretation::Monochrome2,
-                sample_type: SampleType::UnsignedInteger,
-                bits_allocated: 8,
-                bits_stored: 8,
-                high_bit: 7,
-                byte_order: super::ByteOrder::Little,
-                planar_configuration: None,
-            };
-            let bytes = (0_u32..64 * 64)
-                .map(|index| ((index % 64) * 4) as u8)
-                .collect();
-            (shape, bytes)
-        }
-        "classic/secondary-capture/rgb" => {
-            let shape = PixelShape {
-                rows: 32,
-                columns: 32,
-                frames: 1,
-                samples_per_pixel: 3,
-                photometric_interpretation: PhotometricInterpretation::Rgb,
-                sample_type: SampleType::UnsignedInteger,
-                bits_allocated: 8,
-                bits_stored: 8,
-                high_bit: 7,
-                byte_order: super::ByteOrder::Little,
-                planar_configuration: Some(PlanarConfiguration::Interleaved),
-            };
-            let mut bytes = Vec::with_capacity(32 * 32 * 3);
-            for row in 0_u8..32 {
-                for column in 0_u8..32 {
-                    bytes.extend([column * 8, row * 8, column.wrapping_add(row) * 4]);
-                }
+                column_step: 4,
             }
-            (shape, bytes)
         }
+        "classic/secondary-capture/rgb" => NativePixelPatternRequest::RgbCoordinates {
+            rows: 32,
+            columns: 32,
+            frames: 1,
+        },
         other => return Err(DefaultError::UnsupportedTemplate(other.to_string())),
     };
+    let neutral = NativePixelFactory.create_pattern(pattern)?;
+    adapt_neutral_default(neutral)
+}
+
+fn adapt_neutral_default(neutral: NeutralPixelContent) -> Result<DefaultPixelOutput, DefaultError> {
+    let neutral_shape = &neutral.plan.shape;
+    let shape = PixelShape {
+        rows: neutral_shape.rows,
+        columns: neutral_shape.columns,
+        frames: neutral_shape.frames,
+        samples_per_pixel: u8::try_from(neutral_shape.samples_per_pixel)
+            .map_err(|_| DefaultError::NeutralShape("Samples per Pixel exceeds u8".into()))?,
+        photometric_interpretation: match neutral_shape.photometric_interpretation {
+            crate::native_pixel::PhotometricInterpretation::Monochrome1 => {
+                PhotometricInterpretation::Monochrome1
+            }
+            crate::native_pixel::PhotometricInterpretation::Monochrome2 => {
+                PhotometricInterpretation::Monochrome2
+            }
+            crate::native_pixel::PhotometricInterpretation::PaletteColor => {
+                PhotometricInterpretation::PaletteColor
+            }
+            crate::native_pixel::PhotometricInterpretation::Rgb => PhotometricInterpretation::Rgb,
+            crate::native_pixel::PhotometricInterpretation::YbrFull => {
+                PhotometricInterpretation::YbrFull
+            }
+            crate::native_pixel::PhotometricInterpretation::YbrFull422 => {
+                PhotometricInterpretation::YbrFull422
+            }
+        },
+        sample_type: match neutral_shape.stored_value_type {
+            crate::native_pixel::StoredValueType::U1 => SampleType::Bit1,
+            crate::native_pixel::StoredValueType::U8
+            | crate::native_pixel::StoredValueType::U16
+            | crate::native_pixel::StoredValueType::U32 => SampleType::UnsignedInteger,
+            crate::native_pixel::StoredValueType::I8
+            | crate::native_pixel::StoredValueType::I16
+            | crate::native_pixel::StoredValueType::I32 => SampleType::SignedInteger,
+        },
+        bits_allocated: u8::try_from(neutral_shape.bits_allocated)
+            .map_err(|_| DefaultError::NeutralShape("Bits Allocated exceeds u8".into()))?,
+        bits_stored: u8::try_from(neutral_shape.bits_stored)
+            .map_err(|_| DefaultError::NeutralShape("Bits Stored exceeds u8".into()))?,
+        high_bit: u8::try_from(neutral_shape.high_bit)
+            .map_err(|_| DefaultError::NeutralShape("High Bit exceeds u8".into()))?,
+        byte_order: match neutral_shape.byte_order {
+            crate::native_pixel::ByteOrder::Little => super::ByteOrder::Little,
+            crate::native_pixel::ByteOrder::Big => super::ByteOrder::Big,
+        },
+        planar_configuration: neutral_shape
+            .color
+            .as_ref()
+            .map(|color| match color.planar_configuration {
+                0 => Ok(PlanarConfiguration::Interleaved),
+                1 => Ok(PlanarConfiguration::Planar),
+                other => Err(DefaultError::NeutralShape(format!(
+                    "unsupported Planar Configuration {other}"
+                ))),
+            })
+            .transpose()?,
+    };
     let plan = NativePixelPlan::plan(shape)?;
-    debug_assert_eq!(plan.unpadded_value_bytes, bytes.len() as u64);
-    let content = canonical_native_pixels(&plan, bytes, BTreeMap::new());
+    if plan.unpadded_value_bytes != neutral.plan.unpadded_value_bytes
+        || plan.padded_value_bytes != neutral.plan.padded_value_bytes
+        || plan.padding_bytes != neutral.plan.padding_bytes
+    {
+        return Err(DefaultError::NeutralShape(
+            "neutral and composition pixel plans disagree".into(),
+        ));
+    }
+    let content = canonical_native_pixels(&plan, neutral.unpadded_bytes, BTreeMap::new());
+    debug_assert_eq!(content.sha256, neutral.unpadded_sha256);
     Ok(DefaultPixelOutput { plan, content })
 }
 
@@ -228,12 +272,20 @@ pub enum DefaultError {
     UnsupportedTemplate(String),
     MissingIdentity(String),
     Pixel(super::PixelError),
+    NativePixel(crate::native_pixel::NativePixelError),
+    NeutralShape(String),
     Resolve(super::ResolveError),
 }
 
 impl From<super::PixelError> for DefaultError {
     fn from(error: super::PixelError) -> Self {
         Self::Pixel(error)
+    }
+}
+
+impl From<crate::native_pixel::NativePixelError> for DefaultError {
+    fn from(error: crate::native_pixel::NativePixelError) -> Self {
+        Self::NativePixel(error)
     }
 }
 
@@ -263,15 +315,48 @@ mod tests {
         let mono =
             sc_default_pixels(&TemplateId("classic/secondary-capture/monochrome".into())).unwrap();
         let rgb = sc_default_pixels(&TemplateId("classic/secondary-capture/rgb".into())).unwrap();
+        let expected_mono = (0_u32..64 * 64)
+            .map(|index| ((index % 64) * 4) as u8)
+            .collect::<Vec<_>>();
+        let mut expected_rgb = Vec::with_capacity(32 * 32 * 3);
+        for row in 0_u8..32 {
+            for column in 0_u8..32 {
+                expected_rgb.extend([column * 8, row * 8, column.wrapping_add(row) * 4]);
+            }
+        }
         assert_eq!(mono.content.size_bytes, 4096);
         assert_eq!(rgb.content.size_bytes, 3072);
-        assert_ne!(mono.content.sha256, rgb.content.sha256);
         assert_eq!(
             mono.content.sha256,
-            sc_default_pixels(&TemplateId("classic/secondary-capture/monochrome".into()))
-                .unwrap()
-                .content
-                .sha256
+            "fc79e707a60d7602732e7b610a0191cf3eb205264589af81571471727db68099"
+        );
+        assert_eq!(
+            rgb.content.sha256,
+            "56699dcfac1f1f988529c223f70bb5bad5c1879dc0ed4842ceecb82817cf0e02"
+        );
+        assert_eq!(
+            mono.content.materialization,
+            Some(ContentMaterialization::Inline(expected_mono.clone()))
+        );
+        assert_eq!(
+            rgb.content.materialization,
+            Some(ContentMaterialization::Inline(expected_rgb.clone()))
+        );
+        assert_eq!(sha256_hex(&expected_mono), mono.content.sha256);
+        assert_eq!(sha256_hex(&expected_rgb), rgb.content.sha256);
+        assert!(mono.content.properties.is_empty());
+        assert!(rgb.content.properties.is_empty());
+        assert_eq!(mono.plan.frame_spans.len(), 1);
+        assert_eq!(rgb.plan.frame_spans.len(), 1);
+        assert_eq!(mono.plan.unpadded_value_bytes, mono.content.size_bytes);
+        assert_eq!(rgb.plan.unpadded_value_bytes, rgb.content.size_bytes);
+        assert!(
+            mono.plan.unpadded_value_bytes
+                <= crate::native_pixel::NativePixelLimits::DEFAULT_MAX_VALUE_BYTES
+        );
+        assert!(
+            rgb.plan.unpadded_value_bytes
+                <= crate::native_pixel::NativePixelLimits::DEFAULT_MAX_VALUE_BYTES
         );
     }
 

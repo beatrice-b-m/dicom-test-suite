@@ -308,25 +308,33 @@ pub struct ProviderEvidence {
     pub provider_id: String,
     pub provider_version: String,
     pub status: ResultStatus,
-    pub executable_sha256: String,
+    pub executable_sha256: Option<String>,
     pub argument_sha256: String,
     pub request_sha256: String,
     pub response_sha256: String,
-    pub output_sha256: String,
+    pub outputs: BTreeMap<String, String>,
 }
 
 impl ProviderEvidence {
     fn validate(&self) -> Result<(), EvidenceError> {
         validate_identifier("provider ID", &self.provider_id)?;
         validate_identifier("provider version", &self.provider_version)?;
+        if let Some(hash) = &self.executable_sha256 {
+            validate_sha256("provider executable", hash)?;
+        }
         for (label, hash) in [
-            ("provider executable", &self.executable_sha256),
             ("provider arguments", &self.argument_sha256),
             ("provider request", &self.request_sha256),
             ("provider response", &self.response_sha256),
-            ("provider output", &self.output_sha256),
         ] {
             validate_sha256(label, hash)?;
+        }
+        if self.outputs.is_empty() {
+            return Err(EvidenceError::EmptyProviderOutputs);
+        }
+        for (slot, hash) in &self.outputs {
+            validate_identifier("provider output slot", slot)?;
+            validate_sha256("provider output", hash)?;
         }
         Ok(())
     }
@@ -337,6 +345,8 @@ impl ProviderEvidence {
 pub struct CodecEvidence {
     pub backend_id: String,
     pub backend_version: String,
+    pub slot: String,
+    pub request_sha256: String,
     pub transfer_syntax_uid: String,
     pub status: ResultStatus,
     pub determinism: String,
@@ -353,6 +363,8 @@ impl CodecEvidence {
     fn validate(&self) -> Result<(), EvidenceError> {
         validate_identifier("codec backend", &self.backend_id)?;
         validate_identifier("codec version", &self.backend_version)?;
+        validate_identifier("codec slot", &self.slot)?;
+        validate_sha256("codec request", &self.request_sha256)?;
         validate_identifier("codec determinism", &self.determinism)?;
         for hash in self
             .encoded_frame_sha256
@@ -610,6 +622,7 @@ pub enum EvidenceError {
     },
     DuplicateUnavailableCapability(String),
     NonFiniteCodecMetric,
+    EmptyProviderOutputs,
     UnsafePublication,
     IncompleteManifestEvidence,
     PromotedWithIncompleteArtifact,

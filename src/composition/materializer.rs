@@ -327,6 +327,26 @@ fn multi(values: &[PrimitiveValue], vr: DicomVr) -> Result<DicomPrimitiveValue, 
         DicomVr::US => numeric_vec!(U16, Unsigned, u16),
         DicomVr::UL => numeric_vec!(U32, Unsigned, u32),
         DicomVr::UV => numeric_vec!(U64, Unsigned, u64),
+        DicomVr::FL => DicomPrimitiveValue::F32(
+            values
+                .iter()
+                .map(|value| match value {
+                    PrimitiveValue::Float32Bits(value) => Ok(f32::from_bits(*value)),
+                    _ => Err(MaterializeError::NumericRange),
+                })
+                .collect::<Result<Vec<_>, _>>()?
+                .into(),
+        ),
+        DicomVr::FD => DicomPrimitiveValue::F64(
+            values
+                .iter()
+                .map(|value| match value {
+                    PrimitiveValue::Float64Bits(value) => Ok(f64::from_bits(*value)),
+                    _ => Err(MaterializeError::NumericRange),
+                })
+                .collect::<Result<Vec<_>, _>>()?
+                .into(),
+        ),
         _ => return Err(MaterializeError::NumericRange),
     })
 }
@@ -524,6 +544,17 @@ mod tests {
                 ]
                 .into()
             )
+        );
+        assert_eq!(
+            multi(
+                &[
+                    PrimitiveValue::Float64Bits(0.75_f64.to_bits()),
+                    PrimitiveValue::Float64Bits(1.5_f64.to_bits()),
+                ],
+                DicomVr::FD,
+            )
+            .unwrap(),
+            DicomPrimitiveValue::F64(vec![0.75, 1.5].into())
         );
     }
 

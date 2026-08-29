@@ -67,8 +67,8 @@ use native::general_ecg::{
     build_general_ecg,
 };
 use native::icc_profile::{
-    ICC_CASE_ID, ICC_COLOR_SPACE, ICC_PROFILE_BYTES, ICC_PROFILE_SHA256, ICC_PROFILE_SIZE,
-    ICC_RECIPE_ID, validate_locked_icc_profile,
+    ICC_COLOR_SPACE, ICC_PROFILE_BYTES, ICC_PROFILE_SHA256, ICC_PROFILE_SIZE,
+    validate_locked_icc_profile,
 };
 use native::metadata_sc::{METADATA_SC_RECIPES, MetadataScRecipe};
 use native::pet::{ENHANCED_PET_RECIPES, EnhancedPetRecipe};
@@ -703,6 +703,29 @@ const ENHANCED_MR_PHASE_U16_PIXELS: [u8; 16] = [
     0, 0, 0x28, 0, 0x50, 0, 0x78, 0, 0xa0, 0, 0xc8, 0, 0xf0, 0, 0x18, 1,
 ];
 const ENHANCED_MR_PHASE_U16_VALUES: [i32; 8] = [0, 40, 80, 120, 160, 200, 240, 280];
+const COLOR_SOFTCOPY_PRIVATE_SOURCE_PIXEL_RECIPE: PixelRecipe = PixelRecipe {
+    case_id: "classic/sc/rgb_planar0_explicit_le",
+    recipe_id: "sc_rgb_planar0",
+    rows: 2,
+    columns: 2,
+    photometric_interpretation: "RGB",
+    samples_per_pixel: 3,
+    planar_configuration: Some(0),
+    bits_allocated: 8,
+    bits_stored: 8,
+    high_bit: 7,
+    pixel_representation: 0,
+    pixel_vr: VR::OB,
+    transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
+    pixel_bytes: &RGB_PLANAR0_PIXELS,
+    pixel_values: &[255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255],
+    pixel_min: 0,
+    pixel_max: 255,
+    visual_pattern: "2x2_rgb_red_green_blue_white",
+    semantic_note: "RGB samples are interleaved color-by-pixel",
+    palette: None,
+    padding: None,
+};
 const PIXEL_RECIPES: &[PixelRecipe] = &[
     PixelRecipe {
         case_id: "classic/sc/mono2_u8_explicit_le",
@@ -748,144 +771,6 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         visual_pattern: "2x2_inverse_monochrome_gradient",
         semantic_note: "minimum sample value displays as white",
         palette: None,
-        padding: None,
-    },
-    PixelRecipe {
-        case_id: "classic/sc/rgb_planar0_explicit_le",
-        recipe_id: "sc_rgb_planar0",
-        rows: 2,
-        columns: 2,
-        photometric_interpretation: "RGB",
-        samples_per_pixel: 3,
-        planar_configuration: Some(0),
-        bits_allocated: 8,
-        bits_stored: 8,
-        high_bit: 7,
-        pixel_representation: 0,
-        pixel_vr: VR::OB,
-        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
-        pixel_bytes: &RGB_PLANAR0_PIXELS,
-        pixel_values: &[255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255],
-        pixel_min: 0,
-        pixel_max: 255,
-        visual_pattern: "2x2_rgb_red_green_blue_white",
-        semantic_note: "RGB samples are interleaved color-by-pixel",
-        palette: None,
-        padding: None,
-    },
-    PixelRecipe {
-        case_id: "vl/photo/rgb_planar0_explicit_le",
-        recipe_id: "vl_photo_rgb_planar0",
-        rows: 2,
-        columns: 2,
-        photometric_interpretation: "RGB",
-        samples_per_pixel: 3,
-        planar_configuration: Some(0),
-        bits_allocated: 8,
-        bits_stored: 8,
-        high_bit: 7,
-        pixel_representation: 0,
-        pixel_vr: VR::OB,
-        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
-        pixel_bytes: &RGB_PLANAR0_PIXELS,
-        pixel_values: &[255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255],
-        pixel_min: 0,
-        pixel_max: 255,
-        visual_pattern: "2x2_vl_photo_rgb_red_green_blue_white",
-        semantic_note: "VL Photographic RGB samples are interleaved color-by-pixel",
-        palette: None,
-        padding: None,
-    },
-    PixelRecipe {
-        case_id: "vl/endoscopic/rgb_explicit_le",
-        recipe_id: "vl_endoscopic_rgb_explicit_le",
-        rows: 2,
-        columns: 2,
-        photometric_interpretation: "RGB",
-        samples_per_pixel: 3,
-        planar_configuration: Some(0),
-        bits_allocated: 8,
-        bits_stored: 8,
-        high_bit: 7,
-        pixel_representation: 0,
-        pixel_vr: VR::OB,
-        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
-        pixel_bytes: &RGB_PLANAR0_PIXELS,
-        pixel_values: &[255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255],
-        pixel_min: 0,
-        pixel_max: 255,
-        visual_pattern: "2x2_vl_endoscopic_rgb_red_green_blue_white",
-        semantic_note: "VL Endoscopic RGB samples are interleaved color-by-pixel",
-        palette: None,
-        padding: None,
-    },
-    PixelRecipe {
-        case_id: "vl/microscopic/rgb_explicit_le",
-        recipe_id: "vl_microscopic_rgb_explicit_le",
-        rows: 2,
-        columns: 2,
-        photometric_interpretation: "RGB",
-        samples_per_pixel: 3,
-        planar_configuration: Some(0),
-        bits_allocated: 8,
-        bits_stored: 8,
-        high_bit: 7,
-        pixel_representation: 0,
-        pixel_vr: VR::OB,
-        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
-        pixel_bytes: &RGB_PLANAR0_PIXELS,
-        pixel_values: &[255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255],
-        pixel_min: 0,
-        pixel_max: 255,
-        visual_pattern: "2x2_vl_microscopic_rgb_red_green_blue_white",
-        semantic_note: "VL Microscopic RGB samples are interleaved color-by-pixel",
-        palette: None,
-        padding: None,
-    },
-    PixelRecipe {
-        case_id: ICC_CASE_ID,
-        recipe_id: ICC_RECIPE_ID,
-        rows: 2,
-        columns: 2,
-        photometric_interpretation: "RGB",
-        samples_per_pixel: 3,
-        planar_configuration: Some(0),
-        bits_allocated: 8,
-        bits_stored: 8,
-        high_bit: 7,
-        pixel_representation: 0,
-        pixel_vr: VR::OB,
-        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
-        pixel_bytes: &RGB_PLANAR0_PIXELS,
-        pixel_values: &[255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255],
-        pixel_min: 0,
-        pixel_max: 255,
-        visual_pattern: "2x2_vl_photo_rgb_red_green_blue_white_with_srgb_icc",
-        semantic_note: "VL Photographic RGB samples are interpreted through the embedded SRGB input profile",
-        palette: None,
-        padding: None,
-    },
-    PixelRecipe {
-        case_id: "vl/photo/palette_color_explicit_le",
-        recipe_id: "vl_photo_palette_color",
-        rows: 2,
-        columns: 2,
-        photometric_interpretation: "PALETTE COLOR",
-        samples_per_pixel: 1,
-        planar_configuration: None,
-        bits_allocated: 8,
-        bits_stored: 8,
-        high_bit: 7,
-        pixel_representation: 0,
-        pixel_vr: VR::OB,
-        transfer_syntax: EXPLICIT_VR_LITTLE_ENDIAN,
-        pixel_bytes: &PALETTE_COLOR_PIXELS,
-        pixel_values: &PALETTE_COLOR_VALUES,
-        pixel_min: 0,
-        pixel_max: 3,
-        visual_pattern: "2x2_vl_photo_palette_red_green_blue_white",
-        semantic_note: "VL Photographic stored pixel values index 16-bit RGB palette lookup tables",
-        palette: Some(PALETTE_COLOR_LUT),
         padding: None,
     },
     PixelRecipe {
@@ -2094,75 +1979,6 @@ const PIXEL_RECIPES: &[PixelRecipe] = &[
         pixel_max: 3,
         visual_pattern: "2x2x2_palette_rle_lossless_palette_order_reversed",
         semantic_note: "two PALETTE COLOR frames share 16-bit RGB lookup tables after RLE Lossless decode",
-        palette: Some(PALETTE_COLOR_LUT),
-        padding: None,
-    },
-    PixelRecipe {
-        case_id: "vl/photo/rgb_planar0_rle_lossless",
-        recipe_id: "vl_photo_rgb_planar0_rle_lossless",
-        rows: 2,
-        columns: 2,
-        photometric_interpretation: "RGB",
-        samples_per_pixel: 3,
-        planar_configuration: Some(0),
-        bits_allocated: 8,
-        bits_stored: 8,
-        high_bit: 7,
-        pixel_representation: 0,
-        pixel_vr: VR::OB,
-        transfer_syntax: RLE_LOSSLESS,
-        pixel_bytes: &RGB_PLANAR0_PIXELS,
-        pixel_values: &[255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255],
-        pixel_min: 0,
-        pixel_max: 255,
-        visual_pattern: "2x2_vl_photo_rgb_rle_lossless_red_green_blue_white",
-        semantic_note: "VL Photographic RGB samples remain interleaved color-by-pixel after RLE Lossless decode",
-        palette: None,
-        padding: None,
-    },
-    PixelRecipe {
-        case_id: "vl/photo/rgb_planar1_rle_lossless",
-        recipe_id: "vl_photo_rgb_planar1_rle_lossless",
-        rows: 2,
-        columns: 2,
-        photometric_interpretation: "RGB",
-        samples_per_pixel: 3,
-        planar_configuration: Some(1),
-        bits_allocated: 8,
-        bits_stored: 8,
-        high_bit: 7,
-        pixel_representation: 0,
-        pixel_vr: VR::OB,
-        transfer_syntax: RLE_LOSSLESS,
-        pixel_bytes: &RGB_PLANAR1_PIXELS,
-        pixel_values: &[255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255],
-        pixel_min: 0,
-        pixel_max: 255,
-        visual_pattern: "2x2_vl_photo_rgb_planar1_rle_lossless_red_green_blue_white",
-        semantic_note: "VL Photographic RGB samples remain color-by-plane after RLE Lossless decode",
-        palette: None,
-        padding: None,
-    },
-    PixelRecipe {
-        case_id: "vl/photo/palette_color_rle_lossless",
-        recipe_id: "vl_photo_palette_color_rle_lossless",
-        rows: 2,
-        columns: 2,
-        photometric_interpretation: "PALETTE COLOR",
-        samples_per_pixel: 1,
-        planar_configuration: None,
-        bits_allocated: 8,
-        bits_stored: 8,
-        high_bit: 7,
-        pixel_representation: 0,
-        pixel_vr: VR::OB,
-        transfer_syntax: RLE_LOSSLESS,
-        pixel_bytes: &PALETTE_COLOR_PIXELS,
-        pixel_values: &PALETTE_COLOR_VALUES,
-        pixel_min: 0,
-        pixel_max: 3,
-        visual_pattern: "2x2_vl_photo_palette_rle_lossless_red_green_blue_white",
-        semantic_note: "VL Photographic stored RLE Lossless pixel values index 16-bit RGB palette lookup tables after decode",
         palette: Some(PALETTE_COLOR_LUT),
         padding: None,
     },
@@ -4289,16 +4105,23 @@ enum CuratedRecipeStage {
     ClassicImagesAfterEnhancedPet,
 }
 
-const PLAN_FIRST_CLASSIC_PIXEL_CASE_IDS: &[&str] = &[
+const PLAN_FIRST_NATIVE_VL_CASE_IDS: &[&str] = &[
     "vl/photo/rgb_planar0_explicit_le",
     "vl/endoscopic/rgb_explicit_le",
     "vl/microscopic/rgb_explicit_le",
     "vl/photo/rgb_icc_profile_explicit_le",
     "vl/photo/palette_color_explicit_le",
+];
+
+const PLAN_FIRST_RLE_VL_CASE_IDS: &[&str] = &[
     "vl/photo/rgb_planar0_rle_lossless",
     "vl/photo/rgb_planar1_rle_lossless",
     "vl/photo/palette_color_rle_lossless",
 ];
+
+const PLAN_FIRST_NATIVE_VL_INSERT_AFTER_CASE_ID: &str = "classic/sc/mono1_u8_explicit_le";
+const PLAN_FIRST_RLE_VL_INSERT_AFTER_CASE_ID: &str =
+    "classic/sc/palette_color_u8_multiframe_rle_lossless";
 
 const PLAN_FIRST_CLASSIC_MG_DX_NM_CASE_IDS: &[&str] = &[
     "classic/mg/for_presentation_mono1_u16_12bit_explicit_le",
@@ -4467,16 +4290,33 @@ fn curated_recipe_registry(stage: CuratedRecipeStage) -> Vec<CuratedStageEntry> 
     let mut recipes = Vec::new();
     match stage {
         CuratedRecipeStage::SecondaryCapture => {
-            recipes.extend(PIXEL_RECIPES.iter().copied().map(|recipe| {
-                if PLAN_FIRST_CLASSIC_PIXEL_CASE_IDS.contains(&recipe.case_id) {
-                    CuratedStageEntry::PlanFirst(PlanFirstStageEntry {
+            for recipe in PIXEL_RECIPES.iter().copied() {
+                recipes.push(CuratedStageEntry::Legacy(
+                    CuratedRecipeImplementation::Pixel(recipe),
+                ));
+                if recipe.case_id == PLAN_FIRST_NATIVE_VL_INSERT_AFTER_CASE_ID {
+                    recipes.push(CuratedStageEntry::PlanFirst(PlanFirstStageEntry {
                         stage,
-                        case_id: recipe.case_id,
-                    })
-                } else {
-                    CuratedStageEntry::Legacy(CuratedRecipeImplementation::Pixel(recipe))
+                        case_id: COLOR_SOFTCOPY_PRESENTATION_STATE_SOURCE_CASE_ID,
+                    }));
+                    recipes.extend(
+                        PLAN_FIRST_NATIVE_VL_CASE_IDS
+                            .iter()
+                            .copied()
+                            .map(|case_id| PlanFirstStageEntry { stage, case_id })
+                            .map(CuratedStageEntry::PlanFirst),
+                    );
                 }
-            }));
+                if recipe.case_id == PLAN_FIRST_RLE_VL_INSERT_AFTER_CASE_ID {
+                    recipes.extend(
+                        PLAN_FIRST_RLE_VL_CASE_IDS
+                            .iter()
+                            .copied()
+                            .map(|case_id| PlanFirstStageEntry { stage, case_id })
+                            .map(CuratedStageEntry::PlanFirst),
+                    );
+                }
+            }
             recipes.extend(
                 METADATA_SC_RECIPES
                     .iter()
@@ -4594,6 +4434,24 @@ pub(crate) fn write_supported_cases(
     standards_lock_sha256: &str,
 ) -> Result<GenerationOutput, GenerateError> {
     write_supported_cases_with_plan_first_sc(run, registry, standards_lock_sha256, Vec::new())
+}
+
+fn resolve_and_write_u5_color_softcopy_private_source(
+    run: &PreparedGenerationRun,
+    registry: &Value,
+    standards_lock_sha256: &str,
+) -> Result<GeneratedFile, GenerateError> {
+    let source_case = registry_case(registry, COLOR_SOFTCOPY_PRESENTATION_STATE_SOURCE_CASE_ID)?
+        .ok_or_else(|| GenerateError::MetadataShape {
+            path: PathBuf::from(COLOR_SOFTCOPY_PRESENTATION_STATE_CASE_ID),
+            message: "Color Softcopy Presentation State RGB source registry row is missing",
+        })?;
+    write_pixel_case(
+        run,
+        source_case,
+        COLOR_SOFTCOPY_PRIVATE_SOURCE_PIXEL_RECIPE,
+        standards_lock_sha256,
+    )
 }
 
 pub(crate) fn write_supported_cases_with_plan_first_sc(
@@ -4981,28 +4839,9 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
                 .first_for_case(COLOR_SOFTCOPY_PRESENTATION_STATE_SOURCE_CASE_ID)
                 .is_none()
             {
-                let source_case = registry_case(
-                    registry,
-                    COLOR_SOFTCOPY_PRESENTATION_STATE_SOURCE_CASE_ID,
-                )?
-                .ok_or_else(|| GenerateError::MetadataShape {
-                    path: PathBuf::from(COLOR_SOFTCOPY_PRESENTATION_STATE_CASE_ID),
-                    message: "Color Softcopy Presentation State RGB source registry row is missing",
-                })?;
-                let source_recipe = PIXEL_RECIPES
-                    .iter()
-                    .find(|recipe| {
-                        recipe.case_id == COLOR_SOFTCOPY_PRESENTATION_STATE_SOURCE_CASE_ID
-                    })
-                    .copied()
-                    .ok_or_else(|| GenerateError::MetadataShape {
-                        path: PathBuf::from(COLOR_SOFTCOPY_PRESENTATION_STATE_CASE_ID),
-                        message: "Color Softcopy Presentation State RGB native recipe is missing",
-                    })?;
-                context.record_one(write_pixel_case(
+                context.record_one(resolve_and_write_u5_color_softcopy_private_source(
                     run,
-                    source_case,
-                    source_recipe,
+                    registry,
                     standards_lock_sha256,
                 )?)?;
             }
@@ -11544,15 +11383,6 @@ fn write_pixel_case_with_metadata(
             message: "unsigned 32-bit source pixels do not match their locked bytes/hash",
         });
     }
-    if pixel_has_icc_profile(recipe)
-        && (validate_locked_icc_profile(&ICC_PROFILE_BYTES).is_err()
-            || sha256_hex(&ICC_PROFILE_BYTES) != ICC_PROFILE_SHA256)
-    {
-        return Err(GenerateError::MetadataShape {
-            path: PathBuf::from(recipe.case_id),
-            message: "ICC source profile does not match its locked structure/hash",
-        });
-    }
     let study_instance_uid = deterministic_case_uid_with_file_index(
         standards_lock_sha256,
         recipe,
@@ -11589,7 +11419,6 @@ fn write_pixel_case_with_metadata(
 
     let mut obj = InMemDicomObject::new_empty();
     let sop_class_uid = pixel_sop_class_uid(recipe);
-    let is_single_frame_vl = pixel_single_frame_vl_kind(recipe).is_some();
     let is_u1_sc = recipe.case_id == U1_SC_RECIPE.case_id;
     let is_multiframe_sc = is_u1_sc || recipe.case_id == EOT_CASE_ID;
     put_str(&mut obj, tags::SOP_CLASS_UID, VR::UI, sop_class_uid);
@@ -11734,7 +11563,7 @@ fn write_pixel_case_with_metadata(
         }
     }
 
-    put_str(&mut obj, tags::MODALITY, VR::CS, pixel_modality(recipe));
+    put_str(&mut obj, tags::MODALITY, VR::CS, "OT");
     put_str(
         &mut obj,
         tags::SERIES_INSTANCE_UID,
@@ -11754,9 +11583,7 @@ fn write_pixel_case_with_metadata(
         put_str(&mut obj, tags::LATERALITY, VR::CS, "");
     }
 
-    if !is_single_frame_vl {
-        put_str(&mut obj, tags::CONVERSION_TYPE, VR::CS, "SYN");
-    }
+    put_str(&mut obj, tags::CONVERSION_TYPE, VR::CS, "SYN");
     put_str(&mut obj, tags::MANUFACTURER, VR::LO, "dicom-test-suite");
     put_str(
         &mut obj,
@@ -11789,30 +11616,6 @@ fn write_pixel_case_with_metadata(
         put_str(&mut obj, tags::BURNED_IN_ANNOTATION, VR::CS, "NO");
         put_str(&mut obj, tags::LOSSY_IMAGE_COMPRESSION, VR::CS, "00");
     }
-    if is_single_frame_vl {
-        put_str(&mut obj, tags::IMAGE_TYPE, VR::CS, "ORIGINAL\\PRIMARY");
-        put_str(&mut obj, tags::LOSSY_IMAGE_COMPRESSION, VR::CS, "00");
-        put_empty_sequence(&mut obj, tags::ACQUISITION_CONTEXT_SEQUENCE);
-    }
-    if let Some((body_part_examined, laterality)) = pixel_vl_anatomy(recipe) {
-        put_str(
-            &mut obj,
-            tags::BODY_PART_EXAMINED,
-            VR::CS,
-            body_part_examined,
-        );
-        put_str(&mut obj, tags::LATERALITY, VR::CS, laterality);
-    }
-    if pixel_has_icc_profile(recipe) {
-        put_str(&mut obj, tags::LATERALITY, VR::CS, "R");
-        obj.put(DataElement::new(
-            tags::ICC_PROFILE,
-            VR::OB,
-            PrimitiveValue::U8(ICC_PROFILE_BYTES.to_vec().into()),
-        ));
-        put_str(&mut obj, tags::COLOR_SPACE, VR::CS, ICC_COLOR_SPACE);
-    }
-
     put_u16(
         &mut obj,
         tags::SAMPLES_PER_PIXEL,
@@ -12804,9 +12607,6 @@ fn write_pixel_case_with_metadata(
     for result in codec_internal_validation {
         append_internal_validation(&mut validation, result);
     }
-    if pixel_has_icc_profile(recipe) {
-        append_internal_validation(&mut validation, validate_icc_profile_round_trip(&path)?);
-    }
     if let Some(metadata) = metadata {
         let result = match metadata {
             ScMetadataPayload::PersonName(recipe) => {
@@ -12857,17 +12657,12 @@ fn write_pixel_case_with_metadata(
 }
 
 fn curated_pixel_template_family(recipe: PixelRecipe) -> &'static str {
-    match pixel_single_frame_vl_kind(recipe) {
-        Some(SingleFrameVlKind::Endoscopic) => "vl/endoscopic",
-        Some(SingleFrameVlKind::Microscopic) => "vl/microscopic",
-        Some(SingleFrameVlKind::Photographic) => "vl/photographic",
-        None if recipe.case_id == U1_SC_RECIPE.case_id => {
-            "classic/secondary-capture/multiframe-single-bit"
-        }
-        None if recipe.case_id == EOT_CASE_ID => {
-            "classic/secondary-capture/multiframe-grayscale-byte"
-        }
-        None => "classic/secondary-capture",
+    if recipe.case_id == U1_SC_RECIPE.case_id {
+        "classic/secondary-capture/multiframe-single-bit"
+    } else if recipe.case_id == EOT_CASE_ID {
+        "classic/secondary-capture/multiframe-grayscale-byte"
+    } else {
+        "classic/secondary-capture"
     }
 }
 
@@ -13049,69 +12844,6 @@ fn validate_nonsquare_geometry_round_trip(
         message: error.to_string(),
     })
 }
-fn validate_icc_profile_round_trip(path: &std::path::Path) -> Result<Value, GenerateError> {
-    let obj = open_file(path).map_err(|error| GenerateError::ValidateDicomFile {
-        path: path.to_path_buf(),
-        message: format!("reopen ICC VL Photographic fixture: {error}"),
-    })?;
-    let profile =
-        obj.element(tags::ICC_PROFILE)
-            .map_err(|error| GenerateError::ValidateDicomFile {
-                path: path.to_path_buf(),
-                message: format!("read ICC Profile: {error}"),
-            })?;
-    if profile.vr() != VR::OB {
-        return Err(GenerateError::ValidateDicomFile {
-            path: path.to_path_buf(),
-            message: format!("ICC Profile VR is {:?}, expected OB", profile.vr()),
-        });
-    }
-    let bytes = profile
-        .value()
-        .to_bytes()
-        .map_err(|error| GenerateError::ValidateDicomFile {
-            path: path.to_path_buf(),
-            message: format!("read ICC Profile bytes: {error}"),
-        })?;
-    validate_locked_icc_profile(bytes.as_ref()).map_err(|message| {
-        GenerateError::ValidateDicomFile {
-            path: path.to_path_buf(),
-            message,
-        }
-    })?;
-    if bytes.as_ref() != ICC_PROFILE_BYTES {
-        return Err(GenerateError::ValidateDicomFile {
-            path: path.to_path_buf(),
-            message: "ICC Profile bytes differ from the locked source profile".to_string(),
-        });
-    }
-    let color_space = obj
-        .element(tags::COLOR_SPACE)
-        .map_err(|error| GenerateError::ValidateDicomFile {
-            path: path.to_path_buf(),
-            message: format!("read Color Space: {error}"),
-        })?
-        .to_str()
-        .map_err(|error| GenerateError::ValidateDicomFile {
-            path: path.to_path_buf(),
-            message: format!("decode Color Space: {error}"),
-        })?;
-    if color_space.trim() != ICC_COLOR_SPACE {
-        return Err(GenerateError::ValidateDicomFile {
-            path: path.to_path_buf(),
-            message: format!(
-                "Color Space {} does not match locked {ICC_COLOR_SPACE}",
-                color_space.trim()
-            ),
-        });
-    }
-    Ok(serde_json::json!({
-        "name": "icc_profile_round_trip",
-        "status": "passed",
-        "message": "ICC Profile OB bytes, DICOM-constrained header, tag table, hash, and SRGB declaration match."
-    }))
-}
-
 fn validate_text_metadata_round_trip(
     path: &std::path::Path,
     recipe: MetadataScRecipe,
@@ -13856,149 +13588,6 @@ fn pixel_manifest_entry(
                 "anchor": "sect_8.1.1"
             }),
         ]);
-    } else if matches!(
-        pixel_single_frame_vl_kind(recipe),
-        Some(SingleFrameVlKind::Endoscopic | SingleFrameVlKind::Microscopic)
-    ) {
-        let (iod_name, iod_table, modality_section) =
-            match pixel_single_frame_vl_kind(recipe).expect("matched VL kind") {
-                SingleFrameVlKind::Endoscopic => {
-                    ("VL Endoscopic Image", "table_A.32.1-1", "sect_A.32.1.4.1")
-                }
-                SingleFrameVlKind::Microscopic => {
-                    ("VL Microscopic Image", "table_A.32.1-2", "sect_A.32.2.4.1")
-                }
-                SingleFrameVlKind::Photographic => unreachable!("excluded above"),
-            };
-        standards_evidence.extend([
-            serde_json::json!({
-                "source": "dicom-standard-kb",
-                "edition": "2026b",
-                "query": format!("lookup_sop_class {}", pixel_sop_class_name(recipe)),
-                "covered": true,
-                "part": "PS3.4",
-                "anchor": "table_B.5-1"
-            }),
-            serde_json::json!({
-                "source": "dicom-standard-kb",
-                "edition": "2026b",
-                "query": format!("lookup_iod {iod_name}"),
-                "covered": true,
-                "part": "PS3.3",
-                "anchor": iod_table
-            }),
-            serde_json::json!({
-                "source": "dicom-standard-kb",
-                "edition": "2026b",
-                "query": format!("list_modules_for_iod {iod_name}"),
-                "covered": true,
-                "part": "PS3.3",
-                "anchor": iod_table
-            }),
-            serde_json::json!({
-                "source": "dicom-standard-kb",
-                "edition": "2026b",
-                "query": "list_attributes_for_module VL Image --expand-macros",
-                "covered": true,
-                "part": "PS3.3",
-                "anchor": "table_C.8-77"
-            }),
-            serde_json::json!({
-                "source": "dicom-standard-kb",
-                "edition": "2026b",
-                "query": "list_attributes_for_module General Series --expand-macros",
-                "covered": true,
-                "part": "PS3.3",
-                "anchor": "table_C.7-5a"
-            }),
-            serde_json::json!({
-                "source": "dicom-standard-kb",
-                "edition": "2026b",
-                "query": format!("retrieve_standard_text {modality_section}"),
-                "covered": true,
-                "part": "PS3.3",
-                "anchor": modality_section
-            }),
-            serde_json::json!({
-                "source": "local-source-note",
-                "edition": "2026b",
-                "query": "standards/source-notes/phase-4-vl-single-frame.md",
-                "covered": true,
-                "part": "PS3.3",
-                "anchor": iod_table
-            }),
-        ]);
-    } else if pixel_is_vl_photographic(recipe) {
-        standards_evidence.extend([
-            serde_json::json!({
-                "source": "dicom-standard-kb",
-                "edition": "2026b",
-                "query": "lookup_sop_class VL Photographic Image Storage",
-                "covered": true,
-                "part": "PS3.4",
-                "anchor": "table_B.5-1"
-            }),
-            serde_json::json!({
-                "source": "dicom-standard-kb",
-                "edition": "2026b",
-                "query": "lookup_iod VL Photographic Image",
-                "covered": true,
-                "part": "PS3.3",
-                "anchor": "table_A.32.4-1"
-            }),
-            serde_json::json!({
-                "source": "dicom-standard-kb",
-                "edition": "2026b",
-                "query": "list_modules_for_iod VL Photographic Image",
-                "covered": true,
-                "part": "PS3.3",
-                "anchor": "table_A.32.4-1"
-            }),
-            serde_json::json!({
-                "source": "dicom-standard-kb",
-                "edition": "2026b",
-                "query": "list_attributes_for_module VL Image --expand-macros",
-                "covered": true,
-                "part": "PS3.3",
-                "anchor": "table_C.8-77"
-            }),
-            serde_json::json!({
-                "source": "dicom-standard-kb",
-                "edition": "2026b",
-                "query": "list_attributes_for_module Acquisition Context --expand-macros",
-                "covered": true,
-                "part": "PS3.3",
-                "anchor": "table_C.7.6.14-1"
-            }),
-        ]);
-        if pixel_has_icc_profile(recipe) {
-            standards_evidence.extend([
-                serde_json::json!({
-                    "source": "dicom-standard-kb",
-                    "edition": "2026b",
-                    "query": "list_attributes_for_module ICC Profile --expand-macros",
-                    "covered": true,
-                    "part": "PS3.3",
-                    "anchor": "table_C.11.15-1"
-                }),
-                serde_json::json!({
-                    "source": "dicom-standard-kb",
-                    "edition": "2026b",
-                    "query": "retrieve_standard_text sect_C.11.15.1.1",
-                    "covered": true,
-                    "part": "PS3.3",
-                    "anchor": "sect_C.11.15.1.1"
-                }),
-                serde_json::json!({
-                    "source": "local-source-note",
-                    "edition": "2026b",
-                    "query": "standards/source-notes/phase-2-icc-profile.md",
-                    "covered": true,
-                    "part": "PS3.3",
-                    "anchor": "sect_C.11.15.1.2"
-                }),
-            ]);
-        }
     } else {
         standards_evidence.extend([
             serde_json::json!({
@@ -14387,7 +13976,6 @@ fn pixel_manifest_entry(
     } else {
         serde_json::json!(recipe.pixel_values)
     };
-    let vl_anatomy = pixel_vl_anatomy(recipe);
     let mut manifest = serde_json::json!({
         "case_id": recipe.case_id,
         "profile_membership": pixel_profile_membership(recipe),
@@ -14415,7 +14003,7 @@ fn pixel_manifest_entry(
             "sop_class_uid": pixel_sop_class_uid(recipe),
             "sop_class_name": pixel_sop_class_name(recipe),
             "iod_name": pixel_iod_name(recipe),
-            "modality": pixel_modality(recipe),
+            "modality": "OT",
             "transfer_syntax_uid": recipe.transfer_syntax.uid,
             "transfer_syntax_name": recipe.transfer_syntax.name
         },
@@ -14443,8 +14031,8 @@ fn pixel_manifest_entry(
         "expected_capabilities": pixel_expected_capabilities(recipe),
         "expected_semantics": {
             "synthetic_data": "YES",
-            "conversion_type": pixel_conversion_type(recipe),
-            "image_type": pixel_image_type(recipe),
+            "conversion_type": "SYN",
+            "image_type": Value::Null,
             "pixel_min": recipe.pixel_min,
             "pixel_max": recipe.pixel_max,
             "pixel_padding": padding_manifest,
@@ -14460,47 +14048,6 @@ fn pixel_manifest_entry(
         "known_stressors": pixel_known_stressors(recipe),
         "standards_evidence": deduplicated_standards_evidence(standards_evidence)
     });
-    if let Some((body_part_examined, laterality)) = vl_anatomy {
-        manifest["recipe"]["recipe_parameters"]["body_part_examined"] =
-            Value::from(body_part_examined);
-        manifest["recipe"]["recipe_parameters"]["laterality"] = Value::from(laterality);
-        manifest["expected_semantics"]["body_part_examined"] = Value::from(body_part_examined);
-        manifest["expected_semantics"]["laterality"] = Value::from(laterality);
-        manifest["expected_vl_single_frame"] = serde_json::json!({
-            "iod_kind": match pixel_single_frame_vl_kind(recipe) {
-                Some(SingleFrameVlKind::Endoscopic) => "vl_endoscopic_single_frame",
-                Some(SingleFrameVlKind::Microscopic) => "vl_microscopic_single_frame",
-                _ => unreachable!("VL anatomy is only defined for milestone-1 VL kinds"),
-            },
-            "sop_class_uid": pixel_sop_class_uid(recipe),
-            "sop_class_name": pixel_sop_class_name(recipe),
-            "iod_name": pixel_iod_name(recipe),
-            "modality": pixel_modality(recipe),
-            "transfer_syntax_uid": recipe.transfer_syntax.uid,
-            "body_part_examined": body_part_examined,
-            "laterality": laterality,
-            "image_type": ["ORIGINAL", "PRIMARY"],
-            "acquisition_context_items": 0,
-            "image": {
-                "rows": recipe.rows,
-                "columns": recipe.columns,
-                "samples_per_pixel": recipe.samples_per_pixel,
-                "photometric_interpretation": recipe.photometric_interpretation,
-                "planar_configuration": recipe.planar_configuration,
-                "bits_allocated": recipe.bits_allocated,
-                "bits_stored": recipe.bits_stored,
-                "high_bit": recipe.high_bit,
-                "pixel_representation": recipe.pixel_representation
-            },
-            "absent_content": [
-                "number_of_frames",
-                "frame_of_reference_uid",
-                "specimen_module",
-                "optical_path_module",
-                "icc_profile_module"
-            ]
-        });
-    }
     if recipe.case_id == U32_SC_RECIPE.case_id {
         manifest["expected_u32_pixels"] = serde_json::json!({
             "stored_values": U32_SC_RECIPE.pixel_values,
@@ -14534,27 +14081,6 @@ fn pixel_manifest_entry(
     }
     if let Some(expected_lossy_metrics) = expected_lossy_metrics {
         manifest["expected_lossy_metrics"] = expected_lossy_metrics;
-    }
-    if pixel_has_icc_profile(recipe) {
-        manifest["expected_icc_profile"] = serde_json::json!({
-            "tag": "(0028,2000)",
-            "vr": "OB",
-            "profile_sha256": ICC_PROFILE_SHA256,
-            "profile_size_bytes": ICC_PROFILE_SIZE,
-            "declared_profile_size_bytes": ICC_PROFILE_SIZE,
-            "profile_version": "2.1.0",
-            "device_class": "scnr",
-            "data_color_space": "RGB",
-            "profile_connection_space": "XYZ",
-            "profile_signature": "acsp",
-            "rendering_intent": "perceptual",
-            "rendering_intent_code": 0,
-            "tag_count": 9,
-            "color_space": ICC_COLOR_SPACE,
-            "profile_description": "sRGB",
-            "copyright": "CC0",
-            "source_identity": "DCMTK 3.7.0 DCMTK_SRGB_ICC_SAMPLE"
-        });
     }
     if let Some(ScMetadataPayload::PersonName(metadata)) = metadata {
         let mut raw_value = metadata.patient_name_raw.to_vec();
@@ -14861,22 +14387,7 @@ fn pixel_lossy_image_compression_method(recipe: PixelRecipe) -> Option<&'static 
 }
 
 fn pixel_known_stressors(recipe: PixelRecipe) -> Vec<&'static str> {
-    let mut stressors = match pixel_single_frame_vl_kind(recipe) {
-        Some(kind) => {
-            let mut stressors = vec![match kind {
-                SingleFrameVlKind::Endoscopic => "vl_endoscopic_image_storage",
-                SingleFrameVlKind::Microscopic => "vl_microscopic_image_storage",
-                SingleFrameVlKind::Photographic => "vl_photographic_image_storage",
-            }];
-            if recipe.palette.is_some() {
-                stressors.push("vl_palette_color_pixels");
-            } else if recipe.samples_per_pixel > 1 {
-                stressors.push("vl_rgb_pixels");
-            }
-            stressors
-        }
-        None => vec!["minimal_secondary_capture"],
-    };
+    let mut stressors = vec!["minimal_secondary_capture"];
     if recipe.transfer_syntax == RLE_LOSSLESS {
         stressors.push("encapsulated_pixel_data");
         stressors.push("rle_lossless_transfer_syntax");
@@ -14929,10 +14440,6 @@ fn pixel_known_stressors(recipe: PixelRecipe) -> Vec<&'static str> {
         stressors.push("continuous_cross_frame_bit_packing");
         stressors.push("multi_frame_single_bit_secondary_capture");
         stressors.push("whole_value_field_even_length_padding");
-    }
-    if pixel_has_icc_profile(recipe) {
-        stressors.push("embedded_icc_input_profile");
-        stressors.push("srgb_color_management");
     }
     if recipe.case_id == NONSQUARE_SPACING_SC_RECIPE.pixel.case_id {
         stressors.push("nonsquare_pixel_geometry");
@@ -15012,9 +14519,6 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         | "classic/sc/mono1_i16_multiframe_rle_lossless"
         | "classic/sc/mono2_u8_odd_fragment_rle_lossless"
         | "classic/sc/mono1_u8_odd_fragment_rle_lossless"
-        | "vl/photo/rgb_planar0_rle_lossless"
-        | "vl/photo/rgb_planar1_rle_lossless"
-        | "vl/photo/palette_color_rle_lossless"
         | "classic/sc/rgb_planar0_multiframe_rle_lossless"
         | "classic/sc/rgb_planar0_jpeg_baseline_8bit"
         | "classic/sc/mono2_u8_jpeg_ls_lossless"
@@ -15027,10 +14531,7 @@ fn pixel_profile_membership(recipe: PixelRecipe) -> &'static [&'static str] {
         | "classic/sc/mono2_u16_jpeg_lossless_sv1"
         | "classic/sc/mono2_u32_explicit_le"
         | "classic/sc/mono2_u1_native"
-        | EOT_CASE_ID
-        | "vl/endoscopic/rgb_explicit_le"
-        | "vl/microscopic/rgb_explicit_le"
-        | ICC_CASE_ID => &["extended"],
+        | EOT_CASE_ID => &["extended"],
         _ => &["core"],
     }
 }
@@ -15042,14 +14543,6 @@ fn pixel_expected_capabilities(recipe: PixelRecipe) -> Vec<&'static str> {
             "read_metadata",
             "interpret_pixel_geometry",
             "render_native_pixels",
-        ];
-    }
-    if pixel_has_icc_profile(recipe) {
-        return vec![
-            "open_file",
-            "read_metadata",
-            "render_native_pixels",
-            "apply_icc_profile",
         ];
     }
     if recipe.case_id == U1_SC_RECIPE.case_id {
@@ -15141,50 +14634,13 @@ fn pixel_expected_capabilities(recipe: PixelRecipe) -> Vec<&'static str> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum SingleFrameVlKind {
-    Endoscopic,
-    Microscopic,
-    Photographic,
-}
-
-fn pixel_single_frame_vl_kind(recipe: PixelRecipe) -> Option<SingleFrameVlKind> {
-    match recipe.case_id {
-        "vl/endoscopic/rgb_explicit_le" => Some(SingleFrameVlKind::Endoscopic),
-        "vl/microscopic/rgb_explicit_le" => Some(SingleFrameVlKind::Microscopic),
-        case_id if case_id.starts_with("vl/photo/") => Some(SingleFrameVlKind::Photographic),
-        _ => None,
-    }
-}
-
-fn pixel_is_vl_photographic(recipe: PixelRecipe) -> bool {
-    pixel_single_frame_vl_kind(recipe) == Some(SingleFrameVlKind::Photographic)
-}
-
-fn pixel_vl_anatomy(recipe: PixelRecipe) -> Option<(&'static str, &'static str)> {
-    match pixel_single_frame_vl_kind(recipe) {
-        Some(SingleFrameVlKind::Endoscopic) => Some(("LUNG", "R")),
-        Some(SingleFrameVlKind::Microscopic) => Some(("EYE", "R")),
-        _ => None,
-    }
-}
-
-fn pixel_has_icc_profile(recipe: PixelRecipe) -> bool {
-    recipe.case_id == ICC_CASE_ID
-}
-
 fn pixel_sop_class_uid(recipe: PixelRecipe) -> &'static str {
     if recipe.case_id == U1_SC_RECIPE.case_id {
         uids::MULTI_FRAME_SINGLE_BIT_SECONDARY_CAPTURE_IMAGE_STORAGE
     } else if recipe.case_id == EOT_CASE_ID {
         uids::MULTI_FRAME_GRAYSCALE_BYTE_SECONDARY_CAPTURE_IMAGE_STORAGE
     } else {
-        match pixel_single_frame_vl_kind(recipe) {
-            Some(SingleFrameVlKind::Endoscopic) => uids::VL_ENDOSCOPIC_IMAGE_STORAGE,
-            Some(SingleFrameVlKind::Microscopic) => uids::VL_MICROSCOPIC_IMAGE_STORAGE,
-            Some(SingleFrameVlKind::Photographic) => uids::VL_PHOTOGRAPHIC_IMAGE_STORAGE,
-            None => uids::SECONDARY_CAPTURE_IMAGE_STORAGE,
-        }
+        uids::SECONDARY_CAPTURE_IMAGE_STORAGE
     }
 }
 
@@ -15194,12 +14650,7 @@ fn pixel_sop_class_name(recipe: PixelRecipe) -> &'static str {
     } else if recipe.case_id == EOT_CASE_ID {
         "Multi-frame Grayscale Byte Secondary Capture Image Storage"
     } else {
-        match pixel_single_frame_vl_kind(recipe) {
-            Some(SingleFrameVlKind::Endoscopic) => "VL Endoscopic Image Storage",
-            Some(SingleFrameVlKind::Microscopic) => "VL Microscopic Image Storage",
-            Some(SingleFrameVlKind::Photographic) => "VL Photographic Image Storage",
-            None => "Secondary Capture Image Storage",
-        }
+        "Secondary Capture Image Storage"
     }
 }
 
@@ -15209,37 +14660,7 @@ fn pixel_iod_name(recipe: PixelRecipe) -> &'static str {
     } else if recipe.case_id == EOT_CASE_ID {
         "Multi-frame Grayscale Byte Secondary Capture Image"
     } else {
-        match pixel_single_frame_vl_kind(recipe) {
-            Some(SingleFrameVlKind::Endoscopic) => "VL Endoscopic Image",
-            Some(SingleFrameVlKind::Microscopic) => "VL Microscopic Image",
-            Some(SingleFrameVlKind::Photographic) => "VL Photographic Image",
-            None => "Secondary Capture Image",
-        }
-    }
-}
-
-fn pixel_modality(recipe: PixelRecipe) -> &'static str {
-    match pixel_single_frame_vl_kind(recipe) {
-        Some(SingleFrameVlKind::Endoscopic) => "ES",
-        Some(SingleFrameVlKind::Microscopic) => "GM",
-        Some(SingleFrameVlKind::Photographic) => "XC",
-        None => "OT",
-    }
-}
-
-fn pixel_conversion_type(recipe: PixelRecipe) -> Value {
-    if pixel_single_frame_vl_kind(recipe).is_some() {
-        Value::Null
-    } else {
-        Value::String("SYN".to_string())
-    }
-}
-
-fn pixel_image_type(recipe: PixelRecipe) -> Value {
-    if pixel_single_frame_vl_kind(recipe).is_some() {
-        Value::String("ORIGINAL\\PRIMARY".to_string())
-    } else {
-        Value::Null
+        "Secondary Capture Image"
     }
 }
 
@@ -25642,6 +25063,9 @@ mod tests {
 
         let mut expected = BTreeSet::new();
         expected.extend(PIXEL_RECIPES.iter().map(|recipe| recipe.case_id));
+        expected.insert(COLOR_SOFTCOPY_PRESENTATION_STATE_SOURCE_CASE_ID);
+        expected.extend(PLAN_FIRST_NATIVE_VL_CASE_IDS.iter().copied());
+        expected.extend(PLAN_FIRST_RLE_VL_CASE_IDS.iter().copied());
         expected.extend(
             METADATA_SC_RECIPES
                 .iter()
@@ -25717,32 +25141,41 @@ mod tests {
     }
 
     #[test]
-    fn migrated_classic_pixel_symbols_are_plan_first_only() {
+    fn migrated_vl_and_color_softcopy_source_symbols_are_plan_first_only() {
+        assert!(PIXEL_RECIPES.iter().all(|recipe| {
+            recipe.case_id != COLOR_SOFTCOPY_PRESENTATION_STATE_SOURCE_CASE_ID
+                && !PLAN_FIRST_NATIVE_VL_CASE_IDS.contains(&recipe.case_id)
+                && !PLAN_FIRST_RLE_VL_CASE_IDS.contains(&recipe.case_id)
+        }));
         let entries = curated_recipe_registry(CuratedRecipeStage::SecondaryCapture);
+        let migrated_case_ids = std::iter::once(COLOR_SOFTCOPY_PRESENTATION_STATE_SOURCE_CASE_ID)
+            .chain(PLAN_FIRST_NATIVE_VL_CASE_IDS.iter().copied())
+            .chain(PLAN_FIRST_RLE_VL_CASE_IDS.iter().copied())
+            .collect::<Vec<_>>();
         let migrated = entries
             .iter()
             .copied()
-            .filter(|entry| PLAN_FIRST_CLASSIC_PIXEL_CASE_IDS.contains(&entry.case_id()))
+            .filter(|entry| migrated_case_ids.contains(&entry.case_id()))
             .collect::<Vec<_>>();
-        assert_eq!(migrated.len(), PLAN_FIRST_CLASSIC_PIXEL_CASE_IDS.len());
-        for case_id in PLAN_FIRST_CLASSIC_PIXEL_CASE_IDS {
+        assert_eq!(migrated.len(), migrated_case_ids.len());
+        for case_id in migrated_case_ids {
             let matching = migrated
                 .iter()
                 .copied()
-                .filter(|entry| entry.case_id() == *case_id)
+                .filter(|entry| entry.case_id() == case_id)
                 .collect::<Vec<_>>();
             assert!(matches!(
                 matching.as_slice(),
                 [CuratedStageEntry::PlanFirst(PlanFirstStageEntry {
                     stage: CuratedRecipeStage::SecondaryCapture,
                     case_id: dispatched,
-                })] if dispatched == case_id
+                })] if *dispatched == case_id
             ));
         }
         assert!(entries.iter().any(|entry| matches!(
             entry,
             CuratedStageEntry::Legacy(CuratedRecipeImplementation::Pixel(recipe))
-                if !PLAN_FIRST_CLASSIC_PIXEL_CASE_IDS.contains(&recipe.case_id)
+                if recipe.case_id != COLOR_SOFTCOPY_PRESENTATION_STATE_SOURCE_CASE_ID
         )));
     }
 
@@ -27198,203 +26631,6 @@ mod tests {
     }
 
     #[test]
-    fn single_frame_vl_writers_preserve_family_contracts_and_are_deterministic() {
-        let output = ParametricMapStagingGuard::new();
-        let run = PreparedGenerationRun {
-            profile: "extended".to_string(),
-            out_dir: output.path().to_path_buf(),
-            manifest_path: output.path().join("manifest.json"),
-            seed: 7,
-            include_stress: false,
-        };
-        let lock = sha256_hex(&fs::read("standards.lock.json").expect("standards lock"));
-
-        for (case_id, expected_uid, expected_modality, expected_body_part, expected_sha256) in [
-            (
-                "vl/endoscopic/rgb_explicit_le",
-                uids::VL_ENDOSCOPIC_IMAGE_STORAGE,
-                "ES",
-                "LUNG",
-                "dc3b2e155c9be0b728412df6fed7432a238a150512b176305fc6104c63bd6a3e",
-            ),
-            (
-                "vl/microscopic/rgb_explicit_le",
-                uids::VL_MICROSCOPIC_IMAGE_STORAGE,
-                "GM",
-                "EYE",
-                "5785f387d79f79e4b168390bb1def6520d165ac7279374b141beb2c2804f41e3",
-            ),
-        ] {
-            let recipe = PIXEL_RECIPES
-                .iter()
-                .copied()
-                .find(|recipe| recipe.case_id == case_id)
-                .expect("single-frame VL recipe must be dispatched");
-            let case = serde_json::json!({
-                "case_id": case_id,
-                "standards_evidence": []
-            });
-            let first = write_pixel_case(&run, &case, recipe, &lock)
-                .expect("single-frame VL fixture should write and validate");
-            let path = output.path().join(case_id).join("instance.dcm");
-            let first_bytes = fs::read(&path).expect("first VL bytes");
-            let second = write_pixel_case(&run, &case, recipe, &lock)
-                .expect("repeated single-frame VL fixture should validate");
-            let second_bytes = fs::read(&path).expect("second VL bytes");
-            assert_eq!(first_bytes, second_bytes);
-            assert_eq!(
-                first.manifest_entry["sha256"],
-                second.manifest_entry["sha256"]
-            );
-            assert_eq!(first.manifest_entry["sha256"], expected_sha256);
-
-            let reopened = open_file(&path).expect("single-frame VL object should reopen");
-            assert_eq!(
-                reopened
-                    .element(tags::SOP_CLASS_UID)
-                    .expect("SOP Class UID")
-                    .to_str()
-                    .expect("SOP Class UID string")
-                    .trim_end_matches('\0'),
-                expected_uid
-            );
-            assert_eq!(
-                reopened
-                    .element(tags::MODALITY)
-                    .expect("Modality")
-                    .to_str()
-                    .expect("Modality string"),
-                expected_modality
-            );
-            assert_eq!(
-                reopened
-                    .element(tags::BODY_PART_EXAMINED)
-                    .expect("Body Part Examined")
-                    .to_str()
-                    .expect("Body Part Examined string"),
-                expected_body_part
-            );
-            assert_eq!(
-                reopened
-                    .element(tags::LATERALITY)
-                    .expect("Laterality")
-                    .to_str()
-                    .expect("Laterality string"),
-                "R"
-            );
-            assert_eq!(
-                reopened
-                    .element(tags::IMAGE_TYPE)
-                    .expect("Image Type")
-                    .to_multi_str()
-                    .expect("Image Type values")
-                    .as_ref(),
-                &["ORIGINAL", "PRIMARY"]
-            );
-            assert_eq!(
-                reopened
-                    .element(tags::ACQUISITION_CONTEXT_SEQUENCE)
-                    .expect("Acquisition Context Sequence")
-                    .items()
-                    .expect("Acquisition Context items")
-                    .len(),
-                0
-            );
-            assert_eq!(
-                reopened
-                    .element(tags::LOSSY_IMAGE_COMPRESSION)
-                    .expect("Lossy Image Compression")
-                    .to_str()
-                    .expect("Lossy Image Compression string"),
-                "00"
-            );
-            assert_eq!(
-                reopened
-                    .element(tags::PIXEL_DATA)
-                    .expect("Pixel Data")
-                    .to_bytes()
-                    .expect("native RGB bytes")
-                    .as_ref(),
-                RGB_PLANAR0_PIXELS.as_slice()
-            );
-            assert!(reopened.element(tags::NUMBER_OF_FRAMES).is_err());
-            assert!(reopened.element(tags::FRAME_OF_REFERENCE_UID).is_err());
-            assert!(reopened.element(tags::CONVERSION_TYPE).is_err());
-            assert!(
-                reopened
-                    .element(tags::SPECIMEN_DESCRIPTION_SEQUENCE)
-                    .is_err()
-            );
-            assert!(reopened.element(tags::OPTICAL_PATH_SEQUENCE).is_err());
-            assert!(reopened.element(tags::ICC_PROFILE).is_err());
-            assert_eq!(
-                first
-                    .manifest_entry
-                    .pointer("/expected_vl_single_frame/sop_class_uid")
-                    .and_then(Value::as_str),
-                Some(expected_uid)
-            );
-            assert_eq!(
-                first
-                    .manifest_entry
-                    .pointer("/expected_vl_single_frame/body_part_examined")
-                    .and_then(Value::as_str),
-                Some(expected_body_part)
-            );
-            assert_eq!(
-                first
-                    .manifest_entry
-                    .pointer("/expected_vl_single_frame/acquisition_context_items")
-                    .and_then(Value::as_u64),
-                Some(0)
-            );
-            assert_eq!(
-                first.manifest_entry.pointer("/profile_membership"),
-                Some(&serde_json::json!(["extended"]))
-            );
-            let manifest_schema: Value =
-                serde_json::from_str(include_str!("../schemas/manifest.schema.json"))
-                    .expect("manifest schema should parse");
-            let file_schema = serde_json::json!({
-                "$schema": "https://json-schema.org/draft/2020-12/schema",
-                "$ref": "#/$defs/file",
-                "$defs": manifest_schema["$defs"].clone(),
-            });
-            let validator =
-                jsonschema::validator_for(&file_schema).expect("file schema should compile");
-            let mut schema_entry = first.manifest_entry.clone();
-            schema_entry["references"] = serde_json::json!([]);
-            assert!(
-                validator.is_valid(&schema_entry),
-                "single-frame VL manifest schema errors: {:?}",
-                validator.iter_errors(&schema_entry).collect::<Vec<_>>()
-            );
-        }
-
-        let photo_recipe = PIXEL_RECIPES
-            .iter()
-            .copied()
-            .find(|recipe| recipe.case_id == "vl/photo/rgb_planar0_explicit_le")
-            .expect("VL Photographic recipe");
-        let photo_case = serde_json::json!({
-            "case_id": photo_recipe.case_id,
-            "standards_evidence": []
-        });
-        let photo = write_pixel_case(&run, &photo_case, photo_recipe, &lock)
-            .expect("existing VL Photographic fixture should remain valid");
-        assert_eq!(
-            photo.manifest_entry["sha256"],
-            Value::from("12257eaf1771825e5cc073e7f8ab26cabd1bec170ac5ff4bd836af7448a62d7b")
-        );
-        assert!(
-            photo
-                .manifest_entry
-                .get("expected_vl_single_frame")
-                .is_none()
-        );
-    }
-
-    #[test]
     fn color_softcopy_writer_reopens_source_validates_manifest_and_is_deterministic() {
         let output = ParametricMapStagingGuard::new();
         let run = PreparedGenerationRun {
@@ -27404,11 +26640,7 @@ mod tests {
             seed: 7,
             include_stress: false,
         };
-        let source_recipe = PIXEL_RECIPES
-            .iter()
-            .find(|recipe| recipe.case_id == COLOR_SOFTCOPY_PRESENTATION_STATE_SOURCE_CASE_ID)
-            .copied()
-            .expect("locked RGB source recipe");
+        let source_recipe = COLOR_SOFTCOPY_PRIVATE_SOURCE_PIXEL_RECIPE;
         let source_case = serde_json::json!({
             "case_id": COLOR_SOFTCOPY_PRESENTATION_STATE_SOURCE_CASE_ID,
             "standards_evidence": []

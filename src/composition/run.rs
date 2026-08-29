@@ -10,8 +10,8 @@ use super::{
     CompositionManifestAssembler, CompositionManifestInputs, CompositionSpec, CompositionUidRole,
     ContentLimits, ContentSource, DefaultPixelOutput, IdentityAllocator, IdentityChoice,
     LocalContentResolver, ManifestEntryInput, Part10Materializer, ResolvedInstancePlan,
-    TemplateCatalog, TemplateDescriptor, resolve_raw_native_pixels, resolved_sc_plan,
-    sc_default_pixels,
+    TemplateCatalog, TemplateDescriptor, default_family_pixels, resolve_family_attributes,
+    resolve_raw_native_pixels, resolved_sc_plan, sc_default_pixels,
 };
 use crate::{PACKAGE_NAME, PACKAGE_VERSION, RUSTC_VERSION, TARGET_TRIPLE, sha256_hex};
 
@@ -133,11 +133,13 @@ fn resolve_and_stage(
     for instance in &spec.instances {
         let template =
             catalog.resolve_qualified(&instance.template.id, instance.template.version)?;
-        if !matches!(
+        let p2_sc = matches!(
             template.template_id.0.as_str(),
             "classic/secondary-capture/monochrome" | "classic/secondary-capture/rgb"
-        ) {
-            return Err(ComposeError::UnsupportedP2Template(
+        );
+        let family = super::ClassicFamilyProfile::for_template(&template.template_id);
+        if !p2_sc && family.is_none() {
+            return Err(ComposeError::UnsupportedTemplate(
                 template.template_id.0.clone(),
             ));
         }
@@ -147,15 +149,16 @@ fn resolve_and_stage(
             template.template_version,
             options.seed,
         )?;
-        let mut identities = allocator.allocate_plan(
-            instance.instance_id.clone(),
-            [
-                (CompositionUidRole::StudyInstance, 0),
-                (CompositionUidRole::SeriesInstance, 0),
-                (CompositionUidRole::SopInstance, 0),
-                (CompositionUidRole::ImplementationClass, 0),
-            ],
-        )?;
+        let mut roles = vec![
+            (CompositionUidRole::StudyInstance, 0),
+            (CompositionUidRole::SeriesInstance, 0),
+            (CompositionUidRole::SopInstance, 0),
+            (CompositionUidRole::ImplementationClass, 0),
+        ];
+        if family.is_some_and(|profile| profile.include_geometry) {
+            roles.push((CompositionUidRole::FrameOfReference, 0));
+        }
+        let mut identities = allocator.allocate_plan(instance.instance_id.clone(), roles)?;
         apply_explicit_identities(instance, &mut identities.identities)?;
         identity_plans.insert(instance.instance_id.clone(), identities);
         templates.push(template);
@@ -185,9 +188,7 @@ fn resolve_and_stage(
         }
         let overrides = instance.typed_attributes()?;
         reject_content_element_override(&instance.instance_id, &overrides)?;
-        let pixel = resolve_sc_pixels(instance, template, &mut content_resolver)?;
-        validate_sc_pixel_contract(template, &pixel)?;
-        let plan = ResolvedInstancePlan {
+        let base_plan = ResolvedInstancePlan {
             plan_schema_version: "0.1.0".into(),
             instance_id: instance.instance_id.clone(),
             template_id: template.template_id.clone(),
@@ -201,13 +202,30 @@ fn resolve_and_stage(
             content: vec![],
             references: vec![],
         };
-        plans.push(resolved_sc_plan(
-            plan,
-            template,
-            &run_defaults,
-            &overrides,
-            pixel,
-        )?);
+        if let Some(profile) = super::ClassicFamilyProfile::for_template(&template.template_id) {
+            let pixel = resolve_family_pixels(instance, &profile, &mut content_resolver)?;
+            validate_family_pixel_contract(&profile, &pixel)?;
+            let mut plan = base_plan;
+            plan.attributes = resolve_family_attributes(
+                &profile,
+                &plan.identities,
+                &pixel.plan,
+                &run_defaults,
+                &overrides,
+            )?;
+            plan.content.push(pixel.content);
+            plans.push(plan);
+        } else {
+            let pixel = resolve_sc_pixels(instance, template, &mut content_resolver)?;
+            validate_sc_pixel_contract(template, &pixel)?;
+            plans.push(resolved_sc_plan(
+                base_plan,
+                template,
+                &run_defaults,
+                &overrides,
+                pixel,
+            )?);
+        }
     }
 
     let dry_run_output = json!({
@@ -418,6 +436,85 @@ fn resolve_sc_pixels(
     }
 }
 
+fn resolve_family_pixels(
+    instance: &super::SpecInstance,
+    profile: &super::ClassicFamilyProfile,
+    resolver: &mut LocalContentResolver,
+) -> Result<DefaultPixelOutput, ComposeError> {
+    if instance.content.len() > 1 {
+        return Err(ComposeError::ContentCardinality(
+            instance.instance_id.clone(),
+        ));
+    }
+    let Some(assignment) = instance.content.first() else {
+        let (plan, content) = default_family_pixels(profile)?;
+        return Ok(DefaultPixelOutput { plan, content });
+    };
+    if assignment.slot != "pixels" {
+        return Err(ComposeError::UnknownContentSlot(assignment.slot.clone()));
+    }
+    match &assignment.source {
+        ContentSource::Default => {
+            let (plan, content) = default_family_pixels(profile)?;
+            Ok(DefaultPixelOutput { plan, content })
+        }
+        ContentSource::LocalFile {
+            path,
+            sha256,
+            pixel: Some(pixel),
+            ..
+        } => {
+            let output =
+                resolve_raw_native_pixels(resolver, path, sha256.as_deref(), pixel.shape()?)?;
+            Ok(DefaultPixelOutput {
+                plan: output.plan,
+                content: output.content,
+            })
+        }
+        ContentSource::LocalFile { pixel: None, .. } => Err(ComposeError::MissingPixelDeclaration(
+            instance.instance_id.clone(),
+        )),
+        _ => Err(ComposeError::UnsupportedFamilyContent(
+            instance.instance_id.clone(),
+        )),
+    }
+}
+
+fn validate_family_pixel_contract(
+    profile: &super::ClassicFamilyProfile,
+    pixel: &DefaultPixelOutput,
+) -> Result<(), ComposeError> {
+    let actual = &pixel.plan.shape;
+    let expected = &profile.default_shape;
+    let multiframe = matches!(
+        profile.kind,
+        super::ClassicFamilyKind::ScSingleBit
+            | super::ClassicFamilyKind::ScGrayscaleByte
+            | super::ClassicFamilyKind::UltrasoundMultiFrame
+            | super::ClassicFamilyKind::NuclearMedicine
+    );
+    let allowed = actual.rows > 0
+        && actual.columns > 0
+        && if multiframe {
+            actual.frames > 0
+        } else {
+            actual.frames == 1
+        }
+        && actual.samples_per_pixel == expected.samples_per_pixel
+        && actual.photometric_interpretation == expected.photometric_interpretation
+        && actual.sample_type == expected.sample_type
+        && actual.bits_allocated == expected.bits_allocated
+        && actual.bits_stored == expected.bits_stored
+        && actual.high_bit == expected.high_bit
+        && actual.byte_order == super::ByteOrder::Little
+        && actual.planar_configuration == expected.planar_configuration;
+    if allowed {
+        Ok(())
+    } else {
+        Err(ComposeError::PixelContract(profile.template_id.0.clone()))
+    }
+}
+
 fn validate_sc_pixel_contract(
     template: &TemplateDescriptor,
     pixel: &DefaultPixelOutput,
@@ -501,9 +598,11 @@ pub enum ComposeError {
     Defaults(super::DefaultError),
     Materialize(super::MaterializeError),
     Manifest(super::ManifestError),
+    Family(super::FamilyError),
     ResourceRange,
-    UnsupportedP2Template(String),
+    UnsupportedTemplate(String),
     UnsupportedP2Content(String),
+    UnsupportedFamilyContent(String),
     UnsupportedScReference(String),
     UnsupportedTransferSyntax {
         instance_id: String,
@@ -549,6 +648,7 @@ from_error!(super::RawContentError, RawContent);
 from_error!(super::DefaultError, Defaults);
 from_error!(super::MaterializeError, Materialize);
 from_error!(super::ManifestError, Manifest);
+from_error!(super::FamilyError, Family);
 
 impl fmt::Display for ComposeError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {

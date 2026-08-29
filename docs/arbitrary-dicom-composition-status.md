@@ -1,5 +1,18 @@
 # Arbitrary DICOM composition status
 
+## 2026-08-29 — Multi-frame Secondary Capture qualification
+
+Multi-frame Single Bit and Multi-frame Grayscale Byte Secondary Capture are
+qualified composition templates. Caller single-bit content remains
+continuously packed across frame boundaries; per-frame hashes use canonical
+frame-local packing even when a frame boundary is not byte aligned. Both
+profiles pass caller round trips, byte reproducibility, root validation and
+reporting, and the pinned independent route without findings.
+
+Every currently implemented classic and single/multi-frame VL SOP Class now
+has a native qualified template. P3 still awaits its cross-family closeout and
+the explicitly scheduled codec-backed XA/XRF integration boundary.
+
 ## 2026-08-29 — Phase P3.7 native XA/XRF checkpoint
 
 Native Explicit VR Little Endian XA and XRF composition templates are

@@ -13,6 +13,10 @@ the Phase P3.3 classic modality lane:
   MONOCHROME1/MONOCHROME2;
 - `classic/secondary-capture/rgb@1.0.0`: native unsigned 8-bit RGB with planar
   configuration 0 or 1.
+- `classic/secondary-capture/multiframe-single-bit@1.0.0`: continuously
+  bit-packed native MONOCHROME2 frames;
+- `classic/secondary-capture/multiframe-grayscale-byte@1.0.0`: native unsigned
+  MONOCHROME2 8-bit frames;
 - `classic/cr@1.0.0`: native unsigned 12-bit-in-16-bit CR;
 - `classic/ct@1.0.0`: native signed 12-bit-in-16-bit CT with axial geometry
   and HU rescale defaults;

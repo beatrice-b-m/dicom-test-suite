@@ -32,6 +32,8 @@ fn docs_limit_public_templates_to_the_qualified_native_pixel_domains() {
     for contract in [
         "classic/secondary-capture/monochrome@1.0.0",
         "classic/secondary-capture/rgb@1.0.0",
+        "classic/secondary-capture/multiframe-single-bit@1.0.0",
+        "classic/secondary-capture/multiframe-grayscale-byte@1.0.0",
         "unsigned 8- or 16-bit",
         "unsigned 8-bit RGB",
         "classic/cr@1.0.0",

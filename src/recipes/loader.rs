@@ -285,24 +285,37 @@ fn validate_shape(path: &Path, recipe: &CaseRecipe) -> Result<(), RecipeCatalogE
         }
     }
     validate_registered_ids(path, recipe)?;
+    validate_secondary_capture_contract(path, recipe)?;
     Ok(())
 }
 
 fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), RecipeCatalogError> {
     const PLAN_PROVIDERS: &[&str] = &[
         "native.case_plan",
+        "native.sc_plan",
         "external.import_plan",
         "mutation.named_plan",
         "qualification.bounded_plan",
     ];
-    const CONTENT_PROVIDERS: &[&str] = &["content.case_default"];
+    const CONTENT_PROVIDERS: &[&str] = &["content.case_default", "content.sc.pixel_pattern"];
     const ALGORITHM_PROVIDERS: &[&str] = &["algorithm.case_provider"];
-    const ENCODING_PROVIDERS: &[&str] = &["encoding.transfer_syntax_plan"];
+    const ENCODING_PROVIDERS: &[&str] = &[
+        "encoding.transfer_syntax_plan",
+        "encoding.native.explicit_vr_big_endian",
+        "encoding.native.rle_lossless",
+    ];
     const VALIDATION_RULES: &[&str] = &[
         "validation.shared",
         "validation.independent_decode",
         "validation.mutation",
         "validation.qualification",
+        "validation.sc.pixel",
+        "validation.sc.palette",
+        "validation.sc.padding",
+        "validation.sc.color",
+        "validation.sc.encapsulation",
+        "validation.sc.eot",
+        "validation.sc.geometry",
     ];
     const PROJECTION_RULES: &[&str] = &[
         "projection.curated",
@@ -352,6 +365,225 @@ fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), Recip
                     format!("unknown mutation id {}", edit.mutation_id),
                 ));
             }
+        }
+    }
+    Ok(())
+}
+
+fn validate_secondary_capture_contract(
+    path: &Path,
+    recipe: &CaseRecipe,
+) -> Result<(), RecipeCatalogError> {
+    if recipe.plan_provider_id != "native.sc_plan" {
+        return Ok(());
+    }
+    let dicom = recipe
+        .dicom
+        .as_ref()
+        .ok_or_else(|| semantic(path, "native.sc_plan requires DICOM artifacts"))?;
+    if !recipe
+        .validation_rule_ids
+        .iter()
+        .any(|rule| rule == "validation.sc.pixel")
+    {
+        return Err(semantic(
+            path,
+            "native.sc_plan requires validation.sc.pixel",
+        ));
+    }
+    if !recipe.provider_parameters.is_empty() {
+        return Err(semantic(
+            path,
+            "native.sc_plan stores its complete static contract on artifacts",
+        ));
+    }
+    for artifact in &dicom.artifacts {
+        if artifact.output.path.is_none() || artifact.output.provider_derived == Some(true) {
+            return Err(semantic(
+                path,
+                "native.sc_plan artifacts require an exact output path",
+            ));
+        }
+        if artifact.content.provider_id != "content.sc.pixel_pattern" {
+            return Err(semantic(
+                path,
+                "native.sc_plan requires content.sc.pixel_pattern",
+            ));
+        }
+        if !artifact.content.parameters.is_empty() || !artifact.parameters.is_empty() {
+            return Err(semantic(
+                path,
+                "native.sc_plan cannot hide static values in untyped parameter maps",
+            ));
+        }
+        if artifact.algorithm_provider_id.is_some() {
+            return Err(semantic(
+                path,
+                "data-first native.sc_plan artifacts cannot name an algorithm provider",
+            ));
+        }
+        if artifact.encoding.preamble_policy.as_deref() != Some("zero_filled")
+            || artifact.encoding.file_meta_policy.as_deref() != Some("standard")
+        {
+            return Err(semantic(
+                path,
+                "native.sc_plan requires exact preamble and file-meta policies",
+            ));
+        }
+        if artifact.stressors.is_empty() {
+            return Err(semantic(path, "native.sc_plan requires explicit stressors"));
+        }
+        let expected_encoding_provider = match artifact.encoding.transfer_syntax_uid.as_str() {
+            "1.2.840.10008.1.2.5" => Some("encoding.native.rle_lossless"),
+            "1.2.840.10008.1.2.2" => Some("encoding.native.explicit_vr_big_endian"),
+            _ => None,
+        };
+        if artifact
+            .encoding
+            .non_template_encoding_provider_id
+            .as_deref()
+            != expected_encoding_provider
+        {
+            return Err(semantic(
+                path,
+                "native.sc_plan encoding provider differs from transfer syntax",
+            ));
+        }
+        let sc = artifact.secondary_capture.as_ref().ok_or_else(|| {
+            semantic(path, "native.sc_plan requires secondary_capture parameters")
+        })?;
+        if sc.bits_stored == 0
+            || sc.bits_stored > sc.bits_allocated
+            || sc.high_bit + 1 != sc.bits_stored
+        {
+            return Err(semantic(path, "invalid Secondary Capture bit contract"));
+        }
+        let expected_type = match (sc.bits_allocated, sc.pixel_representation) {
+            (1, 0) => "u1",
+            (8, 0) => "u8",
+            (16, 0) => "u16",
+            (16, 1) => "i16",
+            (32, 0) => "u32",
+            _ => return Err(semantic(path, "unsupported Secondary Capture stored type")),
+        };
+        if sc.stored_value_type != expected_type {
+            return Err(semantic(
+                path,
+                "stored_value_type differs from the pixel bit contract",
+            ));
+        }
+        let samples_per_pixel = if sc.photometric_interpretation == "YBR_FULL_422" {
+            2_u64
+        } else {
+            u64::from(sc.samples_per_pixel)
+        };
+        let expected_values = u64::from(sc.rows)
+            .checked_mul(u64::from(sc.columns))
+            .and_then(|value| value.checked_mul(u64::from(sc.frames)))
+            .and_then(|value| value.checked_mul(samples_per_pixel))
+            .ok_or_else(|| semantic(path, "Secondary Capture value count overflow"))?;
+        if u64::try_from(sc.stored_values.len()).ok() != Some(expected_values)
+            || sc.frame_sha256.len() != sc.frames as usize
+        {
+            return Err(semantic(
+                path,
+                "Secondary Capture values or frame hashes differ from declared shape",
+            ));
+        }
+        if sc.pixel_min > sc.pixel_max
+            || sc
+                .stored_values
+                .iter()
+                .any(|value| *value < sc.pixel_min || *value > sc.pixel_max)
+        {
+            return Err(semantic(
+                path,
+                "Secondary Capture stored values exceed declared range",
+            ));
+        }
+        match (&sc.palette, sc.photometric_interpretation.as_str()) {
+            (Some(palette), "PALETTE COLOR") => {
+                if !artifact
+                    .validation_rule_ids
+                    .iter()
+                    .any(|rule| rule == "validation.sc.palette")
+                {
+                    return Err(semantic(path, "palette contract lacks its validation rule"));
+                }
+                let entries = usize::try_from(palette.descriptor[0]).unwrap_or(usize::MAX);
+                if palette.red.len() != entries
+                    || palette.green.len() != entries
+                    || palette.blue.len() != entries
+                {
+                    return Err(semantic(
+                        path,
+                        "palette channel length differs from descriptor",
+                    ));
+                }
+            }
+            (None, "PALETTE COLOR") | (Some(_), _) => {
+                return Err(semantic(
+                    path,
+                    "palette parameters disagree with photometric mode",
+                ));
+            }
+            _ => {}
+        }
+        let is_color = sc.samples_per_pixel > 1;
+        if is_color != sc.color.is_some() {
+            return Err(semantic(
+                path,
+                "color parameters disagree with Samples per Pixel",
+            ));
+        }
+        if is_color
+            && !artifact
+                .validation_rule_ids
+                .iter()
+                .any(|rule| rule == "validation.sc.color")
+        {
+            return Err(semantic(path, "color contract lacks its validation rule"));
+        }
+        if sc.padding.is_some()
+            && !artifact
+                .validation_rule_ids
+                .iter()
+                .any(|rule| rule == "validation.sc.padding")
+        {
+            return Err(semantic(path, "padding contract lacks its validation rule"));
+        }
+        if artifact.encoding.transfer_syntax_uid == "1.2.840.10008.1.2.5"
+            && !artifact
+                .validation_rule_ids
+                .iter()
+                .any(|rule| rule == "validation.sc.encapsulation")
+        {
+            return Err(semantic(
+                path,
+                "RLE Lossless contract lacks its encapsulation validation rule",
+            ));
+        }
+        if artifact.encoding.offset_table_policy == "extended"
+            && !artifact
+                .validation_rule_ids
+                .iter()
+                .any(|rule| rule == "validation.sc.eot")
+        {
+            return Err(semantic(
+                path,
+                "extended offset contract lacks its validation rule",
+            ));
+        }
+        if !artifact.attribute_operations.is_empty()
+            && !artifact
+                .validation_rule_ids
+                .iter()
+                .any(|rule| rule == "validation.sc.geometry")
+        {
+            return Err(semantic(
+                path,
+                "SC attribute operations lack their geometry validation rule",
+            ));
         }
     }
     Ok(())
@@ -437,7 +669,15 @@ fn validate_registry_bindings(
                 });
             }
         };
-        if recipe.plan_provider_id != expected_provider {
+        let migrated_secondary_capture = recipe.plan_provider_id == "native.sc_plan"
+            && case.provider.kind == "rust_native"
+            && case.provider.id == "rust_native"
+            && expected_kind == RecipeKind::Dicom
+            && case.requirements.features.is_empty()
+            && case.requirements.external_codecs.is_empty()
+            && (case.case_id.starts_with("classic/sc/")
+                || case.case_id == "encapsulation/sc/eot_single_fragment_multiframe");
+        if recipe.plan_provider_id != expected_provider && !migrated_secondary_capture {
             return Err(RecipeCatalogError::Completeness {
                 message: format!(
                     "{} plan provider {} is incompatible with registry provider {}:{}",

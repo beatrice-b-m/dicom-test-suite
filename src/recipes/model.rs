@@ -53,7 +53,64 @@ pub struct EncodingPolicy {
     pub offset_table_policy: String,
     pub fragmentation_policy: String,
     #[serde(default)]
+    pub preamble_policy: Option<String>,
+    #[serde(default)]
+    pub file_meta_policy: Option<String>,
+    #[serde(default)]
     pub non_template_encoding_provider_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PixelPaddingParameters {
+    pub value: i64,
+    #[serde(default)]
+    pub range_limit: Option<i64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PaletteParameters {
+    pub descriptor: [u32; 3],
+    pub red: Vec<u16>,
+    pub green: Vec<u16>,
+    pub blue: Vec<u16>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ColorParameters {
+    #[serde(default)]
+    pub planar_configuration: Option<u8>,
+    pub chroma_subsampling: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SecondaryCaptureParameters {
+    pub rows: u32,
+    pub columns: u32,
+    pub frames: u32,
+    pub samples_per_pixel: u16,
+    pub photometric_interpretation: String,
+    pub bits_allocated: u16,
+    pub bits_stored: u16,
+    pub high_bit: u16,
+    pub pixel_representation: u16,
+    pub pixel_data_vr: String,
+    pub stored_value_type: String,
+    pub stored_values: Vec<i64>,
+    pub frame_sha256: Vec<String>,
+    pub visual_pattern: String,
+    pub semantic_note: String,
+    pub pixel_min: i64,
+    pub pixel_max: i64,
+    #[serde(default)]
+    pub padding: Option<PixelPaddingParameters>,
+    #[serde(default)]
+    pub palette: Option<PaletteParameters>,
+    #[serde(default)]
+    pub color: Option<ColorParameters>,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -81,6 +138,8 @@ pub struct PlannedArtifactRecipe {
     pub output: OutputBinding,
     pub encoding: EncodingPolicy,
     pub parameters: Parameters,
+    #[serde(default)]
+    pub secondary_capture: Option<SecondaryCaptureParameters>,
     pub attribute_operations: Vec<AttributeOperation>,
     pub content: ContentBinding,
     pub validation_rule_ids: Vec<String>,

@@ -11,6 +11,14 @@ use super::enhanced::{
 };
 use super::error::RecipeCatalogError;
 use super::model::{CaseRecipe, MetadataScParameters, RecipeKind, StringValueSource};
+use super::presentation::{
+    PRESENTATION_ADVANCED_PROVIDER_ID, PRESENTATION_ALGORITHM_PROVIDER_ID, PresentationPlanInput,
+    PresentationSourceInput, presentation_input_from_recipe, validate_presentation_recipe,
+};
+use super::registration::{
+    REGISTRATION_ALGORITHM_PROVIDER_ID, REGISTRATION_PLAN_PROVIDER_ID, RegistrationProviderInput,
+    RegistrationSourceInput, registration_input_from_recipe, validate_registration_recipe,
+};
 use super::wsi::{
     WSI_ADVANCED_PROVIDER_ID, WSI_ALGORITHM_PROVIDER_ID, WsiPlanRecipe, wsi_input_from_recipe,
 };
@@ -175,6 +183,36 @@ impl RecipeCatalog {
             return Ok(None);
         };
         wsi_input_from_recipe(&self.recipes[identity]).map_err(|message| {
+            RecipeCatalogError::Completeness {
+                message: format!("{case_id}: {message}"),
+            }
+        })
+    }
+
+    pub fn registration_input_for_case(
+        &self,
+        case_id: &str,
+        sources: Vec<RegistrationSourceInput>,
+    ) -> Result<Option<RegistrationProviderInput>, RecipeCatalogError> {
+        let Some(identity) = self.bindings.get(case_id) else {
+            return Ok(None);
+        };
+        registration_input_from_recipe(&self.recipes[identity], sources).map_err(|message| {
+            RecipeCatalogError::Completeness {
+                message: format!("{case_id}: {message}"),
+            }
+        })
+    }
+
+    pub fn presentation_input_for_case(
+        &self,
+        case_id: &str,
+        sources: Vec<PresentationSourceInput>,
+    ) -> Result<Option<PresentationPlanInput>, RecipeCatalogError> {
+        let Some(identity) = self.bindings.get(case_id) else {
+            return Ok(None);
+        };
+        presentation_input_from_recipe(&self.recipes[identity], sources).map_err(|message| {
             RecipeCatalogError::Completeness {
                 message: format!("{case_id}: {message}"),
             }
@@ -441,6 +479,8 @@ fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), Recip
         "native.metadata_sc_plan",
         ENHANCED_PLAN_PROVIDER_ID,
         WSI_ADVANCED_PROVIDER_ID,
+        REGISTRATION_PLAN_PROVIDER_ID,
+        PRESENTATION_ADVANCED_PROVIDER_ID,
         "external.import_plan",
         "mutation.named_plan",
         "qualification.bounded_plan",
@@ -448,6 +488,7 @@ fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), Recip
     const CONTENT_PROVIDERS: &[&str] = &[
         "content.case_default",
         "content.native_pixels",
+        "content.empty_dataset",
         "content.sc.pixel_pattern",
         "content.metadata.person_name",
         "content.metadata.timezone_boundary",
@@ -465,6 +506,8 @@ fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), Recip
         "algorithm.classic_vl_projection",
         ENHANCED_ALGORITHM_PROVIDER_ID,
         WSI_ALGORITHM_PROVIDER_ID,
+        REGISTRATION_ALGORITHM_PROVIDER_ID,
+        PRESENTATION_ALGORITHM_PROVIDER_ID,
     ];
     const ENCODING_PROVIDERS: &[&str] = &[
         "encoding.transfer_syntax_plan",
@@ -1254,7 +1297,10 @@ fn validate_registry_bindings(
                 || (case.case_id.starts_with("vl/") && !case.case_id.starts_with("vl/wsi/")));
         let migrated_advanced = matches!(
             recipe.plan_provider_id.as_str(),
-            ENHANCED_PLAN_PROVIDER_ID | WSI_ADVANCED_PROVIDER_ID
+            ENHANCED_PLAN_PROVIDER_ID
+                | WSI_ADVANCED_PROVIDER_ID
+                | REGISTRATION_PLAN_PROVIDER_ID
+                | PRESENTATION_ADVANCED_PROVIDER_ID
         ) && case.provider.kind == "rust_native"
             && case.provider.id == "rust_native"
             && expected_kind == RecipeKind::Dicom
@@ -1411,6 +1457,8 @@ fn validate_migrated_planning_orders(
                 | "native.classic_plan"
                 | ENHANCED_PLAN_PROVIDER_ID
                 | WSI_ADVANCED_PROVIDER_ID
+                | REGISTRATION_PLAN_PROVIDER_ID
+                | PRESENTATION_ADVANCED_PROVIDER_ID
         )
     }) {
         let order = recipe
@@ -1437,6 +1485,12 @@ fn validate_advanced_contract(path: &Path, recipe: &CaseRecipe) -> Result<(), Re
     let (content_provider, algorithm_provider) = match recipe.plan_provider_id.as_str() {
         ENHANCED_PLAN_PROVIDER_ID => ("content.native_pixels", ENHANCED_ALGORITHM_PROVIDER_ID),
         WSI_ADVANCED_PROVIDER_ID => ("content.native_pixels", WSI_ALGORITHM_PROVIDER_ID),
+        REGISTRATION_PLAN_PROVIDER_ID => {
+            ("content.empty_dataset", REGISTRATION_ALGORITHM_PROVIDER_ID)
+        }
+        PRESENTATION_ADVANCED_PROVIDER_ID => {
+            ("content.empty_dataset", PRESENTATION_ALGORITHM_PROVIDER_ID)
+        }
         _ => return Ok(()),
     };
     let dicom = recipe
@@ -1517,6 +1571,12 @@ fn validate_advanced_contract(path: &Path, recipe: &CaseRecipe) -> Result<(), Re
                     "WSI dependency mode requires multiple artifacts",
                 ));
             }
+        }
+        REGISTRATION_PLAN_PROVIDER_ID => {
+            validate_registration_recipe(recipe).map_err(|message| semantic(path, message))?;
+        }
+        PRESENTATION_ADVANCED_PROVIDER_ID => {
+            validate_presentation_recipe(recipe).map_err(|message| semantic(path, message))?;
         }
         _ => unreachable!(),
     }

@@ -135,6 +135,7 @@ pub(crate) fn registration_input_from_recipe(
     if recipe.plan_provider_id != REGISTRATION_PLAN_PROVIDER_ID {
         return Ok(None);
     }
+    validate_registration_recipe(recipe)?;
     let parameters: RegistrationDocumentParameters =
         serde_json::from_value(Value::Object(recipe.provider_parameters.clone()))
             .map_err(|error| format!("registration provider_parameters: {error}"))?;
@@ -236,6 +237,60 @@ pub(crate) fn registration_input_from_recipe(
         sources: ordered,
         registration: parameters.registration,
     }))
+}
+
+pub(crate) fn validate_registration_recipe(recipe: &CaseRecipe) -> Result<(), String> {
+    let parameters: RegistrationDocumentParameters =
+        serde_json::from_value(Value::Object(recipe.provider_parameters.clone()))
+            .map_err(|error| format!("registration provider_parameters: {error}"))?;
+    let dicom = recipe
+        .dicom
+        .as_ref()
+        .ok_or_else(|| "registration provider requires DICOM artifacts".to_string())?;
+    let [target] = dicom.artifacts.as_slice() else {
+        return Err("registration provider requires exactly one public artifact".into());
+    };
+    if !target.parameters.is_empty() || parameters.sources.len() != 2 {
+        return Err("registration requires one empty target and two sources".into());
+    }
+    let expected_roles = [
+        AdvancedSourceRole::RegistrationFixed,
+        AdvancedSourceRole::RegistrationMoving,
+    ];
+    let declared_dependencies = recipe
+        .dependencies
+        .iter()
+        .map(|dependency| (dependency.recipe.identity(), dependency.role.as_str()))
+        .collect::<BTreeMap<_, _>>();
+    if declared_dependencies.len() != 2 {
+        return Err("registration requires two unique outer dependencies".into());
+    }
+    let mut artifacts = BTreeSet::new();
+    for (index, source) in parameters.sources.iter().enumerate() {
+        if source.role != expected_roles[index]
+            || !artifacts.insert((
+                source.recipe.identity(),
+                source.artifact_logical_id.as_str(),
+            ))
+        {
+            return Err("registration roles must be unique fixed then moving".into());
+        }
+        let expected = match source.role {
+            AdvancedSourceRole::RegistrationFixed => "registration_fixed",
+            AdvancedSourceRole::RegistrationMoving => "registration_moving",
+            _ => return Err("registration declares an incompatible source role".into()),
+        };
+        if declared_dependencies
+            .get(&source.recipe.identity())
+            .copied()
+            != Some(expected)
+        {
+            return Err(
+                "registration dependency role does not match its source declaration".into(),
+            );
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone)]

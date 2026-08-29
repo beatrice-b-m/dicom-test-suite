@@ -168,6 +168,7 @@ pub(crate) fn presentation_input_from_recipe(
     if recipe.plan_provider_id != PRESENTATION_ADVANCED_PROVIDER_ID {
         return Ok(None);
     }
+    validate_presentation_recipe(recipe)?;
     let parameters: PresentationDocumentParameters =
         serde_json::from_value(Value::Object(recipe.provider_parameters.clone()))
             .map_err(|error| format!("presentation provider_parameters: {error}"))?;
@@ -252,6 +253,74 @@ pub(crate) fn presentation_input_from_recipe(
         },
         sources: ordered,
     }))
+}
+
+pub(crate) fn validate_presentation_recipe(recipe: &CaseRecipe) -> Result<(), String> {
+    let parameters: PresentationDocumentParameters =
+        serde_json::from_value(Value::Object(recipe.provider_parameters.clone()))
+            .map_err(|error| format!("presentation provider_parameters: {error}"))?;
+    let dicom = recipe
+        .dicom
+        .as_ref()
+        .ok_or_else(|| "presentation provider requires DICOM artifacts".to_string())?;
+    let [target] = dicom.artifacts.as_slice() else {
+        return Err("presentation provider requires exactly one public artifact".into());
+    };
+    if !target.parameters.is_empty() || parameters.sources.is_empty() {
+        return Err("presentation requires one empty target and declared sources".into());
+    }
+    let dependency_roles = recipe
+        .dependencies
+        .iter()
+        .map(|dependency| (dependency.recipe.identity(), dependency.role.as_str()))
+        .collect::<BTreeMap<_, _>>();
+    let declared_recipes = parameters
+        .sources
+        .iter()
+        .map(|source| source.recipe.identity())
+        .collect::<BTreeSet<_>>();
+    if dependency_roles.len() != recipe.dependencies.len()
+        || dependency_roles.keys().cloned().collect::<BTreeSet<_>>() != declared_recipes
+    {
+        return Err("presentation dependencies do not cover source declarations exactly".into());
+    }
+    let blending = matches!(
+        parameters.presentation,
+        PresentationKind::Blending(_) | PresentationKind::AdvancedBlending(_)
+    );
+    let grayscale = matches!(parameters.presentation, PresentationKind::Grayscale(_));
+    let expected_count = if blending { 4 } else { 1 };
+    if parameters.sources.len() != expected_count {
+        return Err("presentation source cardinality does not match its kind".into());
+    }
+    let mut artifacts = BTreeSet::new();
+    for source in &parameters.sources {
+        if !artifacts.insert((
+            source.recipe.identity(),
+            source.artifact_logical_id.as_str(),
+        )) {
+            return Err("presentation source declarations must be unique".into());
+        }
+        let expected_dependency_role = if blending {
+            "presentation_blending_inputs"
+        } else {
+            "presentation_source_image"
+        };
+        if dependency_roles.get(&source.recipe.identity()).copied()
+            != Some(expected_dependency_role)
+            || (grayscale && source.referenced_frames.is_empty())
+            || (!grayscale && !source.referenced_frames.is_empty())
+            || (blending
+                && !matches!(
+                    source.role,
+                    AdvancedSourceRole::PresentationBlendingInput { .. }
+                ))
+            || (!blending && source.role != AdvancedSourceRole::PresentationSourceImage)
+        {
+            return Err("presentation source role or frame declaration is incompatible".into());
+        }
+    }
+    Ok(())
 }
 
 impl AdvancedPlanProvider for PresentationPlanProvider {

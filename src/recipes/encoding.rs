@@ -20,6 +20,16 @@ const BIG_ENDIAN_BACKEND: &str = "encoding.native.explicit_vr_big_endian";
 const RLE_BACKEND: &str = "encoding.native.rle_lossless";
 const DEFAULT_PART10_BACKEND: &str = "dicom-rs.part10";
 
+pub(crate) fn qualifies_non_template_transfer_syntax(
+    transfer_syntax_uid: &str,
+    backend_id: &str,
+) -> bool {
+    matches!(
+        (transfer_syntax_uid, backend_id),
+        (RLE_LOSSLESS, RLE_BACKEND) | (EXPLICIT_VR_BIG_ENDIAN, BIG_ENDIAN_BACKEND)
+    )
+}
+
 pub fn encoding_plan_from_recipe(
     policy: &EncodingPolicy,
     implementation: ImplementationIdentityPlan,

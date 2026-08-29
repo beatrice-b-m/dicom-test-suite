@@ -465,17 +465,22 @@ impl AttributeOperation {
     }
 
     pub fn validate(&self) -> Result<(), AttributeError> {
-        self.validate_at_depth(0, true)
+        self.validate_at_depth(0, true, true)
     }
 
     pub(crate) fn validate_trusted(&self) -> Result<(), AttributeError> {
-        self.validate_at_depth(0, false)
+        self.validate_at_depth(0, false, true)
+    }
+
+    pub(crate) fn validate_declared_vr(&self) -> Result<(), AttributeError> {
+        self.validate_at_depth(0, false, false)
     }
 
     fn validate_at_depth(
         &self,
         depth: usize,
         enforce_standard_vm: bool,
+        enforce_dictionary_vr: bool,
     ) -> Result<(), AttributeError> {
         if depth > MAX_SEQUENCE_DEPTH {
             return Err(AttributeError::SequenceDepthExceeded {
@@ -486,7 +491,9 @@ impl AttributeOperation {
         let Self::Set { address, vr, value } = self else {
             return Ok(());
         };
-        validate_dictionary_vr(address, *vr)?;
+        if enforce_dictionary_vr {
+            validate_dictionary_vr(address, *vr)?;
+        }
         match value {
             AttributeValue::Primitive(value) => {
                 if !vr.validate_primitive(value) {
@@ -541,7 +548,11 @@ impl AttributeOperation {
                 }
                 for item in items {
                     for operation in &item.attributes {
-                        operation.validate_at_depth(depth + 1, enforce_standard_vm)?;
+                        operation.validate_at_depth(
+                            depth + 1,
+                            enforce_standard_vm,
+                            enforce_dictionary_vr,
+                        )?;
                     }
                 }
             }

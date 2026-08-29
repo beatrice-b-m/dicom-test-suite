@@ -10,10 +10,10 @@ use dicom_test_suite::native_pixel::{
 };
 use dicom_test_suite::recipes::{
     ClassicInstanceRequest, ClassicPixelProvider, ClassicPixelRequest, ClassicPlanError,
-    ClassicResolvedPlanInput, CommonModuleProvider, CommonModuleRequest, ElementPresence,
-    EquipmentModuleInput, FamilyModuleFragment, FrameOfReferenceModuleInput, ImageModuleInput,
-    OrderedSeriesProvider, PatientModuleInput, SeriesModuleInput, StudyModuleInput,
-    resolved_classic_instance_plan,
+    ClassicResolvedPlanInput, CommonModuleProvider, CommonModuleRequest, DeclaredVrException,
+    ElementPresence, EquipmentModuleInput, FamilyModuleFragment, FrameOfReferenceModuleInput,
+    ImageModuleInput, OrderedSeriesProvider, PatientModuleInput, SeriesModuleInput,
+    StudyModuleInput, resolved_classic_instance_plan,
 };
 
 fn common(instance: &str, series: &str) -> CommonModuleRequest {
@@ -210,6 +210,53 @@ fn family_fragments_reject_protected_and_duplicate_tags() {
 }
 
 #[test]
+fn family_fragments_require_an_exact_named_declared_vr_exception() {
+    let operation = AttributeOperation::Set {
+        address: AttributeAddress::from_normalized_tag("0018,1149").unwrap(),
+        vr: DicomVr::DS,
+        value: AttributeValue::Multi(vec![
+            PrimitiveValue::String("0.30".into()),
+            PrimitiveValue::String("0.30".into()),
+        ]),
+    };
+    assert!(matches!(
+        FamilyModuleFragment::new("classic.dx", "detector", vec![operation.clone()]),
+        Err(ClassicPlanError::Attribute(_))
+    ));
+
+    let exception = DeclaredVrException::new(
+        "0018,1149",
+        DicomVr::DS,
+        "legacy.dx.field_of_view_dimensions.ds",
+    )
+    .unwrap();
+    let fragment = FamilyModuleFragment::new_with_declared_vr_exceptions(
+        "classic.dx",
+        "detector",
+        vec![operation],
+        &[exception],
+    )
+    .unwrap();
+    assert_eq!(fragment.module().operations.len(), 1);
+
+    let unused = DeclaredVrException::new(
+        "0018,1149",
+        DicomVr::DS,
+        "legacy.dx.field_of_view_dimensions.ds",
+    )
+    .unwrap();
+    assert!(matches!(
+        FamilyModuleFragment::new_with_declared_vr_exceptions(
+            "classic.dx",
+            "detector",
+            vec![op("0018,0015", DicomVr::CS, "CHEST")],
+            &[unused],
+        ),
+        Err(ClassicPlanError::UnusedDeclaredVrException(_))
+    ));
+}
+
+#[test]
 fn pixel_provider_plans_signed_unsigned_color_and_multiframe_content() {
     for stored in [
         StoredValueType::U8,
@@ -383,6 +430,7 @@ fn ordered_classic_output_resolves_once_into_the_neutral_instance_plan() {
         planned,
         template,
         transfer_syntax_uid: "1.2.840.10008.1.2.1",
+        encoding_backend_id: "dicom-rs.part10",
     })
     .unwrap();
 

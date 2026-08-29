@@ -378,6 +378,15 @@ impl FamilyModuleFragment {
         module_id: impl Into<String>,
         operations: Vec<AttributeOperation>,
     ) -> Result<Self, ClassicPlanError> {
+        Self::new_with_declared_vr_exceptions(provider_id, module_id, operations, &[])
+    }
+
+    pub fn new_with_declared_vr_exceptions(
+        provider_id: impl Into<String>,
+        module_id: impl Into<String>,
+        operations: Vec<AttributeOperation>,
+        exceptions: &[DeclaredVrException],
+    ) -> Result<Self, ClassicPlanError> {
         let provider_id = provider_id.into();
         let module_id = module_id.into();
         require_identifier("family provider", &provider_id)?;
@@ -388,14 +397,42 @@ impl FamilyModuleFragment {
                 return Err(ClassicPlanError::ProtectedAttribute(tag));
             }
         }
-        Ok(Self(fragment(
-            &format!("{provider_id}:{module_id}"),
+        ensure_unique_with_declared_vr_exceptions(operations.iter(), exceptions)?;
+        Ok(Self(ModuleFragment {
+            module_id: format!("{provider_id}:{module_id}"),
             operations,
-        )?))
+        }))
     }
 
     pub fn module(&self) -> &ModuleFragment {
         &self.0
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeclaredVrException {
+    address: AttributeAddress,
+    vr: DicomVr,
+    contract_id: String,
+}
+
+impl DeclaredVrException {
+    pub fn new(
+        tag: &str,
+        vr: DicomVr,
+        contract_id: impl Into<String>,
+    ) -> Result<Self, ClassicPlanError> {
+        let contract_id = contract_id.into();
+        require_identifier("declared VR contract", &contract_id)?;
+        Ok(Self {
+            address: AttributeAddress::from_normalized_tag(tag)?,
+            vr,
+            contract_id,
+        })
+    }
+
+    pub fn contract_id(&self) -> &str {
+        &self.contract_id
     }
 }
 
@@ -567,6 +604,7 @@ pub struct ClassicResolvedPlanInput<'a> {
     pub planned: ClassicPlannedInstance,
     pub template: &'a TemplateDescriptor,
     pub transfer_syntax_uid: &'a str,
+    pub encoding_backend_id: &'a str,
 }
 
 pub fn resolved_classic_instance_plan(
@@ -583,11 +621,16 @@ pub fn resolved_classic_instance_plan(
             actual: input.planned.sop_class_uid.clone(),
         });
     }
-    if !input
+    let template_supports_transfer_syntax = input
         .template
         .transfer_syntaxes
         .iter()
-        .any(|syntax| syntax.uid == input.transfer_syntax_uid)
+        .any(|syntax| syntax.uid == input.transfer_syntax_uid);
+    if !template_supports_transfer_syntax
+        && !super::encoding::qualifies_non_template_transfer_syntax(
+            input.transfer_syntax_uid,
+            input.encoding_backend_id,
+        )
     {
         return Err(ClassicPlanError::UnsupportedTransferSyntax(
             input.transfer_syntax_uid.to_string(),
@@ -759,6 +802,46 @@ fn ensure_unique<'a>(
     Ok(())
 }
 
+fn ensure_unique_with_declared_vr_exceptions<'a>(
+    operations: impl IntoIterator<Item = &'a AttributeOperation>,
+    exceptions: &[DeclaredVrException],
+) -> Result<(), ClassicPlanError> {
+    let mut tags = BTreeSet::new();
+    let mut used = BTreeSet::new();
+    for operation in operations {
+        let exception = match operation {
+            AttributeOperation::Set { address, vr, .. } => exceptions
+                .iter()
+                .enumerate()
+                .find(|(_, exception)| exception.address == *address && exception.vr == *vr),
+            _ => None,
+        };
+        if let Some((index, _)) = exception {
+            operation.validate_declared_vr()?;
+            used.insert(index);
+        } else {
+            operation.validate_trusted()?;
+        }
+        let tag = operation.address().normalized_tag();
+        if !tags.insert(tag.clone()) {
+            return Err(ClassicPlanError::DuplicateAttribute(tag));
+        }
+    }
+    if used.len() != exceptions.len() {
+        return Err(ClassicPlanError::UnusedDeclaredVrException(
+            exceptions
+                .iter()
+                .enumerate()
+                .find(|(index, _)| !used.contains(index))
+                .expect("exception count differs")
+                .1
+                .contract_id
+                .clone(),
+        ));
+    }
+    Ok(())
+}
+
 fn text(
     tag: &str,
     vr: DicomVr,
@@ -906,6 +989,7 @@ pub enum ClassicPlanError {
     NumericRange,
     InvalidPlanarConfiguration(u8),
     PixelPlanMismatch,
+    UnusedDeclaredVrException(String),
     Attribute(crate::composition::AttributeError),
     Identity(crate::composition::IdentityError),
     PixelPlan(crate::composition::PixelError),

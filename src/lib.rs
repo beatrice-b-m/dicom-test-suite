@@ -45,6 +45,7 @@ pub mod conformance;
 pub mod corpus_plan;
 pub mod coverage_gaps;
 pub mod curated_execution;
+pub mod curated_manifest;
 pub mod curated_plan;
 pub mod curated_validation;
 pub mod encapsulation;

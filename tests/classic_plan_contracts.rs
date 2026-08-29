@@ -238,6 +238,26 @@ fn family_fragments_require_an_exact_named_declared_vr_exception() {
     )
     .unwrap();
     assert_eq!(fragment.module().operations.len(), 1);
+    let planned = OrderedSeriesProvider
+        .plan(vec![ClassicInstanceRequest {
+            logical_id: "declared_vr".into(),
+            order: 1,
+            output_relative_path: OutputRelativePath::new("classic/dx/declared-vr.dcm").unwrap(),
+            dependencies: vec![],
+            common: common("1", "1"),
+            sop_class_uid: "1.2.840.10008.5.1.4.1.1.1.1".into(),
+            sop_instance_uid: "1.2.826.0.4.10".into(),
+            implementation_class_uid: "1.2.826.0.5.1".into(),
+            family: vec![fragment],
+            pixels: ClassicPixelRequest {
+                slot: "pixels".into(),
+                pixels: mono_request(StoredValueType::U16, 1),
+                rescale: None,
+                window: None,
+            },
+        }])
+        .unwrap();
+    assert_eq!(planned.len(), 1);
 
     let unused = DeclaredVrException::new(
         "0018,1149",

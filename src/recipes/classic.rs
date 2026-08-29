@@ -558,7 +558,7 @@ impl OrderedSeriesProvider {
             )?);
             modules.extend(request.family.into_iter().map(|fragment| fragment.0));
             let pixels = pixel_provider.plan(request.pixels)?;
-            ensure_unique(
+            ensure_unique_tags(
                 modules
                     .iter()
                     .flat_map(|module| module.operations.iter())
@@ -794,6 +794,19 @@ fn ensure_unique<'a>(
     let mut tags = BTreeSet::new();
     for operation in operations {
         operation.validate_trusted()?;
+        let tag = operation.address().normalized_tag();
+        if !tags.insert(tag.clone()) {
+            return Err(ClassicPlanError::DuplicateAttribute(tag));
+        }
+    }
+    Ok(())
+}
+
+fn ensure_unique_tags<'a>(
+    operations: impl IntoIterator<Item = &'a AttributeOperation>,
+) -> Result<(), ClassicPlanError> {
+    let mut tags = BTreeSet::new();
+    for operation in operations {
         let tag = operation.address().normalized_tag();
         if !tags.insert(tag.clone()) {
             return Err(ClassicPlanError::DuplicateAttribute(tag));

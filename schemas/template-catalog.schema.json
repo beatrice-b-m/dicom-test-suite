@@ -103,6 +103,7 @@
           "items": { "$ref": "#/$defs/reference_slot" }
         },
         "default_bundle": { "$ref": "#/$defs/default_bundle" },
+        "default_recipe": { "$ref": "#/$defs/default_recipe" },
         "parameter_schema": { "type": "object" },
         "transfer_syntaxes": {
           "type": "array",
@@ -162,6 +163,7 @@
           "items": { "$ref": "#/$defs/reference_slot" }
         },
         "default_bundle": { "$ref": "#/$defs/default_bundle" },
+        "default_recipe": { "$ref": "#/$defs/default_recipe" },
         "modules": {
           "type": "array",
           "items": { "$ref": "#/$defs/module" }
@@ -480,6 +482,16 @@
             "additionalProperties": false
           }
         }
+      },
+      "additionalProperties": false
+    },
+    "default_recipe": {
+      "type": "object",
+      "required": ["recipe_id", "recipe_version", "artifact_logical_id"],
+      "properties": {
+        "recipe_id": { "$ref": "#/$defs/id" },
+        "recipe_version": { "$ref": "#/$defs/semver" },
+        "artifact_logical_id": { "$ref": "#/$defs/id" }
       },
       "additionalProperties": false
     },

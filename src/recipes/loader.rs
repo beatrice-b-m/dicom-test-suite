@@ -63,6 +63,15 @@ struct TemplateContract {
     status: String,
     sop_class_uid: String,
     transfer_syntax_uids: BTreeSet<String>,
+    default_recipe: Option<TemplateDefaultRecipe>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TemplateDefaultRecipe {
+    recipe_id: String,
+    recipe_version: String,
+    artifact_logical_id: String,
 }
 
 impl RecipeCatalog {
@@ -121,6 +130,7 @@ impl RecipeCatalog {
         }
 
         validate_registry_bindings(&registry, &recipes, &bindings, &templates)?;
+        validate_template_default_recipes(template_catalog_path, &templates, &recipes)?;
         validate_migrated_planning_orders(&recipes)?;
         validate_dependencies(&recipes)?;
         let ordered = topological_order(&recipes)?;
@@ -243,6 +253,17 @@ fn load_templates(
                 .iter()
                 .map(|item| required_string(path, item, "uid"))
                 .collect::<Result<BTreeSet<_>, _>>()?;
+            let default_recipe = descriptor
+                .get("default_recipe")
+                .map(|value| {
+                    serde_json::from_value(value.clone()).map_err(|error| {
+                        semantic(
+                            path,
+                            format!("template {id} has invalid default_recipe: {error}"),
+                        )
+                    })
+                })
+                .transpose()?;
             if contracts
                 .insert(
                     (id.clone(), version.clone()),
@@ -250,6 +271,7 @@ fn load_templates(
                         status,
                         sop_class_uid,
                         transfer_syntax_uids,
+                        default_recipe,
                     },
                 )
                 .is_some()
@@ -259,6 +281,90 @@ fn load_templates(
         }
     }
     Ok(contracts)
+}
+
+fn validate_template_default_recipes(
+    path: &Path,
+    templates: &BTreeMap<(String, String), TemplateContract>,
+    recipes: &BTreeMap<RecipeIdentity, CaseRecipe>,
+) -> Result<(), RecipeCatalogError> {
+    let mut owners = BTreeMap::new();
+    for ((template_id, template_version), template) in templates {
+        let Some(binding) = &template.default_recipe else {
+            continue;
+        };
+        let identity = RecipeIdentity {
+            recipe_id: binding.recipe_id.clone(),
+            recipe_version: binding.recipe_version.clone(),
+        };
+        let recipe = recipes.get(&identity).ok_or_else(|| {
+            semantic(
+                path,
+                format!(
+                    "template {template_id}@{template_version} default_recipe references unknown {identity}"
+                ),
+            )
+        })?;
+        let artifact = recipe
+            .dicom
+            .as_ref()
+            .and_then(|dicom| {
+                dicom
+                    .artifacts
+                    .iter()
+                    .find(|artifact| artifact.logical_id == binding.artifact_logical_id)
+            })
+            .ok_or_else(|| {
+                semantic(
+                    path,
+                    format!(
+                        "template {template_id}@{template_version} default_recipe artifact {} is missing from {identity}",
+                        binding.artifact_logical_id
+                    ),
+                )
+            })?;
+        let Some(artifact_template) = &artifact.template else {
+            return Err(semantic(
+                path,
+                format!(
+                    "template {template_id}@{template_version} default_recipe artifact {} has no template identity",
+                    binding.artifact_logical_id
+                ),
+            ));
+        };
+        if artifact_template.template_id != *template_id
+            || artifact_template.template_version != *template_version
+        {
+            return Err(semantic(
+                path,
+                format!(
+                    "template {template_id}@{template_version} default_recipe artifact {} resolves as {}@{}",
+                    binding.artifact_logical_id,
+                    artifact_template.template_id,
+                    artifact_template.template_version
+                ),
+            ));
+        }
+        let key = (
+            binding.recipe_id.as_str(),
+            binding.recipe_version.as_str(),
+            binding.artifact_logical_id.as_str(),
+        );
+        if let Some(previous) = owners.insert(key, (template_id, template_version)) {
+            return Err(semantic(
+                path,
+                format!(
+                    "default_recipe {}@{} artifact {} is shared by {}@{} and {template_id}@{template_version}",
+                    binding.recipe_id,
+                    binding.recipe_version,
+                    binding.artifact_logical_id,
+                    previous.0,
+                    previous.1
+                ),
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn required_string(path: &Path, value: &Value, key: &str) -> Result<String, RecipeCatalogError> {

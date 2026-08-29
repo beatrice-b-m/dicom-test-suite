@@ -106,6 +106,16 @@ pub struct TransferSyntaxDescriptor {
     pub limitations: Vec<String>,
 }
 
+/// Versioned recipe artifact used when a template is resolved without an
+/// explicit caller-selected recipe.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DefaultRecipeBinding {
+    pub recipe_id: String,
+    pub recipe_version: String,
+    pub artifact_logical_id: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TemplateDescriptor {
     pub template_id: TemplateId,
@@ -122,6 +132,8 @@ pub struct TemplateDescriptor {
     pub content_slots: Vec<Value>,
     pub reference_slots: Vec<Value>,
     pub default_bundle: Value,
+    #[serde(default)]
+    pub default_recipe: Option<DefaultRecipeBinding>,
     #[serde(default = "empty_parameter_schema")]
     pub parameter_schema: Value,
     pub transfer_syntaxes: Vec<TransferSyntaxDescriptor>,
@@ -168,6 +180,8 @@ struct ClassicFamilyTemplateDeclaration {
     reference_slots: Vec<Value>,
     #[serde(default)]
     default_bundle: Option<Value>,
+    #[serde(default)]
+    default_recipe: Option<DefaultRecipeBinding>,
     #[serde(default)]
     modules: Vec<Value>,
     #[serde(default)]
@@ -420,6 +434,7 @@ impl ClassicFamilyTemplateDeclaration {
             content_slots,
             reference_slots: Vec::new(),
             default_bundle: serde_json::json!({ "dependencies": [] }),
+            default_recipe: self.default_recipe,
             parameter_schema: empty_parameter_schema(),
             transfer_syntaxes: self.transfer_syntaxes,
             requirements: TemplateRequirements {
@@ -534,6 +549,7 @@ impl ClassicFamilyTemplateDeclaration {
             default_bundle: self
                 .default_bundle
                 .unwrap_or_else(|| json!({ "dependencies": [] })),
+            default_recipe: self.default_recipe,
             parameter_schema: self
                 .parameter_schema
                 .unwrap_or_else(empty_parameter_schema),

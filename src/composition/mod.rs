@@ -98,8 +98,8 @@ pub use spec::{
     SpecError, SpecInstance, SpecReference, SpecSampleType, TemplateSelector,
 };
 pub use template::{
-    CapabilitySet, RequirementGap, TemplateCatalog, TemplateDescriptor, TemplateError, TemplateId,
-    TemplateStatus, TemplateVersion, TransferSyntaxDescriptor,
+    CapabilitySet, DefaultRecipeBinding, RequirementGap, TemplateCatalog, TemplateDescriptor,
+    TemplateError, TemplateId, TemplateStatus, TemplateVersion, TransferSyntaxDescriptor,
 };
 pub use validation::{
     composition_report, render_composition_report_markdown, validate_composition_root,

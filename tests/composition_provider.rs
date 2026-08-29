@@ -193,6 +193,93 @@ fn provider_crash_and_hang_are_bounded() {
     fs::remove_dir_all(root).unwrap();
 }
 
+#[test]
+fn provider_rejects_malformed_mismatched_and_symlink_outputs() {
+    let root = private_root("adversarial-protocol");
+    fs::create_dir(&root).unwrap();
+
+    let malformed = root.join("malformed.sh");
+    write_executable(
+        &malformed,
+        "#!/bin/sh\nprintf 'abc' > \"$DTS_COMPOSITION_PROVIDER_OUTPUTS/content.bin\"\nprintf 'not-json' > \"$DTS_COMPOSITION_PROVIDER_RESPONSE\"\n",
+    );
+    let malformed_sha256 = sha256_hex(&fs::read(&malformed).unwrap());
+    assert!(matches!(
+        invoke_content_provider(
+            &ProviderInvocation {
+                executable: malformed,
+                executable_sha256: malformed_sha256,
+                arguments: vec![],
+                timeout: Duration::from_secs(1),
+            },
+            &request(),
+            &root.join("malformed-run"),
+        ),
+        Err(ProviderError::Parse { .. })
+    ));
+
+    let mismatch = root.join("mismatch.sh");
+    let mismatch_script = success_script(false).replace("printf 'abc'", "printf 'abd'");
+    write_executable(&mismatch, &mismatch_script);
+    let mismatch_sha256 = sha256_hex(&fs::read(&mismatch).unwrap());
+    let arguments = vec![mismatch_sha256.clone()];
+    let mut mismatch_request = request();
+    mismatch_request.argument_sha256 = provider_arguments_sha256(&arguments);
+    mismatch_request.request_id = mismatch_request.canonical_request_id();
+    assert!(matches!(
+        invoke_content_provider(
+            &ProviderInvocation {
+                executable: mismatch,
+                executable_sha256: mismatch_sha256,
+                arguments,
+                timeout: Duration::from_secs(1),
+            },
+            &mismatch_request,
+            &root.join("mismatch-run"),
+        ),
+        Err(ProviderError::Invalid { .. })
+    ));
+
+    let symlink_output = root.join("symlink-output.sh");
+    write_executable(
+        &symlink_output,
+        "#!/bin/sh\n/bin/ln -s /dev/null \"$DTS_COMPOSITION_PROVIDER_OUTPUTS/content.bin\"\n",
+    );
+    let symlink_output_sha256 = sha256_hex(&fs::read(&symlink_output).unwrap());
+    assert!(matches!(
+        invoke_content_provider(
+            &ProviderInvocation {
+                executable: symlink_output,
+                executable_sha256: symlink_output_sha256,
+                arguments: vec![],
+                timeout: Duration::from_secs(1),
+            },
+            &request(),
+            &root.join("symlink-output-run"),
+        ),
+        Err(ProviderError::Invalid { .. })
+    ));
+
+    let target = root.join("target.sh");
+    write_executable(&target, "#!/bin/sh\nexit 0\n");
+    let executable_link = root.join("executable-link.sh");
+    std::os::unix::fs::symlink(&target, &executable_link).unwrap();
+    assert!(matches!(
+        invoke_content_provider(
+            &ProviderInvocation {
+                executable: executable_link,
+                executable_sha256: sha256_hex(&fs::read(&target).unwrap()),
+                arguments: vec![],
+                timeout: Duration::from_secs(1),
+            },
+            &request(),
+            &root.join("symlink-executable-run"),
+        ),
+        Err(ProviderError::Invalid { .. })
+    ));
+    fs::remove_dir_all(root).unwrap();
+}
+
 fn composition_script(payload_sha256: &str) -> String {
     format!(
         r#"#!/bin/sh

@@ -20,9 +20,11 @@ use crate::executor::evidence::{
     ArtifactExecutionEvidence, MaterializedContentEvidence, ResultStatus,
 };
 use crate::recipes::{
-    EnhancedMrFrameAxis, MetadataScParameters, PRESENTATION_ADVANCED_PROVIDER_ID, PresentationKind,
-    PrivateElementValue, REGISTRATION_PLAN_PROVIDER_ID, RegistrationKindInput, StringValueSource,
-    WsiPixelAlgorithm,
+    ENCAPSULATED_PAYLOAD_PLAN_PROVIDER_ID, EnhancedMrFrameAxis, MetadataScParameters,
+    PRESENTATION_ADVANCED_PROVIDER_ID, PresentationKind, PrivateElementValue,
+    REGISTRATION_PLAN_PROVIDER_ID, RegistrationKindInput, StringValueSource,
+    WAVEFORM_PLAN_PROVIDER_ID, WsiPixelAlgorithm, encapsulated_payload_input_from_recipe,
+    project_encapsulated_payload, project_waveform, waveform_input_from_recipe,
 };
 
 const RLE: &str = "1.2.840.10008.1.2.5";
@@ -254,6 +256,12 @@ fn project_one(
     ) {
         return project_reference_file_entry(ctx, pair, planned, input);
     }
+    if matches!(
+        ctx.case_recipe.plan_provider_id.as_str(),
+        WAVEFORM_PLAN_PROVIDER_ID | ENCAPSULATED_PAYLOAD_PLAN_PROVIDER_ID
+    ) {
+        return project_typed_bulk_file_entry(ctx, pair, planned);
+    }
     let sc = ctx
         .artifact_recipe
         .secondary_capture
@@ -372,6 +380,118 @@ fn project_one(
         "references":[]
     });
     add_special(&mut manifest, ctx, planned, pixels, observation.as_ref())?;
+    Ok(manifest)
+}
+
+fn project_typed_bulk_file_entry(
+    ctx: &CuratedArtifactProjectionContext,
+    pair: &ManifestProjectionArtifact,
+    planned: &PlannedDicomArtifact,
+) -> Result<Value, CuratedManifestError> {
+    let execution = &pair.execution;
+    let output = execution
+        .output
+        .as_ref()
+        .ok_or_else(|| err("typed bulk artifact has no output evidence"))?;
+    if output.relative_path != planned.output.relative_path.as_str()
+        || output.relative_path != ctx.artifact_recipe.output.path.as_deref().unwrap_or("")
+        || !output.publish
+        || execution.status != crate::executor::evidence::ExecutionStatus::Succeeded
+    {
+        return fail("typed bulk output evidence differs from plan/recipe");
+    }
+    let materialization = execution
+        .materialization
+        .as_ref()
+        .ok_or_else(|| err("typed bulk artifact has no materialization evidence"))?;
+    if materialization.transfer_syntax_uid.as_deref() != Some(&planned.encoding.transfer_syntax_uid)
+        || materialization.implementation_class_uid.as_deref()
+            != Some(&planned.encoding.implementation.class_uid)
+        || materialization.materialized_artifact_sha256.as_deref() != Some(&output.sha256)
+    {
+        return fail("typed bulk materialization identity differs from plan/output");
+    }
+    let specialized = match ctx.case_recipe.plan_provider_id.as_str() {
+        WAVEFORM_PLAN_PROVIDER_ID => {
+            let recipe = waveform_input_from_recipe(&ctx.case_recipe)
+                .map_err(|error| err(error.to_string()))?
+                .ok_or_else(|| err("waveform recipe did not resolve through its typed provider"))?;
+            project_waveform(&recipe)
+                .map_err(|error| err(error.to_string()))?
+                .legacy_fields()
+        }
+        ENCAPSULATED_PAYLOAD_PLAN_PROVIDER_ID => {
+            let recipe = encapsulated_payload_input_from_recipe(&ctx.case_recipe)
+                .map_err(|error| err(error.to_string()))?
+                .ok_or_else(|| {
+                    err("encapsulated recipe did not resolve through its typed provider")
+                })?;
+            project_encapsulated_payload(&recipe)
+                .map_err(|error| err(error.to_string()))?
+                .legacy_fields()
+        }
+        _ => return fail("unsupported typed bulk projection provider"),
+    };
+    let study = uid(planned, CompositionUidRole::StudyInstance)?;
+    let series = uid(planned, CompositionUidRole::SeriesInstance)?;
+    let sop = uid(planned, CompositionUidRole::SopInstance)?;
+    let mut uids = json!({
+        "study_instance_uid": study,
+        "series_instance_uid": series,
+        "sop_instance_uid": sop,
+        "implementation_class_uid": planned.encoding.implementation.class_uid,
+    });
+    uids["implementation_version_name"] = Value::String(
+        planned
+            .encoding
+            .implementation
+            .version_name
+            .clone()
+            .ok_or_else(|| err("typed bulk implementation version name is missing"))?,
+    );
+    if let Some(frame_of_reference) = planned
+        .instance
+        .identities
+        .get(&CompositionUidRole::FrameOfReference, 0)
+    {
+        uids["frame_of_reference_uid"] = Value::String(frame_of_reference.to_string());
+    }
+    let checks = validation_checks(execution)?;
+    let mut manifest = json!({
+        "case_id": ctx.registry_case.case_id,
+        "profile_membership": ctx.artifact_recipe.public_profile_membership.as_ref().unwrap_or(&ctx.registry_case.profiles),
+        "path": output.relative_path,
+        "sha256": output.sha256,
+        "size_bytes": output.size_bytes,
+        "determinism": ctx.registry_case.determinism,
+        "dicom": {
+            "sop_class_uid": required(&ctx.registry_case.sop_class_uid,"registry SOP Class UID")?,
+            "sop_class_name": required(&ctx.registry_case.sop_class_name,"registry SOP Class name")?,
+            "iod_name": required(&ctx.registry_case.iod_name,"registry IOD name")?,
+            "modality": required(&ctx.registry_case.modality,"registry modality")?,
+            "transfer_syntax_uid": planned.encoding.transfer_syntax_uid,
+            "transfer_syntax_name": transfer_syntax_name(&planned.encoding.transfer_syntax_uid)?,
+        },
+        "uids": uids,
+        "image": Value::Null,
+        "pixel_data": Value::Null,
+        "references": [],
+        "validation": legacy_validation(&checks),
+        "standards_evidence": ctx.registry_case.standards_evidence,
+    });
+    let Value::Object(fields) = specialized else {
+        return fail("typed bulk compatibility projection is not an object");
+    };
+    let target = manifest
+        .as_object_mut()
+        .ok_or_else(|| err("typed bulk common manifest is not an object"))?;
+    for (name, value) in fields {
+        if target.insert(name.clone(), value).is_some() {
+            return fail(format!(
+                "typed bulk compatibility field collides with common manifest: {name}"
+            ));
+        }
+    }
     Ok(manifest)
 }
 

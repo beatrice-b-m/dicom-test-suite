@@ -6,6 +6,7 @@ pub mod attribute;
 pub mod classic;
 pub mod content;
 pub mod defaults;
+pub mod family;
 pub mod identity;
 pub mod manifest;
 pub mod materializer;
@@ -31,6 +32,10 @@ pub use content::{ContentError, ContentLimits, LocalContentResolver, StagedAsset
 pub use defaults::{
     DefaultError, DefaultPixelOutput, canonical_native_pixels, resolved_sc_plan, sc_default_pixels,
     sc_derived_layer, sc_template_default_layer,
+};
+pub use family::{
+    ClassicFamilyKind, ClassicFamilyProfile, FamilyError, default_family_pixels,
+    resolve_family_attributes,
 };
 pub use identity::{CompositionUidRole, IdentityAllocator, IdentityError, IdentityPlan};
 pub use manifest::{

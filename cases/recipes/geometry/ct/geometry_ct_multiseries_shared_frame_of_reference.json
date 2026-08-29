@@ -6,11 +6,61 @@
     "case_id": "geometry/ct/multiseries_shared_frame_of_reference"
   },
   "kind": "dicom",
-  "plan_provider_id": "native.case_plan",
-  "dependencies": [
-
-  ],
+  "plan_provider_id": "native.classic_plan",
+  "planning_order": 206,
+  "dependencies": [],
   "provider_parameters": {
+    "patient": {
+      "patient_name": "DTS^Synthetic^Patient001",
+      "patient_id": "DTS-PATIENT-001",
+      "patient_birth_date": "19700101",
+      "patient_sex": "O"
+    },
+    "study": {
+      "study_date": "20260101",
+      "study_time": "000000",
+      "accession_number": "",
+      "referring_physician_name": "",
+      "study_id": "DTS-CT"
+    },
+    "equipment": {
+      "manufacturer": "dicom-test-suite",
+      "software_versions": "0.1.0"
+    },
+    "acquisition_date": "20260101",
+    "acquisition_time": "000000",
+    "image_type": [
+      "ORIGINAL",
+      "PRIMARY",
+      "AXIAL"
+    ],
+    "pixel_spacing": [
+      "0.625",
+      "0.625"
+    ],
+    "image_orientation_patient": [
+      "1",
+      "0",
+      "0",
+      "0",
+      "1",
+      "0"
+    ],
+    "kvp": "120",
+    "rescale_intercept": "-1024",
+    "rescale_slope": "1",
+    "rescale_type": "HU",
+    "window_center": "40",
+    "window_width": "400",
+    "slice_thickness": "5",
+    "spacing_between_slices": "5",
+    "sorting_conflict_expected": false,
+    "series_organization": {
+      "group_id": "shared-study-frame-of-reference",
+      "shared_study_instance_uid": true,
+      "shared_frame_of_reference_uid": true,
+      "distinct_series_instance_uids": true
+    }
   },
   "validation_rule_ids": [
     "validation.shared"
@@ -21,27 +71,58 @@
   "dicom": {
     "artifacts": [
       {
-        "logical_id": "artifact_1",
+        "logical_id": "series_001_slice_001",
+        "order": 0,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
         "output": {
-          "role": "primary_1",
-          "provider_derived": true
+        "role": "series_001_slice_001",
+          "path": "geometry/ct/multiseries_shared_frame_of_reference/series-001/slice-001.dcm"
         },
         "encoding": {
           "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-          "sequence_length_policy": "provider",
-          "item_length_policy": "provider",
-          "offset_table_policy": "provider",
-          "fragmentation_policy": "provider"
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
         },
         "parameters": {
-        },
-        "attribute_operations": [
-
-        ],
-        "content": {
-          "provider_id": "content.case_default",
-          "parameters": {
+          "uid_file_index": 0,
+          "series_index": 0,
+          "series_number": "1",
+          "acquisition_number": "1",
+          "instance_number": {
+            "state": "value",
+            "value": "1"
+          },
+          "image_position_patient": [
+            "0",
+            "0",
+            "0"
+          ],
+          "position_along_normal": 0,
+          "pixels": {
+            "rows": 2,
+            "columns": 2,
+            "stored_values": [
+              -1024,
+              0,
+              1024,
+              2047
+            ],
+            "pixel_min": -1024,
+            "pixel_max": 2047,
+            "frame_sha256": "d3e8d5fb105307e91174c36e8413e25cb8494efc509628cf515819478b217121"
           }
+        },
+        "attribute_operations": [],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {}
         },
         "validation_rule_ids": [
           "validation.shared"
@@ -51,14 +132,235 @@
         ],
         "determinism": "byte_stable",
         "stressors": [
-
+          "ct_image_storage",
+          "signed_12_bit_pixels",
+          "modality_rescale",
+          "window_center_width",
+          "multi_instance_series",
+          "geometry_slice_sorting",
+          "multiple_series_one_study",
+          "shared_frame_of_reference_across_series"
         ],
-        "algorithm_provider_id": "algorithm.case_provider",
+        "algorithm_provider_id": "algorithm.classic_ct"
+      },
+      {
+        "logical_id": "series_001_slice_002",
+        "order": 1,
         "template": {
           "template_id": "classic/ct",
           "template_version": "1.0.0"
         },
-        "order": 0
+        "output": {
+        "role": "series_001_slice_002",
+          "path": "geometry/ct/multiseries_shared_frame_of_reference/series-001/slice-002.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 1,
+          "series_index": 0,
+          "series_number": "1",
+          "acquisition_number": "1",
+          "instance_number": {
+            "state": "value",
+            "value": "2"
+          },
+          "image_position_patient": [
+            "0",
+            "0",
+            "5"
+          ],
+          "position_along_normal": 5,
+          "pixels": {
+            "rows": 2,
+            "columns": 2,
+            "stored_values": [
+              -1024,
+              0,
+              1024,
+              2047
+            ],
+            "pixel_min": -1024,
+            "pixel_max": 2047,
+            "frame_sha256": "d3e8d5fb105307e91174c36e8413e25cb8494efc509628cf515819478b217121"
+          }
+        },
+        "attribute_operations": [],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {}
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "ct_image_storage",
+          "signed_12_bit_pixels",
+          "modality_rescale",
+          "window_center_width",
+          "multi_instance_series",
+          "geometry_slice_sorting",
+          "multiple_series_one_study",
+          "shared_frame_of_reference_across_series"
+        ],
+        "algorithm_provider_id": "algorithm.classic_ct"
+      },
+      {
+        "logical_id": "series_002_slice_001",
+        "order": 2,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+        "role": "series_002_slice_001",
+          "path": "geometry/ct/multiseries_shared_frame_of_reference/series-002/slice-001.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 2,
+          "series_index": 1,
+          "series_number": "2",
+          "acquisition_number": "2",
+          "instance_number": {
+            "state": "value",
+            "value": "1"
+          },
+          "image_position_patient": [
+            "0",
+            "0",
+            "0"
+          ],
+          "position_along_normal": 0,
+          "pixels": {
+            "rows": 2,
+            "columns": 2,
+            "stored_values": [
+              -1024,
+              0,
+              1024,
+              2047
+            ],
+            "pixel_min": -1024,
+            "pixel_max": 2047,
+            "frame_sha256": "d3e8d5fb105307e91174c36e8413e25cb8494efc509628cf515819478b217121"
+          }
+        },
+        "attribute_operations": [],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {}
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "ct_image_storage",
+          "signed_12_bit_pixels",
+          "modality_rescale",
+          "window_center_width",
+          "multi_instance_series",
+          "geometry_slice_sorting",
+          "multiple_series_one_study",
+          "shared_frame_of_reference_across_series"
+        ],
+        "algorithm_provider_id": "algorithm.classic_ct"
+      },
+      {
+        "logical_id": "series_002_slice_002",
+        "order": 3,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+        "role": "series_002_slice_002",
+          "path": "geometry/ct/multiseries_shared_frame_of_reference/series-002/slice-002.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 3,
+          "series_index": 1,
+          "series_number": "2",
+          "acquisition_number": "2",
+          "instance_number": {
+            "state": "value",
+            "value": "2"
+          },
+          "image_position_patient": [
+            "0",
+            "0",
+            "5"
+          ],
+          "position_along_normal": 5,
+          "pixels": {
+            "rows": 2,
+            "columns": 2,
+            "stored_values": [
+              -1024,
+              0,
+              1024,
+              2047
+            ],
+            "pixel_min": -1024,
+            "pixel_max": 2047,
+            "frame_sha256": "d3e8d5fb105307e91174c36e8413e25cb8494efc509628cf515819478b217121"
+          }
+        },
+        "attribute_operations": [],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {}
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "ct_image_storage",
+          "signed_12_bit_pixels",
+          "modality_rescale",
+          "window_center_width",
+          "multi_instance_series",
+          "geometry_slice_sorting",
+          "multiple_series_one_study",
+          "shared_frame_of_reference_across_series"
+        ],
+        "algorithm_provider_id": "algorithm.classic_ct"
       }
     ]
   }

@@ -14,9 +14,6 @@ use super::{
     GenericPlanValidator, ProviderInvocation as LegacyProviderInvocation,
     ProviderRequest as LegacyProviderRequest, ValidationCheck,
 };
-use crate::codecs::{
-    FrameDecodeInput, FrameDecoder, FrameEncodeInput, FrameEncoder, NativeRleLosslessEncoder,
-};
 use crate::corpus_plan::{CorpusPlan, EvidenceIndependence, EvidenceObligation, PlannedArtifact};
 use crate::executor::adapters::ManifestProjectionCompatibilityInput;
 use crate::executor::cancellation::CancellationToken;
@@ -32,10 +29,9 @@ use crate::executor::materialization::{
 };
 use crate::executor::services::{
     ArtifactExecutionBindings, AssetDeclaration, AssetVisibility, ByteBinding, CodecRequest,
-    CodecResult, EncodedFrameResult, MaterializationRequest, MaterializationResult, ProducedAsset,
-    ProviderRequest, ProviderResult, RuleExecutionResult, ServiceEvidence, StagedAssetHandle,
-    StagedAssetRegistry, StagingRelativePath, ToolIdentity, ValidationRequest, ValidationResult,
-    ValidationStatus,
+    MaterializationRequest, MaterializationResult, ProducedAsset, ProviderRequest, ProviderResult,
+    RuleExecutionResult, ServiceEvidence, StagedAssetHandle, StagedAssetRegistry,
+    StagingRelativePath, ToolIdentity, ValidationRequest, ValidationResult, ValidationStatus,
 };
 use crate::{PACKAGE_VERSION, sha256_hex};
 
@@ -263,102 +259,8 @@ impl BoundExecutionServices for CompositionBoundServices {
         assets: &StagedAssetRegistry,
         cancellation: &CancellationToken,
     ) -> Result<CodecServiceOutcome, ServiceInvocationError> {
-        if request.backend_id != NativeRleLosslessEncoder::BACKEND_ID {
-            return Err(ServiceInvocationError::new(
-                "codec",
-                format!("unsupported composition codec {}", request.backend_id),
-            ));
-        }
-        let encoder = NativeRleLosslessEncoder::new();
-        let backend = FrameEncoder::backend(&encoder);
-        let bits_stored = request
-            .parameters
-            .get("bits_stored")
-            .and_then(Value::as_u64)
-            .and_then(|value| u16::try_from(value).ok());
-        let mut encoded = Vec::with_capacity(request.frames.len());
-        let mut decoded_frame_sha256 = BTreeMap::new();
-        let mut native_content = Vec::new();
-        for frame in &request.frames {
-            if cancellation.is_cancelled() {
-                return Err(ServiceInvocationError::new("codec", "execution cancelled"));
-            }
-            let native = binding_bytes(&self.staging_root, &frame.bytes, assets)?;
-            native_content.extend_from_slice(&native);
-            let result = encoder
-                .encode_frame(FrameEncodeInput {
-                    native_frame: &native,
-                    rows: u16::try_from(frame.rows)
-                        .map_err(|error| service_error("codec", error))?,
-                    columns: u16::try_from(frame.columns)
-                        .map_err(|error| service_error("codec", error))?,
-                    samples_per_pixel: frame.samples_per_pixel,
-                    bits_allocated: frame.bits_allocated,
-                    bits_stored: bits_stored.unwrap_or(frame.bits_allocated),
-                    photometric_interpretation: &frame.photometric_interpretation,
-                })
-                .map_err(|error| service_error("codec", error))?;
-            let decoded = encoder
-                .decode_frame(FrameDecodeInput {
-                    encoded_frame: &result.bytes,
-                    rows: u16::try_from(frame.rows)
-                        .map_err(|error| service_error("codec", error))?,
-                    columns: u16::try_from(frame.columns)
-                        .map_err(|error| service_error("codec", error))?,
-                    samples_per_pixel: frame.samples_per_pixel,
-                    bits_allocated: frame.bits_allocated,
-                    bits_stored: bits_stored.unwrap_or(frame.bits_allocated),
-                    photometric_interpretation: &frame.photometric_interpretation,
-                })
-                .map_err(|error| service_error("codec", error))?;
-            if decoded.native_bytes != native {
-                return Err(ServiceInvocationError::new(
-                    "codec",
-                    format!("frame {} semantic round trip changed", frame.frame_number),
-                ));
-            }
-            decoded_frame_sha256.insert(frame.frame_number, sha256_hex(&decoded.native_bytes));
-            let hash = sha256_hex(&result.bytes);
-            encoded.push(EncodedFrameResult {
-                frame_number: frame.frame_number,
-                encoded_size_bytes: result.bytes.len() as u64,
-                encoded_sha256: hash.clone(),
-                bytes: ByteBinding::Inline {
-                    bytes: result.bytes,
-                    sha256: hash,
-                },
-            });
-        }
-        if cancellation.is_cancelled() {
-            return Err(ServiceInvocationError::new("codec", "execution cancelled"));
-        }
-        Ok(CodecServiceOutcome {
-            result: CodecResult {
-                request_id: request.request_id.clone(),
-                backend: ToolIdentity {
-                    backend_id: backend.backend_id.into(),
-                    version: backend.version.into(),
-                    protocol_version: None,
-                    executable_sha256: None,
-                },
-                frames: encoded,
-                evidence: vec![],
-            },
-            determinism: "byte_stable".into(),
-            decoded_frame_sha256,
-            metrics: BTreeMap::new(),
-            claims: BTreeMap::from([
-                ("native_sha256".into(), json!(sha256_hex(&native_content))),
-                (
-                    "codec_backend_kind".into(),
-                    json!(backend.backend_kind.as_str()),
-                ),
-                (
-                    "codec_feature_gate".into(),
-                    json!(backend.feature_gate.unwrap_or("none")),
-                ),
-                ("codec_availability".into(), json!("available")),
-            ]),
+        crate::executor::native_codec::execute_native_rle(request, cancellation, |binding| {
+            binding_bytes(&self.staging_root, binding, assets)
         })
     }
 

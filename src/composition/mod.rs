@@ -85,7 +85,8 @@ pub use reference::{
     ReferenceNode,
 };
 pub use run::{
-    ComposeBytesOptions, ComposeError, ComposeOptions, ComposeSummary, compose, compose_from_bytes,
+    ComposeBytesOptions, ComposeCancellationToken, ComposeError, ComposeOptions, ComposeSummary,
+    compose, compose_from_bytes, compose_from_bytes_with_cancellation, compose_with_cancellation,
 };
 pub use spec::{
     AttributeScope, CompositionSpec, ContentAssignment, ContentSource, EncodedFrame,

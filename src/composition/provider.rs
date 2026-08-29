@@ -127,6 +127,15 @@ pub fn invoke_content_provider(
     request: &ProviderRequest,
     staging_root: &Path,
 ) -> Result<ProviderOutput, ProviderError> {
+    invoke_content_provider_cancellable(invocation, request, staging_root, &|| false)
+}
+
+pub(crate) fn invoke_content_provider_cancellable(
+    invocation: &ProviderInvocation,
+    request: &ProviderRequest,
+    staging_root: &Path,
+    is_cancelled: &dyn Fn() -> bool,
+) -> Result<ProviderOutput, ProviderError> {
     request.validate()?;
     if invocation.timeout.is_zero() || invocation.timeout > Duration::from_secs(300) {
         return Err(invalid("provider timeout must be between 1 ms and 300 s"));
@@ -206,6 +215,7 @@ pub fn invoke_content_provider(
         invocation.timeout,
         stdout_receiver,
         stderr_receiver,
+        is_cancelled,
     )?;
     if !status.success() {
         return Err(invalid(format!("provider exited with status {status}")));
@@ -298,12 +308,17 @@ fn wait_for_provider(
     timeout: Duration,
     stdout_receiver: mpsc::Receiver<Result<Vec<u8>, ProviderError>>,
     stderr_receiver: mpsc::Receiver<Result<Vec<u8>, ProviderError>>,
+    is_cancelled: &dyn Fn() -> bool,
 ) -> Result<(std::process::ExitStatus, Vec<u8>, Vec<u8>), ProviderError> {
     let deadline = Instant::now() + timeout;
     let mut status = None;
     let mut stdout = None;
     let mut stderr = None;
     loop {
+        if is_cancelled() {
+            terminate_process_tree(child, process_group_id);
+            return Err(ProviderError::Cancelled);
+        }
         if status.is_none() {
             status = match child.try_wait() {
                 Ok(status) => status,
@@ -546,6 +561,7 @@ pub enum ProviderError {
     Timeout {
         milliseconds: u128,
     },
+    Cancelled,
 }
 
 impl fmt::Display for ProviderError {

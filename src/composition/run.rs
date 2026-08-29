@@ -3,7 +3,8 @@ use std::fmt;
 use std::fs;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
 
 use serde_json::{Value, json};
@@ -18,8 +19,8 @@ use super::{
     DefaultPixelOutput, IdentityAllocator, IdentityChoice, LocalContentResolver, LogicalReference,
     ManifestEntryInput, Part10Materializer, ProviderInvocation, ProviderOutputDeclaration,
     ProviderRequest, ReferenceGraph, ReferenceNode, ResolvedInstancePlan, ResolvedProviderContent,
-    TemplateCatalog, TemplateDescriptor, default_family_pixels, invoke_content_provider,
-    resolve_family_attributes, resolve_raw_native_pixels, resolved_sc_plan, sc_default_pixels,
+    TemplateCatalog, TemplateDescriptor, default_family_pixels, resolve_family_attributes,
+    resolve_raw_native_pixels, resolved_sc_plan, sc_default_pixels,
 };
 use crate::{PACKAGE_NAME, PACKAGE_VERSION, RUSTC_VERSION, TARGET_TRIPLE, sha256_hex};
 
@@ -52,7 +53,34 @@ pub struct ComposeSummary {
     pub dry_run: bool,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct ComposeCancellationToken {
+    cancelled: Arc<AtomicBool>,
+}
+
+impl ComposeCancellationToken {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn cancel(&self) {
+        self.cancelled.store(true, Ordering::Release);
+    }
+
+    pub fn is_cancelled(&self) -> bool {
+        self.cancelled.load(Ordering::Acquire)
+    }
+}
+
 pub fn compose(options: &ComposeOptions) -> Result<(ComposeSummary, Value), ComposeError> {
+    compose_with_cancellation(options, &ComposeCancellationToken::new())
+}
+
+pub fn compose_with_cancellation(
+    options: &ComposeOptions,
+    cancellation: &ComposeCancellationToken,
+) -> Result<(ComposeSummary, Value), ComposeError> {
+    check_cancelled(cancellation)?;
     let spec_bytes = fs::read(&options.spec_path).map_err(|source| ComposeError::Io {
         path: options.spec_path.clone(),
         source,
@@ -65,6 +93,7 @@ pub fn compose(options: &ComposeOptions) -> Result<(ComposeSummary, Value), Comp
         options.seed,
         &options.catalog_path,
         options.dry_run,
+        cancellation,
     )
 }
 
@@ -72,6 +101,15 @@ pub fn compose_from_bytes(
     spec_bytes: &[u8],
     options: &ComposeBytesOptions,
 ) -> Result<(ComposeSummary, Value), ComposeError> {
+    compose_from_bytes_with_cancellation(spec_bytes, options, &ComposeCancellationToken::new())
+}
+
+pub fn compose_from_bytes_with_cancellation(
+    spec_bytes: &[u8],
+    options: &ComposeBytesOptions,
+    cancellation: &ComposeCancellationToken,
+) -> Result<(ComposeSummary, Value), ComposeError> {
+    check_cancelled(cancellation)?;
     compose_loaded(
         spec_bytes,
         &options.spec_root,
@@ -79,6 +117,7 @@ pub fn compose_from_bytes(
         options.seed,
         &options.catalog_path,
         options.dry_run,
+        cancellation,
     )
 }
 
@@ -89,6 +128,7 @@ fn compose_loaded(
     seed: u64,
     catalog_path: &Path,
     dry_run: bool,
+    cancellation: &ComposeCancellationToken,
 ) -> Result<(ComposeSummary, Value), ComposeError> {
     if out_dir.exists() {
         return Err(ComposeError::OutputExists(out_dir.to_path_buf()));
@@ -131,8 +171,13 @@ fn compose_loaded(
         &catalog_bytes,
         &staging,
         spec_root,
+        cancellation,
     );
     match result {
+        Ok(_) if cancellation.is_cancelled() => {
+            remove_private_staging(&staging)?;
+            Err(ComposeError::Cancelled)
+        }
         Ok((summary, output)) if dry_run => {
             remove_private_staging(&staging)?;
             Ok((summary, output))
@@ -161,6 +206,7 @@ fn resolve_and_stage(
     catalog_bytes: &[u8],
     staging: &Path,
     spec_root: &Path,
+    cancellation: &ComposeCancellationToken,
 ) -> Result<(ComposeSummary, Value), ComposeError> {
     let bundle_resolution = BundleResolver.resolve(spec.clone(), catalog)?;
     let mut spec = bundle_resolution.spec.clone();
@@ -190,6 +236,7 @@ fn resolve_and_stage(
     let mut identity_plans = BTreeMap::new();
 
     for instance in &spec.instances {
+        check_cancelled(cancellation)?;
         let template =
             catalog.resolve_qualified(&instance.template.id, instance.template.version)?;
         validate_parameters(instance, template)?;
@@ -227,9 +274,16 @@ fn resolve_and_stage(
         templates.push(template);
     }
     apply_shared_identities(&spec, &mut identity_plans)?;
-    invoke_spec_providers(&mut spec, &templates, &identity_plans, staging)?;
+    invoke_spec_providers(
+        &mut spec,
+        &templates,
+        &identity_plans,
+        staging,
+        cancellation,
+    )?;
 
     for (instance, template) in spec.instances.iter().zip(templates) {
+        check_cancelled(cancellation)?;
         validate_reference_roles(instance, template)?;
         let transfer_syntax_uid = instance
             .transfer_syntax_uid
@@ -339,7 +393,7 @@ fn resolve_and_stage(
         .map_err(|_| ComposeError::ResourceRange)?
         .min(plans.len())
         .max(1);
-    let entry_paths = materialize_plans(&mut plans, staging, used_parallelism)?;
+    let entry_paths = materialize_plans(&mut plans, staging, used_parallelism, cancellation)?;
     let output_bytes = entry_paths.iter().try_fold(0_u64, |total, (path, _)| {
         let size = fs::metadata(path)
             .map_err(|source| ComposeError::Io {
@@ -432,6 +486,7 @@ fn materialize_plans(
     plans: &mut [ResolvedInstancePlan],
     staging: &Path,
     workers: usize,
+    cancellation: &ComposeCancellationToken,
 ) -> Result<Vec<(PathBuf, String)>, ComposeError> {
     let chunk_size = plans.len().div_ceil(workers);
     let chunks = std::thread::scope(|scope| {
@@ -440,6 +495,7 @@ fn materialize_plans(
             handles.push(scope.spawn(move || {
                 let mut paths = Vec::with_capacity(chunk.len());
                 for plan in chunk {
+                    check_cancelled(cancellation)?;
                     let relative_path = format!("instances/{}.dcm", plan.instance_id);
                     let path = staging.join(&relative_path);
                     let outcome = Part10Materializer.materialize_with_outcome(plan, &path)?;
@@ -472,11 +528,13 @@ fn invoke_spec_providers(
     templates: &[&TemplateDescriptor],
     identity_plans: &BTreeMap<String, super::IdentityPlan>,
     staging: &Path,
+    cancellation: &ComposeCancellationToken,
 ) -> Result<(), ComposeError> {
     let provider_root = staging.join(".providers");
     let mut provider_index = 0_u64;
     for (instance, template) in spec.instances.iter_mut().zip(templates) {
         for assignment in &mut instance.content {
+            check_cancelled(cancellation)?;
             let ContentSource::Provider {
                 provider_id,
                 provider_version,
@@ -527,7 +585,7 @@ fn invoke_spec_providers(
                 network_policy: "disabled".into(),
             };
             request.request_id = request.canonical_request_id();
-            let output = invoke_content_provider(
+            let output = super::provider::invoke_content_provider_cancellable(
                 &ProviderInvocation {
                     executable: PathBuf::from(executable),
                     executable_sha256,
@@ -536,7 +594,12 @@ fn invoke_spec_providers(
                 },
                 &request,
                 &provider_root.join(format!("provider-{provider_index:08}")),
-            )?;
+                &|| cancellation.is_cancelled(),
+            )
+            .map_err(|error| match error {
+                super::ProviderError::Cancelled => ComposeError::Cancelled,
+                other => ComposeError::Provider(other),
+            })?;
             assignment.source = ContentSource::ResolvedProvider {
                 output: ResolvedProviderContent {
                     path: output.path,
@@ -555,6 +618,14 @@ fn invoke_spec_providers(
         }
     }
     Ok(())
+}
+
+fn check_cancelled(cancellation: &ComposeCancellationToken) -> Result<(), ComposeError> {
+    if cancellation.is_cancelled() {
+        Err(ComposeError::Cancelled)
+    } else {
+        Ok(())
+    }
 }
 
 fn validate_parameters(
@@ -1129,6 +1200,7 @@ pub enum ComposeError {
     Codec(crate::codecs::CodecError),
     Encapsulation(crate::encapsulation::EncapsulationError),
     Provider(super::ProviderError),
+    Cancelled,
     ResourceRange,
     ParallelWorkerPanic,
     UnsupportedTemplate(String),

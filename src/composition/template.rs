@@ -166,6 +166,12 @@ struct ClassicFamilyTemplateDeclaration {
     reference_slots: Vec<Value>,
     #[serde(default)]
     default_bundle: Option<Value>,
+    #[serde(default)]
+    modules: Vec<Value>,
+    #[serde(default)]
+    content_slots: Vec<Value>,
+    #[serde(default)]
+    validation: Option<Value>,
 }
 
 impl TemplateCatalog {
@@ -439,6 +445,8 @@ impl ClassicFamilyTemplateDeclaration {
             self.artifact_kind.as_str(),
             "presentation_state" | "registration"
         );
+        let declared_content_slots = self.content_slots;
+        let pixel_bearing = declared_content_slots.is_empty() && !reference_only;
         let mut attributes = [
             ("0008,0016", "SOPClassUID", "UI"),
             ("0008,0018", "SOPInstanceUID", "UI"),
@@ -459,7 +467,7 @@ impl ClassicFamilyTemplateDeclaration {
             })
         })
         .collect::<Vec<_>>();
-        if !reference_only {
+        if pixel_bearing {
             attributes.extend(
                 [
                     ("0028,0008", "NumberOfFrames", "IS"),
@@ -486,13 +494,15 @@ impl ClassicFamilyTemplateDeclaration {
             default_modality: self.default_modality,
             artifact_kind: self.artifact_kind,
             determinism: "byte_stable".into(),
-            modules: vec![json!({
-                "name": if wsi { "VL Whole Slide Microscopy Image" } else if reference_only { "Reference Graph" } else { "Multi-frame Functional Groups" },
-                "usage": "mandatory",
-                "condition": null
-            })],
+            modules: if self.modules.is_empty() { vec![json!({
+                    "name": if wsi { "VL Whole Slide Microscopy Image" } else if reference_only { "Reference Graph" } else { "Multi-frame Functional Groups" },
+                    "usage": "mandatory",
+                    "condition": null
+                })] } else { self.modules },
             attributes,
-            content_slots: if reference_only {
+            content_slots: if !declared_content_slots.is_empty() {
+                declared_content_slots
+            } else if reference_only {
                 vec![]
             } else {
                 vec![json!({
@@ -523,12 +533,12 @@ impl ClassicFamilyTemplateDeclaration {
                 providers: vec![],
                 external_validators: vec!["dicom_validator".into()],
             },
-            validation: json!({
+            validation: self.validation.unwrap_or_else(|| json!({
                 "generic_rule_ids": ["meta_identity", "resolved_attributes"],
                 "template_rule_ids": if reference_only { json!(["reference_closure", "derived_object"]) } else { json!(["functional_groups", "dimensions", if wsi { "tiling" } else { "enhanced_image" }]) },
                 "content_rule_ids": if reference_only { json!([]) } else { json!(["content_integrity", "native_pixel_length"]) },
                 "independent_routes": [{"adapter_id":"dicom_validator","kind":"iod","required_for_qualification":true}]
-            }),
+            })),
             standards_evidence: self.standards_evidence,
             limitations: self.limitations,
             qualification_owner: self.qualification_owner,

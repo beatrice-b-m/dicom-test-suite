@@ -1,0 +1,9 @@
+{
+  "composition_spec_schema_version": "0.1.0",
+  "instances": [
+    { "instance_id": "twelve", "template": { "id": "non-image/waveform/twelve-lead-ecg" } },
+    { "instance_id": "general", "template": { "id": "non-image/waveform/general-ecg" } },
+    { "instance_id": "pdf", "template": { "id": "non-image/encapsulated-document/pdf" } },
+    { "instance_id": "stl", "template": { "id": "non-image/mesh/stl" } }
+  ]
+}

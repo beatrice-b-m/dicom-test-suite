@@ -6093,6 +6093,18 @@ pub(crate) fn write_composition_default_artifacts(
                 Some("derived/presentation-state/advanced_blending"),
                 None,
             ),
+            ("non-image/waveform/twelve-lead-ecg", _) => {
+                (&["non-image/waveform/twelve_lead_ecg"], None, None)
+            }
+            ("non-image/waveform/general-ecg", _) => {
+                (&["non-image/waveform/general_ecg"], None, None)
+            }
+            ("non-image/encapsulated-document/pdf", _) => (
+                &["non-image/encapsulated-document/pdf_minimal_explicit_le"],
+                None,
+                None,
+            ),
+            ("non-image/mesh/stl", _) => (&["derived/mesh/encapsulated_stl"], None, None),
             _ => {
                 return Err(GenerateError::MetadataShape {
                     path: PathBuf::from(template_id),

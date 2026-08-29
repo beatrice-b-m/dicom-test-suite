@@ -160,7 +160,16 @@
           "type": "array",
           "items": { "$ref": "#/$defs/reference_slot" }
         },
-        "default_bundle": { "$ref": "#/$defs/default_bundle" }
+        "default_bundle": { "$ref": "#/$defs/default_bundle" },
+        "modules": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/module" }
+        },
+        "content_slots": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/content_slot" }
+        },
+        "validation": { "$ref": "#/$defs/validation" }
       },
       "additionalProperties": false
     },

@@ -186,6 +186,21 @@ impl GenericPlanValidator {
 
         let mut content_errors = Vec::new();
         for content in &plan.content {
+            if let super::ContentPlacement::Nested { sequence_path } = &content.placement {
+                match nested_content_bytes(&object, sequence_path, &content.address) {
+                    Ok((vr, _bytes)) if vr != content.vr.as_dicom() => content_errors.push(
+                        format!("{} has an unexpected VR", content.address.normalized_tag()),
+                    ),
+                    Ok((_, bytes)) => {
+                        validate_primitive_content(content, &bytes, &mut content_errors)
+                    }
+                    Err(error) => content_errors.push(format!(
+                        "{} nested content is absent: {error}",
+                        content.slot
+                    )),
+                }
+                continue;
+            }
             match object.element(content.address.tag()) {
                 Ok(element) if element.vr() != content.vr.as_dicom() => content_errors.push(
                     format!("{} has an unexpected VR", content.address.normalized_tag()),
@@ -207,19 +222,7 @@ impl GenericPlanValidator {
                 },
                 Ok(element) => match element.to_bytes() {
                     Ok(bytes) => {
-                        let bytes = bytes.as_ref();
-                        let expected_len = content.size_bytes as usize;
-                        let allowed_padding = bytes.len() == expected_len + 1
-                            && bytes.last().is_some_and(|byte| *byte == 0 || *byte == b' ');
-                        if bytes.len() < expected_len
-                            || (bytes.len() != expected_len && !allowed_padding)
-                            || sha256_hex(&bytes[..expected_len.min(bytes.len())]) != content.sha256
-                        {
-                            content_errors.push(format!(
-                                "{} content size or SHA-256 differs from the resolved plan",
-                                content.slot
-                            ));
-                        }
+                        validate_primitive_content(content, bytes.as_ref(), &mut content_errors)
                     }
                     Err(error) => content_errors.push(format!(
                         "{} content cannot be decoded: {error}",
@@ -269,6 +272,53 @@ impl GenericPlanValidator {
             )
         });
         checks
+    }
+}
+
+fn nested_content_bytes(
+    object: &dicom_object::DefaultDicomObject,
+    sequence_path: &[super::SequenceItemPlacement],
+    address: &super::AttributeAddress,
+) -> Result<(dicom_core::VR, Vec<u8>), String> {
+    let mut dataset: &dicom_object::InMemDicomObject = object;
+    for step in sequence_path {
+        let sequence = dataset
+            .element(step.sequence.tag())
+            .map_err(|error| error.to_string())?;
+        let items = sequence
+            .items()
+            .ok_or_else(|| "content path element is not a sequence".to_string())?;
+        dataset = items
+            .get(step.item_index)
+            .ok_or_else(|| format!("sequence item {} is absent", step.item_index))?;
+    }
+    let element = dataset
+        .element(address.tag())
+        .map_err(|error| error.to_string())?;
+    let vr = element.vr();
+    let bytes = element
+        .to_bytes()
+        .map_err(|error| error.to_string())?
+        .into_owned();
+    Ok((vr, bytes))
+}
+
+fn validate_primitive_content(
+    content: &super::CanonicalContent,
+    bytes: &[u8],
+    errors: &mut Vec<String>,
+) {
+    let expected_len = content.size_bytes as usize;
+    let allowed_padding = bytes.len() == expected_len + 1
+        && bytes.last().is_some_and(|byte| *byte == 0 || *byte == b' ');
+    if bytes.len() < expected_len
+        || (bytes.len() != expected_len && !allowed_padding)
+        || sha256_hex(&bytes[..expected_len.min(bytes.len())]) != content.sha256
+    {
+        errors.push(format!(
+            "{} content size or SHA-256 differs from the resolved plan",
+            content.slot
+        ));
     }
 }
 

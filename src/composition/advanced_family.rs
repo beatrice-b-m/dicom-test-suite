@@ -5,9 +5,10 @@ use std::path::Path;
 use dicom_object::open_file;
 
 use super::{
-    AttributeOperation, AttributeValue, ContentSource, IdentityPlan, LocalContentResolver,
-    PrimitiveValue, ResolvedAttribute, ResolvedInstancePlan, SpecInstance, TemplateDescriptor,
-    ValueOrigin, resolve_raw_native_pixels,
+    AttributeOperation, AttributeValue, BulkDataBounds, BulkDataPlan, BulkDataSource,
+    ContentSource, EncapsulatedDocumentSlot, IdentityPlan, LocalContentResolver, MeshSlot,
+    PrimitiveValue, ResolvedAttribute, ResolvedInstancePlan, SequenceItemPlacement, SpecInstance,
+    TemplateDescriptor, ValueOrigin, WaveformSamplesSlot, resolve_raw_native_pixels,
 };
 use crate::generator::write_composition_default_artifacts;
 
@@ -18,6 +19,15 @@ pub enum AdvancedFamilyKind {
     EnhancedPet,
     WholeSlide,
     DerivedReference,
+    TypedBulk(TypedBulkFamily),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TypedBulkFamily {
+    TwelveLeadEcg,
+    GeneralEcg,
+    EncapsulatedPdf,
+    EncapsulatedStl,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -49,11 +59,28 @@ impl AdvancedFamilyProfile {
             | "derived/presentation-state/advanced-blending" => {
                 AdvancedFamilyKind::DerivedReference
             }
+            "non-image/waveform/twelve-lead-ecg" => {
+                AdvancedFamilyKind::TypedBulk(TypedBulkFamily::TwelveLeadEcg)
+            }
+            "non-image/waveform/general-ecg" => {
+                AdvancedFamilyKind::TypedBulk(TypedBulkFamily::GeneralEcg)
+            }
+            "non-image/encapsulated-document/pdf" => {
+                AdvancedFamilyKind::TypedBulk(TypedBulkFamily::EncapsulatedPdf)
+            }
+            "non-image/mesh/stl" => AdvancedFamilyKind::TypedBulk(TypedBulkFamily::EncapsulatedStl),
             _ => return None,
         };
         Some(Self {
             kind,
-            include_frame_of_reference: true,
+            include_frame_of_reference: !matches!(
+                kind,
+                AdvancedFamilyKind::TypedBulk(
+                    TypedBulkFamily::TwelveLeadEcg
+                        | TypedBulkFamily::GeneralEcg
+                        | TypedBulkFamily::EncapsulatedPdf
+                )
+            ),
         })
     }
 
@@ -130,7 +157,9 @@ impl AdvancedFamilyProfile {
             }
         }
         normalize_derived_reference_defaults(&template.template_id.0, &mut plan)?;
-        if self.kind == AdvancedFamilyKind::WholeSlide {
+        if let AdvancedFamilyKind::TypedBulk(family) = self.kind {
+            extract_typed_bulk_defaults(family, &mut plan)?;
+        } else if self.kind == AdvancedFamilyKind::WholeSlide {
             validate_wsi_structure(&plan)?;
         } else if self.kind != AdvancedFamilyKind::DerivedReference {
             validate_multiframe_structure(&plan)?;
@@ -141,6 +170,8 @@ impl AdvancedFamilyProfile {
                     instance.instance_id.clone(),
                 ));
             }
+        } else if let AdvancedFamilyKind::TypedBulk(family) = self.kind {
+            apply_typed_bulk_content(family, instance, &mut plan, content_resolver)?;
         } else {
             apply_caller_content(instance, &mut plan, content_resolver)?;
         }
@@ -758,6 +789,350 @@ fn validate_wsi_structure(plan: &ResolvedInstancePlan) -> Result<(), AdvancedFam
     Ok(())
 }
 
+const MAX_DOCUMENT_BYTES: u64 = 64 * 1024 * 1024;
+
+fn extract_typed_bulk_defaults(
+    family: TypedBulkFamily,
+    plan: &mut ResolvedInstancePlan,
+) -> Result<(), AdvancedFamilyError> {
+    match family {
+        TypedBulkFamily::TwelveLeadEcg | TypedBulkFamily::GeneralEcg => {
+            let sequence = super::AttributeAddress::from_normalized_tag("5400,0100")
+                .map_err(|error| AdvancedFamilyError::TypedBulk(error.to_string()))?;
+            let data = super::AttributeAddress::from_normalized_tag("5400,1010")
+                .map_err(|error| AdvancedFamilyError::TypedBulk(error.to_string()))?;
+            let attribute = plan
+                .attributes
+                .iter_mut()
+                .find(|attribute| attribute.address == sequence)
+                .ok_or_else(|| {
+                    AdvancedFamilyError::TypedBulk("missing Waveform Sequence".into())
+                })?;
+            let Some(AttributeValue::Sequence(items)) = attribute.value.as_mut() else {
+                return Err(AdvancedFamilyError::TypedBulk(
+                    "Waveform Sequence is not a sequence".into(),
+                ));
+            };
+            let expected_groups = if family == TypedBulkFamily::TwelveLeadEcg {
+                1
+            } else {
+                2
+            };
+            if items.len() != expected_groups {
+                return Err(AdvancedFamilyError::TypedBulk(format!(
+                    "expected {expected_groups} waveform groups but found {}",
+                    items.len()
+                )));
+            }
+            for (item_index, item) in items.iter_mut().enumerate() {
+                let operation_index = item
+                    .attributes
+                    .iter()
+                    .position(|operation| {
+                        matches!(operation, AttributeOperation::Set { address, .. } if address == &data)
+                    })
+                    .ok_or_else(|| {
+                        AdvancedFamilyError::TypedBulk(format!(
+                            "waveform group {} has no Waveform Data",
+                            item_index + 1
+                        ))
+                    })?;
+                let AttributeOperation::Set { vr, value, .. } =
+                    item.attributes.remove(operation_index)
+                else {
+                    unreachable!("position selected a Set operation")
+                };
+                let AttributeValue::Binary(bytes) = value else {
+                    return Err(AdvancedFamilyError::TypedBulk(format!(
+                        "waveform group {} data was not a binary value",
+                        item_index + 1
+                    )));
+                };
+                let mut bulk = BulkDataPlan::from_bytes::<WaveformSamplesSlot>(
+                    bytes,
+                    vr,
+                    BulkDataBounds::bounded(2, MAX_DOCUMENT_BYTES, 2),
+                    BulkDataSource::DefaultSynthetic,
+                    BTreeMap::from([("semantic_validator".into(), "waveform_samples".into())]),
+                )
+                .map_err(|error| AdvancedFamilyError::TypedBulk(error.to_string()))?
+                .into_canonical_content();
+                bulk.slot = waveform_slot(item_index, expected_groups).into();
+                bulk.placement = super::ContentPlacement::Nested {
+                    sequence_path: vec![SequenceItemPlacement {
+                        sequence: sequence.clone(),
+                        item_index,
+                    }],
+                };
+                plan.content.push(bulk);
+            }
+        }
+        TypedBulkFamily::EncapsulatedPdf | TypedBulkFamily::EncapsulatedStl => {
+            let address = super::AttributeAddress::from_normalized_tag("0042,0011")
+                .map_err(|error| AdvancedFamilyError::TypedBulk(error.to_string()))?;
+            let attribute_index = plan
+                .attributes
+                .iter()
+                .position(|attribute| attribute.address == address)
+                .ok_or_else(|| {
+                    AdvancedFamilyError::TypedBulk("missing Encapsulated Document".into())
+                })?;
+            let attribute = plan.attributes.remove(attribute_index);
+            let Some(AttributeValue::Binary(mut bytes)) = attribute.value else {
+                return Err(AdvancedFamilyError::TypedBulk(
+                    "Encapsulated Document was not a binary value".into(),
+                ));
+            };
+            let declared_length = numeric_attribute(plan, "0042,0015")? as usize;
+            if declared_length > bytes.len() {
+                return Err(AdvancedFamilyError::TypedBulk(
+                    "Encapsulated Document Length exceeds the stored value".into(),
+                ));
+            }
+            bytes.truncate(declared_length);
+            validate_document_payload(family, &bytes)?;
+            let properties = BTreeMap::from([(
+                "semantic_validator".into(),
+                match family {
+                    TypedBulkFamily::EncapsulatedPdf => "pdf_structure",
+                    TypedBulkFamily::EncapsulatedStl => "binary_stl_structure",
+                    _ => unreachable!(),
+                }
+                .into(),
+            )]);
+            let mut content = match family {
+                TypedBulkFamily::EncapsulatedPdf => {
+                    BulkDataPlan::from_bytes::<EncapsulatedDocumentSlot>(
+                        bytes,
+                        attribute.vr,
+                        BulkDataBounds::bounded(8, MAX_DOCUMENT_BYTES, 1),
+                        BulkDataSource::DefaultSynthetic,
+                        properties,
+                    )
+                }
+                TypedBulkFamily::EncapsulatedStl => BulkDataPlan::from_bytes::<MeshSlot>(
+                    bytes,
+                    attribute.vr,
+                    BulkDataBounds::bounded(84, MAX_DOCUMENT_BYTES, 1),
+                    BulkDataSource::DefaultSynthetic,
+                    properties,
+                ),
+                _ => unreachable!(),
+            }
+            .map_err(|error| AdvancedFamilyError::TypedBulk(error.to_string()))?
+            .into_canonical_content();
+            content.slot = document_slot(family).into();
+            plan.content.push(content);
+        }
+    }
+    plan.content
+        .sort_by(|left, right| left.slot.cmp(&right.slot));
+    Ok(())
+}
+
+fn apply_typed_bulk_content(
+    family: TypedBulkFamily,
+    instance: &SpecInstance,
+    plan: &mut ResolvedInstancePlan,
+    resolver: &mut LocalContentResolver,
+) -> Result<(), AdvancedFamilyError> {
+    if instance.content.is_empty()
+        || instance
+            .content
+            .iter()
+            .all(|assignment| matches!(assignment.source, ContentSource::Default))
+    {
+        return Ok(());
+    }
+    if instance.content.len() != plan.content.len() {
+        return Err(AdvancedFamilyError::ContentCardinality(
+            instance.instance_id.clone(),
+        ));
+    }
+    for assignment in &instance.content {
+        let position = plan
+            .content
+            .iter()
+            .position(|content| content.slot == assignment.slot)
+            .ok_or_else(|| AdvancedFamilyError::UnsupportedContent(assignment.slot.clone()))?;
+        let ContentSource::LocalFile {
+            path,
+            sha256,
+            media_type,
+            pixel: None,
+        } = &assignment.source
+        else {
+            return Err(AdvancedFamilyError::UnsupportedContent(
+                instance.instance_id.clone(),
+            ));
+        };
+        validate_media_type(family, media_type.as_deref())?;
+        let expected = &plan.content[position];
+        let asset = resolver
+            .resolve(
+                &assignment.slot,
+                document_slot(family),
+                Path::new(path),
+                sha256.as_deref(),
+            )
+            .map_err(|error| AdvancedFamilyError::TypedBulk(error.to_string()))?;
+        let bounds = match family {
+            TypedBulkFamily::TwelveLeadEcg | TypedBulkFamily::GeneralEcg => {
+                BulkDataBounds::exact(expected.size_bytes)
+            }
+            TypedBulkFamily::EncapsulatedPdf => BulkDataBounds::bounded(8, MAX_DOCUMENT_BYTES, 1),
+            TypedBulkFamily::EncapsulatedStl => BulkDataBounds::bounded(84, MAX_DOCUMENT_BYTES, 1),
+        };
+        let mut replacement = match family {
+            TypedBulkFamily::TwelveLeadEcg | TypedBulkFamily::GeneralEcg => {
+                BulkDataPlan::from_staged::<WaveformSamplesSlot>(
+                    asset,
+                    expected.vr,
+                    bounds,
+                    BTreeMap::from([("semantic_validator".into(), "waveform_samples".into())]),
+                )
+            }
+            TypedBulkFamily::EncapsulatedPdf => {
+                BulkDataPlan::from_staged::<EncapsulatedDocumentSlot>(
+                    asset,
+                    expected.vr,
+                    bounds,
+                    BTreeMap::from([("semantic_validator".into(), "pdf_structure".into())]),
+                )
+            }
+            TypedBulkFamily::EncapsulatedStl => BulkDataPlan::from_staged::<MeshSlot>(
+                asset,
+                expected.vr,
+                bounds,
+                BTreeMap::from([("semantic_validator".into(), "binary_stl_structure".into())]),
+            ),
+        }
+        .map_err(|error| AdvancedFamilyError::TypedBulk(error.to_string()))?
+        .into_canonical_content();
+        replacement.slot = assignment.slot.clone();
+        replacement.placement = expected.placement.clone();
+        let bytes = match replacement.materialization.as_ref() {
+            Some(super::ContentMaterialization::StagedFile(path)) => std::fs::read(path)
+                .map_err(|error| AdvancedFamilyError::TypedBulk(error.to_string()))?,
+            _ => unreachable!("local content resolves to a staged file"),
+        };
+        validate_document_payload(family, &bytes)?;
+        if matches!(
+            family,
+            TypedBulkFamily::EncapsulatedPdf | TypedBulkFamily::EncapsulatedStl
+        ) {
+            upsert(
+                &mut plan.attributes,
+                ResolvedAttribute {
+                    address: super::AttributeAddress::from_normalized_tag("0042,0015")
+                        .map_err(|error| AdvancedFamilyError::TypedBulk(error.to_string()))?,
+                    vr: super::DicomVr::UL,
+                    value: Some(AttributeValue::Primitive(PrimitiveValue::Unsigned(
+                        replacement.size_bytes,
+                    ))),
+                    origin: ValueOrigin::DerivedStructural,
+                },
+            );
+        }
+        plan.content[position] = replacement;
+    }
+    Ok(())
+}
+
+fn waveform_slot(index: usize, groups: usize) -> &'static str {
+    match (groups, index) {
+        (1, 0) => "waveform_samples",
+        (2, 0) => "waveform_samples_1",
+        (2, 1) => "waveform_samples_2",
+        _ => unreachable!("qualified waveform group count"),
+    }
+}
+
+fn document_slot(family: TypedBulkFamily) -> &'static str {
+    match family {
+        TypedBulkFamily::TwelveLeadEcg | TypedBulkFamily::GeneralEcg => "waveform_samples",
+        TypedBulkFamily::EncapsulatedPdf => "document",
+        TypedBulkFamily::EncapsulatedStl => "mesh",
+    }
+}
+
+fn validate_media_type(
+    family: TypedBulkFamily,
+    media_type: Option<&str>,
+) -> Result<(), AdvancedFamilyError> {
+    let valid = match (family, media_type) {
+        (_, None) => true,
+        (TypedBulkFamily::EncapsulatedPdf, Some("application/pdf")) => true,
+        (TypedBulkFamily::EncapsulatedStl, Some("model/stl" | "application/sla")) => true,
+        (
+            TypedBulkFamily::TwelveLeadEcg | TypedBulkFamily::GeneralEcg,
+            Some("application/octet-stream"),
+        ) => true,
+        _ => false,
+    };
+    if valid {
+        Ok(())
+    } else {
+        Err(AdvancedFamilyError::TypedBulk(format!(
+            "media type {media_type:?} is incompatible with {family:?}"
+        )))
+    }
+}
+
+fn validate_document_payload(
+    family: TypedBulkFamily,
+    bytes: &[u8],
+) -> Result<(), AdvancedFamilyError> {
+    match family {
+        TypedBulkFamily::TwelveLeadEcg | TypedBulkFamily::GeneralEcg => Ok(()),
+        TypedBulkFamily::EncapsulatedPdf => {
+            if bytes.starts_with(b"%PDF-")
+                && bytes
+                    .windows(5)
+                    .rev()
+                    .take(32)
+                    .any(|window| window == b"%%EOF")
+            {
+                Ok(())
+            } else {
+                Err(AdvancedFamilyError::TypedBulk(
+                    "supplied document is not a bounded PDF payload".into(),
+                ))
+            }
+        }
+        TypedBulkFamily::EncapsulatedStl => {
+            if bytes.len() < 84 {
+                return Err(AdvancedFamilyError::TypedBulk(
+                    "binary STL payload is shorter than its header".into(),
+                ));
+            }
+            let triangles = u32::from_le_bytes(bytes[80..84].try_into().expect("four bytes"));
+            let expected = 84_usize
+                .checked_add(
+                    usize::try_from(triangles)
+                        .ok()
+                        .and_then(|count| count.checked_mul(50))
+                        .ok_or_else(|| {
+                            AdvancedFamilyError::TypedBulk(
+                                "binary STL triangle count overflows".into(),
+                            )
+                        })?,
+                )
+                .ok_or_else(|| {
+                    AdvancedFamilyError::TypedBulk("binary STL length overflows".into())
+                })?;
+            if bytes.len() == expected {
+                Ok(())
+            } else {
+                Err(AdvancedFamilyError::TypedBulk(format!(
+                    "binary STL declares {triangles} triangles but has {} bytes",
+                    bytes.len()
+                )))
+            }
+        }
+    }
+}
+
 fn apply_caller_content(
     instance: &SpecInstance,
     plan: &mut ResolvedInstancePlan,
@@ -1024,6 +1399,7 @@ pub enum AdvancedFamilyError {
     InvalidTiling(String),
     ConcatenationClosure(String),
     DicomReferenceClosure(String),
+    TypedBulk(String),
     ContentCardinality(String),
     UnsupportedContent(String),
     PixelShapeMismatch {

@@ -31,6 +31,10 @@ This file is rendered from `templates/catalog.json`. Use `templates describe` fo
 | `enhanced/ct/concatenation-part-2`@1.0.0 | Enhanced CT Image | `1.2.840.10008.5.1.4.1.1.2.1` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
 | `enhanced/mr`@1.0.0 | Enhanced MR Image | `1.2.840.10008.5.1.4.1.1.4.1` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
 | `enhanced/pet`@1.0.0 | Enhanced PET Image | `1.2.840.10008.5.1.4.1.1.130` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
+| `non-image/encapsulated-document/pdf`@1.0.0 | Encapsulated PDF | `1.2.840.10008.5.1.4.1.1.104.1` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator, pdfinfo |
+| `non-image/mesh/stl`@1.0.0 | Encapsulated STL | `1.2.840.10008.5.1.4.1.1.104.3` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator, pydicom-encapsulated-stl-payload |
+| `non-image/waveform/general-ecg`@1.0.0 | General ECG Waveform | `1.2.840.10008.5.1.4.1.1.9.1.2` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator, pydicom-dicom-validator-waveform |
+| `non-image/waveform/twelve-lead-ecg`@1.0.0 | 12-lead ECG Waveform | `1.2.840.10008.5.1.4.1.1.9.1.1` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator, pydicom-dicom-validator-waveform |
 | `vl/endoscopic`@1.0.0 | VL Endoscopic Image | `1.2.840.10008.5.1.4.1.1.77.1.1` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
 | `vl/microscopic`@1.0.0 | VL Microscopic Image | `1.2.840.10008.5.1.4.1.1.77.1.2` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
 | `vl/photographic`@1.0.0 | VL Photographic Image | `1.2.840.10008.5.1.4.1.1.77.1.4` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |

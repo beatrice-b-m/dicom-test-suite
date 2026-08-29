@@ -58,6 +58,10 @@ Local content paths are relative to the spec file and must remain beneath that
 directory without symlinks. Large content belongs in a local file, not inline
 JSON. Declare the exact native pixel shape or typed bulk slot required by the
 descriptor and include a lowercase SHA-256 whenever the bytes are known.
+Small fixtures may use `inline_small_fixture`; they remain hash checked and
+resource accounted. Only XA/XRF descriptors expose `encoded_frames`, and only
+for RLE Lossless with per-frame hashing and decode qualification. Providers are
+available only when the descriptor lists `provider` in `allowed_sources`.
 
 `parallelism` is file-level and bounded from 1 through 64. Identity and plan
 resolution occur before workers start. Sequential and parallel runs therefore

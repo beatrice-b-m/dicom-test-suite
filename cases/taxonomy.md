@@ -4,6 +4,12 @@ This document defines the committed naming and profile rules used by
 `cases/registry.json`, generated manifests, coverage reports, and the
 `list-cases` command.
 
+Composition template IDs are a separate namespace. They identify qualified
+object contracts in `templates/catalog.json`; they are not case IDs, do not
+belong to profiles, and never add registry coverage. For current composition
+support, query `templates list` or `templates describe`, then use the generated
+composition manifest as the authority for what a particular spec emitted.
+
 ## Case ID Format
 
 Case IDs are stable, human-readable, path-safe identifiers:

@@ -77,10 +77,9 @@ These are dated evidence records for implemented vertical slices:
 ## Planning And Decision Records
 
 - [Arbitrary DICOM composition plan](arbitrary-dicom-composition-plan.md):
-  active phased execution contract for the standards-aware caller-supplied
-  attribute and content composition engine. Only capabilities promoted in the
-  current guide and status record are public; later phase descriptions remain
-  planned.
+  completed phased execution contract for the standards-aware caller-supplied
+  attribute and content composition engine. The operating guides and P8 status
+  record define its promoted scope; unlisted capabilities remain unavailable.
 - [Coverage expansion plan](coverage-expansion-plan.md): historical phased plan
   and acceptance model; consult its completion section and the registry for
   current state.

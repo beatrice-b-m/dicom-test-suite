@@ -1,6 +1,7 @@
 # Composing DICOM objects
 
-`compose` creates DICOM from a caller-owned declarative specification. It uses
+`compose` creates DICOM from a caller-owned declarative specification. Phase P8
+qualification is complete. The workflow uses
 the same standards-locked plan, Part 10 writer, manifest projection, and generic
 validator as the shared composition library. It is separate from `generate`:
 the latter selects curated registry cases and retains their case-specific
@@ -164,6 +165,25 @@ path, whole-value hash, pixel shape, and exact per-frame hashes. Symlinks,
 absolute paths, traversal, changing files, wrong hashes, and resource overruns
 are rejected.
 
+## Inline fixtures and encoded frames
+
+`inline_small_fixture` accepts at most 64 KiB of base64-decoded data. It is for
+small committed test fixtures, not ordinary bulk transport. The decoded bytes
+are SHA-256 checked when a hash is supplied, count against the same file and
+byte resource envelopes as local input, and appear in manifest assets with
+`staging_method = inline`. It supports the same pixel or typed-bulk declaration
+required for the selected slot.
+
+`encoded_frames` is qualified only for `classic/xa` and `classic/xrf` with RLE
+Lossless transfer syntax `1.2.840.10008.1.2.5`. Each frame is a safe relative
+path with an optional expected SHA-256. The number of files must equal the
+declared frame count. Every frame is decoded with the independent RLE decoder
+path and checked against the declared native shape before the original
+compressed bytes are encapsulated. The manifest records every source frame as
+an asset plus compressed and decoded frame hashes. Other compressed caller
+inputs are unavailable unless a future qualified descriptor explicitly lists
+them.
+
 ## Attribute operations
 
 Caller operations support standard tags or keywords, explicit private creators,
@@ -207,11 +227,10 @@ supply an exact hash- and size-declared slot payload; read the
 executable.
 
 XA/XRF composition supports native Explicit VR Little Endian and built-in RLE
-Lossless. RLE input uses the same native caller-frame contract, encodes staged
-input one frame at a time, emits one fragment per frame with a populated Basic
-Offset Table, decodes every encoded frame for exact hash comparison, and
-records backend availability plus native, compressed, and decoded frame hashes.
-No external codec is required.
+Lossless. Native input is encoded one frame at a time. Pre-encoded RLE input is
+preserved after exact source hashing and decode qualification. Both paths emit
+one fragment per frame with a populated Basic Offset Table and record the
+applicable compressed and decoded frame hashes. No external codec is required.
 
 `validate` reconstructs each resolved plan from the manifest, verifies file
 size and SHA-256, reopens Part 10 and data elements, checks content hashes, and
@@ -219,10 +238,17 @@ detects undeclared instance files. `report` groups only composition templates
 and transfer syntaxes. It deliberately has no registry `case_id`, profile, or
 coverage projection.
 
-These are strong same-project checks. Every qualified Phase P2-P6 default
-has pinned independent evidence documented in
-`docs/arbitrary-dicom-composition-status.md`; the general IOD route remains the
-pinned `dicom3tools-dciodvfy` adapter. Sparse WSI deliberately uses its separate
-primary validator and retains the exact dicom3tools limitation as
+These are strong same-project checks. Every qualified default has route-specific
+independent evidence accounted in `templates/qualification-evidence.json` and
+the dated `docs/arbitrary-dicom-composition-status.md`. An absent optional
+runtime is explicitly unavailable, never a pass. The general classic IOD route
+uses the pinned `dicom3tools-dciodvfy` executable. Sparse WSI deliberately uses
+its separate primary validator and retains the exact dicom3tools limitation as
 characterization rather than an allowlisted pass. Evidence applies only to the
 documented template versions, content domains, and reduced scales.
+
+The composer deliberately remains closed to unlisted SOP Classes, generic
+content trees, and unqualified transfer syntaxes. It also does not decode PNG,
+TIFF, or other image containers, and the provider protocol's disabled-network
+declaration is not a portable OS socket sandbox. These stable scope boundaries
+are recorded with their blockers in the Phase P8 status entry.

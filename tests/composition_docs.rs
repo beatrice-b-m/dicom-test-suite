@@ -78,3 +78,30 @@ fn p7_integration_guide_documents_every_external_boundary() {
         assert!(guide.contains(contract), "missing P7 contract {contract}");
     }
 }
+
+#[test]
+fn p8_docs_record_promotion_and_remaining_scope_without_coverage_inflation() {
+    let status = fs::read_to_string("docs/arbitrary-dicom-composition-status.md").unwrap();
+    let guide = fs::read_to_string("docs/composition-guide.md").unwrap();
+    let consumption = fs::read_to_string("docs/corpus-consumption.md").unwrap();
+    for contract in [
+        "Phase P8 program completion gate",
+        "unqualified_unknown_sop",
+        "lossless_image_container_not_qualified",
+        "template_transfer_syntax_not_qualified",
+        "provider_os_socket_sandbox_external",
+        "full_scale_resource_behavior_unproven",
+        "There are no schema-only content-source shims left",
+    ] {
+        assert!(status.contains(contract), "missing P8 status contract {contract}");
+    }
+    for source in [
+        "inline_small_fixture",
+        "encoded_frames",
+        "templates/qualification-evidence.json",
+    ] {
+        assert!(guide.contains(source), "missing P8 guide contract {source}");
+    }
+    assert!(consumption.contains("Do not translate template IDs into"));
+    assert!(consumption.contains("curated `case_id`, profile, or coverage claims"));
+}

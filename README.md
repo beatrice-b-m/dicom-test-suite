@@ -40,7 +40,7 @@ cargo run --locked -- report \
 The output directory must not already exist. Generation is staged and promoted
 as a complete directory, and the result always includes `manifest.json`.
 
-For caller-defined objects, the public composition catalog qualifies every
+For caller-defined objects, the Phase P8 composition platform qualifies every
 currently implemented valid DICOM SOP Class through a template or deterministic
 bundle, with bounded typed content models:
 
@@ -54,7 +54,9 @@ cargo run --locked -- validate generated/composition-sc
 ```
 
 `compose` is standards-aware but does not project curated registry coverage.
-See the [composition guide](docs/composition-guide.md) and generated
+Specs can use deterministic defaults, local files, small inline fixtures,
+fingerprinted offline providers, and—for the qualified XA/XRF RLE contract—
+pre-encoded frames. See the [composition guide](docs/composition-guide.md) and generated
 [template reference](docs/composition-template-reference.md) for raw pixels,
 waveforms, quantitative data, documents, meshes, structured references, RT
 graphs, typed attribute operations, transfer syntaxes, dry runs, resource

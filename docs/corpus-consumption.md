@@ -82,6 +82,31 @@ is used.
 See [external-codec-verification.md](external-codec-verification.md) for the
 runtime fingerprint and verification policy for these commands.
 
+## Caller-defined composition handoff
+
+A composition root is a custom, template-qualified corpus, not a registry
+profile. Create it from the exact spec and preserve the spec, seed, repository
+revision, `manifest.json`, and report together:
+
+```sh
+cargo run --locked -- templates describe \
+  classic/secondary-capture/monochrome --format json
+cargo run --locked -- compose \
+  --spec tests/fixtures/composition/valid/template-only.json \
+  --out generated/review-composition --seed 1
+cargo run --locked -- validate generated/review-composition
+cargo run --locked -- report \
+  generated/review-composition --format markdown
+```
+
+Require `run.kind = "composition"`, successful validation for every entry, a
+closed bundle/reference graph, and no unexplained unavailable capabilities.
+Verify each manifest asset path, size, and SHA-256 against the supplied local,
+inline, encoded-frame, or provider input. Do not translate template IDs into
+curated `case_id`, profile, or coverage claims. Independent conformance remains
+the route named by the descriptor and must be handed off with its pinned tool
+identity or an explicit unavailable outcome.
+
 ## Choose A Corpus Level
 
 ### Broadest valid file corpus

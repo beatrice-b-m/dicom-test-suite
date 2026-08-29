@@ -1,5 +1,62 @@
 # Arbitrary DICOM composition status
 
+## 2026-08-29 — Phase P8 program completion gate
+
+Phase P8 and the arbitrary-composition program are complete for the qualified
+catalog. The executable inventory audit proves that every currently implemented
+valid registry DICOM SOP Class resolves to a qualified template or deterministic
+bundle. The full-catalog qualification generates every default and dependency
+closure twice—sequentially and with eight workers—then requires identical UIDs,
+resolved-plan hashes, output hashes, content projections, and references. Both
+roots pass strict validation, and their reports contain no curated `case_id` or
+profile coverage axes.
+
+All declared spec content sources now have executable contracts. Local and
+inline content share hash and resource accounting; provider output is bound to
+its protocol, executable, arguments, request, response, and payload identities;
+and XA/XRF caller RLE frames are individually staged, hashed, independently
+decoded, and projected as manifest assets. Template descriptions expose those
+sources. Every caller asset, resolved plan, identity, reference, output, and
+validation result is bound by the composition manifest.
+
+`templates/qualification-evidence.json` accounts for every independent route
+declared by the catalog and points to its pinned lock, focused tests, and dated
+evidence. Optional tool environments are either lock-resolved and exercised or
+explicitly unavailable; absence is never a pass. Curated recipes continue to
+rematerialize through the shared plan while preserving registry selection,
+case-specific validation, and independent-evidence boundaries.
+
+The P8 adversarial matrix covers unsafe and symlinked paths, malformed typed
+attributes and VR/VM, conditional/removal rules, protected collisions,
+reference closure and cycles, pixel shape/length, malformed and mismatched
+provider protocol artifacts, executable/output substitution, crash, hang,
+flood, cancellation, resource ceilings, cleanup, and destination races. The
+large-value stream test and 128-instance parallel test establish bounded copy
+buffers, deterministic ordering, and transactionality. Catalog-wide evidence
+is in `tests/composition_p8_qualification.rs`; the adversarial cases are spread
+across the focused composition schema, plan, reference, content, provider, and
+resource suites.
+
+Remaining composition gaps are explicit scope boundaries with stable blockers:
+
+- `unqualified_unknown_sop`: no generic unknown-SOP or raw-element writer;
+  promotion requires a standards-evidenced descriptor, defaults, validation,
+  and an independent route.
+- `lossless_image_container_not_qualified`: PNG, TIFF, and similar image input
+  decoding is unavailable; callers use declared native bytes or qualified RLE
+  frames until a container decoder has locked metadata and decode evidence.
+- `template_transfer_syntax_not_qualified`: transfer syntaxes not listed by a
+  descriptor are unavailable, even when a curated case or optional codec can
+  emit them.
+- `provider_os_socket_sandbox_external`: the provider protocol clears network
+  configuration but portable OS-level socket confinement remains the caller's
+  external sandbox responsibility.
+- `full_scale_resource_behavior_unproven`: bounded streaming and reduced-scale
+  qualifications do not claim full-scale memory or throughput behavior.
+
+There are no schema-only content-source shims left. These gaps do not weaken
+the completed qualified catalog and must not be restated as passes.
+
 ## 2026-08-29 — Phase P7 completion gate
 
 Phase P7 is complete. External callers can use the file-backed CLI, the

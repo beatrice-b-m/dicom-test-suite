@@ -186,14 +186,20 @@ reports group templates and transfer syntaxes; they do not claim a registry
 profile or `case_id` coverage. The qualified public scope covers every currently
 implemented valid DICOM SOP Class through a catalog template or deterministic
 bundle, including enhanced/WSI, derived quantitative and SR, RT, waveform,
-document, and mesh families. Built-in RLE Lossless remains available for
-XA/XRF. Read [the composition guide](composition-guide.md) for the specification
+document, and mesh families. Template descriptors expose deterministic default,
+local-file, small-inline-fixture, and offline-provider sources. XA/XRF also
+expose caller-supplied RLE frames under exact hash and independent-decode
+checks. Read [the composition guide](composition-guide.md) for the specification
 format and [the rendered template reference](composition-template-reference.md)
 for exact versions, transfer syntaxes, content contracts, and independent
 routes. External callers should also read the
 [composition integration guide](composition-integration-guide.md) for the Rust
 API, provider protocol, cancellation, bounded-memory, and reproducibility
 contracts.
+
+This is the completed Phase P8 catalog scope, not a generic unknown-SOP writer.
+Unlisted templates, transfer syntaxes, semantic parameters, and content models
+remain unavailable with the blockers recorded in the dated composition status.
 
 ## 6. Understand The Output
 

@@ -306,7 +306,7 @@ impl AdvancedPlanProviderOutput {
         let mut instance_to_artifact = BTreeMap::new();
         let mut roles = BTreeSet::new();
         let mut paths = BTreeSet::new();
-        let mut prior_order = None;
+        let mut artifact_orders = BTreeSet::new();
         let mut output_bytes = 0_u64;
         let mut peak_working_bytes = 0_u64;
         for artifact in &self.artifacts {
@@ -339,10 +339,11 @@ impl AdvancedPlanProviderOutput {
                     artifact.planned.output.relative_path.to_string(),
                 ));
             }
-            if prior_order.is_some_and(|prior| artifact.planned.order <= prior) {
-                return Err(AdvancedProviderContractError::MisorderedArtifacts);
+            if !artifact_orders.insert(artifact.planned.order) {
+                return Err(AdvancedProviderContractError::DuplicateArtifactOrder(
+                    artifact.planned.order,
+                ));
             }
-            prior_order = Some(artifact.planned.order);
             if artifact.planned.resources.peak_working_bytes == 0 {
                 return Err(AdvancedProviderContractError::ZeroArtifactWorkingSet(
                     artifact.planned.logical_id.clone(),
@@ -648,7 +649,7 @@ pub enum AdvancedProviderContractError {
     DuplicateInstance(String),
     DuplicateArtifactRole,
     DuplicateOutputPath(String),
-    MisorderedArtifacts,
+    DuplicateArtifactOrder(u64),
     ZeroArtifactWorkingSet(String),
     UnknownDependency,
     DuplicateDependency,
@@ -721,8 +722,8 @@ impl fmt::Display for AdvancedProviderContractError {
             Self::DuplicateOutputPath(path) => {
                 write!(formatter, "duplicate advanced output path `{path}`")
             }
-            Self::MisorderedArtifacts => {
-                formatter.write_str("advanced artifacts are not in strictly increasing order")
+            Self::DuplicateArtifactOrder(order) => {
+                write!(formatter, "advanced artifacts repeat order `{order}`")
             }
             Self::ZeroArtifactWorkingSet(id) => {
                 write!(formatter, "advanced artifact `{id}` has a zero working set")

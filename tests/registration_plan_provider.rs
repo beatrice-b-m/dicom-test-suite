@@ -444,10 +444,12 @@ fn registration_provider_source_has_no_writer_or_filesystem_boundary() {
 fn provider_preserves_caller_owned_target_context() {
     let provider = RegistrationPlanProvider::new(LOCK).unwrap();
     let (mut request, mut input) = spatial();
+    input.sources[0].artifact.order = 10;
+    input.sources[1].artifact.order = 20;
     let context = &mut request.artifact_contexts[0];
     context.target_instance_id = "caller_registration_target".into();
     context.identities.logical_instance_id = context.target_instance_id.clone();
-    context.order = 91;
+    context.order = 0;
     context.output.relative_path =
         OutputRelativePath::new("composition/registration/custom.dcm").unwrap();
     for source in &mut input.sources {
@@ -456,9 +458,17 @@ fn provider_preserves_caller_owned_target_context() {
     let expected = context.clone();
 
     let output = provider.plan_typed(&request, &input).unwrap();
-    let planned = &output.artifacts.last().unwrap().planned;
+    let planned = &output.artifacts.first().unwrap().planned;
     assert_eq!(planned.logical_id, expected.target_instance_id);
     assert_eq!(planned.order, expected.order);
     assert_eq!(planned.output, expected.output);
     assert_eq!(planned.instance.identities, expected.identities);
+    assert_eq!(
+        output
+            .artifacts
+            .iter()
+            .map(|artifact| artifact.planned.order)
+            .collect::<Vec<_>>(),
+        vec![0, 10, 20]
+    );
 }

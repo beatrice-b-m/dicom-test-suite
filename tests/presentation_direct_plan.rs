@@ -318,7 +318,8 @@ fn input(recipe: PresentationRecipe, specs: Vec<SourceSpec>) -> PresentationPlan
             .into_iter()
             .enumerate()
             .map(|(index, spec)| {
-                let artifact = source_artifact(spec);
+                let mut artifact = source_artifact(spec);
+                artifact.order = index as u64;
                 PresentationSourceInput {
                     ordinal: index as u32 + 1,
                     role: if blending {
@@ -612,18 +613,21 @@ fn malformed_source_sets_fail_closed_before_staging() {
 fn provider_preserves_caller_owned_target_context() {
     let provider = PresentationPlanProvider::new(lock_hash());
     let (recipe, sources, _) = recipes().remove(0);
-    let input = input(recipe, sources);
+    let mut input = input(recipe, sources);
+    for (index, source) in input.sources.iter_mut().enumerate() {
+        source.artifact.order = 10 + index as u64;
+    }
     let mut request = request(&input);
     let context = &mut request.artifact_contexts[0];
     context.target_instance_id = "caller_presentation_target".into();
     context.identities.logical_instance_id = context.target_instance_id.clone();
-    context.order = 99;
+    context.order = 0;
     context.output.relative_path =
         OutputRelativePath::new("composition/presentation/custom.dcm").unwrap();
     let expected = context.clone();
 
     let output = provider.plan(&request, &input).unwrap();
-    let planned = &output.artifacts.last().unwrap().planned;
+    let planned = &output.artifacts.first().unwrap().planned;
     assert_eq!(planned.logical_id, expected.target_instance_id);
     assert_eq!(planned.order, expected.order);
     assert_eq!(planned.output, expected.output);
@@ -632,4 +636,14 @@ fn provider_preserves_caller_owned_target_context() {
         reference.owner_artifact_id == expected.target_instance_id
             && reference.reference.source_instance_id == expected.target_instance_id
     }));
+    assert_eq!(
+        output
+            .artifacts
+            .iter()
+            .map(|artifact| artifact.planned.order)
+            .collect::<Vec<_>>(),
+        (0..=input.sources.len())
+            .map(|index| if index == 0 { 0 } else { 9 + index as u64 })
+            .collect::<Vec<_>>()
+    );
 }

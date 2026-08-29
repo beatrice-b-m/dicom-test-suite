@@ -410,11 +410,6 @@ impl RegistrationPlanProvider {
             AdvancedSourceRole::RegistrationMoving,
             CLASSIC_CT_SOP,
         )?;
-        if fixed.artifact.order >= moving.artifact.order
-            || moving.artifact.order >= input.common.order
-        {
-            return Err(RegistrationPlanError::SourceOrder);
-        }
         if fixed.artifact.logical_id == moving.artifact.logical_id
             || fixed.reference.referenced_sop_instance_uid
                 == moving.reference.referenced_sop_instance_uid
@@ -494,6 +489,7 @@ impl RegistrationPlanProvider {
             artifact_id: target_id,
             slots: BTreeMap::new(),
         });
+        artifacts.sort_by_key(|artifact| artifact.planned.order);
         let output = AdvancedPlanProviderOutput {
             artifacts,
             dependencies,
@@ -1071,7 +1067,6 @@ pub enum RegistrationPlanError {
     WrongProvider,
     SourceCardinality,
     SourceRole,
-    SourceOrder,
     DuplicateSource,
     SourceSopClass,
     SourceBinding,
@@ -1102,9 +1097,6 @@ impl fmt::Display for RegistrationPlanError {
             }
             Self::SourceRole => {
                 formatter.write_str("registration sources are missing, duplicated, or reordered")
-            }
-            Self::SourceOrder => {
-                formatter.write_str("source and registration artifact order is invalid")
             }
             Self::DuplicateSource => formatter.write_str("registration sources are not distinct"),
             Self::SourceSopClass => {

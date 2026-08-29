@@ -261,7 +261,7 @@ fn request_requires_exact_nonempty_artifact_contexts() {
 }
 
 #[test]
-fn rejects_duplicate_roles_paths_and_misordered_artifacts() {
+fn rejects_duplicate_roles_paths_and_orders_but_allows_vector_reordering() {
     let mut duplicate_role = valid_output();
     duplicate_role.artifacts[1].role = duplicate_role.artifacts[0].role.clone();
     assert!(matches!(
@@ -280,11 +280,15 @@ fn rejects_duplicate_roles_paths_and_misordered_artifacts() {
         Err(AdvancedProviderContractError::DuplicateOutputPath(_))
     ));
 
-    let mut misordered = valid_output();
-    misordered.artifacts.swap(0, 1);
+    let mut reordered = valid_output();
+    reordered.artifacts.swap(0, 1);
+    reordered.validate(&request()).unwrap();
+
+    let mut duplicate_order = valid_output();
+    duplicate_order.artifacts[1].planned.order = duplicate_order.artifacts[0].planned.order;
     assert!(matches!(
-        misordered.validate(&request()),
-        Err(AdvancedProviderContractError::MisorderedArtifacts)
+        duplicate_order.validate(&request()),
+        Err(AdvancedProviderContractError::DuplicateArtifactOrder(1))
     ));
 }
 

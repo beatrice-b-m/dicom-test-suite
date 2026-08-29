@@ -423,9 +423,8 @@ impl AdvancedPlanProvider for PresentationPlanProvider {
         let mut dependencies = Vec::with_capacity(sources.len());
         let mut references = Vec::with_capacity(sources.len());
         let mut materialized_references = Vec::with_capacity(sources.len());
-        for (index, (source_input, source)) in input.sources.iter().zip(&sources).enumerate() {
+        for (source_input, source) in input.sources.iter().zip(&sources) {
             let mut planned = source_input.artifact.clone();
-            planned.order = index as u64;
             planned.provenance = ArtifactProvenance::PrivateSource {
                 consumed_by: vec![presentation_id.clone()],
             };
@@ -527,6 +526,7 @@ impl AdvancedPlanProvider for PresentationPlanProvider {
             artifact_id: presentation_id,
             slots: BTreeMap::new(),
         });
+        artifacts.sort_by_key(|artifact| artifact.planned.order);
         let output = AdvancedPlanProviderOutput {
             artifacts,
             dependencies,

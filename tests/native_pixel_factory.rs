@@ -216,6 +216,19 @@ fn serializes_all_little_endian_signed_and_unsigned_widths() {
 }
 
 #[test]
+fn clears_unused_high_bits_for_signed_stored_values() {
+    let mut request = mono_request(StoredValueType::I16, vec![-1024, -1, 0, 2047]);
+    request.shape.bits_stored = 12;
+    request.shape.high_bit = 11;
+    let output = NativePixelFactory.create(request).unwrap();
+
+    assert_eq!(
+        output.unpadded_bytes,
+        [0x00, 0x0c, 0xff, 0x0f, 0x00, 0x00, 0xff, 0x07]
+    );
+}
+
+#[test]
 fn packs_u1_lsb_first_continuously_and_separates_value_padding() {
     let mut request = mono_request(
         StoredValueType::U1,

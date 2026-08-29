@@ -889,32 +889,41 @@ fn serialize_decoded_frame(
         .ok_or(NativePixelError::ArithmeticOverflow)?;
     let mut bytes = Vec::with_capacity(capacity);
     for value in values.iter().copied() {
+        // DICOM's signed interpretation is anchored at High Bit. When fewer
+        // bits are stored than allocated, serialize the two's-complement
+        // stored-bit pattern and leave every unused high bit clear.
+        let stored_word =
+            if shape.pixel_representation == 1 && shape.bits_stored < shape.bits_allocated {
+                let mask = (1_u64 << shape.bits_stored) - 1;
+                (value as u64) & mask
+            } else {
+                value as u64
+            };
         match (shape.stored_value_type, shape.byte_order) {
-            (StoredValueType::U8, _) => bytes.push(value as u8),
-            (StoredValueType::I8, _) => bytes.push(value as i8 as u8),
+            (StoredValueType::U8 | StoredValueType::I8, _) => bytes.push(stored_word as u8),
             (StoredValueType::U16, ByteOrder::Little) => {
-                bytes.extend_from_slice(&(value as u16).to_le_bytes())
+                bytes.extend_from_slice(&(stored_word as u16).to_le_bytes())
             }
             (StoredValueType::U16, ByteOrder::Big) => {
-                bytes.extend_from_slice(&(value as u16).to_be_bytes())
+                bytes.extend_from_slice(&(stored_word as u16).to_be_bytes())
             }
             (StoredValueType::I16, ByteOrder::Little) => {
-                bytes.extend_from_slice(&(value as i16).to_le_bytes())
+                bytes.extend_from_slice(&(stored_word as u16).to_le_bytes())
             }
             (StoredValueType::I16, ByteOrder::Big) => {
-                bytes.extend_from_slice(&(value as i16).to_be_bytes())
+                bytes.extend_from_slice(&(stored_word as u16).to_be_bytes())
             }
             (StoredValueType::U32, ByteOrder::Little) => {
-                bytes.extend_from_slice(&(value as u32).to_le_bytes())
+                bytes.extend_from_slice(&(stored_word as u32).to_le_bytes())
             }
             (StoredValueType::U32, ByteOrder::Big) => {
-                bytes.extend_from_slice(&(value as u32).to_be_bytes())
+                bytes.extend_from_slice(&(stored_word as u32).to_be_bytes())
             }
             (StoredValueType::I32, ByteOrder::Little) => {
-                bytes.extend_from_slice(&(value as i32).to_le_bytes())
+                bytes.extend_from_slice(&(stored_word as u32).to_le_bytes())
             }
             (StoredValueType::I32, ByteOrder::Big) => {
-                bytes.extend_from_slice(&(value as i32).to_be_bytes())
+                bytes.extend_from_slice(&(stored_word as u32).to_be_bytes())
             }
             (StoredValueType::U1, _) => unreachable!("U1 returned above"),
         }

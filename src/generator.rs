@@ -5964,6 +5964,8 @@ fn migrate_shared_plan_curated_files(
             file.manifest_entry["sha256"] = Value::String(sha256_hex(&after));
             file.manifest_entry["size_bytes"] = serde_json::json!(after.len());
         }
+        file.manifest_entry["uids"]["implementation_version_name"] =
+            Value::String(crate::IMPLEMENTATION_VERSION_NAME.into());
         append_curated_plan_validation(&mut file.manifest_entry["validation"]);
     }
     Ok(())

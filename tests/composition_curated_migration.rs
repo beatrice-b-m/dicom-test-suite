@@ -106,6 +106,19 @@ fn migrated_curated_recipes_record_shared_plan_materialization() {
         );
         assert_eq!(entry["size_bytes"], bytes.len(), "{case_id}");
         if p5(case_id) || p6(case_id) {
+            let object = dicom_object::open_file(root.join(entry["path"].as_str().unwrap())).unwrap();
+            assert_eq!(
+                entry["uids"]["implementation_version_name"],
+                object
+                    .meta()
+                    .implementation_version_name
+                    .as_deref()
+                    .unwrap()
+                    .trim_end(),
+                "{case_id}"
+            );
+        }
+        if p5(case_id) || p6(case_id) {
             assert!(
                 internal
                     .iter()

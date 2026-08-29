@@ -1,6 +1,7 @@
 mod encoding;
 mod error;
 mod loader;
+mod metadata_sc;
 mod model;
 mod sc;
 
@@ -8,6 +9,7 @@ pub use crate::planning::RecipeIdentity;
 pub use encoding::{RecipeEncodingError, encoding_plan_from_recipe};
 pub use error::RecipeCatalogError;
 pub use loader::RecipeCatalog;
+pub use metadata_sc::{MetadataScPlanInput, MetadataScPlannerError, resolved_metadata_sc_plan};
 pub use model::{
     AttributeOperation, CaseBinding, CaseRecipe, ColorParameters, ContentBinding,
     DependencyBinding, DicomRecipe, EmptyType2AttributeMetadata, EncodingPolicy,

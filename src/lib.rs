@@ -49,6 +49,7 @@ pub mod fuzz;
 pub mod generation_backends;
 mod generator;
 mod geometry;
+pub(crate) mod hashing;
 pub mod media;
 pub mod media_runner;
 pub mod media_sources;

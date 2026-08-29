@@ -1,7 +1,9 @@
 //! Plan-first corpus orchestration and atomic publication.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
+use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
@@ -22,7 +24,7 @@ use crate::executor::scheduler::{
     ActualResourceUsage, ArtifactWorker, ScheduleOutcome, SchedulerError, WorkerOutput, schedule,
 };
 use crate::executor::services::{
-    ArtifactExecutionBindings, CodecRequest, CodecResult, MaterializationRequest,
+    ArtifactExecutionBindings, AssetVisibility, CodecRequest, CodecResult, MaterializationRequest,
     MaterializationResult, ProviderRequest, ProviderResult, SlotExecutionBinding,
     StagedAssetRegistry, ValidationRequest, ValidationResult, ValidationStatus,
 };
@@ -56,11 +58,38 @@ pub trait BoundExecutionServices: Send + Sync {
         assets: &StagedAssetRegistry,
     ) -> Result<CodecServiceOutcome, ServiceInvocationError>;
 
+    fn invoke_codec_cancellable(
+        &self,
+        request: &CodecRequest,
+        assets: &StagedAssetRegistry,
+        cancellation: &CancellationToken,
+    ) -> Result<CodecServiceOutcome, ServiceInvocationError> {
+        if cancellation.is_cancelled() {
+            return Err(ServiceInvocationError::new("codec", "execution cancelled"));
+        }
+        self.invoke_codec(request, assets)
+    }
+
     fn materialize(
         &self,
         request: &MaterializationRequest,
         assets: &StagedAssetRegistry,
     ) -> Result<MaterializationResult, ServiceInvocationError>;
+
+    fn materialize_cancellable(
+        &self,
+        request: &MaterializationRequest,
+        assets: &StagedAssetRegistry,
+        cancellation: &CancellationToken,
+    ) -> Result<MaterializationResult, ServiceInvocationError> {
+        if cancellation.is_cancelled() {
+            return Err(ServiceInvocationError::new(
+                "materializer",
+                "execution cancelled",
+            ));
+        }
+        self.materialize(request, assets)
+    }
 
     fn validate(
         &self,
@@ -278,6 +307,11 @@ where
         if let Err(error) = worker.services.finalize_private_assets(&asset_snapshot) {
             return Err(cleanup_failure(transaction, error.into()));
         }
+        if let Err(error) =
+            sanitize_publication_staging(transaction.staging_root(), plan, &asset_snapshot)
+        {
+            return Err(cleanup_failure(transaction, error.into()));
+        }
         let manifest_sha256 = sha256_hex(&manifest);
         let evidence = match evidence_for(
             plan,
@@ -309,6 +343,152 @@ where
             evidence,
         })
     }
+}
+
+fn sanitize_publication_staging(
+    root: &Path,
+    plan: &CorpusPlan,
+    assets: &StagedAssetRegistry,
+) -> Result<(), ServiceInvocationError> {
+    match fs::symlink_metadata(root) {
+        Ok(metadata) if metadata.is_dir() && !metadata.file_type().is_symlink() => {}
+        Ok(_) => {
+            return Err(ServiceInvocationError::new(
+                "publication sanitization",
+                "transaction staging root is not a safe directory",
+            ));
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => {
+            return Err(ServiceInvocationError::new(
+                "publication sanitization",
+                error.to_string(),
+            ));
+        }
+    }
+    let allowed = plan
+        .artifacts
+        .iter()
+        .filter_map(|artifact| artifact.output())
+        .filter(|output| output.publish)
+        .map(|output| output.relative_path.as_str().to_owned())
+        .collect::<BTreeSet<_>>();
+    let registered_public = assets
+        .iter()
+        .filter(|asset| asset.visibility == AssetVisibility::PublicationCandidate)
+        .map(|asset| asset.relative_path.as_str().to_owned())
+        .collect::<BTreeSet<_>>();
+    if registered_public != allowed {
+        return Err(ServiceInvocationError::new(
+            "publication sanitization",
+            format!(
+                "registered publication paths do not match the plan: registered={registered_public:?}, planned={allowed:?}"
+            ),
+        ));
+    }
+    for asset in assets
+        .iter()
+        .filter(|asset| asset.visibility == AssetVisibility::PublicationCandidate)
+    {
+        let path = root.join(asset.relative_path.as_str());
+        let metadata = fs::symlink_metadata(&path).map_err(|error| {
+            ServiceInvocationError::new("publication sanitization", error.to_string())
+        })?;
+        if metadata.file_type().is_symlink() || !metadata.is_file() {
+            return Err(ServiceInvocationError::new(
+                "publication sanitization",
+                format!("planned output is not a regular file: {}", path.display()),
+            ));
+        }
+        let (size_bytes, sha256) = hash_regular_file(&path)?;
+        if size_bytes != asset.size_bytes || sha256 != asset.sha256 {
+            return Err(ServiceInvocationError::new(
+                "publication sanitization",
+                format!("planned output identity changed: {}", path.display()),
+            ));
+        }
+    }
+    sanitize_directory(root, root, &allowed)
+}
+
+fn hash_regular_file(path: &Path) -> Result<(u64, String), ServiceInvocationError> {
+    let mut file = fs::File::open(path).map_err(|error| {
+        ServiceInvocationError::new("publication sanitization", error.to_string())
+    })?;
+    let mut hasher = crate::hashing::StreamingSha256::new();
+    let mut buffer = [0_u8; 8192];
+    let mut size = 0_u64;
+    loop {
+        let read = file.read(&mut buffer).map_err(|error| {
+            ServiceInvocationError::new("publication sanitization", error.to_string())
+        })?;
+        if read == 0 {
+            break;
+        }
+        size = size.checked_add(read as u64).ok_or_else(|| {
+            ServiceInvocationError::new("publication sanitization", "output size overflow")
+        })?;
+        hasher.update(&buffer[..read]);
+    }
+    Ok((size, hasher.finish_hex()))
+}
+
+fn sanitize_directory(
+    root: &Path,
+    directory: &Path,
+    allowed: &BTreeSet<String>,
+) -> Result<(), ServiceInvocationError> {
+    let entries = fs::read_dir(directory).map_err(|error| {
+        ServiceInvocationError::new("publication sanitization", error.to_string())
+    })?;
+    for entry in entries {
+        let entry = entry.map_err(|error| {
+            ServiceInvocationError::new("publication sanitization", error.to_string())
+        })?;
+        let path = entry.path();
+        let metadata = fs::symlink_metadata(&path).map_err(|error| {
+            ServiceInvocationError::new("publication sanitization", error.to_string())
+        })?;
+        if metadata.file_type().is_symlink() {
+            return Err(ServiceInvocationError::new(
+                "publication sanitization",
+                format!("staging contains a symlink: {}", path.display()),
+            ));
+        }
+        if metadata.is_dir() {
+            sanitize_directory(root, &path, allowed)?;
+            if fs::read_dir(&path)
+                .map_err(|error| {
+                    ServiceInvocationError::new("publication sanitization", error.to_string())
+                })?
+                .next()
+                .is_none()
+            {
+                fs::remove_dir(&path).map_err(|error| {
+                    ServiceInvocationError::new("publication sanitization", error.to_string())
+                })?;
+            }
+        } else if metadata.is_file() {
+            let relative = path.strip_prefix(root).map_err(|_| {
+                ServiceInvocationError::new(
+                    "publication sanitization",
+                    "staging entry escaped its root",
+                )
+            })?;
+            let relative = relative.to_string_lossy().replace('\\', "/");
+            if !allowed.contains(&relative) {
+                fs::remove_file(&path).map_err(|error| {
+                    ServiceInvocationError::new("publication sanitization", error.to_string())
+                })?;
+            }
+        } else {
+            return Err(ServiceInvocationError::new(
+                "publication sanitization",
+                format!("unsupported staging entry: {}", path.display()),
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn evidence_for(
@@ -354,6 +534,7 @@ impl ArtifactWorker<ArtifactServiceOutputs, ArtifactExecutionError> for Executio
         }
         let mut providers = Vec::new();
         let mut codecs = Vec::new();
+        let mut transient_peak_working_bytes = 0_u64;
         for (slot, binding) in bindings.slots.clone() {
             match binding {
                 SlotExecutionBinding::ProviderRequest { request } => {
@@ -394,8 +575,21 @@ impl ArtifactWorker<ArtifactServiceOutputs, ArtifactExecutionError> for Executio
                     self.checkpoint(CancellationStage::BeforeCodec, artifact_id)?;
                     let assets = self.asset_snapshot();
                     request.validate(&assets)?;
-                    let outcome = self.services.invoke_codec(&request, &assets)?;
+                    let outcome = match self.services.invoke_codec_cancellable(
+                        &request,
+                        &assets,
+                        self.cancellation,
+                    ) {
+                        Ok(outcome) => outcome,
+                        Err(error) => {
+                            self.checkpoint(CancellationStage::BeforeCodec, artifact_id)?;
+                            return Err(error.into());
+                        }
+                    };
+                    self.checkpoint(CancellationStage::BeforeCodec, artifact_id)?;
                     outcome.result.validate(&request, &assets)?;
+                    transient_peak_working_bytes = transient_peak_working_bytes
+                        .max(codec_transient_bytes(&request, &outcome.result)?);
                     bindings.slots.insert(
                         slot,
                         SlotExecutionBinding::EncodedFrames {
@@ -459,8 +653,21 @@ impl ArtifactWorker<ArtifactServiceOutputs, ArtifactExecutionError> for Executio
                     self.checkpoint(CancellationStage::BeforeCodec, artifact_id)?;
                     let assets = self.asset_snapshot();
                     codec.validate(&assets)?;
-                    let outcome = self.services.invoke_codec(&codec, &assets)?;
+                    let outcome = match self.services.invoke_codec_cancellable(
+                        &codec,
+                        &assets,
+                        self.cancellation,
+                    ) {
+                        Ok(outcome) => outcome,
+                        Err(error) => {
+                            self.checkpoint(CancellationStage::BeforeCodec, artifact_id)?;
+                            return Err(error.into());
+                        }
+                    };
+                    self.checkpoint(CancellationStage::BeforeCodec, artifact_id)?;
                     outcome.result.validate(&codec, &assets)?;
+                    transient_peak_working_bytes = transient_peak_working_bytes
+                        .max(codec_transient_bytes(&codec, &outcome.result)?);
                     bindings.slots.insert(
                         slot,
                         SlotExecutionBinding::EncodedFrames {
@@ -487,7 +694,18 @@ impl ArtifactWorker<ArtifactServiceOutputs, ArtifactExecutionError> for Executio
         };
         let assets = self.asset_snapshot();
         request.validate(&assets)?;
-        let materialization = self.services.materialize(&request, &assets)?;
+        let materialization =
+            match self
+                .services
+                .materialize_cancellable(&request, &assets, self.cancellation)
+            {
+                Ok(materialization) => materialization,
+                Err(error) => {
+                    self.checkpoint(CancellationStage::BeforeMaterialization, artifact_id)?;
+                    return Err(error.into());
+                }
+            };
+        self.checkpoint(CancellationStage::BeforeMaterialization, artifact_id)?;
         materialization.validate(&request)?;
         if let Some(output) = &materialization.output {
             self.registry
@@ -524,9 +742,14 @@ impl ArtifactWorker<ArtifactServiceOutputs, ArtifactExecutionError> for Executio
             require_valid_obligation(obligation, &result)?;
             obligations.push(result);
         }
-        let peak_working_bytes = self
+        let reported_peak_working_bytes = self
             .services
             .actual_peak_working_bytes(artifact, &materialization)?;
+        let materialization_transient =
+            materialization_transient_bytes(&request, &materialization)?;
+        let peak_working_bytes = reported_peak_working_bytes
+            .max(transient_peak_working_bytes)
+            .max(materialization_transient);
         let output_bytes = materialization
             .output
             .as_ref()
@@ -582,6 +805,80 @@ fn select_provider_output<'a>(
         request_id: result.request_id.clone(),
         slot: slot.to_owned(),
     })
+}
+
+fn codec_transient_bytes(
+    request: &CodecRequest,
+    result: &CodecResult,
+) -> Result<u64, ArtifactExecutionError> {
+    let native = request.frames.iter().try_fold(0_u64, |total, frame| {
+        let length = match &frame.bytes {
+            crate::executor::services::ByteBinding::Inline { bytes, .. } => bytes.len() as u64,
+            crate::executor::services::ByteBinding::StagedRange { length, .. }
+            | crate::executor::services::ByteBinding::VerifiedAssetRange { length, .. } => *length,
+        };
+        total.checked_add(length)
+    });
+    let encoded = result.frames.iter().try_fold(0_u64, |total, frame| {
+        total.checked_add(frame.encoded_size_bytes)
+    });
+    native
+        .and_then(|native| encoded.and_then(|encoded| native.checked_add(encoded)))
+        .ok_or(ArtifactExecutionError::ResourceAccountingOverflow(
+            "codec transient bytes",
+        ))
+}
+
+fn materialization_transient_bytes(
+    request: &MaterializationRequest,
+    result: &MaterializationResult,
+) -> Result<u64, ArtifactExecutionError> {
+    let encoded = request
+        .bindings
+        .slots
+        .values()
+        .try_fold(0_u64, |total, binding| {
+            let SlotExecutionBinding::EncodedFrames { frames } = binding else {
+                return Some(total);
+            };
+            frames.iter().try_fold(total, |subtotal, frame| {
+                subtotal.checked_add(frame.encoded_size_bytes)
+            })
+        });
+    let encoded = encoded.ok_or(ArtifactExecutionError::ResourceAccountingOverflow(
+        "materialization encoded bytes",
+    ))?;
+    if encoded == 0 {
+        return Ok(result
+            .output
+            .as_ref()
+            .map_or(1, |output| output.observed_size_bytes.max(1)));
+    }
+    let frame_count = request
+        .bindings
+        .slots
+        .values()
+        .try_fold(0_u64, |total, binding| {
+            let count = match binding {
+                SlotExecutionBinding::EncodedFrames { frames } => frames.len() as u64,
+                _ => 0,
+            };
+            total.checked_add(count)
+        });
+    let bot_bytes = frame_count.and_then(|count| count.checked_mul(4)).ok_or(
+        ArtifactExecutionError::ResourceAccountingOverflow("basic offset table bytes"),
+    )?;
+    let output = result
+        .output
+        .as_ref()
+        .map_or(0, |asset| asset.observed_size_bytes);
+    encoded
+        .checked_mul(3)
+        .and_then(|value| value.checked_add(bot_bytes))
+        .and_then(|value| value.checked_add(output))
+        .ok_or(ArtifactExecutionError::ResourceAccountingOverflow(
+            "materialization transient bytes",
+        ))
 }
 
 fn artifact_validation(artifact: &PlannedArtifact) -> &ValidationPlan {
@@ -731,6 +1028,7 @@ pub enum ArtifactExecutionError {
         request_id: String,
         codec_request_id: String,
     },
+    ResourceAccountingOverflow(&'static str),
     ValidationFailed {
         rule_id: String,
         status: ValidationStatus,

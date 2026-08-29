@@ -1,8 +1,10 @@
 use std::collections::BTreeMap;
+use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use dicom_test_suite::composition::{
     CompositionUidRole, IdentityPlan, ResolvedInstancePlan, TemplateId, TemplateVersion,
@@ -18,6 +20,7 @@ use dicom_test_suite::executor::transaction::TransactionError;
 use dicom_test_suite::sha256_hex;
 
 const TS: &str = "1.2.840.10008.1.2.1";
+static NEXT_REAL_TRANSACTION: AtomicU64 = AtomicU64::new(0);
 
 fn plan() -> CorpusPlan {
     let instance = ResolvedInstancePlan {
@@ -462,6 +465,256 @@ impl BoundExecutionServices for ConcurrentServices {
     }
 }
 
+#[derive(Clone, Copy)]
+enum BlockingStage {
+    Codec,
+    Materialization,
+}
+
+#[derive(Clone)]
+struct BlockingFactory {
+    stage: BlockingStage,
+    entered: Arc<AtomicBool>,
+}
+
+impl ExecutionServiceFactory for BlockingFactory {
+    fn bind(&self, _: &Path) -> Result<Arc<dyn BoundExecutionServices>, ServiceInvocationError> {
+        Ok(Arc::new(BlockingServices {
+            stage: self.stage,
+            entered: self.entered.clone(),
+        }))
+    }
+}
+
+struct BlockingServices {
+    stage: BlockingStage,
+    entered: Arc<AtomicBool>,
+}
+
+#[derive(Clone)]
+struct RealFileFactory;
+
+impl ExecutionServiceFactory for RealFileFactory {
+    fn bind(
+        &self,
+        staging: &Path,
+    ) -> Result<Arc<dyn BoundExecutionServices>, ServiceInvocationError> {
+        fs::create_dir(staging.join("private"))
+            .map_err(|error| ServiceInvocationError::new("test bind", error.to_string()))?;
+        fs::write(staging.join("private/input.bin"), b"private")
+            .and_then(|_| fs::write(staging.join("undeclared.bin"), b"rogue"))
+            .map_err(|error| ServiceInvocationError::new("test bind", error.to_string()))?;
+        Ok(Arc::new(RealFileServices {
+            staging: staging.to_owned(),
+        }))
+    }
+}
+
+struct RealFileServices {
+    staging: PathBuf,
+}
+
+impl BoundExecutionServices for RealFileServices {
+    fn initial_assets(&self) -> Result<Vec<ProducedAsset>, ServiceInvocationError> {
+        Ok(vec![ProducedAsset::from_bytes(
+            StagedAssetHandle::new("private-seed").unwrap(),
+            StagingRelativePath::new("private/input.bin").unwrap(),
+            "application/octet-stream",
+            b"private",
+        )])
+    }
+
+    fn bindings_for(
+        &self,
+        artifact: &PlannedArtifact,
+    ) -> Result<ArtifactExecutionBindings, ServiceInvocationError> {
+        Ok(ArtifactExecutionBindings {
+            artifact_id: artifact.logical_id().into(),
+            slots: BTreeMap::new(),
+        })
+    }
+
+    fn invoke_provider(
+        &self,
+        _: &ProviderRequest,
+        _: &StagedAssetRegistry,
+        _: &CancellationToken,
+    ) -> Result<ProviderResult, ServiceInvocationError> {
+        Err(service_error("unexpected provider"))
+    }
+
+    fn invoke_codec(
+        &self,
+        _: &CodecRequest,
+        _: &StagedAssetRegistry,
+    ) -> Result<CodecServiceOutcome, ServiceInvocationError> {
+        Err(service_error("unexpected codec"))
+    }
+
+    fn materialize(
+        &self,
+        request: &MaterializationRequest,
+        _: &StagedAssetRegistry,
+    ) -> Result<MaterializationResult, ServiceInvocationError> {
+        let output = request.artifact.output().unwrap();
+        let path = self.staging.join(output.relative_path.as_str());
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|error| ServiceInvocationError::new("test write", error.to_string()))?;
+        }
+        fs::write(&path, b"dicom")
+            .map_err(|error| ServiceInvocationError::new("test write", error.to_string()))?;
+        Ok(MaterializationResult {
+            artifact_id: request.artifact.logical_id().into(),
+            output: Some(produced(
+                &format!("output:{}", request.artifact.logical_id()),
+                output.relative_path.as_str(),
+                b"dicom",
+                true,
+            )),
+            backend: tool("real-file-materializer"),
+            evidence: vec![],
+        })
+    }
+
+    fn validate(
+        &self,
+        request: &ValidationRequest,
+        assets: &StagedAssetRegistry,
+    ) -> Result<ValidationResult, ServiceInvocationError> {
+        Services(Mode::Success).validate(request, assets)
+    }
+
+    fn evaluate_obligation(
+        &self,
+        artifact: &PlannedArtifact,
+        obligation: &EvidenceObligation,
+        materialization: &MaterializationResult,
+        validation: &ValidationResult,
+        assets: &StagedAssetRegistry,
+    ) -> Result<ObligationResult, ServiceInvocationError> {
+        Services(Mode::Success).evaluate_obligation(
+            artifact,
+            obligation,
+            materialization,
+            validation,
+            assets,
+        )
+    }
+
+    fn actual_peak_working_bytes(
+        &self,
+        _: &PlannedArtifact,
+        _: &MaterializationResult,
+    ) -> Result<u64, ServiceInvocationError> {
+        Ok(5)
+    }
+}
+
+impl BlockingServices {
+    fn wait_for_cancel(
+        &self,
+        cancellation: &CancellationToken,
+    ) -> Result<(), ServiceInvocationError> {
+        self.entered.store(true, Ordering::Release);
+        while !cancellation.is_cancelled() {
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        Err(ServiceInvocationError::new("blocking", "cancelled"))
+    }
+}
+
+impl BoundExecutionServices for BlockingServices {
+    fn bindings_for(
+        &self,
+        artifact: &PlannedArtifact,
+    ) -> Result<ArtifactExecutionBindings, ServiceInvocationError> {
+        Services(Mode::Success).bindings_for(artifact)
+    }
+
+    fn invoke_provider(
+        &self,
+        request: &ProviderRequest,
+        assets: &StagedAssetRegistry,
+        cancellation: &CancellationToken,
+    ) -> Result<ProviderResult, ServiceInvocationError> {
+        Services(Mode::Success).invoke_provider(request, assets, cancellation)
+    }
+
+    fn invoke_codec(
+        &self,
+        request: &CodecRequest,
+        assets: &StagedAssetRegistry,
+    ) -> Result<CodecServiceOutcome, ServiceInvocationError> {
+        Services(Mode::Success).invoke_codec(request, assets)
+    }
+
+    fn invoke_codec_cancellable(
+        &self,
+        request: &CodecRequest,
+        assets: &StagedAssetRegistry,
+        cancellation: &CancellationToken,
+    ) -> Result<CodecServiceOutcome, ServiceInvocationError> {
+        if matches!(self.stage, BlockingStage::Codec) {
+            self.wait_for_cancel(cancellation)?;
+        }
+        self.invoke_codec(request, assets)
+    }
+
+    fn materialize(
+        &self,
+        request: &MaterializationRequest,
+        assets: &StagedAssetRegistry,
+    ) -> Result<MaterializationResult, ServiceInvocationError> {
+        Services(Mode::Success).materialize(request, assets)
+    }
+
+    fn materialize_cancellable(
+        &self,
+        request: &MaterializationRequest,
+        assets: &StagedAssetRegistry,
+        cancellation: &CancellationToken,
+    ) -> Result<MaterializationResult, ServiceInvocationError> {
+        if matches!(self.stage, BlockingStage::Materialization) {
+            self.wait_for_cancel(cancellation)?;
+        }
+        self.materialize(request, assets)
+    }
+
+    fn validate(
+        &self,
+        request: &ValidationRequest,
+        assets: &StagedAssetRegistry,
+    ) -> Result<ValidationResult, ServiceInvocationError> {
+        Services(Mode::Success).validate(request, assets)
+    }
+
+    fn evaluate_obligation(
+        &self,
+        artifact: &PlannedArtifact,
+        obligation: &EvidenceObligation,
+        materialization: &MaterializationResult,
+        validation: &ValidationResult,
+        assets: &StagedAssetRegistry,
+    ) -> Result<ObligationResult, ServiceInvocationError> {
+        Services(Mode::Success).evaluate_obligation(
+            artifact,
+            obligation,
+            materialization,
+            validation,
+            assets,
+        )
+    }
+
+    fn actual_peak_working_bytes(
+        &self,
+        artifact: &PlannedArtifact,
+        materialization: &MaterializationResult,
+    ) -> Result<u64, ServiceInvocationError> {
+        Services(Mode::Success).actual_peak_working_bytes(artifact, materialization)
+    }
+}
+
 #[derive(Default)]
 struct TransactionState {
     cleanups: usize,
@@ -589,6 +842,12 @@ fn executes_services_projects_manifest_and_promotes_once() {
     );
     assert_eq!(result.evidence.artifacts[0].providers.len(), 1);
     assert_eq!(result.evidence.artifacts[0].codecs.len(), 1);
+    assert_eq!(
+        result.evidence.artifacts[0]
+            .resources
+            .actual_peak_working_bytes,
+        Some(15)
+    );
     assert_eq!(result.evidence.resources.used_parallelism, 1);
     let state = transactions.state.lock().unwrap();
     assert_eq!(state.manifest_writes, 1);
@@ -775,4 +1034,103 @@ fn manifest_cleanup_and_promotion_races_preserve_both_failures() {
         .is_err()
     );
     assert_eq!(transactions.state.lock().unwrap().promotions, 1);
+}
+
+#[test]
+fn codec_and_encapsulation_transients_enforce_planned_peak_limit() {
+    let mut bounded = plan();
+    let PlannedArtifact::Dicom(artifact) = &mut bounded.artifacts[0] else {
+        unreachable!()
+    };
+    // The fake codec holds two native plus two encoded bytes. Encapsulation
+    // then accounts encoded frames, fragment copies, BOT, and the Part 10
+    // output, producing a deterministic peak above this declared ceiling.
+    artifact.resources.peak_working_bytes = 14;
+    let transactions = Transactions::default();
+    let error = executor(
+        Mode::Success,
+        transactions.clone(),
+        Projector {
+            fail: false,
+            cancel: None,
+        },
+    )
+    .execute(
+        &bounded,
+        "/tmp/resource-bounded-codec",
+        1,
+        &CancellationToken::new(),
+    )
+    .unwrap_err();
+    assert!(format!("{error:?}").contains("ArtifactWorkingLimitExceeded"));
+    let state = transactions.state.lock().unwrap();
+    assert_eq!(state.cleanups, 1);
+    assert_eq!(state.promotions, 0);
+}
+
+#[test]
+fn blocking_codec_and_materializer_cancel_promptly_without_publication() {
+    for stage in [BlockingStage::Codec, BlockingStage::Materialization] {
+        let entered = Arc::new(AtomicBool::new(false));
+        let transactions = Transactions::default();
+        let executor = CorpusExecutor::with_transaction_factory(
+            BlockingFactory {
+                stage,
+                entered: entered.clone(),
+            },
+            Projector {
+                fail: false,
+                cancel: None,
+            },
+            transactions.clone(),
+        );
+        let token = CancellationToken::new();
+        let worker_token = token.clone();
+        let started = Instant::now();
+        let worker = std::thread::spawn(move || {
+            executor.execute(&plan(), "/tmp/blocking-cancel", 1, &worker_token)
+        });
+        while !entered.load(Ordering::Acquire) && started.elapsed() < Duration::from_secs(1) {
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        assert!(
+            entered.load(Ordering::Acquire),
+            "blocking service never started"
+        );
+        token.cancel_with_reason("bounded cancellation test");
+        let error = worker.join().unwrap().unwrap_err();
+        assert!(format!("{error:?}").contains("Cancelled"));
+        assert!(started.elapsed() < Duration::from_secs(1));
+        let state = transactions.state.lock().unwrap();
+        assert_eq!(state.cleanups, 1);
+        assert_eq!(state.promotions, 0);
+    }
+}
+
+#[test]
+fn real_transaction_promotes_only_planned_public_outputs_and_manifest() {
+    let parent = fs::canonicalize(std::env::temp_dir())
+        .unwrap()
+        .join(format!(
+            "dts-executor-sanitize-{}-{}",
+            std::process::id(),
+            NEXT_REAL_TRANSACTION.fetch_add(1, Ordering::Relaxed)
+        ));
+    fs::create_dir(&parent).unwrap();
+    let destination = parent.join("corpus");
+    CorpusExecutor::new(
+        RealFileFactory,
+        Projector {
+            fail: false,
+            cancel: None,
+        },
+    )
+    .execute(&plan(), &destination, 1, &CancellationToken::new())
+    .unwrap();
+    assert!(destination.join("artifact.dcm").is_file());
+    assert!(destination.join("manifest.json").is_file());
+    assert!(!destination.join("private").exists());
+    assert!(!destination.join("undeclared.bin").exists());
+    assert_eq!(fs::read_dir(&destination).unwrap().count(), 2);
+    fs::remove_dir_all(parent).unwrap();
 }

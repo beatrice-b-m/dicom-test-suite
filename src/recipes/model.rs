@@ -87,6 +87,47 @@ pub struct ColorParameters {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct BitPackingParameters {
+    pub bit_order: String,
+    pub frame_boundary_policy: String,
+    pub significant_bits: u64,
+    pub significant_packed_bytes: u64,
+    pub unused_high_bits: u8,
+    pub value_field_padding_bytes: u64,
+    pub frame_start_bit_offsets: Vec<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct IntegerWordParameters {
+    pub byte_order: String,
+    pub covers_full_unsigned_range: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EncapsulationProjectionParameters {
+    pub offset_origin: String,
+    pub item_header_bytes: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct NonsquareGeometryParameters {
+    pub variant_id: String,
+    #[serde(default)]
+    pub pixel_spacing: Option<[String; 2]>,
+    #[serde(default)]
+    pub nominal_scanned_pixel_spacing: Option<[String; 2]>,
+    #[serde(default)]
+    pub pixel_aspect_ratio: Option<[u32; 2]>,
+    pub row_to_column_ratio: f64,
+    pub calibrated: bool,
+    pub patient_space_geometry_present: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SecondaryCaptureParameters {
     pub rows: u32,
     pub columns: u32,
@@ -111,6 +152,12 @@ pub struct SecondaryCaptureParameters {
     pub palette: Option<PaletteParameters>,
     #[serde(default)]
     pub color: Option<ColorParameters>,
+    #[serde(default)]
+    pub bit_packing: Option<BitPackingParameters>,
+    #[serde(default)]
+    pub integer_word: Option<IntegerWordParameters>,
+    #[serde(default)]
+    pub encapsulation_projection: Option<EncapsulationProjectionParameters>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -258,6 +305,8 @@ pub struct PlannedArtifactRecipe {
     pub secondary_capture: Option<SecondaryCaptureParameters>,
     #[serde(default)]
     pub metadata_sc: Option<MetadataScParameters>,
+    #[serde(default)]
+    pub nonsquare_geometry: Option<NonsquareGeometryParameters>,
     pub attribute_operations: Vec<AttributeOperation>,
     pub content: ContentBinding,
     pub validation_rule_ids: Vec<String>,

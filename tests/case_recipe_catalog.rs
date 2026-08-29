@@ -836,6 +836,120 @@ fn modular_loading_and_dependency_order_are_deterministic() {
 }
 
 #[test]
+fn migrated_sc_projection_oracles_are_typed_and_exact() {
+    let catalog = RecipeCatalog::load(
+        "cases/recipes",
+        "cases/registry.json",
+        "templates/catalog.json",
+    )
+    .unwrap();
+    let artifact = |recipe_id: &str, logical_id: &str| {
+        catalog
+            .recipes()
+            .values()
+            .find(|recipe| recipe.recipe_id == recipe_id)
+            .unwrap()
+            .dicom
+            .as_ref()
+            .unwrap()
+            .artifacts
+            .iter()
+            .find(|artifact| artifact.logical_id == logical_id)
+            .unwrap()
+    };
+
+    let u1 = artifact("classic_sc_mono2_u1_native", "instance")
+        .secondary_capture
+        .as_ref()
+        .unwrap()
+        .bit_packing
+        .as_ref()
+        .unwrap();
+    assert_eq!(u1.bit_order, "least_significant_bit_first");
+    assert_eq!(
+        u1.frame_boundary_policy,
+        "continuous_without_per_frame_padding"
+    );
+    assert_eq!(u1.significant_bits, 18);
+    assert_eq!(u1.significant_packed_bytes, 3);
+    assert_eq!(u1.unused_high_bits, 6);
+    assert_eq!(u1.value_field_padding_bytes, 1);
+    assert_eq!(u1.frame_start_bit_offsets, [0, 9]);
+
+    let u32_word = artifact("classic_sc_mono2_u32_explicit_le", "instance")
+        .secondary_capture
+        .as_ref()
+        .unwrap()
+        .integer_word
+        .as_ref()
+        .unwrap();
+    assert_eq!(u32_word.byte_order, "little_endian");
+    assert!(u32_word.covers_full_unsigned_range);
+
+    let eot = artifact(
+        "encapsulation_sc_eot_single_fragment_multiframe",
+        "instance",
+    )
+    .secondary_capture
+    .as_ref()
+    .unwrap()
+    .encapsulation_projection
+    .as_ref()
+    .unwrap();
+    assert_eq!(eot.offset_origin, "first_fragment_item_tag");
+    assert_eq!(eot.item_header_bytes, 8);
+
+    let spacing = artifact("classic_sc_nonsquare_pixel_spacing", "pixel_spacing")
+        .nonsquare_geometry
+        .as_ref()
+        .unwrap();
+    assert_eq!(spacing.variant_id, "pixel_spacing");
+    assert_eq!(spacing.pixel_spacing.as_ref().unwrap(), &["0.6", "0.3"]);
+    assert_eq!(
+        spacing.nominal_scanned_pixel_spacing.as_ref().unwrap(),
+        &["0.6", "0.3"]
+    );
+    assert!(spacing.pixel_aspect_ratio.is_none());
+    assert_eq!(spacing.row_to_column_ratio, 2.0);
+    assert!(!spacing.calibrated);
+    assert!(!spacing.patient_space_geometry_present);
+
+    let aspect = artifact("classic_sc_nonsquare_pixel_spacing", "pixel_aspect_ratio")
+        .nonsquare_geometry
+        .as_ref()
+        .unwrap();
+    assert_eq!(aspect.variant_id, "pixel_aspect_ratio");
+    assert_eq!(aspect.pixel_aspect_ratio, Some([2, 1]));
+    assert!(aspect.pixel_spacing.is_none());
+    assert!(aspect.nominal_scanned_pixel_spacing.is_none());
+    assert_eq!(aspect.row_to_column_ratio, 2.0);
+    assert!(!aspect.calibrated);
+    assert!(!aspect.patient_space_geometry_present);
+}
+
+#[test]
+fn projection_oracle_schema_rejects_unknown_and_crossed_shapes() {
+    let schema: Value =
+        serde_json::from_slice(&fs::read("schemas/case-recipe.schema.json").unwrap()).unwrap();
+    let validator = jsonschema::validator_for(&schema).unwrap();
+
+    let mut u1: Value = serde_json::from_slice(
+        &fs::read("cases/recipes/classic/sc/classic_sc_mono2_u1_native.json").unwrap(),
+    )
+    .unwrap();
+    u1["dicom"]["artifacts"][0]["secondary_capture"]["bit_packing"]["unknown"] = Value::Bool(true);
+    assert!(validator.iter_errors(&u1).next().is_some());
+
+    let mut nonsquare: Value = serde_json::from_slice(
+        &fs::read("cases/recipes/classic/sc/classic_sc_nonsquare_pixel_spacing.json").unwrap(),
+    )
+    .unwrap();
+    nonsquare["dicom"]["artifacts"][0]["nonsquare_geometry"]["pixel_aspect_ratio"] =
+        serde_json::json!([2, 1]);
+    assert!(validator.iter_errors(&nonsquare).next().is_some());
+}
+
+#[test]
 fn schema_rejects_unknown_fields_before_completeness_checks() {
     let error = RecipeCatalog::load(
         "tests/fixtures/case-recipes/invalid",

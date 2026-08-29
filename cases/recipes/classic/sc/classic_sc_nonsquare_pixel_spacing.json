@@ -86,6 +86,14 @@
           "pixel_min": 0,
           "pixel_max": 255
         },
+        "nonsquare_geometry": {
+          "variant_id": "pixel_spacing",
+          "pixel_spacing": ["0.6", "0.3"],
+          "nominal_scanned_pixel_spacing": ["0.6", "0.3"],
+          "row_to_column_ratio": 2.0,
+          "calibrated": false,
+          "patient_space_geometry_present": false
+        },
         "attribute_operations": [
           {
             "operation": "set",
@@ -185,6 +193,13 @@
           "semantic_note": "Equivalent non-square geometry is declared independently by physical pixel spacing and integer pixel aspect ratio",
           "pixel_min": 0,
           "pixel_max": 255
+        },
+        "nonsquare_geometry": {
+          "variant_id": "pixel_aspect_ratio",
+          "pixel_aspect_ratio": [2, 1],
+          "row_to_column_ratio": 2.0,
+          "calibrated": false,
+          "patient_space_geometry_present": false
         },
         "attribute_operations": [
           {

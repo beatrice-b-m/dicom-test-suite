@@ -11,9 +11,10 @@ pub use error::RecipeCatalogError;
 pub use loader::RecipeCatalog;
 pub use metadata_sc::{MetadataScPlanInput, MetadataScPlannerError, resolved_metadata_sc_plan};
 pub use model::{
-    AttributeOperation, CaseBinding, CaseRecipe, ColorParameters, ContentBinding,
-    DependencyBinding, DicomRecipe, EmptyType2AttributeMetadata, EncodingPolicy,
-    MetadataScParameters, MutationEdit, MutationRecipe, OutputBinding, PaletteParameters,
+    AttributeOperation, BitPackingParameters, CaseBinding, CaseRecipe, ColorParameters,
+    ContentBinding, DependencyBinding, DicomRecipe, EmptyType2AttributeMetadata,
+    EncapsulationProjectionParameters, EncodingPolicy, IntegerWordParameters, MetadataScParameters,
+    MutationEdit, MutationRecipe, NonsquareGeometryParameters, OutputBinding, PaletteParameters,
     PersonNameComponentGroup, PersonNameMetadata, PixelPaddingParameters, PlannedArtifactRecipe,
     PrivateCreatorBlockMetadata, PrivateElementMetadata, PrivateElementValue, QualificationRecipe,
     RecipeKind, RecipeReference, ResourcePolicy, SecondaryCaptureParameters,

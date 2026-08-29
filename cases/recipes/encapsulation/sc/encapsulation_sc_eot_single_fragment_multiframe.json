@@ -76,7 +76,11 @@
           "visual_pattern": "2x2x3_monochrome_rle_lossless_literal_repeat_reverse",
           "semantic_note": "three MONOCHROME2 frames use exact Extended Offset Table frame boundaries",
           "pixel_min": 0,
-          "pixel_max": 255
+          "pixel_max": 255,
+          "encapsulation_projection": {
+            "offset_origin": "first_fragment_item_tag",
+            "item_header_bytes": 8
+          }
         },
         "attribute_operations": [],
         "content": {

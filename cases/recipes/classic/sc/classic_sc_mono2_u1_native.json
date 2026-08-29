@@ -78,7 +78,16 @@
           "visual_pattern": "3x3x2_continuous_lsb_first_checkerboards",
           "semantic_note": "two one-bit MONOCHROME2 frames cross a byte boundary and receive padding only at the end of the complete Value Field",
           "pixel_min": 0,
-          "pixel_max": 1
+          "pixel_max": 1,
+          "bit_packing": {
+            "bit_order": "least_significant_bit_first",
+            "frame_boundary_policy": "continuous_without_per_frame_padding",
+            "significant_bits": 18,
+            "significant_packed_bytes": 3,
+            "unused_high_bits": 6,
+            "value_field_padding_bytes": 1,
+            "frame_start_bit_offsets": [0, 9]
+          }
         },
         "attribute_operations": [],
         "content": {

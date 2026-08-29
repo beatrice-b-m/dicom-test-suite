@@ -63,7 +63,11 @@
           "visual_pattern": "2x2_monochrome_u32_unsigned_boundaries",
           "semantic_note": "unsigned 32-bit MONOCHROME2 samples span both sides of the signed boundary",
           "pixel_min": 0,
-          "pixel_max": 4294967295
+          "pixel_max": 4294967295,
+          "integer_word": {
+            "byte_order": "little_endian",
+            "covers_full_unsigned_range": true
+          }
         },
         "attribute_operations": [],
         "content": {

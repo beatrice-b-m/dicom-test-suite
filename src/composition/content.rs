@@ -300,7 +300,7 @@ pub(crate) fn copy_and_hash(
 }
 
 #[derive(Debug, Clone)]
-struct StreamingSha256 {
+pub(crate) struct StreamingSha256 {
     state: [u32; 8],
     buffer: [u8; 64],
     buffered: usize,
@@ -308,7 +308,7 @@ struct StreamingSha256 {
 }
 
 impl StreamingSha256 {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             state: [
                 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab,
@@ -320,7 +320,7 @@ impl StreamingSha256 {
         }
     }
 
-    fn update(&mut self, mut bytes: &[u8]) {
+    pub(crate) fn update(&mut self, mut bytes: &[u8]) {
         self.length_bytes = self
             .length_bytes
             .checked_add(bytes.len() as u64)
@@ -345,7 +345,7 @@ impl StreamingSha256 {
         self.buffered = bytes.len();
     }
 
-    fn finish_hex(mut self) -> String {
+    pub(crate) fn finish_hex(mut self) -> String {
         let bit_length = self.length_bytes * 8;
         let mut tail = [0_u8; 128];
         tail[..self.buffered].copy_from_slice(&self.buffer[..self.buffered]);

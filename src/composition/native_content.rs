@@ -1,12 +1,17 @@
 use std::collections::BTreeMap;
 use std::fmt;
-use std::fs;
+use std::fs::File;
+use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
 use super::{
     AttributeAddress, CanonicalContent, ContentError, DicomVr, LocalContentResolver,
     NativePixelPlan, PixelError, PixelShape,
 };
+
+#[cfg(test)]
+use std::fs;
+#[cfg(test)]
 use crate::sha256_hex;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,14 +41,7 @@ pub fn resolve_raw_native_pixels(
             actual: asset.size_bytes,
         });
     }
-    let bytes = fs::read(&asset.staged_path).map_err(|source| RawContentError::Io {
-        path: asset.staged_path.clone(),
-        source,
-    })?;
-    let mut frame_sha256 = Vec::with_capacity(plan.frame_spans.len());
-    for frame in &plan.frame_spans {
-        frame_sha256.push(sha256_hex(&canonical_frame_bytes(&bytes, frame)?));
-    }
+    let frame_sha256 = hash_staged_frames(&asset.staged_path, &plan.frame_spans)?;
     let mut content = asset.into_canonical_content(
         AttributeAddress::from_normalized_tag("7FE0,0010").expect("Pixel Data is a known tag"),
         if plan.shape.bits_allocated <= 8 {
@@ -69,40 +67,89 @@ pub fn resolve_raw_native_pixels(
     })
 }
 
-fn canonical_frame_bytes(
-    bytes: &[u8],
+const HASH_BUFFER_BYTES: usize = 64 * 1024;
+
+fn hash_staged_frames(
+    path: &Path,
+    frames: &[super::FrameSpan],
+) -> Result<Vec<String>, RawContentError> {
+    let mut file = File::open(path).map_err(|source| RawContentError::Io {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    frames
+        .iter()
+        .map(|frame| hash_staged_frame(&mut file, path, frame))
+        .collect()
+}
+
+fn hash_staged_frame(
+    file: &mut File,
+    path: &Path,
     frame: &super::FrameSpan,
-) -> Result<Vec<u8>, RawContentError> {
+) -> Result<String, RawContentError> {
+    let mut hasher = super::content::StreamingSha256::new();
     if frame.bit_offset % 8 == 0 && frame.bit_length % 8 == 0 {
-        let start = usize::try_from(frame.first_byte_offset).map_err(|_| RawContentError::Range)?;
-        let length = usize::try_from(frame.bit_length / 8).map_err(|_| RawContentError::Range)?;
-        let end = start.checked_add(length).ok_or(RawContentError::Range)?;
-        return Ok(bytes
-            .get(start..end)
-            .ok_or(RawContentError::Range)?
-            .to_vec());
+        file.seek(SeekFrom::Start(frame.first_byte_offset))
+            .map_err(|source| RawContentError::Io {
+                path: path.to_path_buf(),
+                source,
+            })?;
+        let mut remaining = frame.bit_length / 8;
+        let mut buffer = [0_u8; HASH_BUFFER_BYTES];
+        while remaining > 0 {
+            let take = usize::try_from(remaining.min(HASH_BUFFER_BYTES as u64))
+                .map_err(|_| RawContentError::Range)?;
+            file.read_exact(&mut buffer[..take])
+                .map_err(|source| RawContentError::Io {
+                    path: path.to_path_buf(),
+                    source,
+                })?;
+            hasher.update(&buffer[..take]);
+            remaining -= take as u64;
+        }
+        return Ok(hasher.finish_hex());
     }
-    let output_len = usize::try_from(
-        frame
-            .bit_length
-            .checked_add(7)
-            .ok_or(RawContentError::Range)?
-            / 8,
-    )
-    .map_err(|_| RawContentError::Range)?;
-    let mut output = vec![0_u8; output_len];
+
+    let first_source_byte = frame.bit_offset / 8;
+    file.seek(SeekFrom::Start(first_source_byte))
+        .map_err(|source| RawContentError::Io {
+            path: path.to_path_buf(),
+            source,
+        })?;
+    let mut source = [0_u8; 1];
+    file.read_exact(&mut source)
+        .map_err(|source| RawContentError::Io {
+            path: path.to_path_buf(),
+            source,
+        })?;
+    let mut source_byte_index = first_source_byte;
+    let mut output_byte = 0_u8;
     for destination_bit in 0..frame.bit_length {
         let source_bit = frame
             .bit_offset
             .checked_add(destination_bit)
             .ok_or(RawContentError::Range)?;
-        let source_byte = usize::try_from(source_bit / 8).map_err(|_| RawContentError::Range)?;
-        let bit = bytes.get(source_byte).ok_or(RawContentError::Range)? >> (source_bit % 8) & 1;
-        let destination_byte =
-            usize::try_from(destination_bit / 8).map_err(|_| RawContentError::Range)?;
-        output[destination_byte] |= bit << (destination_bit % 8);
+        let wanted_source_byte = source_bit / 8;
+        if wanted_source_byte != source_byte_index {
+            file.read_exact(&mut source)
+                .map_err(|source| RawContentError::Io {
+                    path: path.to_path_buf(),
+                    source,
+                })?;
+            source_byte_index = wanted_source_byte;
+        }
+        let bit = source[0] >> (source_bit % 8) & 1;
+        output_byte |= bit << (destination_bit % 8);
+        if destination_bit % 8 == 7 {
+            hasher.update(&[output_byte]);
+            output_byte = 0;
+        }
     }
-    Ok(output)
+    if frame.bit_length % 8 != 0 {
+        hasher.update(&[output_byte]);
+    }
+    Ok(hasher.finish_hex())
 }
 
 #[derive(Debug)]

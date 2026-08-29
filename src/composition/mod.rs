@@ -4,6 +4,7 @@
 
 pub mod attribute;
 pub mod identity;
+pub mod reference;
 pub mod template;
 
 pub use attribute::{
@@ -11,6 +12,10 @@ pub use attribute::{
     PrimitiveValue,
 };
 pub use identity::{CompositionUidRole, IdentityAllocator, IdentityError, IdentityPlan};
+pub use reference::{
+    CyclePolicy, LogicalReference, MaterializedReference, ReferenceError, ReferenceGraph,
+    ReferenceNode,
+};
 pub use template::{
     CapabilitySet, RequirementGap, TemplateCatalog, TemplateDescriptor, TemplateError, TemplateId,
     TemplateStatus, TemplateVersion, TransferSyntaxDescriptor,

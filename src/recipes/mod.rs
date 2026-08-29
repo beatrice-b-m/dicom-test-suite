@@ -21,6 +21,7 @@ mod sc;
 mod semantic;
 mod sr;
 mod typed_bulk;
+pub mod typed_bulk_compatibility;
 mod waveform;
 mod wsi;
 
@@ -115,6 +116,12 @@ pub use sr::{
     sr_input_from_recipe,
 };
 pub use typed_bulk::{TypedBulkPlanProviderOutput, TypedBulkPlanningContext};
+pub use typed_bulk_compatibility::{
+    EncapsulatedPayloadManifestProjection, ObservedSpecializedContent,
+    SpecializedManifestProjection, SpecializedValidationError, SpecializedValidationObservation,
+    WaveformManifestProjection, project_encapsulated_payload, project_waveform,
+    validate_encapsulated_payload, validate_waveform,
+};
 pub use waveform::{
     WAVEFORM_ALGORITHM_PROVIDER_ID, WAVEFORM_CONTENT_PROVIDER_ID, WAVEFORM_PLAN_PROVIDER_ID,
     WaveformChannelInput, WaveformFormula, WaveformGroupInput, WaveformPlanError,

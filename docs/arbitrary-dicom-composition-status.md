@@ -1,5 +1,30 @@
 # Arbitrary DICOM composition status
 
+## 2026-08-29 — Phase P4 completion gate
+
+Phase P4 is complete. Every curated Secondary Capture, CT, MR, CR, DX,
+mammography, ultrasound, Nuclear Medicine, PET, visible-light, XA, and XRF
+recipe now crosses the shared resolved-plan and Part 10 materialization path.
+Generated manifests retain the existing case identities, profiles, semantics,
+validation evidence, reports, and independent-conformance meaning while adding
+an internal `curated_composition_plan` check that makes the shared production
+path auditable.
+
+The pre-migration seed-1 smoke, core, and extended corpora were retained as
+private qualification oracles. All byte-stable DICOM and auxiliary files match
+those oracles exactly; semantic-stable outputs retain their decoded hashes and
+contracts. Core output, including manifest ordering, also matches exactly
+before and after the dispatch refactor. Reproducibility, profile selection,
+generation, root validation, and reporting regression suites pass.
+
+Central curated dispatch is now a typed registry of recipe implementations.
+Its stages preserve the established source-dependency and manifest-order
+boundaries, and a completeness/uniqueness test binds every migrated recipe
+table entry to exactly one implementation. The duplicate family-specific file
+meta/write paths are gone; the remaining element constructors are inputs to the
+curated plan bridge and remain shared with object families scheduled for P5
+and P6 migration.
+
 ## 2026-08-29 — Phase P3 completion gate
 
 Phase P3 is complete. Every implemented classic-image and single/multi-frame

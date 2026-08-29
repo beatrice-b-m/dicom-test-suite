@@ -15,10 +15,10 @@ use crate::composition::{
     ResolvedInstancePlan, TemplateId, TemplateVersion, ValueOrigin,
 };
 use crate::corpus_plan::{
-    ArtifactProvenance, ArtifactResourceEstimate, CaseBinding, EncodingPlan, EvidencePlan,
-    FileMetaPolicy, FragmentationPolicy, ImplementationIdentityPlan, ItemLengthPolicy,
-    OffsetTablePolicy, OutputPlan, OutputRelativePath, PlannedDicomArtifact, PreamblePolicy,
-    SequenceLengthPolicy, ValidationPlan, ValidationRequirement, ValidationRule,
+    ArtifactDependency, ArtifactProvenance, ArtifactResourceEstimate, CaseBinding, EncodingPlan,
+    EvidencePlan, FileMetaPolicy, FragmentationPolicy, ImplementationIdentityPlan,
+    ItemLengthPolicy, OffsetTablePolicy, OutputPlan, OutputRelativePath, PlannedDicomArtifact,
+    PreamblePolicy, SequenceLengthPolicy, ValidationPlan, ValidationRequirement, ValidationRule,
 };
 use crate::executor::services::{
     ArtifactExecutionBindings, ByteBinding, NativeFrameBinding, SlotExecutionBinding,
@@ -103,9 +103,10 @@ impl AdvancedPlanProvider for WsiAdvancedPlanProvider {
             artifacts.push(planned);
             bindings.push(binding);
         }
+        let dependencies = recipe.dependencies(&artifacts)?;
         let output = AdvancedPlanProviderOutput {
             artifacts,
-            dependencies: Vec::new(),
+            dependencies,
             references: Vec::new(),
             bindings,
         };
@@ -164,6 +165,7 @@ pub struct WsiPlanRecipe {
     pub case_id: String,
     pub recipe: RecipeIdentity,
     pub artifacts: Vec<WsiArtifactRecipe>,
+    pub dependency_mode: WsiDependencyMode,
 }
 
 impl WsiPlanRecipe {
@@ -173,6 +175,56 @@ impl WsiPlanRecipe {
             .map(WsiArtifactRecipe::resolve)
             .collect()
     }
+
+    fn dependencies(
+        &self,
+        artifacts: &[AdvancedPlannedArtifact],
+    ) -> Result<Vec<ArtifactDependency>, AdvancedProviderContractError> {
+        if self.dependency_mode == WsiDependencyMode::None {
+            return Ok(Vec::new());
+        }
+        if artifacts.len() < 2 {
+            return Err(AdvancedProviderContractError::UnknownDependency);
+        }
+        let edge =
+            |artifact_id: String, depends_on: String, relationship: &str| ArtifactDependency {
+                artifact_id,
+                depends_on,
+                relationship: relationship.into(),
+                frame_numbers: Vec::new(),
+            };
+        let root = artifacts[0].planned.logical_id.clone();
+        Ok(match self.dependency_mode {
+            WsiDependencyMode::None => Vec::new(),
+            WsiDependencyMode::VolumeRoot => artifacts[1..]
+                .iter()
+                .map(|artifact| {
+                    edge(
+                        artifact.planned.logical_id.clone(),
+                        root.clone(),
+                        "whole_slide_pyramid_volume_root",
+                    )
+                })
+                .collect(),
+            WsiDependencyMode::OrderedLevelChain => artifacts
+                .windows(2)
+                .map(|pair| {
+                    edge(
+                        pair[1].planned.logical_id.clone(),
+                        pair[0].planned.logical_id.clone(),
+                        "whole_slide_pyramid_prior_level",
+                    )
+                })
+                .collect(),
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WsiDependencyMode {
+    None,
+    VolumeRoot,
+    OrderedLevelChain,
 }
 
 #[derive(Debug, Clone)]
@@ -411,6 +463,7 @@ pub fn curated_wsi_recipes() -> Vec<WsiPlanRecipe> {
                 recipe_version: "0.1.0".into(),
             },
             artifacts: ordinary_pyramid_artifacts(),
+            dependency_mode: WsiDependencyMode::VolumeRoot,
         },
         WsiPlanRecipe {
             case_id: STRESS_CASE.into(),
@@ -419,6 +472,7 @@ pub fn curated_wsi_recipes() -> Vec<WsiPlanRecipe> {
                 recipe_version: "0.1.0".into(),
             },
             artifacts: stress_pyramid_artifacts(),
+            dependency_mode: WsiDependencyMode::OrderedLevelChain,
         },
     ]
 }
@@ -431,6 +485,7 @@ fn single_recipe(case_id: &str, recipe_id: &str, artifact: WsiArtifactRecipe) ->
             recipe_version: "0.1.0".into(),
         },
         artifacts: vec![artifact],
+        dependency_mode: WsiDependencyMode::None,
     }
 }
 

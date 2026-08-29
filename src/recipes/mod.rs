@@ -58,5 +58,5 @@ pub use sc::{
 };
 pub use wsi::{
     WSI_ADVANCED_PROVIDER_ID, WsiAdvancedPlanProvider, WsiArtifactParameters, WsiArtifactRecipe,
-    WsiOpticalPath, WsiPixelAlgorithm, WsiPlanRecipe, curated_wsi_recipes,
+    WsiDependencyMode, WsiOpticalPath, WsiPixelAlgorithm, WsiPlanRecipe, curated_wsi_recipes,
 };

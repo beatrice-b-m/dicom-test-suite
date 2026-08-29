@@ -4,7 +4,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use dicom_test_suite::corpus_plan::PlannedArtifact;
+use dicom_test_suite::corpus_plan::{
+    OutputRelativePath, PlannedArtifact, PublicationPlan, PublicationTransaction,
+};
 use dicom_test_suite::executor::materialization::{
     AuxiliaryMaterializationHandler, AuxiliaryPayload, MaterializationDispatcher,
     MaterializationError,
@@ -75,6 +77,15 @@ fn request(recipe: &WsiPlanRecipe) -> AdvancedPlanProviderRequest {
             max_peak_working_bytes: 64 * 1024 * 1024,
             max_parallelism: 2,
         },
+    }
+}
+
+fn publication() -> PublicationPlan {
+    PublicationPlan {
+        manifest_path: OutputRelativePath::new("manifest.json").unwrap(),
+        transaction: PublicationTransaction::AtomicNoReplace,
+        private_staging: true,
+        no_overwrite: true,
     }
 }
 
@@ -269,7 +280,29 @@ fn reduced_stress_wsi_is_bounded_and_deterministic() {
         vec![0, 1, 2]
     );
     assert_eq!(first.references, Vec::new());
-    assert_eq!(first.dependencies, Vec::new());
+    assert_eq!(
+        first
+            .dependencies
+            .iter()
+            .map(|edge| (edge.artifact_id.as_str(), edge.depends_on.as_str()))
+            .collect::<Vec<_>>(),
+        vec![
+            ("stress_wsi_level_002", "stress_wsi_level_001"),
+            ("stress_wsi_level_003", "stress_wsi_level_002"),
+        ]
+    );
+    assert_eq!(
+        first
+            .to_corpus_plan(&request, publication())
+            .unwrap()
+            .topological_order()
+            .unwrap(),
+        vec![
+            "stress_wsi_level_001",
+            "stress_wsi_level_002",
+            "stress_wsi_level_003",
+        ]
+    );
     assert_eq!(
         first.artifacts[0].planned.instance.content[0].properties["frames"],
         "16"
@@ -279,4 +312,66 @@ fn reduced_stress_wsi_is_bounded_and_deterministic() {
         "1"
     );
     assert_eq!(json!(request.seed), json!(SEED));
+}
+
+#[test]
+fn wsi_dag_has_volume_root_closure_and_no_singleton_edges() {
+    let provider = WsiAdvancedPlanProvider::new(lock_hash());
+    for recipe in curated_wsi_recipes() {
+        let request = request(&recipe);
+        let output = provider.plan(&request, &recipe).unwrap();
+        if recipe.artifacts.len() == 1 {
+            assert!(
+                output.dependencies.is_empty(),
+                "{} singleton acquired a dependency",
+                recipe.case_id
+            );
+            assert_eq!(
+                output
+                    .to_corpus_plan(&request, publication())
+                    .unwrap()
+                    .topological_order()
+                    .unwrap(),
+                vec![output.artifacts[0].planned.logical_id.clone()]
+            );
+        } else if recipe.case_id == "vl/wsi/pyramid_multiresolution" {
+            assert_eq!(
+                output
+                    .dependencies
+                    .iter()
+                    .map(|edge| {
+                        (
+                            edge.artifact_id.as_str(),
+                            edge.depends_on.as_str(),
+                            edge.relationship.as_str(),
+                        )
+                    })
+                    .collect::<Vec<_>>(),
+                vec![
+                    (
+                        "wsi_pyramid_thumbnail",
+                        "wsi_pyramid_volume",
+                        "whole_slide_pyramid_volume_root",
+                    ),
+                    (
+                        "wsi_pyramid_label",
+                        "wsi_pyramid_volume",
+                        "whole_slide_pyramid_volume_root",
+                    ),
+                ]
+            );
+            assert_eq!(
+                output
+                    .to_corpus_plan(&request, publication())
+                    .unwrap()
+                    .topological_order()
+                    .unwrap(),
+                vec![
+                    "wsi_pyramid_volume",
+                    "wsi_pyramid_thumbnail",
+                    "wsi_pyramid_label",
+                ]
+            );
+        }
+    }
 }

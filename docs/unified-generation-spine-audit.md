@@ -85,6 +85,23 @@ Before family migration, private fresh-root runs capture and compare:
 Generated roots remain ignored and are never committed. The final dated status
 record contains the exact commands, feature/runtime availability, and outcomes.
 
+### Captured baseline evidence
+
+Before U1 implementation, the `52e1d20` executable was copied outside the
+repository and used with seed 1 to generate fresh private roots for `smoke`,
+`core`, `extended`, `all`, `legacy`, `stress`, `negative`, `fuzz`, and `all
+--include-stress`. The documented template-only composition fixture was also
+captured. Every command completed successfully; fuzz published no DICOM
+payload. The roots are retained only as local phase-comparison oracles under
+the exact private path recorded by the supervising run.
+
+The pre-migration default regression command completed successfully across all
+targets. Its existing reproducibility suite generated `smoke`, `core`, and
+`extended` twice and compared byte-stable payloads, deterministic manifest
+projections, skipped rows, UIDs, hashes, and strict root validation. These
+results establish the U0 projection baseline without committing case counts or
+generated artifacts.
+
 ## Specialized evidence inventory
 
 The executable audit joins each implemented recipe with registry standards

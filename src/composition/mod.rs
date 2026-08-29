@@ -2,8 +2,9 @@
 //!
 //! This module is intentionally not wired to a public CLI until the P2 gate.
 
-pub mod attribute;
 pub mod advanced_family;
+pub mod attribute;
+pub mod bulk;
 pub mod bundle;
 pub mod classic;
 pub mod content;
@@ -24,11 +25,16 @@ pub mod spec;
 pub mod template;
 pub mod validation;
 
+pub use advanced_family::{AdvancedFamilyError, AdvancedFamilyKind, AdvancedFamilyProfile};
 pub use attribute::{
     AttributeAddress, AttributeError, AttributeItem, AttributeOperation, AttributeValue, DicomVr,
     PrimitiveValue,
 };
-pub use advanced_family::{AdvancedFamilyError, AdvancedFamilyKind, AdvancedFamilyProfile};
+pub use bulk::{
+    BackendProducedBulkDataSlot, BulkDataBounds, BulkDataError, BulkDataKind, BulkDataPlan,
+    BulkDataSource, DoubleFloatPixelDataSlot, EncapsulatedDocumentSlot, FloatPixelDataSlot,
+    MeshSlot, PixelDataSlot, TypedBulkDataSlot, WaveformSamplesSlot,
+};
 pub use bundle::{
     BundleError, BundleMemberProvenance, BundleResolution, BundleResolver, DefaultBundleDependency,
     DefaultBundleDescriptor,

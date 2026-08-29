@@ -26,3 +26,9 @@ This file is rendered from `templates/catalog.json`. Use `templates describe` fo
 | `vl/endoscopic`@1.0.0 | VL Endoscopic Image | `1.2.840.10008.5.1.4.1.1.77.1.1` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
 | `vl/microscopic`@1.0.0 | VL Microscopic Image | `1.2.840.10008.5.1.4.1.1.77.1.2` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
 | `vl/photographic`@1.0.0 | VL Photographic Image | `1.2.840.10008.5.1.4.1.1.77.1.4` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
+| `vl/wsi/multiple-optical-paths`@1.0.0 | VL Whole Slide Microscopy Image | `1.2.840.10008.5.1.4.1.1.77.1.6` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
+| `vl/wsi/pyramid-label`@1.0.0 | VL Whole Slide Microscopy Image | `1.2.840.10008.5.1.4.1.1.77.1.6` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
+| `vl/wsi/pyramid-thumbnail`@1.0.0 | VL Whole Slide Microscopy Image | `1.2.840.10008.5.1.4.1.1.77.1.6` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
+| `vl/wsi/pyramid-volume`@1.0.0 | VL Whole Slide Microscopy Image | `1.2.840.10008.5.1.4.1.1.77.1.6` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
+| `vl/wsi/tiled-full`@1.0.0 | VL Whole Slide Microscopy Image | `1.2.840.10008.5.1.4.1.1.77.1.6` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
+| `vl/wsi/tiled-sparse`@1.0.0 | VL Whole Slide Microscopy Image | `1.2.840.10008.5.1.4.1.1.77.1.6` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |

@@ -376,6 +376,62 @@
       "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "Enhanced PET Image IOD module table", "reason": "Locks functional groups, dimensions, PET isotope, correction, and rescale semantics.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-enhanced.md" }],
       "limitations": ["Caller frames must match the qualified default multi-frame shape and unsigned native 16-bit model."],
       "qualification_owner": "enhanced_pet"
+    },
+    {
+      "template_id": "vl/wsi/tiled-full", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "VL Whole Slide Microscopy Image", "sop_class_name": "VL Whole Slide Microscopy Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.6", "default_modality": "SM", "artifact_kind": "whole_slide_image",
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "VL Whole Slide Microscopy Image IOD and TILED_FULL organization", "reason": "Locks implicit tile ordering, total pixel matrix geometry, specimen, and optical path semantics.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-wsi.md" }],
+      "limitations": ["Caller RGB frames must exactly match the qualified reduced tiled-full shape."], "qualification_owner": "wsi_tiled_full"
+    },
+    {
+      "template_id": "vl/wsi/tiled-sparse", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "VL Whole Slide Microscopy Image", "sop_class_name": "VL Whole Slide Microscopy Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.6", "default_modality": "SM", "artifact_kind": "whole_slide_image",
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "VL Whole Slide Microscopy Image IOD sparse organization", "reason": "Locks explicit per-frame slide positions and sparse total-pixel-matrix occupancy.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-wsi.md" }],
+      "limitations": ["Caller RGB frames must exactly match the qualified reduced sparse shape and placement cardinality."], "qualification_owner": "wsi_tiled_sparse"
+    },
+    {
+      "template_id": "vl/wsi/multiple-optical-paths", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "VL Whole Slide Microscopy Image", "sop_class_name": "VL Whole Slide Microscopy Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.6", "default_modality": "SM", "artifact_kind": "whole_slide_image",
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "VL Whole Slide Microscopy optical path and dimension modules", "reason": "Locks ordered optical-path identity, dimension indexing, ICC profiles, and frame blocks.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-wsi.md" }],
+      "limitations": ["Caller RGB frames must exactly match the qualified two-path frame organization."], "qualification_owner": "wsi_multiple_optical_paths"
+    },
+    {
+      "template_id": "vl/wsi/pyramid-volume", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "VL Whole Slide Microscopy Image", "sop_class_name": "VL Whole Slide Microscopy Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.6", "default_modality": "SM", "artifact_kind": "whole_slide_image",
+      "reference_slots": [
+        { "role": "pyramid_thumbnail", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.77.1.6"], "frame_roles": [], "cycle_policy": "forbidden", "default_dependency": "vl/wsi/pyramid-thumbnail", "description": "Qualified thumbnail companion in the same deterministic pyramid bundle." },
+        { "role": "pyramid_label", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.77.1.6"], "frame_roles": [], "cycle_policy": "forbidden", "default_dependency": "vl/wsi/pyramid-label", "description": "Qualified label companion in the same deterministic pyramid bundle." }
+      ],
+      "default_bundle": { "dependencies": [
+        { "logical_role": "thumbnail", "template_id": "vl/wsi/pyramid-thumbnail", "template_version": "1.0.0", "reference_role": "pyramid_thumbnail", "share_study": true, "share_series": true, "share_frame_of_reference": true },
+        { "logical_role": "label", "template_id": "vl/wsi/pyramid-label", "template_version": "1.0.0", "reference_role": "pyramid_label", "share_study": true, "share_series": true, "share_frame_of_reference": true }
+      ] },
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "VL Whole Slide Microscopy pyramid and image flavor semantics", "reason": "Locks shared pyramid identity and volume, thumbnail, and label membership.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-wsi.md" }],
+      "limitations": ["The default is a reduced three-member qualification bundle, not full-scale resource evidence."], "qualification_owner": "wsi_pyramid"
+    },
+    {
+      "template_id": "vl/wsi/pyramid-thumbnail", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "VL Whole Slide Microscopy Image", "sop_class_name": "VL Whole Slide Microscopy Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.6", "default_modality": "SM", "artifact_kind": "whole_slide_image",
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "VL Whole Slide Microscopy THUMBNAIL image flavor", "reason": "Locks thumbnail flavor and shared pyramid membership.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-wsi.md" }],
+      "limitations": ["Intended as a pyramid companion or explicit advanced composition."], "qualification_owner": "wsi_pyramid"
+    },
+    {
+      "template_id": "vl/wsi/pyramid-label", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "VL Whole Slide Microscopy Image", "sop_class_name": "VL Whole Slide Microscopy Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.6", "default_modality": "SM", "artifact_kind": "whole_slide_image",
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "VL Whole Slide Microscopy LABEL image flavor", "reason": "Locks label flavor and its deliberate exclusion from pyramid resolution levels.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-wsi.md" }],
+      "limitations": ["Intended as a pyramid companion or explicit advanced composition."], "qualification_owner": "wsi_pyramid"
     }
   ]
 }

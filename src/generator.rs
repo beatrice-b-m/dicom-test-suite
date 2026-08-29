@@ -5889,10 +5889,16 @@ pub(crate) fn write_composition_default_artifacts(
     template_id: &str,
     variant: Option<&str>,
 ) -> Result<Vec<CompositionDefaultArtifact>, GenerateError> {
-    let case_ids: &[&str] = match (template_id, variant) {
-        ("enhanced/ct", _) => &["enhanced/ct/multiframe_shared_perframe_explicit_le"],
-        ("enhanced/mr", _) => &["enhanced/mr/multiframe_echo_perframe_explicit_le"],
-        ("enhanced/pet", _) => &["enhanced/pet/multiframe_explicit_le"],
+    let (case_ids, selected_file): (&[&str], Option<&str>) = match (template_id, variant) {
+        ("enhanced/ct", _) => (&["enhanced/ct/multiframe_shared_perframe_explicit_le"], None),
+        ("enhanced/mr", _) => (&["enhanced/mr/multiframe_echo_perframe_explicit_le"], None),
+        ("enhanced/pet", _) => (&["enhanced/pet/multiframe_explicit_le"], None),
+        ("vl/wsi/tiled-full", _) => (&["vl/wsi/tiled_full_small"], None),
+        ("vl/wsi/tiled-sparse", _) => (&["vl/wsi/tiled_sparse_small"], None),
+        ("vl/wsi/multiple-optical-paths", _) => (&["vl/wsi/multiple_optical_paths"], None),
+        ("vl/wsi/pyramid-volume", _) => (&["vl/wsi/pyramid_multiresolution"], Some("volume.dcm")),
+        ("vl/wsi/pyramid-thumbnail", _) => (&["vl/wsi/pyramid_multiresolution"], Some("thumbnail.dcm")),
+        ("vl/wsi/pyramid-label", _) => (&["vl/wsi/pyramid_multiresolution"], Some("label.dcm")),
         _ => {
             return Err(GenerateError::MetadataShape {
                 path: PathBuf::from(template_id),
@@ -5944,6 +5950,11 @@ pub(crate) fn write_composition_default_artifacts(
             })
         })
         .collect::<Result<Vec<_>, GenerateError>>()?;
+    if let Some(selected_file) = selected_file {
+        artifacts.retain(|artifact| {
+            artifact.path.file_name().and_then(|name| name.to_str()) == Some(selected_file)
+        });
+    }
     artifacts.sort_by(|left, right| left.path.cmp(&right.path));
     if artifacts.is_empty() {
         return Err(GenerateError::MetadataShape {

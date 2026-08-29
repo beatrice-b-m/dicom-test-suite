@@ -16,6 +16,7 @@ pub enum AdvancedFamilyKind {
     EnhancedCt,
     EnhancedMr,
     EnhancedPet,
+    WholeSlide,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -30,6 +31,12 @@ impl AdvancedFamilyProfile {
             "enhanced/ct" => AdvancedFamilyKind::EnhancedCt,
             "enhanced/mr" => AdvancedFamilyKind::EnhancedMr,
             "enhanced/pet" => AdvancedFamilyKind::EnhancedPet,
+            "vl/wsi/tiled-full"
+            | "vl/wsi/tiled-sparse"
+            | "vl/wsi/multiple-optical-paths"
+            | "vl/wsi/pyramid-volume"
+            | "vl/wsi/pyramid-thumbnail"
+            | "vl/wsi/pyramid-label" => AdvancedFamilyKind::WholeSlide,
             _ => return None,
         };
         Some(Self {
@@ -103,7 +110,11 @@ impl AdvancedFamilyProfile {
         if self.kind == AdvancedFamilyKind::EnhancedCt {
             normalize_enhanced_ct_defined_terms(&mut plan);
         }
-        validate_multiframe_structure(&plan)?;
+        if self.kind == AdvancedFamilyKind::WholeSlide {
+            validate_wsi_structure(&plan)?;
+        } else {
+            validate_multiframe_structure(&plan)?;
+        }
         apply_caller_content(instance, &mut plan, content_resolver)?;
         apply_overrides(instance, &mut plan)?;
         Ok(plan)
@@ -280,6 +291,76 @@ fn validate_multiframe_structure(plan: &ResolvedInstancePlan) -> Result<(), Adva
     Ok(())
 }
 
+fn validate_wsi_structure(plan: &ResolvedInstancePlan) -> Result<(), AdvancedFamilyError> {
+    let frames = numeric_attribute(plan, "0028,0008")?;
+    let rows = numeric_attribute(plan, "0028,0010")?;
+    let columns = numeric_attribute(plan, "0028,0011")?;
+    let total_rows = numeric_attribute(plan, "0048,0006")?;
+    let total_columns = numeric_attribute(plan, "0048,0007")?;
+    let organizations = sequence_attribute(plan, "0020,9221")?;
+    let indices = optional_sequence_attribute(plan, "0020,9222")?;
+    if frames == 0
+        || rows == 0
+        || columns == 0
+        || total_rows < rows
+        || total_columns < columns
+        || organizations.is_empty()
+    {
+        return Err(AdvancedFamilyError::InvalidTiling(format!(
+            "frames={frames}, tile={rows}x{columns}, matrix={total_rows}x{total_columns}, organizations={}, indices={}",
+            organizations.len(),
+            indices.map_or(0, <[super::AttributeItem]>::len)
+        )));
+    }
+    let organization_type = plan
+        .attributes
+        .iter()
+        .find(|attribute| attribute.address.normalized_tag() == "0020,9311")
+        .map(|_| string_attribute(plan, "0020,9311"))
+        .transpose()?;
+    let per_frame = optional_sequence_attribute(plan, "5200,9230")?;
+    if organization_type.as_deref() == Some("TILED_FULL") {
+        let optical_paths =
+            optional_sequence_attribute(plan, "0048,0105")?.map_or(1, |items| items.len().max(1));
+        let tile_rows = total_rows.div_ceil(rows);
+        let tile_columns = total_columns.div_ceil(columns);
+        let expected = u32::try_from(optical_paths)
+            .ok()
+            .and_then(|paths| tile_rows.checked_mul(tile_columns)?.checked_mul(paths))
+            .ok_or_else(|| AdvancedFamilyError::InvalidTiling("frame-count overflow".into()))?;
+        if frames != expected
+            || per_frame.is_some_and(|items| !items.is_empty())
+            || indices.is_some_and(|items| !items.is_empty())
+        {
+            return Err(AdvancedFamilyError::InvalidTiling(format!(
+                "TILED_FULL expected {expected} implicit frames but found {frames}"
+            )));
+        }
+    } else {
+        if indices.is_none_or(<[super::AttributeItem]>::is_empty) {
+            return Err(AdvancedFamilyError::InvalidTiling(
+                "sparse WSI requires dimension indices".into(),
+            ));
+        }
+        let per_frame = per_frame.ok_or_else(|| {
+            AdvancedFamilyError::InvalidTiling("sparse WSI requires per-frame positions".into())
+        })?;
+        if per_frame.len() != frames as usize
+            || per_frame.iter().any(|item| {
+                !item.attributes.iter().any(|operation| {
+                    matches!(operation, AttributeOperation::Set { address, value: AttributeValue::Sequence(items), .. }
+                        if address.normalized_tag() == "0048,021A" && items.len() == 1)
+                })
+            })
+        {
+            return Err(AdvancedFamilyError::InvalidTiling(format!(
+                "sparse WSI requires one slide position for each of {frames} frames"
+            )));
+        }
+    }
+    Ok(())
+}
+
 fn apply_caller_content(
     instance: &SpecInstance,
     plan: &mut ResolvedInstancePlan,
@@ -390,6 +471,24 @@ fn sequence_attribute<'a>(
     }
 }
 
+fn optional_sequence_attribute<'a>(
+    plan: &'a ResolvedInstancePlan,
+    tag: &str,
+) -> Result<Option<&'a [super::AttributeItem]>, AdvancedFamilyError> {
+    let Some(value) = plan
+        .attributes
+        .iter()
+        .find(|attribute| attribute.address.normalized_tag() == tag)
+        .and_then(|attribute| attribute.value.as_ref())
+    else {
+        return Ok(None);
+    };
+    match value {
+        AttributeValue::Sequence(items) => Ok(Some(items)),
+        _ => Err(AdvancedFamilyError::InvalidAttribute(tag.into())),
+    }
+}
+
 fn attribute_value<'a>(
     plan: &'a ResolvedInstancePlan,
     tag: &str,
@@ -423,6 +522,11 @@ fn apply_overrides(
         "0028,0103",
         "0020,9221",
         "0020,9222",
+        "0020,9311",
+        "0048,0006",
+        "0048,0007",
+        "0048,0105",
+        "0008,0019",
         "5200,9229",
         "5200,9230",
         "7FE0,0010",
@@ -512,6 +616,7 @@ pub enum AdvancedFamilyError {
         expected: usize,
         actual: usize,
     },
+    InvalidTiling(String),
     ContentCardinality(String),
     UnsupportedContent(String),
     PixelShapeMismatch {

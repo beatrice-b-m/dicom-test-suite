@@ -162,6 +162,10 @@ struct ClassicFamilyTemplateDeclaration {
     standards_evidence: Vec<Value>,
     limitations: Vec<String>,
     qualification_owner: String,
+    #[serde(default)]
+    reference_slots: Vec<Value>,
+    #[serde(default)]
+    default_bundle: Option<Value>,
 }
 
 impl TemplateCatalog {
@@ -485,8 +489,10 @@ impl ClassicFamilyTemplateDeclaration {
                 },
                 "description": "Default qualified frames or an exact-shape caller native frame payload."
             })],
-            reference_slots: vec![],
-            default_bundle: json!({ "dependencies": [] }),
+            reference_slots: self.reference_slots,
+            default_bundle: self
+                .default_bundle
+                .unwrap_or_else(|| json!({ "dependencies": [] })),
             transfer_syntaxes: self.transfer_syntaxes,
             requirements: TemplateRequirements {
                 features: vec![],

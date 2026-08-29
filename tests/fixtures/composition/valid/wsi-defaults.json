@@ -1,0 +1,9 @@
+{
+  "composition_spec_schema_version": "0.1.0",
+  "instances": [
+    { "instance_id": "tiled_full", "template": { "id": "vl/wsi/tiled-full" } },
+    { "instance_id": "tiled_sparse", "template": { "id": "vl/wsi/tiled-sparse" } },
+    { "instance_id": "multiple_paths", "template": { "id": "vl/wsi/multiple-optical-paths" } },
+    { "instance_id": "pyramid", "template": { "id": "vl/wsi/pyramid-volume" } }
+  ]
+}

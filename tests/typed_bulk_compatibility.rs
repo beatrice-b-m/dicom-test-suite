@@ -81,7 +81,7 @@ fn typed_projection_and_validation_match_frozen_legacy_digests() {
                     } => (*declared_size_bytes, declared_sha256.clone()),
                 };
                 let content = BTreeMap::from([(
-                    "encapsulated_document".into(),
+                    "document".into(),
                     ObservedSpecializedContent {
                         size_bytes,
                         sha256,

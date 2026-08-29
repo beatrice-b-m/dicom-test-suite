@@ -449,7 +449,7 @@ pub fn validate_encapsulated_payload(
     require_common(
         observed,
         &input.sop_class_uid,
-        [("encapsulated_document", size, hash, "OB")],
+        [("document", size, hash, "OB")],
     )?;
     let mut checks = Vec::new();
     if is_pdf {

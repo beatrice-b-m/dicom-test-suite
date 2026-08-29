@@ -536,8 +536,33 @@ fn plan_seg(
     }
     let source = &sources[0].artifact;
     let reference = source_reference(context, &sources[0])?;
-    let mut attributes = common_attributes(context, sop, "SEG", "63")?;
+    let mut attributes = common_attributes(
+        context,
+        sop,
+        "SEG",
+        "51",
+        &recipe.recipe_id,
+        "DTS-ECT",
+        "DTS-SEG-0001",
+    )?;
+    let frame_of_reference_uid = identity(source, CompositionUidRole::FrameOfReference)?;
+    let dimension_organization_uid = context
+        .identities
+        .get(&CompositionUidRole::DimensionOrganization, 0)
+        .or_else(|| context.identities.get(&CompositionUidRole::SopInstance, 0))
+        .ok_or(QuantitativePlanError::MissingIdentity("sop_instance_uid"))?;
     attributes.extend([
+        set_string(
+            tags::FRAME_OF_REFERENCE_UID,
+            DicomVr::UI,
+            &frame_of_reference_uid,
+        ),
+        set_string(tags::POSITION_REFERENCE_INDICATOR, DicomVr::LO, ""),
+        set_string(Tag(0x0008, 0x0008), DicomVr::CS, "DERIVED\\PRIMARY"),
+        set_string(tags::CONTENT_DATE, DicomVr::DA, "20260101"),
+        set_string(tags::CONTENT_TIME, DicomVr::TM, "000000"),
+        set_string(Tag(0x0070, 0x0080), DicomVr::CS, "DTSSEG"),
+        set_string(Tag(0x0070, 0x0081), DicomVr::LO, "Synthetic segmentation"),
         set_u16(tags::ROWS, input.rows),
         set_u16(tags::COLUMNS, input.columns),
         set_string(
@@ -551,6 +576,7 @@ fn plan_seg(
         set_u16(tags::BITS_STORED, bits),
         set_u16(tags::HIGH_BIT, bits - 1),
         set_u16(tags::PIXEL_REPRESENTATION, 0),
+        set_string(tags::LOSSY_IMAGE_COMPRESSION, DicomVr::CS, "00"),
         set_string(
             Tag(0x0062, 0x0001),
             DicomVr::CS,
@@ -561,7 +587,11 @@ fn plan_seg(
             },
         ),
         segment_sequence(input),
-        referenced_series(source, &sources[0]),
+        dimension_organization_sequences(dimension_organization_uid),
+        dimension_index_sequence(dimension_organization_uid),
+        shared_segmentation_functional_groups(),
+        per_frame_segmentation_functional_groups(&sources[0]),
+        referenced_series(source),
     ]);
     if input.kind == SegmentationKind::FractionalProbability {
         attributes.extend([
@@ -614,12 +644,22 @@ fn plan_rwvm(
         return Err(QuantitativePlanError::InvalidMapping);
     }
     let reference = source_reference(context, source)?;
-    let mut attributes = common_attributes(context, RWVM_SOP, "RWV", "62")?;
+    let mut attributes = common_attributes(
+        context,
+        RWVM_SOP,
+        "RWV",
+        "62",
+        &recipe.recipe_id,
+        "DTS-RWVM",
+        "DTS-RWVM-0001",
+    )?;
     attributes.extend([
+        set_string(tags::CONTENT_DATE, DicomVr::DA, "20260101"),
+        set_string(tags::CONTENT_TIME, DicomVr::TM, "000000"),
         set_string(Tag(0x0070, 0x0080), DicomVr::CS, &input.content_label),
         set_string(Tag(0x0070, 0x0081), DicomVr::LO, &input.content_description),
         rwvm_sequence(input, source),
-        referenced_series(&source.artifact, source),
+        referenced_series(&source.artifact),
     ]);
     finish_native(
         recipe,
@@ -970,6 +1010,9 @@ fn common_attributes(
     sop: &str,
     modality: &str,
     series_number: &str,
+    recipe_id: &str,
+    study_id: &str,
+    device_serial_number: &str,
 ) -> Result<Vec<AttributeOperation>, QuantitativePlanError> {
     Ok(vec![
         set_string(tags::SOP_CLASS_UID, DicomVr::UI, sop),
@@ -984,6 +1027,8 @@ fn common_attributes(
         set_string(tags::SYNTHETIC_DATA, DicomVr::CS, "YES"),
         set_string(tags::PATIENT_NAME, DicomVr::PN, "DTS^Synthetic^Patient001"),
         set_string(tags::PATIENT_ID, DicomVr::LO, "DTS-PATIENT-001"),
+        set_string(tags::PATIENT_BIRTH_DATE, DicomVr::DA, "19700101"),
+        set_string(tags::PATIENT_SEX, DicomVr::CS, "O"),
         set_string(
             tags::STUDY_INSTANCE_UID,
             DicomVr::UI,
@@ -994,6 +1039,9 @@ fn common_attributes(
         ),
         set_string(tags::STUDY_DATE, DicomVr::DA, "20260101"),
         set_string(tags::STUDY_TIME, DicomVr::TM, "000000"),
+        set_string(tags::REFERRING_PHYSICIAN_NAME, DicomVr::PN, ""),
+        set_string(tags::STUDY_ID, DicomVr::SH, study_id),
+        set_string(tags::ACCESSION_NUMBER, DicomVr::SH, ""),
         set_string(tags::MODALITY, DicomVr::CS, modality),
         set_string(
             tags::SERIES_INSTANCE_UID,
@@ -1008,6 +1056,12 @@ fn common_attributes(
         set_string(tags::SERIES_NUMBER, DicomVr::IS, series_number),
         set_string(tags::INSTANCE_NUMBER, DicomVr::IS, "1"),
         set_string(tags::MANUFACTURER, DicomVr::LO, "dicom-test-suite"),
+        set_string(tags::MANUFACTURER_MODEL_NAME, DicomVr::LO, recipe_id),
+        set_string(
+            tags::DEVICE_SERIAL_NUMBER,
+            DicomVr::LO,
+            device_serial_number,
+        ),
         set_string(tags::SOFTWARE_VERSIONS, DicomVr::LO, crate::PACKAGE_VERSION),
     ])
 }
@@ -1018,15 +1072,118 @@ fn segment_sequence(input: &SegmentationInput) -> AttributeOperation {
         vec![item(vec![
             set_u16(Tag(0x0062, 0x0004), input.segment_number),
             set_string(Tag(0x0062, 0x0005), DicomVr::LO, &input.segment_label),
-            set_string(Tag(0x0062, 0x0008), DicomVr::CS, "MANUAL"),
+            coded_sequence(Tag(0x0062, 0x0003), "85756007", "SCT", "Tissue"),
+            coded_sequence(Tag(0x0062, 0x000F), "113343", "DCM", "Organ"),
+            set_string(Tag(0x0062, 0x0008), DicomVr::CS, "AUTOMATIC"),
+            set_string(Tag(0x0062, 0x0009), DicomVr::LO, "dicom-test-suite"),
+            set_u16_multi(Tag(0x0062, 0x000D), &[32768, 49152, 32768]),
         ])],
     )
 }
 
-fn referenced_series(
-    source: &PlannedDicomArtifact,
+fn dimension_organization_sequences(uid: &str) -> AttributeOperation {
+    sequence(
+        tags::DIMENSION_ORGANIZATION_SEQUENCE,
+        vec![item(vec![set_string(
+            tags::DIMENSION_ORGANIZATION_UID,
+            DicomVr::UI,
+            uid,
+        )])],
+    )
+}
+
+fn dimension_index_sequence(uid: &str) -> AttributeOperation {
+    sequence(
+        tags::DIMENSION_INDEX_SEQUENCE,
+        vec![item(vec![
+            set_tag(tags::DIMENSION_INDEX_POINTER, Tag(0x0062, 0x000B)),
+            set_tag(tags::FUNCTIONAL_GROUP_POINTER, Tag(0x0062, 0x000A)),
+            set_string(tags::DIMENSION_ORGANIZATION_UID, DicomVr::UI, uid),
+            set_string(
+                tags::DIMENSION_DESCRIPTION_LABEL,
+                DicomVr::LO,
+                "SegmentNumber",
+            ),
+        ])],
+    )
+}
+
+fn shared_segmentation_functional_groups() -> AttributeOperation {
+    sequence(
+        tags::SHARED_FUNCTIONAL_GROUPS_SEQUENCE,
+        vec![item(vec![sequence(
+            Tag(0x0028, 0x9110),
+            vec![item(vec![
+                set_string(tags::PIXEL_SPACING, DicomVr::DS, "0.75\\0.75"),
+                set_string(tags::SLICE_THICKNESS, DicomVr::DS, "2.5"),
+            ])],
+        )])],
+    )
+}
+
+fn per_frame_segmentation_functional_groups(
     declaration: &QuantitativeSourceInput,
 ) -> AttributeOperation {
+    let source = &declaration.artifact;
+    let source_sop_instance_uid = source
+        .instance
+        .identities
+        .get(&CompositionUidRole::SopInstance, 0)
+        .expect("validated source SOP identity");
+    sequence(
+        tags::PER_FRAME_FUNCTIONAL_GROUPS_SEQUENCE,
+        declaration
+            .referenced_frames
+            .iter()
+            .map(|frame_number| {
+                item(vec![
+                    sequence(
+                        Tag(0x0020, 0x9111),
+                        vec![item(vec![set_u32(Tag(0x0020, 0x9157), 1)])],
+                    ),
+                    sequence(
+                        Tag(0x0062, 0x000A),
+                        vec![item(vec![set_u16(Tag(0x0062, 0x000B), 1)])],
+                    ),
+                    sequence(
+                        Tag(0x0008, 0x9124),
+                        vec![item(vec![
+                            sequence(
+                                Tag(0x0008, 0x2112),
+                                vec![item(vec![
+                                    set_string(
+                                        tags::REFERENCED_SOP_CLASS_UID,
+                                        DicomVr::UI,
+                                        &source.instance.sop_class_uid,
+                                    ),
+                                    set_string(
+                                        tags::REFERENCED_SOP_INSTANCE_UID,
+                                        DicomVr::UI,
+                                        source_sop_instance_uid,
+                                    ),
+                                    set_string(
+                                        tags::REFERENCED_FRAME_NUMBER,
+                                        DicomVr::IS,
+                                        &frame_number.to_string(),
+                                    ),
+                                    coded_sequence(
+                                        Tag(0x0040, 0xA170),
+                                        "121322",
+                                        "DCM",
+                                        "Source image for image processing operation",
+                                    ),
+                                ])],
+                            ),
+                            coded_sequence(Tag(0x0008, 0x9215), "113076", "DCM", "Segmentation"),
+                        ])],
+                    ),
+                ])
+            })
+            .collect(),
+    )
+}
+
+fn referenced_series(source: &PlannedDicomArtifact) -> AttributeOperation {
     sequence(
         tags::REFERENCED_SERIES_SEQUENCE,
         vec![item(vec![
@@ -1055,11 +1212,6 @@ fn referenced_series(
                             .identities
                             .get(&CompositionUidRole::SopInstance, 0)
                             .unwrap(),
-                    ),
-                    set_unsigned_multi(
-                        tags::REFERENCED_FRAME_NUMBER,
-                        DicomVr::IS,
-                        &declaration.referenced_frames,
                     ),
                 ])],
             ),
@@ -1091,10 +1243,30 @@ fn rwvm_sequence(
                     set_string(tags::CODE_MEANING, DicomVr::LO, &value.unit_code_meaning),
                 ])],
             ),
-            set_unsigned_multi(
-                tags::REFERENCED_FRAME_NUMBER,
-                DicomVr::IS,
-                &source.referenced_frames,
+            sequence(
+                Tag(0x0008, 0x1140),
+                vec![item(vec![
+                    set_string(
+                        tags::REFERENCED_SOP_CLASS_UID,
+                        DicomVr::UI,
+                        &source.artifact.instance.sop_class_uid,
+                    ),
+                    set_string(
+                        tags::REFERENCED_SOP_INSTANCE_UID,
+                        DicomVr::UI,
+                        source
+                            .artifact
+                            .instance
+                            .identities
+                            .get(&CompositionUidRole::SopInstance, 0)
+                            .expect("validated source SOP identity"),
+                    ),
+                    set_unsigned_multi(
+                        tags::REFERENCED_FRAME_NUMBER,
+                        DicomVr::IS,
+                        &source.referenced_frames,
+                    ),
+                ])],
             ),
         ])],
     )
@@ -1113,6 +1285,48 @@ fn set_u16(tag: Tag, value: u16) -> AttributeOperation {
         tag,
         DicomVr::US,
         AttributeValue::Primitive(PrimitiveValue::Unsigned(u64::from(value))),
+    )
+}
+
+fn set_u32(tag: Tag, value: u32) -> AttributeOperation {
+    set_value(
+        tag,
+        DicomVr::UL,
+        AttributeValue::Primitive(PrimitiveValue::Unsigned(u64::from(value))),
+    )
+}
+
+fn set_u16_multi(tag: Tag, values: &[u16]) -> AttributeOperation {
+    set_value(
+        tag,
+        DicomVr::US,
+        AttributeValue::Multi(
+            values
+                .iter()
+                .map(|value| PrimitiveValue::Unsigned(u64::from(*value)))
+                .collect(),
+        ),
+    )
+}
+
+fn set_tag(tag: Tag, value: Tag) -> AttributeOperation {
+    set_value(
+        tag,
+        DicomVr::AT,
+        AttributeValue::Primitive(PrimitiveValue::Tag(
+            AttributeAddress::standard(value).expect("standard tag pointer"),
+        )),
+    )
+}
+
+fn coded_sequence(tag: Tag, value: &str, scheme: &str, meaning: &str) -> AttributeOperation {
+    sequence(
+        tag,
+        vec![item(vec![
+            set_string(tags::CODE_VALUE, DicomVr::SH, value),
+            set_string(tags::CODING_SCHEME_DESIGNATOR, DicomVr::SH, scheme),
+            set_string(tags::CODE_MEANING, DicomVr::LO, meaning),
+        ])],
     )
 }
 

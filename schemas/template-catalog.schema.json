@@ -103,6 +103,7 @@
           "items": { "$ref": "#/$defs/reference_slot" }
         },
         "default_bundle": { "$ref": "#/$defs/default_bundle" },
+        "parameter_schema": { "type": "object" },
         "transfer_syntaxes": {
           "type": "array",
           "minItems": 1,
@@ -170,7 +171,8 @@
           "items": { "$ref": "#/$defs/content_slot" }
         },
         "validation": { "$ref": "#/$defs/validation" },
-        "reference_only": { "type": "boolean" }
+        "reference_only": { "type": "boolean" },
+        "parameter_schema": { "type": "object" }
       },
       "additionalProperties": false
     },

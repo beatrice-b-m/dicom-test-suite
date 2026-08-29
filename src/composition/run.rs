@@ -141,6 +141,7 @@ fn resolve_and_stage(
     for instance in &spec.instances {
         let template =
             catalog.resolve_qualified(&instance.template.id, instance.template.version)?;
+        validate_parameters(instance, template)?;
         let p2_sc = matches!(
             template.template_id.0.as_str(),
             "classic/secondary-capture/monochrome" | "classic/secondary-capture/rgb"
@@ -370,6 +371,31 @@ fn resolve_and_stage(
         },
         manifest,
     ))
+}
+
+fn validate_parameters(
+    instance: &super::SpecInstance,
+    template: &TemplateDescriptor,
+) -> Result<(), ComposeError> {
+    let validator = jsonschema::validator_for(&template.parameter_schema).map_err(|error| {
+        ComposeError::ParameterSchema {
+            instance_id: instance.instance_id.clone(),
+            message: format!("template parameter schema is invalid: {error}"),
+        }
+    })?;
+    let parameters = serde_json::to_value(&instance.parameters).expect("parameters serialize");
+    let errors = validator
+        .iter_errors(&parameters)
+        .map(|error| error.to_string())
+        .collect::<Vec<_>>();
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(ComposeError::ParameterSchema {
+            instance_id: instance.instance_id.clone(),
+            message: errors.join("; "),
+        })
+    }
 }
 
 fn apply_explicit_identities(
@@ -852,6 +878,10 @@ pub enum ComposeError {
     ProtectedContentOverride {
         instance_id: String,
         tag: String,
+    },
+    ParameterSchema {
+        instance_id: String,
+        message: String,
     },
     OutputSizeOverflow,
     MissingPixelMaterialization,

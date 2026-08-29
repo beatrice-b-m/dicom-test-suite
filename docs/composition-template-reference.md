@@ -33,6 +33,11 @@ This file is rendered from `templates/catalog.json`. Use `templates describe` fo
 | `derived/segmentation/fractional-probability`@1.0.0 | Segmentation | `1.2.840.10008.5.1.4.1.1.66.4` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator, pydicom-segmentation-payload |
 | `derived/segmentation/labelmap`@1.0.0 | Segmentation | `1.2.840.10008.5.1.4.1.1.66.7` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator, pydicom-segmentation-payload |
 | `derived/segmentation/wsi-tile`@1.0.0 | Segmentation | `1.2.840.10008.5.1.4.1.1.66.4` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator, pydicom-dicom-validator-wsi-tile-segmentation |
+| `derived/structured-report/basic-text`@1.0.0 | Basic Text SR | `1.2.840.10008.5.1.4.1.1.88.11` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator, pydicom-sr-content |
+| `derived/structured-report/comprehensive`@1.0.0 | Comprehensive SR | `1.2.840.10008.5.1.4.1.1.88.33` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator, pydicom-sr-content |
+| `derived/structured-report/comprehensive-3d`@1.0.0 | Comprehensive 3D SR | `1.2.840.10008.5.1.4.1.1.88.34` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator, highdicom-scoord3d |
+| `derived/structured-report/key-object`@1.0.0 | Key Object Selection Document | `1.2.840.10008.5.1.4.1.1.88.59` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator, pydicom-sr-content |
+| `derived/structured-report/tid1500`@1.0.0 | Comprehensive 3D SR | `1.2.840.10008.5.1.4.1.1.88.34` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator, highdicom-tid1500 |
 | `enhanced/ct`@1.0.0 | Enhanced CT Image | `1.2.840.10008.5.1.4.1.1.2.1` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
 | `enhanced/ct/concatenation-part-1`@1.0.0 | Enhanced CT Image | `1.2.840.10008.5.1.4.1.1.2.1` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |
 | `enhanced/ct/concatenation-part-2`@1.0.0 | Enhanced CT Image | `1.2.840.10008.5.1.4.1.1.2.1` | `1.2.840.10008.1.2.1` (default) | byte_stable | dicom_validator |

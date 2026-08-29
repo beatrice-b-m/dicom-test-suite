@@ -6130,10 +6130,7 @@ pub(crate) fn write_composition_default_artifacts(
                 None,
             ),
             ("derived/segmentation/wsi-tile", _) => (
-                &[
-                    "vl/wsi/tiled_full_small",
-                    "derived/seg/wsi_tile_reference",
-                ],
+                &["vl/wsi/tiled_full_small", "derived/seg/wsi_tile_reference"],
                 Some("derived/seg/wsi_tile_reference"),
                 None,
             ),
@@ -6159,6 +6156,48 @@ pub(crate) fn write_composition_default_artifacts(
                     "derived/rwvm/linear_ct_mapping_explicit_le",
                 ],
                 Some("derived/rwvm/linear_ct_mapping_explicit_le"),
+                None,
+            ),
+            ("derived/structured-report/basic-text", _) => (
+                &[
+                    "enhanced/ct/multiframe_shared_perframe_explicit_le",
+                    "derived/sr/basic_text_observation_explicit_le",
+                ],
+                Some("derived/sr/basic_text_observation_explicit_le"),
+                None,
+            ),
+            ("derived/structured-report/comprehensive", _) => (
+                &[
+                    "enhanced/ct/multiframe_shared_perframe_explicit_le",
+                    "derived/sr/comprehensive_measurement_explicit_le",
+                ],
+                Some("derived/sr/comprehensive_measurement_explicit_le"),
+                None,
+            ),
+            ("derived/structured-report/comprehensive-3d", _) => (
+                &[
+                    "enhanced/ct/multiframe_shared_perframe_explicit_le",
+                    "derived/sr/comprehensive3d_scoord3d",
+                ],
+                Some("derived/sr/comprehensive3d_scoord3d"),
+                None,
+            ),
+            ("derived/structured-report/tid1500", _) => (
+                &[
+                    "enhanced/ct/multiframe_shared_perframe_explicit_le",
+                    "derived/seg/binary_multiframe_explicit_le",
+                    "derived/sr/tid1500_ct_measurement_report",
+                ],
+                Some("derived/sr/tid1500_ct_measurement_report"),
+                None,
+            ),
+            ("derived/structured-report/key-object", _) => (
+                &[
+                    "enhanced/ct/multiframe_shared_perframe_explicit_le",
+                    "derived/seg/binary_multiframe_explicit_le",
+                    "derived/sr/key_object_selection_explicit_le",
+                ],
+                Some("derived/sr/key_object_selection_explicit_le"),
                 None,
             ),
             _ => {

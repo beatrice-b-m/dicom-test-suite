@@ -122,6 +122,8 @@ pub struct TemplateDescriptor {
     pub content_slots: Vec<Value>,
     pub reference_slots: Vec<Value>,
     pub default_bundle: Value,
+    #[serde(default = "empty_parameter_schema")]
+    pub parameter_schema: Value,
     pub transfer_syntaxes: Vec<TransferSyntaxDescriptor>,
     pub requirements: TemplateRequirements,
     pub validation: Value,
@@ -174,6 +176,8 @@ struct ClassicFamilyTemplateDeclaration {
     validation: Option<Value>,
     #[serde(default)]
     reference_only: bool,
+    #[serde(default)]
+    parameter_schema: Option<Value>,
 }
 
 impl TemplateCatalog {
@@ -416,6 +420,7 @@ impl ClassicFamilyTemplateDeclaration {
             content_slots,
             reference_slots: Vec::new(),
             default_bundle: serde_json::json!({ "dependencies": [] }),
+            parameter_schema: empty_parameter_schema(),
             transfer_syntaxes: self.transfer_syntaxes,
             requirements: TemplateRequirements {
                 features: Vec::new(),
@@ -529,6 +534,9 @@ impl ClassicFamilyTemplateDeclaration {
             default_bundle: self
                 .default_bundle
                 .unwrap_or_else(|| json!({ "dependencies": [] })),
+            parameter_schema: self
+                .parameter_schema
+                .unwrap_or_else(empty_parameter_schema),
             transfer_syntaxes: self.transfer_syntaxes,
             requirements: TemplateRequirements {
                 features: vec![],
@@ -547,6 +555,14 @@ impl ClassicFamilyTemplateDeclaration {
             qualification_owner: self.qualification_owner,
         }
     }
+}
+
+fn empty_parameter_schema() -> Value {
+    json!({
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+    })
 }
 
 fn classic_family_modules(profile: &ClassicFamilyProfile) -> Vec<Value> {

@@ -22,6 +22,7 @@ pub enum AdvancedFamilyKind {
     DerivedReference,
     TypedBulk(TypedBulkFamily),
     Quantitative(QuantitativeFamily),
+    StructuredReport(StructuredReportFamily),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -37,6 +38,15 @@ pub enum QuantitativeFamily {
     Segmentation,
     ParametricMap,
     RealWorldValueMapping,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StructuredReportFamily {
+    BasicText,
+    Comprehensive,
+    Comprehensive3d,
+    Tid1500,
+    KeyObject,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -89,6 +99,21 @@ impl AdvancedFamilyProfile {
             }
             "derived/real-world-value-mapping/linear" => {
                 AdvancedFamilyKind::Quantitative(QuantitativeFamily::RealWorldValueMapping)
+            }
+            "derived/structured-report/basic-text" => {
+                AdvancedFamilyKind::StructuredReport(StructuredReportFamily::BasicText)
+            }
+            "derived/structured-report/comprehensive" => {
+                AdvancedFamilyKind::StructuredReport(StructuredReportFamily::Comprehensive)
+            }
+            "derived/structured-report/comprehensive-3d" => {
+                AdvancedFamilyKind::StructuredReport(StructuredReportFamily::Comprehensive3d)
+            }
+            "derived/structured-report/tid1500" => {
+                AdvancedFamilyKind::StructuredReport(StructuredReportFamily::Tid1500)
+            }
+            "derived/structured-report/key-object" => {
+                AdvancedFamilyKind::StructuredReport(StructuredReportFamily::KeyObject)
             }
             _ => return None,
         };
@@ -182,6 +207,12 @@ impl AdvancedFamilyProfile {
             extract_typed_bulk_defaults(family, &mut plan)?;
         } else if let AdvancedFamilyKind::Quantitative(family) = self.kind {
             normalize_quantitative_content(family, &mut plan)?;
+        } else if let AdvancedFamilyKind::StructuredReport(_) = self.kind {
+            if !plan.content.is_empty() {
+                return Err(AdvancedFamilyError::TypedBulk(
+                    "structured reports cannot carry bulk content".into(),
+                ));
+            }
         } else if self.kind == AdvancedFamilyKind::WholeSlide {
             validate_wsi_structure(&plan)?;
         } else if self.kind != AdvancedFamilyKind::DerivedReference {
@@ -197,6 +228,13 @@ impl AdvancedFamilyProfile {
             apply_typed_bulk_content(family, instance, &mut plan, content_resolver)?;
         } else if let AdvancedFamilyKind::Quantitative(family) = self.kind {
             apply_quantitative_content(family, instance, &mut plan, content_resolver)?;
+        } else if let AdvancedFamilyKind::StructuredReport(family) = self.kind {
+            if !instance.content.is_empty() {
+                return Err(AdvancedFamilyError::UnsupportedContent(
+                    instance.instance_id.clone(),
+                ));
+            }
+            apply_structured_report_parameters(family, instance, &mut plan)?;
         } else {
             apply_caller_content(instance, &mut plan, content_resolver)?;
         }
@@ -534,7 +572,8 @@ pub(crate) fn rewrite_materialized_dicom_references(
                 || plan
                     .template_id
                     .0
-                    .starts_with("derived/real-world-value-mapping/"))
+                    .starts_with("derived/real-world-value-mapping/")
+                || plan.template_id.0.starts_with("derived/structured-report/"))
         {
             continue;
         }
@@ -550,6 +589,20 @@ pub(crate) fn rewrite_materialized_dicom_references(
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;
+        let frame_replacements = plan
+            .references
+            .iter()
+            .map(|reference| {
+                (!reference.referenced_frames.is_empty()).then(|| {
+                    reference
+                        .referenced_frames
+                        .iter()
+                        .map(u32::to_string)
+                        .collect::<Vec<_>>()
+                        .join("\\")
+                })
+            })
+            .collect::<Vec<_>>();
         rewrite_nested_identity_axis(
             plan,
             "0008,1155",
@@ -562,6 +615,9 @@ pub(crate) fn rewrite_materialized_dicom_references(
             ordered.iter().map(|identity| identity.series.clone()),
             false,
         )?;
+        if frame_replacements.iter().any(Option::is_some) {
+            rewrite_nested_identity_axis(plan, "0008,1160", frame_replacements, false)?;
+        }
         rewrite_nested_identity_axis(
             plan,
             "0020,000D",
@@ -602,6 +658,19 @@ fn rewrite_nested_identity_axis(
                 "{} has logical references but no nested {tag}",
                 plan.instance_id
             )));
+        }
+        return Ok(());
+    }
+    if tag == "0008,1160" && new.len() == 1 {
+        let replacement = new.pop().expect("one frame replacement");
+        let mapping = old
+            .into_iter()
+            .map(|value| (value, replacement.clone()))
+            .collect::<BTreeMap<_, _>>();
+        for attribute in &mut plan.attributes {
+            if let Some(value) = &mut attribute.value {
+                rewrite_nested_tag_strings(value, tag, &mapping);
+            }
         }
         return Ok(());
     }
@@ -818,6 +887,139 @@ fn validate_wsi_structure(plan: &ResolvedInstancePlan) -> Result<(), AdvancedFam
         }
     }
     Ok(())
+}
+
+fn apply_structured_report_parameters(
+    family: StructuredReportFamily,
+    instance: &SpecInstance,
+    plan: &mut ResolvedInstancePlan,
+) -> Result<(), AdvancedFamilyError> {
+    match family {
+        StructuredReportFamily::BasicText => {
+            if let Some(value) = instance
+                .parameters
+                .get("observation_text")
+                .and_then(serde_json::Value::as_str)
+            {
+                replace_first_sr_value(
+                    plan,
+                    "0040,A160",
+                    AttributeValue::Primitive(PrimitiveValue::String(value.into())),
+                )?;
+            }
+        }
+        StructuredReportFamily::Comprehensive => {
+            if let Some(value) = instance
+                .parameters
+                .get("measurement_value_mm")
+                .and_then(serde_json::Value::as_f64)
+            {
+                replace_first_sr_value(
+                    plan,
+                    "0040,A30A",
+                    AttributeValue::Primitive(PrimitiveValue::String(value.to_string())),
+                )?;
+            }
+        }
+        StructuredReportFamily::Comprehensive3d => {
+            if let Some(values) = instance
+                .parameters
+                .get("graphic_data_patient_mm")
+                .and_then(serde_json::Value::as_array)
+            {
+                replace_first_sr_value(
+                    plan,
+                    "0070,0022",
+                    AttributeValue::Multi(
+                        values
+                            .iter()
+                            .map(|value| {
+                                value.as_f64().map(|value| {
+                                    PrimitiveValue::Float32Bits((value as f32).to_bits())
+                                })
+                            })
+                            .collect::<Option<Vec<_>>>()
+                            .ok_or_else(|| {
+                                AdvancedFamilyError::StructuredParameter(
+                                    "graphic_data_patient_mm must contain numbers".into(),
+                                )
+                            })?,
+                    ),
+                )?;
+            }
+            if let Some(value) = instance
+                .parameters
+                .get("measurement_value_mm")
+                .and_then(serde_json::Value::as_f64)
+            {
+                replace_first_sr_value(
+                    plan,
+                    "0040,A30A",
+                    AttributeValue::Primitive(PrimitiveValue::String(value.to_string())),
+                )?;
+            }
+        }
+        StructuredReportFamily::Tid1500 => {
+            if let Some(value) = instance
+                .parameters
+                .get("measurement_value_mm3")
+                .and_then(serde_json::Value::as_f64)
+            {
+                replace_first_sr_value(
+                    plan,
+                    "0040,A30A",
+                    AttributeValue::Primitive(PrimitiveValue::String(value.to_string())),
+                )?;
+            }
+        }
+        StructuredReportFamily::KeyObject => {}
+    }
+    Ok(())
+}
+
+fn replace_first_sr_value(
+    plan: &mut ResolvedInstancePlan,
+    tag: &str,
+    replacement: AttributeValue,
+) -> Result<(), AdvancedFamilyError> {
+    fn in_value(value: &mut AttributeValue, tag: &str, replacement: &AttributeValue) -> bool {
+        let AttributeValue::Sequence(items) = value else {
+            return false;
+        };
+        for item in items {
+            for operation in &mut item.attributes {
+                let AttributeOperation::Set { address, value, .. } = operation else {
+                    continue;
+                };
+                if address.normalized_tag() == tag {
+                    *value = replacement.clone();
+                    return true;
+                }
+                if in_value(value, tag, replacement) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    for attribute in &mut plan.attributes {
+        if attribute.address.normalized_tag() == tag {
+            attribute.value = Some(replacement);
+            attribute.origin = ValueOrigin::InstanceOverride;
+            return Ok(());
+        }
+        if attribute
+            .value
+            .as_mut()
+            .is_some_and(|value| in_value(value, tag, &replacement))
+        {
+            return Ok(());
+        }
+    }
+    Err(AdvancedFamilyError::StructuredParameter(format!(
+        "qualified content tree has no {tag} parameter target"
+    )))
 }
 
 fn normalize_quantitative_content(
@@ -1612,6 +1814,7 @@ pub enum AdvancedFamilyError {
     ConcatenationClosure(String),
     DicomReferenceClosure(String),
     TypedBulk(String),
+    StructuredParameter(String),
     ContentCardinality(String),
     UnsupportedContent(String),
     PixelShapeMismatch {

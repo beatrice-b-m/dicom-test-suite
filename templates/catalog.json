@@ -637,6 +637,78 @@
       "limitations": ["Qualified for the deterministic linear CT mapping and fixed UCUM unit code."], "qualification_owner": "quantitative_derived"
     },
     {
+      "template_id": "derived/structured-report/basic-text", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "Basic Text SR", "sop_class_name": "Basic Text SR Storage", "sop_class_uid": "1.2.840.10008.5.1.4.1.1.88.11", "default_modality": "SR", "artifact_kind": "structured_report", "reference_only": true,
+      "modules": [{ "name": "SR Document Content", "usage": "mandatory", "condition": null }],
+      "parameter_schema": { "type": "object", "properties": { "observation_text": { "type": "string", "minLength": 1, "maxLength": 256 } }, "additionalProperties": false },
+      "reference_slots": [{ "role": "source_image", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.2.1"], "frame_roles": ["source_frames"], "cycle_policy": "forbidden", "default_dependency": "enhanced/ct", "description": "Enhanced CT frames described by the observation." }],
+      "default_bundle": { "dependencies": [{ "logical_role": "source", "template_id": "enhanced/ct", "template_version": "1.0.0", "reference_role": "source_image", "frames": [1, 2], "share_study": true }] },
+      "validation": { "generic_rule_ids": ["meta_identity", "resolved_attributes"], "template_rule_ids": ["sr_content_tree", "reference_closure"], "content_rule_ids": [], "independent_routes": [{ "adapter_id": "dicom_validator", "kind": "iod", "required_for_qualification": true }, { "adapter_id": "pydicom-sr-content", "kind": "entity", "required_for_qualification": true }] },
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "Basic Text SR IOD and SR Document Content Module", "reason": "Locks the CONTAINER/TEXT content relationship and evidence references.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-structured-reports.md" }],
+      "limitations": ["The safe parameter surface changes only the TEXT value, not arbitrary content-tree structure or codes."], "qualification_owner": "structured_reports"
+    },
+    {
+      "template_id": "derived/structured-report/comprehensive", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "Comprehensive SR", "sop_class_name": "Comprehensive SR Storage", "sop_class_uid": "1.2.840.10008.5.1.4.1.1.88.33", "default_modality": "SR", "artifact_kind": "structured_report", "reference_only": true,
+      "modules": [{ "name": "SR Document Content", "usage": "mandatory", "condition": null }],
+      "parameter_schema": { "type": "object", "properties": { "measurement_value_mm": { "type": "number", "minimum": 0, "maximum": 1000000 } }, "additionalProperties": false },
+      "reference_slots": [{ "role": "source_image", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.2.1"], "frame_roles": ["source_frames"], "cycle_policy": "forbidden", "default_dependency": "enhanced/ct", "description": "Enhanced CT frames measured by the NUM item." }],
+      "default_bundle": { "dependencies": [{ "logical_role": "source", "template_id": "enhanced/ct", "template_version": "1.0.0", "reference_role": "source_image", "frames": [1, 2], "share_study": true }] },
+      "validation": { "generic_rule_ids": ["meta_identity", "resolved_attributes"], "template_rule_ids": ["sr_content_tree", "reference_closure"], "content_rule_ids": [], "independent_routes": [{ "adapter_id": "dicom_validator", "kind": "iod", "required_for_qualification": true }, { "adapter_id": "pydicom-sr-content", "kind": "entity", "required_for_qualification": true }] },
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "Comprehensive SR IOD and SR Document Content Module", "reason": "Locks the coded NUM measurement, UCUM units, IMAGE content item, and evidence closure.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-structured-reports.md" }],
+      "limitations": ["The safe parameter surface changes only the non-negative millimeter NUM value."], "qualification_owner": "structured_reports"
+    },
+    {
+      "template_id": "derived/structured-report/comprehensive-3d", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "Comprehensive 3D SR", "sop_class_name": "Comprehensive 3D SR Storage", "sop_class_uid": "1.2.840.10008.5.1.4.1.1.88.34", "default_modality": "SR", "artifact_kind": "structured_report", "reference_only": true,
+      "modules": [{ "name": "SR Document Content", "usage": "mandatory", "condition": null }],
+      "parameter_schema": { "type": "object", "properties": { "graphic_data_patient_mm": { "type": "array", "minItems": 6, "maxItems": 6, "items": { "type": "number", "minimum": -1000000, "maximum": 1000000 } }, "measurement_value_mm": { "type": "number", "minimum": 0, "maximum": 1000000 } }, "additionalProperties": false },
+      "reference_slots": [{ "role": "source_image", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.2.1"], "frame_roles": ["source_frames"], "cycle_policy": "forbidden", "default_dependency": "enhanced/ct", "description": "Enhanced CT frames localized by the patient-coordinate polyline." }],
+      "default_bundle": { "dependencies": [{ "logical_role": "source", "template_id": "enhanced/ct", "template_version": "1.0.0", "reference_role": "source_image", "frames": [1, 2], "share_study": true, "share_frame_of_reference": true }] },
+      "validation": { "generic_rule_ids": ["meta_identity", "resolved_attributes"], "template_rule_ids": ["sr_content_tree", "scoord3d_geometry", "reference_closure"], "content_rule_ids": [], "independent_routes": [{ "adapter_id": "dicom_validator", "kind": "iod", "required_for_qualification": true }, { "adapter_id": "highdicom-scoord3d", "kind": "entity", "required_for_qualification": true }] },
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "Comprehensive 3D SR IOD and SCOORD3D content item", "reason": "Locks patient-coordinate POLYLINE geometry, NUM measurement, tracking, and source closure.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-structured-reports.md" }],
+      "limitations": ["The safe parameter surface retains a two-point POLYLINE and the qualified tracking/code structure."], "qualification_owner": "structured_reports"
+    },
+    {
+      "template_id": "derived/structured-report/tid1500", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "Comprehensive 3D SR", "sop_class_name": "Comprehensive 3D SR Storage", "sop_class_uid": "1.2.840.10008.5.1.4.1.1.88.34", "default_modality": "SR", "artifact_kind": "structured_report", "reference_only": true,
+      "modules": [{ "name": "TID 1500 Measurement Report", "usage": "mandatory", "condition": null }],
+      "parameter_schema": { "type": "object", "properties": { "measurement_value_mm3": { "type": "number", "minimum": 0, "maximum": 1000000000000 } }, "additionalProperties": false },
+      "reference_slots": [
+        { "role": "image_source", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.2.1"], "frame_roles": ["source_frames"], "cycle_policy": "forbidden", "default_dependency": "enhanced/ct", "description": "Enhanced CT evidence for the measurement report." },
+        { "role": "segmentation_source", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.66.4"], "frame_roles": [], "cycle_policy": "forbidden", "default_dependency": "derived/segmentation/binary", "description": "Segmentation evidence measured by the report." }
+      ],
+      "default_bundle": { "dependencies": [
+        { "logical_role": "image", "template_id": "enhanced/ct", "template_version": "1.0.0", "reference_role": "image_source", "frames": [1, 2], "share_study": true, "share_frame_of_reference": true },
+        { "logical_role": "segmentation", "template_id": "derived/segmentation/binary", "template_version": "1.0.0", "reference_role": "segmentation_source", "share_study": true, "share_frame_of_reference_with_role": "image" }
+      ] },
+      "validation": { "generic_rule_ids": ["meta_identity", "resolved_attributes"], "template_rule_ids": ["tid1500_content_tree", "reference_closure"], "content_rule_ids": [], "independent_routes": [{ "adapter_id": "dicom_validator", "kind": "iod", "required_for_qualification": true }, { "adapter_id": "highdicom-tid1500", "kind": "entity", "required_for_qualification": true }] },
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.16", "anchor": "TID 1500 Measurement Report", "reason": "Locks report containers, measurement group, volume NUM item, tracking, and image/SEG evidence.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-structured-reports.md" }],
+      "limitations": ["The safe parameter surface changes only the non-negative cubic-millimeter volume in the qualified single measurement group."], "qualification_owner": "structured_reports"
+    },
+    {
+      "template_id": "derived/structured-report/key-object", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "Key Object Selection Document", "sop_class_name": "Key Object Selection Document Storage", "sop_class_uid": "1.2.840.10008.5.1.4.1.1.88.59", "default_modality": "KO", "artifact_kind": "structured_report", "reference_only": true,
+      "modules": [{ "name": "Key Object Selection Document Content", "usage": "mandatory", "condition": null }],
+      "parameter_schema": { "type": "object", "properties": {}, "additionalProperties": false },
+      "reference_slots": [
+        { "role": "image_source", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.2.1"], "frame_roles": ["selected_frames"], "cycle_policy": "forbidden", "default_dependency": "enhanced/ct", "description": "Selected Enhanced CT key frames." },
+        { "role": "segmentation_source", "required": true, "cardinality": "one", "target_sop_class_uids": ["1.2.840.10008.5.1.4.1.1.66.4"], "frame_roles": [], "cycle_policy": "forbidden", "default_dependency": "derived/segmentation/binary", "description": "Selected Segmentation key object." }
+      ],
+      "default_bundle": { "dependencies": [
+        { "logical_role": "image", "template_id": "enhanced/ct", "template_version": "1.0.0", "reference_role": "image_source", "frames": [1, 2], "share_study": true, "share_frame_of_reference": true },
+        { "logical_role": "segmentation", "template_id": "derived/segmentation/binary", "template_version": "1.0.0", "reference_role": "segmentation_source", "share_study": true, "share_frame_of_reference_with_role": "image" }
+      ] },
+      "validation": { "generic_rule_ids": ["meta_identity", "resolved_attributes"], "template_rule_ids": ["kos_content_tree", "reference_closure"], "content_rule_ids": [], "independent_routes": [{ "adapter_id": "dicom_validator", "kind": "iod", "required_for_qualification": true }, { "adapter_id": "pydicom-sr-content", "kind": "entity", "required_for_qualification": true }] },
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.16", "anchor": "TID 2010 Key Object Selection", "reason": "Locks the Of Interest document title and typed IMAGE references to selected image and SEG evidence.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-structured-reports.md" }],
+      "limitations": ["Selection is expressed only through typed reference slots and one-based frame lists; arbitrary SR trees are not accepted."], "qualification_owner": "structured_reports"
+    },
+    {
       "template_id": "non-image/waveform/twelve-lead-ecg", "template_version": "1.0.0", "status": "qualified",
       "iod_name": "12-lead ECG Waveform", "sop_class_name": "12-lead ECG Waveform Storage", "sop_class_uid": "1.2.840.10008.5.1.4.1.1.9.1.1", "default_modality": "ECG", "artifact_kind": "waveform",
       "modules": [{ "name": "12-lead ECG Waveform", "usage": "mandatory", "condition": null }],

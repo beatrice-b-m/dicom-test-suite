@@ -1,0 +1,10 @@
+{
+  "composition_spec_schema_version": "0.1.0",
+  "instances": [
+    { "instance_id": "basic", "template": { "id": "derived/structured-report/basic-text" } },
+    { "instance_id": "comprehensive", "template": { "id": "derived/structured-report/comprehensive" } },
+    { "instance_id": "scoord3d", "template": { "id": "derived/structured-report/comprehensive-3d" } },
+    { "instance_id": "tid1500", "template": { "id": "derived/structured-report/tid1500" } },
+    { "instance_id": "kos", "template": { "id": "derived/structured-report/key-object" } }
+  ]
+}

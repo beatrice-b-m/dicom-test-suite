@@ -7,6 +7,9 @@ use dicom_test_suite::curated_execution::CuratedExecutionServiceFactory;
 use dicom_test_suite::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
 };
+use dicom_test_suite::curated_validation::{
+    ScPart10ValidationInput, ScPixelLengthFormula, validate_metadata_round_trip, validate_sc_part10,
+};
 use dicom_test_suite::executor::adapters::ManifestProjectionCompatibilityInput;
 use dicom_test_suite::executor::cancellation::CancellationToken;
 use dicom_test_suite::executor::engine::{
@@ -14,6 +17,7 @@ use dicom_test_suite::executor::engine::{
 };
 use dicom_test_suite::executor::evidence::{ExecutionStatus, PublicationState, ResultStatus};
 use dicom_test_suite::executor::transaction::OutputTransaction;
+use dicom_test_suite::recipes::RecipeCatalog;
 
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -157,4 +161,178 @@ fn shared_executor_can_finish_inside_a_caller_owned_transaction() {
     assert!(!staging_root.join("manifest.json").exists());
     assert!(!destination.0.exists());
     transaction.cleanup().unwrap();
+}
+
+#[test]
+fn every_metadata_and_nonsquare_artifact_emits_reopened_typed_evidence() {
+    let recipes = RecipeCatalog::load(
+        "cases/recipes",
+        "cases/registry.json",
+        "templates/catalog.json",
+    )
+    .unwrap();
+    let case_ids = recipes
+        .recipes()
+        .values()
+        .filter(|recipe| {
+            recipe.plan_provider_id == "native.metadata_sc_plan"
+                || recipe.dicom.as_ref().is_some_and(|dicom| {
+                    dicom.artifacts.iter().any(|artifact| {
+                        artifact
+                            .validation_rule_ids
+                            .iter()
+                            .any(|rule| rule == "validation.sc.geometry")
+                    })
+                })
+        })
+        .map(|recipe| recipe.binding.case_id.clone())
+        .collect::<Vec<_>>();
+    assert!(!case_ids.is_empty());
+    let provider =
+        CuratedScCorpusPlanProvider::load(CuratedCatalogPaths::from_repository_root(".")).unwrap();
+    let bundle = provider
+        .plan(&CuratedScPlanRequest {
+            selection: CuratedScSelection::CaseIds(case_ids),
+            seed: 7,
+            max_parallelism: 2,
+        })
+        .unwrap();
+    let destination = TempOutput::absent();
+    let result = CorpusExecutor::new(
+        CuratedExecutionServiceFactory::new(&bundle),
+        EvidenceProjector,
+    )
+    .execute(&bundle.plan, &destination.0, 2, &CancellationToken::new())
+    .unwrap();
+
+    for artifact in &result.evidence.artifacts {
+        let checks = artifact
+            .validation
+            .iter()
+            .find_map(|result| result.details.get("checks"))
+            .and_then(serde_json::Value::as_array)
+            .expect("curated validation must publish ordered typed checks");
+        assert!(checks.iter().any(|check| {
+            check.get("name").and_then(serde_json::Value::as_str)
+                == Some("curated_composition_plan")
+        }));
+        assert!(
+            artifact
+                .validation
+                .iter()
+                .any(|result| { result.details.contains_key("metadata_observation") })
+        );
+    }
+}
+
+#[test]
+fn shared_part10_validator_rejects_corrupted_rows() {
+    let provider =
+        CuratedScCorpusPlanProvider::load(CuratedCatalogPaths::from_repository_root(".")).unwrap();
+    let bundle = provider
+        .plan(&CuratedScPlanRequest {
+            selection: CuratedScSelection::CaseIds(vec!["classic/sc/mono2_u8_explicit_le".into()]),
+            seed: 7,
+            max_parallelism: 1,
+        })
+        .unwrap();
+    let destination = TempOutput::absent();
+    let result = CorpusExecutor::new(
+        CuratedExecutionServiceFactory::new(&bundle),
+        EvidenceProjector,
+    )
+    .execute(&bundle.plan, &destination.0, 1, &CancellationToken::new())
+    .unwrap();
+    let evidence = &result.evidence.artifacts[0];
+    let dicom_test_suite::corpus_plan::PlannedArtifact::Dicom(planned) = &bundle.plan.artifacts[0]
+    else {
+        panic!("curated SC plan must contain DICOM");
+    };
+    let path = destination
+        .0
+        .join(&evidence.output.as_ref().unwrap().relative_path);
+    let mut bytes = fs::read(&path).unwrap();
+    let rows_header = [0x28, 0x00, 0x10, 0x00, b'U', b'S', 0x02, 0x00];
+    let offset = bytes
+        .windows(rows_header.len())
+        .position(|window| window == rows_header)
+        .expect("Rows header");
+    bytes[offset + rows_header.len()] = 3;
+    fs::write(&path, bytes).unwrap();
+    let sop_instance_uid = planned
+        .instance
+        .identities
+        .get(
+            &dicom_test_suite::composition::CompositionUidRole::SopInstance,
+            0,
+        )
+        .unwrap();
+    let error = validate_sc_part10(
+        &path,
+        &ScPart10ValidationInput {
+            sop_class_uid: &planned.instance.sop_class_uid,
+            sop_instance_uid,
+            transfer_syntax_uid: &planned.encoding.transfer_syntax_uid,
+            implementation_class_uid: &planned.encoding.implementation.class_uid,
+            rows: 2,
+            columns: 2,
+            frames: 1,
+            samples_per_pixel: 1,
+            photometric_interpretation: "MONOCHROME2",
+            bits_allocated: 8,
+            bits_stored: 8,
+            high_bit: 7,
+            pixel_representation: 0,
+            planar_configuration: None,
+            pixel_data_vr: dicom_core::VR::OB,
+            pixel_data_length_formula: ScPixelLengthFormula::ContiguousSamples,
+            decoded_frame_hashes: &[],
+            palette: None,
+            padding: None,
+        },
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("rows"));
+}
+
+#[test]
+fn metadata_validator_rejects_corrupted_encoded_person_name() {
+    let provider =
+        CuratedScCorpusPlanProvider::load(CuratedCatalogPaths::from_repository_root(".")).unwrap();
+    let bundle = provider
+        .plan(&CuratedScPlanRequest {
+            selection: CuratedScSelection::CaseIds(vec!["metadata/sc/utf8_person_name".into()]),
+            seed: 7,
+            max_parallelism: 1,
+        })
+        .unwrap();
+    let destination = TempOutput::absent();
+    let result = CorpusExecutor::new(
+        CuratedExecutionServiceFactory::new(&bundle),
+        EvidenceProjector,
+    )
+    .execute(&bundle.plan, &destination.0, 1, &CancellationToken::new())
+    .unwrap();
+    let path = destination.0.join(
+        &result.evidence.artifacts[0]
+            .output
+            .as_ref()
+            .unwrap()
+            .relative_path,
+    );
+    let mut bytes = fs::read(&path).unwrap();
+    let needle = b"Wang^XiaoDong";
+    let offset = bytes
+        .windows(needle.len())
+        .position(|window| window == needle)
+        .expect("encoded Patient Name bytes");
+    bytes[offset] = b'V';
+    fs::write(&path, bytes).unwrap();
+    let metadata = bundle.projection.artifacts[0]
+        .artifact_recipe
+        .metadata_sc
+        .as_ref()
+        .unwrap();
+    let error = validate_metadata_round_trip(&path, metadata).unwrap_err();
+    assert!(error.to_string().contains("Patient Name"));
 }

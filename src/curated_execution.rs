@@ -5,9 +5,14 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use crate::composition::{GenericPlanValidator, ResolvedInstancePlan};
+use crate::composition::{CompositionUidRole, GenericPlanValidator, ResolvedInstancePlan};
 use crate::corpus_plan::{EvidenceIndependence, EvidenceObligation, PlannedArtifact};
-use crate::curated_plan::CuratedScCorpusPlan;
+use crate::curated_plan::{CuratedArtifactProjectionContext, CuratedScCorpusPlan};
+use crate::curated_validation::{
+    ScPaddingValidation, ScPaletteValidation, ScPart10ValidationInput, ScPixelLengthFormula,
+    TypedValidationCheck, validate_metadata_round_trip, validate_nonsquare_round_trip,
+    validate_sc_part10,
+};
 use crate::executor::cancellation::CancellationToken;
 use crate::executor::engine::{
     BoundExecutionServices, CodecServiceOutcome, ExecutionServiceFactory, ServiceInvocationError,
@@ -30,6 +35,7 @@ use crate::{PACKAGE_VERSION, sha256_hex};
 #[derive(Clone)]
 pub struct CuratedExecutionServiceFactory {
     bindings: Arc<BTreeMap<String, ArtifactExecutionBindings>>,
+    projection: Arc<BTreeMap<String, CuratedArtifactProjectionContext>>,
     planned_artifact_ids: Arc<BTreeSet<String>>,
 }
 
@@ -37,6 +43,15 @@ impl CuratedExecutionServiceFactory {
     pub fn new(bundle: &CuratedScCorpusPlan) -> Self {
         Self {
             bindings: Arc::new(bundle.bindings.clone()),
+            projection: Arc::new(
+                bundle
+                    .projection
+                    .artifacts
+                    .iter()
+                    .cloned()
+                    .map(|context| (context.artifact_id.clone(), context))
+                    .collect(),
+            ),
             planned_artifact_ids: Arc::new(
                 bundle
                     .plan
@@ -81,8 +96,10 @@ impl ExecutionServiceFactory for CuratedExecutionServiceFactory {
         Ok(Arc::new(CuratedBoundExecutionServices {
             staging_root: private_staging_root.to_owned(),
             bindings: self.bindings.clone(),
+            projection: self.projection.clone(),
             materializer,
-            materialized_plans: Mutex::new(BTreeMap::new()),
+            materialized: Mutex::new(BTreeMap::new()),
+            decoded_codec_frames: Mutex::new(BTreeMap::new()),
         }))
     }
 }
@@ -90,8 +107,15 @@ impl ExecutionServiceFactory for CuratedExecutionServiceFactory {
 struct CuratedBoundExecutionServices {
     staging_root: PathBuf,
     bindings: Arc<BTreeMap<String, ArtifactExecutionBindings>>,
+    projection: Arc<BTreeMap<String, CuratedArtifactProjectionContext>>,
     materializer: MaterializationDispatcher,
-    materialized_plans: Mutex<BTreeMap<String, ResolvedInstancePlan>>,
+    materialized: Mutex<BTreeMap<String, MaterializedValidationState>>,
+    decoded_codec_frames: Mutex<BTreeMap<String, Vec<String>>>,
+}
+
+struct MaterializedValidationState {
+    plan: ResolvedInstancePlan,
+    content: Vec<MaterializedContentEvidence>,
 }
 
 impl BoundExecutionServices for CuratedBoundExecutionServices {
@@ -139,9 +163,18 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
         assets: &StagedAssetRegistry,
         cancellation: &CancellationToken,
     ) -> Result<CodecServiceOutcome, ServiceInvocationError> {
-        crate::executor::native_codec::execute_native_rle(request, cancellation, |binding| {
-            binding_bytes(&self.staging_root, binding, assets)
-        })
+        let outcome =
+            crate::executor::native_codec::execute_native_rle(request, cancellation, |binding| {
+                binding_bytes(&self.staging_root, binding, assets)
+            })?;
+        self.decoded_codec_frames
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .insert(
+                request.artifact_id.clone(),
+                outcome.decoded_frame_sha256.values().cloned().collect(),
+            );
+        Ok(outcome)
     }
 
     fn materialize(
@@ -166,10 +199,13 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
             let mut plan = artifact.instance.clone();
             let content = materialized_content(&result)?;
             patch_materialized_content(&mut plan, &content);
-            self.materialized_plans
+            self.materialized
                 .lock()
                 .unwrap_or_else(|error| error.into_inner())
-                .insert(artifact.logical_id.clone(), plan);
+                .insert(
+                    artifact.logical_id.clone(),
+                    MaterializedValidationState { plan, content },
+                );
         }
         Ok(result)
     }
@@ -191,26 +227,202 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
                 "curated execution accepts only DICOM artifacts",
             ));
         };
-        let plan = self
-            .materialized_plans
+        let materialized = self
+            .materialized
             .lock()
             .unwrap_or_else(|error| error.into_inner())
             .get(&artifact.logical_id)
-            .cloned()
-            .unwrap_or_else(|| artifact.instance.clone());
+            .map(|state| (state.plan.clone(), state.content.clone()))
+            .ok_or_else(|| {
+                ServiceInvocationError::new(
+                    "validation",
+                    "curated artifact has no completed materialization state",
+                )
+            })?;
+        let (plan, content) = materialized;
         let checks = GenericPlanValidator.validate_file(
             &plan,
             self.staging_root.join(declaration.relative_path.as_str()),
         );
-        let status = if checks.iter().any(|check| check.status == "failed") {
-            ValidationStatus::Failed
+        if checks.iter().any(|check| check.status != "passed") {
+            return Err(ServiceInvocationError::new(
+                "validation",
+                "shared resolved-plan validation failed",
+            ));
+        }
+        let context = self.projection.get(&artifact.logical_id).ok_or_else(|| {
+            ServiceInvocationError::new("validation", "missing curated projection context")
+        })?;
+        let sc = context
+            .artifact_recipe
+            .secondary_capture
+            .as_ref()
+            .ok_or_else(|| ServiceInvocationError::new("validation", "missing SC recipe"))?;
+        let rows = u16::try_from(sc.rows).map_err(|error| service_error("validation", error))?;
+        let columns =
+            u16::try_from(sc.columns).map_err(|error| service_error("validation", error))?;
+        let frames =
+            u16::try_from(sc.frames).map_err(|error| service_error("validation", error))?;
+        let pixel_content = content
+            .iter()
+            .find(|item| item.slot == "pixels")
+            .ok_or_else(|| ServiceInvocationError::new("validation", "missing pixel evidence"))?;
+        let encapsulated = artifact.encoding.transfer_syntax_uid == "1.2.840.10008.1.2.5";
+        let codec_decoded = self
+            .decoded_codec_frames
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .get(&artifact.logical_id)
+            .cloned()
+            .unwrap_or_default();
+        let decoded_source = if pixel_content.decoded_frame_sha256.is_empty() {
+            &codec_decoded
         } else {
-            ValidationStatus::Passed
+            &pixel_content.decoded_frame_sha256
         };
-        let measurements = BTreeMap::from([(
-            "checks".into(),
-            serde_json::to_value(checks).map_err(|error| service_error("validation", error))?,
-        )]);
+        let decoded_hashes = decoded_source
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>();
+        let length_formula = if encapsulated {
+            ScPixelLengthFormula::Encapsulated {
+                fragments: usize::try_from(pixel_content.fragment_count)
+                    .map_err(|error| service_error("validation", error))?,
+                basic_offset_table_offsets: pixel_content.basic_offset_table.len(),
+            }
+        } else if sc.bits_allocated == 1 {
+            ScPixelLengthFormula::BitPackedContinuousFrames
+        } else if sc.photometric_interpretation == "YBR_FULL_422" {
+            ScPixelLengthFormula::YbrFull422
+        } else {
+            ScPixelLengthFormula::ContiguousSamples
+        };
+        let palette = sc
+            .palette
+            .as_ref()
+            .map(|palette| -> Result<_, ServiceInvocationError> {
+                Ok(ScPaletteValidation {
+                    descriptor: [
+                        u16::try_from(palette.descriptor[0])
+                            .map_err(|error| service_error("validation", error))?,
+                        u16::try_from(palette.descriptor[1])
+                            .map_err(|error| service_error("validation", error))?,
+                        u16::try_from(palette.descriptor[2])
+                            .map_err(|error| service_error("validation", error))?,
+                    ],
+                    red_data_length: palette.red.len() * 2,
+                    green_data_length: palette.green.len() * 2,
+                    blue_data_length: palette.blue.len() * 2,
+                })
+            })
+            .transpose()?;
+        let padding = sc
+            .padding
+            .as_ref()
+            .map(|padding| -> Result<_, ServiceInvocationError> {
+                Ok(ScPaddingValidation {
+                    value: i16::try_from(padding.value)
+                        .map_err(|error| service_error("validation", error))?,
+                    range_limit: padding
+                        .range_limit
+                        .map(i16::try_from)
+                        .transpose()
+                        .map_err(|error| service_error("validation", error))?,
+                })
+            })
+            .transpose()?;
+        let sop_instance_uid = plan
+            .identities
+            .get(&CompositionUidRole::SopInstance, 0)
+            .ok_or_else(|| ServiceInvocationError::new("validation", "missing SOP Instance UID"))?;
+        let pixel_vr = match sc.pixel_data_vr.as_str() {
+            "OB" => dicom_core::VR::OB,
+            "OW" => dicom_core::VR::OW,
+            other => {
+                return Err(ServiceInvocationError::new(
+                    "validation",
+                    format!("unsupported pixel VR {other}"),
+                ));
+            }
+        };
+        let mut typed = validate_sc_part10(
+            &self.staging_root.join(declaration.relative_path.as_str()),
+            &ScPart10ValidationInput {
+                sop_class_uid: &plan.sop_class_uid,
+                sop_instance_uid,
+                transfer_syntax_uid: &artifact.encoding.transfer_syntax_uid,
+                implementation_class_uid: &artifact.encoding.implementation.class_uid,
+                rows,
+                columns,
+                frames,
+                samples_per_pixel: sc.samples_per_pixel,
+                photometric_interpretation: &sc.photometric_interpretation,
+                bits_allocated: sc.bits_allocated,
+                bits_stored: sc.bits_stored,
+                high_bit: sc.high_bit,
+                pixel_representation: sc.pixel_representation,
+                planar_configuration: sc
+                    .color
+                    .as_ref()
+                    .and_then(|color| color.planar_configuration)
+                    .map(u16::from),
+                pixel_data_vr: pixel_vr,
+                pixel_data_length_formula: length_formula,
+                decoded_frame_hashes: if encapsulated { &decoded_hashes } else { &[] },
+                palette,
+                padding,
+            },
+        )
+        .map_err(|error| service_error("validation", error))?;
+        typed.append(TypedValidationCheck::passed_internal(
+            "curated_composition_plan",
+            "The curated dataset resolved through the shared composition plan before Part 10 materialization.",
+        ));
+        if let Some(metadata) = &context.artifact_recipe.metadata_sc {
+            let (check, observation) = validate_metadata_round_trip(
+                &self.staging_root.join(declaration.relative_path.as_str()),
+                metadata,
+            )
+            .map_err(|error| service_error("validation", error))?;
+            typed.append(check);
+            typed.metadata_observation = Some(observation);
+        } else if context
+            .artifact_recipe
+            .validation_rule_ids
+            .iter()
+            .any(|rule| rule == "validation.sc.geometry")
+        {
+            let (check, observation) = validate_nonsquare_round_trip(
+                &self.staging_root.join(declaration.relative_path.as_str()),
+                &context.artifact_recipe,
+            )
+            .map_err(|error| service_error("validation", error))?;
+            typed.append(check);
+            typed.metadata_observation = Some(observation);
+        }
+        let status = if typed.checks.iter().all(TypedValidationCheck::passed) {
+            ValidationStatus::Passed
+        } else {
+            ValidationStatus::Failed
+        };
+        let mut measurements = BTreeMap::from([
+            (
+                "checks".into(),
+                serde_json::to_value(&typed.checks)
+                    .map_err(|error| service_error("validation", error))?,
+            ),
+            (
+                "generic_plan_checks".into(),
+                serde_json::to_value(checks).map_err(|error| service_error("validation", error))?,
+            ),
+        ]);
+        if let Some(observation) = &typed.metadata_observation {
+            measurements.insert(
+                "metadata_observation".into(),
+                serde_json::to_value(observation)
+                    .map_err(|error| service_error("validation", error))?,
+            );
+        }
         Ok(ValidationResult {
             artifact_id: artifact.logical_id.clone(),
             validator: built_in_tool("curated_sc_plan_validator"),

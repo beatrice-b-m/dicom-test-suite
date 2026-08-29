@@ -8,7 +8,6 @@ pub(super) mod encapsulated_stl;
 pub(super) mod general_ecg;
 pub(super) mod icc_profile;
 pub(super) mod metadata_sc;
-pub(super) mod pet;
 pub(super) mod private_creator_sc;
 pub(super) mod rt_image;
 pub(super) mod rt_plan;
@@ -41,8 +40,6 @@ mod general_ecg_tests;
 mod icc_profile_tests;
 #[cfg(test)]
 mod metadata_sc_tests;
-#[cfg(test)]
-mod pet_tests;
 #[cfg(test)]
 mod private_creator_sc_tests;
 #[cfg(test)]

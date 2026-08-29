@@ -9,7 +9,7 @@ use dicom_test_suite::curated_plan::{
 };
 use dicom_test_suite::executor::services::SlotExecutionBinding;
 use dicom_test_suite::native_pixel::ByteOrder;
-use dicom_test_suite::recipes::RecipeCatalog;
+use dicom_test_suite::recipes::{CLASSIC_PIXEL_SLOT, RecipeCatalog};
 use serde_json::Value;
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -65,7 +65,7 @@ fn source_inventory() -> (Vec<(String, String, String)>, BTreeSet<String>) {
         let recipe = &recipes.recipes()[identity];
         if !matches!(
             recipe.plan_provider_id.as_str(),
-            "native.sc_plan" | "native.metadata_sc_plan"
+            "native.sc_plan" | "native.metadata_sc_plan" | "native.classic_plan"
         ) {
             continue;
         }
@@ -388,4 +388,122 @@ fn explicit_metadata_selection_uses_the_exported_neutral_planner() {
     assert!(bundle.pending.is_empty());
     assert!(bundle.plan.unavailable.is_empty());
     bundle.plan.validate().unwrap();
+}
+
+#[test]
+fn mixed_sc_and_every_classic_provider_share_one_ordered_artifact_set() {
+    let selected = vec![
+        "classic/sc/mono2_u8_explicit_le".to_string(),
+        "classic/ct/mono2_i16_rescale_12bit_explicit_le".to_string(),
+        "classic/dx/display_shutter_mono2_u16_explicit_le".to_string(),
+        "classic/nm/multiframe_explicit_le".to_string(),
+        "classic/mr/multislice_oblique_explicit_le".to_string(),
+        "vl/photo/rgb_planar0_explicit_le".to_string(),
+    ];
+    let recipes = RecipeCatalog::load(
+        "cases/recipes",
+        "cases/registry.json",
+        "templates/catalog.json",
+    )
+    .unwrap();
+    let mut expected = selected
+        .iter()
+        .map(|case_id| {
+            let identity = recipes.binding_for_case(case_id).unwrap();
+            &recipes.recipes()[identity]
+        })
+        .flat_map(|recipe| {
+            let mut artifacts = recipe
+                .dicom
+                .as_ref()
+                .unwrap()
+                .artifacts
+                .iter()
+                .collect::<Vec<_>>();
+            artifacts.sort_by_key(|artifact| artifact.order);
+            artifacts.into_iter().map(move |artifact| {
+                (
+                    recipe.planning_order.unwrap(),
+                    artifact.order,
+                    format!("curated_{}_{}", recipe.recipe_id, artifact.logical_id),
+                    artifact.output.path.clone().unwrap(),
+                    recipe.binding.case_id.clone(),
+                )
+            })
+        })
+        .collect::<Vec<_>>();
+    expected.sort_by_key(|(recipe_order, artifact_order, ..)| (*recipe_order, *artifact_order));
+
+    let bundle = provider()
+        .plan(&CuratedScPlanRequest {
+            selection: CuratedScSelection::CaseIds(selected),
+            seed: 7,
+            max_parallelism: 3,
+        })
+        .unwrap();
+    bundle.plan.validate().unwrap();
+    bundle.projection.validate(&bundle.plan).unwrap();
+
+    let actual = bundle
+        .plan
+        .artifacts
+        .iter()
+        .map(|artifact| {
+            let PlannedArtifact::Dicom(artifact) = artifact else {
+                panic!("curated classic provider emitted a non-DICOM artifact")
+            };
+            (
+                artifact.logical_id.clone(),
+                artifact.output.relative_path.as_str().to_string(),
+                artifact.case_binding.as_ref().unwrap().case_id.clone(),
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        actual,
+        expected
+            .iter()
+            .map(|(_, _, id, path, case_id)| (id.clone(), path.clone(), case_id.clone()))
+            .collect::<Vec<_>>()
+    );
+    let expected_ids = expected
+        .iter()
+        .map(|(_, _, id, _, _)| id.clone())
+        .collect::<BTreeSet<_>>();
+    assert_eq!(
+        bundle.bindings.keys().cloned().collect::<BTreeSet<_>>(),
+        expected_ids
+    );
+    assert_eq!(
+        bundle
+            .native_content_requests
+            .iter()
+            .map(|request| request.artifact_id.clone())
+            .collect::<BTreeSet<_>>(),
+        expected_ids
+    );
+    assert_eq!(
+        bundle
+            .projection
+            .artifacts
+            .iter()
+            .map(|projection| projection.artifact_id.clone())
+            .collect::<BTreeSet<_>>(),
+        expected_ids
+    );
+    for artifact in &bundle.plan.artifacts {
+        let PlannedArtifact::Dicom(artifact) = artifact else {
+            unreachable!()
+        };
+        assert_eq!(artifact.instance.instance_id, artifact.logical_id);
+        assert_eq!(
+            artifact.instance.identities.logical_instance_id,
+            artifact.logical_id
+        );
+        assert!(
+            bundle.bindings[&artifact.logical_id]
+                .slots
+                .contains_key(CLASSIC_PIXEL_SLOT)
+        );
+    }
 }

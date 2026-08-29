@@ -1,4 +1,4 @@
-//! Plan-only assembly for the feature-free curated Secondary Capture slice.
+//! Plan-only assembly for the feature-free curated SC and classic slices.
 //!
 //! This frontend joins registry selection, versioned recipes, qualified
 //! templates, neutral native pixels, and encoding service requests before an
@@ -28,15 +28,22 @@ use crate::executor::services::{
 };
 use crate::native_pixel::{ByteOrder, NativePixelFactory, NativePixelRequest};
 use crate::planning::RecipeIdentity;
+use crate::recipes::classic_ct::plan_ct_recipe;
+use crate::recipes::classic_dx_mg::plan_dx_mg_recipe;
+use crate::recipes::classic_mr_cr::plan_mr_cr_recipe;
+use crate::recipes::classic_nuclear::plan_nuclear_recipe;
+use crate::recipes::classic_vl_projection::plan_vl_projection_recipe;
 use crate::recipes::{
-    CaseRecipe, MetadataScPlanInput, RecipeCatalog, SecondaryCapturePlanInput,
-    encoding_plan_from_recipe, native_pixel_request_from_recipe, resolved_metadata_sc_plan,
+    CaseRecipe, ClassicInstanceRequest, ClassicResolvedPlanInput, MetadataScPlanInput,
+    OrderedSeriesProvider, RecipeCatalog, SecondaryCapturePlanInput, encoding_plan_from_recipe,
+    native_pixel_request_from_recipe, resolved_classic_instance_plan, resolved_metadata_sc_plan,
     resolved_secondary_capture_plan,
 };
 use crate::sha256_hex;
 
 const SC_PLAN_PROVIDER: &str = "native.sc_plan";
 const METADATA_SC_PLAN_PROVIDER: &str = "native.metadata_sc_plan";
+const CLASSIC_PLAN_PROVIDER: &str = "native.classic_plan";
 const EXPLICIT_VR_LE: &str = "1.2.840.10008.1.2.1";
 const EXPLICIT_VR_BE: &str = "1.2.840.10008.1.2.2";
 const ARTIFACT_OVERHEAD_BYTES: u64 = 16 * 1024;
@@ -63,8 +70,8 @@ impl CuratedCatalogPaths {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CuratedScSelection {
-    /// Every implemented, feature-free recipe currently owned by the SC
-    /// planner, including legacy-profile entries.
+    /// Every implemented, feature-free recipe currently owned by a migrated
+    /// curated planner, including legacy-profile entries.
     AllFeatureFree,
     Profile {
         profile: String,
@@ -239,6 +246,7 @@ impl CuratedScCorpusPlanProvider {
         let pending = Vec::new();
         let mut artifact_by_recipe_role = BTreeMap::new();
         let mut selected_recipes = Vec::new();
+        let mut classic_dependencies = Vec::new();
 
         let registry_order = self
             .registry
@@ -272,6 +280,149 @@ impl CuratedScCorpusPlanProvider {
                 .recipes()
                 .get(identity)
                 .expect("recipe binding points to a loaded recipe");
+            if recipe.plan_provider_id == CLASSIC_PLAN_PROVIDER {
+                let requests = classic_requests(recipe, &self.standards_lock_sha256, request.seed)?;
+                let scope = format!("curated_{}", recipe.recipe_id);
+                let planned_instances = OrderedSeriesProvider
+                    .plan_scoped(&scope, requests)
+                    .map_err(|error| CuratedPlanError::ClassicPlan {
+                        recipe_id: recipe.recipe_id.clone(),
+                        message: error.to_string(),
+                    })?;
+                let dicom = recipe
+                    .dicom
+                    .as_ref()
+                    .ok_or_else(|| CuratedPlanError::MissingDicom(recipe.recipe_id.clone()))?;
+                selected_recipes.push(recipe);
+                for planned in planned_instances {
+                    let global_id = planned.logical_id.clone();
+                    let artifact_recipe = dicom
+                        .artifacts
+                        .iter()
+                        .find(|artifact| artifact_id(recipe, &artifact.logical_id) == global_id)
+                        .ok_or_else(|| CuratedPlanError::ClassicArtifactMismatch {
+                            recipe_id: recipe.recipe_id.clone(),
+                            artifact_id: global_id.clone(),
+                        })?;
+                    let reference = artifact_recipe
+                        .template
+                        .as_ref()
+                        .ok_or_else(|| CuratedPlanError::MissingTemplate(global_id.clone()))?;
+                    let template = self
+                        .templates
+                        .resolve_qualified(
+                            &TemplateId(reference.template_id.clone()),
+                            Some(reference.template_version.parse().map_err(|_| {
+                                CuratedPlanError::InvalidTemplateVersion(
+                                    reference.template_version.clone(),
+                                )
+                            })?),
+                        )
+                        .map_err(|error| CuratedPlanError::Catalog(error.to_string()))?;
+                    let native_request = planned.pixels.content_request.clone();
+                    let native = planned.pixels.content.clone();
+                    let planned_output_path = planned.output_relative_path.clone();
+                    for depends_on in &planned.dependencies {
+                        classic_dependencies.push(ArtifactDependency {
+                            artifact_id: global_id.clone(),
+                            depends_on: depends_on.clone(),
+                            relationship: "classic_instance_dependency".into(),
+                            frame_numbers: Vec::new(),
+                        });
+                    }
+                    let mut instance = resolved_classic_instance_plan(ClassicResolvedPlanInput {
+                        planned,
+                        template,
+                        transfer_syntax_uid: &artifact_recipe.encoding.transfer_syntax_uid,
+                        encoding_backend_id: artifact_recipe
+                            .encoding
+                            .non_template_encoding_provider_id
+                            .as_deref()
+                            .unwrap_or("dicom-rs.part10"),
+                    })
+                    .map_err(|error| CuratedPlanError::ClassicPlan {
+                        recipe_id: recipe.recipe_id.clone(),
+                        message: error.to_string(),
+                    })?;
+                    patch_native_content(&mut instance, &native)?;
+                    let implementation_class_uid = instance
+                        .identities
+                        .get(&CompositionUidRole::ImplementationClass, 0)
+                        .ok_or_else(|| CuratedPlanError::MissingImplementation(global_id.clone()))?
+                        .to_owned();
+                    let encoding = encoding_plan_from_recipe(
+                        &artifact_recipe.encoding,
+                        crate::corpus_plan::ImplementationIdentityPlan {
+                            class_uid: implementation_class_uid,
+                            version_name: Some(crate::IMPLEMENTATION_VERSION_NAME.into()),
+                        },
+                    )
+                    .map_err(|error| CuratedPlanError::Encoding {
+                        artifact_id: global_id.clone(),
+                        message: error.to_string(),
+                    })?;
+                    let output_path = artifact_recipe.output.path.as_ref().ok_or_else(|| {
+                        CuratedPlanError::ProviderDerivedOutput(global_id.clone())
+                    })?;
+                    if output_path != planned_output_path.as_str() {
+                        return Err(CuratedPlanError::ClassicArtifactMismatch {
+                            recipe_id: recipe.recipe_id.clone(),
+                            artifact_id: global_id,
+                        });
+                    }
+                    let resources = resource_estimate(&instance, native.plan.padded_value_bytes)?;
+                    let order = u64::try_from(artifacts.len())
+                        .map_err(|_| CuratedPlanError::ResourceOverflow)?;
+                    let historical_recipe_order = recipe.planning_order.ok_or_else(|| {
+                        CuratedPlanError::MissingProjectionOrder(recipe.recipe_id.clone())
+                    })?;
+                    artifacts.push(PlannedArtifact::Dicom(PlannedDicomArtifact {
+                        logical_id: global_id.clone(),
+                        order,
+                        provenance: ArtifactProvenance::Requested,
+                        case_binding: Some(CaseBinding {
+                            case_id: recipe.binding.case_id.clone(),
+                            recipe_id: recipe.recipe_id.clone(),
+                            recipe_version: recipe.recipe_version.clone(),
+                        }),
+                        instance,
+                        output: OutputPlan {
+                            relative_path: OutputRelativePath::new(output_path.clone())?,
+                            role: artifact_recipe.output.role.clone(),
+                            publish: true,
+                        },
+                        encoding,
+                        validation: validation_plan(recipe, artifact_recipe),
+                        evidence: generation_evidence_plan(),
+                        resources,
+                    }));
+                    projection_artifacts.push(CuratedArtifactProjectionContext {
+                        artifact_id: global_id.clone(),
+                        plan_order: order,
+                        registry_order: registry_order[registry_case.case_id.as_str()],
+                        historical_recipe_order,
+                        historical_artifact_order: artifact_recipe.order,
+                        registry_case: registry_case.clone().into(),
+                        case_recipe: recipe.clone(),
+                        artifact_recipe: artifact_recipe.clone(),
+                    });
+                    artifact_by_recipe_role.insert(
+                        (recipe.identity(), artifact_recipe.output.role.clone()),
+                        global_id.clone(),
+                    );
+                    native_content_requests.push(native_content_request(
+                        &global_id,
+                        artifact_recipe,
+                        native_request,
+                        &native,
+                    ));
+                    bindings.insert(
+                        global_id.clone(),
+                        execution_binding(&global_id, artifact_recipe, &native)?,
+                    );
+                }
+                continue;
+            }
             if !matches!(
                 recipe.plan_provider_id.as_str(),
                 SC_PLAN_PROVIDER | METADATA_SC_PLAN_PROVIDER
@@ -405,15 +556,7 @@ impl CuratedScCorpusPlanProvider {
                     },
                     encoding,
                     validation,
-                    evidence: EvidencePlan {
-                        obligations: vec![EvidenceObligation {
-                            obligation_id: "curated_generation_validation".into(),
-                            route_id: "shared_corpus_executor".into(),
-                            independence: EvidenceIndependence::SameProject,
-                            required: true,
-                            parameters: BTreeMap::new(),
-                        }],
-                    },
+                    evidence: generation_evidence_plan(),
                     resources,
                 }));
                 projection_artifacts.push(CuratedArtifactProjectionContext {
@@ -430,39 +573,19 @@ impl CuratedScCorpusPlanProvider {
                     (recipe.identity(), artifact_recipe.output.role.clone()),
                     global_id.clone(),
                 );
-                native_content_requests.push(NativeContentServiceRequest {
-                    artifact_id: global_id.clone(),
-                    slot: "pixels".into(),
-                    factory_id: artifact_recipe.content.provider_id.clone(),
-                    request: native_request,
-                    unpadded_size_bytes: native.plan.unpadded_value_bytes,
-                    unpadded_sha256: native.unpadded_sha256.clone(),
-                    frame_sha256: native
-                        .frames
-                        .iter()
-                        .map(|frame| frame.decoded_sha256.clone())
-                        .collect(),
-                });
-                let execution_binding = if artifact_recipe.encoding.transfer_syntax_uid
-                    == RLE_LOSSLESS_TRANSFER_SYNTAX_UID
-                {
-                    rle_execution_binding(&global_id, &native)
-                } else {
-                    ArtifactExecutionBindings {
-                        artifact_id: global_id.clone(),
-                        slots: BTreeMap::from([(
-                            "pixels".into(),
-                            SlotExecutionBinding::NativeFrames {
-                                frames: native_frame_bindings(&native)?,
-                            },
-                        )]),
-                    }
-                };
+                native_content_requests.push(native_content_request(
+                    &global_id,
+                    artifact_recipe,
+                    native_request,
+                    &native,
+                ));
+                let execution_binding = execution_binding(&global_id, artifact_recipe, &native)?;
                 bindings.insert(global_id, execution_binding);
             }
         }
 
-        let dependencies = dependencies(&selected_recipes, &artifact_by_recipe_role)?;
+        let mut dependencies = dependencies(&selected_recipes, &artifact_by_recipe_role)?;
+        dependencies.extend(classic_dependencies);
         let unavailable = Vec::new();
         let (total_output, peak_working) = aggregate_resources(&artifacts)?;
         let plan = CorpusPlan {
@@ -501,6 +624,93 @@ impl CuratedScCorpusPlanProvider {
     }
 }
 
+fn classic_requests(
+    recipe: &CaseRecipe,
+    standards_lock_sha256: &str,
+    seed: u64,
+) -> Result<Vec<ClassicInstanceRequest>, CuratedPlanError> {
+    let mut matched = Vec::new();
+    macro_rules! try_provider {
+        ($provider:expr) => {
+            if let Some(requests) = $provider.map_err(|error| CuratedPlanError::ClassicPlan {
+                recipe_id: recipe.recipe_id.clone(),
+                message: error.to_string(),
+            })? {
+                matched.push(requests);
+            }
+        };
+    }
+    try_provider!(plan_ct_recipe(recipe, standards_lock_sha256, seed));
+    try_provider!(plan_dx_mg_recipe(recipe, standards_lock_sha256, seed));
+    try_provider!(plan_mr_cr_recipe(recipe, standards_lock_sha256, seed));
+    try_provider!(plan_nuclear_recipe(recipe, standards_lock_sha256, seed));
+    try_provider!(plan_vl_projection_recipe(
+        recipe,
+        standards_lock_sha256,
+        seed
+    ));
+    if matched.len() != 1 {
+        return Err(CuratedPlanError::ClassicProviderCardinality {
+            recipe_id: recipe.recipe_id.clone(),
+            matches: matched.len(),
+        });
+    }
+    Ok(matched.pop().expect("one classic provider matched"))
+}
+
+fn generation_evidence_plan() -> EvidencePlan {
+    EvidencePlan {
+        obligations: vec![EvidenceObligation {
+            obligation_id: "curated_generation_validation".into(),
+            route_id: "shared_corpus_executor".into(),
+            independence: EvidenceIndependence::SameProject,
+            required: true,
+            parameters: BTreeMap::new(),
+        }],
+    }
+}
+
+fn native_content_request(
+    artifact_id: &str,
+    artifact_recipe: &crate::recipes::PlannedArtifactRecipe,
+    request: NativePixelRequest,
+    native: &crate::native_pixel::NativePixelContent,
+) -> NativeContentServiceRequest {
+    NativeContentServiceRequest {
+        artifact_id: artifact_id.into(),
+        slot: crate::recipes::CLASSIC_PIXEL_SLOT.into(),
+        factory_id: artifact_recipe.content.provider_id.clone(),
+        request,
+        unpadded_size_bytes: native.plan.unpadded_value_bytes,
+        unpadded_sha256: native.unpadded_sha256.clone(),
+        frame_sha256: native
+            .frames
+            .iter()
+            .map(|frame| frame.decoded_sha256.clone())
+            .collect(),
+    }
+}
+
+fn execution_binding(
+    artifact_id: &str,
+    artifact_recipe: &crate::recipes::PlannedArtifactRecipe,
+    native: &crate::native_pixel::NativePixelContent,
+) -> Result<ArtifactExecutionBindings, CuratedPlanError> {
+    if artifact_recipe.encoding.transfer_syntax_uid == RLE_LOSSLESS_TRANSFER_SYNTAX_UID {
+        Ok(rle_execution_binding(artifact_id, native))
+    } else {
+        Ok(ArtifactExecutionBindings {
+            artifact_id: artifact_id.into(),
+            slots: BTreeMap::from([(
+                crate::recipes::CLASSIC_PIXEL_SLOT.into(),
+                SlotExecutionBinding::NativeFrames {
+                    frames: native_frame_bindings(native)?,
+                },
+            )]),
+        })
+    }
+}
+
 fn patch_native_content(
     instance: &mut crate::composition::ResolvedInstancePlan,
     native: &crate::native_pixel::NativePixelContent,
@@ -508,7 +718,7 @@ fn patch_native_content(
     let content = instance
         .content
         .iter_mut()
-        .find(|content| content.slot == "pixels")
+        .find(|content| content.slot == crate::recipes::CLASSIC_PIXEL_SLOT)
         .ok_or_else(|| CuratedPlanError::MissingPixelContent(instance.instance_id.clone()))?;
     content.size_bytes = native.unpadded_bytes.len() as u64;
     content.sha256 = native.unpadded_sha256.clone();
@@ -878,6 +1088,18 @@ pub enum CuratedPlanError {
     ScPlan {
         artifact_id: String,
         message: String,
+    },
+    ClassicPlan {
+        recipe_id: String,
+        message: String,
+    },
+    ClassicProviderCardinality {
+        recipe_id: String,
+        matches: usize,
+    },
+    ClassicArtifactMismatch {
+        recipe_id: String,
+        artifact_id: String,
     },
     Encoding {
         artifact_id: String,

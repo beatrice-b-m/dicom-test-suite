@@ -1,8 +1,10 @@
+mod encoding;
 mod error;
 mod loader;
 mod model;
 
 pub use crate::planning::RecipeIdentity;
+pub use encoding::{RecipeEncodingError, encoding_plan_from_recipe};
 pub use error::RecipeCatalogError;
 pub use loader::RecipeCatalog;
 pub use model::{

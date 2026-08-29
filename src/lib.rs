@@ -43,6 +43,7 @@ pub mod composition;
 pub mod conformance;
 pub mod corpus_plan;
 pub mod coverage_gaps;
+pub mod curated_plan;
 pub mod encapsulation;
 pub mod executor;
 pub mod fuzz;

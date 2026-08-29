@@ -6,14 +6,12 @@
     "case_id": "metadata/sc/iso2022_person_name_component_groups"
   },
   "kind": "dicom",
-  "plan_provider_id": "native.case_plan",
-  "dependencies": [
-
-  ],
-  "provider_parameters": {
-  },
+  "plan_provider_id": "native.metadata_sc_plan",
+  "dependencies": [],
+  "provider_parameters": {},
   "validation_rule_ids": [
-    "validation.shared"
+    "validation.sc.pixel",
+    "validation.metadata.person_name"
   ],
   "projection_rule_ids": [
     "projection.curated"
@@ -21,44 +19,115 @@
   "dicom": {
     "artifacts": [
       {
-        "logical_id": "artifact_1",
+        "logical_id": "instance",
+        "order": 0,
+        "template": {
+          "template_id": "classic/secondary-capture/monochrome",
+          "template_version": "1.0.0"
+        },
         "output": {
-          "role": "primary_1",
-          "provider_derived": true
+          "role": "instance",
+          "path": "metadata/sc/iso2022_person_name_component_groups/instance.dcm"
         },
         "encoding": {
           "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-          "sequence_length_policy": "provider",
-          "item_length_policy": "provider",
-          "offset_table_policy": "provider",
-          "fragmentation_policy": "provider"
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
         },
-        "parameters": {
+        "parameters": {},
+        "secondary_capture": {
+          "rows": 2,
+          "columns": 2,
+          "frames": 1,
+          "samples_per_pixel": 1,
+          "photometric_interpretation": "MONOCHROME2",
+          "bits_allocated": 8,
+          "bits_stored": 8,
+          "high_bit": 7,
+          "pixel_representation": 0,
+          "pixel_data_vr": "OB",
+          "stored_value_type": "u8",
+          "stored_values": [
+            0,
+            85,
+            170,
+            255
+          ],
+          "frame_sha256": [
+            "03b722a15d4658be01f1eb9def5e8be124710cc0e88842f78107abfda3e23ea8"
+          ],
+          "visual_pattern": "2x2_monochrome_gradient_with_iso2022_person_name",
+          "semantic_note": "ISO 2022 Person Name switches from ASCII to JIS X 0208 in ideographic and phonetic groups",
+          "pixel_min": 0,
+          "pixel_max": 255
         },
-        "attribute_operations": [
-
-        ],
+        "metadata_sc": {
+          "kind": "person_name",
+          "specific_character_sets": [
+            "",
+            "ISO 2022 IR 87"
+          ],
+          "patient_name_decoded": "Yamada^Tarou=山田^太郎=やまだ^たろう",
+          "patient_name_raw_hex": "59616D6164615E5461726F753D1B24423B3345441B28425E1B244242404F3A1B28423D1B24422464245E24401B28425E1B2442243F246D24261B2842",
+          "patient_name_raw_sha256": "b206df163ce0b4d071469834428bf0b87b241931c81110362ce480d73d7490af",
+          "native_unicode_round_trip": false,
+          "component_groups": [
+            {
+              "kind": "alphabetic",
+              "decoded_value": "Yamada^Tarou",
+              "components": [
+                "Yamada",
+                "Tarou",
+                "",
+                "",
+                ""
+              ]
+            },
+            {
+              "kind": "ideographic",
+              "decoded_value": "山田^太郎",
+              "components": [
+                "山田",
+                "太郎",
+                "",
+                "",
+                ""
+              ]
+            },
+            {
+              "kind": "phonetic",
+              "decoded_value": "やまだ^たろう",
+              "components": [
+                "やまだ",
+                "たろう",
+                "",
+                "",
+                ""
+              ]
+            }
+          ]
+        },
+        "attribute_operations": [],
         "content": {
-          "provider_id": "content.case_default",
-          "parameters": {
-          }
+          "provider_id": "content.metadata.person_name",
+          "parameters": {}
         },
         "validation_rule_ids": [
-          "validation.shared"
+          "validation.sc.pixel",
+          "validation.metadata.person_name"
         ],
         "projection_rule_ids": [
           "projection.curated"
         ],
         "determinism": "byte_stable",
         "stressors": [
-
-        ],
-        "algorithm_provider_id": "algorithm.case_provider",
-        "template": {
-          "template_id": "classic/secondary-capture/monochrome",
-          "template_version": "1.0.0"
-        },
-        "order": 0
+          "minimal_secondary_capture",
+          "native_ob_pixel_data"
+        ]
       }
     ]
   }

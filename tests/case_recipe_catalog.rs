@@ -4,11 +4,15 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use dicom_core::Tag;
 use dicom_dictionary_std::tags;
 use dicom_object::open_file;
 use serde_json::Value;
 
-use dicom_test_suite::recipes::{RecipeCatalog, RecipeCatalogError, RecipeIdentity};
+use dicom_test_suite::recipes::{
+    MetadataScParameters, PrivateElementValue, RecipeCatalog, RecipeCatalogError, RecipeIdentity,
+    StringValueSource,
+};
 
 const EOT_SC_CASE_ID: &str = "encapsulation/sc/eot_single_fragment_multiframe";
 
@@ -30,6 +34,24 @@ fn is_feature_free_native_sc(case: &&Value) -> bool {
             .is_empty()
         && (case["case_id"].as_str().unwrap().starts_with("classic/sc/")
             || case["case_id"] == EOT_SC_CASE_ID)
+}
+
+fn is_feature_free_native_metadata_sc(case: &&Value) -> bool {
+    case["status"] == "implemented"
+        && case["provider"]["kind"] == "rust_native"
+        && case["provider"]["id"] == "rust_native"
+        && case["requirements"]["features"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+        && case["requirements"]["external_codecs"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+        && case["case_id"]
+            .as_str()
+            .unwrap()
+            .starts_with("metadata/sc/")
 }
 
 struct GeneratedRoots(Vec<PathBuf>);
@@ -81,6 +103,14 @@ fn manifest_files(root: &Path) -> Vec<Value> {
     let manifest: Value =
         serde_json::from_slice(&fs::read(root.join("manifest.json")).unwrap()).unwrap();
     manifest["files"].as_array().unwrap().clone()
+}
+
+fn dicom_tag(value: &str) -> Tag {
+    let (group, element) = value.split_once(',').unwrap();
+    Tag(
+        u16::from_str_radix(group, 16).unwrap(),
+        u16::from_str_radix(element, 16).unwrap(),
+    )
 }
 
 #[test]
@@ -248,7 +278,93 @@ fn data_first_sc_encoding_and_multi_output_bindings_are_explicit() {
 }
 
 #[test]
-fn data_first_sc_values_and_hashes_match_current_generator_bytes() {
+fn feature_free_metadata_sc_set_is_derived_and_fully_data_first() {
+    let catalog = RecipeCatalog::load(
+        "cases/recipes",
+        "cases/registry.json",
+        "templates/catalog.json",
+    )
+    .unwrap();
+    let registry = registry();
+    let expected = registry["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(is_feature_free_native_metadata_sc)
+        .map(|case| case["case_id"].as_str().unwrap().to_string())
+        .collect::<BTreeSet<_>>();
+    let actual = catalog
+        .recipes()
+        .values()
+        .filter(|recipe| recipe.plan_provider_id == "native.metadata_sc_plan")
+        .map(|recipe| recipe.binding.case_id.clone())
+        .collect::<BTreeSet<_>>();
+    assert_eq!(actual, expected);
+
+    for case_id in expected {
+        let recipe = &catalog.recipes()[catalog.binding_for_case(&case_id).unwrap()];
+        assert!(recipe.provider_parameters.is_empty());
+        let artifacts = &recipe.dicom.as_ref().unwrap().artifacts;
+        assert_eq!(
+            artifacts
+                .iter()
+                .map(|artifact| artifact.order)
+                .collect::<Vec<_>>(),
+            (0..artifacts.len() as u32).collect::<Vec<_>>()
+        );
+        for artifact in artifacts {
+            assert!(artifact.output.path.as_deref().is_some_and(|path| {
+                path.starts_with(&format!("{case_id}/")) && path.ends_with(".dcm")
+            }));
+            assert_ne!(artifact.output.provider_derived, Some(true));
+            assert!(artifact.parameters.is_empty());
+            assert!(artifact.content.parameters.is_empty());
+            assert_ne!(artifact.content.provider_id, "content.case_default");
+            assert!(artifact.algorithm_provider_id.is_none());
+            assert!(artifact.secondary_capture.is_some());
+            assert!(artifact.metadata_sc.is_some());
+            assert!(
+                artifact
+                    .validation_rule_ids
+                    .iter()
+                    .any(|rule| rule.starts_with("validation.metadata."))
+            );
+        }
+    }
+
+    for (case_id, expected_paths) in [
+        (
+            "metadata/sc/timezone_boundaries",
+            vec![
+                "metadata/sc/timezone_boundaries/positive_max.dcm",
+                "metadata/sc/timezone_boundaries/negative_min.dcm",
+            ],
+        ),
+        (
+            "metadata/sc/defined_undefined_sequence_lengths",
+            vec![
+                "metadata/sc/defined_undefined_sequence_lengths/defined.dcm",
+                "metadata/sc/defined_undefined_sequence_lengths/undefined.dcm",
+            ],
+        ),
+    ] {
+        let recipe = &catalog.recipes()[catalog.binding_for_case(case_id).unwrap()];
+        assert_eq!(
+            recipe
+                .dicom
+                .as_ref()
+                .unwrap()
+                .artifacts
+                .iter()
+                .map(|artifact| artifact.output.path.as_deref().unwrap())
+                .collect::<Vec<_>>(),
+            expected_paths
+        );
+    }
+}
+
+#[test]
+fn data_first_sc_and_metadata_values_and_hashes_match_current_generator_bytes() {
     let all_root = generate_profile("all", true);
     let legacy_root = generate_profile("legacy", false);
     let _cleanup = GeneratedRoots(vec![all_root.clone(), legacy_root.clone()]);
@@ -389,6 +505,251 @@ fn data_first_sc_values_and_hashes_match_current_generator_bytes() {
                         .iter()
                         .all(|count| count == 1)
                 );
+            }
+        }
+    }
+
+    for recipe in catalog
+        .recipes()
+        .values()
+        .filter(|recipe| recipe.plan_provider_id == "native.metadata_sc_plan")
+    {
+        for artifact in &recipe.dicom.as_ref().unwrap().artifacts {
+            let relative_path = artifact.output.path.as_deref().unwrap();
+            let file = files
+                .iter()
+                .find(|file| file["path"] == relative_path)
+                .unwrap_or_else(|| panic!("generated manifest lacks {relative_path}"));
+            let pixels = artifact.secondary_capture.as_ref().unwrap();
+            assert_eq!(file["case_id"], recipe.binding.case_id);
+            assert_eq!(file["recipe"]["recipe_id"], recipe.recipe_id);
+            assert_eq!(file["recipe"]["recipe_version"], recipe.recipe_version);
+            assert_eq!(file["image"]["rows"], pixels.rows);
+            assert_eq!(file["image"]["columns"], pixels.columns);
+            assert_eq!(file["image"]["frames"], pixels.frames);
+            assert_eq!(file["image"]["bits_allocated"], pixels.bits_allocated);
+            assert_eq!(file["image"]["bits_stored"], pixels.bits_stored);
+            assert_eq!(file["image"]["high_bit"], pixels.high_bit);
+            assert_eq!(
+                file["recipe"]["recipe_parameters"]["pixel_values"],
+                serde_json::to_value(&pixels.stored_values).unwrap()
+            );
+            assert_eq!(
+                file["pixel_data"]["frame_hashes"],
+                serde_json::to_value(&pixels.frame_sha256).unwrap()
+            );
+            assert_eq!(
+                file["known_stressors"],
+                serde_json::to_value(&artifact.stressors).unwrap()
+            );
+            assert_eq!(file["validation"]["status"], "passed");
+            let bytes = fs::read(all_root.join(relative_path)).unwrap();
+            assert_eq!(&bytes[..128], &[0; 128]);
+            assert_eq!(&bytes[128..132], b"DICM");
+            let object = open_file(all_root.join(relative_path)).unwrap();
+
+            match artifact.metadata_sc.as_ref().unwrap() {
+                MetadataScParameters::PersonName(person_name) => {
+                    assert_eq!(
+                        file["expected_metadata"]["specific_character_sets"],
+                        serde_json::to_value(&person_name.specific_character_sets).unwrap()
+                    );
+                    let expected = &file["expected_metadata"]["person_names"][0];
+                    assert_eq!(expected["decoded_value"], person_name.patient_name_decoded);
+                    assert_eq!(expected["raw_value_hex"], person_name.patient_name_raw_hex);
+                    assert_eq!(
+                        expected["raw_value_sha256"],
+                        person_name.patient_name_raw_sha256
+                    );
+                    let raw = object
+                        .element(tags::PATIENT_NAME)
+                        .unwrap()
+                        .value()
+                        .to_bytes()
+                        .unwrap();
+                    assert_eq!(
+                        dicom_test_suite::sha256_hex(raw.as_ref()),
+                        person_name.patient_name_raw_sha256
+                    );
+                    for (index, group) in person_name.component_groups.iter().enumerate() {
+                        let manifest_group = &expected["component_groups"][index];
+                        assert_eq!(manifest_group["kind"], group.kind);
+                        assert_eq!(manifest_group["decoded_value"], group.decoded_value);
+                        assert_eq!(
+                            manifest_group["components"]
+                                .as_array()
+                                .unwrap()
+                                .iter()
+                                .map(|component| component["decoded_value"].as_str().unwrap())
+                                .collect::<Vec<_>>(),
+                            group
+                                .components
+                                .iter()
+                                .map(String::as_str)
+                                .collect::<Vec<_>>()
+                        );
+                    }
+                }
+                MetadataScParameters::TimezoneBoundary(boundary) => {
+                    let temporal = &file["expected_metadata"]["temporal"];
+                    assert_eq!(temporal["boundary_id"], boundary.boundary_id);
+                    assert_eq!(
+                        temporal["date_values"][0]["decoded_value"],
+                        boundary.study_date
+                    );
+                    assert_eq!(
+                        temporal["time_values"][0]["decoded_value"],
+                        boundary.study_time
+                    );
+                    assert_eq!(
+                        temporal["date_time_values"][0]["decoded_value"],
+                        boundary.acquisition_date_time
+                    );
+                    assert_eq!(
+                        temporal["timezone_offset_from_utc"]["decoded_value"],
+                        boundary.timezone_offset
+                    );
+                    assert_eq!(
+                        temporal["timezone_offset_from_utc"]["offset_minutes"],
+                        boundary.offset_minutes
+                    );
+                    assert_eq!(temporal["combined_da_tm_utc"], boundary.normalized_utc);
+                }
+                MetadataScParameters::EmptyType2 { attributes } => {
+                    let expected = file["expected_metadata"]["empty_type2_attributes"]
+                        .as_array()
+                        .unwrap();
+                    assert_eq!(expected.len(), attributes.len());
+                    for attribute in attributes {
+                        let manifest = expected
+                            .iter()
+                            .find(|item| item["tag"] == attribute.tag)
+                            .unwrap();
+                        assert_eq!(manifest["keyword"], attribute.keyword);
+                        assert_eq!(manifest["vr"], attribute.vr);
+                        assert_eq!(manifest["value_length"], 0);
+                        assert!(
+                            object
+                                .element(dicom_tag(&attribute.tag))
+                                .unwrap()
+                                .value()
+                                .to_bytes()
+                                .unwrap()
+                                .is_empty()
+                        );
+                    }
+                }
+                MetadataScParameters::StringBoundaries { elements } => {
+                    let expected = file["expected_metadata"]["string_elements"]
+                        .as_array()
+                        .unwrap();
+                    for element in elements {
+                        let manifest = expected
+                            .iter()
+                            .find(|item| item["tag"] == element.tag)
+                            .unwrap();
+                        assert_eq!(manifest["keyword"], element.keyword);
+                        assert_eq!(manifest["vr"], element.vr);
+                        assert_eq!(manifest["padding"], element.padding);
+                        assert_eq!(
+                            manifest["raw_value_byte_length"],
+                            element.raw_value_byte_length
+                        );
+                        assert_eq!(manifest["raw_value_sha256"], element.raw_value_sha256);
+                        let raw = object
+                            .element(dicom_tag(&element.tag))
+                            .unwrap()
+                            .value()
+                            .to_bytes()
+                            .unwrap();
+                        assert_eq!(raw.len(), element.raw_value_byte_length as usize);
+                        assert_eq!(
+                            dicom_test_suite::sha256_hex(raw.as_ref()),
+                            element.raw_value_sha256
+                        );
+                        let decoded = match &element.source {
+                            StringValueSource::Repeated {
+                                pattern,
+                                repetitions,
+                            } => vec![pattern.repeat(*repetitions as usize)],
+                            StringValueSource::Literal { values } => values.clone(),
+                        };
+                        assert_eq!(
+                            manifest["decoded_values"],
+                            serde_json::to_value(decoded).unwrap()
+                        );
+                    }
+                }
+                MetadataScParameters::PrivateCreators { blocks } => {
+                    let expected = file["expected_metadata"]["private_creator_blocks"]
+                        .as_array()
+                        .unwrap();
+                    assert_eq!(expected.len(), blocks.len());
+                    for block in blocks {
+                        let manifest = expected
+                            .iter()
+                            .find(|item| item["creator_tag"] == block.creator_tag)
+                            .unwrap();
+                        assert_eq!(manifest["creator_id"], block.creator_id);
+                        assert_eq!(manifest["block_start_tag"], block.block_start_tag);
+                        assert_eq!(manifest["block_end_tag"], block.block_end_tag);
+                        for element in &block.elements {
+                            let expected_element = manifest["elements"]
+                                .as_array()
+                                .unwrap()
+                                .iter()
+                                .find(|item| item["tag"] == element.tag)
+                                .unwrap();
+                            let actual = object.element(dicom_tag(&element.tag)).unwrap();
+                            match &element.value {
+                                PrivateElementValue::Lo { text } => {
+                                    assert_eq!(expected_element["vr"], "LO");
+                                    assert_eq!(expected_element["decoded_value"], text.as_str());
+                                    assert_eq!(actual.value().to_str().unwrap().trim_end(), text);
+                                }
+                                PrivateElementValue::Us { number } => {
+                                    assert_eq!(expected_element["vr"], "US");
+                                    assert_eq!(expected_element["decoded_value"], *number);
+                                    assert_eq!(actual.value().to_int::<u16>().unwrap(), *number);
+                                }
+                            }
+                        }
+                    }
+                }
+                MetadataScParameters::SequenceLengths(sequence) => {
+                    let expected = &file["expected_metadata"]["sequence_length_encoding"];
+                    assert_eq!(expected["variant_id"], sequence.variant_id);
+                    assert_eq!(expected["sequence_tag"], sequence.sequence_tag);
+                    assert_eq!(expected["vr"], sequence.sequence_vr);
+                    assert_eq!(
+                        expected["decoded_items"][0]["code_value"],
+                        sequence.code_value
+                    );
+                    assert_eq!(
+                        expected["decoded_items"][0]["coding_scheme_designator"],
+                        sequence.coding_scheme_designator
+                    );
+                    assert_eq!(
+                        expected["decoded_items"][0]["code_meaning"],
+                        sequence.code_meaning
+                    );
+                    assert_eq!(
+                        expected["sequence_length_field_hex"],
+                        sequence.sequence_length_field_hex
+                    );
+                    assert_eq!(
+                        expected["item_length_field_hex"],
+                        sequence.item_length_field_hex
+                    );
+                    assert_eq!(
+                        expected["item_delimitation_present"],
+                        sequence.item_delimitation_present
+                    );
+                    assert_eq!(
+                        expected["sequence_delimitation_present"],
+                        sequence.sequence_delimitation_present
+                    );
+                }
             }
         }
     }

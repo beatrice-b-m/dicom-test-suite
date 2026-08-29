@@ -6,14 +6,12 @@
     "case_id": "metadata/sc/defined_undefined_sequence_lengths"
   },
   "kind": "dicom",
-  "plan_provider_id": "native.case_plan",
-  "dependencies": [
-
-  ],
-  "provider_parameters": {
-  },
+  "plan_provider_id": "native.metadata_sc_plan",
+  "dependencies": [],
+  "provider_parameters": {},
   "validation_rule_ids": [
-    "validation.shared"
+    "validation.sc.pixel",
+    "validation.metadata.sequence_lengths"
   ],
   "projection_rule_ids": [
     "projection.curated"
@@ -21,44 +19,164 @@
   "dicom": {
     "artifacts": [
       {
-        "logical_id": "artifact_1",
+        "logical_id": "defined",
+        "order": 0,
+        "template": {
+          "template_id": "classic/secondary-capture/monochrome",
+          "template_version": "1.0.0"
+        },
         "output": {
-          "role": "primary_1",
-          "provider_derived": true
+          "role": "defined",
+          "path": "metadata/sc/defined_undefined_sequence_lengths/defined.dcm"
         },
         "encoding": {
           "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-          "sequence_length_policy": "provider",
-          "item_length_policy": "provider",
-          "offset_table_policy": "provider",
-          "fragmentation_policy": "provider"
+          "sequence_length_policy": "defined",
+          "item_length_policy": "undefined",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
         },
-        "parameters": {
+        "parameters": {},
+        "secondary_capture": {
+          "rows": 2,
+          "columns": 2,
+          "frames": 1,
+          "samples_per_pixel": 1,
+          "photometric_interpretation": "MONOCHROME2",
+          "bits_allocated": 8,
+          "bits_stored": 8,
+          "high_bit": 7,
+          "pixel_representation": 0,
+          "pixel_data_vr": "OB",
+          "stored_value_type": "u8",
+          "stored_values": [
+            0,
+            85,
+            170,
+            255
+          ],
+          "frame_sha256": [
+            "03b722a15d4658be01f1eb9def5e8be124710cc0e88842f78107abfda3e23ea8"
+          ],
+          "visual_pattern": "2x2_monochrome_gradient_with_sequence_length_variants",
+          "semantic_note": "Equivalent Anatomic Region Sequence content is encoded once with defined SQ length and once with undefined SQ length",
+          "pixel_min": 0,
+          "pixel_max": 255
         },
-        "attribute_operations": [
-
-        ],
+        "metadata_sc": {
+          "kind": "sequence_lengths",
+          "variant_id": "defined",
+          "sequence_tag": "0008,2218",
+          "sequence_vr": "SQ",
+          "code_value": "69536005",
+          "coding_scheme_designator": "SCT",
+          "code_meaning": "Head",
+          "item_dataset_encoded_length": 40,
+          "undefined_item_encoded_length": 56,
+          "sequence_length_field_hex": "38000000",
+          "item_length_field_hex": "FFFFFFFF",
+          "item_delimitation_present": true,
+          "sequence_delimitation_present": false
+        },
+        "attribute_operations": [],
         "content": {
-          "provider_id": "content.case_default",
-          "parameters": {
-          }
+          "provider_id": "content.metadata.sequence_lengths",
+          "parameters": {}
         },
         "validation_rule_ids": [
-          "validation.shared"
+          "validation.sc.pixel",
+          "validation.metadata.sequence_lengths"
         ],
         "projection_rule_ids": [
           "projection.curated"
         ],
         "determinism": "byte_stable",
         "stressors": [
-
-        ],
-        "algorithm_provider_id": "algorithm.case_provider",
+          "minimal_secondary_capture",
+          "native_ob_pixel_data"
+        ]
+      },
+      {
+        "logical_id": "undefined",
+        "order": 1,
         "template": {
           "template_id": "classic/secondary-capture/monochrome",
           "template_version": "1.0.0"
         },
-        "order": 0
+        "output": {
+          "role": "undefined",
+          "path": "metadata/sc/defined_undefined_sequence_lengths/undefined.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "undefined",
+          "item_length_policy": "undefined",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {},
+        "secondary_capture": {
+          "rows": 2,
+          "columns": 2,
+          "frames": 1,
+          "samples_per_pixel": 1,
+          "photometric_interpretation": "MONOCHROME2",
+          "bits_allocated": 8,
+          "bits_stored": 8,
+          "high_bit": 7,
+          "pixel_representation": 0,
+          "pixel_data_vr": "OB",
+          "stored_value_type": "u8",
+          "stored_values": [
+            0,
+            85,
+            170,
+            255
+          ],
+          "frame_sha256": [
+            "03b722a15d4658be01f1eb9def5e8be124710cc0e88842f78107abfda3e23ea8"
+          ],
+          "visual_pattern": "2x2_monochrome_gradient_with_sequence_length_variants",
+          "semantic_note": "Equivalent Anatomic Region Sequence content is encoded once with defined SQ length and once with undefined SQ length",
+          "pixel_min": 0,
+          "pixel_max": 255
+        },
+        "metadata_sc": {
+          "kind": "sequence_lengths",
+          "variant_id": "undefined",
+          "sequence_tag": "0008,2218",
+          "sequence_vr": "SQ",
+          "code_value": "69536005",
+          "coding_scheme_designator": "SCT",
+          "code_meaning": "Head",
+          "item_dataset_encoded_length": 40,
+          "undefined_item_encoded_length": 56,
+          "sequence_length_field_hex": "FFFFFFFF",
+          "item_length_field_hex": "FFFFFFFF",
+          "item_delimitation_present": true,
+          "sequence_delimitation_present": true
+        },
+        "attribute_operations": [],
+        "content": {
+          "provider_id": "content.metadata.sequence_lengths",
+          "parameters": {}
+        },
+        "validation_rule_ids": [
+          "validation.sc.pixel",
+          "validation.metadata.sequence_lengths"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "minimal_secondary_capture",
+          "native_ob_pixel_data"
+        ]
       }
     ]
   }

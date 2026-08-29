@@ -111,6 +111,92 @@ impl LocalContentResolver {
         )
     }
 
+    pub(crate) fn resolve_inline(
+        &mut self,
+        slot: &str,
+        kind: &str,
+        bytes: &[u8],
+        expected_sha256: Option<&str>,
+    ) -> Result<StagedAsset, ContentError> {
+        if slot.is_empty() || kind.is_empty() {
+            return Err(ContentError::InvalidSlot);
+        }
+        if self.files >= self.limits.max_files {
+            return Err(ContentError::FileCountLimit {
+                limit: self.limits.max_files,
+            });
+        }
+        let size_bytes = u64::try_from(bytes.len()).map_err(|_| ContentError::TotalSizeOverflow)?;
+        if size_bytes > self.limits.max_file_bytes {
+            return Err(ContentError::FileSizeLimit {
+                path: format!("inline/{slot}"),
+                size: size_bytes,
+                limit: self.limits.max_file_bytes,
+            });
+        }
+        let projected_total = self
+            .total_bytes
+            .checked_add(size_bytes)
+            .ok_or(ContentError::TotalSizeOverflow)?;
+        if projected_total > self.limits.max_total_bytes {
+            return Err(ContentError::TotalSizeLimit {
+                size: projected_total,
+                limit: self.limits.max_total_bytes,
+            });
+        }
+        let sha256 = crate::sha256_hex(bytes);
+        if let Some(expected) = expected_sha256 {
+            if expected != sha256 {
+                return Err(ContentError::HashMismatch {
+                    path: format!("inline/{slot}"),
+                    expected: expected.to_string(),
+                    actual: sha256,
+                });
+            }
+        }
+        let staged_path = self
+            .staging_root
+            .join(format!("asset-{:08}.bin", self.files));
+        let mut destination = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&staged_path)
+            .map_err(|source| ContentError::Io {
+                path: staged_path.clone(),
+                source,
+            })?;
+        destination
+            .write_all(bytes)
+            .and_then(|_| destination.flush())
+            .map_err(|source| ContentError::Io {
+                path: staged_path.clone(),
+                source,
+            })?;
+        let mut permissions = destination
+            .metadata()
+            .map_err(|source| ContentError::Io {
+                path: staged_path.clone(),
+                source,
+            })?
+            .permissions();
+        permissions.set_readonly(true);
+        fs::set_permissions(&staged_path, permissions).map_err(|source| ContentError::Io {
+            path: staged_path.clone(),
+            source,
+        })?;
+        self.files += 1;
+        self.total_bytes = projected_total;
+        Ok(StagedAsset {
+            slot: slot.to_string(),
+            kind: kind.to_string(),
+            size_bytes,
+            sha256,
+            spec_relative_path: format!("inline/{slot}"),
+            staged_path,
+            properties: BTreeMap::from([("content_origin".into(), "inline_fixture".into())]),
+        })
+    }
+
     pub(crate) fn resolve_private(
         &mut self,
         slot: &str,

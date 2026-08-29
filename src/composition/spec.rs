@@ -468,7 +468,7 @@ fn parse_primitive(vr: DicomVr, value: &Value) -> Result<PrimitiveValue, SpecErr
     }
 }
 
-fn decode_base64(value: &str) -> Result<Vec<u8>, SpecError> {
+pub(crate) fn decode_base64(value: &str) -> Result<Vec<u8>, SpecError> {
     if value.len() % 4 != 0 {
         return Err(SpecError::Base64);
     }

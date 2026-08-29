@@ -337,7 +337,12 @@ fn resolve_and_stage(
         } else if let Some(profile) =
             super::ClassicFamilyProfile::for_template(&template.template_id)
         {
-            let mut pixel = resolve_family_pixels(instance, &profile, &mut content_resolver)?;
+            let mut pixel = resolve_family_pixels(
+                instance,
+                &profile,
+                transfer_syntax_uid,
+                &mut content_resolver,
+            )?;
             validate_family_pixel_contract(&profile, &pixel)?;
             if transfer_syntax_uid == crate::codecs::RLE_LOSSLESS_TRANSFER_SYNTAX_UID {
                 pixel = encode_rle_pixels(pixel)?;
@@ -862,6 +867,28 @@ fn resolve_sc_pixels(
         ContentSource::LocalFile { pixel: None, .. } => Err(ComposeError::MissingPixelDeclaration(
             instance.instance_id.clone(),
         )),
+        ContentSource::InlineSmallFixture {
+            base64,
+            sha256,
+            pixel: Some(pixel),
+            ..
+        } => {
+            let bytes = super::spec::decode_base64(base64)?;
+            let asset = resolver.resolve_inline(
+                "pixels",
+                "native_pixels",
+                &bytes,
+                sha256.as_deref(),
+            )?;
+            let output = super::native_content::resolve_staged_native_pixels(asset, pixel.shape()?)?;
+            Ok(DefaultPixelOutput {
+                plan: output.plan,
+                content: output.content,
+            })
+        }
+        ContentSource::InlineSmallFixture { pixel: None, .. } => Err(
+            ComposeError::MissingPixelDeclaration(instance.instance_id.clone()),
+        ),
         ContentSource::ResolvedProvider {
             output,
             pixel: Some(pixel),
@@ -887,6 +914,7 @@ fn resolve_sc_pixels(
 fn resolve_family_pixels(
     instance: &super::SpecInstance,
     profile: &super::ClassicFamilyProfile,
+    transfer_syntax_uid: &str,
     resolver: &mut LocalContentResolver,
 ) -> Result<DefaultPixelOutput, ComposeError> {
     if instance.content.len() > 1 {
@@ -922,6 +950,42 @@ fn resolve_family_pixels(
         ContentSource::LocalFile { pixel: None, .. } => Err(ComposeError::MissingPixelDeclaration(
             instance.instance_id.clone(),
         )),
+        ContentSource::InlineSmallFixture {
+            base64,
+            sha256,
+            pixel: Some(pixel),
+            ..
+        } => {
+            let bytes = super::spec::decode_base64(base64)?;
+            let asset = resolver.resolve_inline(
+                "pixels",
+                "native_pixels",
+                &bytes,
+                sha256.as_deref(),
+            )?;
+            let output = super::native_content::resolve_staged_native_pixels(asset, pixel.shape()?)?;
+            Ok(DefaultPixelOutput {
+                plan: output.plan,
+                content: output.content,
+            })
+        }
+        ContentSource::InlineSmallFixture { pixel: None, .. } => Err(
+            ComposeError::MissingPixelDeclaration(instance.instance_id.clone()),
+        ),
+        ContentSource::EncodedFrames {
+            transfer_syntax_uid: source_transfer_syntax_uid,
+            frames,
+            pixel: Some(pixel),
+        } => resolve_encoded_rle_pixels(
+            resolver,
+            source_transfer_syntax_uid,
+            transfer_syntax_uid,
+            frames,
+            pixel,
+        ),
+        ContentSource::EncodedFrames { pixel: None, .. } => Err(
+            ComposeError::MissingPixelDeclaration(instance.instance_id.clone()),
+        ),
         ContentSource::ResolvedProvider {
             output,
             pixel: Some(pixel),
@@ -980,6 +1044,12 @@ fn validate_family_pixel_contract(
 }
 
 fn encode_rle_pixels(mut pixel: DefaultPixelOutput) -> Result<DefaultPixelOutput, ComposeError> {
+    if matches!(
+        pixel.content.materialization,
+        Some(super::ContentMaterialization::Encapsulated { .. })
+    ) {
+        return Ok(pixel);
+    }
     let inline = match pixel.content.materialization.as_ref() {
         Some(super::ContentMaterialization::Inline(bytes)) => Some(bytes.as_slice()),
         Some(super::ContentMaterialization::StagedFile(_)) => None,
@@ -1123,6 +1193,115 @@ fn encode_rle_pixels(mut pixel: DefaultPixelOutput) -> Result<DefaultPixelOutput
         fragments,
     });
     Ok(pixel)
+}
+
+fn resolve_encoded_rle_pixels(
+    resolver: &mut LocalContentResolver,
+    source_transfer_syntax_uid: &str,
+    output_transfer_syntax_uid: &str,
+    frames: &[super::EncodedFrame],
+    declaration: &super::PixelDeclaration,
+) -> Result<DefaultPixelOutput, ComposeError> {
+    if source_transfer_syntax_uid != crate::codecs::RLE_LOSSLESS_TRANSFER_SYNTAX_UID
+        || output_transfer_syntax_uid != source_transfer_syntax_uid
+    {
+        return Err(ComposeError::EncodedTransferSyntaxMismatch {
+            source: source_transfer_syntax_uid.into(),
+            output: output_transfer_syntax_uid.into(),
+        });
+    }
+    let shape = declaration.shape()?;
+    if frames.len() != usize::try_from(shape.frames).map_err(|_| ComposeError::ResourceRange)? {
+        return Err(ComposeError::EncodedFrameCount {
+            expected: shape.frames,
+            actual: frames.len(),
+        });
+    }
+    let plan = super::NativePixelPlan::plan(shape.clone())?;
+    let photometric = match shape.photometric_interpretation {
+        super::PhotometricInterpretation::Monochrome1 => "MONOCHROME1",
+        super::PhotometricInterpretation::Monochrome2 => "MONOCHROME2",
+        super::PhotometricInterpretation::PaletteColor => "PALETTE COLOR",
+        super::PhotometricInterpretation::Rgb => "RGB",
+        super::PhotometricInterpretation::YbrFull => "YBR_FULL",
+        super::PhotometricInterpretation::YbrFull422 => "YBR_FULL_422",
+    };
+    let decoder = NativeRleLosslessEncoder::new();
+    let mut encoded = Vec::with_capacity(frames.len());
+    let mut decoded_frame_sha256 = Vec::with_capacity(frames.len());
+    for (index, frame) in frames.iter().enumerate() {
+        let asset = resolver.resolve(
+            "pixels",
+            "encoded_frame",
+            Path::new(&frame.path),
+            frame.sha256.as_deref(),
+        )?;
+        let bytes = fs::read(&asset.staged_path).map_err(|source| ComposeError::Io {
+            path: asset.staged_path,
+            source,
+        })?;
+        let decoded = decoder.decode_frame(FrameDecodeInput {
+            encoded_frame: &bytes,
+            rows: u16::try_from(shape.rows).map_err(|_| ComposeError::ResourceRange)?,
+            columns: u16::try_from(shape.columns).map_err(|_| ComposeError::ResourceRange)?,
+            samples_per_pixel: u16::from(shape.samples_per_pixel),
+            bits_allocated: u16::from(shape.bits_allocated),
+            bits_stored: u16::from(shape.bits_stored),
+            photometric_interpretation: photometric,
+        })?;
+        let expected_frame_bytes = plan.frame_spans[index].bit_length.div_ceil(8);
+        if decoded.native_bytes.len() as u64 != expected_frame_bytes {
+            return Err(ComposeError::EncodedDecodedLength {
+                frame: index,
+                expected: expected_frame_bytes,
+                actual: decoded.native_bytes.len() as u64,
+            });
+        }
+        decoded_frame_sha256.push(sha256_hex(&decoded.native_bytes));
+        encoded.push(bytes);
+    }
+    let encapsulated = EncapsulatedPixelData::one_fragment_per_frame(
+        &encoded,
+        BasicOffsetTablePolicy::Populated,
+    )?;
+    let compressed_frame_sha256 = encapsulated.compressed_frame_hashes.clone();
+    let basic_offset_table = encapsulated.basic_offset_table.offsets;
+    let mut fragments = encapsulated.fragment_payloads;
+    for fragment in &mut fragments {
+        if fragment.len() % 2 != 0 {
+            fragment.push(0);
+        }
+    }
+    let content_bytes = fragments.concat();
+    let content = super::CanonicalContent {
+        slot: "pixels".into(),
+        kind: "encapsulated_pixels".into(),
+        address: super::AttributeAddress::from_normalized_tag("7FE0,0010")
+            .expect("Pixel Data is a known tag"),
+        vr: super::DicomVr::OB,
+        size_bytes: content_bytes.len() as u64,
+        sha256: sha256_hex(&content_bytes),
+        properties: BTreeMap::from([
+            ("content_origin".into(), "encoded_frames".into()),
+            ("codec_backend".into(), NativeRleLosslessEncoder::BACKEND_ID.into()),
+            ("codec_semantic_validation".into(), "independent_decode_passed".into()),
+            (
+                "compressed_frame_sha256".into(),
+                serde_json::to_string(&compressed_frame_sha256).expect("hashes serialize"),
+            ),
+            (
+                "decoded_frame_sha256".into(),
+                serde_json::to_string(&decoded_frame_sha256).expect("hashes serialize"),
+            ),
+            ("source_transfer_syntax_uid".into(), source_transfer_syntax_uid.into()),
+        ]),
+        placement: super::ContentPlacement::TopLevel,
+        materialization: Some(super::ContentMaterialization::Encapsulated {
+            basic_offset_table,
+            fragments,
+        }),
+    };
+    Ok(DefaultPixelOutput { plan, content })
 }
 
 fn validate_sc_pixel_contract(
@@ -1273,6 +1452,7 @@ pub enum ComposeError {
     Identity(super::IdentityError),
     Content(super::ContentError),
     RawContent(super::RawContentError),
+    Pixel(super::PixelError),
     Defaults(super::DefaultError),
     Materialize(super::MaterializeError),
     Manifest(super::ManifestError),
@@ -1332,6 +1512,19 @@ pub enum ComposeError {
     CodecSemanticMismatch {
         frame: usize,
     },
+    EncodedTransferSyntaxMismatch {
+        source: String,
+        output: String,
+    },
+    EncodedFrameCount {
+        expected: u32,
+        actual: usize,
+    },
+    EncodedDecodedLength {
+        frame: usize,
+        expected: u64,
+        actual: u64,
+    },
     OutputLimit {
         size: u64,
         limit: u64,
@@ -1352,6 +1545,7 @@ from_error!(super::TemplateError, Template);
 from_error!(super::IdentityError, Identity);
 from_error!(super::ContentError, Content);
 from_error!(super::RawContentError, RawContent);
+from_error!(super::PixelError, Pixel);
 from_error!(super::DefaultError, Defaults);
 from_error!(super::MaterializeError, Materialize);
 from_error!(super::ManifestError, Manifest);
@@ -2210,6 +2404,128 @@ mod tests {
             })
             .unwrap();
         assert_eq!(decoded.native_bytes, raw);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn encoded_rle_frames_are_hash_checked_decoded_and_preserved() {
+        let root = output("encoded-rle-caller");
+        fs::create_dir(&root).unwrap();
+        let raw = (0_u16..256).flat_map(u16::to_le_bytes).collect::<Vec<_>>();
+        let encoded = NativeRleLosslessEncoder::new()
+            .encode_frame(FrameEncodeInput {
+                native_frame: &raw,
+                rows: 16,
+                columns: 16,
+                samples_per_pixel: 1,
+                bits_allocated: 16,
+                bits_stored: 12,
+                photometric_interpretation: "MONOCHROME2",
+            })
+            .unwrap()
+            .bytes;
+        fs::write(root.join("frame-1.rle"), &encoded).unwrap();
+        let spec = json!({
+            "composition_spec_schema_version": "0.1.0",
+            "instances": [{
+                "instance_id": "xa_encoded",
+                "template": { "id": "classic/xa" },
+                "transfer_syntax_uid": "1.2.840.10008.1.2.5",
+                "content": [{
+                    "slot": "pixels",
+                    "source": {
+                        "kind": "encoded_frames",
+                        "transfer_syntax_uid": "1.2.840.10008.1.2.5",
+                        "frames": [{"path": "frame-1.rle", "sha256": sha256_hex(&encoded)}],
+                        "pixel": {
+                            "rows": 16, "columns": 16, "frames": 1,
+                            "samples_per_pixel": 1, "photometric_interpretation": "MONOCHROME2",
+                            "sample_type": "uint", "bits_allocated": 16,
+                            "bits_stored": 12, "high_bit": 11, "byte_order": "little"
+                        }
+                    }
+                }]
+            }]
+        });
+        let spec_path = root.join("spec.json");
+        fs::write(&spec_path, serde_json::to_vec_pretty(&spec).unwrap()).unwrap();
+        let out = root.join("out");
+        let (_, manifest) = compose(&ComposeOptions {
+            spec_path,
+            out_dir: out.clone(),
+            seed: 81,
+            catalog_path: "templates/catalog.json".into(),
+            dry_run: false,
+        })
+        .unwrap();
+        let properties = &manifest["composition"]["entries"][0]["content"][0]["properties"];
+        assert_eq!(properties["content_origin"], "encoded_frames");
+        assert_eq!(properties["codec_semantic_validation"], "independent_decode_passed");
+        let object = dicom_object::open_file(out.join("instances/xa_encoded.dcm")).unwrap();
+        let fragments = match object.element_by_name("PixelData").unwrap().value() {
+            dicom_core::value::Value::PixelSequence(sequence) => sequence.fragments(),
+            _ => panic!("encoded caller input must remain encapsulated"),
+        };
+        assert_eq!(fragments.len(), 1);
+        assert_eq!(
+            NativeRleLosslessEncoder::new()
+                .decode_frame(FrameDecodeInput {
+                    encoded_frame: &fragments[0],
+                    rows: 16,
+                    columns: 16,
+                    samples_per_pixel: 1,
+                    bits_allocated: 16,
+                    bits_stored: 12,
+                    photometric_interpretation: "MONOCHROME2",
+                })
+                .unwrap()
+                .native_bytes,
+            raw
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn inline_small_fixture_is_hash_checked_and_resource_accounted() {
+        let root = output("inline-small-fixture");
+        fs::create_dir(&root).unwrap();
+        let raw = [0_u8; 8];
+        let spec = json!({
+            "composition_spec_schema_version": "0.1.0",
+            "instances": [{
+                "instance_id": "xa_inline",
+                "template": { "id": "classic/xa" },
+                "content": [{
+                    "slot": "pixels",
+                    "source": {
+                        "kind": "inline_small_fixture",
+                        "base64": "AAAAAAAAAAA=",
+                        "sha256": sha256_hex(&raw),
+                        "pixel": {
+                            "rows": 2, "columns": 2, "frames": 1,
+                            "samples_per_pixel": 1, "photometric_interpretation": "MONOCHROME2",
+                            "sample_type": "uint", "bits_allocated": 16,
+                            "bits_stored": 12, "high_bit": 11, "byte_order": "little"
+                        }
+                    }
+                }]
+            }]
+        });
+        let spec_path = root.join("spec.json");
+        fs::write(&spec_path, serde_json::to_vec_pretty(&spec).unwrap()).unwrap();
+        let (_, manifest) = compose(&ComposeOptions {
+            spec_path,
+            out_dir: root.join("out"),
+            seed: 82,
+            catalog_path: "templates/catalog.json".into(),
+            dry_run: false,
+        })
+        .unwrap();
+        assert_eq!(
+            manifest["composition"]["entries"][0]["content"][0]["properties"]
+                ["content_origin"],
+            "inline_fixture"
+        );
         fs::remove_dir_all(root).unwrap();
     }
 }

@@ -1250,6 +1250,21 @@ fn apply_quantitative_content(
             pixel: None,
             ..
         } => resolver.resolve_provider("pixels", "quantitative_pixels", output),
+        ContentSource::InlineSmallFixture {
+            base64,
+            sha256,
+            pixel: None,
+            ..
+        } => {
+            let bytes = super::spec::decode_base64(base64)
+                .map_err(|error| AdvancedFamilyError::UnsupportedContent(error.to_string()))?;
+            resolver.resolve_inline(
+                "pixels",
+                "quantitative_pixels",
+                &bytes,
+                sha256.as_deref(),
+            )
+        }
         _ => {
             return Err(AdvancedFamilyError::UnsupportedContent(
                 instance.instance_id.clone(),
@@ -1509,6 +1524,24 @@ fn apply_typed_bulk_content(
                 resolver.resolve_provider(&assignment.slot, document_slot(family), output),
                 media_type,
             ),
+            ContentSource::InlineSmallFixture {
+                base64,
+                sha256,
+                media_type,
+                pixel: None,
+            } => {
+                let bytes = super::spec::decode_base64(base64)
+                    .map_err(|error| AdvancedFamilyError::UnsupportedContent(error.to_string()))?;
+                (
+                    resolver.resolve_inline(
+                        &assignment.slot,
+                        document_slot(family),
+                        &bytes,
+                        sha256.as_deref(),
+                    ),
+                    media_type,
+                )
+            }
             _ => {
                 return Err(AdvancedFamilyError::UnsupportedContent(
                     instance.instance_id.clone(),
@@ -1713,6 +1746,24 @@ fn apply_caller_content(
             declaration,
             resolver.resolve_provider("pixels", "native_pixels", output),
         ),
+        ContentSource::InlineSmallFixture {
+            base64,
+            sha256,
+            pixel: Some(declaration),
+            ..
+        } => {
+            let bytes = super::spec::decode_base64(base64)
+                .map_err(|error| AdvancedFamilyError::UnsupportedContent(error.to_string()))?;
+            (
+                declaration,
+                resolver.resolve_inline(
+                    "pixels",
+                    "native_pixels",
+                    &bytes,
+                    sha256.as_deref(),
+                ),
+            )
+        }
         _ => {
             return Err(AdvancedFamilyError::UnsupportedContent(
                 instance.instance_id.clone(),

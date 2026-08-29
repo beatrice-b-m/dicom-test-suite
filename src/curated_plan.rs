@@ -159,7 +159,16 @@ impl CuratedScCorpusPlanProvider {
         let mut artifact_by_recipe_role = BTreeMap::new();
         let mut selected_recipes = Vec::new();
 
-        for registry_case in &self.registry.cases {
+        let mut selected_registry_cases = self.registry.cases.iter().collect::<Vec<_>>();
+        selected_registry_cases.sort_by_key(|registry_case| {
+            self.recipes
+                .binding_for_case(&registry_case.case_id)
+                .and_then(|identity| self.recipes.recipes().get(identity))
+                .and_then(|recipe| recipe.planning_order)
+                .unwrap_or(u32::MAX)
+        });
+
+        for registry_case in selected_registry_cases {
             if !selected_ids.contains(&registry_case.case_id)
                 || registry_case.status != "implemented"
                 || !registry_case.requirements.is_feature_free()

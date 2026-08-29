@@ -481,6 +481,13 @@ fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), Recip
         WSI_ADVANCED_PROVIDER_ID,
         REGISTRATION_PLAN_PROVIDER_ID,
         PRESENTATION_ADVANCED_PROVIDER_ID,
+        "native.quantitative_plan",
+        "external.quantitative_import_plan",
+        "native.sr_plan",
+        "external.highdicom_sr_import_plan",
+        "native.rt_plan",
+        "native.waveform_plan",
+        "native.encapsulated_payload_plan",
         "external.import_plan",
         "mutation.named_plan",
         "qualification.bounded_plan",
@@ -496,6 +503,12 @@ fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), Recip
         "content.metadata.string_boundaries",
         "content.metadata.private_creators",
         "content.metadata.sequence_lengths",
+        "content.neutral",
+        "content.sr_semantics",
+        "content.external_import",
+        "content.rt_semantics",
+        "content.waveform_samples",
+        "content.declared_byte_payload",
     ];
     const ALGORITHM_PROVIDERS: &[&str] = &[
         "algorithm.case_provider",
@@ -508,6 +521,13 @@ fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), Recip
         WSI_ALGORITHM_PROVIDER_ID,
         REGISTRATION_ALGORITHM_PROVIDER_ID,
         PRESENTATION_ALGORITHM_PROVIDER_ID,
+        "algorithm.quantitative",
+        "algorithm.sr_content_tree",
+        "algorithm.highdicom_sr",
+        "algorithm.rt_semantics",
+        "algorithm.waveform_deterministic_multiplex",
+        "algorithm.encapsulated_pdf_minimal",
+        "algorithm.binary_stl_tetrahedron",
     ];
     const ENCODING_PROVIDERS: &[&str] = &[
         "encoding.transfer_syntax_plan",
@@ -534,11 +554,30 @@ fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), Recip
         "validation.metadata.string_boundaries",
         "validation.metadata.private_creators",
         "validation.metadata.sequence_lengths",
+        "validation.quantitative.seg",
+        "validation.quantitative.rwvm",
+        "validation.quantitative.external_import",
+        "validation.sr",
+        "validation.sr_external_import",
+        "validation.rt",
+        "validation.waveform.topology",
+        "validation.waveform.samples",
+        "validation.content.integrity",
+        "validation.encapsulated_document",
+        "validation.pdf.structure",
+        "validation.manufacturing_model",
+        "validation.stl.structure",
     ];
     const PROJECTION_RULES: &[&str] = &[
         "projection.curated",
         "projection.mutation",
         "projection.qualification",
+        "projection.quantitative",
+        "projection.sr",
+        "projection.rt",
+        "projection.waveform",
+        "projection.encapsulated_document",
+        "projection.encapsulated_mesh",
     ];
     let known = |id: &str, values: &[&str], kind: &str| {
         if values.contains(&id) {
@@ -1306,11 +1345,29 @@ fn validate_registry_bindings(
             && expected_kind == RecipeKind::Dicom
             && case.requirements.features.is_empty()
             && case.requirements.external_codecs.is_empty();
+        let migrated_u6_native = matches!(
+            recipe.plan_provider_id.as_str(),
+            "native.quantitative_plan"
+                | "native.sr_plan"
+                | "native.rt_plan"
+                | "native.waveform_plan"
+                | "native.encapsulated_payload_plan"
+        ) && case.provider.kind == "rust_native"
+            && case.provider.id == "rust_native"
+            && expected_kind == RecipeKind::Dicom;
+        let migrated_u6_external = matches!(
+            recipe.plan_provider_id.as_str(),
+            "external.quantitative_import_plan" | "external.highdicom_sr_import_plan"
+        ) && case.provider.kind == "external_backend"
+            && case.provider.id == "highdicom_pydicom"
+            && expected_kind == RecipeKind::Dicom;
         if recipe.plan_provider_id != expected_provider
             && !migrated_secondary_capture
             && !migrated_metadata_sc
             && !migrated_classic
             && !migrated_advanced
+            && !migrated_u6_native
+            && !migrated_u6_external
         {
             return Err(RecipeCatalogError::Completeness {
                 message: format!(
@@ -1459,6 +1516,13 @@ fn validate_migrated_planning_orders(
                 | WSI_ADVANCED_PROVIDER_ID
                 | REGISTRATION_PLAN_PROVIDER_ID
                 | PRESENTATION_ADVANCED_PROVIDER_ID
+                | "native.quantitative_plan"
+                | "external.quantitative_import_plan"
+                | "native.sr_plan"
+                | "external.highdicom_sr_import_plan"
+                | "native.rt_plan"
+                | "native.waveform_plan"
+                | "native.encapsulated_payload_plan"
         )
     }) {
         let order = recipe

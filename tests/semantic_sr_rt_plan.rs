@@ -48,6 +48,16 @@ fn context(logical_id: &str, sources: Vec<SemanticSource>) -> SemanticPlanContex
                     0,
                     "2.25.700000000000000000000000000000000001".into(),
                 ),
+                (
+                    CompositionUidRole::StudyInstance,
+                    0,
+                    "2.25.700000000000000000000000000000000002".into(),
+                ),
+                (
+                    CompositionUidRole::SeriesInstance,
+                    0,
+                    "2.25.700000000000000000000000000000000003".into(),
+                ),
             ],
         )
         .unwrap(),
@@ -83,6 +93,8 @@ fn source(owner: &str, artifact: &str, role: &str) -> SemanticSource {
         recipe_artifact_logical_id: artifact.into(),
         artifact_id: artifact.into(),
         role: role.into(),
+        study_instance_uid: "2.25.20".into(),
+        series_instance_uid: "2.25.21".into(),
         reference: MaterializedReference {
             source_instance_id: owner.into(),
             target_instance_id: artifact.into(),

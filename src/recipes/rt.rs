@@ -201,7 +201,7 @@ impl RtPlanProvider {
                     DicomVr::CS,
                     match input.parameters.object {
                         RtObjectParameters::CarmRadiation(_) => "RTRAD",
-                        RtObjectParameters::RadiationSet(_) => "RTSET",
+                        RtObjectParameters::RadiationSet(_) => "RTRAD",
                         _ => unreachable!(),
                     },
                 )?,
@@ -212,15 +212,26 @@ impl RtPlanProvider {
                 )?,
             ]
         };
-        operations.push(string_op(
+        operations.retain(|operation| {
+            !matches!(
+                operation.address().normalized_tag().as_str(),
+                "0008,1140" | "300C,0002" | "300C,0060" | "300C,0080"
+            )
+        });
+        let mut overrides = common_operations(&input.parameters, &input.context)?;
+        overrides.push(string_op(
             "0020,0011",
             DicomVr::IS,
             &input.parameters.series_number,
         )?);
-        operations.extend(object_operations(
-            &input.parameters.object,
-            &input.context.sources,
-        )?);
+        overrides.extend(object_operations(&input.parameters, &input.context)?);
+        let override_tags = overrides
+            .iter()
+            .map(|operation| operation.address().normalized_tag())
+            .collect::<BTreeSet<_>>();
+        operations
+            .retain(|operation| !override_tags.contains(&operation.address().normalized_tag()));
+        operations.extend(overrides);
         let contents = object_content(&input.parameters.object)?;
         build_semantic_plan(
             &input.context,
@@ -232,6 +243,56 @@ impl RtPlanProvider {
         )
         .map_err(RtPlanError::Plan)
     }
+}
+
+fn common_operations(
+    parameters: &RtDocumentParameters,
+    context: &SemanticPlanContext,
+) -> Result<Vec<AttributeOperation>, RtPlanError> {
+    let identity = |role| {
+        context
+            .identities
+            .get(&role, 0)
+            .ok_or(RtPlanError::SourceGraph)
+    };
+    let (model, serial) = match parameters.object {
+        RtObjectParameters::StructureSet(_) => {
+            ("Native Single-ROI RT Structure Set", "DTS-RTSTRUCT-0001")
+        }
+        RtObjectParameters::Dose(_) => ("Native Multi-frame RT Dose", "DTS-RTDOSE-001"),
+        RtObjectParameters::Plan(_) => ("Native Linked RT Plan", "DTS-RTPLAN-001"),
+        RtObjectParameters::Image(_) => ("Native Linked RT Image", "DTS-RTIMAGE-001"),
+        RtObjectParameters::CarmRadiation(_) => {
+            ("Native C-Arm Photon-Electron Radiation", "DTS-LINAC-001")
+        }
+        RtObjectParameters::RadiationSet(_) => ("Native RT Radiation Set", "DTS-LINAC-001"),
+    };
+    let mut operations = vec![
+        string_allow_empty_op("0008,1070", DicomVr::PN, "")?,
+        string_allow_empty_op("0008,0080", DicomVr::LO, "")?,
+        string_allow_empty_op("0008,0081", DicomVr::ST, "")?,
+        string_op("0008,1090", DicomVr::LO, model)?,
+        string_op("0018,1000", DicomVr::LO, serial)?,
+        string_op(
+            "0020,000D",
+            DicomVr::UI,
+            identity(crate::composition::CompositionUidRole::StudyInstance)?,
+        )?,
+        string_op(
+            "0020,000E",
+            DicomVr::UI,
+            identity(crate::composition::CompositionUidRole::SeriesInstance)?,
+        )?,
+        string_op("0020,0010", DicomVr::SH, "DTS-RTSTRUCT")?,
+    ];
+    if let Some(frame) = context
+        .identities
+        .get(&crate::composition::CompositionUidRole::FrameOfReference, 0)
+    {
+        operations.push(string_op("0020,0052", DicomVr::UI, frame)?);
+        operations.push(string_allow_empty_op("0020,1040", DicomVr::LO, "")?);
+    }
+    Ok(operations)
 }
 
 pub fn rt_input_from_recipe(
@@ -397,22 +458,27 @@ fn object_content(
 }
 
 fn object_operations(
-    object: &RtObjectParameters,
-    sources: &[SemanticSource],
+    parameters: &RtDocumentParameters,
+    context: &SemanticPlanContext,
 ) -> Result<Vec<AttributeOperation>, RtPlanError> {
-    match object {
-        RtObjectParameters::StructureSet(value) => structure_set_operations(value, sources),
-        RtObjectParameters::Dose(value) => dose_operations(value),
-        RtObjectParameters::Plan(value) => plan_operations(value),
-        RtObjectParameters::Image(value) => image_operations(value),
-        RtObjectParameters::CarmRadiation(value) => radiation_operations(value, sources),
-        RtObjectParameters::RadiationSet(value) => radiation_set_operations(value, sources),
+    match &parameters.object {
+        RtObjectParameters::StructureSet(value) => {
+            structure_set_operations(value, &parameters.label, context)
+        }
+        RtObjectParameters::Dose(value) => dose_operations(value, context),
+        RtObjectParameters::Plan(value) => plan_operations(value, context),
+        RtObjectParameters::Image(value) => image_operations(value, context),
+        RtObjectParameters::CarmRadiation(value) => radiation_operations(value, &context.sources),
+        RtObjectParameters::RadiationSet(value) => {
+            radiation_set_operations(value, &context.sources)
+        }
     }
 }
 
 fn structure_set_operations(
     value: &StructureSetParameters,
-    _sources: &[SemanticSource],
+    label: &str,
+    context: &SemanticPlanContext,
 ) -> Result<Vec<AttributeOperation>, RtPlanError> {
     if value.roi_number == 0
         || value.contour_number == 0
@@ -422,12 +488,39 @@ fn structure_set_operations(
     {
         return Err(RtPlanError::InvalidParameters);
     }
+    let [source] = context.sources.as_slice() else {
+        return Err(RtPlanError::SourceGraph);
+    };
+    let frame = context
+        .identities
+        .get(&crate::composition::CompositionUidRole::FrameOfReference, 0)
+        .ok_or(RtPlanError::SourceGraph)?;
     Ok(vec![
+        string_op("3006,0002", DicomVr::SH, label)?,
         string_op("3006,0004", DicomVr::LO, &value.structure_set_name)?,
+        string_op("3006,0008", DicomVr::DA, "20260101")?,
+        string_op("3006,0009", DicomVr::TM, "000000")?,
+        sequence_op(
+            "3006,0010",
+            vec![
+                string_op("0020,0052", DicomVr::UI, frame)?,
+                sequence_op(
+                    "3006,0012",
+                    vec![sequence_op(
+                        "3006,0014",
+                        vec![
+                            string_op("0020,000E", DicomVr::UI, &source.series_instance_uid)?,
+                            sequence_op("3006,0016", referenced_sop_attributes(source)?)?,
+                        ],
+                    )?],
+                )?,
+            ],
+        )?,
         sequence_op(
             "3006,0020",
             vec![
                 string_op("3006,0022", DicomVr::IS, &value.roi_number.to_string())?,
+                string_op("3006,0024", DicomVr::UI, frame)?,
                 string_op("3006,0026", DicomVr::LO, &value.roi_name)?,
                 string_op("3006,0036", DicomVr::CS, &value.generation_algorithm)?,
                 string_op("3006,0038", DicomVr::LO, &value.generation_description)?,
@@ -445,6 +538,7 @@ fn structure_set_operations(
                 sequence_op(
                     "3006,0040",
                     vec![
+                        sequence_op("3006,0016", referenced_sop_attributes(source)?)?,
                         string_op("3006,0048", DicomVr::IS, &value.contour_number.to_string())?,
                         string_op("3006,0042", DicomVr::CS, &value.contour_geometric_type)?,
                         string_op("3006,0046", DicomVr::IS, &value.contour_points.to_string())?,
@@ -466,10 +560,41 @@ fn structure_set_operations(
                 string_allow_empty_op("3006,00A6", DicomVr::PN, &value.interpreter)?,
             ],
         )?,
+        common_instance_reference(source)?,
     ])
 }
 
-fn dose_operations(value: &DoseParameters) -> Result<Vec<AttributeOperation>, RtPlanError> {
+fn referenced_sop_attributes(
+    source: &SemanticSource,
+) -> Result<Vec<AttributeOperation>, RtPlanError> {
+    Ok(vec![
+        string_op(
+            "0008,1150",
+            DicomVr::UI,
+            &source.reference.referenced_sop_class_uid,
+        )?,
+        string_op(
+            "0008,1155",
+            DicomVr::UI,
+            &source.reference.referenced_sop_instance_uid,
+        )?,
+    ])
+}
+
+fn common_instance_reference(source: &SemanticSource) -> Result<AttributeOperation, RtPlanError> {
+    sequence_op(
+        "0008,1115",
+        vec![
+            sequence_op("0008,114A", referenced_sop_attributes(source)?)?,
+            string_op("0020,000E", DicomVr::UI, &source.series_instance_uid)?,
+        ],
+    )
+}
+
+fn dose_operations(
+    value: &DoseParameters,
+    context: &SemanticPlanContext,
+) -> Result<Vec<AttributeOperation>, RtPlanError> {
     if value.rows == 0
         || value.columns == 0
         || value.frames == 0
@@ -477,10 +602,32 @@ fn dose_operations(value: &DoseParameters) -> Result<Vec<AttributeOperation>, Rt
     {
         return Err(RtPlanError::InvalidParameters);
     }
+    let image = context
+        .sources
+        .iter()
+        .find(|source| source.role == "source_image")
+        .ok_or(RtPlanError::SourceGraph)?;
+    let structure = context
+        .sources
+        .iter()
+        .find(|source| source.role == "referenced_structure_set")
+        .ok_or(RtPlanError::SourceGraph)?;
     Ok(vec![
+        multi_string_op(
+            "0008,0008",
+            DicomVr::CS,
+            ["DERIVED", "PRIMARY", "DOSE"]
+                .into_iter()
+                .map(str::to_owned),
+        )?,
+        string_op("0008,0023", DicomVr::DA, "20260101")?,
+        string_op("0008,0033", DicomVr::TM, "000000")?,
+        unsigned_op("0028,0002", DicomVr::US, 1)?,
+        string_op("0028,0004", DicomVr::CS, "MONOCHROME2")?,
         unsigned_op("0028,0010", DicomVr::US, value.rows.into())?,
         unsigned_op("0028,0011", DicomVr::US, value.columns.into())?,
         string_op("0028,0008", DicomVr::IS, &value.frames.to_string())?,
+        tag_op("0028,0009", "3004,000C")?,
         multi_string_op(
             "0028,0030",
             DicomVr::DS,
@@ -510,10 +657,16 @@ fn dose_operations(value: &DoseParameters) -> Result<Vec<AttributeOperation>, Rt
         unsigned_op("0028,0101", DicomVr::US, 16)?,
         unsigned_op("0028,0102", DicomVr::US, 15)?,
         unsigned_op("0028,0103", DicomVr::US, 0)?,
+        sequence_op("0008,1140", referenced_sop_attributes(image)?)?,
+        sequence_op("300C,0060", referenced_sop_attributes(structure)?)?,
+        common_instance_reference(image)?,
     ])
 }
 
-fn plan_operations(value: &PlanParameters) -> Result<Vec<AttributeOperation>, RtPlanError> {
+fn plan_operations(
+    value: &PlanParameters,
+    context: &SemanticPlanContext,
+) -> Result<Vec<AttributeOperation>, RtPlanError> {
     if value.fraction_group_number == 0
         || value.fractions_planned == 0
         || value.beam_number == 0
@@ -521,8 +674,57 @@ fn plan_operations(value: &PlanParameters) -> Result<Vec<AttributeOperation>, Rt
     {
         return Err(RtPlanError::InvalidParameters);
     }
+    let structure = context
+        .sources
+        .iter()
+        .find(|source| source.role == "referenced_structure_set")
+        .ok_or(RtPlanError::SourceGraph)?;
+    let dose = context
+        .sources
+        .iter()
+        .find(|source| source.role == "referenced_dose")
+        .ok_or(RtPlanError::SourceGraph)?;
+    let device = |kind| {
+        Ok::<_, RtPlanError>(vec![
+            string_op("300A,00B8", DicomVr::CS, kind)?,
+            string_op("300A,00BA", DicomVr::DS, "500")?,
+            string_op("300A,00BC", DicomVr::IS, "1")?,
+        ])
+    };
+    let jaw = |kind| {
+        Ok::<_, RtPlanError>(vec![
+            string_op("300A,00B8", DicomVr::CS, kind)?,
+            multi_string_op("300A,011C", DicomVr::DS, ["-50".into(), "50".into()])?,
+        ])
+    };
+    let first_control_point = vec![
+        string_op("300A,0112", DicomVr::IS, "0")?,
+        string_op("300A,0114", DicomVr::DS, "6")?,
+        sequence_items_op("300A,011A", vec![jaw("X")?, jaw("Y")?])?,
+        string_op("300A,011E", DicomVr::DS, "0")?,
+        string_op("300A,011F", DicomVr::CS, "NONE")?,
+        string_op("300A,0120", DicomVr::DS, "0")?,
+        string_op("300A,0121", DicomVr::CS, "NONE")?,
+        string_op("300A,0122", DicomVr::DS, "0")?,
+        string_op("300A,0123", DicomVr::CS, "NONE")?,
+        string_op("300A,0128", DicomVr::DS, "0")?,
+        string_op("300A,0129", DicomVr::DS, "0")?,
+        string_op("300A,012A", DicomVr::DS, "0")?,
+        multi_string_op(
+            "300A,012C",
+            DicomVr::DS,
+            ["0".into(), "0".into(), "0".into()],
+        )?,
+        string_op("300A,0134", DicomVr::DS, "0")?,
+        float32_op("300A,0140", 0.0)?,
+        string_op("300A,0142", DicomVr::CS, "NONE")?,
+        float32_op("300A,0144", 0.0)?,
+        string_op("300A,0146", DicomVr::CS, "NONE")?,
+    ];
     Ok(vec![
-        string_op("300A,0003", DicomVr::LO, &value.plan_name)?,
+        string_op("300A,0002", DicomVr::SH, "DTS_PLAN")?,
+        string_op("300A,0006", DicomVr::DA, "20260101")?,
+        string_op("300A,0007", DicomVr::TM, "000000")?,
         string_op("300A,000C", DicomVr::CS, &value.plan_geometry)?,
         sequence_op(
             "300A,0070",
@@ -537,6 +739,9 @@ fn plan_operations(value: &PlanParameters) -> Result<Vec<AttributeOperation>, Rt
                     DicomVr::IS,
                     &value.fractions_planned.to_string(),
                 )?,
+                string_op("300A,0080", DicomVr::IS, "1")?,
+                string_op("300A,00A0", DicomVr::IS, "0")?,
+                sequence_op("300C,0004", vec![string_op("300C,0006", DicomVr::IS, "1")?])?,
             ],
         )?,
         sequence_op(
@@ -547,17 +752,41 @@ fn plan_operations(value: &PlanParameters) -> Result<Vec<AttributeOperation>, Rt
                 string_op("300A,00C4", DicomVr::CS, &value.beam_type)?,
                 string_op("300A,00C6", DicomVr::CS, &value.radiation_type)?,
                 string_op("300A,00B2", DicomVr::SH, &value.treatment_machine_name)?,
+                string_op("300A,00B3", DicomVr::CS, "MU")?,
+                string_op("300A,00B4", DicomVr::DS, "1000")?,
+                sequence_items_op("300A,00B6", vec![device("X")?, device("Y")?])?,
                 string_op(
                     "300A,0110",
                     DicomVr::IS,
                     &value.control_point_count.to_string(),
                 )?,
+                string_op("300A,00CE", DicomVr::CS, "TREATMENT")?,
+                string_op("300A,00D0", DicomVr::IS, "0")?,
+                string_op("300A,00E0", DicomVr::IS, "0")?,
+                string_op("300A,00ED", DicomVr::IS, "0")?,
+                string_op("300A,00F0", DicomVr::IS, "0")?,
+                string_op("300A,010E", DicomVr::DS, "1")?,
+                sequence_items_op(
+                    "300A,0111",
+                    vec![
+                        first_control_point,
+                        vec![
+                            string_op("300A,0112", DicomVr::IS, "1")?,
+                            string_op("300A,0134", DicomVr::DS, "1")?,
+                        ],
+                    ],
+                )?,
             ],
         )?,
+        reference_sequence("300C,0060", structure)?,
+        reference_sequence("300C,0080", dose)?,
     ])
 }
 
-fn image_operations(value: &ImageParameters) -> Result<Vec<AttributeOperation>, RtPlanError> {
+fn image_operations(
+    value: &ImageParameters,
+    _context: &SemanticPlanContext,
+) -> Result<Vec<AttributeOperation>, RtPlanError> {
     if value.rows == 0 || value.columns == 0 || value.referenced_beam_number == 0 {
         return Err(RtPlanError::InvalidParameters);
     }
@@ -677,6 +906,22 @@ fn sequence_op(
     })
 }
 
+fn sequence_items_op(
+    tag: &str,
+    items: Vec<Vec<AttributeOperation>>,
+) -> Result<AttributeOperation, RtPlanError> {
+    Ok(AttributeOperation::Set {
+        address: address(tag)?,
+        vr: DicomVr::SQ,
+        value: AttributeValue::Sequence(
+            items
+                .into_iter()
+                .map(|attributes| AttributeItem { attributes })
+                .collect(),
+        ),
+    })
+}
+
 fn string_op(tag: &str, vr: DicomVr, value: &str) -> Result<AttributeOperation, RtPlanError> {
     if value.is_empty() || value.len() > 1024 * 1024 || value.chars().any(char::is_control) {
         return Err(RtPlanError::InvalidParameters);
@@ -720,6 +965,22 @@ fn unsigned_op(tag: &str, vr: DicomVr, value: u64) -> Result<AttributeOperation,
         address: address(tag)?,
         vr,
         value: AttributeValue::Primitive(PrimitiveValue::Unsigned(value)),
+    })
+}
+
+fn float32_op(tag: &str, value: f32) -> Result<AttributeOperation, RtPlanError> {
+    Ok(AttributeOperation::Set {
+        address: address(tag)?,
+        vr: DicomVr::FL,
+        value: AttributeValue::Primitive(PrimitiveValue::Float32Bits(value.to_bits())),
+    })
+}
+
+fn tag_op(tag: &str, value: &str) -> Result<AttributeOperation, RtPlanError> {
+    Ok(AttributeOperation::Set {
+        address: address(tag)?,
+        vr: DicomVr::AT,
+        value: AttributeValue::Primitive(PrimitiveValue::Tag(address(value)?)),
     })
 }
 

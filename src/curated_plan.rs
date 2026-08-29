@@ -1296,11 +1296,29 @@ fn semantic_sources(
                 .ok_or_else(|| {
                     CuratedPlanError::MissingImplementation(source.planned.logical_id.clone())
                 })?;
+            let study_instance_uid = source
+                .planned
+                .instance
+                .identities
+                .get(&CompositionUidRole::StudyInstance, 0)
+                .ok_or_else(|| {
+                    CuratedPlanError::MissingImplementation(source.planned.logical_id.clone())
+                })?;
+            let series_instance_uid = source
+                .planned
+                .instance
+                .identities
+                .get(&CompositionUidRole::SeriesInstance, 0)
+                .ok_or_else(|| {
+                    CuratedPlanError::MissingImplementation(source.planned.logical_id.clone())
+                })?;
             Ok(SemanticSource {
                 recipe: declaration.recipe.identity(),
                 recipe_artifact_logical_id: declaration.artifact_logical_id.clone(),
                 artifact_id: source.planned.logical_id.clone(),
                 role: declaration.role.clone(),
+                study_instance_uid: study_instance_uid.into(),
+                series_instance_uid: series_instance_uid.into(),
                 reference: MaterializedReference {
                     source_instance_id: target_id.into(),
                     target_instance_id: source.planned.logical_id.clone(),
@@ -1378,6 +1396,18 @@ fn semantic_context(
             .get(&role, 0)
             .map(str::to_owned)
     };
+    let rt_object_kind = recipe
+        .provider_parameters
+        .get("object")
+        .and_then(serde_json::Value::as_object)
+        .and_then(|object| object.get("kind"))
+        .and_then(serde_json::Value::as_str);
+    let referenced_object_index =
+        if matches!(rt_object_kind, Some("carm_radiation" | "radiation_set")) {
+            None
+        } else {
+            Some(0)
+        };
     let uid = |role| {
         deterministic_uid(&DeterministicUidInput {
             standards_lock_sha256,
@@ -1386,7 +1416,7 @@ fn semantic_context(
             run_seed: seed,
             file_index: 0,
             frame_index: None,
-            referenced_object_index: Some(0),
+            referenced_object_index,
             role,
         })
     };

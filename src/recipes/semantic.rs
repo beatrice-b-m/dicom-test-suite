@@ -24,6 +24,8 @@ pub struct SemanticSource {
     pub recipe_artifact_logical_id: String,
     pub artifact_id: String,
     pub role: String,
+    pub study_instance_uid: String,
+    pub series_instance_uid: String,
     pub reference: MaterializedReference,
 }
 
@@ -172,6 +174,8 @@ fn validate_context(context: &SemanticPlanContext) -> Result<(), SemanticPlanErr
     let mut artifacts = BTreeSet::new();
     for source in &context.sources {
         if source.role.is_empty()
+            || source.study_instance_uid.is_empty()
+            || source.series_instance_uid.is_empty()
             || source.recipe_artifact_logical_id.is_empty()
             || source.artifact_id.is_empty()
             || source.reference.source_instance_id != context.logical_id

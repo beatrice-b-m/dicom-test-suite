@@ -172,7 +172,9 @@ impl SrPlanProvider {
             )
             .map_err(|error| SrPlanError::Content(error.to_string()))?
             .attribute_operations;
-        operations.extend(common_operations(&input.parameters)?);
+        operations.retain(|operation| operation.address().normalized_tag() != "0008,1140");
+        operations.extend(common_operations(&input.parameters, &input.context)?);
+        operations.push(requested_procedure_evidence(&input.context)?);
         operations.push(content_tree(&input.parameters, &input.context)?);
         build_semantic_plan(
             &input.context,
@@ -358,8 +360,36 @@ fn validate_boundary(boundary: &HighDicomSrBoundary) -> Result<(), SrPlanError> 
 
 fn common_operations(
     parameters: &SrDocumentParameters,
+    context: &SemanticPlanContext,
 ) -> Result<Vec<AttributeOperation>, SrPlanError> {
-    Ok(vec![
+    let identity = |role| {
+        context
+            .identities
+            .get(&role, 0)
+            .ok_or(SrPlanError::SourceGraph)
+    };
+    let (modality, device, study_id) = match parameters.document {
+        SrDocumentKind::BasicText { .. } => ("SR", "DTS-SR-0001", "DTS-SR"),
+        SrDocumentKind::Comprehensive { .. } => ("SR", "DTS-SR-0002", "DTS-SR"),
+        SrDocumentKind::KeyObjectSelection { .. } => ("KO", "DTS-KOS-0001", "DTS-KOS"),
+        SrDocumentKind::Comprehensive3d { .. } | SrDocumentKind::Tid1500 { .. } => {
+            return Err(SrPlanError::ExternalDocumentRequiresImport);
+        }
+    };
+    let mut operations = vec![
+        string_op("0008,0060", DicomVr::CS, modality)?,
+        string_op("0018,1000", DicomVr::LO, device)?,
+        string_op(
+            "0020,000D",
+            DicomVr::UI,
+            identity(crate::composition::CompositionUidRole::StudyInstance)?,
+        )?,
+        string_op(
+            "0020,000E",
+            DicomVr::UI,
+            identity(crate::composition::CompositionUidRole::SeriesInstance)?,
+        )?,
+        string_op("0020,0010", DicomVr::SH, study_id)?,
         string_op("0020,0011", DicomVr::IS, &parameters.series_number)?,
         string_op(
             "0020,0013",
@@ -368,7 +398,124 @@ fn common_operations(
         )?,
         string_op("0040,A040", DicomVr::CS, "CONTAINER")?,
         string_op("0040,A050", DicomVr::CS, &parameters.continuity_of_content)?,
-    ])
+    ];
+    if let SrDocumentKind::KeyObjectSelection {
+        mapping_resource,
+        template_identifier,
+    } = &parameters.document
+    {
+        operations.push(sequence_items_op(
+            "0040,A504",
+            vec![vec![
+                string_op("0008,0105", DicomVr::CS, mapping_resource)?,
+                string_op("0040,DB00", DicomVr::CS, template_identifier)?,
+            ]],
+        )?);
+    }
+    Ok(operations)
+}
+
+fn requested_procedure_evidence(
+    context: &SemanticPlanContext,
+) -> Result<AttributeOperation, SrPlanError> {
+    let mut studies = Vec::<(String, Vec<(String, Vec<&super::semantic::SemanticSource>)>)>::new();
+    for source in &context.sources {
+        let study = source_identity(
+            source,
+            crate::composition::CompositionUidRole::StudyInstance,
+        )?;
+        let series = source_identity(
+            source,
+            crate::composition::CompositionUidRole::SeriesInstance,
+        )?;
+        let study_index = studies
+            .iter()
+            .position(|(uid, _)| uid == study)
+            .unwrap_or_else(|| {
+                studies.push((study.to_owned(), Vec::new()));
+                studies.len() - 1
+            });
+        let series_rows = &mut studies[study_index].1;
+        let series_index = series_rows
+            .iter()
+            .position(|(uid, _)| uid == series)
+            .unwrap_or_else(|| {
+                series_rows.push((series.to_owned(), Vec::new()));
+                series_rows.len() - 1
+            });
+        series_rows[series_index].1.push(source);
+    }
+    sequence_items_op(
+        "0040,A375",
+        studies
+            .into_iter()
+            .map(|(study_uid, series)| {
+                Ok(vec![
+                    sequence_items_op(
+                        "0008,1115",
+                        series
+                            .into_iter()
+                            .map(|(series_uid, sources)| {
+                                Ok(vec![
+                                    sequence_items_op(
+                                        "0008,1199",
+                                        sources
+                                            .into_iter()
+                                            .map(|source| {
+                                                Ok(vec![
+                                                    string_op(
+                                                        "0008,1150",
+                                                        DicomVr::UI,
+                                                        &source.reference.referenced_sop_class_uid,
+                                                    )?,
+                                                    string_op(
+                                                        "0008,1155",
+                                                        DicomVr::UI,
+                                                        &source
+                                                            .reference
+                                                            .referenced_sop_instance_uid,
+                                                    )?,
+                                                ])
+                                            })
+                                            .collect::<Result<Vec<_>, SrPlanError>>()?,
+                                    )?,
+                                    string_op("0020,000E", DicomVr::UI, &series_uid)?,
+                                ])
+                            })
+                            .collect::<Result<Vec<_>, SrPlanError>>()?,
+                    )?,
+                    string_op("0020,000D", DicomVr::UI, &study_uid)?,
+                ])
+            })
+            .collect::<Result<Vec<_>, SrPlanError>>()?,
+    )
+}
+
+fn source_identity(
+    source: &super::semantic::SemanticSource,
+    role: crate::composition::CompositionUidRole,
+) -> Result<&str, SrPlanError> {
+    match role {
+        crate::composition::CompositionUidRole::StudyInstance => Ok(&source.study_instance_uid),
+        crate::composition::CompositionUidRole::SeriesInstance => Ok(&source.series_instance_uid),
+        _ => Err(SrPlanError::SourceGraph),
+    }
+}
+
+fn sequence_items_op(
+    tag: &str,
+    items: Vec<Vec<AttributeOperation>>,
+) -> Result<AttributeOperation, SrPlanError> {
+    Ok(AttributeOperation::Set {
+        address: address(tag)?,
+        vr: DicomVr::SQ,
+        value: AttributeValue::Sequence(
+            items
+                .into_iter()
+                .map(|attributes| AttributeItem { attributes })
+                .collect(),
+        ),
+    })
 }
 
 fn content_tree(
@@ -409,7 +556,7 @@ fn content_tree(
         SrDocumentKind::KeyObjectSelection { .. } => context
             .sources
             .iter()
-            .map(|source| image_item(&parameters.title, source))
+            .map(image_item_without_concept)
             .collect::<Result<Vec<_>, _>>()?,
         SrDocumentKind::Comprehensive3d { .. } | SrDocumentKind::Tid1500 { .. } => {
             return Err(SrPlanError::ExternalDocumentRequiresImport);
@@ -420,6 +567,17 @@ fn content_tree(
         vr: DicomVr::SQ,
         value: AttributeValue::Sequence(items),
     })
+}
+
+fn image_item_without_concept(
+    source: &super::semantic::SemanticSource,
+) -> Result<AttributeItem, SrPlanError> {
+    let mut attributes = vec![
+        string_op("0040,A010", DicomVr::CS, "CONTAINS")?,
+        string_op("0040,A040", DicomVr::CS, "IMAGE")?,
+    ];
+    attributes.push(referenced_sop_sequence(source)?);
+    Ok(AttributeItem { attributes })
 }
 
 fn measured_value_op(value: &str, units: &CodedConcept) -> Result<AttributeOperation, SrPlanError> {
@@ -439,6 +597,20 @@ fn image_item(
     concept: &CodedConcept,
     source: &super::semantic::SemanticSource,
 ) -> Result<AttributeItem, SrPlanError> {
+    let referenced = referenced_sop_sequence(source)?;
+    Ok(AttributeItem {
+        attributes: vec![
+            string_op("0040,A010", DicomVr::CS, "CONTAINS")?,
+            string_op("0040,A040", DicomVr::CS, "IMAGE")?,
+            code_op("0040,A043", concept)?,
+            referenced,
+        ],
+    })
+}
+
+fn referenced_sop_sequence(
+    source: &super::semantic::SemanticSource,
+) -> Result<AttributeOperation, SrPlanError> {
     let mut referenced = vec![
         string_op(
             "0008,1150",
@@ -464,19 +636,12 @@ fn image_item(
                 .join("\\"),
         )?);
     }
-    Ok(AttributeItem {
-        attributes: vec![
-            string_op("0040,A010", DicomVr::CS, "CONTAINS")?,
-            string_op("0040,A040", DicomVr::CS, "IMAGE")?,
-            code_op("0040,A043", concept)?,
-            AttributeOperation::Set {
-                address: address("0008,1199")?,
-                vr: DicomVr::SQ,
-                value: AttributeValue::Sequence(vec![AttributeItem {
-                    attributes: referenced,
-                }]),
-            },
-        ],
+    Ok(AttributeOperation::Set {
+        address: address("0008,1199")?,
+        vr: DicomVr::SQ,
+        value: AttributeValue::Sequence(vec![AttributeItem {
+            attributes: referenced,
+        }]),
     })
 }
 

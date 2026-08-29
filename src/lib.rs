@@ -55,6 +55,7 @@ mod metadata;
 pub mod mutation;
 pub mod negative;
 pub mod part10_locator;
+pub mod planning;
 pub mod protocol;
 pub mod protocol_baseline;
 pub(crate) mod rt_manifest;

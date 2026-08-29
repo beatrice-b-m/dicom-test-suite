@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::fs::{self, File, OpenOptions};
-use std::io::{Read, Write};
+use std::io::{BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 
 use dicom_core::value::{
@@ -10,10 +10,14 @@ use dicom_core::value::{
 use dicom_core::{DataElement, Tag};
 use dicom_dictionary_std::{StandardDataDictionary, tags};
 use dicom_object::{FileMetaTableBuilder, InMemDicomObject, open_file};
+use dicom_transfer_syntax_registry::{TransferSyntaxIndex, TransferSyntaxRegistry};
 
 use super::{
     AttributeAddress, AttributeItem, AttributeValue, CompositionUidRole, ContentMaterialization,
     DicomVr, PrimitiveValue, ResolvedAttribute, ResolvedInstancePlan,
+};
+use crate::corpus_plan::{
+    EncodingPlan, FileMetaPolicy, ItemLengthPolicy, PreamblePolicy, SequenceLengthPolicy,
 };
 use crate::{IMPLEMENTATION_VERSION_NAME, sha256_hex};
 
@@ -44,14 +48,48 @@ impl Part10Materializer {
         self.materialize_cancellable(plan, path, &|| false)
     }
 
+    pub fn materialize_with_encoding(
+        &self,
+        plan: &ResolvedInstancePlan,
+        encoding: &EncodingPlan,
+        path: impl AsRef<Path>,
+    ) -> Result<(), MaterializeError> {
+        self.materialize_with_encoding_cancellable(plan, encoding, path, &|| false)
+            .map(|_| ())
+    }
+
     pub fn materialize_cancellable(
         &self,
         plan: &ResolvedInstancePlan,
         path: impl AsRef<Path>,
         is_cancelled: &dyn Fn() -> bool,
     ) -> Result<MaterializeOutcome, MaterializeError> {
+        self.materialize_internal(plan, None, path, is_cancelled)
+    }
+
+    /// Materialize a resolved instance using the complete neutral encoding
+    /// policy. Compatibility entry points above retain the historical writer
+    /// defaults byte-for-byte.
+    pub fn materialize_with_encoding_cancellable(
+        &self,
+        plan: &ResolvedInstancePlan,
+        encoding: &EncodingPlan,
+        path: impl AsRef<Path>,
+        is_cancelled: &dyn Fn() -> bool,
+    ) -> Result<MaterializeOutcome, MaterializeError> {
+        self.materialize_internal(plan, Some(encoding), path, is_cancelled)
+    }
+
+    fn materialize_internal(
+        &self,
+        plan: &ResolvedInstancePlan,
+        encoding: Option<&EncodingPlan>,
+        path: impl AsRef<Path>,
+        is_cancelled: &dyn Fn() -> bool,
+    ) -> Result<MaterializeOutcome, MaterializeError> {
         let path = path.as_ref();
         check_materialization_cancelled(is_cancelled)?;
+        validate_encoding_policy(plan, encoding)?;
         if path.exists() {
             return Err(MaterializeError::OutputExists(path.to_path_buf()));
         }
@@ -106,16 +144,31 @@ impl Part10Materializer {
             sop_instance_uid,
         )?;
 
-        object
-            .with_meta(
-                FileMetaTableBuilder::new()
-                    .transfer_syntax(&plan.transfer_syntax_uid)
-                    .implementation_class_uid(implementation_class_uid)
-                    .implementation_version_name(IMPLEMENTATION_VERSION_NAME),
-            )
-            .map_err(|error| MaterializeError::Dicom(error.to_string()))?
-            .write_to_file(path)
+        let implementation_version = encoding
+            .map(|value| value.implementation.version_name.as_deref())
+            .unwrap_or(Some(IMPLEMENTATION_VERSION_NAME));
+        let mut meta = FileMetaTableBuilder::new()
+            .transfer_syntax(&plan.transfer_syntax_uid)
+            .implementation_class_uid(implementation_class_uid);
+        if let Some(version) = implementation_version {
+            meta = meta.implementation_version_name(version);
+        }
+        let file_object = object
+            .with_meta(meta)
             .map_err(|error| MaterializeError::Dicom(error.to_string()))?;
+        if encoding.is_none()
+            || encoding.is_some_and(|value| {
+                value.preamble == PreamblePolicy::ZeroFilled
+                    && value.sequence_length == SequenceLengthPolicy::WriterDefault
+                    && value.item_length == ItemLengthPolicy::WriterDefault
+            })
+        {
+            file_object
+                .write_to_file(path)
+                .map_err(|error| MaterializeError::Dicom(error.to_string()))?;
+        } else {
+            write_with_encoding(&file_object, encoding.expect("checked above"), path)?;
+        }
         check_materialization_cancelled(is_cancelled)?;
 
         if let Some(content) = stream_content {
@@ -128,14 +181,361 @@ impl Part10Materializer {
         if reopened.meta().transfer_syntax() != plan.transfer_syntax_uid
             || reopened.meta().media_storage_sop_class_uid() != plan.sop_class_uid
             || reopened.meta().media_storage_sop_instance_uid() != sop_instance_uid
+            || reopened.meta().implementation_class_uid() != implementation_class_uid
+            || reopened.meta().implementation_version_name.as_deref() != implementation_version
         {
             return Err(MaterializeError::IdentityRoundTrip);
+        }
+        if let Some(encoding) = encoding {
+            let bytes = fs::read(path).map_err(|source| MaterializeError::Io {
+                path: path.to_path_buf(),
+                source,
+            })?;
+            let preamble = bytes
+                .get(..128)
+                .ok_or_else(|| MaterializeError::Dicom("truncated Part 10 preamble".into()))?;
+            let valid = match encoding.preamble {
+                PreamblePolicy::ZeroFilled => preamble.iter().all(|byte| *byte == 0),
+                PreamblePolicy::DeterministicNonZero => preamble.iter().all(|byte| *byte != 0),
+            };
+            if !valid {
+                return Err(MaterializeError::PreambleRoundTrip);
+            }
         }
         Ok(MaterializeOutcome {
             streamed_slots: stream_content
                 .map(|content| vec![content.slot.clone()])
                 .unwrap_or_default(),
         })
+    }
+}
+
+fn validate_encoding_policy(
+    plan: &ResolvedInstancePlan,
+    encoding: Option<&EncodingPlan>,
+) -> Result<(), MaterializeError> {
+    let Some(encoding) = encoding else {
+        return Ok(());
+    };
+    encoding
+        .validate()
+        .map_err(|error| MaterializeError::UnsupportedEncodingPolicy(error.to_string()))?;
+    if encoding.transfer_syntax_uid != plan.transfer_syntax_uid {
+        return Err(MaterializeError::UnsupportedEncodingPolicy(
+            "encoding and resolved-plan transfer syntaxes differ".into(),
+        ));
+    }
+    let implementation = plan
+        .identities
+        .get(&CompositionUidRole::ImplementationClass, 0)
+        .ok_or(MaterializeError::MissingIdentity(
+            "implementation_class_uid",
+        ))?;
+    if implementation != encoding.implementation.class_uid {
+        return Err(MaterializeError::UnsupportedEncodingPolicy(
+            "encoding and resolved-plan implementation class UIDs differ".into(),
+        ));
+    }
+    if !matches!(encoding.file_meta, FileMetaPolicy::Standard) {
+        return Err(MaterializeError::UnsupportedEncodingPolicy(
+            "unsupported File Meta policy".into(),
+        ));
+    }
+    if matches!(
+        encoding.sequence_length,
+        SequenceLengthPolicy::PreserveDeclared
+    ) || matches!(encoding.item_length, ItemLengthPolicy::PreserveDeclared)
+    {
+        return Err(MaterializeError::UnsupportedEncodingPolicy(
+            "preserve-declared lengths require a declared-length source".into(),
+        ));
+    }
+    let requires_length_rewrite = encoding.sequence_length != SequenceLengthPolicy::WriterDefault
+        || encoding.item_length != ItemLengthPolicy::WriterDefault;
+    if requires_length_rewrite
+        && encoding.transfer_syntax_uid != crate::part10_locator::EXPLICIT_VR_LITTLE_ENDIAN_UID
+    {
+        return Err(MaterializeError::UnsupportedEncodingPolicy(
+            "explicit sequence/item length control currently requires Explicit VR Little Endian"
+                .into(),
+        ));
+    }
+    Ok(())
+}
+
+fn write_with_encoding(
+    file_object: &dicom_object::FileDicomObject<Dataset>,
+    encoding: &EncodingPlan,
+    path: &Path,
+) -> Result<(), MaterializeError> {
+    let transfer_syntax = TransferSyntaxRegistry
+        .get(&encoding.transfer_syntax_uid)
+        .ok_or_else(|| {
+            MaterializeError::UnsupportedEncodingPolicy(format!(
+                "unregistered transfer syntax {}",
+                encoding.transfer_syntax_uid
+            ))
+        })?;
+    let mut dataset = Vec::new();
+    file_object
+        .write_dataset_with_ts(&mut dataset, transfer_syntax)
+        .map_err(|error| MaterializeError::Dicom(error.to_string()))?;
+    if encoding.sequence_length != SequenceLengthPolicy::WriterDefault
+        || encoding.item_length != ItemLengthPolicy::WriterDefault
+    {
+        dataset = rewrite_explicit_vr_le_lengths(
+            &dataset,
+            encoding.sequence_length,
+            encoding.item_length,
+        )?;
+    }
+
+    let file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+        .map_err(|source| MaterializeError::Io {
+            path: path.to_path_buf(),
+            source,
+        })?;
+    let mut writer = BufWriter::new(file);
+    let preamble = match encoding.preamble {
+        PreamblePolicy::ZeroFilled => [0_u8; 128],
+        PreamblePolicy::DeterministicNonZero => {
+            let mut value = [0_u8; 128];
+            let seed = encoding.implementation.class_uid.as_bytes();
+            for (index, byte) in value.iter_mut().enumerate() {
+                *byte = seed[index % seed.len()].max(1);
+            }
+            value
+        }
+    };
+    writer
+        .write_all(&preamble)
+        .and_then(|_| writer.write_all(b"DICM"))
+        .map_err(|source| MaterializeError::Io {
+            path: path.to_path_buf(),
+            source,
+        })?;
+    file_object
+        .write_meta(&mut writer)
+        .map_err(|error| MaterializeError::Dicom(error.to_string()))?;
+    writer
+        .write_all(&dataset)
+        .and_then(|_| writer.flush())
+        .map_err(|source| MaterializeError::Io {
+            path: path.to_path_buf(),
+            source,
+        })
+}
+
+fn rewrite_explicit_vr_le_lengths(
+    input: &[u8],
+    sequence_policy: SequenceLengthPolicy,
+    item_policy: ItemLengthPolicy,
+) -> Result<Vec<u8>, MaterializeError> {
+    rewrite_explicit_dataset(input, sequence_policy, item_policy, None).map(|(bytes, _)| bytes)
+}
+
+fn rewrite_explicit_dataset(
+    input: &[u8],
+    sequence_policy: SequenceLengthPolicy,
+    item_policy: ItemLengthPolicy,
+    stop_tag: Option<[u8; 4]>,
+) -> Result<(Vec<u8>, usize), MaterializeError> {
+    let mut output = Vec::new();
+    let mut offset = 0usize;
+    while offset < input.len() {
+        let tag: [u8; 4] = input
+            .get(offset..offset + 4)
+            .and_then(|value| value.try_into().ok())
+            .ok_or_else(|| MaterializeError::Dicom("truncated dataset tag".into()))?;
+        if stop_tag == Some(tag) {
+            let end = offset
+                .checked_add(8)
+                .ok_or(MaterializeError::NumericRange)?;
+            if input.get(offset + 4..end) != Some(&[0, 0, 0, 0]) {
+                return Err(MaterializeError::Dicom(
+                    "invalid sequence/item delimiter".into(),
+                ));
+            }
+            return Ok((output, end));
+        }
+        if tag[0..2] == [0xfe, 0xff] {
+            return Err(MaterializeError::Dicom(
+                "unexpected item token in dataset".into(),
+            ));
+        }
+        let vr = input
+            .get(offset + 4..offset + 6)
+            .ok_or_else(|| MaterializeError::Dicom("truncated explicit VR".into()))?;
+        let long = matches!(
+            vr,
+            b"OB" | b"OD" | b"OF" | b"OL" | b"OV" | b"OW" | b"SQ" | b"UC" | b"UR" | b"UT" | b"UN"
+        );
+        let header_len = if long { 12 } else { 8 };
+        let length = if long {
+            u32::from_le_bytes(
+                input
+                    .get(offset + 8..offset + 12)
+                    .and_then(|value| value.try_into().ok())
+                    .ok_or_else(|| MaterializeError::Dicom("truncated value length".into()))?,
+            )
+        } else {
+            u16::from_le_bytes(
+                input
+                    .get(offset + 6..offset + 8)
+                    .and_then(|value| value.try_into().ok())
+                    .ok_or_else(|| MaterializeError::Dicom("truncated value length".into()))?,
+            ) as u32
+        };
+        if vr == b"SQ" {
+            let (sequence_value, consumed) = rewrite_sequence(
+                &input[offset + header_len..],
+                length,
+                sequence_policy,
+                item_policy,
+            )?;
+            output.extend_from_slice(&input[offset..offset + 8]);
+            let defined = matches!(sequence_policy, SequenceLengthPolicy::Defined);
+            output.extend_from_slice(
+                &(if defined {
+                    u32::try_from(sequence_value.len())
+                        .map_err(|_| MaterializeError::NumericRange)?
+                } else {
+                    u32::MAX
+                })
+                .to_le_bytes(),
+            );
+            output.extend_from_slice(&sequence_value);
+            if !defined {
+                output.extend_from_slice(&[0xfe, 0xff, 0xdd, 0xe0, 0, 0, 0, 0]);
+            }
+            offset = offset
+                .checked_add(header_len)
+                .and_then(|value| value.checked_add(consumed))
+                .ok_or(MaterializeError::NumericRange)?;
+        } else if length == u32::MAX {
+            // Encapsulated Pixel Data is already fully governed by the
+            // fragmentation policy and must remain byte-identical here.
+            let end = find_undefined_value_end(&input[offset + header_len..])?;
+            output.extend_from_slice(&input[offset..offset + header_len + end]);
+            offset += header_len + end;
+        } else {
+            let end = offset
+                .checked_add(header_len)
+                .and_then(|value| value.checked_add(length as usize))
+                .ok_or(MaterializeError::NumericRange)?;
+            let bytes = input
+                .get(offset..end)
+                .ok_or_else(|| MaterializeError::Dicom("truncated element value".into()))?;
+            output.extend_from_slice(bytes);
+            offset = end;
+        }
+    }
+    if stop_tag.is_some() {
+        return Err(MaterializeError::Dicom("missing dataset delimiter".into()));
+    }
+    Ok((output, offset))
+}
+
+fn rewrite_sequence(
+    input: &[u8],
+    declared_length: u32,
+    sequence_policy: SequenceLengthPolicy,
+    item_policy: ItemLengthPolicy,
+) -> Result<(Vec<u8>, usize), MaterializeError> {
+    let limit = if declared_length == u32::MAX {
+        input.len()
+    } else {
+        usize::try_from(declared_length).map_err(|_| MaterializeError::NumericRange)?
+    };
+    let mut output = Vec::new();
+    let mut offset = 0usize;
+    while offset < limit {
+        let tag = input
+            .get(offset..offset + 4)
+            .ok_or_else(|| MaterializeError::Dicom("truncated sequence item".into()))?;
+        if tag == [0xfe, 0xff, 0xdd, 0xe0] {
+            return Ok((output, offset + 8));
+        }
+        if tag != [0xfe, 0xff, 0x00, 0xe0] {
+            return Err(MaterializeError::Dicom(
+                "sequence item tag is missing".into(),
+            ));
+        }
+        let length = u32::from_le_bytes(
+            input
+                .get(offset + 4..offset + 8)
+                .and_then(|value| value.try_into().ok())
+                .ok_or_else(|| MaterializeError::Dicom("truncated item length".into()))?,
+        );
+        let (item, consumed) = if length == u32::MAX {
+            rewrite_explicit_dataset(
+                &input[offset + 8..],
+                sequence_policy,
+                item_policy,
+                Some([0xfe, 0xff, 0x0d, 0xe0]),
+            )?
+        } else {
+            let length = length as usize;
+            let (item, _) = rewrite_explicit_dataset(
+                input
+                    .get(offset + 8..offset + 8 + length)
+                    .ok_or_else(|| MaterializeError::Dicom("truncated item value".into()))?,
+                sequence_policy,
+                item_policy,
+                None,
+            )?;
+            (item, length)
+        };
+        let defined = matches!(item_policy, ItemLengthPolicy::Defined);
+        output.extend_from_slice(&[0xfe, 0xff, 0x00, 0xe0]);
+        output.extend_from_slice(
+            &(if defined {
+                u32::try_from(item.len()).map_err(|_| MaterializeError::NumericRange)?
+            } else {
+                u32::MAX
+            })
+            .to_le_bytes(),
+        );
+        output.extend_from_slice(&item);
+        if !defined {
+            output.extend_from_slice(&[0xfe, 0xff, 0x0d, 0xe0, 0, 0, 0, 0]);
+        }
+        offset += 8 + consumed;
+        if declared_length != u32::MAX && offset == limit {
+            return Ok((output, offset));
+        }
+    }
+    if declared_length == u32::MAX {
+        Err(MaterializeError::Dicom("missing sequence delimiter".into()))
+    } else {
+        Ok((output, offset))
+    }
+}
+
+fn find_undefined_value_end(input: &[u8]) -> Result<usize, MaterializeError> {
+    let mut offset = 0usize;
+    loop {
+        let tag = input
+            .get(offset..offset + 4)
+            .ok_or_else(|| MaterializeError::Dicom("truncated undefined value".into()))?;
+        let length = u32::from_le_bytes(
+            input
+                .get(offset + 4..offset + 8)
+                .and_then(|value| value.try_into().ok())
+                .ok_or_else(|| MaterializeError::Dicom("truncated item length".into()))?,
+        ) as usize;
+        offset = offset
+            .checked_add(8)
+            .ok_or(MaterializeError::NumericRange)?;
+        if tag == [0xfe, 0xff, 0xdd, 0xe0] {
+            return Ok(offset);
+        }
+        offset = offset
+            .checked_add(length)
+            .ok_or(MaterializeError::NumericRange)?;
     }
 }
 
@@ -714,7 +1114,9 @@ pub enum MaterializeError {
     UnresolvedNestedOperation,
     NumericRange,
     StructuralConflict(String),
+    UnsupportedEncodingPolicy(String),
     IdentityRoundTrip,
+    PreambleRoundTrip,
     Io {
         path: PathBuf,
         source: std::io::Error,
@@ -736,6 +1138,10 @@ mod tests {
 
     use super::*;
     use crate::composition::{AttributeItem, IdentityAllocator, TemplateId, ValueOrigin};
+    use crate::corpus_plan::{
+        FileMetaPolicy, FragmentationPolicy, ImplementationIdentityPlan, ItemLengthPolicy,
+        OffsetTablePolicy, PreamblePolicy, SequenceLengthPolicy,
+    };
 
     static NEXT: AtomicU64 = AtomicU64::new(0);
     const LOCK_HASH: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
@@ -799,6 +1205,27 @@ mod tests {
                 materialization: Some(ContentMaterialization::Inline(pixel_bytes)),
             }],
             references: vec![],
+        }
+    }
+
+    fn encoding(plan: &ResolvedInstancePlan) -> EncodingPlan {
+        EncodingPlan {
+            transfer_syntax_uid: plan.transfer_syntax_uid.clone(),
+            sequence_length: SequenceLengthPolicy::WriterDefault,
+            item_length: ItemLengthPolicy::WriterDefault,
+            fragmentation: FragmentationPolicy::Native,
+            offset_table: OffsetTablePolicy::NotApplicable,
+            preamble: PreamblePolicy::ZeroFilled,
+            file_meta: FileMetaPolicy::Standard,
+            implementation: ImplementationIdentityPlan {
+                class_uid: plan
+                    .identities
+                    .get(&CompositionUidRole::ImplementationClass, 0)
+                    .unwrap()
+                    .into(),
+                version_name: Some(IMPLEMENTATION_VERSION_NAME.into()),
+            },
+            backend_id: "dicom-rs.part10".into(),
         }
     }
 
@@ -975,5 +1402,201 @@ mod tests {
             Err(MaterializeError::ContentHash { .. })
         ));
         assert!(!path.exists());
+    }
+
+    #[test]
+    fn compatibility_encoding_policy_preserves_exact_part10_bytes() {
+        let suffix = NEXT.fetch_add(1, Ordering::Relaxed);
+        let legacy = std::env::temp_dir().join(format!("dts-part10-legacy-{suffix}.dcm"));
+        let encoded = std::env::temp_dir().join(format!("dts-part10-policy-{suffix}.dcm"));
+        let plan = plan(vec![0, 1, 2, 3]);
+        Part10Materializer.materialize(&plan, &legacy).unwrap();
+        Part10Materializer
+            .materialize_with_encoding(&plan, &encoding(&plan), &encoded)
+            .unwrap();
+        assert_eq!(fs::read(&legacy).unwrap(), fs::read(&encoded).unwrap());
+        fs::remove_file(legacy).unwrap();
+        fs::remove_file(encoded).unwrap();
+    }
+
+    #[test]
+    fn writes_deterministic_nonzero_preamble_and_planned_file_meta_identity() {
+        let path = std::env::temp_dir().join(format!(
+            "dts-part10-preamble-{}.dcm",
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        let plan = plan(vec![0, 1]);
+        let mut encoding = encoding(&plan);
+        encoding.preamble = PreamblePolicy::DeterministicNonZero;
+        encoding.implementation.version_name = Some("DTSU34".into());
+        Part10Materializer
+            .materialize_with_encoding(&plan, &encoding, &path)
+            .unwrap();
+        let bytes = fs::read(&path).unwrap();
+        assert!(bytes[..128].iter().all(|byte| *byte != 0));
+        assert_eq!(&bytes[128..132], b"DICM");
+        let object = open_file(&path).unwrap();
+        assert_eq!(
+            object.meta().implementation_class_uid(),
+            encoding.implementation.class_uid
+        );
+        assert_eq!(
+            object.meta().implementation_version_name.as_deref(),
+            Some("DTSU34")
+        );
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn writes_exact_defined_and_undefined_sequence_item_headers() {
+        for (sequence, item, expected_sequence, expected_item, delimiters) in [
+            (
+                SequenceLengthPolicy::Defined,
+                ItemLengthPolicy::Defined,
+                false,
+                false,
+                false,
+            ),
+            (
+                SequenceLengthPolicy::Undefined,
+                ItemLengthPolicy::Undefined,
+                true,
+                true,
+                true,
+            ),
+        ] {
+            let path = std::env::temp_dir().join(format!(
+                "dts-part10-lengths-{}.dcm",
+                NEXT.fetch_add(1, Ordering::Relaxed)
+            ));
+            let plan = plan(vec![0, 1]);
+            let mut encoding = encoding(&plan);
+            encoding.sequence_length = sequence;
+            encoding.item_length = item;
+            Part10Materializer
+                .materialize_with_encoding(&plan, &encoding, &path)
+                .unwrap();
+            let bytes = fs::read(&path).unwrap();
+            let tag = [0x08, 0x00, 0x15, 0x11, b'S', b'Q', 0, 0];
+            let offset = bytes
+                .windows(tag.len())
+                .position(|value| value == tag)
+                .unwrap();
+            assert_eq!(
+                &bytes[offset + 8..offset + 12] == &[0xff; 4],
+                expected_sequence
+            );
+            assert_eq!(&bytes[offset + 12..offset + 16], &[0xfe, 0xff, 0x00, 0xe0]);
+            assert_eq!(
+                &bytes[offset + 16..offset + 20] == &[0xff; 4],
+                expected_item
+            );
+            let tail = &bytes[offset..];
+            assert_eq!(
+                tail.windows(4)
+                    .any(|value| value == [0xfe, 0xff, 0x0d, 0xe0]),
+                delimiters
+            );
+            assert_eq!(
+                tail.windows(4)
+                    .any(|value| value == [0xfe, 0xff, 0xdd, 0xe0]),
+                delimiters
+            );
+            open_file(&path).unwrap();
+            fs::remove_file(path).unwrap();
+        }
+    }
+
+    #[test]
+    fn rejects_unrepresentable_policy_before_creating_output_parent() {
+        let root = std::env::temp_dir().join(format!(
+            "dts-part10-policy-reject-{}",
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        let path = root.join("nested/output.dcm");
+        let plan = plan(vec![0, 1]);
+        let mut encoding = encoding(&plan);
+        encoding.sequence_length = SequenceLengthPolicy::PreserveDeclared;
+        assert!(matches!(
+            Part10Materializer.materialize_with_encoding(&plan, &encoding, &path),
+            Err(MaterializeError::UnsupportedEncodingPolicy(_))
+        ));
+        assert!(!root.exists());
+    }
+
+    #[test]
+    fn preserves_native_payload_bytes_for_little_and_big_endian_transfer_syntaxes() {
+        for (uid, backend, expected_header) in [
+            (
+                "1.2.840.10008.1.2.1",
+                "dicom-rs.part10",
+                vec![0xe0, 0x7f, 0x10, 0x00, b'O', b'B', 0, 0, 2, 0, 0, 0],
+            ),
+            (
+                "1.2.840.10008.1.2.2",
+                "encoding.native.explicit_vr_big_endian",
+                vec![0x7f, 0xe0, 0x00, 0x10, b'O', b'B', 0, 0, 0, 0, 0, 2],
+            ),
+        ] {
+            let path = std::env::temp_dir().join(format!(
+                "dts-part10-native-endian-{}.dcm",
+                NEXT.fetch_add(1, Ordering::Relaxed)
+            ));
+            let mut plan = plan(vec![0x12, 0x34]);
+            plan.transfer_syntax_uid = uid.into();
+            let mut encoding = encoding(&plan);
+            encoding.backend_id = backend.into();
+            Part10Materializer
+                .materialize_with_encoding(&plan, &encoding, &path)
+                .unwrap();
+            let bytes = fs::read(&path).unwrap();
+            let offset = bytes
+                .windows(expected_header.len())
+                .position(|value| value == expected_header)
+                .unwrap();
+            assert_eq!(
+                &bytes[offset + expected_header.len()..offset + expected_header.len() + 2],
+                &[0x12, 0x34]
+            );
+            fs::remove_file(path).unwrap();
+        }
+    }
+
+    #[test]
+    fn preserves_signed_and_unsigned_pixel_padding_value_encodings() {
+        let path = std::env::temp_dir().join(format!(
+            "dts-part10-padding-{}.dcm",
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        let mut plan = plan(vec![0, 1]);
+        plan.attributes.extend([
+            ResolvedAttribute {
+                address: AttributeAddress::from_normalized_tag("0028,0120").unwrap(),
+                vr: DicomVr::SS,
+                value: Some(AttributeValue::Primitive(PrimitiveValue::Signed(-1))),
+                origin: ValueOrigin::InstanceOverride,
+            },
+            ResolvedAttribute {
+                address: AttributeAddress::from_normalized_tag("0028,0121").unwrap(),
+                vr: DicomVr::US,
+                value: Some(AttributeValue::Primitive(PrimitiveValue::Unsigned(65535))),
+                origin: ValueOrigin::InstanceOverride,
+            },
+        ]);
+        Part10Materializer
+            .materialize_with_encoding(&plan, &encoding(&plan), &path)
+            .unwrap();
+        let bytes = fs::read(&path).unwrap();
+        assert!(
+            bytes
+                .windows(10)
+                .any(|value| { value == [0x28, 0x00, 0x20, 0x01, b'S', b'S', 2, 0, 0xff, 0xff] })
+        );
+        assert!(
+            bytes
+                .windows(10)
+                .any(|value| { value == [0x28, 0x00, 0x21, 0x01, b'U', b'S', 2, 0, 0xff, 0xff] })
+        );
+        fs::remove_file(path).unwrap();
     }
 }

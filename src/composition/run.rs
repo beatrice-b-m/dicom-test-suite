@@ -1056,4 +1056,96 @@ mod tests {
         assert!(!wrong_out.exists());
         fs::remove_dir_all(root).unwrap();
     }
+
+    #[test]
+    fn p3_6_defaults_materialize_and_are_byte_stable() {
+        let first = output("p3-6-repro-a");
+        let second = output("p3-6-repro-b");
+        for out in [&first, &second] {
+            let (summary, _) = compose(&ComposeOptions {
+                spec_path: "tests/fixtures/composition/valid/classic-p3-6-defaults.json".into(),
+                out_dir: out.clone(),
+                seed: 40,
+                catalog_path: "templates/catalog.json".into(),
+                dry_run: false,
+            })
+            .unwrap();
+            assert_eq!(summary.instances_written, 3);
+        }
+        for name in ["endoscopic", "microscopic", "photographic"] {
+            assert_eq!(
+                fs::read(first.join(format!("instances/{name}.dcm"))).unwrap(),
+                fs::read(second.join(format!("instances/{name}.dcm"))).unwrap()
+            );
+        }
+        fs::remove_dir_all(first).unwrap();
+        fs::remove_dir_all(second).unwrap();
+    }
+
+    #[test]
+    fn p3_6_caller_rgb_pixels_round_trip_and_planar_mismatch_is_rejected() {
+        let root = output("p3-6-caller");
+        fs::create_dir(&root).unwrap();
+        let raw = (0..16 * 16 * 3)
+            .map(|index| (index % 251) as u8)
+            .collect::<Vec<_>>();
+        fs::write(root.join("rgb.raw"), &raw).unwrap();
+        let assignment = |planar: u8| {
+            json!([{
+                "slot": "pixels",
+                "source": {
+                    "kind": "local_file", "path": "rgb.raw", "sha256": sha256_hex(&raw),
+                    "pixel": {
+                        "rows": 16, "columns": 16, "frames": 1,
+                        "samples_per_pixel": 3, "photometric_interpretation": "RGB",
+                        "sample_type": "uint", "bits_allocated": 8, "bits_stored": 8,
+                        "high_bit": 7, "byte_order": "little", "planar_configuration": planar
+                    }
+                }
+            }])
+        };
+        let spec = json!({
+            "composition_spec_schema_version": "0.1.0",
+            "instances": [
+                { "instance_id": "endoscopic", "template": { "id": "vl/endoscopic" }, "content": assignment(0) },
+                { "instance_id": "microscopic", "template": { "id": "vl/microscopic" }, "content": assignment(0) },
+                { "instance_id": "photographic", "template": { "id": "vl/photographic" }, "content": assignment(0) }
+            ]
+        });
+        let spec_path = root.join("spec.json");
+        fs::write(&spec_path, serde_json::to_vec_pretty(&spec).unwrap()).unwrap();
+        let out = root.join("out");
+        compose(&ComposeOptions {
+            spec_path: spec_path.clone(),
+            out_dir: out.clone(),
+            seed: 41,
+            catalog_path: "templates/catalog.json".into(),
+            dry_run: false,
+        })
+        .unwrap();
+        for name in ["endoscopic", "microscopic", "photographic"] {
+            let object =
+                dicom_object::open_file(out.join(format!("instances/{name}.dcm"))).unwrap();
+            assert_eq!(
+                object
+                    .element_by_name("PixelData")
+                    .unwrap()
+                    .to_bytes()
+                    .unwrap()
+                    .as_ref(),
+                raw.as_slice()
+            );
+        }
+        let mut wrong = spec;
+        wrong["instances"][0]["content"] = assignment(1);
+        let wrong_spec = root.join("wrong.json");
+        fs::write(&wrong_spec, serde_json::to_vec_pretty(&wrong).unwrap()).unwrap();
+        let wrong_out = root.join("wrong-out");
+        assert!(matches!(compose(&ComposeOptions {
+            spec_path: wrong_spec, out_dir: wrong_out.clone(), seed: 41,
+            catalog_path: "templates/catalog.json".into(), dry_run: false,
+        }), Err(ComposeError::PixelContract(template)) if template == "vl/endoscopic"));
+        assert!(!wrong_out.exists());
+        fs::remove_dir_all(root).unwrap();
+    }
 }

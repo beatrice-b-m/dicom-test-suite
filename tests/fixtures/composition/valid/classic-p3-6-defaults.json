@@ -1,0 +1,8 @@
+{
+  "composition_spec_schema_version": "0.1.0",
+  "instances": [
+    { "instance_id": "endoscopic", "template": { "id": "vl/endoscopic" } },
+    { "instance_id": "microscopic", "template": { "id": "vl/microscopic" } },
+    { "instance_id": "photographic", "template": { "id": "vl/photographic" } }
+  ]
+}

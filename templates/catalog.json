@@ -270,6 +270,36 @@
       "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "PET Image IOD module table", "reason": "Locks PET series, acquisition, correction, geometry, and rescale semantics.", "checked_date": "2026-08-28", "source_note": "standards/source-notes/composition-classic-images.md" }],
       "limitations": ["Qualified for deterministic native MONOCHROME2 unsigned 16-bit static PET pixels only."],
       "qualification_owner": "classic_pet"
+    },
+    {
+      "template_id": "vl/endoscopic", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "VL Endoscopic Image", "sop_class_name": "VL Endoscopic Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.1", "default_modality": "ES",
+      "artifact_kind": "visible_light",
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "VL Endoscopic Image IOD module table", "reason": "Locks visible-light endoscopic acquisition and image semantics.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-classic-images.md" }],
+      "limitations": ["Qualified for deterministic native interleaved RGB 8-bit pixels only."],
+      "qualification_owner": "visible_light"
+    },
+    {
+      "template_id": "vl/microscopic", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "VL Microscopic Image", "sop_class_name": "VL Microscopic Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.2", "default_modality": "GM",
+      "artifact_kind": "visible_light",
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "VL Microscopic Image IOD module table", "reason": "Locks visible-light microscopic acquisition and image semantics.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-classic-images.md" }],
+      "limitations": ["Qualified for deterministic native interleaved RGB 8-bit pixels only."],
+      "qualification_owner": "visible_light"
+    },
+    {
+      "template_id": "vl/photographic", "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "VL Photographic Image", "sop_class_name": "VL Photographic Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.4", "default_modality": "XC",
+      "artifact_kind": "visible_light",
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "VL Photographic Image IOD module table", "reason": "Locks visible-light photographic acquisition and image semantics.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-classic-images.md" }],
+      "limitations": ["Qualified for deterministic native interleaved RGB 8-bit pixels only."],
+      "qualification_owner": "visible_light"
     }
   ]
 }

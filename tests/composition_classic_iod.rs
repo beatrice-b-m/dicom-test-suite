@@ -116,3 +116,16 @@ fn p3_5_defaults_pass_pinned_independent_iod_validation_when_available() {
         ],
     );
 }
+
+#[test]
+fn p3_6_defaults_pass_pinned_independent_iod_validation_when_available() {
+    qualify_defaults(
+        "tests/fixtures/composition/valid/classic-p3-6-defaults.json",
+        36,
+        &[
+            ("endoscopic", "VLEndoscopicImage"),
+            ("microscopic", "VLMicroscopicImage"),
+            ("photographic", "VLPhotographicImage"),
+        ],
+    );
+}

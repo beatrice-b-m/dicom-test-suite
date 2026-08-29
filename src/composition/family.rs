@@ -539,7 +539,9 @@ impl ClassicFamilyProfile {
             | ClassicFamilyKind::VlMicroscopic
             | ClassicFamilyKind::VlPhotographic => vec![
                 set_string("0008,002A", DicomVr::DT, "20000101000000+0000"),
+                set_string("0020,0060", DicomVr::CS, "R"),
                 set_string("0028,2110", DicomVr::CS, "00"),
+                set_string("0040,0555", DicomVr::SQ, ""),
             ],
             ClassicFamilyKind::Xa | ClassicFamilyKind::Xrf => vec![
                 set_string("0008,0068", DicomVr::CS, "FOR PRESENTATION"),

@@ -9,10 +9,10 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
-use crate::composition::MaterializedReference;
+use crate::composition::{IdentityPlan, MaterializedReference};
 use crate::corpus_plan::{
-    ArtifactDependency, CORPUS_PLAN_SCHEMA_VERSION, CorpusPlan, CorpusPlanError, PlannedArtifact,
-    PlannedDicomArtifact, PublicationPlan, ResourcePlan,
+    ArtifactDependency, CORPUS_PLAN_SCHEMA_VERSION, CorpusPlan, CorpusPlanError, OutputPlan,
+    PlannedArtifact, PlannedDicomArtifact, PublicationPlan, ResourcePlan,
 };
 use crate::executor::services::ArtifactExecutionBindings;
 use crate::planning::RecipeIdentity;
@@ -177,7 +177,18 @@ pub struct AdvancedPlanProviderRequest {
     pub case_id: String,
     pub recipe: RecipeIdentity,
     pub seed: u64,
+    pub artifact_contexts: Vec<AdvancedArtifactPlanningContext>,
     pub limits: AdvancedProviderLimits,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdvancedArtifactPlanningContext {
+    pub recipe_artifact_logical_id: String,
+    pub target_instance_id: String,
+    pub order: u64,
+    pub output: OutputPlan,
+    pub identities: IdentityPlan,
 }
 
 impl AdvancedPlanProviderRequest {
@@ -186,7 +197,45 @@ impl AdvancedPlanProviderRequest {
         validate_identifier("case_id", &self.case_id)?;
         validate_identifier("recipe_id", &self.recipe.recipe_id)?;
         validate_identifier("recipe_version", &self.recipe.recipe_version)?;
+        if self.artifact_contexts.is_empty() {
+            return Err(AdvancedProviderContractError::EmptyArtifactContexts);
+        }
+        let mut recipe_ids = BTreeSet::new();
+        let mut target_ids = BTreeSet::new();
+        let mut orders = BTreeSet::new();
+        let mut paths = BTreeSet::new();
+        for context in &self.artifact_contexts {
+            validate_identifier(
+                "recipe_artifact_logical_id",
+                &context.recipe_artifact_logical_id,
+            )?;
+            validate_identifier("target_instance_id", &context.target_instance_id)?;
+            if context.identities.logical_instance_id != context.target_instance_id {
+                return Err(AdvancedProviderContractError::ArtifactContextIdentityOwner);
+            }
+            if !recipe_ids.insert(&context.recipe_artifact_logical_id)
+                || !target_ids.insert(&context.target_instance_id)
+                || !orders.insert(context.order)
+                || !paths.insert(&context.output.relative_path)
+            {
+                return Err(AdvancedProviderContractError::DuplicateArtifactContext);
+            }
+        }
         self.limits.validate()
+    }
+
+    pub fn artifact_context(
+        &self,
+        recipe_artifact_logical_id: &str,
+    ) -> Result<&AdvancedArtifactPlanningContext, AdvancedProviderContractError> {
+        self.artifact_contexts
+            .iter()
+            .find(|context| context.recipe_artifact_logical_id == recipe_artifact_logical_id)
+            .ok_or_else(|| {
+                AdvancedProviderContractError::MissingArtifactPlanningContext(
+                    recipe_artifact_logical_id.to_owned(),
+                )
+            })
     }
 }
 
@@ -226,6 +275,26 @@ impl AdvancedPlanProviderOutput {
         request.validate()?;
         if self.artifacts.is_empty() {
             return Err(AdvancedProviderContractError::EmptyOutput);
+        }
+        for context in &request.artifact_contexts {
+            let artifact = self
+                .artifacts
+                .iter()
+                .find(|artifact| artifact.planned.logical_id == context.target_instance_id)
+                .ok_or_else(|| {
+                    AdvancedProviderContractError::MissingArtifactContextOutput(
+                        context.target_instance_id.clone(),
+                    )
+                })?;
+            if artifact.planned.order != context.order
+                || artifact.planned.output != context.output
+                || artifact.planned.instance.instance_id != context.target_instance_id
+                || artifact.planned.instance.identities != context.identities
+            {
+                return Err(AdvancedProviderContractError::ArtifactContextMismatch(
+                    context.target_instance_id.clone(),
+                ));
+            }
         }
         if self.artifacts.len() as u64 > request.limits.max_artifacts
             || self.references.len() as u64 > request.limits.max_references
@@ -563,6 +632,12 @@ fn validate_identifier(
 pub enum AdvancedProviderContractError {
     InvalidIdentifier { field: &'static str, value: String },
     ZeroResourceLimit,
+    EmptyArtifactContexts,
+    DuplicateArtifactContext,
+    ArtifactContextIdentityOwner,
+    MissingArtifactContextOutput(String),
+    ArtifactContextMismatch(String),
+    MissingArtifactPlanningContext(String),
     EmptyOutput,
     ResourceLimitExceeded,
     ResourceOverflow,
@@ -604,6 +679,29 @@ impl fmt::Display for AdvancedProviderContractError {
                 write!(formatter, "invalid {field} `{value}`")
             }
             Self::ZeroResourceLimit => formatter.write_str("advanced provider limit is zero"),
+            Self::EmptyArtifactContexts => {
+                formatter.write_str("advanced provider request has no artifact contexts")
+            }
+            Self::DuplicateArtifactContext => {
+                formatter.write_str("advanced provider request repeats an artifact context key")
+            }
+            Self::ArtifactContextIdentityOwner => formatter
+                .write_str("advanced artifact context identity owner does not match its target"),
+            Self::MissingArtifactContextOutput(id) => {
+                write!(
+                    formatter,
+                    "advanced provider did not emit context target `{id}`"
+                )
+            }
+            Self::ArtifactContextMismatch(id) => {
+                write!(formatter, "advanced provider rewrote context target `{id}`")
+            }
+            Self::MissingArtifactPlanningContext(id) => {
+                write!(
+                    formatter,
+                    "missing planning context for recipe artifact `{id}`"
+                )
+            }
             Self::EmptyOutput => formatter.write_str("advanced provider returned no artifacts"),
             Self::ResourceLimitExceeded => {
                 formatter.write_str("advanced provider output exceeds its request limits")

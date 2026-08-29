@@ -7,10 +7,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::{
-    AdvancedArtifactProvenance, AdvancedArtifactRole, AdvancedPlanProvider,
-    AdvancedPlanProviderOutput, AdvancedPlanProviderRequest, AdvancedPlannedArtifact,
-    AdvancedProviderContractError, AdvancedProviderFamily, CaseRecipe, RecipeIdentity,
-    WholeSlideArtifactKind,
+    AdvancedArtifactPlanningContext, AdvancedArtifactProvenance, AdvancedArtifactRole,
+    AdvancedPlanProvider, AdvancedPlanProviderOutput, AdvancedPlanProviderRequest,
+    AdvancedPlannedArtifact, AdvancedProviderContractError, AdvancedProviderFamily, CaseRecipe,
+    RecipeIdentity, WholeSlideArtifactKind,
 };
 use crate::composition::{
     AttributeAddress, AttributeItem, AttributeOperation, AttributeValue, CanonicalContent,
@@ -48,6 +48,46 @@ impl WsiAdvancedPlanProvider {
             standards_lock_sha256: standards_lock_sha256.into(),
         }
     }
+
+    pub fn recipe_default_contexts(
+        &self,
+        recipe: &WsiPlanRecipe,
+        seed: u64,
+    ) -> Result<Vec<AdvancedArtifactPlanningContext>, AdvancedProviderContractError> {
+        let identities = WsiIdentities::new(
+            &self.standards_lock_sha256,
+            &recipe.case_id,
+            &recipe.recipe.recipe_version,
+            seed,
+        );
+        let implementation = implementation_uid(&self.standards_lock_sha256);
+        recipe
+            .resolve_artifacts()?
+            .into_iter()
+            .map(|spec| {
+                let target = spec.logical_id.clone();
+                let identity_values = identities.identity_values(spec.file_index, &implementation);
+                Ok(AdvancedArtifactPlanningContext {
+                    recipe_artifact_logical_id: spec.logical_id,
+                    target_instance_id: target.clone(),
+                    order: spec.order,
+                    output: OutputPlan {
+                        relative_path: OutputRelativePath::new(spec.relative_path)
+                            .map_err(|error| invalid("output_path", &error.to_string()))?,
+                        role: match spec.kind {
+                            WholeSlideArtifactKind::Volume => "volume",
+                            WholeSlideArtifactKind::Thumbnail => "thumbnail",
+                            WholeSlideArtifactKind::Label => "label",
+                        }
+                        .into(),
+                        publish: true,
+                    },
+                    identities: IdentityPlan::from_exact_values(target, identity_values)
+                        .map_err(|error| invalid("identities", &error.to_string()))?,
+                })
+            })
+            .collect()
+    }
 }
 
 impl AdvancedPlanProvider for WsiAdvancedPlanProvider {
@@ -76,21 +116,16 @@ impl AdvancedPlanProvider for WsiAdvancedPlanProvider {
             return Err(invalid("case_id", &request.case_id));
         }
 
-        let identities = WsiIdentities::new(
-            &self.standards_lock_sha256,
-            &request.case_id,
-            &request.recipe.recipe_version,
-            request.seed,
-        );
         let specs = recipe.resolve_artifacts()?;
+        validate_shared_contexts(request, &specs)?;
 
-        let implementation_uid = implementation_uid(&self.standards_lock_sha256);
         let mut artifacts = Vec::with_capacity(specs.len());
         let mut bindings = Vec::with_capacity(specs.len());
         for spec in specs {
+            let context = request.artifact_context(&spec.logical_id)?;
+            let identities = WsiIdentities::from_context(context, spec.file_index)?;
             let attrs = base_attributes(&identities, spec.file_index, &spec.overrides);
-            let (planned, binding) =
-                planned_artifact(request, spec, attrs, &identities, &implementation_uid);
+            let (planned, binding) = planned_artifact(request, context, spec, attrs);
             artifacts.push(planned);
             bindings.push(binding);
         }
@@ -104,6 +139,36 @@ impl AdvancedPlanProvider for WsiAdvancedPlanProvider {
         output.validate(request)?;
         Ok(output)
     }
+}
+
+fn validate_shared_contexts(
+    request: &AdvancedPlanProviderRequest,
+    specs: &[WsiArtifactSpec],
+) -> Result<(), AdvancedProviderContractError> {
+    let first = specs
+        .first()
+        .ok_or(AdvancedProviderContractError::EmptyOutput)?;
+    let first = request.artifact_context(&first.logical_id)?;
+    for role in [
+        CompositionUidRole::StudyInstance,
+        CompositionUidRole::SeriesInstance,
+        CompositionUidRole::FrameOfReference,
+        CompositionUidRole::ImplementationClass,
+        CompositionUidRole::TemplateDefined("specimen_uid".into()),
+        CompositionUidRole::TemplateDefined("pyramid_uid".into()),
+    ] {
+        let expected = first
+            .identities
+            .get(&role, 0)
+            .ok_or_else(|| invalid("identities", role.as_str()))?;
+        for spec in specs.iter().skip(1) {
+            let context = request.artifact_context(&spec.logical_id)?;
+            if context.identities.get(&role, 0) != Some(expected) {
+                return Err(invalid("identity_group", role.as_str()));
+            }
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone)]
@@ -148,6 +213,76 @@ impl WsiIdentities {
                 allocate(UidRole::DimensionOrganization, 2, None),
             ],
         }
+    }
+
+    fn identity_values(
+        &self,
+        file_index: usize,
+        implementation: &str,
+    ) -> Vec<(CompositionUidRole, u32, String)> {
+        vec![
+            (CompositionUidRole::StudyInstance, 0, self.study.clone()),
+            (CompositionUidRole::SeriesInstance, 0, self.series.clone()),
+            (
+                CompositionUidRole::SopInstance,
+                0,
+                self.sop[file_index].clone(),
+            ),
+            (
+                CompositionUidRole::FrameOfReference,
+                0,
+                self.frame_of_reference.clone(),
+            ),
+            (
+                CompositionUidRole::DimensionOrganization,
+                0,
+                self.dimension[file_index].clone(),
+            ),
+            (
+                CompositionUidRole::ImplementationClass,
+                0,
+                implementation.into(),
+            ),
+            (
+                CompositionUidRole::TemplateDefined("specimen_uid".into()),
+                0,
+                self.specimen.clone(),
+            ),
+            (
+                CompositionUidRole::TemplateDefined("pyramid_uid".into()),
+                0,
+                self.pyramid.clone(),
+            ),
+        ]
+    }
+
+    fn from_context(
+        context: &AdvancedArtifactPlanningContext,
+        file_index: usize,
+    ) -> Result<Self, AdvancedProviderContractError> {
+        let get = |role: CompositionUidRole| {
+            context
+                .identities
+                .get(&role, 0)
+                .map(str::to_owned)
+                .ok_or_else(|| invalid("identities", role.as_str()))
+        };
+        let sop = get(CompositionUidRole::SopInstance)?;
+        let dimension = get(CompositionUidRole::DimensionOrganization)?;
+        let mut sops = [sop.clone(), sop.clone(), sop];
+        let mut dimensions = [dimension.clone(), dimension.clone(), dimension];
+        // Preserve the indexed access used by the neutral attribute builder.
+        sops[file_index] = get(CompositionUidRole::SopInstance)?;
+        dimensions[file_index] = get(CompositionUidRole::DimensionOrganization)?;
+        Ok(Self {
+            study: get(CompositionUidRole::StudyInstance)?,
+            series: get(CompositionUidRole::SeriesInstance)?,
+            frame_of_reference: get(CompositionUidRole::FrameOfReference)?,
+            specimen: get(CompositionUidRole::TemplateDefined("specimen_uid".into()))?,
+            pyramid: get(CompositionUidRole::TemplateDefined("pyramid_uid".into()))?,
+            sop: sops,
+            dimension: dimensions,
+        })
     }
 }
 
@@ -411,10 +546,9 @@ pub(crate) fn wsi_input_from_recipe(recipe: &CaseRecipe) -> Result<Option<WsiPla
 
 fn planned_artifact(
     request: &AdvancedPlanProviderRequest,
+    context: &AdvancedArtifactPlanningContext,
     spec: WsiArtifactSpec,
     attributes: Vec<ResolvedAttribute>,
-    ids: &WsiIdentities,
-    implementation_uid: &str,
 ) -> (AdvancedPlannedArtifact, ArtifactExecutionBindings) {
     let frame_size = usize::from(spec.overrides.rows) * usize::from(spec.overrides.columns) * 3;
     let frames = spec
@@ -436,39 +570,6 @@ fn planned_artifact(
         .collect::<Vec<_>>();
     debug_assert_eq!(frames.len(), usize::from(spec.overrides.frames));
 
-    let identities = IdentityPlan::from_exact_values(
-        spec.logical_id.clone(),
-        [
-            (CompositionUidRole::StudyInstance, 0, ids.study.clone()),
-            (CompositionUidRole::SeriesInstance, 0, ids.series.clone()),
-            (
-                CompositionUidRole::SopInstance,
-                0,
-                ids.sop[spec.file_index].clone(),
-            ),
-            (
-                CompositionUidRole::FrameOfReference,
-                0,
-                ids.frame_of_reference.clone(),
-            ),
-            (
-                CompositionUidRole::DimensionOrganization,
-                0,
-                ids.dimension[spec.file_index].clone(),
-            ),
-            (
-                CompositionUidRole::ImplementationClass,
-                0,
-                implementation_uid.to_owned(),
-            ),
-            (
-                CompositionUidRole::TemplateDefined("specimen_uid".into()),
-                0,
-                ids.specimen.clone(),
-            ),
-        ],
-    )
-    .expect("deterministic WSI identities are valid");
     let content = CanonicalContent {
         slot: PIXEL_SLOT.into(),
         kind: "native_pixel_data".into(),
@@ -485,12 +586,12 @@ fn planned_artifact(
     };
     let instance = ResolvedInstancePlan {
         plan_schema_version: "0.1.0".into(),
-        instance_id: spec.logical_id.clone(),
+        instance_id: context.target_instance_id.clone(),
         template_id: TemplateId(spec.template_id.into()),
         template_version: "1.0.0".parse::<TemplateVersion>().expect("valid version"),
         sop_class_uid: SOP_CLASS_UID.into(),
         transfer_syntax_uid: TRANSFER_SYNTAX_UID.into(),
-        identities,
+        identities: context.identities.clone(),
         attributes,
         content: vec![content],
         references: Vec::new(),
@@ -503,8 +604,8 @@ fn planned_artifact(
         },
         provenance: AdvancedArtifactProvenance::Requested,
         planned: PlannedDicomArtifact {
-            logical_id: spec.logical_id.clone(),
-            order: spec.order,
+            logical_id: context.target_instance_id.clone(),
+            order: context.order,
             provenance: ArtifactProvenance::Requested,
             case_binding: Some(CaseBinding {
                 case_id: request.case_id.clone(),
@@ -512,17 +613,7 @@ fn planned_artifact(
                 recipe_version: request.recipe.recipe_version.clone(),
             }),
             instance,
-            output: OutputPlan {
-                relative_path: OutputRelativePath::new(spec.relative_path)
-                    .expect("constant WSI output path is safe"),
-                role: match spec.kind {
-                    WholeSlideArtifactKind::Volume => "volume",
-                    WholeSlideArtifactKind::Thumbnail => "thumbnail",
-                    WholeSlideArtifactKind::Label => "label",
-                }
-                .into(),
-                publish: true,
-            },
+            output: context.output.clone(),
             encoding: EncodingPlan {
                 transfer_syntax_uid: TRANSFER_SYNTAX_UID.into(),
                 sequence_length: SequenceLengthPolicy::WriterDefault,
@@ -532,7 +623,11 @@ fn planned_artifact(
                 preamble: PreamblePolicy::ZeroFilled,
                 file_meta: FileMetaPolicy::Standard,
                 implementation: ImplementationIdentityPlan {
-                    class_uid: implementation_uid.into(),
+                    class_uid: context
+                        .identities
+                        .get(&CompositionUidRole::ImplementationClass, 0)
+                        .expect("validated WSI implementation identity")
+                        .into(),
                     version_name: Some(crate::IMPLEMENTATION_VERSION_NAME.into()),
                 },
                 backend_id: "dicom-rs.part10".into(),
@@ -554,7 +649,7 @@ fn planned_artifact(
         },
     };
     let binding = ArtifactExecutionBindings {
-        artifact_id: spec.logical_id,
+        artifact_id: context.target_instance_id.clone(),
         slots: BTreeMap::from([(
             PIXEL_SLOT.into(),
             SlotExecutionBinding::NativeFrames { frames },

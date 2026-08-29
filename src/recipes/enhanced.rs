@@ -36,9 +36,9 @@ use crate::uid::{DeterministicUidInput, UidRole, deterministic_uid};
 use crate::{IMPLEMENTATION_VERSION_NAME, PACKAGE_VERSION, sha256_hex};
 
 use super::{
-    AdvancedArtifactProvenance, AdvancedArtifactRole, AdvancedPlanProvider,
-    AdvancedPlanProviderOutput, AdvancedPlanProviderRequest, AdvancedPlannedArtifact,
-    AdvancedProviderContractError, AdvancedProviderFamily, CaseRecipe,
+    AdvancedArtifactPlanningContext, AdvancedArtifactProvenance, AdvancedArtifactRole,
+    AdvancedPlanProvider, AdvancedPlanProviderOutput, AdvancedPlanProviderRequest,
+    AdvancedPlannedArtifact, AdvancedProviderContractError, AdvancedProviderFamily, CaseRecipe,
 };
 
 pub const ENHANCED_PLAN_PROVIDER_ID: &str = "native.enhanced_plan";
@@ -566,6 +566,99 @@ impl EnhancedPlanProvider {
         self
     }
 
+    pub fn recipe_default_contexts(
+        &self,
+        input: &EnhancedProviderInput,
+        seed: u64,
+    ) -> Result<Vec<AdvancedArtifactPlanningContext>, EnhancedPlanError> {
+        let (common, artifacts): (&EnhancedCommonInput, Vec<(String, u64, OutputRelativePath)>) =
+            match input {
+                EnhancedProviderInput::Ct(value) => (
+                    &value.common,
+                    value
+                        .parts
+                        .iter()
+                        .enumerate()
+                        .map(|(index, part)| {
+                            (
+                                format!(
+                                    "advanced_{}_artifact_{}",
+                                    value.common.recipe_id,
+                                    index + 1
+                                ),
+                                index as u64,
+                                part.output_path.clone(),
+                            )
+                        })
+                        .collect(),
+                ),
+                EnhancedProviderInput::Mr(value) => (
+                    &value.common,
+                    vec![(
+                        format!("advanced_{}_artifact_1", value.common.recipe_id),
+                        0,
+                        value.output_path.clone(),
+                    )],
+                ),
+                EnhancedProviderInput::Pet(value) => (
+                    &value.common,
+                    vec![(
+                        format!("advanced_{}_artifact_1", value.common.recipe_id),
+                        0,
+                        value.output_path.clone(),
+                    )],
+                ),
+            };
+        let shared = Uids::new(&self.standards_lock_sha256, common, seed, 0);
+        let concatenation =
+            matches!(input, EnhancedProviderInput::Ct(value) if value.concatenation).then(|| {
+                (
+                    generated_uid(
+                        &self.standards_lock_sha256,
+                        common,
+                        seed,
+                        0,
+                        UidRole::Concatenation,
+                    ),
+                    generated_uid(
+                        &self.standards_lock_sha256,
+                        common,
+                        seed,
+                        0,
+                        UidRole::ConcatenationSource,
+                    ),
+                )
+            });
+        artifacts
+            .into_iter()
+            .enumerate()
+            .map(|(index, (recipe_id, order, path))| {
+                let mut ids = Uids::new(&self.standards_lock_sha256, common, seed, index as u32);
+                if index > 0 {
+                    ids.share_non_instance(&shared);
+                }
+                let mut values = ids.identity_values();
+                if let Some((uid, source)) = &concatenation {
+                    values.push((CompositionUidRole::Concatenation, 0, uid.clone()));
+                    values.push((CompositionUidRole::ConcatenationSource, 0, source.clone()));
+                }
+                let target_instance_id = recipe_id.clone();
+                Ok(AdvancedArtifactPlanningContext {
+                    recipe_artifact_logical_id: recipe_id,
+                    target_instance_id: target_instance_id.clone(),
+                    order,
+                    output: OutputPlan {
+                        relative_path: path,
+                        role: "dicom_instance".into(),
+                        publish: true,
+                    },
+                    identities: IdentityPlan::from_exact_values(target_instance_id, values)
+                        .map_err(|error| EnhancedPlanError::Identity(error.to_string()))?,
+                })
+            })
+            .collect()
+    }
+
     pub fn plan_typed(
         &self,
         request: &AdvancedPlanProviderRequest,
@@ -644,21 +737,45 @@ impl EnhancedPlanProvider {
         if input.concatenation != (input.parts.len() > 1) {
             return Err(EnhancedPlanError::InvalidConcatenation);
         }
-        let shared = Uids::new(&self.standards_lock_sha256, &input.common, request.seed, 0);
-        let concatenation_uid = generated_uid(
-            &self.standards_lock_sha256,
-            &input.common,
-            request.seed,
-            0,
-            UidRole::Concatenation,
-        );
-        let concatenation_source_uid = generated_uid(
-            &self.standards_lock_sha256,
-            &input.common,
-            request.seed,
-            0,
-            UidRole::ConcatenationSource,
-        );
+        let first_recipe_id = format!("advanced_{}_artifact_1", input.common.recipe_id);
+        let first_context = request
+            .artifact_context(&first_recipe_id)
+            .map_err(EnhancedPlanError::Contract)?;
+        let concatenation_uid = first_context
+            .identities
+            .get(&CompositionUidRole::Concatenation, 0)
+            .unwrap_or_default()
+            .to_owned();
+        let concatenation_source_uid = first_context
+            .identities
+            .get(&CompositionUidRole::ConcatenationSource, 0)
+            .unwrap_or_default()
+            .to_owned();
+        if input.concatenation {
+            if concatenation_uid.is_empty() || concatenation_source_uid.is_empty() {
+                return Err(EnhancedPlanError::Identity(
+                    "concatenation identities are required".into(),
+                ));
+            }
+            for index in 0..input.parts.len() {
+                let recipe_id =
+                    format!("advanced_{}_artifact_{}", input.common.recipe_id, index + 1);
+                let context = request
+                    .artifact_context(&recipe_id)
+                    .map_err(EnhancedPlanError::Contract)?;
+                if context
+                    .identities
+                    .get(&CompositionUidRole::Concatenation, 0)
+                    != Some(concatenation_uid.as_str())
+                    || context
+                        .identities
+                        .get(&CompositionUidRole::ConcatenationSource, 0)
+                        != Some(concatenation_source_uid.as_str())
+                {
+                    return Err(EnhancedPlanError::InvalidConcatenation);
+                }
+            }
+        }
         let mut artifacts = Vec::with_capacity(input.parts.len());
         let mut bindings = Vec::with_capacity(input.parts.len());
         let mut expected_offset = 0_u32;
@@ -686,15 +803,13 @@ impl EnhancedPlanProvider {
             expected_offset = expected_offset
                 .checked_add(part.frames.len() as u32)
                 .ok_or(EnhancedPlanError::ResourceOverflow)?;
-            let mut ids = Uids::new(
-                &self.standards_lock_sha256,
-                &input.common,
-                request.seed,
-                index as u32,
-            );
-            ids.share_non_instance(&shared);
+            let recipe_logical_id =
+                format!("advanced_{}_artifact_{}", input.common.recipe_id, index + 1);
+            let context = request
+                .artifact_context(&recipe_logical_id)
+                .map_err(EnhancedPlanError::Contract)?;
+            let ids = Uids::from_context(context)?;
             let native = self.native_pixels(&input.common, part.frames.len(), &part.pixels)?;
-            let logical_id = format!("advanced_{}_artifact_{}", input.common.recipe_id, index + 1);
             let mut attributes = common_attributes(
                 &input.common,
                 ENHANCED_CT_SOP,
@@ -778,9 +893,7 @@ impl EnhancedPlanProvider {
             let planned = planned(
                 request,
                 &input.common,
-                &logical_id,
-                index as u64,
-                part.output_path.clone(),
+                context,
                 &part.template_id,
                 ids,
                 ENHANCED_CT_SOP,
@@ -788,7 +901,7 @@ impl EnhancedPlanProvider {
                 content,
                 part.frames.len(),
             )?;
-            bindings.push(native_binding(&logical_id, &native)?);
+            bindings.push(native_binding(&context.target_instance_id, &native)?);
             artifacts.push(AdvancedPlannedArtifact {
                 role: AdvancedArtifactRole::EnhancedInstance {
                     ordinal: (index + 1) as u32,
@@ -835,9 +948,12 @@ impl EnhancedPlanProvider {
         if axis_len != input.frames.len() {
             return Err(EnhancedPlanError::FrameCardinality);
         }
-        let ids = Uids::new(&self.standards_lock_sha256, &input.common, request.seed, 0);
+        let recipe_logical_id = format!("advanced_{}_artifact_1", input.common.recipe_id);
+        let context = request
+            .artifact_context(&recipe_logical_id)
+            .map_err(EnhancedPlanError::Contract)?;
+        let ids = Uids::from_context(context)?;
         let native = self.native_pixels(&input.common, input.frames.len(), &input.pixels)?;
-        let logical_id = format!("advanced_{}_artifact_1", input.common.recipe_id);
         let mut attributes = common_attributes(
             &input.common,
             ENHANCED_MR_SOP,
@@ -900,9 +1016,7 @@ impl EnhancedPlanProvider {
         let planned = planned(
             request,
             &input.common,
-            &logical_id,
-            0,
-            input.output_path.clone(),
+            context,
             &input.common.template_id,
             ids,
             ENHANCED_MR_SOP,
@@ -918,7 +1032,7 @@ impl EnhancedPlanProvider {
             }],
             dependencies: vec![],
             references: vec![],
-            bindings: vec![native_binding(&logical_id, &native)?],
+            bindings: vec![native_binding(&context.target_instance_id, &native)?],
         })
     }
 
@@ -937,9 +1051,12 @@ impl EnhancedPlanProvider {
         {
             return Err(EnhancedPlanError::FrameCardinality);
         }
-        let ids = Uids::new(&self.standards_lock_sha256, &input.common, request.seed, 0);
+        let recipe_logical_id = format!("advanced_{}_artifact_1", input.common.recipe_id);
+        let context = request
+            .artifact_context(&recipe_logical_id)
+            .map_err(EnhancedPlanError::Contract)?;
+        let ids = Uids::from_context(context)?;
         let native = self.native_pixels(&input.common, input.frames.len(), &input.pixels)?;
-        let logical_id = format!("advanced_{}_artifact_1", input.common.recipe_id);
         let mut attributes = common_attributes(
             &input.common,
             ENHANCED_PET_SOP,
@@ -1007,9 +1124,7 @@ impl EnhancedPlanProvider {
         let planned = planned(
             request,
             &input.common,
-            &logical_id,
-            0,
-            input.output_path.clone(),
+            context,
             &input.common.template_id,
             ids,
             ENHANCED_PET_SOP,
@@ -1025,7 +1140,7 @@ impl EnhancedPlanProvider {
             }],
             dependencies: vec![],
             references: vec![],
-            bindings: vec![native_binding(&logical_id, &native)?],
+            bindings: vec![native_binding(&context.target_instance_id, &native)?],
         })
     }
 }
@@ -1071,6 +1186,53 @@ impl Uids {
             .clone_from(&shared.frame_of_reference);
         self.dimension.clone_from(&shared.dimension);
         self.irradiation.clone_from(&shared.irradiation);
+    }
+
+    fn identity_values(&self) -> Vec<(CompositionUidRole, u32, String)> {
+        vec![
+            (CompositionUidRole::StudyInstance, 0, self.study.clone()),
+            (CompositionUidRole::SeriesInstance, 0, self.series.clone()),
+            (CompositionUidRole::SopInstance, 0, self.sop.clone()),
+            (
+                CompositionUidRole::FrameOfReference,
+                0,
+                self.frame_of_reference.clone(),
+            ),
+            (
+                CompositionUidRole::DimensionOrganization,
+                0,
+                self.dimension.clone(),
+            ),
+            (
+                CompositionUidRole::IrradiationEvent,
+                0,
+                self.irradiation.clone(),
+            ),
+            (
+                CompositionUidRole::ImplementationClass,
+                0,
+                self.implementation.clone(),
+            ),
+        ]
+    }
+
+    fn from_context(context: &AdvancedArtifactPlanningContext) -> Result<Self, EnhancedPlanError> {
+        let get = |role| {
+            context
+                .identities
+                .get(&role, 0)
+                .map(str::to_owned)
+                .ok_or_else(|| EnhancedPlanError::Identity(format!("missing {}", role.as_str())))
+        };
+        Ok(Self {
+            study: get(CompositionUidRole::StudyInstance)?,
+            series: get(CompositionUidRole::SeriesInstance)?,
+            sop: get(CompositionUidRole::SopInstance)?,
+            frame_of_reference: get(CompositionUidRole::FrameOfReference)?,
+            dimension: get(CompositionUidRole::DimensionOrganization)?,
+            irradiation: get(CompositionUidRole::IrradiationEvent)?,
+            implementation: get(CompositionUidRole::ImplementationClass)?,
+        })
     }
 }
 
@@ -1228,9 +1390,7 @@ fn native_binding(
 fn planned(
     request: &AdvancedPlanProviderRequest,
     common: &EnhancedCommonInput,
-    logical_id: &str,
-    order: u64,
-    output_path: OutputRelativePath,
+    context: &AdvancedArtifactPlanningContext,
     template_id: &str,
     ids: Uids,
     sop_class_uid: &str,
@@ -1238,35 +1398,15 @@ fn planned(
     content: crate::composition::CanonicalContent,
     frames: usize,
 ) -> Result<PlannedDicomArtifact, EnhancedPlanError> {
-    let identities = IdentityPlan::from_exact_values(
-        logical_id,
-        [
-            (CompositionUidRole::StudyInstance, 0, ids.study),
-            (CompositionUidRole::SeriesInstance, 0, ids.series),
-            (CompositionUidRole::SopInstance, 0, ids.sop),
-            (
-                CompositionUidRole::FrameOfReference,
-                0,
-                ids.frame_of_reference,
-            ),
-            (CompositionUidRole::DimensionOrganization, 0, ids.dimension),
-            (CompositionUidRole::IrradiationEvent, 0, ids.irradiation),
-            (
-                CompositionUidRole::ImplementationClass,
-                0,
-                ids.implementation.clone(),
-            ),
-        ],
-    )
-    .map_err(|error| EnhancedPlanError::Identity(error.to_string()))?;
+    let logical_id = &context.target_instance_id;
     let pixel_bytes = u64::from(common.rows)
         .checked_mul(u64::from(common.columns))
         .and_then(|value| value.checked_mul(frames as u64))
         .and_then(|value| value.checked_mul(2))
         .ok_or(EnhancedPlanError::ResourceOverflow)?;
     Ok(PlannedDicomArtifact {
-        logical_id: logical_id.into(),
-        order,
+        logical_id: logical_id.clone(),
+        order: context.order,
         provenance: ArtifactProvenance::Requested,
         case_binding: Some(CaseBinding {
             case_id: request.case_id.clone(),
@@ -1275,23 +1415,19 @@ fn planned(
         }),
         instance: ResolvedInstancePlan {
             plan_schema_version: "0.1.0".into(),
-            instance_id: logical_id.into(),
+            instance_id: logical_id.clone(),
             template_id: TemplateId(template_id.into()),
             template_version: "1.0.0"
                 .parse::<TemplateVersion>()
                 .map_err(|error| EnhancedPlanError::Template(error.to_string()))?,
             sop_class_uid: sop_class_uid.into(),
             transfer_syntax_uid: EXPLICIT_VR_LE.into(),
-            identities,
+            identities: context.identities.clone(),
             attributes,
             content: vec![content],
             references: vec![],
         },
-        output: OutputPlan {
-            relative_path: output_path,
-            role: "dicom_instance".into(),
-            publish: true,
-        },
+        output: context.output.clone(),
         encoding: EncodingPlan {
             transfer_syntax_uid: EXPLICIT_VR_LE.into(),
             sequence_length: SequenceLengthPolicy::WriterDefault,

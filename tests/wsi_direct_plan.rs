@@ -89,6 +89,9 @@ fn request(recipe: &WsiPlanRecipe) -> AdvancedPlanProviderRequest {
         case_id: recipe.case_id.clone(),
         recipe: recipe.recipe.clone(),
         seed: SEED,
+        artifact_contexts: WsiAdvancedPlanProvider::new(lock_hash())
+            .recipe_default_contexts(recipe, SEED)
+            .unwrap(),
         limits: AdvancedProviderLimits {
             max_artifacts: 4,
             max_references: 1,
@@ -394,4 +397,27 @@ fn wsi_dag_has_volume_root_closure_and_no_singleton_edges() {
             );
         }
     }
+}
+
+#[test]
+fn provider_preserves_caller_owned_artifact_context() {
+    let recipe = curated_wsi_recipes()
+        .into_iter()
+        .find(|recipe| recipe.artifacts.len() == 1)
+        .unwrap();
+    let provider = WsiAdvancedPlanProvider::new(lock_hash());
+    let mut request = request(&recipe);
+    let context = &mut request.artifact_contexts[0];
+    context.target_instance_id = "caller_wsi_target".into();
+    context.identities.logical_instance_id = context.target_instance_id.clone();
+    context.order = 83;
+    context.output.relative_path = OutputRelativePath::new("composition/wsi/custom.dcm").unwrap();
+    let expected = context.clone();
+
+    let output = provider.plan(&request, &recipe).unwrap();
+    let planned = &output.artifacts[0].planned;
+    assert_eq!(planned.logical_id, expected.target_instance_id);
+    assert_eq!(planned.order, expected.order);
+    assert_eq!(planned.output, expected.output);
+    assert_eq!(planned.instance.identities, expected.identities);
 }

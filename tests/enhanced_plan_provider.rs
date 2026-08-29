@@ -57,6 +57,10 @@ fn request(input: &EnhancedProviderInput) -> AdvancedPlanProviderRequest {
             recipe_version: common.recipe_version.clone(),
         },
         seed: 1,
+        artifact_contexts: EnhancedPlanProvider::new(LOCK)
+            .unwrap()
+            .recipe_default_contexts(input, 1)
+            .unwrap(),
         limits: AdvancedProviderLimits {
             max_artifacts: 4,
             max_references: 8,
@@ -498,4 +502,25 @@ fn provider_source_has_no_legacy_or_filesystem_bridge() {
             "forbidden source boundary: {forbidden}"
         );
     }
+}
+
+#[test]
+fn provider_preserves_caller_owned_artifact_context() {
+    let provider = EnhancedPlanProvider::new(LOCK).unwrap();
+    let input = ct();
+    let mut request = request(&input);
+    let context = &mut request.artifact_contexts[0];
+    context.target_instance_id = "caller_enhanced_target".into();
+    context.identities.logical_instance_id = context.target_instance_id.clone();
+    context.order = 77;
+    context.output.relative_path =
+        OutputRelativePath::new("composition/enhanced/custom.dcm").unwrap();
+    let expected = context.clone();
+
+    let output = provider.plan_typed(&request, &input).unwrap();
+    let planned = &output.artifacts[0].planned;
+    assert_eq!(planned.logical_id, expected.target_instance_id);
+    assert_eq!(planned.order, expected.order);
+    assert_eq!(planned.output, expected.output);
+    assert_eq!(planned.instance.identities, expected.identities);
 }

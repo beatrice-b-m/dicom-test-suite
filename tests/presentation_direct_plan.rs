@@ -23,11 +23,12 @@ use dicom_test_suite::executor::services::{
 };
 use dicom_test_suite::planning::RecipeIdentity;
 use dicom_test_suite::recipes::{
-    AdvancedBlendingPresentationParameters, AdvancedPlanProvider, AdvancedPlanProviderRequest,
-    AdvancedProviderFamily, AdvancedProviderLimits, AdvancedSourceRole,
-    BlendingPresentationParameters, ColorPresentationParameters, DisplayedAreaParameters,
-    GrayscalePresentationParameters, PRESENTATION_ADVANCED_PROVIDER_ID, PresentationKind,
-    PresentationPlanInput, PresentationPlanProvider, PresentationRecipe, PresentationSourceInput,
+    AdvancedArtifactPlanningContext, AdvancedBlendingPresentationParameters, AdvancedPlanProvider,
+    AdvancedPlanProviderRequest, AdvancedProviderFamily, AdvancedProviderLimits,
+    AdvancedSourceRole, BlendingPresentationParameters, ColorPresentationParameters,
+    DisplayedAreaParameters, GrayscalePresentationParameters, PRESENTATION_ADVANCED_PROVIDER_ID,
+    PresentationKind, PresentationPlanInput, PresentationPlanProvider, PresentationRecipe,
+    PresentationSourceInput,
 };
 use dicom_test_suite::{GenerateOptions, prepare_generation_run, sha256_hex, write_generation_run};
 use serde_json::Value;
@@ -349,6 +350,33 @@ fn request(input: &PresentationPlanInput) -> AdvancedPlanProviderRequest {
             recipe_version: input.recipe.recipe_version.clone(),
         },
         seed: SEED,
+        artifact_contexts: PresentationPlanProvider::new(lock_hash())
+            .recipe_default_contexts(input, SEED)
+            .unwrap_or_else(|_| {
+                let target = input.recipe.logical_id.clone();
+                vec![AdvancedArtifactPlanningContext {
+                    recipe_artifact_logical_id: target.clone(),
+                    target_instance_id: target.clone(),
+                    order: input.sources.len() as u64,
+                    output: OutputPlan {
+                        relative_path: OutputRelativePath::new(&input.recipe.output_relative_path)
+                            .unwrap(),
+                        role: "presentation_state".into(),
+                        publish: true,
+                    },
+                    identities: IdentityPlan::from_exact_values(
+                        target,
+                        [
+                            (CompositionUidRole::StudyInstance, 0, "2.25.1".into()),
+                            (CompositionUidRole::SeriesInstance, 0, "2.25.2".into()),
+                            (CompositionUidRole::SopInstance, 0, "2.25.3".into()),
+                            (CompositionUidRole::FrameOfReference, 0, "2.25.4".into()),
+                            (CompositionUidRole::ImplementationClass, 0, "2.25.5".into()),
+                        ],
+                    )
+                    .unwrap(),
+                }]
+            }),
         limits: AdvancedProviderLimits {
             max_artifacts: 8,
             max_references: 8,
@@ -578,4 +606,30 @@ fn malformed_source_sets_fail_closed_before_staging() {
     let mut wrong_role = valid.clone();
     wrong_role.sources[0].role = AdvancedSourceRole::PresentationSourceImage;
     assert!(provider.plan(&request(&wrong_role), &wrong_role).is_err());
+}
+
+#[test]
+fn provider_preserves_caller_owned_target_context() {
+    let provider = PresentationPlanProvider::new(lock_hash());
+    let (recipe, sources, _) = recipes().remove(0);
+    let input = input(recipe, sources);
+    let mut request = request(&input);
+    let context = &mut request.artifact_contexts[0];
+    context.target_instance_id = "caller_presentation_target".into();
+    context.identities.logical_instance_id = context.target_instance_id.clone();
+    context.order = 99;
+    context.output.relative_path =
+        OutputRelativePath::new("composition/presentation/custom.dcm").unwrap();
+    let expected = context.clone();
+
+    let output = provider.plan(&request, &input).unwrap();
+    let planned = &output.artifacts.last().unwrap().planned;
+    assert_eq!(planned.logical_id, expected.target_instance_id);
+    assert_eq!(planned.order, expected.order);
+    assert_eq!(planned.output, expected.output);
+    assert_eq!(planned.instance.identities, expected.identities);
+    assert!(output.references.iter().all(|reference| {
+        reference.owner_artifact_id == expected.target_instance_id
+            && reference.reference.source_instance_id == expected.target_instance_id
+    }));
 }

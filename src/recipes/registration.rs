@@ -28,10 +28,11 @@ use crate::uid::{DeterministicUidInput, UidRole, deterministic_uid};
 use crate::{IMPLEMENTATION_VERSION_NAME, PACKAGE_VERSION};
 
 use super::{
-    AdvancedArtifactProvenance, AdvancedArtifactRole, AdvancedPlanProvider,
-    AdvancedPlanProviderOutput, AdvancedPlanProviderRequest, AdvancedPlannedArtifact,
-    AdvancedProviderContractError, AdvancedProviderFamily, AdvancedSourceConsumer,
-    AdvancedSourceReference, AdvancedSourceRole, CaseRecipe, RecipeReference,
+    AdvancedArtifactPlanningContext, AdvancedArtifactProvenance, AdvancedArtifactRole,
+    AdvancedPlanProvider, AdvancedPlanProviderOutput, AdvancedPlanProviderRequest,
+    AdvancedPlannedArtifact, AdvancedProviderContractError, AdvancedProviderFamily,
+    AdvancedSourceConsumer, AdvancedSourceReference, AdvancedSourceRole, CaseRecipe,
+    RecipeReference,
 };
 
 const EXPLICIT_VR_LE: &str = "1.2.840.10008.1.2.1";
@@ -313,6 +314,76 @@ impl RegistrationPlanProvider {
         })
     }
 
+    pub fn recipe_default_contexts(
+        &self,
+        input: &RegistrationProviderInput,
+        case_id: &str,
+        recipe: &crate::planning::RecipeIdentity,
+        seed: u64,
+    ) -> Result<Vec<AdvancedArtifactPlanningContext>, RegistrationPlanError> {
+        let fixed = input
+            .sources
+            .first()
+            .ok_or(RegistrationPlanError::SourceCardinality)?;
+        let fixed_ids = source_identities(fixed)?;
+        let uid = |role| {
+            deterministic_uid(&DeterministicUidInput {
+                standards_lock_sha256: &self.standards_lock_sha256,
+                case_id,
+                recipe_version: &recipe.recipe_version,
+                run_seed: seed,
+                file_index: 0,
+                frame_index: None,
+                referenced_object_index: None,
+                role,
+            })
+        };
+        let implementation = deterministic_uid(&DeterministicUidInput {
+            standards_lock_sha256: &self.standards_lock_sha256,
+            case_id: "dicom-test-suite/implementation",
+            recipe_version: PACKAGE_VERSION,
+            run_seed: 0,
+            file_index: 0,
+            frame_index: None,
+            referenced_object_index: None,
+            role: UidRole::ImplementationClass,
+        });
+        let target = input.common.logical_id.clone();
+        Ok(vec![AdvancedArtifactPlanningContext {
+            recipe_artifact_logical_id: input.common.logical_id.clone(),
+            target_instance_id: target.clone(),
+            order: input.common.order,
+            output: OutputPlan {
+                relative_path: input.common.output_path.clone(),
+                role: "dicom_instance".into(),
+                publish: true,
+            },
+            identities: IdentityPlan::from_exact_values(
+                target,
+                [
+                    (CompositionUidRole::StudyInstance, 0, fixed_ids.study),
+                    (
+                        CompositionUidRole::SeriesInstance,
+                        0,
+                        uid(UidRole::SeriesInstance),
+                    ),
+                    (
+                        CompositionUidRole::SopInstance,
+                        0,
+                        uid(UidRole::SopInstance),
+                    ),
+                    (
+                        CompositionUidRole::FrameOfReference,
+                        0,
+                        fixed_ids.frame_of_reference,
+                    ),
+                    (CompositionUidRole::ImplementationClass, 0, implementation),
+                ],
+            )
+            .map_err(|error| RegistrationPlanError::Identity(error.to_string()))?,
+        }])
+    }
+
     pub fn plan_typed(
         &self,
         request: &AdvancedPlanProviderRequest,
@@ -358,8 +429,11 @@ impl RegistrationPlanProvider {
         {
             return Err(RegistrationPlanError::SourceIdentityCollision);
         }
+        let context = request
+            .artifact_context(&input.common.logical_id)
+            .map_err(RegistrationPlanError::Contract)?;
         for source in [fixed, moving] {
-            if source.reference.source_instance_id != input.common.logical_id
+            if source.reference.source_instance_id != context.target_instance_id
                 || source.reference.target_instance_id != source.artifact.instance.instance_id
                 || !source.reference.referenced_frames.is_empty()
             {
@@ -367,23 +441,11 @@ impl RegistrationPlanProvider {
             }
         }
 
-        let ids = RegistrationUids {
-            study: fixed_ids.study.clone(),
-            series: self.uid(request, UidRole::SeriesInstance),
-            sop: self.uid(request, UidRole::SopInstance),
-            frame_of_reference: fixed_ids.frame_of_reference.clone(),
-            implementation: deterministic_uid(&DeterministicUidInput {
-                standards_lock_sha256: &self.standards_lock_sha256,
-                case_id: "dicom-test-suite/implementation",
-                recipe_version: PACKAGE_VERSION,
-                run_seed: 0,
-                file_index: 0,
-                frame_index: None,
-                referenced_object_index: None,
-                role: UidRole::ImplementationClass,
-            }),
-        };
-        let target = planned_registration(request, input, &ids, &fixed_ids, &moving_ids)?;
+        let ids = RegistrationUids::from_context(context)?;
+        if ids.study != fixed_ids.study || ids.frame_of_reference != fixed_ids.frame_of_reference {
+            return Err(RegistrationPlanError::SourceIdentityCollision);
+        }
+        let target = planned_registration(request, input, context, &ids, &fixed_ids, &moving_ids)?;
         let target_id = target.logical_id.clone();
 
         let mut artifacts = Vec::with_capacity(3);
@@ -442,19 +504,6 @@ impl RegistrationPlanProvider {
             .validate(request)
             .map_err(RegistrationPlanError::Contract)?;
         Ok(output)
-    }
-
-    fn uid(&self, request: &AdvancedPlanProviderRequest, role: UidRole) -> String {
-        deterministic_uid(&DeterministicUidInput {
-            standards_lock_sha256: &self.standards_lock_sha256,
-            case_id: &request.case_id,
-            recipe_version: &request.recipe.recipe_version,
-            run_seed: request.seed,
-            file_index: 0,
-            frame_index: None,
-            referenced_object_index: None,
-            role,
-        })
     }
 }
 
@@ -553,9 +602,33 @@ struct RegistrationUids {
     implementation: String,
 }
 
+impl RegistrationUids {
+    fn from_context(
+        context: &AdvancedArtifactPlanningContext,
+    ) -> Result<Self, RegistrationPlanError> {
+        let get = |role| {
+            context
+                .identities
+                .get(&role, 0)
+                .map(str::to_owned)
+                .ok_or_else(|| {
+                    RegistrationPlanError::Identity(format!("missing {}", role.as_str()))
+                })
+        };
+        Ok(Self {
+            study: get(CompositionUidRole::StudyInstance)?,
+            series: get(CompositionUidRole::SeriesInstance)?,
+            sop: get(CompositionUidRole::SopInstance)?,
+            frame_of_reference: get(CompositionUidRole::FrameOfReference)?,
+            implementation: get(CompositionUidRole::ImplementationClass)?,
+        })
+    }
+}
+
 fn planned_registration(
     request: &AdvancedPlanProviderRequest,
     input: &RegistrationProviderInput,
+    context: &AdvancedArtifactPlanningContext,
     ids: &RegistrationUids,
     fixed: &SourceIdentities,
     moving: &SourceIdentities,
@@ -570,28 +643,9 @@ fn planned_registration(
             deformable_attributes(&input.common, ids, fixed, moving, parameters)?,
         ),
     };
-    let identities = IdentityPlan::from_exact_values(
-        &input.common.logical_id,
-        [
-            (CompositionUidRole::StudyInstance, 0, ids.study.clone()),
-            (CompositionUidRole::SeriesInstance, 0, ids.series.clone()),
-            (CompositionUidRole::SopInstance, 0, ids.sop.clone()),
-            (
-                CompositionUidRole::FrameOfReference,
-                0,
-                ids.frame_of_reference.clone(),
-            ),
-            (
-                CompositionUidRole::ImplementationClass,
-                0,
-                ids.implementation.clone(),
-            ),
-        ],
-    )
-    .map_err(|error| RegistrationPlanError::Identity(error.to_string()))?;
     Ok(PlannedDicomArtifact {
-        logical_id: input.common.logical_id.clone(),
-        order: input.common.order,
+        logical_id: context.target_instance_id.clone(),
+        order: context.order,
         provenance: ArtifactProvenance::Requested,
         case_binding: Some(CaseBinding {
             case_id: request.case_id.clone(),
@@ -600,14 +654,14 @@ fn planned_registration(
         }),
         instance: ResolvedInstancePlan {
             plan_schema_version: "0.1.0".into(),
-            instance_id: input.common.logical_id.clone(),
+            instance_id: context.target_instance_id.clone(),
             template_id: TemplateId(input.common.template_id.clone()),
             template_version: "1.0.0"
                 .parse::<TemplateVersion>()
                 .map_err(|error| RegistrationPlanError::Template(error.to_string()))?,
             sop_class_uid: sop_class_uid.into(),
             transfer_syntax_uid: EXPLICIT_VR_LE.into(),
-            identities,
+            identities: context.identities.clone(),
             attributes,
             content: vec![],
             references: input
@@ -616,11 +670,7 @@ fn planned_registration(
                 .map(|source| source.reference.clone())
                 .collect(),
         },
-        output: OutputPlan {
-            relative_path: input.common.output_path.clone(),
-            role: "dicom_instance".into(),
-            publish: true,
-        },
+        output: context.output.clone(),
         encoding: EncodingPlan {
             transfer_syntax_uid: EXPLICIT_VR_LE.into(),
             sequence_length: SequenceLengthPolicy::WriterDefault,

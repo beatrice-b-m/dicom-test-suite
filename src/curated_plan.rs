@@ -34,12 +34,13 @@ use crate::recipes::classic_mr_cr::plan_mr_cr_recipe;
 use crate::recipes::classic_nuclear::plan_nuclear_recipe;
 use crate::recipes::classic_vl_projection::plan_vl_projection_recipe;
 use crate::recipes::{
-    AdvancedArtifactProvenance, AdvancedPlanProvider, AdvancedPlanProviderOutput,
-    AdvancedPlanProviderRequest, AdvancedProviderFamily, AdvancedProviderLimits, CaseRecipe,
-    ClassicInstanceRequest, ClassicResolvedPlanInput, EnhancedPlanProvider, MetadataScPlanInput,
-    OrderedSeriesProvider, RecipeCatalog, SecondaryCapturePlanInput, WSI_ADVANCED_PROVIDER_ID,
-    WsiAdvancedPlanProvider, encoding_plan_from_recipe, native_pixel_request_from_recipe,
-    resolved_classic_instance_plan, resolved_metadata_sc_plan, resolved_secondary_capture_plan,
+    AdvancedArtifactPlanningContext, AdvancedArtifactProvenance, AdvancedPlanProvider,
+    AdvancedPlanProviderOutput, AdvancedPlanProviderRequest, AdvancedProviderFamily,
+    AdvancedProviderLimits, CaseRecipe, ClassicInstanceRequest, ClassicResolvedPlanInput,
+    EnhancedPlanProvider, MetadataScPlanInput, OrderedSeriesProvider, RecipeCatalog,
+    SecondaryCapturePlanInput, WSI_ADVANCED_PROVIDER_ID, WsiAdvancedPlanProvider,
+    encoding_plan_from_recipe, native_pixel_request_from_recipe, resolved_classic_instance_plan,
+    resolved_metadata_sc_plan, resolved_secondary_capture_plan,
 };
 use crate::sha256_hex;
 
@@ -293,12 +294,6 @@ impl CuratedScCorpusPlanProvider {
                 } else {
                     AdvancedProviderFamily::WholeSlide
                 };
-                let provider_request = advanced_provider_request(
-                    recipe,
-                    family,
-                    request.seed,
-                    request.max_parallelism,
-                )?;
                 let provider_output = if family == AdvancedProviderFamily::Enhanced {
                     let input = self
                         .recipes
@@ -308,11 +303,26 @@ impl CuratedScCorpusPlanProvider {
                             case_id: registry_case.case_id.clone(),
                             provider_id: recipe.plan_provider_id.clone(),
                         })?;
-                    EnhancedPlanProvider::new(self.standards_lock_sha256.clone())
+                    let provider = EnhancedPlanProvider::new(self.standards_lock_sha256.clone())
                         .map_err(|error| CuratedPlanError::AdvancedPlan {
                             recipe_id: recipe.recipe_id.clone(),
                             message: error.to_string(),
-                        })?
+                        })?;
+                    let mut contexts = provider
+                        .recipe_default_contexts(&input, request.seed)
+                        .map_err(|error| CuratedPlanError::AdvancedPlan {
+                            recipe_id: recipe.recipe_id.clone(),
+                            message: error.to_string(),
+                        })?;
+                    assign_global_context_order(&mut contexts, artifacts.len())?;
+                    let provider_request = advanced_provider_request(
+                        recipe,
+                        family,
+                        request.seed,
+                        request.max_parallelism,
+                        contexts,
+                    )?;
+                    provider
                         .plan_typed(&provider_request, &input)
                         .map_err(|error| CuratedPlanError::AdvancedPlan {
                             recipe_id: recipe.recipe_id.clone(),
@@ -327,12 +337,27 @@ impl CuratedScCorpusPlanProvider {
                             case_id: registry_case.case_id.clone(),
                             provider_id: recipe.plan_provider_id.clone(),
                         })?;
-                    WsiAdvancedPlanProvider::new(self.standards_lock_sha256.clone())
-                        .plan(&provider_request, &input)
+                    let provider = WsiAdvancedPlanProvider::new(self.standards_lock_sha256.clone());
+                    let mut contexts = provider
+                        .recipe_default_contexts(&input, request.seed)
                         .map_err(|error| CuratedPlanError::AdvancedPlan {
                             recipe_id: recipe.recipe_id.clone(),
                             message: error.to_string(),
-                        })?
+                        })?;
+                    assign_global_context_order(&mut contexts, artifacts.len())?;
+                    let provider_request = advanced_provider_request(
+                        recipe,
+                        family,
+                        request.seed,
+                        request.max_parallelism,
+                        contexts,
+                    )?;
+                    provider.plan(&provider_request, &input).map_err(|error| {
+                        CuratedPlanError::AdvancedPlan {
+                            recipe_id: recipe.recipe_id.clone(),
+                            message: error.to_string(),
+                        }
+                    })?
                 };
                 merge_advanced_output(
                     recipe,
@@ -698,6 +723,7 @@ fn advanced_provider_request(
     family: AdvancedProviderFamily,
     seed: u64,
     max_parallelism: u32,
+    artifact_contexts: Vec<AdvancedArtifactPlanningContext>,
 ) -> Result<AdvancedPlanProviderRequest, CuratedPlanError> {
     let artifact_count = recipe
         .dicom
@@ -718,6 +744,7 @@ fn advanced_provider_request(
         case_id: recipe.binding.case_id.clone(),
         recipe: recipe.identity(),
         seed,
+        artifact_contexts,
         limits: AdvancedProviderLimits {
             max_artifacts: artifact_count,
             max_references: artifact_count,
@@ -727,6 +754,19 @@ fn advanced_provider_request(
             max_parallelism,
         },
     })
+}
+
+fn assign_global_context_order(
+    contexts: &mut [AdvancedArtifactPlanningContext],
+    first: usize,
+) -> Result<(), CuratedPlanError> {
+    let first = u64::try_from(first).map_err(|_| CuratedPlanError::ResourceOverflow)?;
+    for (offset, context) in contexts.iter_mut().enumerate() {
+        context.order = first
+            .checked_add(u64::try_from(offset).map_err(|_| CuratedPlanError::ResourceOverflow)?)
+            .ok_or(CuratedPlanError::ResourceOverflow)?;
+    }
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -776,7 +816,6 @@ fn merge_advanced_output(
                 artifact_id: advanced.planned.logical_id.clone(),
             })?;
         if !seen_recipe_artifacts.insert(artifact_recipe.logical_id.as_str())
-            || advanced.planned.order != u64::from(artifact_recipe.order)
             || artifact_recipe.output.path.as_deref()
                 != Some(advanced.planned.output.relative_path.as_str())
             || artifact_recipe.output.role != advanced.planned.output.role
@@ -795,10 +834,15 @@ fn merge_advanced_output(
                 artifact_id: advanced.planned.logical_id.clone(),
             });
         }
-        let mut planned = advanced.planned;
+        let planned = advanced.planned;
         let global_order =
             u64::try_from(artifacts.len()).map_err(|_| CuratedPlanError::ResourceOverflow)?;
-        planned.order = global_order;
+        if planned.order != global_order {
+            return Err(CuratedPlanError::AdvancedArtifactMismatch {
+                recipe_id: recipe.recipe_id.clone(),
+                artifact_id: planned.logical_id,
+            });
+        }
         let artifact_id = planned.logical_id.clone();
         let binding = output_bindings.remove(&artifact_id).ok_or_else(|| {
             CuratedPlanError::AdvancedArtifactMismatch {

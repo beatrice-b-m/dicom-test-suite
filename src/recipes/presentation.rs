@@ -8,10 +8,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::{
-    AdvancedArtifactProvenance, AdvancedArtifactRole, AdvancedPlanProvider,
-    AdvancedPlanProviderOutput, AdvancedPlanProviderRequest, AdvancedPlannedArtifact,
-    AdvancedProviderContractError, AdvancedProviderFamily, AdvancedSourceConsumer,
-    AdvancedSourceReference, AdvancedSourceRole, CaseRecipe, RecipeReference,
+    AdvancedArtifactPlanningContext, AdvancedArtifactProvenance, AdvancedArtifactRole,
+    AdvancedPlanProvider, AdvancedPlanProviderOutput, AdvancedPlanProviderRequest,
+    AdvancedPlannedArtifact, AdvancedProviderContractError, AdvancedProviderFamily,
+    AdvancedSourceConsumer, AdvancedSourceReference, AdvancedSourceRole, CaseRecipe,
+    RecipeReference,
 };
 use crate::composition::{
     AttributeAddress, AttributeItem, AttributeOperation, AttributeValue, CompositionUidRole,
@@ -44,6 +45,61 @@ impl PresentationPlanProvider {
         Self {
             standards_lock_sha256: standards_lock_sha256.into(),
         }
+    }
+
+    pub fn recipe_default_contexts(
+        &self,
+        input: &PresentationPlanInput,
+        seed: u64,
+    ) -> Result<Vec<AdvancedArtifactPlanningContext>, AdvancedProviderContractError> {
+        let sources = validate_sources(input)?;
+        let target = input.recipe.logical_id.clone();
+        let series_uid = allocated_uid(
+            &self.standards_lock_sha256,
+            &input.recipe,
+            seed,
+            UidRole::SeriesInstance,
+        );
+        let sop_uid = allocated_uid(
+            &self.standards_lock_sha256,
+            &input.recipe,
+            seed,
+            UidRole::SopInstance,
+        );
+        let implementation = implementation_uid(&self.standards_lock_sha256);
+        let mut identities = vec![
+            (
+                CompositionUidRole::StudyInstance,
+                0,
+                sources[0].study_uid.clone(),
+            ),
+            (CompositionUidRole::SeriesInstance, 0, series_uid),
+            (CompositionUidRole::SopInstance, 0, sop_uid),
+            (CompositionUidRole::ImplementationClass, 0, implementation),
+        ];
+        if matches!(input.recipe.kind, PresentationKind::AdvancedBlending(_)) {
+            identities.push((
+                CompositionUidRole::FrameOfReference,
+                0,
+                sources[0]
+                    .frame_of_reference_uid
+                    .clone()
+                    .ok_or_else(|| invalid("source_identity", "frame_of_reference"))?,
+            ));
+        }
+        Ok(vec![AdvancedArtifactPlanningContext {
+            recipe_artifact_logical_id: input.recipe.logical_id.clone(),
+            target_instance_id: target.clone(),
+            order: sources.len() as u64,
+            output: OutputPlan {
+                relative_path: OutputRelativePath::new(&input.recipe.output_relative_path)
+                    .map_err(AdvancedProviderContractError::CorpusPlan)?,
+                role: "presentation_state".into(),
+                publish: true,
+            },
+            identities: IdentityPlan::from_exact_values(target, identities)
+                .map_err(|error| invalid("identities", &error.to_string()))?,
+        }])
     }
 }
 
@@ -337,29 +393,30 @@ impl AdvancedPlanProvider for PresentationPlanProvider {
     ) -> Result<AdvancedPlanProviderOutput, AdvancedProviderContractError> {
         request.validate()?;
         validate_request(request, input, self.provider_id())?;
-        let output_relative_path = OutputRelativePath::new(&input.recipe.output_relative_path)
-            .map_err(AdvancedProviderContractError::CorpusPlan)?;
         let sources = validate_sources(input)?;
-        let series_uid = allocated_uid(
-            &self.standards_lock_sha256,
-            &input.recipe,
-            request.seed,
-            UidRole::SeriesInstance,
-        );
-        let sop_uid = allocated_uid(
-            &self.standards_lock_sha256,
-            &input.recipe,
-            request.seed,
-            UidRole::SopInstance,
-        );
+        let context = request.artifact_context(&input.recipe.logical_id)?;
+        let series_uid = context
+            .identities
+            .get(&CompositionUidRole::SeriesInstance, 0)
+            .ok_or_else(|| invalid("identities", "series"))?
+            .to_owned();
+        let sop_uid = context
+            .identities
+            .get(&CompositionUidRole::SopInstance, 0)
+            .ok_or_else(|| invalid("identities", "sop"))?
+            .to_owned();
         if sources
             .iter()
             .any(|source| source.series_uid == series_uid || source.sop_instance_uid == sop_uid)
         {
             return Err(invalid("presentation_identity", &sop_uid));
         }
-        let implementation_uid = implementation_uid(&self.standards_lock_sha256);
-        let presentation_id = input.recipe.logical_id.clone();
+        let implementation_uid = context
+            .identities
+            .get(&CompositionUidRole::ImplementationClass, 0)
+            .ok_or_else(|| invalid("identities", "implementation"))?
+            .to_owned();
+        let presentation_id = context.target_instance_id.clone();
 
         let mut artifacts = Vec::with_capacity(sources.len() + 1);
         let mut bindings = Vec::with_capacity(sources.len() + 1);
@@ -413,33 +470,17 @@ impl AdvancedPlanProvider for PresentationPlanProvider {
         }
 
         let attributes = presentation_attributes(input, &sources, &series_uid, &sop_uid);
-        let study_uid = sources[0].study_uid.clone();
-        let mut identity_values = vec![
-            (CompositionUidRole::StudyInstance, 0, study_uid),
-            (CompositionUidRole::SeriesInstance, 0, series_uid.clone()),
-            (CompositionUidRole::SopInstance, 0, sop_uid),
-            (
-                CompositionUidRole::ImplementationClass,
-                0,
-                implementation_uid.clone(),
-            ),
-        ];
-        if matches!(input.recipe.kind, PresentationKind::AdvancedBlending(_)) {
-            identity_values.push((
-                CompositionUidRole::FrameOfReference,
-                0,
-                sources[0]
-                    .frame_of_reference_uid
-                    .clone()
-                    .expect("advanced sources require Frame of Reference UID"),
-            ));
+        if context
+            .identities
+            .get(&CompositionUidRole::StudyInstance, 0)
+            != Some(sources[0].study_uid.as_str())
+        {
+            return Err(invalid("presentation_identity", "study"));
         }
-        let identities = IdentityPlan::from_exact_values(presentation_id.clone(), identity_values)
-            .expect("validated presentation identities");
         let sop_class_uid = sop_class_uid(&input.recipe.kind).to_owned();
         let presentation = PlannedDicomArtifact {
             logical_id: presentation_id.clone(),
-            order: sources.len() as u64,
+            order: context.order,
             provenance: ArtifactProvenance::Requested,
             case_binding: Some(CaseBinding {
                 case_id: input.recipe.case_id.clone(),
@@ -453,16 +494,12 @@ impl AdvancedPlanProvider for PresentationPlanProvider {
                 template_version: TemplateVersion::from_str("1.0.0").expect("valid version"),
                 sop_class_uid: sop_class_uid.clone(),
                 transfer_syntax_uid: TRANSFER_SYNTAX_UID.into(),
-                identities,
+                identities: context.identities.clone(),
                 attributes,
                 content: Vec::new(),
                 references: materialized_references,
             },
-            output: OutputPlan {
-                relative_path: output_relative_path,
-                role: "presentation_state".into(),
-                publish: true,
-            },
+            output: context.output.clone(),
             encoding: encoding(&implementation_uid),
             validation: ValidationPlan {
                 rules: vec![ValidationRule {

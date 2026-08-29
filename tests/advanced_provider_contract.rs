@@ -14,10 +14,10 @@ use dicom_test_suite::corpus_plan::{
 };
 use dicom_test_suite::executor::services::ArtifactExecutionBindings;
 use dicom_test_suite::recipes::{
-    AdvancedArtifactProvenance, AdvancedArtifactRole, AdvancedPlanProviderOutput,
-    AdvancedPlanProviderRequest, AdvancedPlannedArtifact, AdvancedProviderContractError,
-    AdvancedProviderFamily, AdvancedProviderLimits, AdvancedSourceConsumer,
-    AdvancedSourceReference, AdvancedSourceRole, RecipeIdentity,
+    AdvancedArtifactPlanningContext, AdvancedArtifactProvenance, AdvancedArtifactRole,
+    AdvancedPlanProviderOutput, AdvancedPlanProviderRequest, AdvancedPlannedArtifact,
+    AdvancedProviderContractError, AdvancedProviderFamily, AdvancedProviderLimits,
+    AdvancedSourceConsumer, AdvancedSourceReference, AdvancedSourceRole, RecipeIdentity,
 };
 
 const TS: &str = "1.2.840.10008.1.2.1";
@@ -25,6 +25,14 @@ const SOP_CLASS: &str = "1.2.840.10008.5.1.4.1.1.66.1";
 const IMPLEMENTATION_UID: &str = "2.25.999";
 
 fn request() -> AdvancedPlanProviderRequest {
+    let context_artifact = artifact(
+        "fixed",
+        1,
+        "advanced/registration/fixed.dcm",
+        "2.25.101",
+        ArtifactProvenance::Requested,
+        vec![],
+    );
     AdvancedPlanProviderRequest {
         provider_id: "native.advanced.registration".into(),
         family: AdvancedProviderFamily::Registration,
@@ -34,6 +42,13 @@ fn request() -> AdvancedPlanProviderRequest {
             recipe_version: "1.0.0".into(),
         },
         seed: 7,
+        artifact_contexts: vec![AdvancedArtifactPlanningContext {
+            recipe_artifact_logical_id: "fixed".into(),
+            target_instance_id: "fixed".into(),
+            order: context_artifact.order,
+            output: context_artifact.output,
+            identities: context_artifact.instance.identities,
+        }],
         limits: AdvancedProviderLimits {
             max_artifacts: 4,
             max_references: 4,
@@ -224,6 +239,25 @@ fn valid_advanced_contract_assembles_a_deterministic_corpus_plan() {
             .canonical_sha256()
             .unwrap()
     );
+}
+
+#[test]
+fn request_requires_exact_nonempty_artifact_contexts() {
+    let mut empty = request();
+    empty.artifact_contexts.clear();
+    assert!(matches!(
+        empty.validate().unwrap_err(),
+        AdvancedProviderContractError::EmptyArtifactContexts
+    ));
+
+    let mut wrong_owner = request();
+    wrong_owner.artifact_contexts[0]
+        .identities
+        .logical_instance_id = "different_owner".into();
+    assert!(matches!(
+        wrong_owner.validate().unwrap_err(),
+        AdvancedProviderContractError::ArtifactContextIdentityOwner
+    ));
 }
 
 #[test]

@@ -92,6 +92,7 @@ fn implemented_advanced_recipes_are_catalog_owned_and_plan_exactly_once() {
                 case_id: recipe.binding.case_id.clone(),
                 recipe: recipe.identity(),
                 seed: 1,
+                artifact_contexts: enhanced.recipe_default_contexts(&input, 1).unwrap(),
                 limits: limits(),
             };
             (
@@ -109,6 +110,7 @@ fn implemented_advanced_recipes_are_catalog_owned_and_plan_exactly_once() {
                 case_id: recipe.binding.case_id.clone(),
                 recipe: recipe.identity(),
                 seed: 1,
+                artifact_contexts: wsi.recipe_default_contexts(&input, 1).unwrap(),
                 limits: limits(),
             };
             (

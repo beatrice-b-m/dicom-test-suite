@@ -61,16 +61,25 @@ const MOVING: SourceFixture = SourceFixture {
     path: "classic/ct/mono2_i16_rescale_12bit_explicit_le/instance.dcm",
 };
 
-fn request(case_id: &str, recipe_id: &str) -> AdvancedPlanProviderRequest {
+fn request(
+    case_id: &str,
+    recipe_id: &str,
+    input: &RegistrationProviderInput,
+) -> AdvancedPlanProviderRequest {
+    let recipe = RecipeIdentity {
+        recipe_id: recipe_id.into(),
+        recipe_version: "0.1.0".into(),
+    };
     AdvancedPlanProviderRequest {
         provider_id: REGISTRATION_PLAN_PROVIDER_ID.into(),
         family: AdvancedProviderFamily::Registration,
         case_id: case_id.into(),
-        recipe: RecipeIdentity {
-            recipe_id: recipe_id.into(),
-            recipe_version: "0.1.0".into(),
-        },
+        recipe: recipe.clone(),
         seed: 1,
+        artifact_contexts: RegistrationPlanProvider::new(LOCK)
+            .unwrap()
+            .recipe_default_contexts(input, case_id, &recipe, 1)
+            .unwrap(),
         limits: AdvancedProviderLimits {
             max_artifacts: 3,
             max_references: 2,
@@ -237,7 +246,6 @@ fn common(case_id: &str, deformable: bool) -> RegistrationCommonInput {
 
 fn spatial() -> (AdvancedPlanProviderRequest, RegistrationProviderInput) {
     let case_id = "derived/registration/spatial_ct_pair";
-    let request = request(case_id, "derived_registration_spatial_ct_pair");
     let input = RegistrationProviderInput {
         common: common(case_id, false),
         sources: vec![
@@ -259,12 +267,12 @@ fn spatial() -> (AdvancedPlanProviderRequest, RegistrationProviderInput) {
             moving_comment: "Classic CT first-pixel origin aligned to target frame 2".into(),
         }),
     };
+    let request = request(case_id, "derived_registration_spatial_ct_pair", &input);
     (request, input)
 }
 
 fn deformable() -> (AdvancedPlanProviderRequest, RegistrationProviderInput) {
     let case_id = "derived/registration/deformable_ct_pair";
-    let request = request(case_id, "derived_registration_deformable_ct_pair");
     let input = RegistrationProviderInput {
         common: common(case_id, true),
         sources: vec![
@@ -287,6 +295,7 @@ fn deformable() -> (AdvancedPlanProviderRequest, RegistrationProviderInput) {
             post_deformation_matrix: identity_matrix(),
         }),
     };
+    let request = request(case_id, "derived_registration_deformable_ct_pair", &input);
     (request, input)
 }
 
@@ -429,4 +438,27 @@ fn registration_provider_source_has_no_writer_or_filesystem_boundary() {
             "forbidden boundary {forbidden}"
         );
     }
+}
+
+#[test]
+fn provider_preserves_caller_owned_target_context() {
+    let provider = RegistrationPlanProvider::new(LOCK).unwrap();
+    let (mut request, mut input) = spatial();
+    let context = &mut request.artifact_contexts[0];
+    context.target_instance_id = "caller_registration_target".into();
+    context.identities.logical_instance_id = context.target_instance_id.clone();
+    context.order = 91;
+    context.output.relative_path =
+        OutputRelativePath::new("composition/registration/custom.dcm").unwrap();
+    for source in &mut input.sources {
+        source.reference.source_instance_id = context.target_instance_id.clone();
+    }
+    let expected = context.clone();
+
+    let output = provider.plan_typed(&request, &input).unwrap();
+    let planned = &output.artifacts.last().unwrap().planned;
+    assert_eq!(planned.logical_id, expected.target_instance_id);
+    assert_eq!(planned.order, expected.order);
+    assert_eq!(planned.output, expected.output);
+    assert_eq!(planned.instance.identities, expected.identities);
 }

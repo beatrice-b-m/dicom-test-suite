@@ -32,6 +32,15 @@ pub struct ComposeOptions {
     pub dry_run: bool,
 }
 
+#[derive(Debug, Clone)]
+pub struct ComposeBytesOptions {
+    pub spec_root: PathBuf,
+    pub out_dir: PathBuf,
+    pub seed: u64,
+    pub catalog_path: PathBuf,
+    pub dry_run: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ComposeSummary {
     pub out_dir: PathBuf,
@@ -42,21 +51,53 @@ pub struct ComposeSummary {
 }
 
 pub fn compose(options: &ComposeOptions) -> Result<(ComposeSummary, Value), ComposeError> {
-    if options.out_dir.exists() {
-        return Err(ComposeError::OutputExists(options.out_dir.clone()));
-    }
     let spec_bytes = fs::read(&options.spec_path).map_err(|source| ComposeError::Io {
         path: options.spec_path.clone(),
         source,
     })?;
-    let catalog_bytes = fs::read(&options.catalog_path).map_err(|source| ComposeError::Io {
-        path: options.catalog_path.clone(),
+    let spec_root = options.spec_path.parent().unwrap_or_else(|| Path::new("."));
+    compose_loaded(
+        &spec_bytes,
+        spec_root,
+        &options.out_dir,
+        options.seed,
+        &options.catalog_path,
+        options.dry_run,
+    )
+}
+
+pub fn compose_from_bytes(
+    spec_bytes: &[u8],
+    options: &ComposeBytesOptions,
+) -> Result<(ComposeSummary, Value), ComposeError> {
+    compose_loaded(
+        spec_bytes,
+        &options.spec_root,
+        &options.out_dir,
+        options.seed,
+        &options.catalog_path,
+        options.dry_run,
+    )
+}
+
+fn compose_loaded(
+    spec_bytes: &[u8],
+    spec_root: &Path,
+    out_dir: &Path,
+    seed: u64,
+    catalog_path: &Path,
+    dry_run: bool,
+) -> Result<(ComposeSummary, Value), ComposeError> {
+    if out_dir.exists() {
+        return Err(ComposeError::OutputExists(out_dir.to_path_buf()));
+    }
+    let catalog_bytes = fs::read(catalog_path).map_err(|source| ComposeError::Io {
+        path: catalog_path.to_path_buf(),
         source,
     })?;
     let spec = CompositionSpec::from_slice(&spec_bytes)?;
     let catalog = TemplateCatalog::from_slice(&catalog_bytes)?;
-    let parent = options
-        .out_dir
+    let parent = out_dir
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
         .unwrap_or_else(|| Path::new("."));
@@ -73,26 +114,34 @@ pub fn compose(options: &ComposeOptions) -> Result<(ComposeSummary, Value), Comp
         path: staging.clone(),
         source,
     })?;
+    let options = ComposeOptions {
+        spec_path: spec_root.join("<in-memory-spec>"),
+        out_dir: out_dir.to_path_buf(),
+        seed,
+        catalog_path: catalog_path.to_path_buf(),
+        dry_run,
+    };
     let result = resolve_and_stage(
-        options,
+        &options,
         &spec,
         &catalog,
         &spec_bytes,
         &catalog_bytes,
         &staging,
+        spec_root,
     );
     match result {
-        Ok((summary, output)) if options.dry_run => {
+        Ok((summary, output)) if dry_run => {
             remove_private_staging(&staging)?;
             Ok((summary, output))
         }
         Ok((mut summary, output)) => {
-            fs::rename(&staging, &options.out_dir).map_err(|source| ComposeError::Io {
-                path: options.out_dir.clone(),
+            fs::rename(&staging, out_dir).map_err(|source| ComposeError::Io {
+                path: out_dir.to_path_buf(),
                 source,
             })?;
-            summary.out_dir = options.out_dir.clone();
-            summary.manifest_path = options.out_dir.join("manifest.json");
+            summary.out_dir = out_dir.to_path_buf();
+            summary.manifest_path = out_dir.join("manifest.json");
             Ok((summary, output))
         }
         Err(error) => {
@@ -109,6 +158,7 @@ fn resolve_and_stage(
     spec_bytes: &[u8],
     catalog_bytes: &[u8],
     staging: &Path,
+    spec_root: &Path,
 ) -> Result<(ComposeSummary, Value), ComposeError> {
     let bundle_resolution = BundleResolver.resolve(spec.clone(), catalog)?;
     let spec = &bundle_resolution.spec;
@@ -122,7 +172,6 @@ fn resolve_and_stage(
         path: asset_root.clone(),
         source,
     })?;
-    let spec_root = options.spec_path.parent().unwrap_or_else(|| Path::new("."));
     let mut content_resolver = LocalContentResolver::new(
         spec_root,
         &asset_root,

@@ -1,6 +1,6 @@
 //! Shared, registry-independent DICOM composition primitives.
 //!
-//! This module is intentionally not wired to a public CLI until the P2 gate.
+//! The file-backed CLI and public Rust entry points share this implementation.
 
 pub mod advanced_family;
 pub mod attribute;
@@ -79,7 +79,9 @@ pub use reference::{
     CyclePolicy, LogicalReference, MaterializedReference, ReferenceError, ReferenceGraph,
     ReferenceNode,
 };
-pub use run::{ComposeError, ComposeOptions, ComposeSummary, compose};
+pub use run::{
+    ComposeBytesOptions, ComposeError, ComposeOptions, ComposeSummary, compose, compose_from_bytes,
+};
 pub use spec::{
     AttributeScope, CompositionSpec, ContentAssignment, ContentSource, EncodedFrame,
     IdentityChoice, PixelDeclaration, ResourceLimits, SpecDefaults, SpecError, SpecInstance,

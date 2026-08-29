@@ -6085,23 +6085,6 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
             &["case_id: \""][..],
         ),
         ("src/generator/native/metadata_sc.rs", &["case_id: \""][..]),
-        ("src/generator/native/pet.rs", &["case_id: \""][..]),
-        (
-            "src/generator/native/wsi_tiled_full.rs",
-            &["WSI_TILED_FULL_CASE_ID: &str = \""][..],
-        ),
-        (
-            "src/generator/native/wsi_tiled_sparse.rs",
-            &["WSI_TILED_SPARSE_CASE_ID: &str = \""][..],
-        ),
-        (
-            "src/generator/native/wsi_pyramid.rs",
-            &["WSI_PYRAMID_CASE_ID: &str = \""][..],
-        ),
-        (
-            "src/generator/native/wsi_multiple_optical_paths.rs",
-            &["WSI_MULTIPLE_OPTICAL_PATHS_CASE_ID: &str =\n    \""][..],
-        ),
         (
             "src/generator/native/private_creator_sc.rs",
             &["case_id: \""][..],
@@ -6164,6 +6147,8 @@ fn generator_recipe_case_ids() -> BTreeSet<String> {
         "templates/catalog.json",
     )
     .expect("case recipe catalog must load");
+    // Plan-first enhanced and WSI identities are recipe-owned. Derive them
+    // from the validated catalog rather than deleted native writer modules.
     case_ids.extend(
         catalog
             .recipes()

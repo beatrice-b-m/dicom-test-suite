@@ -19,10 +19,6 @@ pub(super) mod spatial_registration;
 pub(super) mod string_boundary_sc;
 pub(super) mod timezone_sc;
 pub(super) mod twelve_lead_ecg;
-pub(super) mod wsi_multiple_optical_paths;
-pub(super) mod wsi_pyramid;
-pub(super) mod wsi_tiled_full;
-pub(super) mod wsi_tiled_sparse;
 
 #[cfg(test)]
 mod advanced_blending_presentation_state_tests;
@@ -60,7 +56,3 @@ mod spatial_registration_tests;
 mod string_boundary_sc_tests;
 #[cfg(test)]
 mod twelve_lead_ecg_tests;
-#[cfg(test)]
-mod wsi_tiled_full_tests;
-#[cfg(test)]
-mod wsi_tiled_sparse_tests;

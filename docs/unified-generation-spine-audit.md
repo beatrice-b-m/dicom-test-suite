@@ -114,3 +114,36 @@ waveform/document/mesh, codecs, stress, negative, fuzz, and interoperability.
 Generic plan validation is additive. A migrated recipe is incomplete if its
 previous specialized validation name, manifest expectation, report axis, or
 independent route disappears.
+
+## U2 shared-executor checkpoint
+
+The U2 gate completed on 2026-08-29. Composition now resolves one immutable
+`CorpusPlan` and delegates provider, codec, materialization, validation,
+evidence projection, private-asset cleanup, manifest writing, and atomic
+publication to `CorpusExecutor`. Ordinary caller files are securely read and
+hash-checked during planning without being copied; neutral source handles are
+staged exactly once inside the executor transaction. The only remaining
+composition planning scratch is the advanced-default compatibility bridge
+already assigned to U5.6, and it is removed before scheduling or publication.
+
+Adversarial qualification covers provider-to-codec chaining, in-flight codec
+and streamed-materialization cancellation, plan-derived public-file
+allowlisting, symlink and output-identity drift, private and undeclared file
+removal, checked codec/encapsulation working-memory limits, cleanup failure,
+manifest failure, destination races, and deterministic parallel execution.
+Provider and codec results remain separate typed evidence; execution-local
+encoded-content facts do not mutate the pre-execution corpus-plan hash.
+
+The phase gate used:
+
+```sh
+cargo test --locked --all-targets --no-default-features
+cargo fmt --check
+git diff --check
+```
+
+All commands passed. A fresh template-only composition run was recursively
+compared with the private pre-migration `52e1d20` oracle. The output trees were
+identical, including the manifest SHA-256
+`df9b9b972aacaa70f580184716217c2096f895d12a7c3abbbf882f09e0ab6c66`.
+Generated roots remain private, ignored evidence and are not committed.

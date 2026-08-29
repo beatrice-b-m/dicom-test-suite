@@ -386,6 +386,18 @@ fn resolve_and_stage(
     materialize_reference_graph(&mut plans, &spec, &bundle_resolution.members)?;
     super::advanced_family::rewrite_materialized_dicom_references(&mut plans)?;
 
+    // U1 no-op adapter: the complete neutral plan is validated before the
+    // composition publication materializer runs. Existing projection remains based
+    // on the resolved instance plans so public bytes and manifest fields do
+    // not change during this contract-only phase.
+    let corpus_plan = super::resolved_composition_corpus_plan(
+        options.seed,
+        &plans,
+        &bundle_resolution.members,
+        &spec.resource_limits,
+        spec.parallelism,
+    )?;
+
     let dry_run_output = json!({
         "composition_spec_schema_version": spec.composition_spec_schema_version,
         "seed": options.seed,
@@ -408,7 +420,13 @@ fn resolve_and_stage(
         .map_err(|_| ComposeError::ResourceRange)?
         .min(plans.len())
         .max(1);
-    let entry_paths = materialize_plans(&mut plans, staging, used_parallelism, cancellation)?;
+    let entry_paths = materialize_plans(
+        &mut plans,
+        &corpus_plan,
+        staging,
+        used_parallelism,
+        cancellation,
+    )?;
     let output_bytes = entry_paths.iter().try_fold(0_u64, |total, (path, _)| {
         let size = fs::metadata(path)
             .map_err(|source| ComposeError::Io {
@@ -535,10 +553,12 @@ fn enforce_synthetic_data(plans: &mut [ResolvedInstancePlan]) -> Result<(), Comp
 
 fn materialize_plans(
     plans: &mut [ResolvedInstancePlan],
+    corpus_plan: &crate::corpus_plan::CorpusPlan,
     staging: &Path,
     workers: usize,
     cancellation: &ComposeCancellationToken,
 ) -> Result<Vec<(PathBuf, String)>, ComposeError> {
+    super::corpus_adapter::validate_materialization_alignment(corpus_plan, plans)?;
     let chunk_size = plans.len().div_ceil(workers);
     let chunks = std::thread::scope(|scope| {
         let mut handles = Vec::new();
@@ -1559,6 +1579,7 @@ pub enum ComposeError {
     Codec(crate::codecs::CodecError),
     Encapsulation(crate::encapsulation::EncapsulationError),
     Provider(super::ProviderError),
+    CorpusPlan(crate::corpus_plan::CorpusPlanError),
     Cancelled,
     ResourceRange,
     ParallelWorkerPanic,
@@ -1655,6 +1676,7 @@ from_error!(super::ReferenceError, Reference);
 from_error!(crate::codecs::CodecError, Codec);
 from_error!(crate::encapsulation::EncapsulationError, Encapsulation);
 from_error!(super::ProviderError, Provider);
+from_error!(crate::corpus_plan::CorpusPlanError, CorpusPlan);
 
 impl fmt::Display for ComposeError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {

@@ -6,12 +6,33 @@
     "case_id": "enhanced/ct/concatenation_two_part_explicit_le"
   },
   "kind": "dicom",
-  "plan_provider_id": "native.case_plan",
-  "dependencies": [
-
-  ],
+  "plan_provider_id": "native.enhanced_plan",
+  "planning_order": 802,
   "provider_parameters": {
+    "family": "ct",
+    "common": {
+      "modality": "CT",
+      "study_id": "DTS-ECT",
+      "device_serial_number": "DTS-ECT-0001",
+      "image_type": "DERIVED\\PRIMARY\\AXIAL\\NONE",
+      "rows": 2,
+      "columns": 2,
+      "frame_type": "DERIVED\\PRIMARY\\AXIAL\\NONE",
+      "pixel_presentation": "MONOCHROME",
+      "volumetric_properties": "VOLUME",
+      "volume_based_calculation_technique": "NONE"
+    },
+    "pixel_spacing": "0.75\\0.75",
+    "image_orientation_patient": "1\\0\\0\\0\\1\\0",
+    "slice_thickness": "2.5",
+    "spacing_between_slices": "2.5",
+    "rescale_intercept": "-1024",
+    "rescale_slope": "1",
+    "rescale_type": "HU",
+    "concatenation": true,
+    "stress": false
   },
+  "dependencies": [],
   "validation_rule_ids": [
     "validation.shared"
   ],
@@ -21,67 +42,53 @@
   "dicom": {
     "artifacts": [
       {
-        "logical_id": "artifact_1",
-        "output": {
-          "role": "primary_1",
-          "provider_derived": true
-        },
-        "encoding": {
-          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-          "sequence_length_policy": "provider",
-          "item_length_policy": "provider",
-          "offset_table_policy": "provider",
-          "fragmentation_policy": "provider"
-        },
-        "parameters": {
-        },
-        "attribute_operations": [
-
-        ],
-        "content": {
-          "provider_id": "content.case_default",
-          "parameters": {
-          }
-        },
-        "validation_rule_ids": [
-          "validation.shared"
-        ],
-        "projection_rule_ids": [
-          "projection.curated"
-        ],
-        "determinism": "byte_stable",
-        "stressors": [
-
-        ],
-        "algorithm_provider_id": "algorithm.case_provider",
+        "logical_id": "advanced_enhanced_ct_concatenation_two_part_artifact_1",
+        "order": 0,
         "template": {
           "template_id": "enhanced/ct/concatenation-part-1",
           "template_version": "1.0.0"
         },
-        "order": 0
-      },
-      {
-        "logical_id": "artifact_2",
         "output": {
-          "role": "primary_2",
-          "provider_derived": true
+          "role": "dicom_instance",
+          "path": "enhanced/ct/concatenation_two_part_explicit_le/part-001.dcm"
         },
         "encoding": {
           "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-          "sequence_length_policy": "provider",
-          "item_length_policy": "provider",
-          "offset_table_policy": "provider",
-          "fragmentation_policy": "provider"
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
         },
         "parameters": {
+          "frames": {
+            "source": "literal",
+            "values": [
+              {
+                "image_position_patient": "0\\0\\0",
+                "dimension_index_value": 1
+              }
+            ]
+          },
+          "pixels": {
+            "source": "literal",
+            "stored_values": [
+              0,
+              100,
+              200,
+              300
+            ],
+            "pixel_min": 0,
+            "pixel_max": 300
+          },
+          "in_concatenation_number": 1,
+          "concatenation_frame_offset_number": 0
         },
-        "attribute_operations": [
-
-        ],
+        "attribute_operations": [],
         "content": {
-          "provider_id": "content.case_default",
-          "parameters": {
-          }
+          "provider_id": "content.native_pixels",
+          "parameters": {}
         },
         "validation_rule_ids": [
           "validation.shared"
@@ -90,15 +97,67 @@
           "projection.curated"
         ],
         "determinism": "byte_stable",
-        "stressors": [
-
-        ],
-        "algorithm_provider_id": "algorithm.case_provider",
+        "stressors": [],
+        "algorithm_provider_id": "algorithm.enhanced"
+      },
+      {
+        "logical_id": "advanced_enhanced_ct_concatenation_two_part_artifact_2",
+        "order": 1,
         "template": {
           "template_id": "enhanced/ct/concatenation-part-2",
           "template_version": "1.0.0"
         },
-        "order": 1
+        "output": {
+          "role": "dicom_instance",
+          "path": "enhanced/ct/concatenation_two_part_explicit_le/part-002.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "frames": {
+            "source": "literal",
+            "values": [
+              {
+                "image_position_patient": "0\\0\\2.5",
+                "dimension_index_value": 2
+              }
+            ]
+          },
+          "pixels": {
+            "source": "literal",
+            "stored_values": [
+              400,
+              500,
+              600,
+              700
+            ],
+            "pixel_min": 400,
+            "pixel_max": 700
+          },
+          "in_concatenation_number": 2,
+          "concatenation_frame_offset_number": 1
+        },
+        "attribute_operations": [],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {}
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [],
+        "algorithm_provider_id": "algorithm.enhanced"
       }
     ]
   }

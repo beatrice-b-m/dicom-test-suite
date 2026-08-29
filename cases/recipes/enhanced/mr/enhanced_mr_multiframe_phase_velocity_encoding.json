@@ -6,12 +6,53 @@
     "case_id": "enhanced/mr/multiframe_phase_velocity_encoding_explicit_le"
   },
   "kind": "dicom",
-  "plan_provider_id": "native.case_plan",
-  "dependencies": [
-
-  ],
+  "plan_provider_id": "native.enhanced_plan",
+  "planning_order": 805,
   "provider_parameters": {
+    "family": "mr",
+    "common": {
+      "modality": "MR",
+      "study_id": "DTS-EMR",
+      "device_serial_number": "DTS-EMR-0001",
+      "image_type": "DERIVED\\PRIMARY\\DYNAMIC\\NONE",
+      "rows": 2,
+      "columns": 2,
+      "frame_type": "DERIVED\\PRIMARY\\DYNAMIC\\NONE",
+      "pixel_presentation": "MONOCHROME",
+      "volumetric_properties": "VOLUME",
+      "volume_based_calculation_technique": "NONE"
+    },
+    "pixel_spacing": "1.000\\1.000",
+    "image_orientation_patient": "1\\0\\0\\0\\1\\0",
+    "slice_thickness": "4",
+    "spacing_between_slices": "4",
+    "rescale_intercept": "0",
+    "rescale_slope": "1",
+    "rescale_type": "US",
+    "repetition_time": "1500",
+    "flip_angle": "90",
+    "echo_train_length": "1",
+    "rf_echo_train_length": 1,
+    "gradient_echo_train_length": 0,
+    "axis": {
+      "kind": "velocity_encoding",
+      "directions": [
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ],
+      "minimum": -150.0,
+      "maximum": 150.0
+    }
   },
+  "dependencies": [],
   "validation_rule_ids": [
     "validation.shared"
   ],
@@ -21,27 +62,59 @@
   "dicom": {
     "artifacts": [
       {
-        "logical_id": "artifact_1",
+        "logical_id": "advanced_enhanced_mr_multiframe_phase_velocity_encoding_artifact_1",
+        "order": 0,
+        "template": {
+          "template_id": "enhanced/mr",
+          "template_version": "1.0.0"
+        },
         "output": {
-          "role": "primary_1",
-          "provider_derived": true
+          "role": "dicom_instance",
+          "path": "enhanced/mr/multiframe_phase_velocity_encoding_explicit_le/instance.dcm"
         },
         "encoding": {
           "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-          "sequence_length_policy": "provider",
-          "item_length_policy": "provider",
-          "offset_table_policy": "provider",
-          "fragmentation_policy": "provider"
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
         },
         "parameters": {
-        },
-        "attribute_operations": [
-
-        ],
-        "content": {
-          "provider_id": "content.case_default",
-          "parameters": {
+          "frames": {
+            "source": "literal",
+            "values": [
+              {
+                "image_position_patient": "0\\0\\0",
+                "dimension_index_value": 1
+              },
+              {
+                "image_position_patient": "0\\0\\0",
+                "dimension_index_value": 2
+              }
+            ]
+          },
+          "pixels": {
+            "source": "literal",
+            "stored_values": [
+              0,
+              40,
+              80,
+              120,
+              160,
+              200,
+              240,
+              280
+            ],
+            "pixel_min": 0,
+            "pixel_max": 280
           }
+        },
+        "attribute_operations": [],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {}
         },
         "validation_rule_ids": [
           "validation.shared"
@@ -50,15 +123,8 @@
           "projection.curated"
         ],
         "determinism": "byte_stable",
-        "stressors": [
-
-        ],
-        "algorithm_provider_id": "algorithm.case_provider",
-        "template": {
-          "template_id": "enhanced/mr",
-          "template_version": "1.0.0"
-        },
-        "order": 0
+        "stressors": [],
+        "algorithm_provider_id": "algorithm.enhanced"
       }
     ]
   }

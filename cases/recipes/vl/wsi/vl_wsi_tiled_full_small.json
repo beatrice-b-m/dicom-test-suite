@@ -6,12 +6,12 @@
     "case_id": "vl/wsi/tiled_full_small"
   },
   "kind": "dicom",
-  "plan_provider_id": "native.case_plan",
-  "dependencies": [
-
-  ],
+  "plan_provider_id": "native.wsi_plan",
+  "planning_order": 700,
   "provider_parameters": {
+    "dependency_mode": "none"
   },
+  "dependencies": [],
   "validation_rule_ids": [
     "validation.shared"
   ],
@@ -21,27 +21,65 @@
   "dicom": {
     "artifacts": [
       {
-        "logical_id": "artifact_1",
+        "logical_id": "wsi_tiled_full",
+        "order": 0,
+        "template": {
+          "template_id": "vl/wsi/tiled-full",
+          "template_version": "1.0.0"
+        },
         "output": {
-          "role": "primary_1",
-          "provider_derived": true
+          "role": "volume",
+          "path": "vl/wsi/tiled_full_small/instance.dcm"
         },
         "encoding": {
           "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-          "sequence_length_policy": "provider",
-          "item_length_policy": "provider",
-          "offset_table_policy": "provider",
-          "fragmentation_policy": "provider"
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
         },
         "parameters": {
-        },
-        "attribute_operations": [
-
-        ],
-        "content": {
-          "provider_id": "content.case_default",
+          "kind": "volume",
+          "level": 0,
+          "file_index": 0,
           "parameters": {
+            "series_number": "41",
+            "model_name": "Native TILED_FULL WSI",
+            "instance_number": "1",
+            "image_type": "ORIGINAL\\PRIMARY\\VOLUME\\NONE",
+            "label_in_image": "NO",
+            "rows": 2,
+            "columns": 2,
+            "frames": 4,
+            "matrix_rows": 4,
+            "matrix_columns": 4,
+            "width": 2.0,
+            "height": 2.0,
+            "spacing": "0.5\\0.5",
+            "dimension_type": "TILED_FULL",
+            "pyramid_membership": false,
+            "optical_paths": [
+              {
+                "identifier": "RGB",
+                "description": null,
+                "wavelength": 550.0
+              }
+            ],
+            "sparse_dimension_indices": false,
+            "sparse_positions": false,
+            "specimen_identifier": "DTS-SPECIMEN-001",
+            "container_identifier": "DTS-SLIDE-001"
+          },
+          "pixel_algorithm": {
+            "algorithm": "tiled_color_quadrants"
           }
+        },
+        "attribute_operations": [],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {}
         },
         "validation_rule_ids": [
           "validation.shared"
@@ -50,15 +88,8 @@
           "projection.curated"
         ],
         "determinism": "byte_stable",
-        "stressors": [
-
-        ],
-        "algorithm_provider_id": "algorithm.case_provider",
-        "template": {
-          "template_id": "vl/wsi/tiled-full",
-          "template_version": "1.0.0"
-        },
-        "order": 0
+        "stressors": [],
+        "algorithm_provider_id": "algorithm.wsi"
       }
     ]
   }

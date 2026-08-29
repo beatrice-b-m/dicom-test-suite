@@ -17,13 +17,33 @@ use dicom_test_suite::executor::services::{
 use dicom_test_suite::recipes::{
     AdvancedPlanProvider, AdvancedPlanProviderRequest, AdvancedProviderFamily,
     AdvancedProviderLimits, RecipeCatalog, WSI_ADVANCED_PROVIDER_ID, WsiAdvancedPlanProvider,
-    WsiPlanRecipe, curated_wsi_recipes,
+    WsiPlanRecipe,
 };
 use dicom_test_suite::{GenerateOptions, prepare_generation_run, sha256_hex, write_generation_run};
 use serde_json::{Value, json};
 
 const SEED: u64 = 1;
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+fn curated_wsi_recipes() -> Vec<WsiPlanRecipe> {
+    let catalog = RecipeCatalog::load(
+        "cases/recipes",
+        "cases/registry.json",
+        "templates/catalog.json",
+    )
+    .unwrap();
+    catalog
+        .recipes()
+        .values()
+        .filter(|recipe| recipe.plan_provider_id == WSI_ADVANCED_PROVIDER_ID)
+        .map(|recipe| {
+            catalog
+                .wsi_input_for_case(&recipe.binding.case_id)
+                .unwrap()
+                .expect("WSI recipe has typed input")
+        })
+        .collect()
+}
 
 struct TempRoot(PathBuf);
 

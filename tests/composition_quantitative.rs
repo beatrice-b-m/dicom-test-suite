@@ -98,6 +98,7 @@ fn quantitative_default_bundles_are_closed_provenanced_and_reproducible() {
         for content in entry["content"].as_array().unwrap() {
             assert_eq!(content["sha256"].as_str().unwrap().len(), 64);
             assert!(content["properties"]["bulk_source"].is_string());
+            assert!(content["properties"]["semantic_validator"].is_string());
         }
     }
     fs::remove_dir_all(first).unwrap();

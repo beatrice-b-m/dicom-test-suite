@@ -84,6 +84,7 @@ fn p6_waveform_document_and_mesh_defaults_are_reproducible_and_provenanced() {
             assert!(content["size_bytes"].as_u64().unwrap() > 0);
             assert_eq!(content["sha256"].as_str().unwrap().len(), 64);
             assert!(content["properties"]["bulk_source"].is_string());
+            assert!(content["properties"]["semantic_validator"].is_string());
         }
         let relative = entry["path"].as_str().unwrap();
         assert_eq!(

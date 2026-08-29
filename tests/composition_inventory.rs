@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 
+use dicom_test_suite::composition::{TemplateCatalog, TemplateStatus};
 use serde_json::Value;
 
 fn read_json(path: &str) -> Value {
@@ -79,4 +80,59 @@ fn inventory_records_all_out_of_scope_qualification_domains() {
         scopes,
         BTreeSet::from(["negative", "fuzz", "media", "protocol", "qualification"])
     );
+}
+
+#[test]
+fn every_inventory_mapping_resolves_to_a_qualified_catalog_template() {
+    let inventory = read_json("templates/inventory.json");
+    let catalog = TemplateCatalog::load("templates/catalog.json").unwrap();
+
+    for mapping in inventory["mappings"].as_array().unwrap() {
+        let uid = mapping["sop_class_uid"].as_str().unwrap();
+        let family = mapping["template_family"].as_str().unwrap();
+        let candidates = catalog
+            .templates
+            .iter()
+            .filter(|template| template.sop_class_uid == uid)
+            .collect::<Vec<_>>();
+        assert!(!candidates.is_empty(), "{uid} has no catalog descriptor");
+        assert!(
+            candidates.iter().any(|template| {
+                template.status == TemplateStatus::Qualified
+                    && (template.template_id.0 == family
+                        || template.template_id.0.starts_with(&format!("{family}/")))
+            }),
+            "{uid} inventory family {family} has no qualified catalog implementation"
+        );
+    }
+}
+
+#[test]
+fn p6_bulk_templates_bind_content_rules_and_independent_semantic_routes() {
+    let catalog = TemplateCatalog::load("templates/catalog.json").unwrap();
+    for template in catalog.templates.iter().filter(|template| {
+        template.template_id.0.starts_with("derived/segmentation/")
+            || template.template_id.0.starts_with("derived/parametric-map/")
+            || template.template_id.0.starts_with("non-image/")
+    }) {
+        if template.content_slots.is_empty() {
+            continue;
+        }
+        assert!(
+            template.validation["content_rule_ids"]
+                .as_array()
+                .is_some_and(|rules| !rules.is_empty()),
+            "{} must declare content validation rules",
+            template.template_id
+        );
+        assert!(
+            template.validation["independent_routes"]
+                .as_array()
+                .is_some_and(|routes| routes.iter().any(|route| {
+                    route["required_for_qualification"] == true && route["kind"] != "iod"
+                })),
+            "{} must declare a required independent semantic route",
+            template.template_id
+        );
+    }
 }

@@ -8,10 +8,12 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use dicom_test_suite::composition::{
-    CONTENT_PROVIDER_PROTOCOL_VERSION, ProviderError, ProviderInvocation,
-    ProviderOutputDeclaration, ProviderRequest, invoke_content_provider,
+    CONTENT_PROVIDER_PROTOCOL_VERSION, ComposeError, ComposeOptions, ProviderError,
+    ProviderInvocation, ProviderOutputDeclaration, ProviderRequest, compose,
+    invoke_content_provider,
 };
 use dicom_test_suite::sha256_hex;
+use serde_json::json;
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
@@ -158,5 +160,125 @@ fn provider_crash_and_hang_are_bounded() {
         ),
         Err(ProviderError::Timeout { .. })
     ));
+    fs::remove_dir_all(root).unwrap();
+}
+
+fn composition_script(payload_sha256: &str) -> String {
+    format!(
+        r#"#!/bin/sh
+request_id=$(/usr/bin/sed -n 's/.*"request_id": "\([^"]*\)".*/\1/p' "$DTS_COMPOSITION_PROVIDER_REQUEST")
+printf 'abcd' > "$DTS_COMPOSITION_PROVIDER_OUTPUTS/pixels.raw"
+printf '{{"protocol_version":"1.0.0","request_id":"%s","provider_id":"fixture.provider","provider_version":"1.2.3","executable_sha256":"%s","output":{{"slot":"pixels","relative_path":"pixels.raw","size_bytes":4,"sha256":"{payload_sha256}"}}}}' "$request_id" "$1" > "$DTS_COMPOSITION_PROVIDER_RESPONSE"
+"#
+    )
+}
+
+fn provider_spec(executable: &Path, executable_sha256: &str) -> serde_json::Value {
+    json!({
+        "composition_spec_schema_version": "0.1.0",
+        "instances": [{
+            "instance_id": "primary",
+            "template": {"id": "classic/secondary-capture/monochrome"},
+            "content": [{
+                "slot": "pixels",
+                "source": {
+                    "kind": "provider",
+                    "provider_id": "fixture.provider",
+                    "provider_version": "1.2.3",
+                    "executable": executable,
+                    "executable_sha256": executable_sha256,
+                    "arguments": [executable_sha256],
+                    "timeout_ms": 2000,
+                    "size_bytes": 4,
+                    "sha256": sha256_hex(b"abcd"),
+                    "media_type": "application/octet-stream",
+                    "pixel": {
+                        "rows": 2,
+                        "columns": 2,
+                        "frames": 1,
+                        "samples_per_pixel": 1,
+                        "photometric_interpretation": "MONOCHROME2",
+                        "sample_type": "uint",
+                        "bits_allocated": 8,
+                        "bits_stored": 8,
+                        "high_bit": 7,
+                        "byte_order": "little"
+                    },
+                    "parameters": {"fixture": "neutral-gradient"}
+                }
+            }]
+        }]
+    })
+}
+
+#[test]
+fn compose_consumes_provider_content_and_records_full_provenance() {
+    let root = private_root("compose-success");
+    fs::create_dir(&root).unwrap();
+    let executable = root.join("provider.sh");
+    write_executable(&executable, &composition_script(&sha256_hex(b"abcd")));
+    let executable_sha256 = sha256_hex(&fs::read(&executable).unwrap());
+    let spec_path = root.join("spec.json");
+    fs::write(
+        &spec_path,
+        serde_json::to_vec_pretty(&provider_spec(&executable, &executable_sha256)).unwrap(),
+    )
+    .unwrap();
+    let out = root.join("out");
+    let (_, manifest) = compose(&ComposeOptions {
+        spec_path,
+        out_dir: out.clone(),
+        seed: 71,
+        catalog_path: "templates/catalog.json".into(),
+        dry_run: false,
+    })
+    .unwrap();
+    let object = dicom_object::open_file(out.join("instances/primary.dcm")).unwrap();
+    assert_eq!(
+        object
+            .element_by_name("PixelData")
+            .unwrap()
+            .to_bytes()
+            .unwrap()
+            .as_ref(),
+        b"abcd"
+    );
+    let properties = &manifest["composition"]["entries"][0]["content"][0]["properties"];
+    assert_eq!(properties["content_origin"], "provider");
+    assert_eq!(properties["provider_id"], "fixture.provider");
+    assert_eq!(properties["provider_version"], "1.2.3");
+    assert_eq!(properties["provider_executable_sha256"], executable_sha256);
+    assert!(properties["provider_request_sha256"].as_str().is_some());
+    assert!(properties["provider_response_sha256"].as_str().is_some());
+    assert!(!out.join(".providers").exists());
+    assert!(!out.join(".assets").exists());
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn compose_provider_crash_cannot_publish_a_partial_corpus() {
+    let root = private_root("compose-crash");
+    fs::create_dir(&root).unwrap();
+    let executable = root.join("provider.sh");
+    write_executable(&executable, "#!/bin/sh\nexit 19\n");
+    let executable_sha256 = sha256_hex(&fs::read(&executable).unwrap());
+    let spec_path = root.join("spec.json");
+    fs::write(
+        &spec_path,
+        serde_json::to_vec_pretty(&provider_spec(&executable, &executable_sha256)).unwrap(),
+    )
+    .unwrap();
+    let out = root.join("out");
+    assert!(matches!(
+        compose(&ComposeOptions {
+            spec_path,
+            out_dir: out.clone(),
+            seed: 71,
+            catalog_path: "templates/catalog.json".into(),
+            dry_run: false,
+        }),
+        Err(ComposeError::Provider(ProviderError::Invalid { .. }))
+    ));
+    assert!(!out.exists());
     fs::remove_dir_all(root).unwrap();
 }

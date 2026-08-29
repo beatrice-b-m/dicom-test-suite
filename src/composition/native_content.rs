@@ -6,13 +6,13 @@ use std::path::{Path, PathBuf};
 
 use super::{
     AttributeAddress, CanonicalContent, ContentError, DicomVr, LocalContentResolver,
-    NativePixelPlan, PixelError, PixelShape,
+    NativePixelPlan, PixelError, PixelShape, StagedAsset,
 };
 
 #[cfg(test)]
-use std::fs;
-#[cfg(test)]
 use crate::sha256_hex;
+#[cfg(test)]
+use std::fs;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RawNativePixelOutput {
@@ -27,13 +27,20 @@ pub fn resolve_raw_native_pixels(
     expected_sha256: Option<&str>,
     shape: PixelShape,
 ) -> Result<RawNativePixelOutput, RawContentError> {
-    let plan = NativePixelPlan::plan(shape)?;
     let asset = resolver.resolve(
         "pixels",
         "native_pixels",
         relative_path.as_ref(),
         expected_sha256,
     )?;
+    resolve_staged_native_pixels(asset, shape)
+}
+
+pub(crate) fn resolve_staged_native_pixels(
+    asset: StagedAsset,
+    shape: PixelShape,
+) -> Result<RawNativePixelOutput, RawContentError> {
+    let plan = NativePixelPlan::plan(shape)?;
     if asset.size_bytes != plan.unpadded_value_bytes {
         return Err(RawContentError::Length {
             path: asset.spec_relative_path,

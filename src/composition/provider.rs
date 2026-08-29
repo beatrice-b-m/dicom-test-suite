@@ -15,8 +15,7 @@ use super::content::StreamingSha256;
 use crate::sha256_hex;
 
 pub const CONTENT_PROVIDER_PROTOCOL_VERSION: &str = "1.0.0";
-const REQUEST_SCHEMA: &str =
-    include_str!("../../schemas/composition-provider-request.schema.json");
+const REQUEST_SCHEMA: &str = include_str!("../../schemas/composition-provider-request.schema.json");
 const RESPONSE_SCHEMA: &str =
     include_str!("../../schemas/composition-provider-response.schema.json");
 const REQUEST_FILE: &str = "request.json";
@@ -141,12 +140,11 @@ pub fn invoke_content_provider(
     if !invocation.executable.is_absolute() {
         return Err(invalid("provider executable must be absolute"));
     }
-    let requested_executable_metadata = fs::symlink_metadata(&invocation.executable).map_err(
-        |source| ProviderError::Io {
+    let requested_executable_metadata =
+        fs::symlink_metadata(&invocation.executable).map_err(|source| ProviderError::Io {
             path: invocation.executable.clone(),
             source,
-        },
-    )?;
+        })?;
     if requested_executable_metadata.file_type().is_symlink()
         || !requested_executable_metadata.is_file()
     {
@@ -230,8 +228,8 @@ pub fn invoke_content_provider(
         path: response_path.clone(),
         source,
     })?;
-    let response_value: Value = serde_json::from_slice(&response_bytes)
-        .map_err(|source| ProviderError::Parse {
+    let response_value: Value =
+        serde_json::from_slice(&response_bytes).map_err(|source| ProviderError::Parse {
             label: "provider response".into(),
             source,
         })?;
@@ -256,8 +254,12 @@ pub fn invoke_content_provider(
         )));
     }
 
-    Ok(ProviderOutput {
+    let canonical_output = fs::canonicalize(&output_path).map_err(|source| ProviderError::Io {
         path: output_path,
+        source,
+    })?;
+    Ok(ProviderOutput {
+        path: canonical_output,
         request_sha256: sha256_hex(&serde_json::to_vec(request).expect("request serializes")),
         response_sha256: sha256_hex(&response_bytes),
         provider_id: response.provider_id,

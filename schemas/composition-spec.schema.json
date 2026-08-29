@@ -27,6 +27,11 @@
       "pattern": "^[a-z0-9][a-z0-9_.-]*(/[a-z0-9][a-z0-9_.-]*)*$",
       "maxLength": 160
     },
+    "provider_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_.-]*$",
+      "maxLength": 128
+    },
     "semver": {
       "type": "string",
       "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
@@ -380,6 +385,32 @@
               }
             },
             "pixel": { "$ref": "#/$defs/pixel_declaration" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind", "provider_id", "provider_version", "executable",
+            "executable_sha256", "timeout_ms", "size_bytes", "sha256"
+          ],
+          "properties": {
+            "kind": { "const": "provider" },
+            "provider_id": { "$ref": "#/$defs/provider_id" },
+            "provider_version": { "$ref": "#/$defs/semver" },
+            "executable": { "type": "string", "minLength": 1, "maxLength": 4096 },
+            "executable_sha256": { "$ref": "#/$defs/sha256" },
+            "arguments": {
+              "type": "array",
+              "maxItems": 64,
+              "items": { "type": "string", "maxLength": 4096 }
+            },
+            "timeout_ms": { "type": "integer", "minimum": 1, "maximum": 300000 },
+            "size_bytes": { "type": "integer", "minimum": 0 },
+            "sha256": { "$ref": "#/$defs/sha256" },
+            "media_type": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "pixel": { "$ref": "#/$defs/pixel_declaration" },
+            "parameters": { "type": "object" }
           },
           "additionalProperties": false
         }

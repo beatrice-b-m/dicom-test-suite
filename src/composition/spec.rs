@@ -129,6 +129,39 @@ pub enum ContentSource {
         frames: Vec<EncodedFrame>,
         pixel: Option<PixelDeclaration>,
     },
+    Provider {
+        provider_id: String,
+        provider_version: String,
+        executable: String,
+        executable_sha256: String,
+        #[serde(default)]
+        arguments: Vec<String>,
+        timeout_ms: u64,
+        size_bytes: u64,
+        sha256: String,
+        media_type: Option<String>,
+        pixel: Option<PixelDeclaration>,
+        #[serde(default)]
+        parameters: BTreeMap<String, Value>,
+    },
+    #[serde(skip)]
+    ResolvedProvider {
+        output: ResolvedProviderContent,
+        media_type: Option<String>,
+        pixel: Option<PixelDeclaration>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResolvedProviderContent {
+    pub path: PathBuf,
+    pub size_bytes: u64,
+    pub sha256: String,
+    pub provider_id: String,
+    pub provider_version: String,
+    pub executable_sha256: String,
+    pub request_sha256: String,
+    pub response_sha256: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -137,7 +170,7 @@ pub struct EncodedFrame {
     pub sha256: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PixelDeclaration {
     pub rows: u32,
     pub columns: u32,
@@ -177,7 +210,7 @@ impl PixelDeclaration {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SpecSampleType {
     Uint,

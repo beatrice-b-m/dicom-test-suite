@@ -3,6 +3,7 @@ use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Duration;
 
 use serde_json::{Value, json};
 
@@ -15,9 +16,10 @@ use super::{
     AdvancedFamilyProfile, BundleResolver, CompositionManifestAssembler, CompositionManifestInputs,
     CompositionSpec, CompositionUidRole, ContentLimits, ContentSource, CyclePolicy,
     DefaultPixelOutput, IdentityAllocator, IdentityChoice, LocalContentResolver, LogicalReference,
-    ManifestEntryInput, Part10Materializer, ReferenceGraph, ReferenceNode, ResolvedInstancePlan,
-    TemplateCatalog, TemplateDescriptor, default_family_pixels, resolve_family_attributes,
-    resolve_raw_native_pixels, resolved_sc_plan, sc_default_pixels,
+    ManifestEntryInput, Part10Materializer, ProviderInvocation, ProviderOutputDeclaration,
+    ProviderRequest, ReferenceGraph, ReferenceNode, ResolvedInstancePlan, ResolvedProviderContent,
+    TemplateCatalog, TemplateDescriptor, default_family_pixels, invoke_content_provider,
+    resolve_family_attributes, resolve_raw_native_pixels, resolved_sc_plan, sc_default_pixels,
 };
 use crate::{PACKAGE_NAME, PACKAGE_VERSION, RUSTC_VERSION, TARGET_TRIPLE, sha256_hex};
 
@@ -161,7 +163,7 @@ fn resolve_and_stage(
     spec_root: &Path,
 ) -> Result<(ComposeSummary, Value), ComposeError> {
     let bundle_resolution = BundleResolver.resolve(spec.clone(), catalog)?;
-    let spec = &bundle_resolution.spec;
+    let mut spec = bundle_resolution.spec.clone();
     let output_root = staging.join("instances");
     let asset_root = staging.join(".assets");
     fs::create_dir(&output_root).map_err(|source| ComposeError::Io {
@@ -224,7 +226,8 @@ fn resolve_and_stage(
         identity_plans.insert(instance.instance_id.clone(), identities);
         templates.push(template);
     }
-    apply_shared_identities(spec, &mut identity_plans)?;
+    apply_shared_identities(&spec, &mut identity_plans)?;
+    invoke_spec_providers(&mut spec, &templates, &identity_plans, staging)?;
 
     for (instance, template) in spec.instances.iter().zip(templates) {
         validate_reference_roles(instance, template)?;
@@ -301,13 +304,17 @@ fn resolve_and_stage(
         }
     }
 
+    let private_providers = staging.join(".providers");
+    if private_providers.exists() {
+        remove_private_staging(&private_providers)?;
+    }
     let private_defaults = staging.join(".defaults");
     if private_defaults.exists() {
         remove_private_staging(&private_defaults)?;
     }
 
     super::advanced_family::validate_concatenation_closure(&plans, &bundle_resolution.members)?;
-    materialize_reference_graph(&mut plans, spec, &bundle_resolution.members)?;
+    materialize_reference_graph(&mut plans, &spec, &bundle_resolution.members)?;
     super::advanced_family::rewrite_materialized_dicom_references(&mut plans)?;
 
     let dry_run_output = json!({
@@ -340,7 +347,9 @@ fn resolve_and_stage(
                 source,
             })?
             .len();
-        total.checked_add(size).ok_or(ComposeError::OutputSizeOverflow)
+        total
+            .checked_add(size)
+            .ok_or(ComposeError::OutputSizeOverflow)
     })?;
     if output_bytes > spec.resource_limits.max_total_output_bytes {
         return Err(ComposeError::OutputLimit {
@@ -448,10 +457,104 @@ fn materialize_plans(
         }
         handles
             .into_iter()
-            .map(|handle| handle.join().map_err(|_| ComposeError::ParallelWorkerPanic)?)
+            .map(|handle| {
+                handle
+                    .join()
+                    .map_err(|_| ComposeError::ParallelWorkerPanic)?
+            })
             .collect::<Result<Vec<_>, ComposeError>>()
     })?;
     Ok(chunks.into_iter().flatten().collect())
+}
+
+fn invoke_spec_providers(
+    spec: &mut CompositionSpec,
+    templates: &[&TemplateDescriptor],
+    identity_plans: &BTreeMap<String, super::IdentityPlan>,
+    staging: &Path,
+) -> Result<(), ComposeError> {
+    let provider_root = staging.join(".providers");
+    let mut provider_index = 0_u64;
+    for (instance, template) in spec.instances.iter_mut().zip(templates) {
+        for assignment in &mut instance.content {
+            let ContentSource::Provider {
+                provider_id,
+                provider_version,
+                executable,
+                executable_sha256,
+                arguments,
+                timeout_ms,
+                size_bytes,
+                sha256,
+                media_type,
+                pixel,
+                parameters,
+            } = assignment.source.clone()
+            else {
+                continue;
+            };
+            if provider_index == 0 {
+                fs::create_dir(&provider_root).map_err(|source| ComposeError::Io {
+                    path: provider_root.clone(),
+                    source,
+                })?;
+            }
+            let identities = identity_plans
+                .get(&instance.instance_id)
+                .expect("identity pass covers provider instance")
+                .identities
+                .clone();
+            let mut request = ProviderRequest {
+                protocol_version: super::CONTENT_PROVIDER_PROTOCOL_VERSION.into(),
+                request_id: String::new(),
+                provider_id: provider_id.clone(),
+                expected_provider_version: provider_version,
+                instance_id: instance.instance_id.clone(),
+                template_id: template.template_id.0.clone(),
+                template_version: template.template_version.to_string(),
+                identities,
+                output: ProviderOutputDeclaration {
+                    slot: assignment.slot.clone(),
+                    size_bytes,
+                    sha256,
+                    max_size_bytes: spec.resource_limits.max_file_bytes,
+                    media_type: media_type.clone(),
+                    pixel: pixel.as_ref().map(|declaration| {
+                        serde_json::to_value(declaration).expect("pixel serializes")
+                    }),
+                },
+                parameters,
+                network_policy: "disabled".into(),
+            };
+            request.request_id = request.canonical_request_id();
+            let output = invoke_content_provider(
+                &ProviderInvocation {
+                    executable: PathBuf::from(executable),
+                    executable_sha256,
+                    arguments,
+                    timeout: Duration::from_millis(timeout_ms),
+                },
+                &request,
+                &provider_root.join(format!("provider-{provider_index:08}")),
+            )?;
+            assignment.source = ContentSource::ResolvedProvider {
+                output: ResolvedProviderContent {
+                    path: output.path,
+                    size_bytes: output.size_bytes,
+                    sha256: output.sha256,
+                    provider_id: output.provider_id,
+                    provider_version: output.provider_version,
+                    executable_sha256: output.executable_sha256,
+                    request_sha256: output.request_sha256,
+                    response_sha256: output.response_sha256,
+                },
+                media_type,
+                pixel,
+            };
+            provider_index += 1;
+        }
+    }
+    Ok(())
 }
 
 fn validate_parameters(
@@ -673,6 +776,22 @@ fn resolve_sc_pixels(
         ContentSource::LocalFile { pixel: None, .. } => Err(ComposeError::MissingPixelDeclaration(
             instance.instance_id.clone(),
         )),
+        ContentSource::ResolvedProvider {
+            output,
+            pixel: Some(pixel),
+            ..
+        } => {
+            let asset = resolver.resolve_provider("pixels", "native_pixels", output)?;
+            let output =
+                super::native_content::resolve_staged_native_pixels(asset, pixel.shape()?)?;
+            Ok(DefaultPixelOutput {
+                plan: output.plan,
+                content: output.content,
+            })
+        }
+        ContentSource::ResolvedProvider { pixel: None, .. } => Err(
+            ComposeError::MissingPixelDeclaration(instance.instance_id.clone()),
+        ),
         _ => Err(ComposeError::UnsupportedP2Content(
             instance.instance_id.clone(),
         )),
@@ -717,6 +836,22 @@ fn resolve_family_pixels(
         ContentSource::LocalFile { pixel: None, .. } => Err(ComposeError::MissingPixelDeclaration(
             instance.instance_id.clone(),
         )),
+        ContentSource::ResolvedProvider {
+            output,
+            pixel: Some(pixel),
+            ..
+        } => {
+            let asset = resolver.resolve_provider("pixels", "native_pixels", output)?;
+            let output =
+                super::native_content::resolve_staged_native_pixels(asset, pixel.shape()?)?;
+            Ok(DefaultPixelOutput {
+                plan: output.plan,
+                content: output.content,
+            })
+        }
+        ContentSource::ResolvedProvider { pixel: None, .. } => Err(
+            ComposeError::MissingPixelDeclaration(instance.instance_id.clone()),
+        ),
         _ => Err(ComposeError::UnsupportedFamilyContent(
             instance.instance_id.clone(),
         )),
@@ -928,6 +1063,7 @@ pub enum ComposeError {
     Reference(super::ReferenceError),
     Codec(crate::codecs::CodecError),
     Encapsulation(crate::encapsulation::EncapsulationError),
+    Provider(super::ProviderError),
     ResourceRange,
     ParallelWorkerPanic,
     UnsupportedTemplate(String),
@@ -998,6 +1134,7 @@ from_error!(super::BundleError, Bundle);
 from_error!(super::ReferenceError, Reference);
 from_error!(crate::codecs::CodecError, Codec);
 from_error!(crate::encapsulation::EncapsulationError, Encapsulation);
+from_error!(super::ProviderError, Provider);
 
 impl fmt::Display for ComposeError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {

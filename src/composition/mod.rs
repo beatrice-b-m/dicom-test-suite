@@ -89,8 +89,8 @@ pub use run::{
 };
 pub use spec::{
     AttributeScope, CompositionSpec, ContentAssignment, ContentSource, EncodedFrame,
-    IdentityChoice, PixelDeclaration, ResourceLimits, SpecDefaults, SpecError, SpecInstance,
-    SpecReference, SpecSampleType, TemplateSelector,
+    IdentityChoice, PixelDeclaration, ResolvedProviderContent, ResourceLimits, SpecDefaults,
+    SpecError, SpecInstance, SpecReference, SpecSampleType, TemplateSelector,
 };
 pub use template::{
     CapabilitySet, RequirementGap, TemplateCatalog, TemplateDescriptor, TemplateError, TemplateId,

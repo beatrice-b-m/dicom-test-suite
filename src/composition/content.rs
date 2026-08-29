@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::fmt;
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
@@ -6,7 +7,9 @@ use std::path::{Component, Path, PathBuf};
 #[cfg(unix)]
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 
-use super::{AttributeAddress, CanonicalContent, ContentMaterialization, DicomVr};
+use super::{
+    AttributeAddress, CanonicalContent, ContentMaterialization, DicomVr, ResolvedProviderContent,
+};
 
 const COPY_BUFFER_BYTES: usize = 64 * 1024;
 
@@ -25,6 +28,7 @@ pub struct StagedAsset {
     pub sha256: String,
     pub spec_relative_path: String,
     pub staged_path: PathBuf,
+    pub properties: BTreeMap<String, String>,
 }
 
 impl StagedAsset {
@@ -33,6 +37,8 @@ impl StagedAsset {
         address: AttributeAddress,
         vr: DicomVr,
     ) -> CanonicalContent {
+        let mut properties = self.properties;
+        properties.insert("spec_relative_path".to_string(), self.spec_relative_path);
         CanonicalContent {
             slot: self.slot,
             kind: self.kind,
@@ -40,9 +46,7 @@ impl StagedAsset {
             vr,
             size_bytes: self.size_bytes,
             sha256: self.sha256,
-            properties: [("spec_relative_path".to_string(), self.spec_relative_path)]
-                .into_iter()
-                .collect(),
+            properties,
             placement: super::ContentPlacement::TopLevel,
             materialization: Some(ContentMaterialization::StagedFile(self.staged_path)),
         }
@@ -97,6 +101,87 @@ impl LocalContentResolver {
             });
         }
         let source_path = verify_component_path(&self.spec_root, relative_path)?;
+        self.stage_source(
+            slot,
+            kind,
+            relative_text,
+            source_path,
+            expected_sha256,
+            BTreeMap::new(),
+        )
+    }
+
+    pub(crate) fn resolve_private(
+        &mut self,
+        slot: &str,
+        kind: &str,
+        source_path: &Path,
+        label: String,
+        expected_sha256: &str,
+        properties: BTreeMap<String, String>,
+    ) -> Result<StagedAsset, ContentError> {
+        if !source_path.is_absolute() {
+            return Err(ContentError::UnsafePath(source_path.to_path_buf()));
+        }
+        self.stage_source(
+            slot,
+            kind,
+            label,
+            source_path.to_path_buf(),
+            Some(expected_sha256),
+            properties,
+        )
+    }
+
+    pub(crate) fn resolve_provider(
+        &mut self,
+        slot: &str,
+        kind: &str,
+        output: &ResolvedProviderContent,
+    ) -> Result<StagedAsset, ContentError> {
+        let properties = BTreeMap::from([
+            ("content_origin".into(), "provider".into()),
+            ("provider_id".into(), output.provider_id.clone()),
+            ("provider_version".into(), output.provider_version.clone()),
+            (
+                "provider_executable_sha256".into(),
+                output.executable_sha256.clone(),
+            ),
+            (
+                "provider_request_sha256".into(),
+                output.request_sha256.clone(),
+            ),
+            (
+                "provider_response_sha256".into(),
+                output.response_sha256.clone(),
+            ),
+        ]);
+        let asset = self.resolve_private(
+            slot,
+            kind,
+            &output.path,
+            format!("providers/{}/{}", output.provider_id, slot),
+            &output.sha256,
+            properties,
+        )?;
+        if asset.size_bytes != output.size_bytes {
+            return Err(ContentError::FileChanged(format!(
+                "providers/{}/{}",
+                output.provider_id, slot
+            )));
+        }
+        Ok(asset)
+    }
+
+    fn stage_source(
+        &mut self,
+        slot: &str,
+        kind: &str,
+        relative_text: String,
+        source_path: PathBuf,
+        expected_sha256: Option<&str>,
+        properties: BTreeMap<String, String>,
+    ) -> Result<StagedAsset, ContentError> {
         let mut source = open_no_follow(&source_path)?;
         let before = source.metadata().map_err(|source| ContentError::Io {
             path: source_path.clone(),
@@ -189,6 +274,7 @@ impl LocalContentResolver {
             sha256,
             spec_relative_path: relative_text,
             staged_path,
+            properties,
         })
     }
 }

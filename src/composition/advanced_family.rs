@@ -5,11 +5,11 @@ use std::path::Path;
 use dicom_object::open_file;
 
 use super::{
-    resolve_raw_native_pixels, AttributeOperation, AttributeValue, BulkDataBounds, BulkDataPlan,
-    BulkDataSource, ContentSource, DoubleFloatPixelDataSlot, EncapsulatedDocumentSlot,
-    FloatPixelDataSlot, IdentityPlan, LocalContentResolver, MeshSlot, PixelDataSlot,
-    PrimitiveValue, ResolvedAttribute, ResolvedInstancePlan, SequenceItemPlacement, SpecInstance,
-    TemplateDescriptor, ValueOrigin, WaveformSamplesSlot,
+    AttributeOperation, AttributeValue, BulkDataBounds, BulkDataPlan, BulkDataSource,
+    ContentSource, DoubleFloatPixelDataSlot, EncapsulatedDocumentSlot, FloatPixelDataSlot,
+    IdentityPlan, LocalContentResolver, MeshSlot, PixelDataSlot, PrimitiveValue, ResolvedAttribute,
+    ResolvedInstancePlan, SequenceItemPlacement, SpecInstance, TemplateDescriptor, ValueOrigin,
+    WaveformSamplesSlot,
 };
 use crate::generator::write_composition_default_artifacts;
 
@@ -1232,26 +1232,31 @@ fn apply_quantitative_content(
             instance.instance_id.clone(),
         ));
     }
-    let ContentSource::LocalFile {
-        path,
-        sha256,
-        pixel: None,
-        ..
-    } = &instance.content[0].source
-    else {
-        return Err(AdvancedFamilyError::UnsupportedContent(
-            instance.instance_id.clone(),
-        ));
-    };
     let expected = &plan.content[0];
-    let asset = resolver
-        .resolve(
+    let asset = match &instance.content[0].source {
+        ContentSource::LocalFile {
+            path,
+            sha256,
+            pixel: None,
+            ..
+        } => resolver.resolve(
             "pixels",
             "quantitative_pixels",
             Path::new(path),
             sha256.as_deref(),
-        )
-        .map_err(|error| AdvancedFamilyError::TypedBulk(error.to_string()))?;
+        ),
+        ContentSource::ResolvedProvider {
+            output,
+            pixel: None,
+            ..
+        } => resolver.resolve_provider("pixels", "quantitative_pixels", output),
+        _ => {
+            return Err(AdvancedFamilyError::UnsupportedContent(
+                instance.instance_id.clone(),
+            ));
+        }
+    }
+    .map_err(|error| AdvancedFamilyError::TypedBulk(error.to_string()))?;
     let bytes = std::fs::read(&asset.staged_path)
         .map_err(|error| AdvancedFamilyError::TypedBulk(error.to_string()))?;
     validate_quantitative_bytes(&plan.template_id.0, &bytes)?;
@@ -1481,27 +1486,38 @@ fn apply_typed_bulk_content(
             .iter()
             .position(|content| content.slot == assignment.slot)
             .ok_or_else(|| AdvancedFamilyError::UnsupportedContent(assignment.slot.clone()))?;
-        let ContentSource::LocalFile {
-            path,
-            sha256,
-            media_type,
-            pixel: None,
-        } = &assignment.source
-        else {
-            return Err(AdvancedFamilyError::UnsupportedContent(
-                instance.instance_id.clone(),
-            ));
+        let (asset, media_type) = match &assignment.source {
+            ContentSource::LocalFile {
+                path,
+                sha256,
+                media_type,
+                pixel: None,
+            } => (
+                resolver.resolve(
+                    &assignment.slot,
+                    document_slot(family),
+                    Path::new(path),
+                    sha256.as_deref(),
+                ),
+                media_type,
+            ),
+            ContentSource::ResolvedProvider {
+                output,
+                media_type,
+                pixel: None,
+            } => (
+                resolver.resolve_provider(&assignment.slot, document_slot(family), output),
+                media_type,
+            ),
+            _ => {
+                return Err(AdvancedFamilyError::UnsupportedContent(
+                    instance.instance_id.clone(),
+                ));
+            }
         };
         validate_media_type(family, media_type.as_deref())?;
         let expected = &plan.content[position];
-        let asset = resolver
-            .resolve(
-                &assignment.slot,
-                document_slot(family),
-                Path::new(path),
-                sha256.as_deref(),
-            )
-            .map_err(|error| AdvancedFamilyError::TypedBulk(error.to_string()))?;
+        let asset = asset.map_err(|error| AdvancedFamilyError::TypedBulk(error.to_string()))?;
         let bounds = match family {
             TypedBulkFamily::TwelveLeadEcg | TypedBulkFamily::GeneralEcg => {
                 BulkDataBounds::exact(expected.size_bytes)
@@ -1674,16 +1690,34 @@ fn apply_caller_content(
             instance.instance_id.clone(),
         ));
     }
-    let ContentSource::LocalFile {
-        path,
-        sha256,
-        pixel: Some(declaration),
-        ..
-    } = &instance.content[0].source
-    else {
-        return Err(AdvancedFamilyError::UnsupportedContent(
-            instance.instance_id.clone(),
-        ));
+    let (declaration, asset) = match &instance.content[0].source {
+        ContentSource::LocalFile {
+            path,
+            sha256,
+            pixel: Some(declaration),
+            ..
+        } => (
+            declaration,
+            resolver.resolve(
+                "pixels",
+                "native_pixels",
+                Path::new(path),
+                sha256.as_deref(),
+            ),
+        ),
+        ContentSource::ResolvedProvider {
+            output,
+            pixel: Some(declaration),
+            ..
+        } => (
+            declaration,
+            resolver.resolve_provider("pixels", "native_pixels", output),
+        ),
+        _ => {
+            return Err(AdvancedFamilyError::UnsupportedContent(
+                instance.instance_id.clone(),
+            ));
+        }
     };
     let declared = declaration
         .shape()
@@ -1696,7 +1730,9 @@ fn apply_caller_content(
             actual: format!("{declared:?}"),
         });
     }
-    let mut output = resolve_raw_native_pixels(resolver, path, sha256.as_deref(), declared)
+    let asset =
+        asset.map_err(|error| AdvancedFamilyError::UnsupportedContent(error.to_string()))?;
+    let mut output = super::native_content::resolve_staged_native_pixels(asset, declared)
         .map_err(|error| AdvancedFamilyError::UnsupportedContent(error.to_string()))?;
     output.content.slot = "pixels".into();
     plan.content = vec![output.content];

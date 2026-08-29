@@ -138,3 +138,15 @@ fn p3_7_native_defaults_pass_pinned_independent_iod_validation_when_available() 
         &[("xa", "XAImage"), ("xrf", "XRFImage")],
     );
 }
+
+#[test]
+fn multiframe_sc_defaults_pass_pinned_independent_iod_validation_when_available() {
+    qualify_defaults(
+        "tests/fixtures/composition/valid/classic-multiframe-sc-defaults.json",
+        44,
+        &[
+            ("single_bit", "MultiframeSingleBitSCImage"),
+            ("grayscale_byte", "MultiframeGrayscaleByteSCImage"),
+        ],
+    );
+}

@@ -1237,4 +1237,89 @@ mod tests {
         assert!(!wrong_out.exists());
         fs::remove_dir_all(root).unwrap();
     }
+
+    #[test]
+    fn multiframe_sc_defaults_materialize_and_are_byte_stable() {
+        let first = output("mf-sc-repro-a");
+        let second = output("mf-sc-repro-b");
+        for out in [&first, &second] {
+            let (summary, _) = compose(&ComposeOptions {
+                spec_path: "tests/fixtures/composition/valid/classic-multiframe-sc-defaults.json"
+                    .into(),
+                out_dir: out.clone(),
+                seed: 44,
+                catalog_path: "templates/catalog.json".into(),
+                dry_run: false,
+            })
+            .unwrap();
+            assert_eq!(summary.instances_written, 2);
+        }
+        for name in ["single_bit", "grayscale_byte"] {
+            assert_eq!(
+                fs::read(first.join(format!("instances/{name}.dcm"))).unwrap(),
+                fs::read(second.join(format!("instances/{name}.dcm"))).unwrap()
+            );
+        }
+        fs::remove_dir_all(first).unwrap();
+        fs::remove_dir_all(second).unwrap();
+    }
+
+    #[test]
+    fn multiframe_sc_caller_pixels_round_trip_contiguous_bit_packing() {
+        let root = output("mf-sc-caller");
+        fs::create_dir(&root).unwrap();
+        let bit1 = vec![0xA5_u8; 16 * 16 * 3 / 8];
+        let grayscale = vec![71_u8; 16 * 16 * 3];
+        fs::write(root.join("bit1.raw"), &bit1).unwrap();
+        fs::write(root.join("grayscale.raw"), &grayscale).unwrap();
+        let assignment = |path: &str, bytes: &[u8], sample: &str, bits: u8| {
+            json!([{
+                "slot": "pixels",
+                "source": {
+                    "kind": "local_file", "path": path, "sha256": sha256_hex(bytes),
+                    "pixel": {
+                        "rows": 16, "columns": 16, "frames": 3,
+                        "samples_per_pixel": 1, "photometric_interpretation": "MONOCHROME2",
+                        "sample_type": sample, "bits_allocated": bits,
+                        "bits_stored": bits, "high_bit": bits - 1, "byte_order": "little"
+                    }
+                }
+            }])
+        };
+        let spec = json!({
+            "composition_spec_schema_version": "0.1.0",
+            "instances": [
+                { "instance_id": "single_bit", "template": { "id": "classic/secondary-capture/multiframe-single-bit" }, "content": assignment("bit1.raw", &bit1, "bit1", 1) },
+                { "instance_id": "grayscale_byte", "template": { "id": "classic/secondary-capture/multiframe-grayscale-byte" }, "content": assignment("grayscale.raw", &grayscale, "uint", 8) }
+            ]
+        });
+        let spec_path = root.join("spec.json");
+        fs::write(&spec_path, serde_json::to_vec_pretty(&spec).unwrap()).unwrap();
+        let out = root.join("out");
+        compose(&ComposeOptions {
+            spec_path: spec_path.clone(),
+            out_dir: out.clone(),
+            seed: 45,
+            catalog_path: "templates/catalog.json".into(),
+            dry_run: false,
+        })
+        .unwrap();
+        for (name, expected) in [
+            ("single_bit", bit1.as_slice()),
+            ("grayscale_byte", grayscale.as_slice()),
+        ] {
+            let object =
+                dicom_object::open_file(out.join(format!("instances/{name}.dcm"))).unwrap();
+            assert_eq!(
+                object
+                    .element_by_name("PixelData")
+                    .unwrap()
+                    .to_bytes()
+                    .unwrap()
+                    .as_ref(),
+                expected
+            );
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
 }

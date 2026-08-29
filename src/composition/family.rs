@@ -354,16 +354,27 @@ impl ClassicFamilyProfile {
 
     pub fn family_operations(&self, pixels: &NativePixelPlan) -> Vec<AttributeOperation> {
         match self.kind {
-            ClassicFamilyKind::ScSingleBit | ClassicFamilyKind::ScGrayscaleByte => vec![
-                set_string("0008,0064", DicomVr::CS, "WSD"),
-                set_string("0018,1016", DicomVr::LO, "OpenAI"),
-                set_string("0018,1018", DicomVr::LO, "DICOM Test Suite"),
-                set_string("0018,1019", DicomVr::LO, "0.1"),
-                set_string("0018,101A", DicomVr::LO, "Synthetic"),
-                set_string("0018,101B", DicomVr::LO, "Synthetic"),
-                set_string("0028,0009", DicomVr::AT, "0018,1063"),
-                set_string("0018,1063", DicomVr::DS, "100"),
-            ],
+            ClassicFamilyKind::ScSingleBit | ClassicFamilyKind::ScGrayscaleByte => {
+                let mut operations = vec![
+                    set_string("0008,0064", DicomVr::CS, "WSD"),
+                    set_string("0018,1016", DicomVr::LO, "OpenAI"),
+                    set_string("0018,1018", DicomVr::LO, "DICOM Test Suite"),
+                    set_string("0018,1019", DicomVr::LO, "0.1"),
+                    set_string("0020,0060", DicomVr::CS, "R"),
+                    set_string("0028,0009", DicomVr::AT, "0018,1063"),
+                    set_string("0018,1063", DicomVr::DS, "100"),
+                    set_string("0028,0301", DicomVr::CS, "NO"),
+                ];
+                if self.kind == ClassicFamilyKind::ScGrayscaleByte {
+                    operations.extend([
+                        set_string("0028,1052", DicomVr::DS, "0"),
+                        set_string("0028,1053", DicomVr::DS, "1"),
+                        set_string("0028,1054", DicomVr::LO, "US"),
+                        set_string("2050,0020", DicomVr::CS, "IDENTITY"),
+                    ]);
+                }
+                operations
+            }
             ClassicFamilyKind::Cr => vec![
                 set_string("0018,0060", DicomVr::DS, "70"),
                 set_string("0018,1405", DicomVr::IS, "200"),

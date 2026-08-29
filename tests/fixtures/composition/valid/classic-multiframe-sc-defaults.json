@@ -1,0 +1,7 @@
+{
+  "composition_spec_schema_version": "0.1.0",
+  "instances": [
+    { "instance_id": "single_bit", "template": { "id": "classic/secondary-capture/multiframe-single-bit" } },
+    { "instance_id": "grayscale_byte", "template": { "id": "classic/secondary-capture/multiframe-grayscale-byte" } }
+  ]
+}

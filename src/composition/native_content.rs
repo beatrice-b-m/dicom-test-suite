@@ -23,9 +23,6 @@ pub fn resolve_raw_native_pixels(
     shape: PixelShape,
 ) -> Result<RawNativePixelOutput, RawContentError> {
     let plan = NativePixelPlan::plan(shape)?;
-    if plan.shape.bits_allocated % 8 != 0 {
-        return Err(RawContentError::NonByteAligned);
-    }
     let asset = resolver.resolve(
         "pixels",
         "native_pixels",
@@ -45,12 +42,7 @@ pub fn resolve_raw_native_pixels(
     })?;
     let mut frame_sha256 = Vec::with_capacity(plan.frame_spans.len());
     for frame in &plan.frame_spans {
-        let start = usize::try_from(frame.first_byte_offset).map_err(|_| RawContentError::Range)?;
-        let length = usize::try_from(frame.bit_length / 8).map_err(|_| RawContentError::Range)?;
-        let end = start.checked_add(length).ok_or(RawContentError::Range)?;
-        frame_sha256.push(sha256_hex(
-            bytes.get(start..end).ok_or(RawContentError::Range)?,
-        ));
+        frame_sha256.push(sha256_hex(&canonical_frame_bytes(&bytes, frame)?));
     }
     let mut content = asset.into_canonical_content(
         AttributeAddress::from_normalized_tag("7FE0,0010").expect("Pixel Data is a known tag"),
@@ -77,11 +69,46 @@ pub fn resolve_raw_native_pixels(
     })
 }
 
+fn canonical_frame_bytes(
+    bytes: &[u8],
+    frame: &super::FrameSpan,
+) -> Result<Vec<u8>, RawContentError> {
+    if frame.bit_offset % 8 == 0 && frame.bit_length % 8 == 0 {
+        let start = usize::try_from(frame.first_byte_offset).map_err(|_| RawContentError::Range)?;
+        let length = usize::try_from(frame.bit_length / 8).map_err(|_| RawContentError::Range)?;
+        let end = start.checked_add(length).ok_or(RawContentError::Range)?;
+        return Ok(bytes
+            .get(start..end)
+            .ok_or(RawContentError::Range)?
+            .to_vec());
+    }
+    let output_len = usize::try_from(
+        frame
+            .bit_length
+            .checked_add(7)
+            .ok_or(RawContentError::Range)?
+            / 8,
+    )
+    .map_err(|_| RawContentError::Range)?;
+    let mut output = vec![0_u8; output_len];
+    for destination_bit in 0..frame.bit_length {
+        let source_bit = frame
+            .bit_offset
+            .checked_add(destination_bit)
+            .ok_or(RawContentError::Range)?;
+        let source_byte = usize::try_from(source_bit / 8).map_err(|_| RawContentError::Range)?;
+        let bit = bytes.get(source_byte).ok_or(RawContentError::Range)? >> (source_bit % 8) & 1;
+        let destination_byte =
+            usize::try_from(destination_bit / 8).map_err(|_| RawContentError::Range)?;
+        output[destination_byte] |= bit << (destination_bit % 8);
+    }
+    Ok(output)
+}
+
 #[derive(Debug)]
 pub enum RawContentError {
     Content(ContentError),
     Pixel(PixelError),
-    NonByteAligned,
     Length {
         path: String,
         expected: u64,
@@ -178,6 +205,41 @@ mod tests {
         assert_eq!(
             output.frame_sha256,
             vec![sha256_hex(&bytes[..4]), sha256_hex(&bytes[4..])]
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn single_bit_frames_hash_canonical_bits_across_byte_boundaries() {
+        let (root, spec, staging) = roots("bit1");
+        let bytes = vec![0b1010_0101, 0b0110_0011, 0b0000_0011];
+        fs::write(spec.join("pixels.raw"), &bytes).unwrap();
+        let output = resolve_raw_native_pixels(
+            &mut resolver(&spec, &staging),
+            "pixels.raw",
+            Some(&sha256_hex(&bytes)),
+            PixelShape {
+                rows: 3,
+                columns: 3,
+                frames: 2,
+                samples_per_pixel: 1,
+                photometric_interpretation: PhotometricInterpretation::Monochrome2,
+                sample_type: SampleType::Bit1,
+                bits_allocated: 1,
+                bits_stored: 1,
+                high_bit: 0,
+                byte_order: ByteOrder::Little,
+                planar_configuration: None,
+            },
+        )
+        .unwrap();
+        assert_eq!(output.plan.unpadded_value_bytes, 3);
+        assert_eq!(
+            output.frame_sha256,
+            vec![
+                sha256_hex(&[0b1010_0101, 0b0000_0001]),
+                sha256_hex(&[0b1011_0001, 0b0000_0001]),
+            ]
         );
         fs::remove_dir_all(root).unwrap();
     }

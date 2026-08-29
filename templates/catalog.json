@@ -320,6 +320,30 @@
       "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "X-Ray Radiofluoroscopic Image IOD module table", "reason": "Locks XRF acquisition, positioning, and image semantics.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-classic-images.md" }],
       "limitations": ["Qualified for deterministic native MONOCHROME2 unsigned 12-bit-in-16-bit pixels only."],
       "qualification_owner": "classic_xrf"
+    },
+    {
+      "template_id": "classic/secondary-capture/multiframe-single-bit",
+      "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "Multi-frame Single Bit Secondary Capture Image",
+      "sop_class_name": "Multi-frame Single Bit Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7.1", "default_modality": "OT",
+      "artifact_kind": "classic_image",
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "Multi-frame Single Bit Secondary Capture Image IOD module table", "reason": "Locks single-bit multi-frame SC equipment and timing semantics.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-secondary-capture.md" }],
+      "limitations": ["Qualified for continuously bit-packed native MONOCHROME2 multi-frame pixels only."],
+      "qualification_owner": "secondary_capture"
+    },
+    {
+      "template_id": "classic/secondary-capture/multiframe-grayscale-byte",
+      "template_version": "1.0.0", "status": "qualified",
+      "iod_name": "Multi-frame Grayscale Byte Secondary Capture Image",
+      "sop_class_name": "Multi-frame Grayscale Byte Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7.2", "default_modality": "OT",
+      "artifact_kind": "classic_image",
+      "transfer_syntaxes": [{ "uid": "1.2.840.10008.1.2.1", "name": "Explicit VR Little Endian", "default": true, "determinism": "byte_stable", "requirements": { "features": [], "external_codecs": [], "providers": [], "external_validators": [] }, "limitations": [] }],
+      "standards_evidence": [{ "source": "official-dicom-standard", "part": "PS3.3", "anchor": "Multi-frame Grayscale Byte Secondary Capture Image IOD module table", "reason": "Locks grayscale-byte multi-frame SC equipment and timing semantics.", "checked_date": "2026-08-29", "source_note": "standards/source-notes/composition-secondary-capture.md" }],
+      "limitations": ["Qualified for native unsigned MONOCHROME2 8-bit multi-frame pixels only."],
+      "qualification_owner": "secondary_capture"
     }
   ]
 }

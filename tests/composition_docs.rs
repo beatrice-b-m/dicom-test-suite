@@ -51,11 +51,30 @@ fn docs_limit_public_templates_to_the_qualified_native_pixel_domains() {
         "vl/photographic@1.0.0",
         "classic/xa@1.0.0",
         "classic/xrf@1.0.0",
-        "not currently available",
+        "Network content is not supported",
     ] {
         assert!(
             guide.contains(contract),
             "missing composition boundary {contract}"
         );
+    }
+}
+
+#[test]
+fn p7_integration_guide_documents_every_external_boundary() {
+    let guide = fs::read_to_string("docs/composition-integration-guide.md").unwrap();
+    for contract in [
+        "compose_from_bytes",
+        "ComposeCancellationToken",
+        "composition-provider-request.schema.json",
+        "DTS_COMPOSITION_PROVIDER_NETWORK=disabled",
+        "argument_sha256",
+        "portable OS-level socket sandbox",
+        "same-project evidence",
+        "never a registry `case_id`",
+        "parallelism",
+        "reproducibility",
+    ] {
+        assert!(guide.contains(contract), "missing P7 contract {contract}");
     }
 }

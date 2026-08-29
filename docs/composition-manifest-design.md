@@ -71,11 +71,13 @@ The composition run block requires:
 - deterministic resource-envelope values used for this run; and
 - file-level parallelism requested and actually used.
 
-Input-spec hashing occurs after JSON parsing and canonical key ordering but
-before template default resolution. It includes caller-relative asset paths but
-never a host absolute path. The original spec is not copied into the manifest
-when it could contain large inline data; the exact hash and normalized redacted
-projection are retained.
+Input-spec hashing covers the exact caller-supplied JSON bytes before template
+default resolution. It therefore detects formatting changes as well as
+semantic changes. A provider declaration may contain an absolute executable
+path, so the run-level input hash is host-specific in that workflow;
+executable paths never enter UID allocation or the resolved-plan hash. The
+original spec is not copied into the manifest when it could contain inline or
+operational values.
 
 ## Composition entry
 

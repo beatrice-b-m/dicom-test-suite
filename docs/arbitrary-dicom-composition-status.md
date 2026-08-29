@@ -1,5 +1,44 @@
 # Arbitrary DICOM composition status
 
+## 2026-08-29 — Phase P7 completion gate
+
+Phase P7 is complete. External callers can use the file-backed CLI, the
+same-pipeline Rust byte API, or the versioned `1.0.0` single-output content
+provider protocol without adding a repository recipe. Providers receive
+preallocated identities and an exact slot/size/hash envelope, execute with a
+cleared environment and bounded diagnostics in an owned process group, and
+cannot publish DICOM or an undeclared file. The manifest binds provider,
+executable, fixed-argument, request, response, resource, termination, and
+payload identity. Protocol-level network disablement is documented honestly as
+distinct from an OS socket sandbox.
+
+Large top-level native Pixel Data and typed bulk values use 64 KiB staged copy
+and hash buffers through Part 10 materialization. Native per-frame hashing is
+also streamed; single-bit frames are incrementally canonicalized. The RLE path
+reads one native frame at a time, records backend availability/version/feature
+identity, and decodes every encoded frame for exact native-hash qualification.
+RLE remains byte-stable; unavailable feature/runtime codecs are not added to
+the qualified catalog.
+
+File-level parallelism is bounded from 1 through 64 and cannot affect paths,
+UIDs, references, plan hashes, manifest ordering, or byte-stable outputs. The
+128-instance qualification produces identical sequential and eight-worker
+identity/hash projections. The 16 MiB single-value qualification uses the
+stream-copy writer. Resource qualifications cover expanded instances, file and
+aggregate input bytes, total DICOM-plus-manifest publication bytes,
+cancellation, provider crash/hang/output flood/undeclared output, private
+cleanup, and destination races. Cancellation terminates provider descendants
+and leaves no requested output. Final publication uses owner-only staging and
+Linux/macOS atomic no-replace rename semantics.
+
+Focused P7 evidence is in `tests/composition_public_api.rs`,
+`tests/composition_provider.rs`, `tests/composition_streaming.rs`,
+`tests/composition_parallel.rs`, `tests/composition_codec.rs`, and
+`tests/composition_resources.rs`. The external workflow and evidence boundary
+are documented in `docs/composition-integration-guide.md`. P7 does not broaden
+the qualified template inventory or convert same-project codec/provider checks
+into independent conformance.
+
 ## 2026-08-29 — Phase P6 completion gate
 
 Phase P6 is complete. The catalog and executable inventory audit now cover

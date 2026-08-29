@@ -59,6 +59,9 @@ See the [composition guide](docs/composition-guide.md) and generated
 waveforms, quantitative data, documents, meshes, structured references, RT
 graphs, typed attribute operations, transfer syntaxes, dry runs, resource
 limits, manifests, and evidence boundaries.
+External CLI, Rust API, cancellation, provider, bounded-memory, and
+reproducibility integration is documented in the
+[composition integration guide](docs/composition-integration-guide.md).
 
 For profile selection, optional codecs, negative/fuzz/stress workflows,
 manifest consumption, validation levels, and troubleshooting, read the

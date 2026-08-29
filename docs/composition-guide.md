@@ -198,15 +198,20 @@ private data range, an explicit VR, and `private_creator`.
 
 ## Limits and evidence
 
-The optional `resource_limits` block bounds instance count, input file count,
-per-file bytes, total input bytes, and total output bytes. Defaults are finite
-and are recorded in the composition manifest. Network content and provider
-execution are not currently available.
+The optional `resource_limits` block bounds the expanded instance count, input
+file count, per-file bytes, total input bytes, and total published bytes,
+including the manifest. Defaults are finite and recorded in the composition
+manifest. Network content is not supported. A versioned offline provider may
+supply an exact hash- and size-declared slot payload; read the
+[integration guide](composition-integration-guide.md) before enabling an
+executable.
 
 XA/XRF composition supports native Explicit VR Little Endian and built-in RLE
-Lossless. RLE input uses the same native caller-frame contract, emits one
-fragment per frame with a populated Basic Offset Table, and records native and
-compressed frame hashes. No external codec is required.
+Lossless. RLE input uses the same native caller-frame contract, encodes staged
+input one frame at a time, emits one fragment per frame with a populated Basic
+Offset Table, decodes every encoded frame for exact hash comparison, and
+records backend availability plus native, compressed, and decoded frame hashes.
+No external codec is required.
 
 `validate` reconstructs each resolved plan from the manifest, verifies file
 size and SHA-256, reopens Part 10 and data elements, checks content hashes, and

@@ -190,7 +190,10 @@ document, and mesh families. Built-in RLE Lossless remains available for
 XA/XRF. Read [the composition guide](composition-guide.md) for the specification
 format and [the rendered template reference](composition-template-reference.md)
 for exact versions, transfer syntaxes, content contracts, and independent
-routes.
+routes. External callers should also read the
+[composition integration guide](composition-integration-guide.md) for the Rust
+API, provider protocol, cancellation, bounded-memory, and reproducibility
+contracts.
 
 ## 6. Understand The Output
 

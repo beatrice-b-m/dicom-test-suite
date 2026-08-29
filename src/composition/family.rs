@@ -336,6 +336,17 @@ impl ClassicFamilyProfile {
                     detector_configuration: Some("AREA".into()),
                 });
             }
+            ClassicFamilyKind::Xa | ClassicFamilyKind::Xrf => {
+                plans.acquisition.image_type.push("SINGLE PLANE".into());
+                plans.acquisition.body_part_examined = Some(
+                    if self.kind == ClassicFamilyKind::Xa {
+                        "HEART"
+                    } else {
+                        "ABDOMEN"
+                    }
+                    .into(),
+                );
+            }
             _ => {}
         }
         Ok(plans)
@@ -543,15 +554,29 @@ impl ClassicFamilyProfile {
                 set_string("0028,2110", DicomVr::CS, "00"),
                 set_string("0040,0555", DicomVr::SQ, ""),
             ],
-            ClassicFamilyKind::Xa | ClassicFamilyKind::Xrf => vec![
-                set_string("0008,0068", DicomVr::CS, "FOR PRESENTATION"),
-                set_string("0018,1508", DicomVr::CS, "CARM"),
-                set_string("0018,1110", DicomVr::DS, "1000"),
-                set_string("0018,1111", DicomVr::DS, "700"),
-                set_string("0028,1040", DicomVr::CS, "LIN"),
-                set_signed("0028,1041", DicomVr::SS, 1),
-                set_string("2050,0020", DicomVr::CS, "IDENTITY"),
-            ],
+            ClassicFamilyKind::Xa | ClassicFamilyKind::Xrf => {
+                let xa = self.kind == ClassicFamilyKind::Xa;
+                let mut operations = vec![
+                    set_string("0018,0060", DicomVr::DS, if xa { "80" } else { "70" }),
+                    set_string("0018,1110", DicomVr::DS, "1200"),
+                    set_string("0018,1111", DicomVr::DS, "800"),
+                    set_string("0018,1114", DicomVr::DS, "1.5"),
+                    set_string("0018,1152", DicomVr::IS, if xa { "4" } else { "1" }),
+                    set_string("0018,1155", DicomVr::CS, if xa { "GR" } else { "SC" }),
+                    set_multi_strings("0018,1164", DicomVr::DS, ["0.2", "0.2"]),
+                    set_string("0028,1040", DicomVr::CS, "LIN"),
+                    set_string("2050,0020", DicomVr::CS, "IDENTITY"),
+                ];
+                if xa {
+                    operations.extend([
+                        set_string("0018,1510", DicomVr::DS, "15"),
+                        set_string("0018,1511", DicomVr::DS, "-10"),
+                    ]);
+                } else {
+                    operations.push(set_string("0018,1450", DicomVr::DS, "10"));
+                }
+                operations
+            }
         }
     }
 }

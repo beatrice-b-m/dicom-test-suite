@@ -1148,4 +1148,93 @@ mod tests {
         assert!(!wrong_out.exists());
         fs::remove_dir_all(root).unwrap();
     }
+
+    #[test]
+    fn p3_7_native_defaults_materialize_and_are_byte_stable() {
+        let first = output("p3-7-repro-a");
+        let second = output("p3-7-repro-b");
+        for out in [&first, &second] {
+            let (summary, _) = compose(&ComposeOptions {
+                spec_path: "tests/fixtures/composition/valid/classic-p3-7-defaults.json".into(),
+                out_dir: out.clone(),
+                seed: 42,
+                catalog_path: "templates/catalog.json".into(),
+                dry_run: false,
+            })
+            .unwrap();
+            assert_eq!(summary.instances_written, 2);
+        }
+        for name in ["xa", "xrf"] {
+            assert_eq!(
+                fs::read(first.join(format!("instances/{name}.dcm"))).unwrap(),
+                fs::read(second.join(format!("instances/{name}.dcm"))).unwrap()
+            );
+        }
+        fs::remove_dir_all(first).unwrap();
+        fs::remove_dir_all(second).unwrap();
+    }
+
+    #[test]
+    fn p3_7_caller_native_pixels_round_trip_and_signed_input_is_rejected() {
+        let root = output("p3-7-caller");
+        fs::create_dir(&root).unwrap();
+        let raw = (0_u16..256).flat_map(u16::to_le_bytes).collect::<Vec<_>>();
+        fs::write(root.join("xray.raw"), &raw).unwrap();
+        let assignment = |sample_type: &str| {
+            json!([{
+                "slot": "pixels",
+                "source": {
+                    "kind": "local_file", "path": "xray.raw", "sha256": sha256_hex(&raw),
+                    "pixel": {
+                        "rows": 16, "columns": 16, "frames": 1,
+                        "samples_per_pixel": 1, "photometric_interpretation": "MONOCHROME2",
+                        "sample_type": sample_type, "bits_allocated": 16,
+                        "bits_stored": 12, "high_bit": 11, "byte_order": "little"
+                    }
+                }
+            }])
+        };
+        let spec = json!({
+            "composition_spec_schema_version": "0.1.0",
+            "instances": [
+                { "instance_id": "xa", "template": { "id": "classic/xa" }, "content": assignment("uint") },
+                { "instance_id": "xrf", "template": { "id": "classic/xrf" }, "content": assignment("uint") }
+            ]
+        });
+        let spec_path = root.join("spec.json");
+        fs::write(&spec_path, serde_json::to_vec_pretty(&spec).unwrap()).unwrap();
+        let out = root.join("out");
+        compose(&ComposeOptions {
+            spec_path: spec_path.clone(),
+            out_dir: out.clone(),
+            seed: 43,
+            catalog_path: "templates/catalog.json".into(),
+            dry_run: false,
+        })
+        .unwrap();
+        for name in ["xa", "xrf"] {
+            let object =
+                dicom_object::open_file(out.join(format!("instances/{name}.dcm"))).unwrap();
+            assert_eq!(
+                object
+                    .element_by_name("PixelData")
+                    .unwrap()
+                    .to_bytes()
+                    .unwrap()
+                    .as_ref(),
+                raw.as_slice()
+            );
+        }
+        let mut wrong = spec;
+        wrong["instances"][0]["content"] = assignment("int");
+        let wrong_spec = root.join("wrong.json");
+        fs::write(&wrong_spec, serde_json::to_vec_pretty(&wrong).unwrap()).unwrap();
+        let wrong_out = root.join("wrong-out");
+        assert!(matches!(compose(&ComposeOptions {
+            spec_path: wrong_spec, out_dir: wrong_out.clone(), seed: 43,
+            catalog_path: "templates/catalog.json".into(), dry_run: false,
+        }), Err(ComposeError::PixelContract(template)) if template == "classic/xa"));
+        assert!(!wrong_out.exists());
+        fs::remove_dir_all(root).unwrap();
+    }
 }

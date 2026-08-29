@@ -1,0 +1,7 @@
+{
+  "composition_spec_schema_version": "0.1.0",
+  "instances": [
+    { "instance_id": "xa", "template": { "id": "classic/xa" } },
+    { "instance_id": "xrf", "template": { "id": "classic/xrf" } }
+  ]
+}

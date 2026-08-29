@@ -23,10 +23,10 @@ use crate::composition::{
 };
 use crate::corpus_plan::{
     ArtifactDependency, ArtifactProvenance, ArtifactResourceEstimate, CORPUS_PLAN_SCHEMA_VERSION,
-    CaseBinding, CorpusPlan, CorpusPlanError, EvidenceIndependence, EvidenceObligation,
-    EvidencePlan, OutputPlan, OutputRelativePath, PlannedArtifact, PlannedDicomArtifact,
-    PublicationPlan, PublicationTransaction, ResourcePlan, ValidationPlan, ValidationRequirement,
-    ValidationRule,
+    CapabilityKind, CaseBinding, CorpusPlan, CorpusPlanError, EvidenceIndependence,
+    EvidenceObligation, EvidencePlan, OutputPlan, OutputRelativePath, PlannedArtifact,
+    PlannedDicomArtifact, PublicationPlan, PublicationTransaction, ResourcePlan,
+    UnavailableCapability, ValidationPlan, ValidationRequirement, ValidationRule,
 };
 use crate::executor::services::{
     ArtifactExecutionBindings, ByteBinding, CodecRequest, NativeFrameBinding, SlotExecutionBinding,
@@ -312,7 +312,8 @@ impl CuratedScCorpusPlanProvider {
         let mut bindings = BTreeMap::new();
         let mut native_content_requests = Vec::new();
         let mut projection_artifacts = Vec::new();
-        let pending = Vec::new();
+        let mut pending = Vec::new();
+        let mut unavailable = Vec::new();
         let mut artifact_by_recipe_role = BTreeMap::new();
         let mut source_artifacts = BTreeMap::new();
         let mut selected_recipes = Vec::new();
@@ -338,7 +339,6 @@ impl CuratedScCorpusPlanProvider {
         for registry_case in selected_registry_cases {
             if !selected_ids.contains(&registry_case.case_id)
                 || registry_case.status != "implemented"
-                || !registry_case.requirements.is_feature_free()
             {
                 continue;
             }
@@ -351,6 +351,36 @@ impl CuratedScCorpusPlanProvider {
                 .recipes()
                 .get(identity)
                 .expect("recipe binding points to a loaded recipe");
+            if !registry_case.requirements.is_feature_free() {
+                record_unavailable_case(
+                    registry_case,
+                    recipe,
+                    CapabilityKind::Feature,
+                    "feature_gated_case_unavailable",
+                    format!(
+                        "case requires unavailable build/runtime capabilities: {}",
+                        registry_case.requirements.summary()
+                    ),
+                    &mut unavailable,
+                    &mut pending,
+                );
+                continue;
+            }
+            if recipe.plan_provider_id.starts_with("external.") {
+                record_unavailable_case(
+                    registry_case,
+                    recipe,
+                    CapabilityKind::ExternalBackend,
+                    "external_backend_unavailable",
+                    format!(
+                        "external plan provider {} is unavailable in this execution environment",
+                        recipe.plan_provider_id
+                    ),
+                    &mut unavailable,
+                    &mut pending,
+                );
+                continue;
+            }
             if matches!(
                 recipe.plan_provider_id.as_str(),
                 ENHANCED_PLAN_PROVIDER | WSI_ADVANCED_PROVIDER_ID
@@ -1107,7 +1137,6 @@ impl CuratedScCorpusPlanProvider {
         let mut dependencies = dependencies(&selected_recipes, &artifact_by_recipe_role)?;
         dependencies.extend(classic_dependencies);
         dependencies.extend(advanced_dependencies);
-        let unavailable = Vec::new();
         let (total_output, peak_working) = aggregate_resources(&artifacts)?;
         let plan = CorpusPlan {
             schema_version: CORPUS_PLAN_SCHEMA_VERSION.into(),
@@ -2488,6 +2517,57 @@ fn projection_artifact_id(recipe: &CaseRecipe, logical_id: &str) -> String {
     }
 }
 
+fn record_unavailable_case(
+    registry_case: &RegistryCase,
+    recipe: &CaseRecipe,
+    kind: CapabilityKind,
+    reason_code: &str,
+    message: String,
+    unavailable: &mut Vec<UnavailableCapability>,
+    pending: &mut Vec<PendingCuratedCase>,
+) {
+    let artifact_ids = recipe
+        .dicom
+        .as_ref()
+        .map(|dicom| {
+            dicom
+                .artifacts
+                .iter()
+                .map(|artifact| projection_artifact_id(recipe, &artifact.logical_id))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let requirements = BTreeMap::from([
+        (
+            "features".into(),
+            registry_case.requirements.features.clone(),
+        ),
+        (
+            "external_codecs".into(),
+            registry_case.requirements.external_codecs.clone(),
+        ),
+        (
+            "external_validators".into(),
+            registry_case.requirements.external_validators.clone(),
+        ),
+    ]);
+    unavailable.push(UnavailableCapability {
+        capability_id: format!("case_{}", registry_case.case_id.replace('/', "_")),
+        kind,
+        reason_code: reason_code.into(),
+        message: message.clone(),
+        affected_artifact_ids: artifact_ids.clone(),
+        requirements,
+    });
+    pending.push(PendingCuratedCase {
+        case_id: registry_case.case_id.clone(),
+        recipe: recipe.identity(),
+        reason_code: reason_code.into(),
+        message,
+        artifact_ids,
+    });
+}
+
 fn selected_case_ids(
     registry: &RegistryDocument,
     selection: &CuratedScSelection,
@@ -2514,7 +2594,6 @@ fn selected_case_ids(
                 .iter()
                 .filter(|case| {
                     case.status == "implemented"
-                        && case.requirements.is_feature_free()
                         && matches_profile(&case.profiles, profile, *include_stress)
                 })
                 .map(|case| case.case_id.clone())
@@ -2655,6 +2734,26 @@ impl RegistryRequirements {
         self.features.is_empty()
             && self.external_codecs.is_empty()
             && self.external_validators.is_empty()
+    }
+
+    fn summary(&self) -> String {
+        let mut parts = Vec::new();
+        if !self.features.is_empty() {
+            parts.push(format!("features={}", self.features.join(",")));
+        }
+        if !self.external_codecs.is_empty() {
+            parts.push(format!(
+                "external_codecs={}",
+                self.external_codecs.join(",")
+            ));
+        }
+        if !self.external_validators.is_empty() {
+            parts.push(format!(
+                "external_validators={}",
+                self.external_validators.join(",")
+            ));
+        }
+        parts.join("; ")
     }
 }
 

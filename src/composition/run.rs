@@ -328,36 +328,25 @@ fn resolve_and_stage(
         ));
     }
 
-    let mut entry_paths = Vec::with_capacity(plans.len());
-    let mut output_bytes = 0_u64;
-    for plan in &mut plans {
-        let relative_path = format!("instances/{}.dcm", plan.instance_id);
-        let path = staging.join(&relative_path);
-        let outcome = Part10Materializer.materialize_with_outcome(plan, &path)?;
-        for content in &mut plan.content {
-            if outcome.streamed_slots.contains(&content.slot) {
-                content
-                    .properties
-                    .insert("writer_materialization".into(), "stream_copy".into());
-            }
-        }
-        output_bytes = output_bytes
-            .checked_add(
-                fs::metadata(&path)
-                    .map_err(|source| ComposeError::Io {
-                        path: path.clone(),
-                        source,
-                    })?
-                    .len(),
-            )
-            .ok_or(ComposeError::OutputSizeOverflow)?;
-        if output_bytes > spec.resource_limits.max_total_output_bytes {
-            return Err(ComposeError::OutputLimit {
-                size: output_bytes,
-                limit: spec.resource_limits.max_total_output_bytes,
-            });
-        }
-        entry_paths.push((path, relative_path));
+    let used_parallelism = usize::try_from(spec.parallelism)
+        .map_err(|_| ComposeError::ResourceRange)?
+        .min(plans.len())
+        .max(1);
+    let entry_paths = materialize_plans(&mut plans, staging, used_parallelism)?;
+    let output_bytes = entry_paths.iter().try_fold(0_u64, |total, (path, _)| {
+        let size = fs::metadata(path)
+            .map_err(|source| ComposeError::Io {
+                path: path.clone(),
+                source,
+            })?
+            .len();
+        total.checked_add(size).ok_or(ComposeError::OutputSizeOverflow)
+    })?;
+    if output_bytes > spec.resource_limits.max_total_output_bytes {
+        return Err(ComposeError::OutputLimit {
+            size: output_bytes,
+            limit: spec.resource_limits.max_total_output_bytes,
+        });
     }
     let entries = plans
         .iter()
@@ -396,8 +385,9 @@ fn resolve_and_stage(
             template_catalog_schema_version: catalog.template_catalog_schema_version.clone(),
             template_catalog_sha256: sha256_hex(catalog_bytes),
             resource_limits: resource_map(&spec.resource_limits),
-            requested_parallelism: 1,
-            used_parallelism: 1,
+            requested_parallelism: spec.parallelism,
+            used_parallelism: u32::try_from(used_parallelism)
+                .map_err(|_| ComposeError::ResourceRange)?,
         },
         &entries,
     )?;
@@ -427,6 +417,41 @@ fn resolve_and_stage(
         },
         manifest,
     ))
+}
+
+fn materialize_plans(
+    plans: &mut [ResolvedInstancePlan],
+    staging: &Path,
+    workers: usize,
+) -> Result<Vec<(PathBuf, String)>, ComposeError> {
+    let chunk_size = plans.len().div_ceil(workers);
+    let chunks = std::thread::scope(|scope| {
+        let mut handles = Vec::new();
+        for chunk in plans.chunks_mut(chunk_size) {
+            handles.push(scope.spawn(move || {
+                let mut paths = Vec::with_capacity(chunk.len());
+                for plan in chunk {
+                    let relative_path = format!("instances/{}.dcm", plan.instance_id);
+                    let path = staging.join(&relative_path);
+                    let outcome = Part10Materializer.materialize_with_outcome(plan, &path)?;
+                    for content in &mut plan.content {
+                        if outcome.streamed_slots.contains(&content.slot) {
+                            content
+                                .properties
+                                .insert("writer_materialization".into(), "stream_copy".into());
+                        }
+                    }
+                    paths.push((path, relative_path));
+                }
+                Ok::<_, ComposeError>(paths)
+            }));
+        }
+        handles
+            .into_iter()
+            .map(|handle| handle.join().map_err(|_| ComposeError::ParallelWorkerPanic)?)
+            .collect::<Result<Vec<_>, ComposeError>>()
+    })?;
+    Ok(chunks.into_iter().flatten().collect())
 }
 
 fn validate_parameters(
@@ -904,6 +929,7 @@ pub enum ComposeError {
     Codec(crate::codecs::CodecError),
     Encapsulation(crate::encapsulation::EncapsulationError),
     ResourceRange,
+    ParallelWorkerPanic,
     UnsupportedTemplate(String),
     UnsupportedP2Content(String),
     UnsupportedFamilyContent(String),

@@ -22,8 +22,14 @@ pub struct CompositionSpec {
     #[serde(default)]
     pub defaults: SpecDefaults,
     pub instances: Vec<SpecInstance>,
+    #[serde(default = "default_parallelism")]
+    pub parallelism: u32,
     #[serde(default)]
     pub resource_limits: ResourceLimits,
+}
+
+const fn default_parallelism() -> u32 {
+    1
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]

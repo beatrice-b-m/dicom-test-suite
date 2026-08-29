@@ -12,6 +12,7 @@
       "minItems": 1,
       "items": { "$ref": "#/$defs/instance" }
     },
+    "parallelism": { "type": "integer", "minimum": 1, "maximum": 64 },
     "resource_limits": { "$ref": "#/$defs/resource_limits" }
   },
   "additionalProperties": false,

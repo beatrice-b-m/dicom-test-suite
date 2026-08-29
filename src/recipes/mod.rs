@@ -11,6 +11,7 @@ mod error;
 mod loader;
 mod metadata_sc;
 mod model;
+mod registration;
 mod sc;
 mod wsi;
 
@@ -51,6 +52,11 @@ pub use model::{
     PrivateElementMetadata, PrivateElementValue, QualificationRecipe, RecipeKind, RecipeReference,
     ResourcePolicy, SecondaryCaptureParameters, SequenceLengthMetadata,
     StringBoundaryElementMetadata, StringValueSource, TemplateReference, TimezoneBoundaryMetadata,
+};
+pub use registration::{
+    DeformableRegistrationParameters, REGISTRATION_PLAN_PROVIDER_ID, RegistrationCommonInput,
+    RegistrationKindInput, RegistrationPlanError, RegistrationPlanProvider,
+    RegistrationProviderInput, RegistrationSourceInput, SpatialRegistrationParameters,
 };
 pub use sc::{
     ScPlanError, SecondaryCapturePlanInput, native_pixel_content_from_recipe,

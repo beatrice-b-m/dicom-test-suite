@@ -4422,14 +4422,6 @@ fn write_curated_recipe_stage(
     Ok(())
 }
 
-pub(crate) fn write_supported_cases(
-    run: &PreparedGenerationRun,
-    registry: &Value,
-    standards_lock_sha256: &str,
-) -> Result<GenerationOutput, GenerateError> {
-    write_supported_cases_with_plan_first_sc(run, registry, standards_lock_sha256, Vec::new())
-}
-
 fn resolve_and_write_u5_color_softcopy_private_source(
     run: &PreparedGenerationRun,
     registry: &Value,
@@ -5840,7 +5832,29 @@ pub(crate) fn write_composition_default_artifacts(
         include_stress: true,
     };
     let standards_lock_sha256 = sha256_hex(include_bytes!("../standards.lock.json"));
-    let output = write_supported_cases(&run, &private_registry, &standards_lock_sha256)?;
+    let migrated_source_case_ids = case_ids
+        .iter()
+        .copied()
+        .filter(|case_id| {
+            case_id.starts_with("classic/ct/")
+                || case_id.starts_with("geometry/ct/")
+                || *case_id == COLOR_SOFTCOPY_PRESENTATION_STATE_SOURCE_CASE_ID
+        })
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+    fs::create_dir_all(staging_root).map_err(|source| GenerateError::CreateOutputDir {
+        path: staging_root.to_path_buf(),
+        source,
+    })?;
+    let migrated_source_plan = crate::prepare_curated_case_plan(migrated_source_case_ids, seed)?;
+    let migrated_source_files =
+        crate::execute_curated_sc_plan(migrated_source_plan.as_ref(), staging_root)?;
+    let output = write_supported_cases_with_plan_first_sc(
+        &run,
+        &private_registry,
+        &standards_lock_sha256,
+        migrated_source_files,
+    )?;
     let mut artifacts = output
         .files
         .into_iter()
@@ -25039,6 +25053,14 @@ fn case_matches_profile(profiles: &[String], requested: &str, include_stress: bo
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn write_supported_cases(
+        run: &PreparedGenerationRun,
+        registry: &Value,
+        standards_lock_sha256: &str,
+    ) -> Result<GenerationOutput, GenerateError> {
+        write_supported_cases_with_plan_first_sc(run, registry, standards_lock_sha256, Vec::new())
+    }
 
     #[test]
     fn curated_recipe_registry_is_complete_and_unique() {

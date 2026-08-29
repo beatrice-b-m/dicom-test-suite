@@ -194,7 +194,7 @@ fn ordinary_generate_routes_curated_sc_through_the_shared_executor_only() {
     let generator = fs::read_to_string("src/generator.rs").unwrap();
     let stage_start = generator.find("fn write_curated_recipe_stage(").unwrap();
     let stage_end = generator[stage_start..]
-        .find("pub(crate) fn write_supported_cases(")
+        .find("fn resolve_and_write_u5_color_softcopy_private_source(")
         .map(|offset| stage_start + offset)
         .unwrap();
     let stage = &generator[stage_start..stage_end];

@@ -593,6 +593,29 @@ fn prepare_curated_sc_plan(
     if matches!(run.profile.as_str(), "negative" | "fuzz") {
         return Ok(None);
     }
+    prepare_curated_plan_for_selection(
+        CuratedScSelection::Profile {
+            profile: run.profile.clone(),
+            include_stress: run.include_stress,
+        },
+        run.seed,
+    )
+}
+
+pub(crate) fn prepare_curated_case_plan(
+    case_ids: Vec<String>,
+    seed: u64,
+) -> Result<Option<CuratedScCorpusPlan>, GenerateError> {
+    if case_ids.is_empty() {
+        return Ok(None);
+    }
+    prepare_curated_plan_for_selection(CuratedScSelection::CaseIds(case_ids), seed)
+}
+
+fn prepare_curated_plan_for_selection(
+    selection: CuratedScSelection,
+    seed: u64,
+) -> Result<Option<CuratedScCorpusPlan>, GenerateError> {
     let provider = CuratedScCorpusPlanProvider::load(curated_catalog_paths()).map_err(|error| {
         GenerateError::PlanFirst {
             stage: "curated SC catalog loading",
@@ -601,11 +624,8 @@ fn prepare_curated_sc_plan(
     })?;
     provider
         .plan(&CuratedScPlanRequest {
-            selection: CuratedScSelection::Profile {
-                profile: run.profile.clone(),
-                include_stress: run.include_stress,
-            },
-            seed: run.seed,
+            selection,
+            seed,
             max_parallelism: CURATED_EXECUTOR_PARALLELISM,
         })
         .map(Some)
@@ -643,7 +663,7 @@ fn curated_catalog_paths() -> CuratedCatalogPaths {
     }
 }
 
-fn execute_curated_sc_plan(
+pub(crate) fn execute_curated_sc_plan(
     bundle: Option<&CuratedScCorpusPlan>,
     staging_root: &Path,
 ) -> Result<Vec<generator::GeneratedFile>, GenerateError> {
@@ -38628,10 +38648,11 @@ mod tests {
             ]
         });
 
-        let generated = crate::generator::write_supported_cases(
+        let generated = crate::generator::write_supported_cases_with_plan_first_sc(
             &run,
             &registry,
             "0000000000000000000000000000000000000000000000000000000000000000",
+            Vec::new(),
         )
         .expect("blocked registry case should not fail generation");
 

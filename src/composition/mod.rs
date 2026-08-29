@@ -19,6 +19,7 @@ pub mod modules;
 pub mod native_content;
 pub mod pixel;
 pub mod plan;
+pub mod provider;
 pub mod reference;
 pub mod run;
 pub mod spec;
@@ -74,6 +75,10 @@ pub use plan::{
     AttributeLayer, AttributePolicy, AttributeResolver, CanonicalContent, Condition,
     ContentMaterialization, ContentPlacement, ResolveContext, ResolveError, ResolvedAttribute,
     ResolvedInstancePlan, SequenceItemPlacement, ValueOrigin,
+};
+pub use provider::{
+    CONTENT_PROVIDER_PROTOCOL_VERSION, ProviderError, ProviderInvocation, ProviderOutput,
+    ProviderOutputDeclaration, ProviderRequest, ProviderResponse, invoke_content_provider,
 };
 pub use reference::{
     CyclePolicy, LogicalReference, MaterializedReference, ReferenceError, ReferenceGraph,

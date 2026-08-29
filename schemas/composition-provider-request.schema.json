@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dicom-test-suite.local/schemas/composition-provider-request.schema.json",
+  "title": "DICOM Composition Content Provider Request",
+  "type": "object",
+  "required": [
+    "protocol_version", "request_id", "provider_id", "expected_provider_version",
+    "instance_id", "template_id", "template_version", "identities", "output",
+    "parameters", "network_policy"
+  ],
+  "properties": {
+    "protocol_version": { "const": "1.0.0" },
+    "request_id": { "$ref": "#/$defs/sha256" },
+    "provider_id": { "$ref": "#/$defs/id" },
+    "expected_provider_version": { "$ref": "#/$defs/semver" },
+    "instance_id": { "$ref": "#/$defs/id" },
+    "template_id": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "template_version": { "$ref": "#/$defs/semver" },
+    "identities": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_]*#[0-9]+$" },
+      "additionalProperties": { "$ref": "#/$defs/uid" }
+    },
+    "output": {
+      "type": "object",
+      "required": ["slot", "size_bytes", "sha256", "max_size_bytes"],
+      "properties": {
+        "slot": { "$ref": "#/$defs/id" },
+        "size_bytes": { "type": "integer", "minimum": 0 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "max_size_bytes": { "type": "integer", "minimum": 1 },
+        "media_type": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "pixel": { "type": "object" }
+      },
+      "additionalProperties": false
+    },
+    "parameters": { "type": "object" },
+    "network_policy": { "const": "disabled" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_.-]*$",
+      "maxLength": 128
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "uid": {
+      "type": "string",
+      "pattern": "^[0-9]+(\\.[0-9]+)+$",
+      "maxLength": 64
+    }
+  }
+}

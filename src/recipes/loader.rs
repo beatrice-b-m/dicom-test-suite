@@ -1146,10 +1146,19 @@ fn validate_registry_bindings(
             && (case.case_id.starts_with("classic/")
                 || case.case_id.starts_with("geometry/ct/")
                 || (case.case_id.starts_with("vl/") && !case.case_id.starts_with("vl/wsi/")));
+        let migrated_advanced = matches!(
+            recipe.plan_provider_id.as_str(),
+            ENHANCED_PLAN_PROVIDER_ID | WSI_ADVANCED_PROVIDER_ID
+        ) && case.provider.kind == "rust_native"
+            && case.provider.id == "rust_native"
+            && expected_kind == RecipeKind::Dicom
+            && case.requirements.features.is_empty()
+            && case.requirements.external_codecs.is_empty();
         if recipe.plan_provider_id != expected_provider
             && !migrated_secondary_capture
             && !migrated_metadata_sc
             && !migrated_classic
+            && !migrated_advanced
         {
             return Err(RecipeCatalogError::Completeness {
                 message: format!(

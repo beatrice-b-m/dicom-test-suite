@@ -4235,6 +4235,10 @@ enum PlanFirstStageError {
     UnmatchedCases {
         case_ids: Vec<String>,
     },
+    MissingSelectedAdvancedCase {
+        stage: &'static str,
+        case_id: &'static str,
+    },
 }
 
 impl std::fmt::Display for PlanFirstStageError {
@@ -4250,8 +4254,35 @@ impl std::fmt::Display for PlanFirstStageError {
                 "plan-first outputs did not match the curated stage dispatcher: {}",
                 case_ids.join(", ")
             ),
+            Self::MissingSelectedAdvancedCase { stage, case_id } => write!(
+                formatter,
+                "selected advanced case {case_id} has no plan-first output in {stage}"
+            ),
         }
     }
+}
+
+fn take_plan_first_advanced_case(
+    run: &PreparedGenerationRun,
+    registry: &Value,
+    plan_first_files: &mut BTreeMap<String, Vec<GeneratedFile>>,
+    case_id: &'static str,
+    stage: &'static str,
+) -> Result<Option<Vec<GeneratedFile>>, GenerateError> {
+    let Some(case) = registry_case(registry, case_id)? else {
+        return Ok(None);
+    };
+    if !should_generate_case(case, run)? {
+        return Ok(None);
+    }
+    plan_first_files
+        .remove(case_id)
+        .map(Some)
+        .ok_or_else(|| GenerateError::PlanFirst {
+            stage: "advanced stage dispatch",
+            message: PlanFirstStageError::MissingSelectedAdvancedCase { stage, case_id }
+                .to_string(),
+        })
 }
 
 impl CuratedRecipeStage {
@@ -4453,47 +4484,44 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
         return write_fuzz_cases(run, registry, standards_lock_sha256);
     }
     let mut plan_first_files_by_case = BTreeMap::<String, Vec<GeneratedFile>>::new();
+    let mut plan_first_case_ids = BTreeSet::new();
     for file in plan_first_files {
+        plan_first_case_ids.insert(file.case_id.clone());
         plan_first_files_by_case
             .entry(file.case_id.clone())
             .or_default()
             .push(file);
     }
     let mut context = GenerationContext::default();
-    if let Some(case) = registry_case(registry, WSI_TILED_FULL_CASE_ID)? {
-        if should_generate_case(case, run)? {
-            context.record_one(write_wsi_tiled_full_case(run, case, standards_lock_sha256)?)?;
+    for case_id in [
+        WSI_TILED_FULL_CASE_ID,
+        WSI_TILED_SPARSE_CASE_ID,
+        WSI_MULTIPLE_OPTICAL_PATHS_CASE_ID,
+        WSI_PYRAMID_CASE_ID,
+    ] {
+        if let Some(files) = take_plan_first_advanced_case(
+            run,
+            registry,
+            &mut plan_first_files_by_case,
+            case_id,
+            "WSI stage",
+        )? {
+            context.record_many(files)?;
         }
     }
-    if let Some(case) = registry_case(registry, WSI_TILED_SPARSE_CASE_ID)? {
-        if should_generate_case(case, run)? {
-            context.record_one(write_wsi_tiled_sparse_case(
-                run,
-                case,
-                standards_lock_sha256,
-            )?)?;
-        }
-    }
-    if let Some(case) = registry_case(registry, WSI_MULTIPLE_OPTICAL_PATHS_CASE_ID)? {
-        if should_generate_case(case, run)? {
-            context.record_one(write_wsi_multiple_optical_paths_case(
-                run,
-                case,
-                standards_lock_sha256,
-            )?)?;
-        }
-    }
-    if let Some(case) = registry_case(registry, WSI_PYRAMID_CASE_ID)? {
-        if should_generate_case(case, run)? {
-            context.record_many(write_wsi_pyramid_case(run, case, standards_lock_sha256)?)?;
-        }
-    }
-    if let Some(case) = registry_case(registry, STRESS_WSI_PYRAMID_CASE_ID)? {
-        if should_generate_case(case, run)? {
-            let generated = write_stress_wsi_pyramid_case(run, case, standards_lock_sha256)?;
-            context.record_many(generated.files)?;
-            context.record_qualification(generated.qualification);
-        }
+    if let Some(files) = take_plan_first_advanced_case(
+        run,
+        registry,
+        &mut plan_first_files_by_case,
+        STRESS_WSI_PYRAMID_CASE_ID,
+        "reduced-stress WSI stage",
+    )? {
+        let (request, started) = context.preflight_stress(
+            StressRecipeKind::WsiPyramid,
+            16 * 1024 * 1024,
+            64 * 1024 * 1024,
+        )?;
+        context.record_stress_files(STRESS_WSI_PYRAMID_CASE_ID, request, started, files)?;
     }
     if let Some(case) = registry_case(registry, WSI_TILE_SEGMENTATION_CASE_ID)? {
         if should_generate_case(case, run)? {
@@ -4621,35 +4649,30 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
             }
         }
     }
-    if let Some(case) = registry_case(registry, STRESS_ENHANCED_CT_CASE_ID)? {
-        if should_generate_case(case, run)? {
-            let (request, started) = context.preflight_stress(
-                StressRecipeKind::EnhancedCt,
-                8 * 1024 * 1024,
-                128 * 1024 * 1024,
-            )?;
-            let file = write_stress_enhanced_ct_case(run, case, standards_lock_sha256)?;
-            context.record_stress_files(
-                STRESS_ENHANCED_CT_CASE_ID,
-                request,
-                started,
-                vec![file],
-            )?;
-        }
+    if let Some(files) = take_plan_first_advanced_case(
+        run,
+        registry,
+        &mut plan_first_files_by_case,
+        STRESS_ENHANCED_CT_CASE_ID,
+        "reduced-stress enhanced CT stage",
+    )? {
+        let (request, started) = context.preflight_stress(
+            StressRecipeKind::EnhancedCt,
+            8 * 1024 * 1024,
+            128 * 1024 * 1024,
+        )?;
+        context.record_stress_files(STRESS_ENHANCED_CT_CASE_ID, request, started, files)?;
     }
     for recipe in ENHANCED_CT_RECIPES {
-        let Some(case) = registry_case(registry, recipe.case_id)? else {
-            continue;
-        };
-        if !should_generate_case(case, run)? {
-            continue;
-        }
-        context.record_one(write_enhanced_ct_case(
+        if let Some(files) = take_plan_first_advanced_case(
             run,
-            case,
-            *recipe,
-            standards_lock_sha256,
-        )?)?;
+            registry,
+            &mut plan_first_files_by_case,
+            recipe.case_id,
+            "enhanced CT stage",
+        )? {
+            context.record_many(files)?;
+        }
     }
     for recipe in SEGMENTATION_RECIPES {
         let Some(case) = registry_case(registry, recipe.case_id)? else {
@@ -5290,32 +5313,26 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
         )?)?;
     }
     for recipe in ENHANCED_CT_CONCATENATION_RECIPES {
-        let Some(case) = registry_case(registry, recipe.base.case_id)? else {
-            continue;
-        };
-        if !should_generate_case(case, run)? {
-            continue;
-        }
-        context.record_many(write_enhanced_ct_concatenation_case(
+        if let Some(files) = take_plan_first_advanced_case(
             run,
-            case,
-            *recipe,
-            standards_lock_sha256,
-        )?)?;
+            registry,
+            &mut plan_first_files_by_case,
+            recipe.base.case_id,
+            "enhanced CT concatenation stage",
+        )? {
+            context.record_many(files)?;
+        }
     }
     for recipe in ENHANCED_MR_RECIPES {
-        let Some(case) = registry_case(registry, recipe.case_id)? else {
-            continue;
-        };
-        if !should_generate_case(case, run)? {
-            continue;
-        }
-        context.record_one(write_enhanced_mr_case(
+        if let Some(files) = take_plan_first_advanced_case(
             run,
-            case,
-            *recipe,
-            standards_lock_sha256,
-        )?)?;
+            registry,
+            &mut plan_first_files_by_case,
+            recipe.case_id,
+            "enhanced MR stage",
+        )? {
+            context.record_many(files)?;
+        }
     }
     write_curated_recipe_stage(
         &mut context,
@@ -5326,18 +5343,15 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
         &mut plan_first_files_by_case,
     )?;
     for recipe in ENHANCED_PET_RECIPES {
-        let Some(case) = registry_case(registry, recipe.case_id)? else {
-            continue;
-        };
-        if !should_generate_case(case, run)? {
-            continue;
-        }
-        context.record_one(write_enhanced_pet_case(
+        if let Some(files) = take_plan_first_advanced_case(
             run,
-            case,
-            *recipe,
-            standards_lock_sha256,
-        )?)?;
+            registry,
+            &mut plan_first_files_by_case,
+            recipe.case_id,
+            "enhanced PET stage",
+        )? {
+            context.record_many(files)?;
+        }
     }
     write_curated_recipe_stage(
         &mut context,
@@ -5356,15 +5370,19 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
             .to_string(),
         });
     }
-    migrate_shared_plan_curated_files(run, &mut context.generated_files)?;
+    migrate_shared_plan_curated_files(run, &mut context.generated_files, &plan_first_case_ids)?;
     Ok(context.into_output())
 }
 
 fn migrate_shared_plan_curated_files(
     run: &PreparedGenerationRun,
     files: &mut [GeneratedFile],
+    plan_first_case_ids: &BTreeSet<String>,
 ) -> Result<(), GenerateError> {
     for (index, file) in files.iter_mut().enumerate() {
+        if plan_first_case_ids.contains(&file.case_id) {
+            continue;
+        }
         let Some(template_family) = shared_plan_curated_template_family(&file.case_id) else {
             continue;
         };

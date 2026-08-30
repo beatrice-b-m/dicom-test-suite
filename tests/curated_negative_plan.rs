@@ -216,7 +216,12 @@ fn all_negative_cases_execute_without_valid_dicom_validation_and_project_exactly
     let staged = CorpusExecutor::new(CuratedExecutionServiceFactory::new(&bundle), NoManifest)
         .execute_into_staging(&bundle.plan, &root, 4, &CancellationToken::new())
         .unwrap();
-    let actual = project_curated_file_entries(&bundle.projection, &staged.projection).unwrap();
+    let mut actual = project_curated_file_entries(&bundle.projection, &staged.projection).unwrap();
+    let plan_sha256 = bundle.plan.canonical_sha256().unwrap();
+    for entry in &mut actual {
+        assert_eq!(entry["corpus_plan_sha256"], plan_sha256);
+        entry.as_object_mut().unwrap().remove("corpus_plan_sha256");
+    }
     let mut baseline: serde_json::Value = serde_json::from_slice(
         &std::fs::read("/tmp/dts-unified-baseline-20260829-52e1d20/negative/manifest.json")
             .unwrap(),

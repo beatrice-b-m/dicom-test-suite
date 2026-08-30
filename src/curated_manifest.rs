@@ -27,10 +27,11 @@ use crate::quantitative_evidence::{
 use crate::recipes::{
     ENCAPSULATED_PAYLOAD_PLAN_PROVIDER_ID, EnhancedMrFrameAxis, MetadataScParameters,
     PRESENTATION_ADVANCED_PROVIDER_ID, PresentationKind, PrivateElementValue,
-    QUANTITATIVE_NATIVE_PROVIDER_ID, REGISTRATION_PLAN_PROVIDER_ID, RegistrationKindInput,
-    SegmentationInput, SegmentationKind, StringValueSource, WAVEFORM_PLAN_PROVIDER_ID,
-    WsiPixelAlgorithm, encapsulated_payload_input_from_recipe, project_encapsulated_payload,
-    project_waveform, waveform_input_from_recipe,
+    QUANTITATIVE_NATIVE_PROVIDER_ID, REGISTRATION_PLAN_PROVIDER_ID, RT_PLAN_PROVIDER_ID,
+    RegistrationKindInput, RtDocumentParameters, RtObjectParameters, SR_PLAN_PROVIDER_ID,
+    SegmentationInput, SegmentationKind, SrDocumentKind, SrDocumentParameters, StringValueSource,
+    WAVEFORM_PLAN_PROVIDER_ID, WsiPixelAlgorithm, encapsulated_payload_input_from_recipe,
+    project_encapsulated_payload, project_waveform, waveform_input_from_recipe,
 };
 
 const RLE: &str = "1.2.840.10008.1.2.5";
@@ -41,6 +42,722 @@ pub struct CuratedManifestError(pub String);
 impl fmt::Display for CuratedManifestError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.0)
+    }
+}
+
+fn project_semantic_file_entry(
+    ctx: &CuratedArtifactProjectionContext,
+    pair: &ManifestProjectionArtifact,
+    planned: &PlannedDicomArtifact,
+    input: &ManifestProjectionCompatibilityInput,
+) -> Result<Value, CuratedManifestError> {
+    let output = pair
+        .execution
+        .output
+        .as_ref()
+        .ok_or_else(|| err("semantic artifact has no output"))?;
+    let rt_image = ctx.case_recipe.plan_provider_id == RT_PLAN_PROVIDER_ID
+        && ctx
+            .case_recipe
+            .provider_parameters
+            .get("object")
+            .and_then(Value::as_object)
+            .and_then(|object| object.get("kind"))
+            .and_then(Value::as_str)
+            == Some("image");
+    let mut seen_checks = BTreeSet::new();
+    let checks = validation_checks(&pair.execution)?
+        .into_iter()
+        .filter(|check| {
+            !matches!(
+                check.name.as_str(),
+                "sr_part10_identity"
+                    | "sr_document_kind"
+                    | "sr_document_flags"
+                    | "sr_title"
+                    | "sr_content_tree"
+                    | "sr_reference_graph"
+                    | "structured_report_storage"
+                    | "rt_part10_identity"
+                    | "rt_object_kind"
+                    | "rt_object_semantics"
+                    | "rt_reference_graph"
+                    | "rt_pixel_presence"
+                    | "rt_structure_set_storage"
+                    | "rt_dose_storage"
+                    | "rt_plan_storage"
+                    | "rt_image_storage"
+                    | "carm_rt_radiation_storage"
+                    | "rt_radiation_set_storage"
+            ) && !(rt_image
+                && matches!(
+                    check.name.as_str(),
+                    "explicit_vr_little_endian_transfer_syntax" | "synthetic_data_attribute"
+                ))
+                && (!matches!(
+                    check.name.as_str(),
+                    "explicit_vr_little_endian_transfer_syntax" | "synthetic_data_attribute"
+                ) || seen_checks.insert(check.name.clone()))
+        })
+        .collect::<Vec<_>>();
+    let mut references = Vec::new();
+    let mut sources = Vec::new();
+    for reference in &planned.instance.references {
+        let source = input
+            .artifacts
+            .iter()
+            .find(|candidate| candidate.planned.logical_id() == reference.target_instance_id)
+            .ok_or_else(|| err("semantic source is absent"))?;
+        let PlannedArtifact::Dicom(source_plan) = &source.planned else {
+            return fail("semantic source is not DICOM");
+        };
+        let source_output = source
+            .execution
+            .output
+            .as_ref()
+            .ok_or_else(|| err("semantic source has no output"))?;
+        let binding = source_plan
+            .case_binding
+            .as_ref()
+            .ok_or_else(|| err("semantic source has no case binding"))?;
+        let source_value = json!({
+            "source_case_id": binding.case_id,
+            "source_path": source_output.relative_path,
+            "series_instance_uid": uid(source_plan, CompositionUidRole::SeriesInstance)?,
+            "sop_class_uid": reference.referenced_sop_class_uid,
+            "sop_instance_uid": reference.referenced_sop_instance_uid,
+            "relationship": reference.role,
+            "frame_numbers": if reference.referenced_frames.is_empty() { Value::Null } else { json!(reference.referenced_frames) },
+        });
+        references.push(source_value);
+        sources.push((binding.case_id.as_str(), source_plan, source_output));
+    }
+    let recipe_parameters = Value::Object(ctx.case_recipe.provider_parameters.clone());
+    let (capabilities, pattern, stressors, semantics, image, pixel_data, extra) = if ctx
+        .case_recipe
+        .plan_provider_id
+        == SR_PLAN_PROVIDER_ID
+    {
+        let sr: SrDocumentParameters = serde_json::from_value(recipe_parameters.clone())
+            .map_err(|error| err(format!("invalid SR parameters: {error}")))?;
+        let first = sources.first().ok_or_else(|| err("SR source is absent"))?;
+        let common = json!({"completion_flag":sr.completion_flag,"verification_flag":sr.verification_flag,"root_value_type":"CONTAINER","root_continuity_of_content":sr.continuity_of_content});
+        let (caps, pattern, stress, details, params) = match &sr.document {
+            SrDocumentKind::BasicText {
+                observation,
+                observation_text,
+            } => (
+                vec![
+                    "open_file",
+                    "read_metadata",
+                    "show_unsupported_but_recognized",
+                    "read_structured_report",
+                ],
+                "source_ct_basic_text_sr_observation",
+                vec![
+                    "basic_text_sr_storage",
+                    "derived_source_reference",
+                    "sr_document_content",
+                    "text_content_item",
+                ],
+                json!({"content_sequence_items":1,"observation_text":observation_text}),
+                json!({"observation":{"relationship_type":"CONTAINS","value_type":"TEXT","code_value":observation.code_value,"coding_scheme_designator":observation.coding_scheme_designator,"code_meaning":observation.code_meaning,"text":observation_text}}),
+            ),
+            SrDocumentKind::Comprehensive {
+                measurement,
+                numeric_value,
+                units,
+                image_concept,
+            } => {
+                let referenced_frames = sr
+                    .sources
+                    .first()
+                    .map(|source| source.referenced_frames.clone())
+                    .unwrap_or_default();
+                (
+                    vec![
+                        "open_file",
+                        "read_metadata",
+                        "show_unsupported_but_recognized",
+                        "read_structured_report",
+                        "read_image_measurement",
+                    ],
+                    "source_ct_comprehensive_sr_measurement",
+                    vec![
+                        "comprehensive_sr_storage",
+                        "derived_source_reference",
+                        "sr_document_content",
+                        "num_content_item",
+                        "image_content_item",
+                    ],
+                    json!({"content_sequence_items":2,"measurement":{"relationship_type":"CONTAINS","value_type":"NUM","code_value":measurement.code_value,"coding_scheme_designator":measurement.coding_scheme_designator,"code_meaning":measurement.code_meaning,"numeric_value":numeric_value,"units":units},"image_reference":{"relationship_type":"CONTAINS","value_type":"IMAGE","code_value":image_concept.code_value,"coding_scheme_designator":image_concept.coding_scheme_designator,"code_meaning":image_concept.code_meaning,"referenced_frame_numbers":referenced_frames}}),
+                    json!({"measurement":{"relationship_type":"CONTAINS","value_type":"NUM","code_value":measurement.code_value,"coding_scheme_designator":measurement.coding_scheme_designator,"code_meaning":measurement.code_meaning,"numeric_value":numeric_value,"units":units},"image_reference":{"relationship_type":"CONTAINS","value_type":"IMAGE","code_value":image_concept.code_value,"coding_scheme_designator":image_concept.coding_scheme_designator,"code_meaning":image_concept.code_meaning,"referenced_frame_numbers":referenced_frames}}),
+                )
+            }
+            SrDocumentKind::KeyObjectSelection {
+                mapping_resource,
+                template_identifier,
+            } => {
+                let key_objects = sources
+                    .iter()
+                    .enumerate()
+                    .map(|(index, source)| {
+                        let mut item = json!({
+                            "relationship_type":"CONTAINS",
+                            "value_type":"IMAGE",
+                            "source_case_id":source.0,
+                            "sop_instance_uid":uid(source.1, CompositionUidRole::SopInstance)?,
+                        });
+                        if index == 0 {
+                            item["referenced_frame_numbers"] = json!([1, 2]);
+                        }
+                        Ok(item)
+                    })
+                    .collect::<Result<Vec<_>, CuratedManifestError>>()?;
+                let recipe_items = key_objects
+                    .iter()
+                    .map(|item| {
+                        let mut projected = item.clone();
+                        projected
+                            .as_object_mut()
+                            .unwrap()
+                            .remove("sop_instance_uid");
+                        projected
+                    })
+                    .collect::<Vec<_>>();
+                (
+                    vec![
+                        "open_file",
+                        "read_metadata",
+                        "show_unsupported_but_recognized",
+                        "read_structured_report",
+                        "read_key_object_selection",
+                    ],
+                    "source_ct_and_seg_key_object_selection",
+                    vec![
+                        "key_object_selection_document_storage",
+                        "derived_source_reference",
+                        "sr_document_content",
+                        "multiple_evidence_references",
+                    ],
+                    json!({"content_sequence_items":sources.len(),"content_template":{"mapping_resource":mapping_resource,"template_identifier":template_identifier},"key_objects":key_objects}),
+                    json!({"content_template":{"mapping_resource":mapping_resource,"template_identifier":template_identifier},"image_source_case_id":sources[0].0,"seg_source_case_id":sources[1].0,"key_object_items":recipe_items}),
+                )
+            }
+            _ => return fail("external SR reached native projector"),
+        };
+        let mut rp = json!({"source_case_id":first.0,"completion_flag":sr.completion_flag,"verification_flag":sr.verification_flag,"root_value_type":"CONTAINER","root_continuity_of_content":sr.continuity_of_content,"document_title":sr.title});
+        if let Some(map) = rp.as_object_mut() {
+            if let Some(extra) = params.as_object() {
+                map.extend(extra.clone());
+            }
+            if matches!(sr.document, SrDocumentKind::KeyObjectSelection { .. }) {
+                map.remove("source_case_id");
+            }
+        }
+        let mut report = common;
+        if let Some(map) = report.as_object_mut() {
+            if let Some(extra) = details.as_object() {
+                map.extend(extra.clone());
+            }
+        }
+        (
+            caps,
+            pattern,
+            stress,
+            json!({"synthetic_data":"YES","source_case_id":first.0,"source_sop_instance_uid":uid(first.1, CompositionUidRole::SopInstance)?,"structured_report":report}),
+            Value::Null,
+            Value::Null,
+            Some(("recipe_parameters", rp)),
+        )
+    } else {
+        let rt: RtDocumentParameters = serde_json::from_value(recipe_parameters.clone())
+            .map_err(|error| err(format!("invalid RT parameters: {error}")))?;
+        project_rt_compatibility(&rt, planned, pair, &sources)?
+    };
+    let projected_recipe_parameters = extra
+        .as_ref()
+        .filter(|(key, _)| *key == "recipe_parameters")
+        .map(|(_, value)| value.clone())
+        .unwrap_or(recipe_parameters);
+    let semantic_kind = ctx
+        .case_recipe
+        .provider_parameters
+        .get("document")
+        .or_else(|| ctx.case_recipe.provider_parameters.get("object"))
+        .and_then(Value::as_object)
+        .and_then(|value| value.get("kind"))
+        .and_then(Value::as_str);
+    if matches!(semantic_kind, Some("basic_text" | "structure_set")) {
+        references[0]["frame_numbers"] = json!([1, 2]);
+    } else if semantic_kind == Some("dose") {
+        references[0]["frame_numbers"] = json!([1, 2]);
+        references[1]["relationship"] = json!("source_structure_set");
+    } else if semantic_kind == Some("key_object_selection") {
+        references[0]["relationship"] = json!("source_image");
+        references[0]["frame_numbers"] = json!([1, 2]);
+        references[1]["relationship"] = json!("key_object_segmentation");
+    } else if semantic_kind == Some("image") {
+        references[0]["relationship"] = json!("referenced_rt_plan");
+    } else if semantic_kind == Some("carm_radiation") {
+        references[0]["relationship"] = json!("definition_source");
+    } else if semantic_kind == Some("radiation_set") {
+        references[0]["relationship"] = json!("definition_source");
+        references[1]["relationship"] = json!("referenced_rt_radiation");
+    }
+    for reference in &mut references {
+        if reference.get("frame_numbers").is_some_and(Value::is_null) {
+            reference.as_object_mut().unwrap().remove("frame_numbers");
+        }
+    }
+    let mut value = json!({
+        "case_id":ctx.registry_case.case_id,"profile_membership":ctx.registry_case.profiles,"path":output.relative_path,"sha256":output.sha256,"size_bytes":output.size_bytes,"determinism":ctx.registry_case.determinism,
+        "recipe":{"recipe_id":ctx.case_recipe.recipe_id,"recipe_version":ctx.case_recipe.recipe_version,"recipe_parameters":projected_recipe_parameters},
+        "dicom":{"sop_class_uid":planned.instance.sop_class_uid,"sop_class_name":required(&ctx.registry_case.sop_class_name,"SOP class name")?,"iod_name":required(&ctx.registry_case.iod_name,"IOD name")?,"modality":required(&ctx.registry_case.modality,"modality")?,"transfer_syntax_uid":planned.encoding.transfer_syntax_uid,"transfer_syntax_name":transfer_syntax_name(&planned.encoding.transfer_syntax_uid)?},
+        "uids":{"study_instance_uid":uid(planned,CompositionUidRole::StudyInstance)?,"series_instance_uid":uid(planned,CompositionUidRole::SeriesInstance)?,"sop_instance_uid":uid(planned,CompositionUidRole::SopInstance)?,"frame_of_reference_uid":planned.instance.identities.get(&CompositionUidRole::FrameOfReference,0),"implementation_class_uid":planned.encoding.implementation.class_uid,"implementation_version_name":planned.encoding.implementation.version_name},
+        "image":image,"pixel_data":pixel_data,"references":references,"expected_capabilities":capabilities,"expected_semantics":semantics,"expected_visual_checks":{"pattern":pattern},"validation":legacy_validation(&checks),"known_stressors":stressors,"standards_evidence":ctx.registry_case.standards_evidence
+    });
+    if let Some((key, extra)) = extra.filter(|(key, _)| *key != "recipe_parameters") {
+        value[key] = extra;
+    }
+    if ctx.case_recipe.plan_provider_id == SR_PLAN_PROVIDER_ID {
+        value["uids"]
+            .as_object_mut()
+            .unwrap()
+            .remove("frame_of_reference_uid");
+    } else if ctx.case_recipe.plan_provider_id == RT_PLAN_PROVIDER_ID {
+        let rt: RtDocumentParameters =
+            serde_json::from_value(Value::Object(ctx.case_recipe.provider_parameters.clone()))
+                .map_err(|error| err(format!("invalid RT parameters: {error}")))?;
+        let source_for = |role: &str| {
+            planned
+                .instance
+                .references
+                .iter()
+                .position(|reference| reference.role == role)
+                .and_then(|index| sources.get(index).copied())
+                .ok_or_else(|| err(format!("missing RT source role {role}")))
+        };
+        match rt.object {
+            RtObjectParameters::Plan(parameters) => {
+                let structure = source_for("referenced_structure_set")?;
+                let dose = source_for("referenced_dose")?;
+                value["recipe"]["recipe_parameters"] = json!({
+                    "structure_set_source_case_id":structure.0,
+                    "dose_source_case_id":dose.0,
+                    "fraction_group_count":1,"beam_count":1,
+                    "control_point_count":parameters.control_point_count,
+                    "beam_type":parameters.beam_type,"radiation_type":parameters.radiation_type
+                });
+                value["expected_semantics"] = json!({
+                    "synthetic_data":"YES","pixel_data_absent":true,
+                    "linked_structure_set_sop_instance_uid":uid(structure.1,CompositionUidRole::SopInstance)?,
+                    "linked_dose_sop_instance_uid":uid(dose.1,CompositionUidRole::SopInstance)?
+                });
+                value["expected_visual_checks"] =
+                    json!({"pattern":"single_static_photon_beam_with_linked_structure_and_dose"});
+                value["known_stressors"] = json!([
+                    "rt_plan_storage",
+                    "linked_rt_structure_set",
+                    "linked_rt_dose",
+                    "single_fraction_group",
+                    "static_photon_beam",
+                    "control_point_inheritance",
+                    "pixel_data_absent"
+                ]);
+            }
+            RtObjectParameters::Image(parameters) => {
+                let plan_source = source_for("referenced_plan")?;
+                let payload_sha256 = planned
+                    .instance
+                    .content
+                    .first()
+                    .ok_or_else(|| err("RT Image pixels missing"))?
+                    .sha256
+                    .clone();
+                value["recipe"]["recipe_parameters"] = json!({
+                    "plan_source_case_id":plan_source.0,
+                    "referenced_fraction_group_number":parameters.referenced_fraction_group_number,
+                    "referenced_beam_number":parameters.referenced_beam_number,
+                    "pixel_value_formula":"17 * (4 * r + c)","payload_sha256":payload_sha256
+                });
+                value["expected_semantics"] = json!({
+                    "synthetic_data":"YES","linked_plan_sop_instance_uid":uid(plan_source.1,CompositionUidRole::SopInstance)?,
+                    "referenced_fraction_group_number":parameters.referenced_fraction_group_number,
+                    "referenced_beam_number":parameters.referenced_beam_number,
+                    "image_type":["DERIVED","SECONDARY","DRR"],"conversion_type":"WSD",
+                    "rt_image_plane":parameters.image_plane,"pixel_value_formula":"17 * (4 * r + c)",
+                    "payload_sha256":payload_sha256
+                });
+                value["expected_visual_checks"] = json!({"pattern":"4x4_monochrome_gradient","minimum_displays_black":true,"maximum_displays_white":true});
+                value["known_stressors"] = json!([
+                    "rt_image_storage",
+                    "linked_rt_plan",
+                    "beam_and_fraction_linkage",
+                    "native_ob_pixels",
+                    "drr_geometry",
+                    "pixel_data_present"
+                ]);
+            }
+            RtObjectParameters::CarmRadiation(parameters) => {
+                let plan_source = source_for("referenced_plan")?;
+                value["recipe"]["recipe_parameters"] = json!({
+                    "plan_source_case_id":plan_source.0,
+                    "physical_and_geometric_content_detail_flag":"IDENT_ONLY",
+                    "rt_record_flag":parameters.rt_record_flag,
+                    "treatment_position_count":1,
+                    "control_point_count":parameters.control_point_count
+                });
+                value["expected_semantics"] = json!({
+                    "synthetic_data":"YES","linked_plan_sop_instance_uid":uid(plan_source.1,CompositionUidRole::SopInstance)?,
+                    "rt_record_flag":parameters.rt_record_flag,"control_point_inheritance":true,"pixel_data_absent":true
+                });
+                value["expected_visual_checks"] = json!({"pattern":"single_static_carm_beam"});
+            }
+            RtObjectParameters::RadiationSet(_) => {
+                let plan_source = source_for("referenced_plan")?;
+                let radiation = source_for("referenced_radiation")?;
+                value["recipe"]["recipe_parameters"] = json!({
+                    "plan_source_case_id":plan_source.0,"radiation_source_case_id":radiation.0,
+                    "intended_number_of_fractions":1,"treatment_position_group_count":1,"radiation_count":1
+                });
+                value["expected_semantics"] = json!({
+                    "synthetic_data":"YES","definition_source_plan_sop_instance_uid":uid(plan_source.1,CompositionUidRole::SopInstance)?,
+                    "linked_radiation_sop_instance_uid":uid(radiation.1,CompositionUidRole::SopInstance)?,
+                    "intent":"TREATMENT","dose_contribution_absent":true,"pixel_data_absent":true
+                });
+                value["expected_visual_checks"] =
+                    json!({"pattern":"single_radiation_treatment_position_group"});
+            }
+            _ => {}
+        }
+    }
+    Ok(value)
+}
+
+type SemanticProjectionFields<'a> = (
+    Vec<&'a str>,
+    &'a str,
+    Vec<&'a str>,
+    Value,
+    Value,
+    Value,
+    Option<(&'static str, Value)>,
+);
+
+fn project_rt_compatibility(
+    rt: &RtDocumentParameters,
+    planned: &PlannedDicomArtifact,
+    pair: &ManifestProjectionArtifact,
+    sources: &[(
+        &str,
+        &PlannedDicomArtifact,
+        &crate::executor::evidence::OutputEvidence,
+    )],
+) -> Result<SemanticProjectionFields<'static>, CuratedManifestError> {
+    let source = |role: &str| {
+        planned
+            .instance
+            .references
+            .iter()
+            .position(|reference| reference.role == role)
+            .and_then(|index| sources.get(index).copied())
+            .ok_or_else(|| err(format!("missing RT source role {role}")))
+    };
+    match &rt.object {
+        RtObjectParameters::StructureSet(value) => {
+            let image = source("source_image")?;
+            let params = json!({"source_case_id":image.0,"structure_set_label":rt.label,"structure_set_name":value.structure_set_name,"roi_number":value.roi_number,"roi_name":value.roi_name,
+                "roi_generation_algorithm":value.generation_algorithm,"roi_generation_description":value.generation_description,"roi_display_color":value.display_color,"contour_number":value.contour_number,
+                "contour_geometric_type":value.contour_geometric_type,"contour_points":value.contour_points,"contour_data":value.contour_data.join("\\"),"roi_interpreted_type":value.interpreted_type});
+            Ok((
+                vec![
+                    "open_file",
+                    "read_metadata",
+                    "show_unsupported_but_recognized",
+                    "read_rt_structure_set",
+                ],
+                "single_closed_planar_roi_on_source_ct",
+                vec![
+                    "rt_structure_set_storage",
+                    "derived_source_reference",
+                    "closed_planar_roi_contour",
+                    "rt_roi_observations",
+                ],
+                json!({"synthetic_data":"YES","source_case_id":image.0,"source_sop_instance_uid":uid(image.1,CompositionUidRole::SopInstance)?,"rt_structure_set":{"structure_set_label":rt.label,"structure_set_roi_items":1,"roi_number":value.roi_number,"roi_name":value.roi_name,"roi_generation_algorithm":value.generation_algorithm,"roi_contour_items":1,"contour_items":1,"contour_geometric_type":value.contour_geometric_type,"contour_points":value.contour_points,"contour_data":value.contour_data.join("\\"),"rt_roi_observation_items":1,"roi_interpreted_type":value.interpreted_type}}),
+                Value::Null,
+                Value::Null,
+                Some(("recipe_parameters", params)),
+            ))
+        }
+        RtObjectParameters::Dose(value) => {
+            let image_source = source("source_image")?;
+            let structure = source("referenced_structure_set")?;
+            let observed_pixels = pair.execution.materialization.as_ref().and_then(|m| {
+                m.content
+                    .iter()
+                    .find(|c| c.slot == "pixels")
+                    .or_else(|| m.content.first())
+            });
+            let canonical_pixels = planned
+                .instance
+                .content
+                .first()
+                .ok_or_else(|| err("RT Dose canonical pixels missing"))?;
+            let frame_bytes = usize::try_from(value.rows)
+                .ok()
+                .and_then(|rows| {
+                    usize::try_from(value.columns)
+                        .ok()
+                        .and_then(|columns| rows.checked_mul(columns))
+                })
+                .and_then(|samples| samples.checked_mul(2))
+                .ok_or_else(|| err("RT Dose frame byte count overflow"))?;
+            let mut encoded = Vec::with_capacity(value.stored_values.len() * 2);
+            for sample in &value.stored_values {
+                encoded.extend_from_slice(
+                    &u16::try_from(*sample)
+                        .map_err(|_| err("RT Dose sample exceeds u16"))?
+                        .to_le_bytes(),
+                );
+            }
+            let frame_hashes = observed_pixels
+                .map(|pixels| pixels.decoded_frame_sha256.clone())
+                .filter(|hashes| !hashes.is_empty())
+                .unwrap_or_else(|| encoded.chunks(frame_bytes).map(crate::sha256_hex).collect());
+            let params = json!({"image_source_case_id":image_source.0,"structure_set_source_case_id":structure.0,"rows":value.rows,"columns":value.columns,"frames":value.frames,"pixel_spacing":value.pixel_spacing.join("\\"),"image_orientation_patient":value.image_orientation_patient.join("\\"),"image_position_patient":value.image_position_patient.join("\\"),"slice_thickness":value.slice_thickness,"frame_increment_pointer":"(3004,000C)","grid_frame_offset_vector":value.grid_frame_offset_vector.join("\\"),"dose_units":value.dose_units,"dose_type":value.dose_type,"dose_summation_type":value.dose_summation_type,"dose_grid_scaling":value.dose_grid_scaling});
+            Ok((
+                vec![
+                    "open_file",
+                    "read_metadata",
+                    "show_unsupported_but_recognized",
+                    "read_rt_dose_grid",
+                ],
+                "tiny_two_frame_rt_dose_grid",
+                vec![
+                    "rt_dose_storage",
+                    "grid_based_dose",
+                    "dose_grid_scaling",
+                    "derived_source_reference",
+                    "native_ow_pixel_data",
+                ],
+                json!({"synthetic_data":"YES","pixel_min":value.stored_values.iter().min(),"pixel_max":value.stored_values.iter().max(),"source_case_id":image_source.0,"source_sop_instance_uid":uid(image_source.1,CompositionUidRole::SopInstance)?,"rt_dose":{"dose_units":value.dose_units,"dose_type":value.dose_type,"dose_summation_type":value.dose_summation_type,"dose_grid_scaling":value.dose_grid_scaling,"grid_frame_offset_vector":value.grid_frame_offset_vector.join("\\"),"referenced_image_sop_instance_uid":uid(image_source.1,CompositionUidRole::SopInstance)?,"referenced_structure_set_sop_instance_uid":uid(structure.1,CompositionUidRole::SopInstance)?}}),
+                json!({"rows":value.rows,"columns":value.columns,"frames":value.frames,"samples_per_pixel":1,"photometric_interpretation":"MONOCHROME2","bits_allocated":16,"bits_stored":16,"high_bit":15,"pixel_representation":0,"planar_configuration":Value::Null}),
+                json!({"vr":"OW","native_or_encapsulated":"native","value_length":canonical_pixels.size_bytes,"frame_count":value.frames,"frame_hashes":frame_hashes}),
+                Some(("recipe_parameters", params)),
+            ))
+        }
+        RtObjectParameters::Plan(value) => {
+            let structure = source("referenced_structure_set")?;
+            let dose = source("referenced_dose")?;
+            let frame = planned
+                .instance
+                .identities
+                .get(&CompositionUidRole::FrameOfReference, 0)
+                .ok_or_else(|| err("RT Plan frame UID missing"))?;
+            let expected = crate::rt_manifest::linked_rt_plan_expected(
+                crate::rt_manifest::LinkedRtPlanInput {
+                    sop_instance_uid: uid(planned, CompositionUidRole::SopInstance)?,
+                    study_instance_uid: uid(planned, CompositionUidRole::StudyInstance)?,
+                    series_instance_uid: uid(planned, CompositionUidRole::SeriesInstance)?,
+                    frame_of_reference_uid: frame,
+                    structure_set_series_instance_uid: uid(
+                        structure.1,
+                        CompositionUidRole::SeriesInstance,
+                    )?,
+                    structure_set_sop_instance_uid: uid(
+                        structure.1,
+                        CompositionUidRole::SopInstance,
+                    )?,
+                    structure_set_sha256: &structure.2.sha256,
+                    dose_series_instance_uid: uid(dose.1, CompositionUidRole::SeriesInstance)?,
+                    dose_sop_instance_uid: uid(dose.1, CompositionUidRole::SopInstance)?,
+                    dose_sha256: &dose.2.sha256,
+                },
+            );
+            Ok((
+                vec![
+                    "open_file",
+                    "read_metadata",
+                    "resolve_references",
+                    "read_rt_plan",
+                ],
+                "single_static_ap_beam_linked_to_structure_and_dose",
+                vec![
+                    "rt_plan_storage",
+                    "derived_source_references",
+                    "single_fraction_group",
+                    "single_static_photon_beam",
+                    "control_point_sequence",
+                ],
+                json!({"synthetic_data":"YES","rt_plan_label":rt.label,"plan_geometry":value.plan_geometry,"referenced_structure_set_sop_instance_uid":uid(structure.1,CompositionUidRole::SopInstance)?,"referenced_dose_sop_instance_uid":uid(dose.1,CompositionUidRole::SopInstance)?}),
+                Value::Null,
+                Value::Null,
+                Some((
+                    "expected_rt_plan",
+                    serde_json::to_value(expected).map_err(|error| err(error.to_string()))?,
+                )),
+            ))
+        }
+        RtObjectParameters::Image(value) => {
+            let plan_source = source("referenced_plan")?;
+            let frame = planned
+                .instance
+                .identities
+                .get(&CompositionUidRole::FrameOfReference, 0)
+                .ok_or_else(|| err("RT Image frame UID missing"))?;
+            let expected = crate::rt_manifest::linked_rt_image_expected(
+                crate::rt_manifest::LinkedRtImageInput {
+                    sop_instance_uid: uid(planned, CompositionUidRole::SopInstance)?,
+                    study_instance_uid: uid(planned, CompositionUidRole::StudyInstance)?,
+                    series_instance_uid: uid(planned, CompositionUidRole::SeriesInstance)?,
+                    frame_of_reference_uid: frame,
+                    plan_series_instance_uid: uid(
+                        plan_source.1,
+                        CompositionUidRole::SeriesInstance,
+                    )?,
+                    plan_sop_instance_uid: uid(plan_source.1, CompositionUidRole::SopInstance)?,
+                    plan_sha256: &plan_source.2.sha256,
+                },
+            );
+            let canonical_pixels = planned
+                .instance
+                .content
+                .first()
+                .ok_or_else(|| err("RT Image canonical pixels missing"))?;
+            Ok((
+                vec![
+                    "open_file",
+                    "read_metadata",
+                    "resolve_references",
+                    "read_rt_image",
+                    "decode_native_pixels",
+                ],
+                "tiny_drr_linked_to_rt_plan",
+                vec![
+                    "rt_image_storage",
+                    "derived_source_reference",
+                    "native_ob_pixel_data",
+                    "beam_and_fraction_reference",
+                ],
+                json!({"synthetic_data":"YES","pixel_min":value.stored_values.iter().min(),"pixel_max":value.stored_values.iter().max(),"referenced_plan_sop_instance_uid":uid(plan_source.1,CompositionUidRole::SopInstance)?}),
+                json!({"sample_type":"integer","rows":value.rows,"columns":value.columns,"frames":1,"samples_per_pixel":1,"photometric_interpretation":"MONOCHROME2","bits_allocated":8,"bits_stored":8,"high_bit":7,"pixel_representation":0,"planar_configuration":Value::Null}),
+                json!({"vr":"OB","native_or_encapsulated":"native","value_length":canonical_pixels.size_bytes,"frame_count":1,"frame_hashes":[canonical_pixels.sha256.clone()]}),
+                Some((
+                    "expected_rt_image",
+                    serde_json::to_value(expected).map_err(|error| err(error.to_string()))?,
+                )),
+            ))
+        }
+        RtObjectParameters::CarmRadiation(value) => {
+            let plan_source = source("referenced_plan")?;
+            let frame = planned
+                .instance
+                .identities
+                .get(&CompositionUidRole::FrameOfReference, 0)
+                .ok_or_else(|| err("RT Radiation frame UID missing"))?;
+            let expected = crate::rt_radiation_manifest::minimal_carm_rt_radiation_expected(
+                crate::rt_radiation_manifest::CArmRtRadiationInput {
+                    sop_instance_uid: uid(planned, CompositionUidRole::SopInstance)?,
+                    study_instance_uid: uid(planned, CompositionUidRole::StudyInstance)?,
+                    series_instance_uid: uid(planned, CompositionUidRole::SeriesInstance)?,
+                    frame_of_reference_uid: frame,
+                    plan_series_instance_uid: uid(
+                        plan_source.1,
+                        CompositionUidRole::SeriesInstance,
+                    )?,
+                    plan_sop_instance_uid: uid(plan_source.1, CompositionUidRole::SopInstance)?,
+                    plan_sha256: &plan_source.2.sha256,
+                    software_versions: crate::PACKAGE_VERSION,
+                },
+            );
+            Ok((
+                vec![
+                    "open_file",
+                    "read_metadata",
+                    "resolve_references",
+                    "read_rt_radiation",
+                ],
+                "single_static_carm_beam",
+                vec![
+                    "carm_photon_electron_radiation_storage",
+                    "linked_rt_plan",
+                    "ident_only_content",
+                    "control_point_inheritance",
+                    "pixel_data_absent",
+                ],
+                json!({"synthetic_data":"YES","linked_plan_sop_instance_uid":uid(plan_source.1,CompositionUidRole::SopInstance)?,"rt_record_flag":value.rt_record_flag,"control_point_inheritance":true,"pixel_data_absent":true}),
+                Value::Null,
+                Value::Null,
+                Some((
+                    "expected_rt_radiation",
+                    serde_json::to_value(expected).map_err(|error| err(error.to_string()))?,
+                )),
+            ))
+        }
+        RtObjectParameters::RadiationSet(_) => {
+            let plan_source = source("referenced_plan")?;
+            let radiation = source("referenced_radiation")?;
+            let frame = planned
+                .instance
+                .identities
+                .get(&CompositionUidRole::FrameOfReference, 0)
+                .ok_or_else(|| err("RT Radiation Set frame UID missing"))?;
+            let tpg = planned
+                .instance
+                .identities
+                .get(
+                    &CompositionUidRole::TemplateDefined("derived_reference_0".into()),
+                    0,
+                )
+                .ok_or_else(|| err("treatment position UID missing"))?;
+            let expected = crate::rt_radiation_manifest::minimal_rt_radiation_set_expected(
+                crate::rt_radiation_manifest::RtRadiationSetInput {
+                    sop_instance_uid: uid(planned, CompositionUidRole::SopInstance)?,
+                    study_instance_uid: uid(planned, CompositionUidRole::StudyInstance)?,
+                    series_instance_uid: uid(planned, CompositionUidRole::SeriesInstance)?,
+                    frame_of_reference_uid: frame,
+                    treatment_position_group_uid: tpg,
+                    plan_series_instance_uid: uid(
+                        plan_source.1,
+                        CompositionUidRole::SeriesInstance,
+                    )?,
+                    plan_sop_instance_uid: uid(plan_source.1, CompositionUidRole::SopInstance)?,
+                    plan_sha256: &plan_source.2.sha256,
+                    radiation_series_instance_uid: uid(
+                        radiation.1,
+                        CompositionUidRole::SeriesInstance,
+                    )?,
+                    radiation_sop_instance_uid: uid(radiation.1, CompositionUidRole::SopInstance)?,
+                    radiation_sha256: &radiation.2.sha256,
+                    software_versions: crate::PACKAGE_VERSION,
+                },
+            );
+            Ok((
+                vec![
+                    "open_file",
+                    "read_metadata",
+                    "resolve_references",
+                    "read_rt_radiation_set",
+                ],
+                "single_radiation_treatment_position_group",
+                vec![
+                    "rt_radiation_set_storage",
+                    "linked_rt_plan",
+                    "linked_rt_radiation",
+                    "treatment_position_group",
+                    "dose_contribution_absent",
+                    "pixel_data_absent",
+                ],
+                json!({"synthetic_data":"YES","definition_source_plan_sop_instance_uid":uid(plan_source.1,CompositionUidRole::SopInstance)?,"linked_radiation_sop_instance_uid":uid(radiation.1,CompositionUidRole::SopInstance)?,"intent":"TREATMENT","dose_contribution_absent":true,"pixel_data_absent":true}),
+                Value::Null,
+                Value::Null,
+                Some((
+                    "expected_rt_radiation_set",
+                    serde_json::to_value(expected).map_err(|error| err(error.to_string()))?,
+                )),
+            ))
+        }
     }
 }
 impl std::error::Error for CuratedManifestError {}
@@ -270,6 +987,12 @@ fn project_one(
     }
     if ctx.case_recipe.plan_provider_id == QUANTITATIVE_NATIVE_PROVIDER_ID {
         return project_native_quantitative_file_entry(ctx, pair, planned, input);
+    }
+    if matches!(
+        ctx.case_recipe.plan_provider_id.as_str(),
+        SR_PLAN_PROVIDER_ID | RT_PLAN_PROVIDER_ID
+    ) {
+        return project_semantic_file_entry(ctx, pair, planned, input);
     }
     let sc = ctx
         .artifact_recipe

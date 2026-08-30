@@ -19,7 +19,10 @@ use super::advanced_defaults::{
     is_native_quantitative_default, is_reference_default, is_typed_bulk_default, plan_image_group,
     plan_native_quantitative_default, plan_reference_default, plan_typed_bulk_default,
 };
-use super::advanced_semantic_defaults::{is_native_sr_default, plan_native_sr_default};
+use super::advanced_semantic_defaults::{
+    is_native_rt_default, is_native_sr_default, plan_native_rt_default, plan_native_sr_default,
+    semantic_identity_roles,
+};
 use super::executor_adapter::{
     CompositionExecutionBundle, CompositionExecutionServiceFactory,
     CompositionExecutorManifestProjector, CompositionProjectionContext, CompositionSource,
@@ -417,6 +420,12 @@ fn resolve_execution_bundle(
         {
             roles.push((CompositionUidRole::FrameOfReference, 0));
         }
+        roles.extend(
+            semantic_identity_roles(&recipes, template)
+                .map_err(ComposeError::AdvancedDefaults)?
+                .into_iter()
+                .map(|role| (role, 0)),
+        );
         let mut identities = allocator.allocate_plan(instance.instance_id.clone(), roles)?;
         apply_explicit_identities(instance, &mut identities.identities)?;
         identity_plans.insert(instance.instance_id.clone(), identities);
@@ -594,6 +603,8 @@ fn resolve_execution_bundle(
         } else if is_native_quantitative_default(template) {
             continue;
         } else if is_native_sr_default(template) {
+            continue;
+        } else if is_native_rt_default(template) {
             continue;
         } else if let Some(profile) = AdvancedFamilyProfile::for_template(&template.template_id.0) {
             let scratch = match &planning_scratch {
@@ -859,6 +870,90 @@ fn resolve_execution_bundle(
         execution_bindings.extend(output.bindings);
         advanced_artifacts.insert(planned.logical_id.clone(), planned.clone());
         plans_by_id.insert(instance.instance_id.clone(), planned.instance);
+    }
+
+    let mut pending_rt = spec
+        .instances
+        .iter()
+        .zip(templates.iter().copied())
+        .enumerate()
+        .filter_map(|(index, (instance, template))| {
+            is_native_rt_default(template).then_some((index, instance, template))
+        })
+        .collect::<Vec<_>>();
+    while !pending_rt.is_empty() {
+        let before = pending_rt.len();
+        let mut deferred = Vec::new();
+        for (instance_index, instance, template) in pending_rt {
+            check_cancelled(cancellation)?;
+            if instance
+                .references
+                .iter()
+                .any(|reference| !plans_by_id.contains_key(&reference.target_instance_id))
+            {
+                deferred.push((instance_index, instance, template));
+                continue;
+            }
+            let sources = instance
+                .references
+                .iter()
+                .map(|reference| {
+                    advanced_source_member(
+                        &reference.target_instance_id,
+                        spec.instances
+                            .iter()
+                            .position(|candidate| {
+                                candidate.instance_id == reference.target_instance_id
+                            })
+                            .ok_or_else(|| {
+                                ComposeError::AdvancedDefaults(format!(
+                                    "RT source {} is absent",
+                                    reference.target_instance_id
+                                ))
+                            })?,
+                        &plans_by_id,
+                        &advanced_artifacts,
+                        &execution_bindings,
+                        &bundle_resolution.members,
+                        &spec.resource_limits,
+                    )
+                })
+                .collect::<Result<Vec<_>, ComposeError>>()?;
+            let member = AdvancedDefaultMember {
+                instance,
+                template,
+                identities: identity_plans
+                    .get(&instance.instance_id)
+                    .cloned()
+                    .expect("identity pass covered every instance"),
+                order: u64::try_from(instance_index).map_err(|_| ComposeError::ResourceRange)?,
+            };
+            let mut output = plan_native_rt_default(&recipes, &member, &sources)
+                .map_err(ComposeError::AdvancedDefaults)?;
+            advanced_dependencies.extend(output.dependencies);
+            let mut planned = output
+                .artifacts
+                .remove(&instance.instance_id)
+                .ok_or_else(|| {
+                    ComposeError::AdvancedDefaults("RT provider omitted composition target".into())
+                })?;
+            let profile = AdvancedFamilyProfile::for_template(&template.template_id.0)
+                .expect("RT template has an advanced profile");
+            profile.customize_direct_plan(
+                instance,
+                &mut planned.instance,
+                &mut content_resolver,
+            )?;
+            execution_bindings.extend(output.bindings);
+            advanced_artifacts.insert(planned.logical_id.clone(), planned.clone());
+            plans_by_id.insert(instance.instance_id.clone(), planned.instance);
+        }
+        if deferred.len() == before {
+            return Err(ComposeError::AdvancedDefaults(
+                "RT recipe dependency graph could not be resolved".into(),
+            ));
+        }
+        pending_rt = deferred;
     }
 
     let mut plans = spec

@@ -211,10 +211,20 @@ impl AdvancedFamilyProfile {
                 }
                 apply_structured_report_parameters(family, instance, plan)?;
             }
-            _ => {
-                return Err(AdvancedFamilyError::DefaultArtifact(
-                    "direct advanced customization is not registered for this provider".into(),
-                ));
+            AdvancedFamilyKind::Radiotherapy(family) => {
+                apply_radiotherapy_parameters(family, instance, plan)?;
+                for content in &mut plan.content {
+                    content.properties.insert(
+                        "bulk_source".into(),
+                        match family {
+                            RadiotherapyFamily::Dose => "default_synthetic_rt_dose",
+                            RadiotherapyFamily::Image => "default_synthetic_rt_image",
+                            _ => "default_synthetic_rt_semantic",
+                        }
+                        .into(),
+                    );
+                }
+                apply_radiotherapy_content(family, instance, plan, content_resolver)?;
             }
         }
         match self.kind {
@@ -226,13 +236,14 @@ impl AdvancedFamilyProfile {
             AdvancedFamilyKind::TypedBulk(_) => {}
             AdvancedFamilyKind::Quantitative(_) => {}
             AdvancedFamilyKind::StructuredReport(_) => {}
-            _ => unreachable!(),
+            AdvancedFamilyKind::Radiotherapy(_) => {}
         }
         if !matches!(
             self.kind,
             AdvancedFamilyKind::TypedBulk(_)
                 | AdvancedFamilyKind::Quantitative(_)
                 | AdvancedFamilyKind::StructuredReport(_)
+                | AdvancedFamilyKind::Radiotherapy(_)
         ) {
             normalize_direct_legacy_plan(plan);
         }
@@ -1173,6 +1184,81 @@ fn apply_radiotherapy_parameters(
         | RadiotherapyFamily::Radiation
         | RadiotherapyFamily::RadiationSet => {}
     }
+    Ok(())
+}
+
+fn apply_radiotherapy_content(
+    family: RadiotherapyFamily,
+    instance: &SpecInstance,
+    plan: &mut ResolvedInstancePlan,
+    resolver: &mut LocalContentResolver,
+) -> Result<(), AdvancedFamilyError> {
+    if instance.content.is_empty()
+        || (instance.content.len() == 1
+            && matches!(instance.content[0].source, ContentSource::Default))
+    {
+        return Ok(());
+    }
+    if !matches!(family, RadiotherapyFamily::Dose | RadiotherapyFamily::Image)
+        || instance.content.len() != 1
+        || instance.content[0].slot != "pixels"
+        || plan.content.len() != 1
+    {
+        return Err(AdvancedFamilyError::UnsupportedContent(
+            instance.instance_id.clone(),
+        ));
+    }
+    let expected = plan.content.remove(0);
+    let asset = match &instance.content[0].source {
+        ContentSource::LocalFile {
+            path,
+            sha256,
+            pixel: None,
+            ..
+        } => resolver.resolve(
+            "pixels",
+            "radiotherapy_pixels",
+            Path::new(path),
+            sha256.as_deref(),
+        ),
+        ContentSource::ResolvedProvider {
+            output,
+            pixel: None,
+            ..
+        } => resolver.resolve_provider("pixels", "radiotherapy_pixels", output),
+        ContentSource::InlineSmallFixture {
+            base64,
+            sha256,
+            pixel: None,
+            ..
+        } => {
+            let bytes = super::spec::decode_base64(base64)
+                .map_err(|error| AdvancedFamilyError::UnsupportedContent(error.to_string()))?;
+            resolver.resolve_inline("pixels", "radiotherapy_pixels", &bytes, sha256.as_deref())
+        }
+        _ => {
+            return Err(AdvancedFamilyError::UnsupportedContent(
+                instance.instance_id.clone(),
+            ));
+        }
+    }
+    .map_err(|error| AdvancedFamilyError::TypedBulk(error.to_string()))?;
+    if asset.size_bytes != expected.size_bytes {
+        return Err(AdvancedFamilyError::TypedBulk(format!(
+            "RT pixel payload has {} bytes, expected {}",
+            asset.size_bytes, expected.size_bytes
+        )));
+    }
+    let mut replacement = BulkDataPlan::from_staged::<PixelDataSlot>(
+        asset,
+        expected.vr,
+        BulkDataBounds::exact(expected.size_bytes),
+        expected.properties.clone(),
+    )
+    .map_err(|error| AdvancedFamilyError::TypedBulk(error.to_string()))?
+    .into_canonical_content();
+    replacement.placement = expected.placement;
+    plan.content.push(replacement);
     Ok(())
 }
 

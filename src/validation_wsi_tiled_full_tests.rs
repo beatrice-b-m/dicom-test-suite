@@ -340,7 +340,7 @@ pub(super) fn valid_object(mutation: Mutation) -> InMemDicomObject {
 }
 
 fn icc_profile() -> Vec<u8> {
-    let source = include_bytes!("generator/native/dcmtk_srgb_input_profile.hex");
+    let source = include_bytes!("assets/dcmtk_srgb_input_profile.hex");
     let hex: Vec<u8> = source
         .iter()
         .copied()

@@ -40,17 +40,15 @@ their expectations from source data.
 
 ## Direct writer and ordering inventory
 
-The allowlist is intentionally exhaustive at U0:
+The terminal writer allowlist is intentionally exhaustive:
 
 - `src/composition/materializer.rs` is the target ordinary valid Part 10
   writer.
-- `src/generator.rs` contains the native curated direct writers, file-meta
-  builders, manual family/source ordering, the
-  `migrate_shared_plan_curated_files` post-write migration pass, and the
-  composition-default compatibility entry point. Native uses are assigned to
-  U3 through U7 and removed by U9.1-U9.3. Its sequence-length case also uses
-  `DataSetWriterOptions` to serialize a complete Part 10 file manually; U3.4
-  moves that policy into the neutral encoding plan.
+- `src/executor/materialization.rs` owns the bounded normalization of qualified
+  external Part 10 imports before shared validation and publication.
+- The former `src/generator.rs` native writers, file-meta builders,
+  `DataSetWriterOptions` path, manual family/source ordering, migration pass,
+  and compatibility entry point were deleted in U9.1-U9.3.
 - `src/composition/curated.rs` contains the dataset-to-plan bridge. Its unit
   fixtures may exercise external import semantics, but production native uses
   are removed by U9.1 and the module is reduced to an explicitly named

@@ -258,8 +258,8 @@
         },
         {
           "source": "local-verification",
-          "path": "src/generator.rs",
-          "finding": "The generated Secondary Capture JPEG 2000 Lossless case uses encapsulated Pixel Data and validates exact decoded frame hashes during generation and CLI validation."
+          "path": "src/executor/frame_codec.rs",
+          "finding": "The shared executor binds JPEG 2000 codestream results into planned encapsulated Pixel Data and validates exact decoded frame hashes before publication."
         }
       ],
       "next_action": "Keep JPEG 2000 lossy deferred until lossy semantics are selected; choose the next Phase 4 target by either researching HTJ2K backend viability or selecting an independent JPEG 2000 validator for expanded coverage."
@@ -375,8 +375,8 @@
         },
         {
           "source": "local-verification",
-          "path": "src/generator.rs",
-          "finding": "The first feature-gated generated HTJ2K Lossless Secondary Capture case records OpenJPH executable SHA-256 runtime identity metadata and validates exact decoded native frame hashes during generation and CLI validation."
+          "path": "src/executor/frame_codec.rs",
+          "finding": "The shared executor records OpenJPH runtime identity evidence and validates exact decoded native frame hashes before publishing the planned HTJ2K artifact."
         }
       ],
       "next_action": "Keep HTJ2K lossy and RPCL variants deferred until lossy semantics, encoder options, and validation policy are selected; choose the next Phase 5 legacy/specialty compressed syntax research target."

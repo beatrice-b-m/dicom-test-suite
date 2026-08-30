@@ -138,10 +138,10 @@ fn production_dicom_writers_are_explicitly_classified() {
             },
         ),
         (
-            "src/generator.rs",
+            "src/executor/materialization.rs",
             Exception {
-                removal_task: "U3.5-U9.2",
-                reason: "legacy curated, negative, stress, and encoding writers migrate by their assigned lanes",
+                removal_task: "PERMANENT_SHARED_MATERIALIZER",
+                reason: "the executor normalizes qualified external Part 10 imports",
             },
         ),
     ]);

@@ -37300,7 +37300,7 @@ mod tests {
     }
 
     fn icc_profile_test_bytes() -> Vec<u8> {
-        include_str!("generator/native/dcmtk_srgb_input_profile.hex")
+        include_str!("assets/dcmtk_srgb_input_profile.hex")
             .split_ascii_whitespace()
             .flat_map(|word| {
                 word.as_bytes().chunks_exact(2).map(|pair| {

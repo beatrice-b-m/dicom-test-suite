@@ -6053,117 +6053,24 @@ fn registry_cases(registry: &Value) -> Vec<&Value> {
 }
 
 fn generator_recipe_case_ids() -> BTreeSet<String> {
-    let mut case_ids = BTreeSet::new();
-    for (path, prefixes) in [
-        (
-            "src/generator.rs",
-            &[
-                "case_id: \"",
-                "SPATIAL_REGISTRATION_CASE_ID: &str = \"",
-                "COLOR_SOFTCOPY_PRESENTATION_STATE_CASE_ID: &str = \"",
-                "ADVANCED_BLENDING_PRESENTATION_STATE_CASE_ID: &str =\n    \"",
-                "BLENDING_PRESENTATION_STATE_CASE_ID: &str = \"",
-                "TWELVE_LEAD_ECG_CASE_ID: &str = \"",
-                "GENERAL_ECG_CASE_ID: &str = \"",
-                "EOT_CASE_ID: &str = \"",
-                "STRESS_ENHANCED_CT_CASE_ID: &str = \"",
-                "STRESS_HIGH_INSTANCE_CT_CASE_ID: &str = \"",
-                "STRESS_LARGE_BULK_CASE_ID: &str = \"",
-                "STRESS_DEEP_NESTED_CASE_ID: &str = \"",
-                "STRESS_LONG_METADATA_CASE_ID: &str = \"",
-                "STRESS_ENCAPSULATED_CASE_ID: &str = \"",
-                "STRESS_WSI_PYRAMID_CASE_ID: &str = \"",
-                "RT_PLAN_CASE_ID: &str = \"",
-                "RT_IMAGE_CASE_ID: &str = \"",
-                "RT_RADIATION_CASE_ID: &str = \"",
-                "RT_RADIATION_SET_CASE_ID: &str = \"",
-            ][..],
-        ),
-        ("src/generator/native/ct_geometry.rs", &["case_id: \""][..]),
-        (
-            "src/generator/native/empty_type2_sc.rs",
-            &["case_id: \""][..],
-        ),
-        ("src/generator/native/metadata_sc.rs", &["case_id: \""][..]),
-        (
-            "src/generator/native/private_creator_sc.rs",
-            &["case_id: \""][..],
-        ),
-        (
-            "src/generator/native/sc_integer_pixels.rs",
-            &["case_id: \""][..],
-        ),
-        (
-            "src/generator/native/sc_nonsquare_spacing.rs",
-            &["case_id: \""][..],
-        ),
-        (
-            "src/generator/native/sequence_length_sc.rs",
-            &["case_id: \""][..],
-        ),
-        (
-            "src/generator/native/string_boundary_sc.rs",
-            &["case_id: \""][..],
-        ),
-        ("src/generator/native/timezone_sc.rs", &["case_id: \""][..]),
-        (
-            "src/generation_backends/parametric_map.rs",
-            &["CASE_ID: &str = \""][..],
-        ),
-        (
-            "src/generation_backends/tid1500.rs",
-            &["CASE_ID: &str = \""][..],
-        ),
-        (
-            "src/generation_backends/scoord3d.rs",
-            &["CASE_ID: &str = \""][..],
-        ),
-        (
-            "src/generation_backends/wsi_tile_segmentation.rs",
-            &["CASE_ID: &str = \""][..],
-        ),
-        ("src/negative.rs", &["    \""][..]),
-    ] {
-        let source = fs::read_to_string(path).expect("generator source must be readable");
-        for prefix in prefixes {
-            let mut remaining = source.as_str();
-            while let Some(start) = remaining.find(prefix) {
-                remaining = &remaining[start + prefix.len()..];
-                let Some(end) = remaining.find('"') else {
-                    break;
-                };
-                let case_id = &remaining[..end];
-                if is_suite_case_id(case_id) {
-                    case_ids.insert(case_id.to_string());
-                }
-                remaining = &remaining[end + 1..];
-            }
-        }
-    }
-
     let catalog = dicom_test_suite::recipes::RecipeCatalog::load(
         "cases/recipes",
         "cases/registry.json",
         "templates/catalog.json",
     )
     .expect("case recipe catalog must load");
-    // Plan-first enhanced and WSI identities are recipe-owned. Derive them
-    // from the validated catalog rather than deleted native writer modules.
-    case_ids.extend(
-        catalog
-            .recipes()
-            .values()
-            .filter(|recipe| is_suite_case_id(&recipe.binding.case_id))
-            .map(|recipe| recipe.binding.case_id.clone()),
-    );
-
+    let case_ids = catalog
+        .recipes()
+        .values()
+        .filter(|recipe| is_suite_case_id(&recipe.binding.case_id))
+        .map(|recipe| recipe.binding.case_id.clone())
+        .collect::<BTreeSet<_>>();
     assert!(
         !case_ids.is_empty(),
-        "generator source should declare recipe case IDs"
+        "the recipe catalog should declare case IDs"
     );
     case_ids
 }
-
 fn is_suite_case_id(case_id: &str) -> bool {
     matches!(
         case_id.split('/').next(),

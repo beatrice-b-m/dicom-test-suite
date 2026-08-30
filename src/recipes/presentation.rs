@@ -33,7 +33,7 @@ pub const PRESENTATION_ALGORITHM_PROVIDER_ID: &str = "algorithm.presentation_sta
 const TRANSFER_SYNTAX_UID: &str = "1.2.840.10008.1.2.1";
 const ICC_COLOR_SPACE: &str = "SRGB";
 const ICC_PROFILE_SIZE: usize = 736;
-const PROFILE_HEX: &[u8] = include_bytes!("../generator/native/dcmtk_srgb_input_profile.hex");
+const PROFILE_HEX: &[u8] = include_bytes!("../assets/dcmtk_srgb_input_profile.hex");
 
 #[derive(Debug, Clone)]
 pub struct PresentationPlanProvider {

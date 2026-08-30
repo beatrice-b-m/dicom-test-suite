@@ -150,7 +150,7 @@ def _sparse_dataset(path: Path) -> FileDataset:
 def _icc_profile() -> bytes:
     source = (
         Path(__file__).resolve().parents[3]
-        / "src/generator/native/dcmtk_srgb_input_profile.hex"
+        / "src/assets/dcmtk_srgb_input_profile.hex"
     )
     return bytes.fromhex(source.read_text(encoding="ascii").strip())
 

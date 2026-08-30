@@ -257,7 +257,7 @@ fn fake_tool(root: &Path, name: &str, body: &str) -> PathBuf {
 }
 
 fn embedded_icc_profile() -> Vec<u8> {
-    let compact = include_str!("../src/generator/native/dcmtk_srgb_input_profile.hex")
+    let compact = include_str!("../src/assets/dcmtk_srgb_input_profile.hex")
         .chars()
         .filter(|character| character.is_ascii_hexdigit())
         .collect::<String>();

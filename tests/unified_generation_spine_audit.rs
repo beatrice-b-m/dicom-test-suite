@@ -143,7 +143,7 @@ fn every_current_production_direct_writer_is_classified_for_removal() {
     let audit = fs::read_to_string("docs/unified-generation-spine-audit.md").unwrap();
     let allowed = BTreeSet::from([
         PathBuf::from("src/composition/materializer.rs"),
-        PathBuf::from("src/generator.rs"),
+        PathBuf::from("src/executor/materialization.rs"),
     ]);
     let mut sources = Vec::new();
     rust_sources(Path::new("src"), &mut sources);
@@ -178,7 +178,6 @@ fn every_current_production_direct_writer_is_classified_for_removal() {
     }
 
     for (path, marker, removal) in [
-        ("src/generator.rs", "DataSetWriterOptions", "U3.4"),
         ("src/codecs.rs", "dcmcjpeg", "U7.2"),
         ("src/generation_backends/", "external", "U6.7"),
         ("src/negative.rs", "mutation", "U8"),
@@ -195,16 +194,14 @@ fn every_current_production_direct_writer_is_classified_for_removal() {
 #[test]
 fn every_temporary_bridge_is_named_and_assigned_to_a_removal_task() {
     let audit = fs::read_to_string("docs/unified-generation-spine-audit.md").unwrap();
-    let generator = fs::read_to_string("src/generator.rs").unwrap();
     let advanced = fs::read_to_string("src/composition/advanced_family.rs").unwrap();
     let curated = fs::read_to_string("src/composition/curated.rs").unwrap();
     assert!(
-        !generator.contains("migrate_shared_plan_curated_files"),
-        "the post-write curated migration pass must be absent"
+        !Path::new("src/generator.rs").exists(),
+        "the retired curated generator module must be absent"
     );
     assert!(
-        !generator.contains("write_composition_default_artifacts")
-            && !advanced.contains("write_composition_default_artifacts"),
+        !advanced.contains("write_composition_default_artifacts"),
         "composition defaults must not invoke or retain a curated generator bridge"
     );
     for (symbol, source, removal) in [(

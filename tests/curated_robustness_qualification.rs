@@ -377,23 +377,5 @@ fn pre_cancelled_qualification_execution_leaves_no_private_payload() {
 
 #[test]
 fn generator_has_no_duplicate_negative_or_fuzz_writer_path() {
-    let generator = fs::read_to_string("src/generator.rs").unwrap();
-    for forbidden in [
-        "write_negative_cases",
-        "write_negative_source_artifacts",
-        "write_negative_output",
-        "build_negative_case",
-        "NegativeSourceStagingGuard",
-        ".negative-private-sources",
-        "write_fuzz_cases",
-        "FuzzSourceStagingGuard",
-        ".fuzz-private-sources",
-        "FuzzSession::new",
-        "fuzz_target_observation",
-    ] {
-        assert!(
-            !generator.contains(forbidden),
-            "legacy robustness writer symbol remains: {forbidden}"
-        );
-    }
+    assert!(!Path::new("src/generator.rs").exists());
 }

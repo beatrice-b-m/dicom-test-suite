@@ -194,7 +194,7 @@
       ],
       "version_arguments": ["--version"],
       "runtime_identity_arguments": ["--version"],
-      "entrypoint_paths": ["src/codecs.rs", "src/generator.rs"],
+      "entrypoint_paths": ["src/codecs.rs", "src/executor/frame_codec.rs"],
       "environment_override": null
     },
     "dependency_lock": {
@@ -267,7 +267,7 @@
       ],
       "version_arguments": [],
       "runtime_identity_arguments": ["-h"],
-      "entrypoint_paths": ["src/codecs.rs", "src/generator.rs"],
+      "entrypoint_paths": ["src/codecs.rs", "src/executor/frame_codec.rs"],
       "environment_override": null
     },
     "dependency_lock": {

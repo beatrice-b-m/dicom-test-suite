@@ -70,14 +70,6 @@ fn registry_statuses() -> BTreeMap<String, String> {
         .collect()
 }
 
-fn production_source(path: &str) -> String {
-    let source = fs::read_to_string(path).unwrap();
-    source
-        .split_once("#[cfg(test)]")
-        .map_or(source.as_str(), |(production, _)| production)
-        .to_owned()
-}
-
 fn report_value_matches(manifest: &Value, report: &Value, manifest_pointer: &str, field: &str) {
     if let Some(expected) = manifest.pointer(manifest_pointer) {
         assert_eq!(
@@ -325,119 +317,14 @@ fn migrated_classic_symbols_are_plan_first_and_fail_closed() {
         "templates/catalog.json",
     )
     .unwrap();
-    let generator = production_source("src/generator.rs");
-
     assert!(
         catalog
             .recipes()
             .values()
             .any(|recipe| recipe.plan_provider_id == "native.classic_plan")
     );
-
-    for forbidden_symbol in [
-        "write_classic_mg_case",
-        "write_classic_dx_case",
-        "write_classic_nm_case",
-        "write_classic_pet_case",
-        "write_classic_us_case",
-        "write_classic_us_multiframe_case",
-        "write_classic_xa_case",
-        "write_classic_xrf_case",
-        "write_classic_cr_case",
-        "write_classic_mr_case",
-        "classic_mg_manifest_entry",
-        "classic_dx_manifest_entry",
-        "classic_nm_manifest_entry",
-        "classic_pet_manifest_entry",
-        "classic_us_manifest_entry",
-        "classic_us_multiframe_manifest_entry",
-        "classic_xa_manifest_entry",
-        "classic_xrf_manifest_entry",
-        "classic_cr_manifest_entry",
-        "classic_mr_manifest_entry",
-        "deterministic_classic_mg_uid",
-        "deterministic_classic_dx_uid",
-        "deterministic_classic_nm_uid",
-        "deterministic_classic_pet_uid",
-        "deterministic_classic_us_uid",
-        "deterministic_classic_us_multiframe_uid",
-        "deterministic_classic_xa_uid",
-        "deterministic_classic_xrf_uid",
-        "deterministic_classic_cr_uid",
-        "deterministic_classic_mr_uid",
-        "pixel_single_frame_vl_kind",
-        "SingleFrameVlKind",
-    ] {
-        assert!(
-            !generator.contains(forbidden_symbol),
-            "legacy U4 symbol `{forbidden_symbol}` remains in production generator code"
-        );
-    }
-
-    let declared_symbols = |prefix: &str| {
-        generator
-            .lines()
-            .map(str::trim_start)
-            .filter_map(|line| line.strip_prefix("fn "))
-            .filter_map(|line| line.split_once('(').map(|(name, _)| name))
-            .filter(|name| name.starts_with(prefix))
-            .map(str::to_owned)
-            .collect::<BTreeSet<_>>()
-    };
-    assert_eq!(
-        declared_symbols("write_classic_"),
-        BTreeSet::from(["write_classic_ct_case".to_owned()]),
-        "only the named U5 CT private-source/stress writer may remain"
-    );
-    assert_eq!(
-        declared_symbols("classic_")
-            .into_iter()
-            .filter(|name| name.ends_with("_manifest_entry"))
-            .collect::<BTreeSet<_>>(),
-        BTreeSet::from(["classic_ct_manifest_entry".to_owned()]),
-        "only the CT bridge manifest helper may remain"
-    );
-    assert_eq!(
-        declared_symbols("deterministic_classic_"),
-        BTreeSet::from(["deterministic_classic_ct_uid".to_owned()]),
-        "only CT bridge identity allocation may remain"
-    );
-
-    for required_fail_closed_symbol in [
-        "CuratedStageEntry::PlanFirst",
-        "PlanFirstStageError::MissingSelectedCase",
-        "PlanFirstStageError::UnmatchedCases",
-        "PLAN_FIRST_NATIVE_VL_CASE_IDS",
-        "PLAN_FIRST_RLE_VL_CASE_IDS",
-        "PLAN_FIRST_CLASSIC_MG_DX_NM_CASE_IDS",
-        "PLAN_FIRST_CLASSIC_PET_CASE_IDS",
-        "PLAN_FIRST_CLASSIC_US_MULTIFRAME_XA_XRF_CASE_IDS",
-        "PLAN_FIRST_CLASSIC_US_CR_MR_CASE_IDS",
-    ] {
-        assert!(
-            generator.contains(required_fail_closed_symbol),
-            "classic stage dispatch no longer proves fail-closed plan-first routing through `{required_fail_closed_symbol}`"
-        );
-    }
     assert!(
-        generator.contains("fn resolve_and_write_u5_color_softcopy_private_source"),
-        "the sole non-CT U5 source bridge must remain explicitly private and named"
+        !Path::new("src/generator.rs").exists(),
+        "the manual classic dispatcher and family writers must be deleted"
     );
-    let rgb_bridge = generator
-        .split_once("fn resolve_and_write_u5_color_softcopy_private_source")
-        .and_then(|(_, rest)| {
-            rest.split_once("pub(crate) fn write_supported_cases_with_plan_first_sc")
-        })
-        .map(|(body, _)| body)
-        .expect("named RGB private-source resolver must have a bounded body");
-    for required in [
-        "COLOR_SOFTCOPY_PRESENTATION_STATE_SOURCE_CASE_ID",
-        "COLOR_SOFTCOPY_PRIVATE_SOURCE_PIXEL_RECIPE",
-        "write_pixel_case",
-    ] {
-        assert!(
-            rgb_bridge.contains(required),
-            "RGB bridge lost `{required}`"
-        );
-    }
 }

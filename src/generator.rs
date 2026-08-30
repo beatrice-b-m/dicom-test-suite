@@ -3159,6 +3159,7 @@ struct GenerationContext {
     source_registry: GeneratedSourceRegistry,
     unavailable_cases: Vec<Value>,
     qualifications: Vec<Value>,
+    completed_case_ids: Vec<String>,
     stress_guard: Option<StressResourceGuard>,
 }
 
@@ -3176,7 +3177,35 @@ impl GenerationContext {
         Ok(())
     }
 
+    fn record_expected_invalid_many(
+        &mut self,
+        files: Vec<GeneratedFile>,
+    ) -> Result<(), GenerateError> {
+        for file in &files {
+            if !file.case_id.starts_with("negative/")
+                || file.manifest_entry.get("validity").and_then(Value::as_str)
+                    != Some("expected_invalid")
+                || file.manifest_entry.get("dicom").is_some()
+            {
+                return Err(GenerateError::PlanFirst {
+                    stage: "negative artifact dispatch",
+                    message: format!(
+                        "plan-first negative artifact {} entered the valid source route",
+                        file.case_id
+                    ),
+                });
+            }
+        }
+        self.generated_files.extend(files);
+        Ok(())
+    }
+
     fn record_qualification(&mut self, qualification: Value) {
+        self.qualifications.push(qualification);
+    }
+
+    fn record_completed_qualification(&mut self, case_id: String, qualification: Value) {
+        self.completed_case_ids.push(case_id);
         self.qualifications.push(qualification);
     }
 
@@ -3264,7 +3293,7 @@ impl GenerationContext {
             files: self.generated_files,
             unavailable_cases: self.unavailable_cases,
             qualifications: self.qualifications,
-            completed_case_ids: Vec::new(),
+            completed_case_ids: self.completed_case_ids,
         }
     }
 }
@@ -4139,43 +4168,83 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
     plan_first_files: Vec<GeneratedFile>,
     plan_first_qualifications: Vec<Value>,
 ) -> Result<GenerationOutput, GenerateError> {
-    if run.profile == "negative" {
-        return write_negative_cases(run, registry, standards_lock_sha256);
-    }
-    if run.profile == "fuzz" {
-        return write_fuzz_cases(run, registry, standards_lock_sha256);
-    }
+    let mut direct_plan_first_files = Vec::new();
     let mut plan_first_files_by_case = BTreeMap::<String, Vec<GeneratedFile>>::new();
     let mut plan_first_case_ids = BTreeSet::new();
     for file in plan_first_files {
         plan_first_case_ids.insert(file.case_id.clone());
-        plan_first_files_by_case
-            .entry(file.case_id.clone())
-            .or_default()
-            .push(file);
+        if file.case_id.starts_with("negative/") {
+            direct_plan_first_files.push(file);
+        } else {
+            plan_first_files_by_case
+                .entry(file.case_id.clone())
+                .or_default()
+                .push(file);
+        }
     }
     let mut plan_first_qualifications_by_case = BTreeMap::<String, Value>::new();
+    let mut completed_plan_first_qualifications = Vec::<(String, Value)>::new();
     for qualification in plan_first_qualifications {
         let case_id = qualification
             .get("case_id")
             .and_then(Value::as_str)
             .ok_or_else(|| GenerateError::PlanFirst {
-                stage: "stress qualification dispatch",
-                message: "projected stress qualification has no string case_id".into(),
+                stage: "qualification dispatch",
+                message: "projected qualification has no string case_id".into(),
             })?
             .to_owned();
-        if qualification.get("kind").and_then(Value::as_str) != Some("stress_case_run")
-            || plan_first_qualifications_by_case
-                .insert(case_id.clone(), qualification)
-                .is_some()
-        {
-            return Err(GenerateError::PlanFirst {
-                stage: "stress qualification dispatch",
-                message: format!("invalid or duplicate projected stress qualification {case_id}"),
-            });
+        match qualification.get("kind").and_then(Value::as_str) {
+            Some("stress_case_run") => {
+                if plan_first_qualifications_by_case
+                    .insert(case_id.clone(), qualification)
+                    .is_some()
+                {
+                    return Err(GenerateError::PlanFirst {
+                        stage: "qualification dispatch",
+                        message: format!("duplicate projected stress qualification {case_id}"),
+                    });
+                }
+            }
+            Some("bounded_fuzz_run") => {
+                if completed_plan_first_qualifications
+                    .iter()
+                    .any(|(existing, _)| existing == &case_id)
+                {
+                    return Err(GenerateError::PlanFirst {
+                        stage: "qualification dispatch",
+                        message: format!("duplicate projected fuzz qualification {case_id}"),
+                    });
+                }
+                let case =
+                    registry_case(registry, &case_id)?.ok_or_else(|| GenerateError::PlanFirst {
+                        stage: "qualification dispatch",
+                        message: format!("projected fuzz qualification {case_id} is unregistered"),
+                    })?;
+                if !should_generate_case(case, run)? {
+                    return Err(GenerateError::PlanFirst {
+                        stage: "qualification dispatch",
+                        message: format!(
+                            "projected fuzz qualification {case_id} is outside the requested selection"
+                        ),
+                    });
+                }
+                completed_plan_first_qualifications.push((case_id, qualification));
+            }
+            other => {
+                return Err(GenerateError::PlanFirst {
+                    stage: "qualification dispatch",
+                    message: format!(
+                        "unsupported projected qualification kind {other:?} for {case_id}"
+                    ),
+                });
+            }
         }
     }
     let mut context = GenerationContext::default();
+    context.record_expected_invalid_many(direct_plan_first_files)?;
+    for (case_id, qualification) in completed_plan_first_qualifications {
+        context.record_completed_qualification(case_id, qualification);
+    }
     for case_id in U9_PLAN_FIRST_WSI_CASE_IDS.iter().copied() {
         if let Some(files) = take_plan_first_advanced_case(
             run,
@@ -4383,6 +4452,11 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
         SPATIAL_REGISTRATION_CASE_ID,
         "spatial registration stage",
     )? {
+        if let Some(source_files) =
+            plan_first_files_by_case.remove(SPATIAL_REGISTRATION_SOURCE_CASE_ID)
+        {
+            context.record_many(source_files)?;
+        }
         context.record_many(files)?;
     }
     if let Some(case) = registry_case(registry, SPATIAL_REGISTRATION_CASE_ID)?
@@ -4446,6 +4520,11 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
         DEFORMABLE_SPATIAL_REGISTRATION_CASE_ID,
         "deformable registration stage",
     )? {
+        if let Some(source_files) =
+            plan_first_files_by_case.remove(SPATIAL_REGISTRATION_SOURCE_CASE_ID)
+        {
+            context.record_many(source_files)?;
+        }
         context.record_many(files)?;
     }
     if let Some(case) = registry_case(registry, DEFORMABLE_SPATIAL_REGISTRATION_CASE_ID)?
@@ -4509,6 +4588,11 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
         COLOR_SOFTCOPY_PRESENTATION_STATE_CASE_ID,
         "color presentation-state stage",
     )? {
+        if let Some(source_files) =
+            plan_first_files_by_case.remove(COLOR_SOFTCOPY_PRESENTATION_STATE_SOURCE_CASE_ID)
+        {
+            context.record_many(source_files)?;
+        }
         context.record_many(files)?;
     }
     if let Some(case) = registry_case(registry, COLOR_SOFTCOPY_PRESENTATION_STATE_CASE_ID)?
@@ -4549,6 +4633,11 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
         ADVANCED_BLENDING_PRESENTATION_STATE_CASE_ID,
         "advanced blending presentation-state stage",
     )? {
+        if let Some(source_files) =
+            plan_first_files_by_case.remove(ADVANCED_BLENDING_PRESENTATION_STATE_SOURCE_CASE_ID)
+        {
+            context.record_many(source_files)?;
+        }
         context.record_many(files)?;
     }
     if let Some(case) = registry_case(registry, ADVANCED_BLENDING_PRESENTATION_STATE_CASE_ID)?
@@ -20000,6 +20089,27 @@ mod tests {
         registry: &Value,
         standards_lock_sha256: &str,
     ) -> Result<GenerationOutput, GenerateError> {
+        if matches!(run.profile.as_str(), "negative" | "fuzz") {
+            fs::create_dir_all(&run.out_dir).map_err(|source| GenerateError::CreateOutputDir {
+                path: run.out_dir.clone(),
+                source,
+            })?;
+            let bundle = crate::prepare_curated_plan_for_selection(
+                crate::curated_plan::CuratedScSelection::Profile {
+                    profile: run.profile.clone(),
+                    include_stress: run.include_stress,
+                },
+                run.seed,
+            )?;
+            let projected = crate::execute_curated_sc_plan_output(bundle.as_ref(), &run.out_dir)?;
+            return write_supported_cases_with_plan_first_sc(
+                run,
+                registry,
+                standards_lock_sha256,
+                projected.files,
+                projected.qualifications,
+            );
+        }
         write_supported_cases_with_plan_first_sc(
             run,
             registry,

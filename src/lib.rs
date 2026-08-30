@@ -11,7 +11,8 @@ use serde_json::Value;
 
 use crate::curated_execution::CuratedExecutionServiceFactory;
 use crate::curated_manifest::{
-    project_curated_file_entries, project_curated_stress_qualifications,
+    project_curated_file_entries, project_curated_qualifications,
+    project_curated_stress_qualifications,
 };
 use crate::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlan, CuratedScCorpusPlanProvider, CuratedScPlanRequest,
@@ -58,8 +59,8 @@ pub mod curated_execution;
 pub mod curated_manifest;
 pub mod curated_plan;
 pub mod curated_validation;
-pub mod encoded_content;
 pub mod encapsulation;
+pub mod encoded_content;
 pub mod executor;
 pub mod fuzz;
 pub mod generation_backends;
@@ -78,15 +79,15 @@ pub mod part10_locator;
 pub mod planning;
 pub mod planning_preview;
 pub mod protocol;
-pub mod quantitative_evidence;
-pub mod qualification_plan;
-pub mod sr_rt_manifest;
-pub mod sr_rt_validation;
 pub mod protocol_baseline;
+pub mod qualification_plan;
+pub mod quantitative_evidence;
 pub mod recipes;
 pub(crate) mod rt_manifest;
 pub(crate) mod rt_radiation_manifest;
 pub mod runtime_capabilities;
+pub mod sr_rt_manifest;
+pub mod sr_rt_validation;
 pub mod stress;
 pub mod uid;
 mod validation;
@@ -600,9 +601,6 @@ impl ManifestProjector for StagedOnlyManifestProjector {
 fn prepare_curated_sc_plan(
     run: &PreparedGenerationRun,
 ) -> Result<Option<CuratedScCorpusPlan>, GenerateError> {
-    if matches!(run.profile.as_str(), "negative" | "fuzz") {
-        return Ok(None);
-    }
     prepare_curated_plan_for_selection(
         CuratedScSelection::Profile {
             profile: run.profile.clone(),
@@ -724,13 +722,21 @@ fn execute_curated_sc_plan_output(
             })
         })
         .collect::<Result<Vec<_>, _>>()?;
-    let qualifications =
+    let mut qualifications =
         project_curated_stress_qualifications(&bundle.projection, &staged.projection).map_err(
             |error| GenerateError::PlanFirst {
                 stage: "curated stress qualification projection",
                 message: error.to_string(),
             },
         )?;
+    qualifications.extend(
+        project_curated_qualifications(&staged.projection).map_err(|error| {
+            GenerateError::PlanFirst {
+                stage: "curated robustness qualification projection",
+                message: error.to_string(),
+            }
+        })?,
+    );
     Ok(CuratedScExecutionOutput {
         files,
         qualifications,

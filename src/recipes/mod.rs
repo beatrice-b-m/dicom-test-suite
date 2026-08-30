@@ -80,7 +80,11 @@ pub use exceptional_sc::{
     ExceptionalScPlanInput, ExceptionalScPlanOutput, LockedFullFileCodecRequest,
     plan_exceptional_sc,
 };
-pub use loader::RecipeCatalog;
+pub use loader::{
+    EOT_ARITHMETIC_PLAN_PROVIDER_ID, FUZZ_PLAN_PROVIDER_ID, FuzzBudgetContract, FuzzSource,
+    PayloadPolicy, QualificationParameters, RecipeCatalog, RobustnessProviderParameters,
+    qualification_parameters,
+};
 pub use metadata_sc::{MetadataScPlanInput, MetadataScPlannerError, resolved_metadata_sc_plan};
 pub use model::{
     AttributeOperation, BitPackingParameters, CaseBinding, CaseRecipe, ClassicIccProjection,

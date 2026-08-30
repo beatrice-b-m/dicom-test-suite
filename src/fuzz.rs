@@ -5,8 +5,11 @@
 //! resolved; callers provide those bytes at runtime. Candidate bytes and
 //! minimized bytes are build artifacts and must not be committed.
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fmt;
+
+use serde::Serialize;
 
 pub const FUZZ_CONTRACT_VERSION: &str = "0.1.0";
 
@@ -67,7 +70,7 @@ pub const INITIAL_SEED_DESCRIPTIONS: &[FuzzSeedDescription] = &[
 ];
 
 /// All limits are operation or byte counts; none depend on elapsed time.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct FuzzBudget {
     pub max_iterations: u64,
     pub max_candidates: u64,
@@ -164,6 +167,9 @@ pub enum FuzzError {
         actual: TargetOutcomeClass,
     },
     InvalidPromotionRecipe(String),
+    InvalidSourceIdentity(String),
+    DuplicateSource(String),
+    Cancelled,
 }
 
 impl fmt::Display for FuzzError {
@@ -191,6 +197,11 @@ impl fmt::Display for FuzzError {
                     "promotion recipe must be a named negative/ recipe: {recipe}"
                 )
             }
+            Self::InvalidSourceIdentity(detail) => {
+                write!(formatter, "invalid fuzz source identity: {detail}")
+            }
+            Self::DuplicateSource(id) => write!(formatter, "duplicate fuzz source {id}"),
+            Self::Cancelled => write!(formatter, "fuzz qualification was cancelled"),
         }
     }
 }
@@ -268,6 +279,15 @@ impl FuzzSession {
     }
 
     pub fn next_candidate(&mut self, source: &[u8]) -> Result<FuzzCandidate, FuzzError> {
+        self.next_candidate_cancellable(source, &|| false)
+    }
+
+    pub fn next_candidate_cancellable(
+        &mut self,
+        source: &[u8],
+        cancelled: &dyn Fn() -> bool,
+    ) -> Result<FuzzCandidate, FuzzError> {
+        check_cancelled(cancelled)?;
         if source.len() > self.budget.max_input_bytes {
             return Err(FuzzError::InputTooLarge {
                 actual: source.len(),
@@ -302,6 +322,7 @@ impl FuzzSession {
         let mut bytes = source.to_vec();
         let mut mutations = Vec::with_capacity(mutation_count as usize);
         for _ in 0..mutation_count {
+            check_cancelled(cancelled)?;
             let mutation = mutate_once(&mut bytes, &mut rng, self.budget);
             mutations.push(mutation);
         }
@@ -413,6 +434,374 @@ pub struct MinimizationResult {
     pub preserved_outcome: TargetOutcomeClass,
 }
 
+/// A private source supplied by the executor. The bytes are borrowed only for
+/// the duration of execution and are never copied into qualification evidence.
+#[derive(Debug, Clone, Copy)]
+pub struct FuzzSourceAsset<'a> {
+    pub private_asset_id: &'a str,
+    pub description: FuzzSeedDescription,
+    pub declared_sha256: &'a str,
+    pub declared_size_bytes: usize,
+    pub bytes: &'a [u8],
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct FuzzQualificationRequest<'a> {
+    pub case_id: &'a str,
+    pub profile: &'a str,
+    pub run_seed: u64,
+    pub budget: FuzzBudget,
+    pub iterations_per_source: u64,
+    pub sources: &'a [FuzzSourceAsset<'a>],
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct FuzzProviderEvidence {
+    pub kind: &'static str,
+    pub id: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct FuzzTargetEvidence {
+    pub kind: &'static str,
+    pub independence: &'static str,
+    pub operation_unit: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct FuzzSeedEvidence {
+    pub id: &'static str,
+    pub source_case_id: &'static str,
+    pub source_recipe_id: &'static str,
+    pub source_recipe_version: &'static str,
+    pub source_generation_seed: u64,
+    pub source_sha256: String,
+    pub source_size_bytes: usize,
+    pub surfaces: Vec<&'static str>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct FuzzQualificationCounters {
+    pub iterations: u64,
+    pub candidates: u64,
+    pub mutations: u64,
+    pub target_operations: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct FuzzMinimizationEvidence {
+    pub seed_description_id: &'static str,
+    pub candidate_iteration: u64,
+    pub candidate_seed: u64,
+    pub outcome: &'static str,
+    pub original_size: usize,
+    pub minimized_size: usize,
+    pub attempts: u64,
+    pub target_operations: u64,
+    pub minimized_fingerprint: String,
+}
+
+/// Payload-free qualification result. No field can contain source, candidate,
+/// or minimized bytes.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct FuzzQualificationEvidence {
+    pub case_id: String,
+    pub kind: &'static str,
+    pub contract_version: &'static str,
+    pub profile: String,
+    pub run_seed: u64,
+    pub provider: FuzzProviderEvidence,
+    pub target: FuzzTargetEvidence,
+    pub budget: FuzzBudget,
+    pub seeds: Vec<FuzzSeedEvidence>,
+    pub counters: FuzzQualificationCounters,
+    pub outcomes: BTreeMap<&'static str, u64>,
+    pub minimizations: Vec<FuzzMinimizationEvidence>,
+    pub unacceptable_outcomes: Vec<&'static str>,
+    pub payload_policy: &'static str,
+    pub status: &'static str,
+}
+
+impl FuzzQualificationEvidence {
+    pub fn to_json(&self) -> Result<serde_json::Value, serde_json::Error> {
+        serde_json::to_value(self)
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct BoundedFuzzQualificationService;
+
+impl BoundedFuzzQualificationService {
+    pub fn execute<F>(
+        &self,
+        request: FuzzQualificationRequest<'_>,
+        mut observe: F,
+        cancelled: &dyn Fn() -> bool,
+    ) -> Result<FuzzQualificationEvidence, FuzzError>
+    where
+        F: FnMut(&[u8], u64) -> TargetObservation,
+    {
+        let budget = request.budget.validate()?;
+        if request.case_id.is_empty() || request.profile.is_empty() {
+            return Err(FuzzError::InvalidSourceIdentity(
+                "qualification case and profile must be non-empty".into(),
+            ));
+        }
+        if request.iterations_per_source == 0
+            || request.iterations_per_source > budget.max_iterations
+            || request.iterations_per_source > budget.max_candidates
+        {
+            return Err(FuzzError::InvalidBudget(
+                "iterations_per_source exceeds the session budget",
+            ));
+        }
+        if request.sources.is_empty() {
+            return Err(FuzzError::InvalidSourceIdentity(
+                "at least one private source is required".into(),
+            ));
+        }
+        let requested_candidates = u64::try_from(request.sources.len())
+            .ok()
+            .and_then(|count| count.checked_mul(request.iterations_per_source))
+            .ok_or(FuzzError::BudgetExhausted(BudgetKind::Candidates))?;
+        if requested_candidates > budget.max_iterations {
+            return Err(FuzzError::BudgetExhausted(BudgetKind::Iterations));
+        }
+        if requested_candidates > budget.max_candidates {
+            return Err(FuzzError::BudgetExhausted(BudgetKind::Candidates));
+        }
+
+        let mut seen = BTreeSet::new();
+        let mut seed_records = Vec::with_capacity(request.sources.len());
+        let mut outcomes = outcome_counts();
+        let mut minimizations = Vec::new();
+        let mut counters = FuzzQualificationCounters {
+            iterations: 0,
+            candidates: 0,
+            mutations: 0,
+            target_operations: 0,
+        };
+
+        for source in request.sources {
+            check_cancelled(cancelled)?;
+            validate_source_asset(*source, budget)?;
+            if !seen.insert(source.description.id) {
+                return Err(FuzzError::DuplicateSource(source.description.id.into()));
+            }
+            seed_records.push(FuzzSeedEvidence {
+                id: source.description.id,
+                source_case_id: source.description.source_case_id,
+                source_recipe_id: source.description.source_recipe_id,
+                source_recipe_version: source.description.source_recipe_version,
+                source_generation_seed: source.description.source_generation_seed,
+                source_sha256: source.declared_sha256.into(),
+                source_size_bytes: source.bytes.len(),
+                surfaces: source
+                    .description
+                    .surfaces
+                    .iter()
+                    .map(mutation_surface_name)
+                    .collect(),
+            });
+
+            let mut session = FuzzSession::new(source.description, request.run_seed, budget)?;
+            let mut first_rejection = None;
+            for _ in 0..request.iterations_per_source {
+                check_cancelled(cancelled)?;
+                let candidate = session.next_candidate_cancellable(source.bytes, cancelled)?;
+                let remaining = budget
+                    .max_total_target_operations
+                    .saturating_sub(counters.target_operations);
+                if remaining == 0 {
+                    return Err(FuzzError::BudgetExhausted(BudgetKind::TargetOperations));
+                }
+                let operation_limit = remaining.min(budget.max_target_operations);
+                let observation =
+                    observe(&candidate.bytes, operation_limit).checked(operation_limit)?;
+                counters.target_operations = counters
+                    .target_operations
+                    .checked_add(observation.operations)
+                    .filter(|total| *total <= budget.max_total_target_operations)
+                    .ok_or(FuzzError::BudgetExhausted(BudgetKind::TargetOperations))?;
+                *outcomes
+                    .get_mut(outcome_name(observation.outcome.class()))
+                    .expect("all outcomes are initialized") += 1;
+                if first_rejection.is_none()
+                    && matches!(
+                        observation.outcome.class(),
+                        TargetOutcomeClass::CleanRejection | TargetOutcomeClass::ParseFailure
+                    )
+                {
+                    first_rejection = Some((candidate, observation.outcome.class()));
+                }
+            }
+            let session_counters = session.counters();
+            counters.iterations = counters
+                .iterations
+                .checked_add(session_counters.iterations)
+                .filter(|total| *total <= budget.max_iterations)
+                .ok_or(FuzzError::BudgetExhausted(BudgetKind::Iterations))?;
+            counters.candidates = counters
+                .candidates
+                .checked_add(session_counters.candidates)
+                .filter(|total| *total <= budget.max_candidates)
+                .ok_or(FuzzError::BudgetExhausted(BudgetKind::Candidates))?;
+            counters.mutations = counters
+                .mutations
+                .checked_add(session_counters.mutations)
+                .filter(|total| *total <= budget.max_total_mutations)
+                .ok_or(FuzzError::BudgetExhausted(BudgetKind::Mutations))?;
+
+            if let Some((candidate, outcome)) = first_rejection {
+                let remaining = budget
+                    .max_total_target_operations
+                    .saturating_sub(counters.target_operations);
+                if remaining == 0 {
+                    return Err(FuzzError::BudgetExhausted(BudgetKind::TargetOperations));
+                }
+                let mut minimization_budget = budget;
+                minimization_budget.max_total_target_operations = remaining;
+                minimization_budget.max_target_operations =
+                    minimization_budget.max_target_operations.min(remaining);
+                let minimized = minimize_candidate_cancellable(
+                    &candidate.bytes,
+                    outcome,
+                    minimization_budget,
+                    &mut observe,
+                    cancelled,
+                )?;
+                counters.target_operations = counters
+                    .target_operations
+                    .checked_add(minimized.target_operations)
+                    .filter(|total| *total <= budget.max_total_target_operations)
+                    .ok_or(FuzzError::BudgetExhausted(BudgetKind::TargetOperations))?;
+                minimizations.push(FuzzMinimizationEvidence {
+                    seed_description_id: source.description.id,
+                    candidate_iteration: candidate.iteration,
+                    candidate_seed: candidate.candidate_seed,
+                    outcome: outcome_name(outcome),
+                    original_size: candidate.bytes.len(),
+                    minimized_size: minimized.bytes.len(),
+                    attempts: minimized.attempts,
+                    target_operations: minimized.target_operations,
+                    minimized_fingerprint: payload_fingerprint(&minimized.bytes),
+                });
+            }
+        }
+
+        let unacceptable = ["crash", "hang", "timeout", "resource_limit"]
+            .iter()
+            .map(|name| outcomes[name])
+            .sum::<u64>();
+        Ok(FuzzQualificationEvidence {
+            case_id: request.case_id.into(),
+            kind: "bounded_fuzz_run",
+            contract_version: FUZZ_CONTRACT_VERSION,
+            profile: request.profile.into(),
+            run_seed: request.run_seed,
+            provider: FuzzProviderEvidence {
+                kind: "mutation_layer",
+                id: "bounded_deterministic_fuzz",
+            },
+            target: FuzzTargetEvidence {
+                kind: "same_project_bounded_part10_probe",
+                independence: "same_project",
+                operation_unit: "input_byte",
+            },
+            budget,
+            seeds: seed_records,
+            counters,
+            outcomes,
+            minimizations,
+            unacceptable_outcomes: vec!["crash", "hang", "timeout", "resource_limit"],
+            payload_policy: "generated_payloads_uncommitted",
+            status: if unacceptable == 0 {
+                "passed"
+            } else {
+                "failed"
+            },
+        })
+    }
+}
+
+fn validate_source_asset(source: FuzzSourceAsset<'_>, budget: FuzzBudget) -> Result<(), FuzzError> {
+    validate_description(source.description)?;
+    if !INITIAL_SEED_DESCRIPTIONS.contains(&source.description) {
+        return Err(FuzzError::InvalidSourceIdentity(format!(
+            "{} description is not committed",
+            source.private_asset_id
+        )));
+    }
+    if source.private_asset_id.is_empty() {
+        return Err(FuzzError::InvalidSourceIdentity(
+            "private asset handle must be non-empty".into(),
+        ));
+    }
+    if source.declared_size_bytes != source.bytes.len() {
+        return Err(FuzzError::InvalidSourceIdentity(format!(
+            "{} size differs from private bytes",
+            source.private_asset_id
+        )));
+    }
+    if source.bytes.len() > budget.max_input_bytes {
+        return Err(FuzzError::InputTooLarge {
+            actual: source.bytes.len(),
+            limit: budget.max_input_bytes,
+        });
+    }
+    let actual = crate::sha256_hex(source.bytes);
+    if source.declared_sha256 != actual {
+        return Err(FuzzError::InvalidSourceIdentity(format!(
+            "{} SHA-256 differs from private bytes",
+            source.private_asset_id
+        )));
+    }
+    Ok(())
+}
+
+fn outcome_counts() -> BTreeMap<&'static str, u64> {
+    BTreeMap::from([
+        ("accepted", 0),
+        ("clean_rejection", 0),
+        ("parse_failure", 0),
+        ("validation_failure", 0),
+        ("decode_failure", 0),
+        ("crash", 0),
+        ("hang", 0),
+        ("timeout", 0),
+        ("resource_limit", 0),
+    ])
+}
+
+const fn mutation_surface_name(surface: &MutationSurface) -> &'static str {
+    match surface {
+        MutationSurface::FileMeta => "file_meta",
+        MutationSurface::DatasetHeaders => "dataset_headers",
+        MutationSurface::SequenceStructure => "sequence_structure",
+        MutationSurface::Encapsulation => "encapsulation",
+        MutationSurface::PixelData => "pixel_data",
+        MutationSurface::TextValues => "text_values",
+    }
+}
+
+const fn outcome_name(outcome: TargetOutcomeClass) -> &'static str {
+    match outcome {
+        TargetOutcomeClass::Accepted => "accepted",
+        TargetOutcomeClass::CleanRejection => "clean_rejection",
+        TargetOutcomeClass::ParseFailure => "parse_failure",
+        TargetOutcomeClass::ValidationFailure => "validation_failure",
+        TargetOutcomeClass::DecodeFailure => "decode_failure",
+        TargetOutcomeClass::Crash => "crash",
+        TargetOutcomeClass::Hang => "hang",
+        TargetOutcomeClass::Timeout => "timeout",
+        TargetOutcomeClass::ResourceLimit => "resource_limit",
+    }
+}
+
+fn payload_fingerprint(bytes: &[u8]) -> String {
+    format!("fnv1a64:{:016x}", stable_hash(bytes))
+}
+
 /// Deterministically removes chunks, then canonicalizes individual bytes.
 ///
 /// The observer receives the strict operation allowance for each invocation.
@@ -421,7 +810,20 @@ pub fn minimize_candidate<F>(
     candidate: &[u8],
     preserved_outcome: TargetOutcomeClass,
     budget: FuzzBudget,
+    observe: F,
+) -> Result<MinimizationResult, FuzzError>
+where
+    F: FnMut(&[u8], u64) -> TargetObservation,
+{
+    minimize_candidate_cancellable(candidate, preserved_outcome, budget, observe, &|| false)
+}
+
+pub fn minimize_candidate_cancellable<F>(
+    candidate: &[u8],
+    preserved_outcome: TargetOutcomeClass,
+    budget: FuzzBudget,
     mut observe: F,
+    cancelled: &dyn Fn() -> bool,
 ) -> Result<MinimizationResult, FuzzError>
 where
     F: FnMut(&[u8], u64) -> TargetObservation,
@@ -438,6 +840,7 @@ where
     let mut target_operations = 0_u64;
     let mut granularity = 2_usize;
 
+    check_cancelled(cancelled)?;
     attempts += 1;
     let actual = observe_and_account(&current, budget, &mut observe, &mut target_operations)?;
     if actual != preserved_outcome {
@@ -448,10 +851,12 @@ where
     }
 
     while current.len() > 1 && attempts < budget.max_minimization_attempts {
+        check_cancelled(cancelled)?;
         let chunk_size = current.len().div_ceil(granularity);
         let mut reduced = false;
         let mut start = 0_usize;
         while start < current.len() && attempts < budget.max_minimization_attempts {
+            check_cancelled(cancelled)?;
             let end = (start + chunk_size).min(current.len());
             let mut trial = Vec::with_capacity(current.len() - (end - start));
             trial.extend_from_slice(&current[..start]);
@@ -476,6 +881,7 @@ where
     }
 
     for index in 0..current.len() {
+        check_cancelled(cancelled)?;
         if attempts >= budget.max_minimization_attempts {
             break;
         }
@@ -498,6 +904,14 @@ where
         target_operations,
         preserved_outcome,
     })
+}
+
+fn check_cancelled(cancelled: &dyn Fn() -> bool) -> Result<(), FuzzError> {
+    if cancelled() {
+        Err(FuzzError::Cancelled)
+    } else {
+        Ok(())
+    }
 }
 
 fn observe_and_account<F>(
@@ -698,6 +1112,7 @@ impl SplitMix64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cell::Cell;
 
     fn small_budget() -> FuzzBudget {
         FuzzBudget {
@@ -711,6 +1126,47 @@ mod tests {
             max_minimization_attempts: 64,
             max_total_target_operations: 1_000,
             max_target_operations: 100,
+        }
+    }
+
+    fn source_assets<'a>(first: &'a [u8], second: &'a [u8]) -> [FuzzSourceAsset<'a>; 2] {
+        [
+            FuzzSourceAsset {
+                private_asset_id: "private:explicit",
+                description: INITIAL_SEED_DESCRIPTIONS[0],
+                declared_sha256: Box::leak(crate::sha256_hex(first).into_boxed_str()),
+                declared_size_bytes: first.len(),
+                bytes: first,
+            },
+            FuzzSourceAsset {
+                private_asset_id: "private:rle",
+                description: INITIAL_SEED_DESCRIPTIONS[1],
+                declared_sha256: Box::leak(crate::sha256_hex(second).into_boxed_str()),
+                declared_size_bytes: second.len(),
+                bytes: second,
+            },
+        ]
+    }
+
+    fn qualification<'a>(sources: &'a [FuzzSourceAsset<'a>]) -> FuzzQualificationRequest<'a> {
+        let mut budget = small_budget();
+        budget.max_iterations = 8;
+        budget.max_candidates = 8;
+        budget.max_total_mutations = 16;
+        FuzzQualificationRequest {
+            case_id: "fuzz/parser/bounded_seed_corpus",
+            profile: "fuzz",
+            run_seed: 19,
+            budget,
+            iterations_per_source: 4,
+            sources,
+        }
+    }
+
+    fn clean_rejection(bytes: &[u8], _limit: u64) -> TargetObservation {
+        TargetObservation {
+            outcome: TargetOutcome::CleanRejection,
+            operations: u64::try_from(bytes.len()).unwrap_or(u64::MAX).max(1),
         }
     }
 
@@ -962,5 +1418,129 @@ mod tests {
             PromotionRecord::new("fuzz/generated-payload", &candidate, &minimized).unwrap_err(),
             FuzzError::InvalidPromotionRecipe("fuzz/generated-payload".into())
         );
+    }
+
+    #[test]
+    fn qualification_is_reproducible_payload_free_and_historically_shaped() {
+        let first = b"DICM private explicit source";
+        let second = b"DICM private encapsulated source";
+        let sources = source_assets(first, second);
+        let service = BoundedFuzzQualificationService;
+        let left = service
+            .execute(qualification(&sources), clean_rejection, &|| false)
+            .unwrap();
+        let right = service
+            .execute(qualification(&sources), clean_rejection, &|| false)
+            .unwrap();
+        assert_eq!(left, right);
+        assert_eq!(left.status, "passed");
+        assert_eq!(left.counters.iterations, 8);
+        assert_eq!(left.counters.candidates, 8);
+        assert_eq!(left.outcomes["clean_rejection"], 8);
+        assert_eq!(left.minimizations.len(), 2);
+
+        let value = left.to_json().unwrap();
+        assert_eq!(value["kind"], "bounded_fuzz_run");
+        assert_eq!(value["provider"]["id"], "bounded_deterministic_fuzz");
+        assert_eq!(value["target"]["operation_unit"], "input_byte");
+        assert_eq!(value["payload_policy"], "generated_payloads_uncommitted");
+        let encoded = serde_json::to_vec(&value).unwrap();
+        assert!(!encoded.windows(first.len()).any(|window| window == first));
+        assert!(!encoded.windows(second.len()).any(|window| window == second));
+        for forbidden in ["bytes", "payload", "candidate_payload", "minimized_payload"] {
+            assert!(
+                !value.as_object().unwrap().contains_key(forbidden),
+                "evidence retained {forbidden}"
+            );
+        }
+        assert_eq!(
+            crate::sha256_hex(&encoded),
+            "110407a9e3b6486e6d5733aa0e89fd72028fd5efbce1b108ff860e626412be09"
+        );
+    }
+
+    #[test]
+    fn qualification_rejects_identity_budget_and_duplicate_drift() {
+        let first = b"first";
+        let second = b"second";
+        let mut sources = source_assets(first, second);
+        sources[0].declared_sha256 = "0";
+        assert!(matches!(
+            BoundedFuzzQualificationService.execute(
+                qualification(&sources),
+                clean_rejection,
+                &|| false
+            ),
+            Err(FuzzError::InvalidSourceIdentity(_))
+        ));
+
+        let mut sources = source_assets(first, second);
+        sources[1].description = sources[0].description;
+        assert!(matches!(
+            BoundedFuzzQualificationService.execute(
+                qualification(&sources),
+                clean_rejection,
+                &|| false
+            ),
+            Err(FuzzError::DuplicateSource(_))
+        ));
+
+        let sources = source_assets(&[0; 33], second);
+        assert_eq!(
+            BoundedFuzzQualificationService
+                .execute(qualification(&sources), clean_rejection, &|| false)
+                .unwrap_err(),
+            FuzzError::InputTooLarge {
+                actual: 33,
+                limit: 32,
+            }
+        );
+
+        let sources = source_assets(first, second);
+        assert!(matches!(
+            BoundedFuzzQualificationService.execute(
+                qualification(&sources),
+                |_, limit| TargetObservation {
+                    outcome: TargetOutcome::Accepted,
+                    operations: limit + 1,
+                },
+                &|| false,
+            ),
+            Err(FuzzError::TargetOperationLimitExceeded { .. })
+        ));
+    }
+
+    #[test]
+    fn qualification_cancels_without_evidence_or_payload_retention() {
+        let sources = source_assets(b"first", b"second");
+        let observations = Cell::new(0_u64);
+        let result = BoundedFuzzQualificationService.execute(
+            qualification(&sources),
+            |bytes, limit| {
+                observations.set(observations.get() + 1);
+                clean_rejection(bytes, limit)
+            },
+            &|| true,
+        );
+        assert_eq!(result.unwrap_err(), FuzzError::Cancelled);
+        assert_eq!(observations.get(), 0);
+    }
+
+    #[test]
+    fn unacceptable_outcomes_are_explicit_failures() {
+        let sources = source_assets(b"first", b"second");
+        let evidence = BoundedFuzzQualificationService
+            .execute(
+                qualification(&sources),
+                |bytes, _| TargetObservation {
+                    outcome: TargetOutcome::Crash { signal_or_code: 11 },
+                    operations: bytes.len() as u64,
+                },
+                &|| false,
+            )
+            .unwrap();
+        assert_eq!(evidence.status, "failed");
+        assert_eq!(evidence.outcomes["crash"], 8);
+        assert!(evidence.minimizations.is_empty());
     }
 }

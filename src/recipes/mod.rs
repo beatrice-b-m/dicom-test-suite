@@ -11,6 +11,7 @@ mod encapsulated_payload;
 mod encoding;
 mod enhanced;
 mod error;
+mod exceptional_sc;
 mod loader;
 mod metadata_sc;
 mod model;
@@ -47,7 +48,7 @@ pub use codec_registry::{
     BACKENDS as CODEC_BACKENDS, BackendAvailability, BackendBoundary, BackendDeterminism,
     CAPABILITY_MATRIX_JSON, CodecBackendDescriptor, CodecDispatchRequest, CodecEvidenceRequirement,
     CodecRegistryError, CodecSourceRequest, SourceShape as CodecSourceShape,
-    TransferSyntaxBackendRegistry,
+    TransferSyntaxBackendRegistry, recipe_encoding_provider_id,
 };
 pub use content_provider::{
     ByteOrder as ContentByteOrder, BytePayloadContract, CodedConcept, CompletionFlag,
@@ -71,6 +72,12 @@ pub use enhanced::{
     EnhancedProviderInput,
 };
 pub use error::RecipeCatalogError;
+pub use exceptional_sc::{
+    DatasetEncodingRequest, EXCEPTIONAL_SC_PIXEL_SLOT, EXCEPTIONAL_SC_PLAN_PROVIDER_ID,
+    ExceptionalCodecParameters, ExceptionalScEncodingRequest, ExceptionalScPlanError,
+    ExceptionalScPlanInput, ExceptionalScPlanOutput, LockedFullFileCodecRequest,
+    plan_exceptional_sc,
+};
 pub use loader::RecipeCatalog;
 pub use metadata_sc::{MetadataScPlanInput, MetadataScPlannerError, resolved_metadata_sc_plan};
 pub use model::{

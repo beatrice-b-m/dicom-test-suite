@@ -5,7 +5,9 @@ use std::path::{Component, Path, PathBuf};
 use serde::Deserialize;
 use serde_json::Value;
 
-use super::codec_registry::{TransferSyntaxBackendRegistry, encoding_provider_matches};
+use super::codec_registry::{
+    BACKENDS, TransferSyntaxBackendRegistry, encoding_provider_matches, recipe_encoding_provider_id,
+};
 use super::enhanced::{
     ENHANCED_ALGORITHM_PROVIDER_ID, ENHANCED_PLAN_PROVIDER_ID, EnhancedProviderInput,
     enhanced_input_from_recipe,
@@ -482,6 +484,7 @@ fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), Recip
         "native.case_plan",
         "native.classic_plan",
         "native.sc_plan",
+        "native.exceptional_sc_plan",
         "native.metadata_sc_plan",
         ENHANCED_PLAN_PROVIDER_ID,
         WSI_ADVANCED_PROVIDER_ID,
@@ -614,6 +617,9 @@ fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), Recip
                     .map_err(|error| semantic(path, error.to_string()))?;
                 if !ENCODING_PROVIDERS.contains(&id.as_str())
                     && executable.for_backend_id(id).is_empty()
+                    && !BACKENDS.iter().any(|backend| {
+                        recipe_encoding_provider_id(backend.backend_id) == Some(id.as_str())
+                    })
                 {
                     return Err(semantic(path, format!("unknown encoding provider id {id}")));
                 }
@@ -1027,7 +1033,10 @@ fn validate_secondary_capture_contract(
     path: &Path,
     recipe: &CaseRecipe,
 ) -> Result<(), RecipeCatalogError> {
-    if recipe.plan_provider_id != "native.sc_plan" {
+    if !matches!(
+        recipe.plan_provider_id.as_str(),
+        "native.sc_plan" | "native.exceptional_sc_plan"
+    ) {
         return Ok(());
     }
     let dicom = recipe
@@ -1063,7 +1072,9 @@ fn validate_secondary_capture_contract(
                 "native.sc_plan requires content.sc.pixel_pattern",
             ));
         }
-        if !artifact.content.parameters.is_empty() || !artifact.parameters.is_empty() {
+        if !artifact.content.parameters.is_empty()
+            || (recipe.plan_provider_id == "native.sc_plan" && !artifact.parameters.is_empty())
+        {
             return Err(semantic(
                 path,
                 "native.sc_plan cannot hide static values in untyped parameter maps",
@@ -1235,11 +1246,15 @@ fn validate_secondary_capture_contract(
                 "extended offset contract lacks its validation rule",
             ));
         }
-        if !artifact.attribute_operations.is_empty()
-            && !artifact
-                .validation_rule_ids
-                .iter()
-                .any(|rule| rule == "validation.sc.geometry")
+        if artifact.attribute_operations.iter().any(|operation| {
+            matches!(
+                operation.tag.as_str(),
+                "0018,1164" | "0020,0032" | "0020,0037" | "0028,0030" | "0028,0034"
+            )
+        }) && !artifact
+            .validation_rule_ids
+            .iter()
+            .any(|rule| rule == "validation.sc.geometry")
         {
             return Err(semantic(
                 path,
@@ -1339,6 +1354,15 @@ fn validate_registry_bindings(
             && case.requirements.external_codecs.is_empty()
             && (case.case_id.starts_with("classic/sc/")
                 || case.case_id == "encapsulation/sc/eot_single_fragment_multiframe");
+        let migrated_exceptional_sc = recipe.plan_provider_id == "native.exceptional_sc_plan"
+            && expected_kind == RecipeKind::Dicom
+            && case.case_id.starts_with("classic/sc/")
+            && ((case.provider.kind == "rust_native" && case.provider.id == "rust_native")
+                || (case.provider.kind == "external_backend"
+                    && matches!(
+                        case.provider.id.as_str(),
+                        "cjxl_jpegxl_lossy_command_writer" | "openjph_htj2k_lossy_command_writer"
+                    )));
         let migrated_metadata_sc = recipe.plan_provider_id == "native.metadata_sc_plan"
             && case.provider.kind == "rust_native"
             && case.provider.id == "rust_native"
@@ -1384,6 +1408,7 @@ fn validate_registry_bindings(
             && expected_kind == RecipeKind::Dicom;
         if recipe.plan_provider_id != expected_provider
             && !migrated_secondary_capture
+            && !migrated_exceptional_sc
             && !migrated_metadata_sc
             && !migrated_classic
             && !migrated_advanced
@@ -1546,6 +1571,7 @@ fn validate_migrated_planning_orders(
         matches!(
             recipe.plan_provider_id.as_str(),
             "native.sc_plan"
+                | "native.exceptional_sc_plan"
                 | "native.metadata_sc_plan"
                 | "native.classic_plan"
                 | ENHANCED_PLAN_PROVIDER_ID

@@ -494,10 +494,30 @@ pub fn encoding_provider_matches(
     encoding_provider_id: &str,
 ) -> bool {
     backend.backend_id == encoding_provider_id
+        || recipe_encoding_provider_id(backend.backend_id) == Some(encoding_provider_id)
         || matches!(
             (backend.transfer_syntax_uid, encoding_provider_id),
             ("1.2.840.10008.1.2.5", "encoding.native.rle_lossless")
         )
+}
+
+/// Qualified recipe-facing ID for an exact executable backend.
+pub fn recipe_encoding_provider_id(backend_id: &str) -> Option<&'static str> {
+    Some(match backend_id {
+        "dicom_rs_deflated_dataset_writer" => "encoding.dicom_rs.deflated_dataset",
+        "dicom_rs_jpeg_baseline_writer" => "encoding.dicom_rs.jpeg_baseline",
+        "dicom_rs_charls_jpeg_ls_lossless_writer" => "encoding.dicom_rs.jpeg_ls_lossless",
+        "project_openjp2_jpeg2000_lossless_writer" => "encoding.openjp2.jpeg2000_lossless",
+        "dicom_rs_jpegxl_lossless_writer" => "encoding.dicom_rs.jpegxl_lossless",
+        "cjxl_jpegxl_lossy_command_writer" => "encoding.cjxl.jpegxl_lossy",
+        "openjph_htj2k_lossless_command_writer" => "encoding.openjph.htj2k_lossless",
+        "openjph_htj2k_lossy_command_writer" => "encoding.openjph.htj2k_lossy",
+        "dcmtk_dcmcjpeg_jpeg_lossless_process_14_command_writer" => {
+            "encoding.dcmtk.jpeg_lossless_process_14"
+        }
+        "dcmtk_dcmcjpeg_jpeg_lossless_sv1_command_writer" => "encoding.dcmtk.jpeg_lossless_sv1",
+        _ => return None,
+    })
 }
 
 fn external_requirement_matches(tool: &str, requirement: &str) -> bool {

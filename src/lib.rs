@@ -665,6 +665,8 @@ fn curated_catalog_paths() -> CuratedCatalogPaths {
 struct CuratedScExecutionOutput {
     files: Vec<generator::GeneratedFile>,
     qualifications: Vec<Value>,
+    unavailable_cases: Vec<Value>,
+    completed_case_ids: Vec<String>,
 }
 
 fn execute_curated_sc_plan_output(
@@ -674,8 +676,23 @@ fn execute_curated_sc_plan_output(
     let Some(bundle) = bundle else {
         return Ok(CuratedScExecutionOutput::default());
     };
+    let unavailable_cases = bundle
+        .pending
+        .iter()
+        .map(|pending| {
+            serde_json::json!({
+                "case_id": pending.case_id,
+                "status": "unavailable",
+                "reason_code": pending.reason_code,
+                "message": pending.message,
+            })
+        })
+        .collect();
     if bundle.plan.artifacts.is_empty() {
-        return Ok(CuratedScExecutionOutput::default());
+        return Ok(CuratedScExecutionOutput {
+            unavailable_cases,
+            ..CuratedScExecutionOutput::default()
+        });
     }
     let staged = CorpusExecutor::new(
         CuratedExecutionServiceFactory::new(bundle),
@@ -727,9 +744,19 @@ fn execute_curated_sc_plan_output(
             }
         })?,
     );
+    let completed_case_ids = qualifications
+        .iter()
+        .filter(|qualification| {
+            qualification.get("kind").and_then(Value::as_str) == Some("bounded_fuzz_run")
+        })
+        .filter_map(|qualification| qualification.get("case_id").and_then(Value::as_str))
+        .map(ToOwned::to_owned)
+        .collect();
     Ok(CuratedScExecutionOutput {
         files,
         qualifications,
+        unavailable_cases,
+        completed_case_ids,
     })
 }
 
@@ -794,13 +821,12 @@ pub fn write_generation_run(
 
     let plan_first_sc = execute_curated_sc_plan_output(curated_sc_plan.as_ref(), &staging_root)?;
 
-    let generated = generator::write_supported_cases_with_plan_first_sc(
-        &staged_run,
-        &registry,
-        &sha256_hex(&standards_lock_bytes),
-        plan_first_sc.files,
-        plan_first_sc.qualifications,
-    )?;
+    let generated = generator::GenerationOutput {
+        files: plan_first_sc.files,
+        unavailable_cases: plan_first_sc.unavailable_cases,
+        qualifications: plan_first_sc.qualifications,
+        completed_case_ids: plan_first_sc.completed_case_ids,
+    };
     let files_written = generated.files.len();
     let mut generated_case_ids: Vec<String> = generated
         .files

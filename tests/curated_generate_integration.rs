@@ -117,9 +117,9 @@ fn ordinary_generate_preserves_locked_curated_history_for_public_profiles() {
         ),
         (
             "all",
-            // U5 expands the exact U4 SC/classic slice with the ten
-            // byte- and full-Value-qualified Enhanced and WSI artifacts.
-            "5f993d4a6b2778f3226408eef5efa553c632842b89ad4c6cb3281056fc76193b",
+            // Captured immediately before the U9 direct-output cutover, after
+            // the U8 dependency-order and manifest projection corrections.
+            "576c1edda599f54c01cfc024b91685d1415d08019be5d98ce3ba78c07055ac61",
         ),
         (
             "legacy",
@@ -158,16 +158,16 @@ fn ordinary_generate_routes_curated_sc_through_the_shared_executor_only() {
         .map(|offset| start + offset)
         .unwrap();
     let generation = &library[start..end];
-    for required in [
-        "prepare_curated_sc_plan",
-        "execute_curated_sc_plan",
-        "write_supported_cases_with_plan_first_sc",
-    ] {
+    for required in ["prepare_curated_sc_plan", "execute_curated_sc_plan"] {
         assert!(
             generation.contains(required),
             "ordinary generation does not use {required}"
         );
     }
+    assert!(
+        !generation.contains("write_supported_cases_with_plan_first_sc"),
+        "ordinary generation must not enter the compatibility dispatcher"
+    );
     for required in [
         "CuratedScCorpusPlanProvider",
         "CuratedExecutionServiceFactory",
@@ -189,46 +189,6 @@ fn ordinary_generate_routes_curated_sc_through_the_shared_executor_only() {
     assert!(
         plan < transaction,
         "curated planning must finish before private staging exists"
-    );
-
-    let generator = fs::read_to_string("src/generator.rs").unwrap();
-    let stage_start = generator.find("fn write_curated_recipe_stage(").unwrap();
-    let stage_end = generator[stage_start..]
-        .find("fn resolve_and_write_u5_color_softcopy_private_source(")
-        .map(|offset| stage_start + offset)
-        .unwrap();
-    let stage = &generator[stage_start..stage_end];
-    assert!(
-        stage.contains("plan_first_files"),
-        "secondary-capture stage does not consume executor results"
-    );
-    let consume = stage
-        .find("plan_first_files.remove(case_id)")
-        .expect("plan-first result lookup");
-    let legacy = stage
-        .find("implementation.generate")
-        .expect("legacy fallback for later migrations");
-    assert!(
-        consume < legacy,
-        "legacy generation runs before checking executor results"
-    );
-    let dispatcher_start = generator
-        .find("pub(crate) fn write_supported_cases_with_plan_first_sc(")
-        .unwrap();
-    let dispatcher = &generator[dispatcher_start..];
-    let secondary = dispatcher
-        .find("CuratedRecipeStage::SecondaryCapture")
-        .expect("secondary-capture dispatch");
-    let following = &dispatcher[secondary..];
-    let map = following
-        .find("&mut plan_first_files_by_case")
-        .expect("plan-first map passed to secondary-capture stage");
-    let next_stage = following
-        .find("CuratedRecipeStage::ClassicCt")
-        .expect("next curated stage");
-    assert!(
-        map < next_stage,
-        "plan-first results are not consumed by the secondary-capture stage"
     );
 }
 

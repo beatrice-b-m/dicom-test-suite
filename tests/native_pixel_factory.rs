@@ -4,7 +4,8 @@ use std::fs;
 use dicom_test_suite::native_pixel::{
     ByteOrder, ChromaSubsampling, ColorOrganization, NativePixelError, NativePixelFactory,
     NativePixelLimits, NativePixelPatternRequest, NativePixelRequest, Palette,
-    PhotometricInterpretation, PixelDataVr, PixelPadding, PixelShape, StoredValueType,
+    PhotometricInterpretation, PixelDataVr, PixelPadding, PixelShape, SignedStoredBitsPolicy,
+    StoredValueType,
 };
 use dicom_test_suite::recipes::{RecipeCatalog, SecondaryCaptureParameters};
 use serde_json::Value;
@@ -60,6 +61,7 @@ fn request(sc: &SecondaryCaptureParameters) -> NativePixelRequest {
         declared_pixel_min: sc.pixel_min,
         declared_pixel_max: sc.pixel_max,
         expected_frame_sha256: sc.frame_sha256.clone(),
+        signed_stored_bits: Default::default(),
         padding: sc.padding.as_ref().map(|padding| PixelPadding {
             value: padding.value,
             range_limit: padding.range_limit,
@@ -101,6 +103,7 @@ fn mono_request(stored_value_type: StoredValueType, values: Vec<i64>) -> NativeP
         declared_pixel_min: minimum,
         declared_pixel_max: maximum,
         expected_frame_sha256: Vec::new(),
+        signed_stored_bits: Default::default(),
         padding: None,
         palette: None,
     }
@@ -229,6 +232,20 @@ fn clears_unused_high_bits_for_signed_stored_values() {
 }
 
 #[test]
+fn sign_extends_signed_stored_values_only_when_explicitly_requested() {
+    let mut request = mono_request(StoredValueType::I16, vec![-1024, -1, 0, 2047]);
+    request.shape.bits_stored = 12;
+    request.shape.high_bit = 11;
+    request.signed_stored_bits = SignedStoredBitsPolicy::SignExtendToAllocation;
+    let output = NativePixelFactory.create(request).unwrap();
+
+    assert_eq!(
+        output.unpadded_bytes,
+        [0x00, 0xfc, 0xff, 0xff, 0x00, 0x00, 0xff, 0x07]
+    );
+}
+
+#[test]
 fn packs_u1_lsb_first_continuously_and_separates_value_padding() {
     let mut request = mono_request(
         StoredValueType::U1,
@@ -304,6 +321,7 @@ fn preserves_planar_color_ybr422_and_palette_bytes() {
             declared_pixel_max: *values.iter().max().unwrap(),
             stored_values: values,
             expected_frame_sha256: Vec::new(),
+            signed_stored_bits: Default::default(),
             padding: None,
             palette: None,
         };
@@ -333,6 +351,7 @@ fn preserves_planar_color_ybr422_and_palette_bytes() {
         declared_pixel_min: 29,
         declared_pixel_max: 255,
         expected_frame_sha256: Vec::new(),
+        signed_stored_bits: Default::default(),
         padding: None,
         palette: None,
     };

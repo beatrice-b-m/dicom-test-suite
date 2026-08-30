@@ -398,6 +398,7 @@ fn plan_projection(
                 declared_pixel_min: parameters.pixel_min,
                 declared_pixel_max: parameters.pixel_max,
                 expected_frame_sha256: vec![parameters.frame_sha256],
+                signed_stored_bits: Default::default(),
                 padding: None,
                 palette: None,
             },
@@ -500,6 +501,7 @@ fn native_request(parameters: &VlArtifactParameters) -> NativePixelRequest {
         declared_pixel_min: parameters.pixel_min,
         declared_pixel_max: parameters.pixel_max,
         expected_frame_sha256: vec![parameters.frame_sha256.clone()],
+        signed_stored_bits: Default::default(),
         padding: None,
         palette: parameters.palette.clone(),
     }

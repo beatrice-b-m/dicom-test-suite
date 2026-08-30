@@ -505,6 +505,7 @@ fn pixel_request(
         declared_pixel_min: pixel_min,
         declared_pixel_max: pixel_max,
         expected_frame_sha256: vec![frame_sha256],
+        signed_stored_bits: Default::default(),
         padding: None,
         palette: None,
     }

@@ -369,6 +369,7 @@ pub fn plan_ct_recipe(
                     declared_pixel_max: pixels.pixel_max,
                     stored_values: pixels.stored_values.clone(),
                     expected_frame_sha256: vec![pixels.frame_sha256.clone()],
+                    signed_stored_bits: Default::default(),
                     padding: None,
                     palette: None,
                 },

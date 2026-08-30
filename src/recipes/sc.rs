@@ -103,6 +103,7 @@ pub fn native_pixel_request_from_recipe(
         declared_pixel_min: sc.pixel_min,
         declared_pixel_max: sc.pixel_max,
         expected_frame_sha256: sc.frame_sha256.clone(),
+        signed_stored_bits: Default::default(),
         padding: sc.padding.as_ref().map(|padding| PixelPadding {
             value: padding.value,
             range_limit: padding.range_limit,

@@ -480,6 +480,7 @@ pub fn plan_nuclear_recipe(
                 declared_pixel_min: pixels.pixel_min,
                 declared_pixel_max: pixels.pixel_max,
                 expected_frame_sha256: pixels.frame_sha256.clone(),
+                signed_stored_bits: Default::default(),
                 padding: None,
                 palette: None,
             },

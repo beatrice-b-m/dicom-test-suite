@@ -1285,6 +1285,7 @@ impl EnhancedPlanProvider {
                     declared_pixel_min: pixels.pixel_min,
                     declared_pixel_max: pixels.pixel_max,
                     expected_frame_sha256: vec![],
+                    signed_stored_bits: Default::default(),
                     padding: None,
                     palette: None,
                 },

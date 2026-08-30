@@ -56,6 +56,17 @@ pub enum PixelDataVr {
     Ow,
 }
 
+/// Encoding of unused high bits for signed values whose stored width is
+/// smaller than the allocated container. New plans clear them; the explicit
+/// sign-extension mode exists for byte-stable compatibility artifacts.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SignedStoredBitsPolicy {
+    #[default]
+    ClearUnused,
+    SignExtendToAllocation,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PhotometricInterpretation {
     #[serde(rename = "MONOCHROME1")]
@@ -373,6 +384,8 @@ pub struct NativePixelRequest {
     pub declared_pixel_min: i64,
     pub declared_pixel_max: i64,
     pub expected_frame_sha256: Vec<String>,
+    #[serde(default)]
+    pub signed_stored_bits: SignedStoredBitsPolicy,
     pub padding: Option<PixelPadding>,
     pub palette: Option<Palette>,
 }
@@ -482,7 +495,8 @@ impl NativePixelFactory {
             .chunks_exact(values_per_frame)
             .enumerate()
         {
-            let decoded_bytes = serialize_decoded_frame(values, &plan.shape)?;
+            let decoded_bytes =
+                serialize_decoded_frame(values, &plan.shape, request.signed_stored_bits)?;
             frames.push(NativePixelFrame {
                 frame_number: u32::try_from(frame_index + 1)
                     .map_err(|_| NativePixelError::ArithmeticOverflow)?,
@@ -708,6 +722,7 @@ fn simple_u8_request(shape: PixelShape, stored_values: Vec<i64>) -> NativePixelR
         declared_pixel_min: minimum,
         declared_pixel_max: maximum,
         expected_frame_sha256: Vec::new(),
+        signed_stored_bits: SignedStoredBitsPolicy::default(),
         padding: None,
         palette: None,
     }
@@ -874,6 +889,7 @@ fn validate_palette(
 fn serialize_decoded_frame(
     values: &[i64],
     shape: &PixelShape,
+    signed_stored_bits: SignedStoredBitsPolicy,
 ) -> Result<Vec<u8>, NativePixelError> {
     if shape.stored_value_type == StoredValueType::U1 {
         return values
@@ -892,13 +908,15 @@ fn serialize_decoded_frame(
         // DICOM's signed interpretation is anchored at High Bit. When fewer
         // bits are stored than allocated, serialize the two's-complement
         // stored-bit pattern and leave every unused high bit clear.
-        let stored_word =
-            if shape.pixel_representation == 1 && shape.bits_stored < shape.bits_allocated {
-                let mask = (1_u64 << shape.bits_stored) - 1;
-                (value as u64) & mask
-            } else {
-                value as u64
-            };
+        let stored_word = if shape.pixel_representation == 1
+            && shape.bits_stored < shape.bits_allocated
+            && signed_stored_bits == SignedStoredBitsPolicy::ClearUnused
+        {
+            let mask = (1_u64 << shape.bits_stored) - 1;
+            (value as u64) & mask
+        } else {
+            value as u64
+        };
         match (shape.stored_value_type, shape.byte_order) {
             (StoredValueType::U8 | StoredValueType::I8, _) => bytes.push(stored_word as u8),
             (StoredValueType::U16, ByteOrder::Little) => {

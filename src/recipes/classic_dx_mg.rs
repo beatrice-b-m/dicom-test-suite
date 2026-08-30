@@ -256,6 +256,7 @@ pub fn plan_dx_mg_recipe(
         declared_pixel_min: parameters.pixel_min,
         declared_pixel_max: parameters.pixel_max,
         expected_frame_sha256: vec![parameters.expected_frame_sha256.clone()],
+        signed_stored_bits: Default::default(),
         padding: None,
         palette: None,
     };

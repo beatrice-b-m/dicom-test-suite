@@ -97,6 +97,7 @@ fn mono_request(stored: StoredValueType, frames: u32) -> NativePixelRequest {
         declared_pixel_max: *values.iter().max().unwrap(),
         stored_values: values,
         expected_frame_sha256: vec![],
+        signed_stored_bits: Default::default(),
         padding: None,
         palette: None,
     }
@@ -132,6 +133,7 @@ fn rgb_request(frames: u32) -> NativePixelRequest {
         declared_pixel_max: 11 + i64::from(frames - 1),
         stored_values: values,
         expected_frame_sha256: vec![],
+        signed_stored_bits: Default::default(),
         padding: None,
         palette: None,
     }

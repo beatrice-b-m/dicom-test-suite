@@ -72,6 +72,7 @@ mod metadata;
 pub mod mutation;
 pub mod native_pixel;
 pub mod negative;
+pub mod negative_plan;
 pub mod part10_locator;
 pub mod planning;
 pub mod protocol;

@@ -26,7 +26,7 @@ use crate::generation_backends::{
     Tid1500Parameters, WsiTileSegmentationGenerationInput, WsiTileSegmentationIdentities,
     WsiTileSegmentationOutcome, generate_parametric_map_for_spec_cancellable,
     generate_scoord3d_with_parameters_cancellable, generate_tid1500_with_parameters_cancellable,
-    generate_wsi_tile_segmentation_cancellable,
+    generate_wsi_tile_segmentation_cancellable, validate_existing_wsi_tile_segmentation,
 };
 use crate::recipes::{ExternalImportBoundary, ExternalImportKind, SrDocumentKind, SrPlanInput};
 use crate::sha256_hex;
@@ -108,6 +108,42 @@ pub(super) fn invoke(
     }
 }
 
+pub(super) fn validate_wsi_import(
+    request: &ProviderRequest,
+    assets: &StagedAssetRegistry,
+    private_staging_root: &Path,
+    output_path: &Path,
+) -> Result<Option<Value>, ServiceInvocationError> {
+    let parameters: QuantitativeParameters = parameters(request)?;
+    if parameters.import.kind != ExternalImportKind::WholeSlideTileSegmentation {
+        return Ok(None);
+    }
+    let mut sources = resolve_sources(request, assets, &parameters.sources)?;
+    if sources.len() != 1 {
+        return Err(service_error(
+            "external WSI validation",
+            "WSI SEG requires exactly one source",
+        ));
+    }
+    let source = sources.remove(0);
+    let identities = WsiTileSegmentationIdentities {
+        study_instance_uid: identity(&parameters.identities, CompositionUidRole::StudyInstance)?,
+        series_instance_uid: identity(&parameters.identities, CompositionUidRole::SeriesInstance)?,
+        frame_of_reference_uid: identity(
+            &parameters.identities,
+            CompositionUidRole::FrameOfReference,
+        )?,
+        sop_instance_uid: identity(&parameters.identities, CompositionUidRole::SopInstance)?,
+        dimension_organization_uid: identity(
+            &parameters.identities,
+            CompositionUidRole::DimensionOrganization,
+        )?,
+    };
+    validate_existing_wsi_tile_segmentation(output_path, private_staging_root, &identities, &source)
+        .map(|validated| Some(validated.validation))
+        .map_err(|error| service_error("external WSI validation", error))
+}
+
 #[allow(clippy::too_many_arguments)]
 fn invoke_quantitative(
     request: &ProviderRequest,
@@ -186,6 +222,7 @@ fn invoke_quantitative(
                     generated.backend.entrypoint_fingerprint,
                     generated.backend.environment_fingerprint,
                     generated.backend.runtime_identity,
+                    None,
                     generated.response,
                 ),
             }
@@ -240,6 +277,7 @@ fn invoke_quantitative(
                     generated.backend.entrypoint_fingerprint,
                     generated.backend.environment_fingerprint,
                     generated.backend.runtime_identity,
+                    Some((generated.invocation_elapsed_seconds * 1_000.0).ceil() as u64),
                     generated.response,
                 ),
             }
@@ -332,6 +370,7 @@ fn invoke_sr(
                     generated.backend.entrypoint_fingerprint,
                     generated.backend.environment_fingerprint,
                     generated.backend.runtime_identity,
+                    None,
                     generated.response,
                 ),
             }
@@ -387,6 +426,7 @@ fn invoke_sr(
                     generated.backend.entrypoint_fingerprint,
                     generated.backend.environment_fingerprint,
                     generated.backend.runtime_identity,
+                    None,
                     generated.response,
                 ),
             }
@@ -576,6 +616,7 @@ fn provider_result(
     entrypoint_sha256: String,
     environment_sha256: String,
     runtime_identity: Value,
+    invocation_elapsed_milliseconds: Option<u64>,
     response: Value,
 ) -> Result<ProviderResult, ServiceInvocationError> {
     let expectation = request
@@ -609,6 +650,22 @@ fn provider_result(
         protocol_version: Some(crate::generation_backends::PROTOCOL_VERSION.into()),
         executable_sha256: Some(executable_sha256),
     };
+    let mut claims = BTreeMap::from([
+        ("network_policy".into(), json!("disabled")),
+        ("resource_outcome".into(), json!("within_limits")),
+        ("runtime_version".into(), json!(runtime_version)),
+        ("entrypoint_fingerprint".into(), json!(entrypoint_sha256)),
+        ("environment_fingerprint".into(), json!(environment_sha256)),
+        ("runtime_identity".into(), runtime_identity),
+        ("termination".into(), json!("exit_zero")),
+        ("response".into(), response),
+    ]);
+    if let Some(milliseconds) = invocation_elapsed_milliseconds {
+        claims.insert(
+            "invocation_elapsed_milliseconds".into(),
+            Value::from(milliseconds),
+        );
+    }
     Ok(ProviderResult {
         request_id: request.request_id.clone(),
         provider: tool.clone(),
@@ -617,16 +674,7 @@ fn provider_result(
             evidence_id: format!("external_import:{}", request.request_id),
             evidence_kind: "external_dicom_import".into(),
             producer: tool,
-            claims: BTreeMap::from([
-                ("network_policy".into(), json!("disabled")),
-                ("resource_outcome".into(), json!("within_limits")),
-                ("runtime_version".into(), json!(runtime_version)),
-                ("entrypoint_fingerprint".into(), json!(entrypoint_sha256)),
-                ("environment_fingerprint".into(), json!(environment_sha256)),
-                ("runtime_identity".into(), runtime_identity),
-                ("termination".into(), json!("exit_zero")),
-                ("response".into(), response),
-            ]),
+            claims,
         }],
     })
 }

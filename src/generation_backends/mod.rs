@@ -45,6 +45,7 @@ pub use tid1500::{
     generate_tid1500_cancellable, generate_tid1500_with_parameters_cancellable,
 };
 mod wsi_tile_segmentation;
+pub(crate) use wsi_tile_segmentation::validate_existing_wsi_tile_segmentation;
 pub use wsi_tile_segmentation::{
     CASE_ID as WSI_TILE_SEGMENTATION_CASE_ID, FRAME_SHA256 as WSI_TILE_SEGMENTATION_FRAME_SHA256,
     FRAME_VALUES as WSI_TILE_SEGMENTATION_FRAME_VALUES,

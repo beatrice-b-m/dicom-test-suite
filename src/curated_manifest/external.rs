@@ -179,6 +179,7 @@ fn backend(
         "entrypoint_fingerprint":provider.claims["entrypoint_fingerprint"],
         "environment_fingerprint":provider.claims["environment_fingerprint"],
         "runtime_identity":provider.claims["runtime_identity"],
+        "invocation_elapsed_milliseconds":provider.claims.get("invocation_elapsed_milliseconds").cloned().unwrap_or(Value::Null),
         "determinism":"semantic_stable","warnings":response["warnings"]
     }))
 }

@@ -207,10 +207,25 @@ fn strict_validate_staged_output(
     path: &std::path::Path,
     input: &WsiTileSegmentationGenerationInput,
 ) -> Result<(), BackendContractError> {
+    validate_existing_wsi_tile_segmentation(
+        path,
+        &input.generated_root,
+        &input.identities,
+        &input.source,
+    )
+    .map(|_| ())
+}
+
+pub(crate) fn validate_existing_wsi_tile_segmentation(
+    path: &std::path::Path,
+    generated_root: &std::path::Path,
+    identities: &WsiTileSegmentationIdentities,
+    source_input: &ParametricMapSource,
+) -> Result<crate::validation::ValidatedPart10, BackendContractError> {
     let object = open_file(path)
         .map_err(|error| invalid(format!("reopen staged WSI tile segmentation: {error}")))?;
     let implementation_class_uid = object.meta().implementation_class_uid().to_string();
-    let source_path = input.generated_root.join(&input.source.relative_path);
+    let source_path = generated_root.join(&source_input.relative_path);
     let source = open_file(&source_path)
         .map_err(|error| invalid(format!("reopen WSI source for staged validation: {error}")))?;
     let specimen = source
@@ -233,15 +248,14 @@ fn strict_validate_staged_output(
         .map_err(|error| invalid(format!("decode source Container Identifier: {error}")))?
         .trim_end_matches([' ', '\0'])
         .to_string();
-    let source_series = input
-        .source
+    let source_series = source_input
         .series_instance_uid
         .as_deref()
         .expect("input validation requires source series UID");
     let frame_hashes = FRAME_SHA256;
     let identity = Part10Expectations {
         sop_class_uid: SOP_CLASS_UID,
-        sop_instance_uid: &input.identities.sop_instance_uid,
+        sop_instance_uid: &identities.sop_instance_uid,
         transfer_syntax_uid: TRANSFER_SYNTAX_UID,
         implementation_class_uid: &implementation_class_uid,
         synthetic_data: "YES",
@@ -278,23 +292,21 @@ fn strict_validate_staged_output(
     };
     let strict = WsiTileSegmentationExpectations {
         source_path: &source_path,
-        source_sha256: &input.source.sha256,
-        source_study_instance_uid: &input.identities.study_instance_uid,
+        source_sha256: &source_input.sha256,
+        source_study_instance_uid: &identities.study_instance_uid,
         source_series_instance_uid: source_series,
-        source_sop_class_uid: &input.source.sop_class_uid,
-        source_sop_instance_uid: &input.source.sop_instance_uid,
-        frame_of_reference_uid: &input.identities.frame_of_reference_uid,
-        dimension_organization_uid: &input.identities.dimension_organization_uid,
+        source_sop_class_uid: &source_input.sop_class_uid,
+        source_sop_instance_uid: &source_input.sop_instance_uid,
+        frame_of_reference_uid: &identities.frame_of_reference_uid,
+        dimension_organization_uid: &identities.dimension_organization_uid,
         specimen_uid: &specimen_uid,
         container_identifier: &container_identifier,
     };
-    validate_wsi_tile_segmentation_file(path, &identity, &strict)
-        .map(|_| ())
-        .map_err(|error| {
-            invalid(format!(
-                "staged WSI tile segmentation failed strict validation: {error}"
-            ))
-        })
+    validate_wsi_tile_segmentation_file(path, &identity, &strict).map_err(|error| {
+        invalid(format!(
+            "staged WSI tile segmentation failed strict validation: {error}"
+        ))
+    })
 }
 
 fn validate_input(input: &WsiTileSegmentationGenerationInput) -> Result<(), BackendContractError> {

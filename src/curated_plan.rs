@@ -3412,7 +3412,7 @@ fn external_quantitative_artifact(
             references,
         },
         output: artifact.output,
-        validation: validation_plan(recipe, artifact_recipe),
+        validation: external_import_validation_plan(recipe, artifact_recipe, &import.kind),
         evidence: external_generation_evidence(&provider.provider_id),
         resources: ArtifactResourceEstimate {
             output_bytes: import.maximum_output_bytes,
@@ -3545,7 +3545,7 @@ fn external_sr_artifact(
                 .collect(),
         },
         output: input.context.output.clone(),
-        validation: validation_plan(recipe, artifact_recipe),
+        validation: external_sr_validation_plan(recipe, artifact_recipe),
         evidence: external_generation_evidence(&provider.provider_id),
         resources: input.context.resources.clone(),
     };
@@ -4654,6 +4654,60 @@ fn validation_plan(
         })
         .collect();
     ValidationPlan { rules }
+}
+
+fn external_sr_validation_plan(
+    recipe: &CaseRecipe,
+    artifact: &crate::recipes::PlannedArtifactRecipe,
+) -> ValidationPlan {
+    external_validation_plan(recipe, artifact, &[])
+}
+
+fn external_import_validation_plan(
+    recipe: &CaseRecipe,
+    artifact: &crate::recipes::PlannedArtifactRecipe,
+    kind: &crate::recipes::ExternalImportKind,
+) -> ValidationPlan {
+    let wsi_rules: &[&str] =
+        if *kind == crate::recipes::ExternalImportKind::WholeSlideTileSegmentation {
+            &[
+                "wsi_tile_seg_source_file_sha256",
+                "wsi_tile_seg_referenced_series_uid",
+                "wsi_tile_seg_dimension_index_items",
+                "wsi_tile_seg_per_frame_items",
+                "wsi_tile_seg_payload_sha256",
+                "wsi_tile_seg_reconstructed_matrix_sha256",
+            ]
+        } else {
+            &[]
+        };
+    external_validation_plan(recipe, artifact, wsi_rules)
+}
+
+fn external_validation_plan(
+    recipe: &CaseRecipe,
+    artifact: &crate::recipes::PlannedArtifactRecipe,
+    specialized_rules: &[&str],
+) -> ValidationPlan {
+    let mut plan = validation_plan(recipe, artifact);
+    let mut seen = plan
+        .rules
+        .iter()
+        .map(|rule| rule.rule_id.clone())
+        .collect::<BTreeSet<_>>();
+    for rule_id in ["curated_composition_plan", "external_backend_contract"]
+        .into_iter()
+        .chain(specialized_rules.iter().copied())
+    {
+        if seen.insert(rule_id.into()) {
+            plan.rules.push(ValidationRule {
+                rule_id: rule_id.into(),
+                requirement: ValidationRequirement::Required,
+                parameters: BTreeMap::new(),
+            });
+        }
+    }
+    plan
 }
 
 fn resource_estimate(

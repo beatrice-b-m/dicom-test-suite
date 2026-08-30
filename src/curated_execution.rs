@@ -861,23 +861,88 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
                 "generic_plan_checks".into(),
                 serde_json::to_value(checks).map_err(|error| service_error("validation", error))?,
             )]);
+            let mut rules = request
+                .plan
+                .rules
+                .iter()
+                .map(|rule| RuleExecutionResult {
+                    rule_id: rule.rule_id.clone(),
+                    status: ValidationStatus::Passed,
+                    message: format!(
+                        "{}: locked full-file transfer syntax and decoded frame validation passed",
+                        rule.rule_id
+                    ),
+                    measurements: measurements.clone(),
+                })
+                .collect::<Vec<_>>();
+            if artifact
+                .case_binding
+                .as_ref()
+                .map(|binding| binding.case_id.as_str())
+                == Some(crate::generation_backends::WSI_TILE_SEGMENTATION_CASE_ID)
+            {
+                let provider_request = self
+                    .bindings
+                    .get(&artifact.logical_id)
+                    .and_then(|bindings| {
+                        bindings.slots.values().find_map(|binding| match binding {
+                            SlotExecutionBinding::ProviderRequest { request } => Some(request),
+                            _ => None,
+                        })
+                    })
+                    .ok_or_else(|| {
+                        ServiceInvocationError::new(
+                            "external WSI validation",
+                            "imported WSI artifact has no planned provider request",
+                        )
+                    })?;
+                let validation = external_import::validate_wsi_import(
+                    provider_request,
+                    assets,
+                    &self.staging_root,
+                    &self.staging_root.join(declaration.relative_path.as_str()),
+                )?
+                .ok_or_else(|| {
+                    ServiceInvocationError::new(
+                        "external WSI validation",
+                        "WSI provider request did not identify a WSI import",
+                    )
+                })?;
+                let internal = validation
+                    .get("internal")
+                    .and_then(Value::as_array)
+                    .ok_or_else(|| {
+                        ServiceInvocationError::new(
+                            "external WSI validation",
+                            "strict validator returned no internal findings",
+                        )
+                    })?;
+                for finding in internal {
+                    let rule_id = finding.get("name").and_then(Value::as_str).ok_or_else(|| {
+                        ServiceInvocationError::new(
+                            "external WSI validation",
+                            "strict finding has no name",
+                        )
+                    })?;
+                    if finding.get("status").and_then(Value::as_str) != Some("passed") {
+                        return Err(ServiceInvocationError::new(
+                            "external WSI validation",
+                            format!("strict finding {rule_id} did not pass"),
+                        ));
+                    }
+                    if let Some(rule) = rules.iter_mut().find(|rule| rule.rule_id == rule_id) {
+                        rule.message = finding
+                            .get("message")
+                            .and_then(Value::as_str)
+                            .unwrap_or("Strict WSI validation passed.")
+                            .into();
+                    }
+                }
+            }
             return Ok(ValidationResult {
                 artifact_id: artifact.logical_id.clone(),
                 validator: built_in_tool("curated_locked_full_file_validator"),
-                rules: request
-                    .plan
-                    .rules
-                    .iter()
-                    .map(|rule| RuleExecutionResult {
-                        rule_id: rule.rule_id.clone(),
-                        status: ValidationStatus::Passed,
-                        message: format!(
-                            "{}: locked full-file transfer syntax and decoded frame validation passed",
-                            rule.rule_id
-                        ),
-                        measurements: measurements.clone(),
-                    })
-                    .collect(),
+                rules,
                 evidence: Vec::new(),
             });
         }

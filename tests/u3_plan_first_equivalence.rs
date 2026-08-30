@@ -115,13 +115,13 @@ fn expected_inventory(registry: &Value, recipes: &RecipeCatalog) -> Vec<(String,
     expected
 }
 
-fn plan_profile(provider: &CuratedScCorpusPlanProvider, profile: &str) -> CuratedScCorpusPlan {
+fn plan_cases(
+    provider: &CuratedScCorpusPlanProvider,
+    case_ids: impl IntoIterator<Item = String>,
+) -> CuratedScCorpusPlan {
     provider
         .plan(&CuratedScPlanRequest {
-            selection: CuratedScSelection::Profile {
-                profile: profile.into(),
-                include_stress: false,
-            },
+            selection: CuratedScSelection::CaseIds(case_ids.into_iter().collect()),
             seed: SEED,
             max_parallelism: 4,
         })
@@ -378,8 +378,22 @@ fn curated_provider_slice_is_plan_first_and_exactly_equivalent_to_current_genera
     assert!(!direct_root.exists());
     let provider =
         CuratedScCorpusPlanProvider::load(CuratedCatalogPaths::from_repository_root(".")).unwrap();
-    let all = plan_profile(&provider, "all");
-    let legacy = plan_profile(&provider, "legacy");
+    let legacy_case_ids = manifest_entries(&legacy_manifest)
+        .iter()
+        .filter_map(|entry| entry["case_id"].as_str().map(str::to_owned))
+        .collect::<BTreeSet<_>>();
+    let expected_case_ids = expected
+        .iter()
+        .map(|(case_id, _)| case_id.clone())
+        .collect::<BTreeSet<_>>();
+    let legacy = plan_cases(
+        &provider,
+        expected_case_ids.intersection(&legacy_case_ids).cloned(),
+    );
+    let all = plan_cases(
+        &provider,
+        expected_case_ids.difference(&legacy_case_ids).cloned(),
+    );
     assert!(
         !direct_root.exists(),
         "production planning created the output root"

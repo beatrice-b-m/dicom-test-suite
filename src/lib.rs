@@ -19,8 +19,10 @@ use crate::curated_plan::{
     CuratedScSelection,
 };
 use crate::executor::cancellation::CancellationToken;
-use crate::executor::engine::{CorpusExecutor, ManifestProjectionError, ManifestProjector};
-use crate::executor::transaction::{OutputTransaction, TransactionError};
+use crate::executor::engine::{
+    CorpusExecutor, CorpusExecutorError, ManifestProjectionError, ManifestProjector,
+};
+use crate::executor::transaction::TransactionError;
 use crate::runtime_capabilities::CapabilityInventory;
 
 use crate::codecs::{
@@ -65,7 +67,6 @@ pub mod encoded_content;
 pub mod executor;
 pub mod fuzz;
 pub mod generation_backends;
-mod generator;
 mod geometry;
 pub(crate) mod hashing;
 pub mod media;
@@ -586,22 +587,9 @@ pub fn prepare_generation_run(
 
 const CURATED_EXECUTOR_PARALLELISM: u32 = 4;
 
-struct StagedOnlyManifestProjector;
-
-impl ManifestProjector for StagedOnlyManifestProjector {
-    fn project(
-        &self,
-        _: &crate::executor::adapters::ManifestProjectionCompatibilityInput,
-    ) -> Result<Vec<u8>, ManifestProjectionError> {
-        Err(ManifestProjectionError(
-            "staged-only curated execution must use the curated manifest projector".to_string(),
-        ))
-    }
-}
-
 fn prepare_curated_sc_plan(
     run: &PreparedGenerationRun,
-) -> Result<Option<CuratedScCorpusPlan>, GenerateError> {
+) -> Result<CuratedScCorpusPlan, GenerateError> {
     prepare_curated_plan_for_selection(
         CuratedScSelection::Profile {
             profile: run.profile.clone(),
@@ -614,7 +602,7 @@ fn prepare_curated_sc_plan(
 fn prepare_curated_plan_for_selection(
     selection: CuratedScSelection,
     seed: u64,
-) -> Result<Option<CuratedScCorpusPlan>, GenerateError> {
+) -> Result<CuratedScCorpusPlan, GenerateError> {
     let paths = curated_catalog_paths();
     let repository_root = paths
         .registry_path
@@ -659,7 +647,6 @@ fn prepare_curated_plan_for_selection(
             seed,
             max_parallelism: CURATED_EXECUTOR_PARALLELISM,
         })
-        .map(Some)
         .map_err(|error| GenerateError::PlanFirst {
             stage: "curated SC planning",
             message: error.to_string(),
@@ -694,22 +681,22 @@ fn curated_catalog_paths() -> CuratedCatalogPaths {
     }
 }
 
+#[derive(Debug, Clone)]
+struct GeneratedFile {
+    case_id: String,
+    manifest_entry: Value,
+}
+
 #[derive(Debug, Default)]
 struct CuratedScExecutionOutput {
-    files: Vec<generator::GeneratedFile>,
+    files: Vec<GeneratedFile>,
     qualifications: Vec<Value>,
     unavailable_cases: Vec<Value>,
     completed_case_ids: Vec<String>,
 }
 
-fn execute_curated_sc_plan_output(
-    bundle: Option<&CuratedScCorpusPlan>,
-    staging_root: &Path,
-) -> Result<CuratedScExecutionOutput, GenerateError> {
-    let Some(bundle) = bundle else {
-        return Ok(CuratedScExecutionOutput::default());
-    };
-    let unavailable_cases = bundle
+fn unavailable_curated_cases(bundle: &CuratedScCorpusPlan) -> Vec<Value> {
+    bundle
         .pending
         .iter()
         .filter(|pending| pending.reason_code == "external_backend_unavailable")
@@ -727,28 +714,15 @@ fn execute_curated_sc_plan_output(
                 "standards_evidence": pending.standards_evidence,
             })
         })
-        .collect();
-    if bundle.plan.artifacts.is_empty() {
-        return Ok(CuratedScExecutionOutput {
-            unavailable_cases,
-            ..CuratedScExecutionOutput::default()
-        });
-    }
-    let staged = CorpusExecutor::new(
-        CuratedExecutionServiceFactory::new(bundle),
-        StagedOnlyManifestProjector,
-    )
-    .execute_into_staging(
-        &bundle.plan,
-        staging_root,
-        CURATED_EXECUTOR_PARALLELISM,
-        &CancellationToken::new(),
-    )
-    .map_err(|error| GenerateError::PlanFirst {
-        stage: "curated SC execution",
-        message: error.to_string(),
-    })?;
-    let files = project_curated_file_entries(&bundle.projection, &staged.projection)
+        .collect()
+}
+
+fn project_curated_execution_output(
+    bundle: &CuratedScCorpusPlan,
+    projection: &crate::executor::adapters::ManifestProjectionCompatibilityInput,
+) -> Result<CuratedScExecutionOutput, GenerateError> {
+    let unavailable_cases = unavailable_curated_cases(bundle);
+    let files = project_curated_file_entries(&bundle.projection, projection)
         .map_err(|error| GenerateError::PlanFirst {
             stage: "curated SC manifest projection",
             message: error.to_string(),
@@ -763,27 +737,23 @@ fn execute_curated_sc_plan_output(
                     message: "projected file entry has no string case_id".to_string(),
                 })?
                 .to_string();
-            Ok(generator::GeneratedFile {
+            Ok(GeneratedFile {
                 case_id,
                 manifest_entry,
             })
         })
         .collect::<Result<Vec<_>, _>>()?;
-    let mut qualifications =
-        project_curated_stress_qualifications(&bundle.projection, &staged.projection).map_err(
-            |error| GenerateError::PlanFirst {
-                stage: "curated stress qualification projection",
-                message: error.to_string(),
-            },
-        )?;
-    qualifications.extend(
-        project_curated_qualifications(&staged.projection).map_err(|error| {
-            GenerateError::PlanFirst {
-                stage: "curated robustness qualification projection",
-                message: error.to_string(),
-            }
-        })?,
-    );
+    let mut qualifications = project_curated_stress_qualifications(&bundle.projection, projection)
+        .map_err(|error| GenerateError::PlanFirst {
+            stage: "curated stress qualification projection",
+            message: error.to_string(),
+        })?;
+    qualifications.extend(project_curated_qualifications(projection).map_err(|error| {
+        GenerateError::PlanFirst {
+            stage: "curated robustness qualification projection",
+            message: error.to_string(),
+        }
+    })?);
     let completed_case_ids = qualifications
         .iter()
         .filter(|qualification| {
@@ -798,6 +768,47 @@ fn execute_curated_sc_plan_output(
         unavailable_cases,
         completed_case_ids,
     })
+}
+
+struct CuratedGenerationManifestProjector {
+    run: PreparedGenerationRun,
+    bundle: CuratedScCorpusPlan,
+    standards_lock: Value,
+    standards_lock_bytes: Vec<u8>,
+    cargo_lock: Vec<u8>,
+    registry: Value,
+}
+
+impl ManifestProjector for CuratedGenerationManifestProjector {
+    fn project(
+        &self,
+        input: &crate::executor::adapters::ManifestProjectionCompatibilityInput,
+    ) -> Result<Vec<u8>, ManifestProjectionError> {
+        let generated = project_curated_execution_output(&self.bundle, input)
+            .map_err(|error| ManifestProjectionError(error.to_string()))?;
+        let mut generated_case_ids = generated
+            .files
+            .iter()
+            .map(|file| file.case_id.clone())
+            .collect::<Vec<_>>();
+        generated_case_ids.extend(generated.completed_case_ids);
+        let manifest = build_generation_manifest(
+            &self.run,
+            &self.standards_lock,
+            &self.standards_lock_bytes,
+            &self.cargo_lock,
+            &self.registry,
+            generated.files,
+            generated.qualifications,
+            &generated_case_ids,
+            &generated.unavailable_cases,
+        )
+        .map_err(|error| ManifestProjectionError(error.to_string()))?;
+        let mut bytes = serde_json::to_vec_pretty(&manifest)
+            .map_err(|error| ManifestProjectionError(error.to_string()))?;
+        bytes.push(b'\n');
+        Ok(bytes)
+    }
 }
 
 pub fn write_generation_run(
@@ -828,27 +839,6 @@ pub fn write_generation_run(
         .file_name()
         .map(|name| canonical_parent.join(name))
         .unwrap_or_else(|| run.out_dir.clone());
-    let mut transaction = match OutputTransaction::begin(&transaction_destination) {
-        Ok(transaction) => transaction,
-        Err(TransactionError::DestinationExists(_)) => {
-            return Err(GenerateError::OutputPathExists(run.out_dir.clone()));
-        }
-        Err(source) => {
-            return Err(GenerateError::PublicationTransaction {
-                operation: "begin atomic publication for",
-                path: run.out_dir.clone(),
-                source,
-            });
-        }
-    };
-    let staging_root = transaction.staging_root().to_path_buf();
-    let staged_run = PreparedGenerationRun {
-        profile: run.profile.clone(),
-        out_dir: staging_root.clone(),
-        manifest_path: staging_root.join("manifest.json"),
-        seed: run.seed,
-        include_stress: run.include_stress,
-    };
     let standards_lock_path = Path::new("standards.lock.json");
     let cargo_lock_path = Path::new("Cargo.lock");
     let registry_path = Path::new("cases/registry.json");
@@ -859,58 +849,43 @@ pub fn write_generation_run(
     let registry = read_json_metadata(registry_path)?;
     validate_case_registry_semantics(&registry).map_err(GenerateError::InvalidRegistry)?;
 
-    let plan_first_sc = execute_curated_sc_plan_output(curated_sc_plan.as_ref(), &staging_root)?;
-
-    let generated = generator::GenerationOutput {
-        files: plan_first_sc.files,
-        unavailable_cases: plan_first_sc.unavailable_cases,
-        qualifications: plan_first_sc.qualifications,
-        completed_case_ids: plan_first_sc.completed_case_ids,
+    let projector = CuratedGenerationManifestProjector {
+        run: run.clone(),
+        bundle: curated_sc_plan.clone(),
+        standards_lock,
+        standards_lock_bytes,
+        cargo_lock,
+        registry,
     };
-    let files_written = generated.files.len();
-    let mut generated_case_ids: Vec<String> = generated
-        .files
-        .iter()
-        .map(|file| file.case_id.clone())
-        .collect();
-    generated_case_ids.extend(generated.completed_case_ids.iter().cloned());
-    let manifest = build_generation_manifest(
-        &staged_run,
-        &standards_lock,
-        &standards_lock_bytes,
-        &cargo_lock,
-        &registry,
-        generated.files,
-        generated.qualifications,
-        &generated_case_ids,
-        &generated.unavailable_cases,
-    )?;
-    let mut contents = serde_json::to_string_pretty(&manifest).map_err(|source| {
-        GenerateError::SerializeManifest {
-            path: staged_run.manifest_path.clone(),
+    let result = CorpusExecutor::new(
+        CuratedExecutionServiceFactory::new(&curated_sc_plan),
+        projector,
+    )
+    .execute(
+        &curated_sc_plan.plan,
+        &transaction_destination,
+        CURATED_EXECUTOR_PARALLELISM,
+        &CancellationToken::new(),
+    )
+    .map_err(|error| match error {
+        CorpusExecutorError::Transaction(TransactionError::DestinationExists(_)) => {
+            GenerateError::OutputPathExists(run.out_dir.clone())
+        }
+        other => GenerateError::PlanFirst {
+            stage: "curated corpus execution and publication",
+            message: other.to_string(),
+        },
+    })?;
+    let manifest: Value = serde_json::from_slice(&result.manifest_bytes).map_err(|source| {
+        GenerateError::ParseMetadata {
+            path: run.manifest_path.clone(),
             source,
         }
     })?;
-    contents.push('\n');
-
-    transaction
-        .write_manifest(contents.as_bytes())
-        .map_err(|source| GenerateError::PublicationTransaction {
-            operation: "write manifest for",
-            path: run.out_dir.clone(),
-            source,
-        })?;
-
-    if fs::symlink_metadata(&run.out_dir).is_ok() {
-        return Err(GenerateError::OutputPathExists(run.out_dir.clone()));
-    }
-    transaction
-        .promote()
-        .map_err(|source| GenerateError::PublicationTransaction {
-            operation: "promote completed",
-            path: run.out_dir.clone(),
-            source,
-        })?;
+    let files_written = manifest
+        .get("files")
+        .and_then(Value::as_array)
+        .map_or(0, Vec::len);
 
     Ok(GenerationSummary {
         files_written,
@@ -34281,7 +34256,7 @@ fn build_generation_manifest(
     standards_lock_bytes: &[u8],
     cargo_lock: &[u8],
     registry: &Value,
-    generated_files: Vec<generator::GeneratedFile>,
+    generated_files: Vec<GeneratedFile>,
     qualifications: Vec<Value>,
     generated_case_ids: &[String],
     unavailable_cases: &[Value],
@@ -38709,56 +38684,6 @@ mod tests {
             blocked.get("reason_code").and_then(Value::as_str),
             Some("standards_gap")
         );
-    }
-
-    #[test]
-    fn blocked_registry_status_prevents_recipe_generation() {
-        let out_dir = unique_temp_dir("blocked_registry_status");
-        fs::create_dir_all(&out_dir).expect("temporary output root should be created");
-        let run = PreparedGenerationRun {
-            profile: "smoke".to_string(),
-            manifest_path: out_dir.join("manifest.json"),
-            out_dir: out_dir.clone(),
-            seed: 1,
-            include_stress: false,
-        };
-        let registry = serde_json::json!({
-            "cases": [
-                {
-                    "case_id": "classic/sc/mono2_u8_explicit_le",
-                    "status": "blocked",
-                    "profiles": ["smoke"],
-                    "skip": {
-                        "reason_code": "standards_gap",
-                        "message": "Temporarily blocked for regression coverage.",
-                        "recheck_phase": "remediation-r1"
-                    },
-                    "standards_evidence": []
-                }
-            ]
-        });
-
-        let generated = crate::generator::write_supported_cases_with_plan_first_sc(
-            &run,
-            &registry,
-            "0000000000000000000000000000000000000000000000000000000000000000",
-            Vec::new(),
-            Vec::new(),
-        )
-        .expect("blocked registry case should not fail generation");
-
-        assert!(
-            generated.files.is_empty(),
-            "blocked registry status must prevent matching recipes from writing files"
-        );
-        assert!(
-            !out_dir
-                .join("classic/sc/mono2_u8_explicit_le/instance.dcm")
-                .exists(),
-            "blocked recipe output should not be created"
-        );
-
-        fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
     }
 
     #[test]

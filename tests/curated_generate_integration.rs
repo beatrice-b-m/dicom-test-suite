@@ -158,7 +158,7 @@ fn ordinary_generate_routes_curated_sc_through_the_shared_executor_only() {
         .map(|offset| start + offset)
         .unwrap();
     let generation = &library[start..end];
-    for required in ["prepare_curated_sc_plan", "execute_curated_sc_plan"] {
+    for required in ["prepare_curated_sc_plan", ".execute("] {
         assert!(
             generation.contains(required),
             "ordinary generation does not use {required}"
@@ -172,7 +172,7 @@ fn ordinary_generate_routes_curated_sc_through_the_shared_executor_only() {
         "CuratedScCorpusPlanProvider",
         "CuratedExecutionServiceFactory",
         "CorpusExecutor",
-        "execute_into_staging",
+        "CuratedGenerationManifestProjector",
         "project_curated_file_entries",
     ] {
         assert!(
@@ -183,12 +183,15 @@ fn ordinary_generate_routes_curated_sc_through_the_shared_executor_only() {
     let plan = generation
         .find("prepare_curated_sc_plan")
         .expect("curated plan call");
-    let transaction = generation
-        .find("OutputTransaction::begin")
-        .expect("publication transaction");
+    let transaction = generation.find(".execute(").expect("executor publication");
     assert!(
         plan < transaction,
         "curated planning must finish before private staging exists"
+    );
+    assert!(
+        !generation.contains("OutputTransaction::begin")
+            && !generation.contains("execute_into_staging"),
+        "the generation frontend must not own a parallel transaction loop"
     );
 }
 

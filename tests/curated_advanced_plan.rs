@@ -286,13 +286,14 @@ fn stress_advanced_selection_preserves_requested_provenance_and_bounded_resource
         .iter()
         .map(|artifact| artifact.resource_estimate().output_bytes)
         .sum::<u64>();
-    let peak = bundle
+    let mut working_sets = bundle
         .plan
         .artifacts
         .iter()
         .map(|artifact| artifact.resource_estimate().peak_working_bytes)
-        .max()
-        .unwrap();
+        .collect::<Vec<_>>();
+    working_sets.sort_unstable_by(|left, right| right.cmp(left));
+    let peak = working_sets.into_iter().take(3).sum::<u64>();
     assert_eq!(
         bundle.plan.resources.max_total_output_bytes,
         total + dicom_test_suite::curated_plan::MAX_CURATED_MANIFEST_BYTES

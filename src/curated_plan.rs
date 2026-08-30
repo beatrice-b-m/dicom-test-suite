@@ -2264,7 +2264,8 @@ impl CuratedScCorpusPlanProvider {
         let mut dependencies = dependencies(&selected_recipes, &artifact_by_recipe_role)?;
         dependencies.extend(classic_dependencies);
         dependencies.extend(advanced_dependencies);
-        let (total_output, peak_working) = aggregate_resources(&artifacts)?;
+        let (total_output, peak_working) =
+            aggregate_resources(&artifacts, request.max_parallelism)?;
         let total_publication = total_output
             .checked_add(MAX_CURATED_MANIFEST_BYTES)
             .ok_or(CuratedPlanError::ResourceOverflow)?;
@@ -4782,15 +4783,30 @@ fn resource_estimate(
     })
 }
 
-fn aggregate_resources(artifacts: &[PlannedArtifact]) -> Result<(u64, u64), CuratedPlanError> {
+fn aggregate_resources(
+    artifacts: &[PlannedArtifact],
+    max_parallelism: u32,
+) -> Result<(u64, u64), CuratedPlanError> {
     let mut total = 0_u64;
-    let mut peak = 0_u64;
+    let mut working_sets = Vec::with_capacity(artifacts.len());
     for artifact in artifacts {
         total = total
             .checked_add(artifact.resource_estimate().output_bytes)
             .ok_or(CuratedPlanError::ResourceOverflow)?;
-        peak = peak.max(artifact.resource_estimate().peak_working_bytes);
+        working_sets.push(artifact.resource_estimate().peak_working_bytes);
     }
+    working_sets.sort_unstable_by(|left, right| right.cmp(left));
+    let parallelism =
+        usize::try_from(max_parallelism).map_err(|_| CuratedPlanError::ResourceOverflow)?;
+    let peak =
+        working_sets
+            .into_iter()
+            .take(parallelism)
+            .try_fold(0_u64, |total, working_set| {
+                total
+                    .checked_add(working_set)
+                    .ok_or(CuratedPlanError::ResourceOverflow)
+            })?;
     Ok((total, peak))
 }
 

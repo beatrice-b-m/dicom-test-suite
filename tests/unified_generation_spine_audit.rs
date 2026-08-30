@@ -195,7 +195,6 @@ fn every_current_production_direct_writer_is_classified_for_removal() {
 fn every_temporary_bridge_is_named_and_assigned_to_a_removal_task() {
     let audit = fs::read_to_string("docs/unified-generation-spine-audit.md").unwrap();
     let advanced = fs::read_to_string("src/composition/advanced_family.rs").unwrap();
-    let curated = fs::read_to_string("src/composition/curated.rs").unwrap();
     assert!(
         !Path::new("src/generator.rs").exists(),
         "the retired curated generator module must be absent"
@@ -204,19 +203,13 @@ fn every_temporary_bridge_is_named_and_assigned_to_a_removal_task() {
         !advanced.contains("write_composition_default_artifacts"),
         "composition defaults must not invoke or retain a curated generator bridge"
     );
-    for (symbol, source, removal) in [(
-        "resolved_plan_from_curated_dataset",
-        curated.as_str(),
-        "U9.1",
-    )] {
-        assert!(
-            source.contains(symbol),
-            "baseline no longer contains {symbol}"
-        );
-        assert!(audit.contains(symbol), "audit does not name {symbol}");
-        assert!(
-            audit.contains(removal),
-            "audit does not assign {symbol} to {removal}"
-        );
-    }
+    assert!(!Path::new("src/composition/curated.rs").exists());
+    assert!(audit.contains("resolved_plan_from_curated_dataset"));
+    let mut sources = Vec::new();
+    rust_sources(Path::new("src"), &mut sources);
+    assert!(sources.into_iter().all(|path| {
+        !fs::read_to_string(path)
+            .unwrap()
+            .contains("resolved_plan_from_curated_dataset")
+    }));
 }

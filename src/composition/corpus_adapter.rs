@@ -48,24 +48,6 @@ use super::{
     ResourceLimits,
 };
 
-pub(crate) fn resolved_composition_corpus_plan(
-    seed: u64,
-    plans: &[ResolvedInstancePlan],
-    members: &BTreeMap<String, BundleMemberProvenance>,
-    limits: &ResourceLimits,
-    parallelism: u32,
-) -> Result<CorpusPlan, CorpusPlanError> {
-    resolved_composition_corpus_plan_with_advanced(
-        seed,
-        plans,
-        members,
-        limits,
-        parallelism,
-        &BTreeMap::new(),
-        &[],
-    )
-}
-
 pub(crate) fn resolved_composition_corpus_plan_with_advanced(
     seed: u64,
     plans: &[ResolvedInstancePlan],
@@ -332,12 +314,26 @@ mod tests {
             ("first".into(), member("first", true, "first")),
             ("second".into(), member("second", true, "second")),
         ]);
-        let first =
-            resolved_composition_corpus_plan(41, &plans, &members, &ResourceLimits::default(), 4)
-                .unwrap();
-        let second =
-            resolved_composition_corpus_plan(41, &plans, &members, &ResourceLimits::default(), 4)
-                .unwrap();
+        let first = resolved_composition_corpus_plan_with_advanced(
+            41,
+            &plans,
+            &members,
+            &ResourceLimits::default(),
+            4,
+            &BTreeMap::new(),
+            &[],
+        )
+        .unwrap();
+        let second = resolved_composition_corpus_plan_with_advanced(
+            41,
+            &plans,
+            &members,
+            &ResourceLimits::default(),
+            4,
+            &BTreeMap::new(),
+            &[],
+        )
+        .unwrap();
 
         assert_eq!(
             first
@@ -361,9 +357,16 @@ mod tests {
             ("first".into(), member("first", true, "first")),
             ("second".into(), member("second", false, "first")),
         ]);
-        let corpus =
-            resolved_composition_corpus_plan(41, &plans, &members, &ResourceLimits::default(), 2)
-                .unwrap();
+        let corpus = resolved_composition_corpus_plan_with_advanced(
+            41,
+            &plans,
+            &members,
+            &ResourceLimits::default(),
+            2,
+            &BTreeMap::new(),
+            &[],
+        )
+        .unwrap();
 
         assert_eq!(corpus.topological_order().unwrap(), vec!["first", "second"]);
         assert!(matches!(

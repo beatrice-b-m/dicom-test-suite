@@ -5,9 +5,8 @@ use std::path::Path;
 use super::{
     AttributeOperation, AttributeValue, BulkDataBounds, BulkDataPlan, BulkDataSource,
     ContentSource, DoubleFloatPixelDataSlot, EncapsulatedDocumentSlot, FloatPixelDataSlot,
-    IdentityPlan, LocalContentResolver, MeshSlot, PixelDataSlot, PrimitiveValue, ResolvedAttribute,
-    ResolvedInstancePlan, SequenceItemPlacement, SpecInstance, TemplateDescriptor, ValueOrigin,
-    WaveformSamplesSlot,
+    LocalContentResolver, MeshSlot, PixelDataSlot, PrimitiveValue, ResolvedAttribute,
+    ResolvedInstancePlan, SpecInstance, ValueOrigin, WaveformSamplesSlot,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -148,26 +147,6 @@ impl AdvancedFamilyProfile {
                 )
             ),
         })
-    }
-
-    pub fn resolve_plan(
-        &self,
-        instance: &SpecInstance,
-        template: &TemplateDescriptor,
-        _identities: IdentityPlan,
-        _seed: u64,
-        _private_root: &Path,
-        _content_resolver: &mut LocalContentResolver,
-    ) -> Result<ResolvedInstancePlan, AdvancedFamilyError> {
-        if instance.parameters.contains_key("variant") {
-            return Err(AdvancedFamilyError::InvalidVariant(
-                instance.instance_id.clone(),
-            ));
-        }
-        Err(AdvancedFamilyError::DefaultArtifact(format!(
-            "{} has not been routed through its neutral default provider",
-            template.template_id
-        )))
     }
 
     pub(crate) fn customize_direct_plan(
@@ -494,74 +473,6 @@ fn qualify_enhanced_ct_concatenation(
     plan.attributes
         .sort_by(|left, right| left.address.cmp(&right.address));
     Ok(())
-}
-
-fn rewrite_plan_identities(plan: &mut ResolvedInstancePlan) -> Result<(), AdvancedFamilyError> {
-    let roles = [
-        ("0008,0018", super::CompositionUidRole::SopInstance),
-        ("0020,000D", super::CompositionUidRole::StudyInstance),
-        ("0020,000E", super::CompositionUidRole::SeriesInstance),
-        ("0020,0052", super::CompositionUidRole::FrameOfReference),
-    ];
-    let mut replacements = BTreeMap::new();
-    for (tag, role) in &roles {
-        let Some(new) = plan.identities.get(role, 0) else {
-            continue;
-        };
-        let old_value = plan
-            .attributes
-            .iter()
-            .find(|attribute| attribute.address.normalized_tag() == *tag)
-            .and_then(|attribute| attribute.value.as_ref());
-        if let Some(AttributeValue::Primitive(PrimitiveValue::String(old))) = old_value {
-            replacements.insert(old.clone(), new.to_string());
-        }
-    }
-    for attribute in &mut plan.attributes {
-        if let Some(value) = &mut attribute.value {
-            rewrite_uids(value, &replacements);
-        }
-    }
-    for (tag, role) in &roles {
-        let Some(value) = plan.identities.get(role, 0) else {
-            continue;
-        };
-        if let Some(attribute) = plan
-            .attributes
-            .iter_mut()
-            .find(|attribute| attribute.address.normalized_tag() == *tag)
-        {
-            attribute.value = Some(AttributeValue::Primitive(PrimitiveValue::String(
-                value.to_string(),
-            )));
-            attribute.origin = ValueOrigin::DerivedStructural;
-        }
-    }
-    Ok(())
-}
-
-fn rewrite_uids(value: &mut AttributeValue, replacements: &BTreeMap<String, String>) {
-    let rewrite = |primitive: &mut PrimitiveValue| {
-        if let PrimitiveValue::String(value) = primitive {
-            if let Some(replacement) = replacements.get(value) {
-                *value = replacement.clone();
-            }
-        }
-    };
-    match value {
-        AttributeValue::Primitive(primitive) => rewrite(primitive),
-        AttributeValue::Multi(values) => values.iter_mut().for_each(rewrite),
-        AttributeValue::Sequence(items) => {
-            for item in items {
-                for operation in &mut item.attributes {
-                    if let AttributeOperation::Set { value, .. } = operation {
-                        rewrite_uids(value, replacements);
-                    }
-                }
-            }
-        }
-        AttributeValue::EncodedText(_) | AttributeValue::Binary(_) => {}
-    }
 }
 
 fn validate_multiframe_structure(plan: &ResolvedInstancePlan) -> Result<(), AdvancedFamilyError> {
@@ -1506,145 +1417,6 @@ fn validate_quantitative_bytes(template_id: &str, bytes: &[u8]) -> Result<(), Ad
 
 const MAX_DOCUMENT_BYTES: u64 = 64 * 1024 * 1024;
 
-fn extract_typed_bulk_defaults(
-    family: TypedBulkFamily,
-    plan: &mut ResolvedInstancePlan,
-) -> Result<(), AdvancedFamilyError> {
-    match family {
-        TypedBulkFamily::TwelveLeadEcg | TypedBulkFamily::GeneralEcg => {
-            let sequence = super::AttributeAddress::from_normalized_tag("5400,0100")
-                .map_err(|error| AdvancedFamilyError::TypedBulk(error.to_string()))?;
-            let data = super::AttributeAddress::from_normalized_tag("5400,1010")
-                .map_err(|error| AdvancedFamilyError::TypedBulk(error.to_string()))?;
-            let attribute = plan
-                .attributes
-                .iter_mut()
-                .find(|attribute| attribute.address == sequence)
-                .ok_or_else(|| {
-                    AdvancedFamilyError::TypedBulk("missing Waveform Sequence".into())
-                })?;
-            let Some(AttributeValue::Sequence(items)) = attribute.value.as_mut() else {
-                return Err(AdvancedFamilyError::TypedBulk(
-                    "Waveform Sequence is not a sequence".into(),
-                ));
-            };
-            let expected_groups = if family == TypedBulkFamily::TwelveLeadEcg {
-                1
-            } else {
-                2
-            };
-            if items.len() != expected_groups {
-                return Err(AdvancedFamilyError::TypedBulk(format!(
-                    "expected {expected_groups} waveform groups but found {}",
-                    items.len()
-                )));
-            }
-            for (item_index, item) in items.iter_mut().enumerate() {
-                let operation_index = item
-                    .attributes
-                    .iter()
-                    .position(|operation| {
-                        matches!(operation, AttributeOperation::Set { address, .. } if address == &data)
-                    })
-                    .ok_or_else(|| {
-                        AdvancedFamilyError::TypedBulk(format!(
-                            "waveform group {} has no Waveform Data",
-                            item_index + 1
-                        ))
-                    })?;
-                let AttributeOperation::Set { vr, value, .. } =
-                    item.attributes.remove(operation_index)
-                else {
-                    unreachable!("position selected a Set operation")
-                };
-                let AttributeValue::Binary(bytes) = value else {
-                    return Err(AdvancedFamilyError::TypedBulk(format!(
-                        "waveform group {} data was not a binary value",
-                        item_index + 1
-                    )));
-                };
-                let mut bulk = BulkDataPlan::from_bytes::<WaveformSamplesSlot>(
-                    bytes,
-                    vr,
-                    BulkDataBounds::bounded(2, MAX_DOCUMENT_BYTES, 2),
-                    BulkDataSource::DefaultSynthetic,
-                    BTreeMap::from([("semantic_validator".into(), "waveform_samples".into())]),
-                )
-                .map_err(|error| AdvancedFamilyError::TypedBulk(error.to_string()))?
-                .into_canonical_content();
-                bulk.slot = waveform_slot(item_index, expected_groups).into();
-                bulk.placement = super::ContentPlacement::Nested {
-                    sequence_path: vec![SequenceItemPlacement {
-                        sequence: sequence.clone(),
-                        item_index,
-                    }],
-                };
-                plan.content.push(bulk);
-            }
-        }
-        TypedBulkFamily::EncapsulatedPdf | TypedBulkFamily::EncapsulatedStl => {
-            let address = super::AttributeAddress::from_normalized_tag("0042,0011")
-                .map_err(|error| AdvancedFamilyError::TypedBulk(error.to_string()))?;
-            let attribute_index = plan
-                .attributes
-                .iter()
-                .position(|attribute| attribute.address == address)
-                .ok_or_else(|| {
-                    AdvancedFamilyError::TypedBulk("missing Encapsulated Document".into())
-                })?;
-            let attribute = plan.attributes.remove(attribute_index);
-            let Some(AttributeValue::Binary(mut bytes)) = attribute.value else {
-                return Err(AdvancedFamilyError::TypedBulk(
-                    "Encapsulated Document was not a binary value".into(),
-                ));
-            };
-            let declared_length = numeric_attribute(plan, "0042,0015")? as usize;
-            if declared_length > bytes.len() {
-                return Err(AdvancedFamilyError::TypedBulk(
-                    "Encapsulated Document Length exceeds the stored value".into(),
-                ));
-            }
-            bytes.truncate(declared_length);
-            validate_document_payload(family, &bytes)?;
-            let properties = BTreeMap::from([(
-                "semantic_validator".into(),
-                match family {
-                    TypedBulkFamily::EncapsulatedPdf => "pdf_structure",
-                    TypedBulkFamily::EncapsulatedStl => "binary_stl_structure",
-                    _ => unreachable!(),
-                }
-                .into(),
-            )]);
-            let mut content = match family {
-                TypedBulkFamily::EncapsulatedPdf => {
-                    BulkDataPlan::from_bytes::<EncapsulatedDocumentSlot>(
-                        bytes,
-                        attribute.vr,
-                        BulkDataBounds::bounded(8, MAX_DOCUMENT_BYTES, 1),
-                        BulkDataSource::DefaultSynthetic,
-                        properties,
-                    )
-                }
-                TypedBulkFamily::EncapsulatedStl => BulkDataPlan::from_bytes::<MeshSlot>(
-                    bytes,
-                    attribute.vr,
-                    BulkDataBounds::bounded(84, MAX_DOCUMENT_BYTES, 1),
-                    BulkDataSource::DefaultSynthetic,
-                    properties,
-                ),
-                _ => unreachable!(),
-            }
-            .map_err(|error| AdvancedFamilyError::TypedBulk(error.to_string()))?
-            .into_canonical_content();
-            content.slot = document_slot(family).into();
-            plan.content.push(content);
-        }
-    }
-    plan.content
-        .sort_by(|left, right| left.slot.cmp(&right.slot));
-    Ok(())
-}
-
 fn apply_typed_bulk_content(
     family: TypedBulkFamily,
     instance: &SpecInstance,
@@ -1781,15 +1553,6 @@ fn apply_typed_bulk_content(
         plan.content[position] = replacement;
     }
     Ok(())
-}
-
-fn waveform_slot(index: usize, groups: usize) -> &'static str {
-    match (groups, index) {
-        (1, 0) => "waveform_samples",
-        (2, 0) => "waveform_samples_1",
-        (2, 1) => "waveform_samples_2",
-        _ => unreachable!("qualified waveform group count"),
-    }
 }
 
 fn document_slot(family: TypedBulkFamily) -> &'static str {

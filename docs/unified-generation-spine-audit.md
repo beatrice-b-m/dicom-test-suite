@@ -49,12 +49,12 @@ The terminal writer allowlist is intentionally exhaustive:
 - The former `src/generator.rs` native writers, file-meta builders,
   `DataSetWriterOptions` path, manual family/source ordering, migration pass,
   and compatibility entry point were deleted in U9.1-U9.3.
-- `src/composition/curated.rs` contains the dataset-to-plan bridge. Its unit
-  fixtures may exercise external import semantics, but production native uses
-  are removed by U9.1 and the module is reduced to an explicitly named
-  external import boundary or deleted.
-- `src/composition/advanced_family.rs` imports the curated generator and is
-  assigned to U5.6.
+- The former `src/composition/curated.rs` dataset-to-plan bridge and its
+  `resolved_plan_from_curated_dataset` API were deleted in U9.1. External
+  import fixtures now exercise planned import semantics directly.
+- `src/composition/advanced_family.rs` uses only neutral plan customization;
+  its former curated-generator default bridge and planning scratch lifecycle
+  were deleted in U9.
 - `src/generation_backends/` owns locked external full-file construction. Each
   use is classified as an external plan-provider/import boundary by U6.7;
   frame-capable codec transforms move to typed encoded content by U7.2.

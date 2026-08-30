@@ -646,6 +646,7 @@ impl CompositionManifestAssembler {
                 "bundle_root_instance_id": input.bundle_root_instance_id,
                 "bundle_role": input.bundle_role,
                 "source_provenance": input.source_provenance,
+                "construction_origin": "native_plan",
                 "path": input.relative_path,
                 "size_bytes": bytes.len(),
                 "sha256": sha256_hex(&bytes),

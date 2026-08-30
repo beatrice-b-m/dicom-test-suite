@@ -132,7 +132,7 @@ pub struct TemplateDescriptor {
     pub content_slots: Vec<Value>,
     pub reference_slots: Vec<Value>,
     pub default_bundle: Value,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub default_recipe: Option<DefaultRecipeBinding>,
     #[serde(default = "empty_parameter_schema")]
     pub parameter_schema: Value,

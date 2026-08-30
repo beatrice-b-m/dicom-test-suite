@@ -1,10 +1,10 @@
 use std::collections::BTreeSet;
 
-use dicom_test_suite::corpus_plan::CapabilityKind;
+use dicom_test_suite::corpus_plan::{CapabilityKind, PlannedArtifact};
 use dicom_test_suite::curated_plan::{
-    CuratedCatalogPaths, CuratedPlanError, CuratedScCorpusPlanProvider, CuratedScPlanRequest,
-    CuratedScSelection,
+    CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
 };
+use dicom_test_suite::executor::services::SlotExecutionBinding;
 use dicom_test_suite::runtime_capabilities::CapabilityInventory;
 
 fn set(values: &[&str]) -> BTreeSet<String> {
@@ -78,19 +78,69 @@ fn enabled_feature_and_backend_still_require_injected_command() {
 
 #[test]
 fn fully_injected_requirements_reach_the_next_planning_boundary() {
-    let error = provider(CapabilityInventory {
+    let bundle = provider(CapabilityInventory {
         compiled_features: set(&["deflate"]),
         executable_codec_backends: set(&["dicom_rs_deflated_dataset_writer"]),
         ..CapabilityInventory::default()
     })
     .plan(&request("classic/sc/mono2_u8_deflated_explicit_le"))
-    .unwrap_err();
+    .unwrap();
+    assert!(bundle.pending.is_empty());
+    assert!(bundle.plan.unavailable.is_empty());
+    let PlannedArtifact::Dicom(artifact) = &bundle.plan.artifacts[0] else {
+        panic!("exceptional SC must be DICOM")
+    };
+    assert_eq!(
+        artifact.encoding.transfer_syntax_uid,
+        "1.2.840.10008.1.2.1.99"
+    );
     assert!(matches!(
-        error,
-        CuratedPlanError::UnsupportedCase { case_id, provider_id }
-            if case_id == "classic/sc/mono2_u8_deflated_explicit_le"
-                && provider_id == "native.exceptional_sc_plan"
+        bundle.bindings[&artifact.logical_id].slots["pixels"],
+        SlotExecutionBinding::NativeFrames { .. }
     ));
+}
+
+#[test]
+fn fully_injected_encoded_frame_case_yields_a_codec_binding() {
+    let bundle = provider(CapabilityInventory {
+        compiled_features: set(&["jpeg"]),
+        executable_codec_backends: set(&["dicom_rs_jpeg_baseline_writer"]),
+        ..CapabilityInventory::default()
+    })
+    .plan(&request("classic/sc/rgb_planar0_jpeg_baseline_8bit"))
+    .unwrap();
+    let PlannedArtifact::Dicom(artifact) = &bundle.plan.artifacts[0] else {
+        panic!("exceptional SC must be DICOM")
+    };
+    let SlotExecutionBinding::CodecRequest { request } =
+        &bundle.bindings[&artifact.logical_id].slots["pixels"]
+    else {
+        panic!("encoded-frame SC requires a codec request")
+    };
+    assert_eq!(request.backend_id, "dicom_rs_jpeg_baseline_writer");
+    assert_eq!(request.artifact_id, artifact.logical_id);
+    assert_eq!(request.slot, "pixels");
+}
+
+#[test]
+fn qualified_locked_full_file_codec_remains_explicitly_pending() {
+    let bundle = provider(CapabilityInventory {
+        compiled_features: set(&["legacy_jpeg_dcmtk"]),
+        executable_codec_backends: set(&["dcmtk_dcmcjpeg_jpeg_lossless_process_14_command_writer"]),
+        available_executables: set(&["dcmcjpeg"]),
+        ..CapabilityInventory::default()
+    })
+    .plan(&request("classic/sc/mono2_u16_jpeg_lossless_process_14"))
+    .unwrap();
+    assert!(bundle.plan.artifacts.is_empty());
+    assert_eq!(
+        bundle.pending[0].reason_code,
+        "locked_full_file_codec_unavailable"
+    );
+    assert!(bundle.plan.unavailable.iter().any(|item| {
+        item.kind == CapabilityKind::ExternalBackend
+            && item.reason_code == "locked_full_file_codec_unavailable"
+    }));
 }
 
 #[cfg(not(feature = "jpeg"))]

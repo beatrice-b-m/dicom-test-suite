@@ -50,7 +50,8 @@ use crate::recipes::{
     AdvancedPlanProviderOutput, AdvancedPlanProviderRequest, AdvancedProviderFamily,
     AdvancedProviderLimits, AdvancedSourceRole, CaseRecipe, ClassicInstanceRequest,
     ClassicResolvedPlanInput, ContentProviderLimits, ENCAPSULATED_PAYLOAD_PLAN_PROVIDER_ID,
-    EncapsulatedPayload, EncapsulatedPayloadPlanProvider, EnhancedPlanProvider,
+    EXCEPTIONAL_SC_PLAN_PROVIDER_ID, EncapsulatedPayload, EncapsulatedPayloadPlanProvider,
+    EnhancedPlanProvider, ExceptionalScEncodingRequest, ExceptionalScPlanInput,
     MetadataScPlanInput, OrderedSeriesProvider, PRESENTATION_ADVANCED_PROVIDER_ID,
     PresentationPlanProvider, PresentationSourceInput, QUANTITATIVE_NATIVE_PROVIDER_ID,
     QuantitativeArtifactContext, QuantitativePlanInput, QuantitativePlanOutput,
@@ -61,10 +62,10 @@ use crate::recipes::{
     SecondaryCapturePlanInput, SemanticPlanContext, SemanticSource, SrPlanProvider,
     TypedBulkPlanningContext, WAVEFORM_PLAN_PROVIDER_ID, WSI_ADVANCED_PROVIDER_ID,
     WaveformPlanProvider, WsiAdvancedPlanProvider, encapsulated_payload_input_from_recipe,
-    encoding_plan_from_recipe, native_pixel_request_from_recipe, plan_stress_ct_recipe,
-    plan_stress_sc_recipe, resolved_classic_instance_plan, resolved_metadata_sc_plan,
-    resolved_secondary_capture_plan, rt_input_from_recipe, sr_input_from_recipe,
-    waveform_input_from_recipe,
+    encoding_plan_from_recipe, native_pixel_request_from_recipe, plan_exceptional_sc,
+    plan_stress_ct_recipe, plan_stress_sc_recipe, resolved_classic_instance_plan,
+    resolved_metadata_sc_plan, resolved_secondary_capture_plan, rt_input_from_recipe,
+    sr_input_from_recipe, waveform_input_from_recipe,
 };
 use crate::runtime_capabilities::{
     CapabilityEvaluationRequest, CapabilityInventory, CapabilityKind as RuntimeCapabilityKind,
@@ -419,6 +420,175 @@ impl CuratedScCorpusPlanProvider {
                     &mut unavailable,
                     &mut pending,
                 );
+                continue;
+            }
+            if recipe.plan_provider_id == EXCEPTIONAL_SC_PLAN_PROVIDER_ID {
+                let artifact_recipe = recipe
+                    .dicom
+                    .as_ref()
+                    .and_then(|dicom| dicom.artifacts.first())
+                    .ok_or_else(|| CuratedPlanError::MissingDicom(recipe.recipe_id.clone()))?;
+                let global_id = artifact_id(recipe, &artifact_recipe.logical_id);
+                let reference = artifact_recipe
+                    .template
+                    .as_ref()
+                    .ok_or_else(|| CuratedPlanError::MissingTemplate(global_id.clone()))?;
+                let template = self
+                    .templates
+                    .resolve_qualified(
+                        &TemplateId(reference.template_id.clone()),
+                        Some(reference.template_version.parse().map_err(|_| {
+                            CuratedPlanError::InvalidTemplateVersion(
+                                reference.template_version.clone(),
+                            )
+                        })?),
+                    )
+                    .map_err(|error| CuratedPlanError::Catalog(error.to_string()))?;
+                let output = plan_exceptional_sc(ExceptionalScPlanInput {
+                    recipe,
+                    artifact: artifact_recipe,
+                    template,
+                    instance_id: &global_id,
+                    standards_lock_sha256: &self.standards_lock_sha256,
+                    seed: request.seed,
+                })
+                .map_err(|error| CuratedPlanError::ScPlan {
+                    artifact_id: global_id.clone(),
+                    message: error.to_string(),
+                })?;
+                if matches!(
+                    output.encoding,
+                    ExceptionalScEncodingRequest::LockedFullFile(_)
+                ) {
+                    record_unavailable_case(
+                        registry_case,
+                        recipe,
+                        CapabilityKind::ExternalBackend,
+                        "locked_full_file_codec_unavailable",
+                        "the qualified codec requires the explicit locked full-file transform service"
+                            .into(),
+                        &mut unavailable,
+                        &mut pending,
+                    );
+                    continue;
+                }
+                let implementation_class_uid = output
+                    .instance
+                    .identities
+                    .get(&CompositionUidRole::ImplementationClass, 0)
+                    .ok_or_else(|| CuratedPlanError::MissingImplementation(global_id.clone()))?
+                    .to_owned();
+                let encoding = encoding_plan_from_recipe(
+                    &artifact_recipe.encoding,
+                    crate::corpus_plan::ImplementationIdentityPlan {
+                        class_uid: implementation_class_uid,
+                        version_name: Some(crate::IMPLEMENTATION_VERSION_NAME.into()),
+                    },
+                )
+                .map_err(|error| CuratedPlanError::Encoding {
+                    artifact_id: global_id.clone(),
+                    message: error.to_string(),
+                })?;
+                let content_slot = output
+                    .instance
+                    .content
+                    .first()
+                    .map(|content| content.slot.clone())
+                    .ok_or_else(|| CuratedPlanError::MissingPixelContent(global_id.clone()))?;
+                let execution_binding = match output.encoding {
+                    ExceptionalScEncodingRequest::Dataset(_) => ArtifactExecutionBindings {
+                        artifact_id: global_id.clone(),
+                        slots: BTreeMap::from([(
+                            content_slot,
+                            SlotExecutionBinding::NativeFrames {
+                                frames: native_frame_bindings(&output.native_pixels)?,
+                            },
+                        )]),
+                    },
+                    ExceptionalScEncodingRequest::EncodedFrames(mut codec) => {
+                        codec.artifact_id = global_id.clone();
+                        codec.slot = content_slot.clone();
+                        ArtifactExecutionBindings {
+                            artifact_id: global_id.clone(),
+                            slots: BTreeMap::from([(
+                                content_slot,
+                                SlotExecutionBinding::CodecRequest { request: codec },
+                            )]),
+                        }
+                    }
+                    ExceptionalScEncodingRequest::LockedFullFile(_) => unreachable!(),
+                };
+                let output_path =
+                    artifact_recipe.output.path.as_ref().ok_or_else(|| {
+                        CuratedPlanError::ProviderDerivedOutput(global_id.clone())
+                    })?;
+                let order = u64::try_from(artifacts.len())
+                    .map_err(|_| CuratedPlanError::ResourceOverflow)?;
+                let resources = resource_estimate(
+                    &output.instance,
+                    output.native_pixels.plan.padded_value_bytes,
+                )?;
+                let planned = PlannedDicomArtifact {
+                    logical_id: global_id.clone(),
+                    order,
+                    provenance: ArtifactProvenance::Requested,
+                    case_binding: Some(CaseBinding {
+                        case_id: recipe.binding.case_id.clone(),
+                        recipe_id: recipe.recipe_id.clone(),
+                        recipe_version: recipe.recipe_version.clone(),
+                    }),
+                    instance: output.instance,
+                    output: OutputPlan {
+                        relative_path: OutputRelativePath::new(output_path.clone())?,
+                        role: artifact_recipe.output.role.clone(),
+                        publish: true,
+                    },
+                    encoding,
+                    validation: validation_plan(recipe, artifact_recipe),
+                    evidence: generation_evidence_plan(),
+                    resources,
+                };
+                projection_artifacts.push(CuratedArtifactProjectionContext {
+                    artifact_id: global_id.clone(),
+                    plan_order: order,
+                    registry_order: registry_order[registry_case.case_id.as_str()],
+                    historical_recipe_order: recipe.planning_order.ok_or_else(|| {
+                        CuratedPlanError::MissingProjectionOrder(recipe.recipe_id.clone())
+                    })?,
+                    historical_artifact_order: artifact_recipe.order,
+                    registry_case: registry_case.clone().into(),
+                    case_recipe: recipe.clone(),
+                    artifact_recipe: artifact_recipe.clone(),
+                });
+                let native_request = native_pixel_request_from_recipe(
+                    artifact_recipe.secondary_capture.as_ref().ok_or_else(|| {
+                        CuratedPlanError::MissingSecondaryCapture(global_id.clone())
+                    })?,
+                )
+                .map_err(|error| CuratedPlanError::ScPlan {
+                    artifact_id: global_id.clone(),
+                    message: error.to_string(),
+                })?;
+                native_content_requests.push(native_content_request(
+                    &global_id,
+                    artifact_recipe,
+                    native_request,
+                    &output.native_pixels,
+                ));
+                bindings.insert(global_id.clone(), execution_binding.clone());
+                source_artifacts.insert(
+                    (recipe.identity(), artifact_recipe.logical_id.clone()),
+                    CuratedSourceArtifact {
+                        planned: planned.clone(),
+                        bindings: execution_binding,
+                    },
+                );
+                artifact_by_recipe_role.insert(
+                    (recipe.identity(), artifact_recipe.output.role.clone()),
+                    global_id,
+                );
+                artifacts.push(PlannedArtifact::Dicom(planned));
+                selected_recipes.push(recipe);
                 continue;
             }
             if matches!(

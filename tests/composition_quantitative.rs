@@ -63,8 +63,34 @@ fn quantitative_default_bundles_are_closed_provenanced_and_reproducible() {
         fs::read(first.join("manifest.json")).unwrap(),
         fs::read(second.join("manifest.json")).unwrap()
     );
-    let manifest: Value =
-        serde_json::from_slice(&fs::read(first.join("manifest.json")).unwrap()).unwrap();
+    let manifest_bytes = fs::read(first.join("manifest.json")).unwrap();
+    assert_eq!(
+        dicom_test_suite::sha256_hex(&manifest_bytes),
+        "7a2c757bf0d5b8fc8b6a63e5adc5d9f1a76c881e786b352fbc43ddf9bab403f4"
+    );
+    let manifest: Value = serde_json::from_slice(&manifest_bytes).unwrap();
+    for (instance_id, resolved_plan_sha256) in [
+        (
+            "wsi_seg",
+            "91e496df7d7ff13cccb8a5d9142efd6f94365033604c60000c4ca77ae46fa152",
+        ),
+        (
+            "float32",
+            "79c94d62904e9a421aa6f74a5735f49e0b6073696307066f0c46d34013b1f15c",
+        ),
+        (
+            "float64",
+            "96d8f90e920434bc097d43bab383bfffeec76f44e60b5869d2723b09a07c2e9e",
+        ),
+    ] {
+        let entry = manifest["composition"]["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|entry| entry["instance_id"] == instance_id)
+            .unwrap();
+        assert_eq!(entry["resolved_plan_sha256"], resolved_plan_sha256);
+    }
     for instance_id in [
         "binary",
         "fractional",

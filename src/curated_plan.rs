@@ -66,6 +66,11 @@ use crate::recipes::{
     resolved_secondary_capture_plan, rt_input_from_recipe, sr_input_from_recipe,
     waveform_input_from_recipe,
 };
+use crate::runtime_capabilities::{
+    CapabilityEvaluationRequest, CapabilityInventory, CapabilityKind as RuntimeCapabilityKind,
+    RegistryRuntimeRequirements, RuntimeCapabilityEvaluator,
+    UnavailableCapability as RuntimeUnavailableCapability, UnavailableReason,
+};
 use crate::sha256_hex;
 use crate::uid::{DeterministicUidInput, UidRole, deterministic_uid};
 
@@ -281,6 +286,7 @@ pub struct CuratedScCorpusPlanProvider {
     recipes: RecipeCatalog,
     templates: TemplateCatalog,
     standards_lock_sha256: String,
+    capability_inventory: CapabilityInventory,
 }
 
 impl CuratedScCorpusPlanProvider {
@@ -305,7 +311,16 @@ impl CuratedScCorpusPlanProvider {
             recipes,
             templates,
             standards_lock_sha256,
+            capability_inventory: CapabilityInventory::compiled(),
         })
+    }
+
+    /// Replace the default compile-time-only inventory with capabilities
+    /// qualified by the caller. Planning never discovers tools, validators,
+    /// providers, or executable backends on its own.
+    pub fn with_capability_inventory(mut self, inventory: CapabilityInventory) -> Self {
+        self.capability_inventory = inventory;
+        self
     }
 
     pub fn plan(
@@ -328,6 +343,8 @@ impl CuratedScCorpusPlanProvider {
         let mut selected_recipes = Vec::new();
         let mut classic_dependencies = Vec::new();
         let mut advanced_dependencies = Vec::new();
+        let capability_evaluator = RuntimeCapabilityEvaluator::committed()
+            .map_err(|error| CuratedPlanError::Catalog(error.to_string()))?;
 
         let registry_order = self
             .registry
@@ -361,19 +378,33 @@ impl CuratedScCorpusPlanProvider {
                 .get(identity)
                 .expect("recipe binding points to a loaded recipe");
             if !registry_case.requirements.is_feature_free() {
-                record_unavailable_case(
-                    registry_case,
-                    recipe,
-                    CapabilityKind::Feature,
-                    "feature_gated_case_unavailable",
-                    format!(
-                        "case requires unavailable build/runtime capabilities: {}",
-                        registry_case.requirements.summary()
-                    ),
-                    &mut unavailable,
-                    &mut pending,
+                let runtime_requirements = RegistryRuntimeRequirements {
+                    features: registry_case.requirements.features.clone(),
+                    external_codecs: registry_case.requirements.external_codecs.clone(),
+                    external_validators: registry_case.requirements.external_validators.clone(),
+                    external_providers: Vec::new(),
+                };
+                let evaluation = capability_evaluator.evaluate(
+                    CapabilityEvaluationRequest {
+                        transfer_syntax_uid: registry_case
+                            .transfer_syntax_uid
+                            .as_deref()
+                            .unwrap_or_default(),
+                        determinism: &registry_case.determinism,
+                        requirements: &runtime_requirements,
+                    },
+                    &self.capability_inventory,
                 );
-                continue;
+                if !evaluation.available {
+                    record_runtime_unavailable_case(
+                        registry_case,
+                        recipe,
+                        &evaluation.unavailable,
+                        &mut unavailable,
+                        &mut pending,
+                    );
+                    continue;
+                }
             }
             if recipe.plan_provider_id.starts_with("external.") {
                 record_unavailable_case(
@@ -3342,6 +3373,101 @@ fn record_unavailable_case(
         message,
         artifact_ids,
     });
+}
+
+fn record_runtime_unavailable_case(
+    registry_case: &RegistryCase,
+    recipe: &CaseRecipe,
+    runtime_unavailable: &[RuntimeUnavailableCapability],
+    unavailable: &mut Vec<UnavailableCapability>,
+    pending: &mut Vec<PendingCuratedCase>,
+) {
+    let artifact_ids = recipe
+        .dicom
+        .as_ref()
+        .map(|dicom| {
+            dicom
+                .artifacts
+                .iter()
+                .map(|artifact| projection_artifact_id(recipe, &artifact.logical_id))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let requirements = BTreeMap::from([
+        (
+            "features".into(),
+            registry_case.requirements.features.clone(),
+        ),
+        (
+            "external_codecs".into(),
+            registry_case.requirements.external_codecs.clone(),
+        ),
+        (
+            "external_validators".into(),
+            registry_case.requirements.external_validators.clone(),
+        ),
+    ]);
+    for (index, item) in runtime_unavailable.iter().enumerate() {
+        unavailable.push(UnavailableCapability {
+            capability_id: format!(
+                "case_{}_runtime_{index}",
+                registry_case.case_id.replace('/', "_")
+            ),
+            kind: match item.kind {
+                RuntimeCapabilityKind::CompileTimeFeature => CapabilityKind::Feature,
+                RuntimeCapabilityKind::CodecBackend => CapabilityKind::Codec,
+                RuntimeCapabilityKind::CodecExecutable => CapabilityKind::ExternalBackend,
+                RuntimeCapabilityKind::ExternalValidator => CapabilityKind::Validator,
+                RuntimeCapabilityKind::ExternalProvider => CapabilityKind::Provider,
+                RuntimeCapabilityKind::RegistryContract => CapabilityKind::Codec,
+            },
+            reason_code: runtime_reason_code(&item.reason).into(),
+            message: runtime_unavailable_message(item),
+            affected_artifact_ids: artifact_ids.clone(),
+            requirements: requirements.clone(),
+        });
+    }
+    pending.push(PendingCuratedCase {
+        case_id: registry_case.case_id.clone(),
+        recipe: recipe.identity(),
+        reason_code: "feature_gated_case_unavailable".into(),
+        message: format!(
+            "case requires unavailable build/runtime capabilities: {}",
+            registry_case.requirements.summary()
+        ),
+        artifact_ids,
+    });
+}
+
+fn runtime_reason_code(reason: &UnavailableReason) -> &'static str {
+    match reason {
+        UnavailableReason::FeatureDisabled => "feature_disabled",
+        UnavailableReason::CodecBackendUnavailable => "codec_backend_unavailable",
+        UnavailableReason::ExecutableUnavailable => "codec_executable_unavailable",
+        UnavailableReason::ExternalValidatorUnavailable => "external_validator_unavailable",
+        UnavailableReason::ExternalProviderUnavailable => "external_provider_unavailable",
+        UnavailableReason::RegistryContractInvalid(_) => "registry_contract_invalid",
+    }
+}
+
+fn runtime_unavailable_message(item: &RuntimeUnavailableCapability) -> String {
+    let detail = match &item.reason {
+        UnavailableReason::FeatureDisabled => "compile-time feature is disabled".into(),
+        UnavailableReason::CodecBackendUnavailable => {
+            "codec backend was not present in the injected inventory".into()
+        }
+        UnavailableReason::ExecutableUnavailable => {
+            "codec executable was not present in the injected inventory".into()
+        }
+        UnavailableReason::ExternalValidatorUnavailable => {
+            "external validator was not present in the injected inventory".into()
+        }
+        UnavailableReason::ExternalProviderUnavailable => {
+            "external provider was not present in the injected inventory".into()
+        }
+        UnavailableReason::RegistryContractInvalid(message) => message.clone(),
+    };
+    format!("{}: {detail}", item.capability_id)
 }
 
 fn selected_case_ids(

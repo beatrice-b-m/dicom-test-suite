@@ -103,11 +103,22 @@ fn typed_stress_projection_matches_frozen_file_values_and_resources() {
     for actual in &projected {
         let path = actual["path"].as_str().unwrap();
         assert_eq!(actual["corpus_plan_sha256"], plan_sha256);
+        let instance_plan_sha256 = execution
+            .artifacts
+            .iter()
+            .find(|artifact| {
+                artifact
+                    .planned
+                    .output()
+                    .is_some_and(|output| output.relative_path.as_str() == path)
+            })
+            .and_then(|artifact| artifact.execution.instance_plan_sha256.as_deref())
+            .expect("published stress DICOM has canonical instance plan evidence");
+        assert_eq!(actual["resolved_plan_sha256"], instance_plan_sha256);
         let mut actual_without_provenance = actual.clone();
-        actual_without_provenance
-            .as_object_mut()
-            .unwrap()
-            .remove("corpus_plan_sha256");
+        let actual_object = actual_without_provenance.as_object_mut().unwrap();
+        actual_object.remove("corpus_plan_sha256");
+        actual_object.remove("resolved_plan_sha256");
         if actual_without_provenance != expected[path] {
             let expected_names = expected[path]["validation"]["internal"]
                 .as_array()

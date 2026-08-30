@@ -548,7 +548,7 @@ impl CuratedScCorpusPlanProvider {
                                         request_id: locked.request_id.clone(),
                                         artifact_id: global_id.clone(),
                                         provider_id: locked.backend_id.clone(),
-                                        required_version: identity.version.clone(),
+                                        required_version: crate::runtime_capabilities::qualified_executable_version_id(identity),
                                         parameters: locked.parameters.clone(),
                                         input_assets: BTreeMap::from([(
                                             "source_dicom".into(),
@@ -705,6 +705,11 @@ impl CuratedScCorpusPlanProvider {
                     let mut declared_instance = planned.instance.clone();
                     declared_instance.transfer_syntax_uid =
                         locked.target_transfer_syntax_uid.clone();
+                    // The locked provider declares the encoded Pixel Data through its
+                    // bounded imported observation. Its canonical native content stays
+                    // on the private source dependency and is verified after decoding;
+                    // it must not be compared byte-for-byte with the encapsulated value.
+                    declared_instance.content.clear();
                     let maximum_size_bytes = 128 * 1024 * 1024;
                     artifacts.push(PlannedArtifact::ImportedDicom(
                         PlannedImportedDicomArtifact {
@@ -715,10 +720,9 @@ impl CuratedScCorpusPlanProvider {
                             provider: ImportedDicomProviderPlan {
                                 request_id: locked.request_id.clone(),
                                 provider_id: locked.backend_id.clone(),
-                                required_version:
-                                    self.capability_inventory.executable_identities["dcmcjpeg"]
-                                        .version
-                                        .clone(),
+                                required_version: crate::runtime_capabilities::qualified_executable_version_id(
+                                    &self.capability_inventory.executable_identities["dcmcjpeg"],
+                                ),
                                 output_slot: "dicom".into(),
                                 media_type: "application/dicom".into(),
                                 maximum_size_bytes,

@@ -171,7 +171,7 @@ fn backend(
     let backend = response
         .get("backend")
         .ok_or_else(|| err("backend response identity is missing"))?;
-    Ok(json!({
+    let mut projected = json!({
         "backend_id":provider.provider_id,"protocol_version":response["protocol_version"],
         "name":backend["name"],"version":backend["version"],
         "dependency_lock_sha256":backend["dependency_lock_sha256"],
@@ -179,9 +179,12 @@ fn backend(
         "entrypoint_fingerprint":provider.claims["entrypoint_fingerprint"],
         "environment_fingerprint":provider.claims["environment_fingerprint"],
         "runtime_identity":provider.claims["runtime_identity"],
-        "invocation_elapsed_milliseconds":provider.claims.get("invocation_elapsed_milliseconds").cloned().unwrap_or(Value::Null),
         "determinism":"semantic_stable","warnings":response["warnings"]
-    }))
+    });
+    if let Some(elapsed) = provider.claims.get("invocation_elapsed_milliseconds") {
+        projected["invocation_elapsed_milliseconds"] = elapsed.clone();
+    }
+    Ok(projected)
 }
 
 fn references(

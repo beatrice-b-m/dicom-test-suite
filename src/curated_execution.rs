@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 
 use dicom_core::{Tag, VR};
 use serde::Deserialize;
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use crate::composition::{
     CompositionUidRole, GenericPlanValidator, Part10Materializer, ResolvedInstancePlan,
@@ -15,7 +15,7 @@ use crate::composition::{
 };
 use crate::corpus_plan::{
     EvidenceIndependence, EvidenceObligation, FragmentationPolicy, OffsetTablePolicy,
-    PlannedArtifact,
+    PlannedArtifact, ValidationRequirement,
 };
 use crate::curated_plan::{CuratedArtifactProjectionContext, CuratedScCorpusPlan};
 use crate::curated_validation::{
@@ -686,6 +686,9 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
         request: &ValidationRequest,
         assets: &StagedAssetRegistry,
     ) -> Result<ValidationResult, ServiceInvocationError> {
+        if let PlannedArtifact::Qualification(artifact) = &request.artifact {
+            return validate_qualification_request(artifact, request);
+        }
         let handle = request.materialized_asset.as_ref().ok_or_else(|| {
             ServiceInvocationError::new("validation", "curated output is missing")
         })?;
@@ -1459,6 +1462,47 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
         }
         Ok(metadata.len().max(1))
     }
+}
+
+fn validate_qualification_request(
+    artifact: &crate::corpus_plan::PlannedQualification,
+    request: &ValidationRequest,
+) -> Result<ValidationResult, ServiceInvocationError> {
+    if request.materialized_asset.is_some() {
+        return Err(ServiceInvocationError::new(
+            "qualification validation",
+            "payload-free qualification unexpectedly supplied an output handle",
+        ));
+    }
+    if request.plan != artifact.validation
+        || request.plan.rules.len() != 1
+        || request.plan.rules[0].rule_id != "validation.qualification"
+        || request.plan.rules[0].requirement != ValidationRequirement::Required
+    {
+        return Err(ServiceInvocationError::new(
+            "qualification validation",
+            "qualification validation rules differ from the immutable planned contract",
+        ));
+    }
+    Ok(ValidationResult {
+        artifact_id: artifact.logical_id.clone(),
+        validator: built_in_tool("curated_qualification_validator"),
+        rules: vec![RuleExecutionResult {
+            rule_id: "validation.qualification".into(),
+            status: ValidationStatus::Passed,
+            message: "The payload-free bounded qualification completed under its planned contract."
+                .into(),
+            measurements: BTreeMap::from([
+                (
+                    "qualification_kind".into(),
+                    json!(artifact.qualification_kind),
+                ),
+                ("payload_policy".into(), json!(artifact.payload_policy)),
+                ("output_present".into(), Value::Bool(false)),
+            ]),
+        }],
+        evidence: Vec::new(),
+    })
 }
 
 fn specialized_validation_observation(
@@ -4837,6 +4881,91 @@ fn validate_stress_ct_group(
         "stress_ct_reduced_qualification",
         "All planned stress CT slices preserve ordered geometry, shared study/series/frame identity, and explicit reduced-scale qualification evidence.",
     ))
+}
+
+#[cfg(test)]
+mod qualification_validation_tests {
+    use super::*;
+    use crate::corpus_plan::{
+        ArtifactProvenance, ArtifactResourceEstimate, EvidencePlan, PlannedQualification,
+        QualificationPayloadPolicy, ValidationPlan, ValidationRule,
+    };
+    use crate::executor::services::StagedAssetHandle;
+
+    fn request() -> ValidationRequest {
+        let validation = ValidationPlan {
+            rules: vec![ValidationRule {
+                rule_id: "validation.qualification".into(),
+                requirement: ValidationRequirement::Required,
+                parameters: BTreeMap::new(),
+            }],
+        };
+        ValidationRequest {
+            artifact: PlannedArtifact::Qualification(PlannedQualification {
+                logical_id: "qualification".into(),
+                order: 0,
+                provenance: ArtifactProvenance::Requested,
+                case_binding: None,
+                profile: Some("fuzz".into()),
+                run_seed: Some(1),
+                qualification_kind: "bounded_deterministic_fuzz".into(),
+                parameters: BTreeMap::new(),
+                sources: Vec::new(),
+                payload_policy: QualificationPayloadPolicy::NoPayload,
+                validation: validation.clone(),
+                evidence: EvidencePlan {
+                    obligations: Vec::new(),
+                },
+                resources: ArtifactResourceEstimate {
+                    output_bytes: 0,
+                    peak_working_bytes: 1,
+                },
+            }),
+            materialized_asset: None,
+            plan: validation,
+        }
+    }
+
+    #[test]
+    fn outputless_qualification_validation_passes_without_filesystem_input() {
+        let request = request();
+        let PlannedArtifact::Qualification(artifact) = &request.artifact else {
+            unreachable!()
+        };
+        let result = validate_qualification_request(artifact, &request).unwrap();
+        assert_eq!(result.artifact_id, "qualification");
+        assert_eq!(result.rules.len(), 1);
+        assert_eq!(result.rules[0].status, ValidationStatus::Passed);
+        assert_eq!(result.rules[0].measurements["output_present"], false);
+    }
+
+    #[test]
+    fn qualification_validation_rejects_output_and_rule_contract_drift() {
+        let mut with_output = request();
+        with_output.materialized_asset = Some(StagedAssetHandle::new("unexpected").unwrap());
+        let PlannedArtifact::Qualification(artifact) = &with_output.artifact else {
+            unreachable!()
+        };
+        assert!(validate_qualification_request(artifact, &with_output).is_err());
+
+        let mut extra = request();
+        extra.plan.rules.push(ValidationRule {
+            rule_id: "validation.extra".into(),
+            requirement: ValidationRequirement::Required,
+            parameters: BTreeMap::new(),
+        });
+        let PlannedArtifact::Qualification(artifact) = &extra.artifact else {
+            unreachable!()
+        };
+        assert!(validate_qualification_request(artifact, &extra).is_err());
+
+        let mut malformed = request();
+        malformed.plan.rules[0].rule_id = "validation.other".into();
+        let PlannedArtifact::Qualification(artifact) = &malformed.artifact else {
+            unreachable!()
+        };
+        assert!(validate_qualification_request(artifact, &malformed).is_err());
+    }
 }
 
 fn classic_identity(

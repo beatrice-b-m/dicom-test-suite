@@ -16,8 +16,7 @@
       "role": "mutation_source"
     }
   ],
-  "provider_parameters": {
-  },
+  "provider_parameters": {},
   "validation_rule_ids": [
     "validation.mutation"
   ],
@@ -29,24 +28,29 @@
       "recipe_id": "sc_mono1_u8_rle_lossless",
       "recipe_version": "0.1.0"
     },
-    "source_logical_role": "primary_1",
+    "source_logical_role": "instance",
     "edits": [
       {
-        "edit_id": "edit_1",
-        "mutation_id": "mutation.registry_named",
+        "edit_id": "01_truncate_fragment",
+        "mutation_id": "mutation.truncate_fragment",
         "parameters": {
+          "selector": "first_fragment",
+          "numerator": 1,
+          "denominator": 2
         }
       }
     ],
     "failure_layers": [
-      "provider_defined"
+      "encapsulation"
     ],
     "acceptable_outcomes": [
-      "provider_defined"
+      "clean_rejection",
+      "decode_failure",
+      "validation_failure"
     ],
     "output": {
       "role": "expected_invalid",
-      "provider_derived": true
+      "path": "negative/encapsulation/truncated_fragment/instance.dcm"
     },
     "retention": "expected_invalid_only"
   }

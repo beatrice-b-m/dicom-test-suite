@@ -16,8 +16,7 @@
       "role": "mutation_source"
     }
   ],
-  "provider_parameters": {
-  },
+  "provider_parameters": {},
   "validation_rule_ids": [
     "validation.mutation"
   ],
@@ -29,24 +28,27 @@
       "recipe_id": "sc_mono2_u8",
       "recipe_version": "0.1.0"
     },
-    "source_logical_role": "primary_1",
+    "source_logical_role": "instance",
     "edits": [
       {
-        "edit_id": "edit_1",
-        "mutation_id": "mutation.registry_named",
+        "edit_id": "01_truncate_dataset",
+        "mutation_id": "mutation.truncate_dataset",
         "parameters": {
+          "selector": "pixel_data_header_start"
         }
       }
     ],
     "failure_layers": [
-      "provider_defined"
+      "semantic_validation"
     ],
     "acceptable_outcomes": [
-      "provider_defined"
+      "clean_rejection",
+      "validation_failure",
+      "accepted_with_bounded_warning"
     ],
     "output": {
       "role": "expected_invalid",
-      "provider_derived": true
+      "path": "negative/dataset/truncated_dataset/instance.dcm"
     },
     "retention": "expected_invalid_only"
   }

@@ -16,8 +16,7 @@
       "role": "mutation_source"
     }
   ],
-  "provider_parameters": {
-  },
+  "provider_parameters": {},
   "validation_rule_ids": [
     "validation.mutation"
   ],
@@ -29,24 +28,39 @@
       "recipe_id": "sc_mono2_u8",
       "recipe_version": "0.1.0"
     },
-    "source_logical_role": "primary_1",
+    "source_logical_role": "instance",
     "edits": [
       {
-        "edit_id": "edit_1",
-        "mutation_id": "mutation.registry_named",
+        "edit_id": "01_invalid_bits_stored_high_bit",
+        "mutation_id": "mutation.invalid_bits_stored_high_bit",
         "parameters": {
+          "bits_stored_tag": "0028,0101",
+          "high_bit_tag": "0028,0102",
+          "bits_stored": 17,
+          "high_bit": 3
+        }
+      },
+      {
+        "edit_id": "02_invalid_pixel_byte_length",
+        "mutation_id": "mutation.invalid_pixel_byte_length",
+        "parameters": {
+          "tag": "7FE0,0010",
+          "declared_length_adjustment": 2,
+          "width_policy": "from_vr"
         }
       }
     ],
     "failure_layers": [
-      "provider_defined"
+      "pixel_decoding"
     ],
     "acceptable_outcomes": [
-      "provider_defined"
+      "clean_rejection",
+      "decode_failure",
+      "validation_failure"
     ],
     "output": {
       "role": "expected_invalid",
-      "provider_derived": true
+      "path": "negative/pixels/invalid_bits_and_length/instance.dcm"
     },
     "retention": "expected_invalid_only"
   }

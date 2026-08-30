@@ -27,6 +27,12 @@ use super::wsi::{
 };
 use crate::planning::RecipeIdentity;
 
+#[path = "robustness.rs"]
+mod robustness;
+pub use robustness::{
+    EOT_ARITHMETIC_PLAN_PROVIDER_ID, FUZZ_PLAN_PROVIDER_ID, QualificationParameters,
+};
+
 const CASE_RECIPE_SCHEMA: &str = include_str!("../../schemas/case-recipe.schema.json");
 
 #[derive(Debug)]
@@ -148,7 +154,7 @@ impl RecipeCatalog {
         validate_registry_bindings(&registry, &recipes, &bindings, &templates, &codec_registry)?;
         validate_template_default_recipes(template_catalog_path, &templates, &recipes)?;
         validate_migrated_planning_orders(&recipes)?;
-        validate_dependencies(&recipes)?;
+        validate_dependencies(&registry, &recipes)?;
         let ordered = topological_order(&recipes)?;
         Ok(Self {
             recipes,
@@ -502,6 +508,8 @@ fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), Recip
         "external.import_plan",
         "mutation.named_plan",
         "qualification.bounded_plan",
+        FUZZ_PLAN_PROVIDER_ID,
+        EOT_ARITHMETIC_PLAN_PROVIDER_ID,
     ];
     const CONTENT_PROVIDERS: &[&str] = &[
         "content.case_default",
@@ -637,15 +645,15 @@ fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), Recip
             }
         }
     }
-    if let Some(mutation) = &recipe.mutation {
-        for edit in &mutation.edits {
-            if edit.mutation_id != "mutation.registry_named" {
-                return Err(semantic(
-                    path,
-                    format!("unknown mutation id {}", edit.mutation_id),
-                ));
-            }
-        }
+    if recipe.mutation.is_some() {
+        robustness::validate_mutation_contract(recipe).map_err(|message| semantic(path, message))?;
+    }
+    if matches!(
+        recipe.plan_provider_id.as_str(),
+        FUZZ_PLAN_PROVIDER_ID | EOT_ARITHMETIC_PLAN_PROVIDER_ID
+    ) {
+        robustness::validate_qualification_contract(recipe)
+            .map_err(|message| semantic(path, message))?;
     }
     Ok(())
 }
@@ -1335,11 +1343,11 @@ fn validate_registry_bindings(
                 | "openjph_htj2k_lossy_command_writer",
             ) => "external.import_plan",
             ("mutation_layer", "mutation_layer") if negative => "mutation.named_plan",
-            ("mutation_layer", "bounded_deterministic_fuzz") => "qualification.bounded_plan",
+            ("mutation_layer", "bounded_deterministic_fuzz") => FUZZ_PLAN_PROVIDER_ID,
             ("rust_native", "checked_eot_arithmetic")
                 if expected_kind == RecipeKind::Qualification =>
             {
-                "qualification.bounded_plan"
+                EOT_ARITHMETIC_PLAN_PROVIDER_ID
             }
             ("rust_native", "rust_native") => "native.case_plan",
             (kind, id) => {
@@ -1729,8 +1737,14 @@ fn validate_advanced_contract(path: &Path, recipe: &CaseRecipe) -> Result<(), Re
 }
 
 fn validate_dependencies(
+    registry: &RegistryDocument,
     recipes: &BTreeMap<RecipeIdentity, CaseRecipe>,
 ) -> Result<(), RecipeCatalogError> {
+    let registry_by_case = registry
+        .cases
+        .iter()
+        .map(|case| (case.case_id.as_str(), case))
+        .collect::<BTreeMap<_, _>>();
     for (identity, recipe) in recipes {
         let dependencies = recipe
             .dependencies
@@ -1763,7 +1777,80 @@ fn validate_dependencies(
                     message: format!("{identity} mutation source {source} is not valid DICOM"),
                 });
             }
+            if dependencies.len() != 1 {
+                return Err(RecipeCatalogError::Completeness {
+                    message: format!("{identity} mutation must declare exactly its source dependency"),
+                });
+            }
+            let source_recipe = &recipes[&source];
+            let logical_ids = source_recipe
+                .dicom
+                .as_ref()
+                .into_iter()
+                .flat_map(|dicom| &dicom.artifacts)
+                .map(|artifact| artifact.logical_id.as_str())
+                .collect::<BTreeSet<_>>();
+            if !logical_ids.contains(mutation.source_logical_role.as_str()) {
+                return Err(RecipeCatalogError::Completeness {
+                    message: format!(
+                        "{identity} mutation source {source} has no artifact logical role {}",
+                        mutation.source_logical_role
+                    ),
+                });
+            }
+            validate_robustness_source_profile(identity, source_recipe, &registry_by_case)?;
         }
+        if recipe.plan_provider_id == FUZZ_PLAN_PROVIDER_ID {
+            let parameters = robustness::qualification_parameters(recipe).map_err(|message| {
+                RecipeCatalogError::Completeness {
+                    message: format!("{identity}: {message}"),
+                }
+            })?;
+            let QualificationParameters::BoundedDeterministicFuzz { sources, .. } = parameters
+            else {
+                unreachable!("shape validation matched fuzz provider")
+            };
+            for declared in sources {
+                let source = declared.recipe.identity();
+                let source_recipe = &recipes[&source];
+                let exists = source_recipe
+                    .dicom
+                    .as_ref()
+                    .is_some_and(|dicom| dicom.artifacts.iter().any(|artifact| artifact.logical_id == declared.artifact_logical_id));
+                if !exists {
+                    return Err(RecipeCatalogError::Completeness {
+                        message: format!("{identity} fuzz source {source} lacks artifact {}", declared.artifact_logical_id),
+                    });
+                }
+                validate_robustness_source_profile(identity, source_recipe, &registry_by_case)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn validate_robustness_source_profile(
+    owner: &RecipeIdentity,
+    source: &CaseRecipe,
+    registry_by_case: &BTreeMap<&str, &RegistryCase>,
+) -> Result<(), RecipeCatalogError> {
+    let Some(registry_case) = registry_by_case.get(source.binding.case_id.as_str()) else {
+        return Err(RecipeCatalogError::Completeness {
+            message: format!("{owner} source {} is absent from the registry", source.identity()),
+        });
+    };
+    if registry_case.artifact_kind != "dicom_instance"
+        || registry_case
+            .profiles
+            .iter()
+            .any(|profile| matches!(profile.as_str(), "negative" | "fuzz" | "stress"))
+    {
+        return Err(RecipeCatalogError::Completeness {
+            message: format!(
+                "{owner} source {} crosses an invalid robustness profile boundary",
+                source.identity()
+            ),
+        });
     }
     Ok(())
 }

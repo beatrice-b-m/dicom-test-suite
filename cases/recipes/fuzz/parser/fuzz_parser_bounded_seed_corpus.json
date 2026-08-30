@@ -6,38 +6,26 @@
     "case_id": "fuzz/parser/bounded_seed_corpus"
   },
   "kind": "qualification",
-  "plan_provider_id": "qualification.bounded_plan",
+  "plan_provider_id": "qualification.fuzz_plan",
   "dependencies": [
     {
       "recipe": {
         "recipe_id": "sc_mono2_u8",
         "recipe_version": "0.1.0"
       },
-      "role": "private_source_1"
-    },
-    {
-      "recipe": {
-        "recipe_id": "metadata_sc_utf8_person_name",
-        "recipe_version": "0.1.0"
-      },
-      "role": "private_source_2"
-    },
-    {
-      "recipe": {
-        "recipe_id": "metadata_sc_defined_undefined_sequence_lengths",
-        "recipe_version": "0.1.0"
-      },
-      "role": "private_source_3"
+      "role": "part10_explicit_vr_le"
     },
     {
       "recipe": {
         "recipe_id": "sc_mono1_u8_rle_lossless",
         "recipe_version": "0.1.0"
       },
-      "role": "private_source_4"
+      "role": "encapsulated_rle"
     }
   ],
   "provider_parameters": {
+    "qualification_provider_id": "fuzz.bounded_deterministic",
+    "payload_policy": "no_payload_retained"
   },
   "validation_rule_ids": [
     "validation.qualification"
@@ -47,6 +35,51 @@
   ],
   "qualification": {
     "parameters": {
+      "qualification_kind": "bounded_deterministic_fuzz",
+      "source_generation_seed": 7,
+      "candidates_per_source": 32,
+      "sources": [
+        {
+          "seed_description_id": "part10-explicit-vr-le-v1",
+          "dependency_role": "part10_explicit_vr_le",
+          "recipe": {
+            "recipe_id": "sc_mono2_u8",
+            "recipe_version": "0.1.0"
+          },
+          "artifact_logical_id": "instance",
+          "mutation_surfaces": [
+            "file_meta",
+            "dataset_headers",
+            "pixel_data"
+          ]
+        },
+        {
+          "seed_description_id": "encapsulated-rle-v1",
+          "dependency_role": "encapsulated_rle",
+          "recipe": {
+            "recipe_id": "sc_mono1_u8_rle_lossless",
+            "recipe_version": "0.1.0"
+          },
+          "artifact_logical_id": "instance",
+          "mutation_surfaces": [
+            "dataset_headers",
+            "encapsulation",
+            "pixel_data"
+          ]
+        }
+      ],
+      "budget": {
+        "max_iterations": 64,
+        "max_candidates": 64,
+        "max_mutations_per_candidate": 8,
+        "max_total_mutations": 512,
+        "max_bytes_per_mutation": 64,
+        "max_input_bytes": 8388608,
+        "max_output_bytes": 8388608,
+        "max_minimization_attempts": 256,
+        "max_total_target_operations": 100000000,
+        "max_target_operations": 1000000
+      }
     },
     "resource_policy": {
       "max_input_bytes": 8388608,

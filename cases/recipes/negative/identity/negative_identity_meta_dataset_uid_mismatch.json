@@ -16,8 +16,7 @@
       "role": "mutation_source"
     }
   ],
-  "provider_parameters": {
-  },
+  "provider_parameters": {},
   "validation_rule_ids": [
     "validation.mutation"
   ],
@@ -29,24 +28,36 @@
       "recipe_id": "sc_mono2_u8",
       "recipe_version": "0.1.0"
     },
-    "source_logical_role": "primary_1",
+    "source_logical_role": "instance",
     "edits": [
       {
-        "edit_id": "edit_1",
-        "mutation_id": "mutation.registry_named",
+        "edit_id": "01_mismatch_sop_class_uid",
+        "mutation_id": "mutation.dataset_uid_mismatch",
         "parameters": {
+          "dataset_tag": "0008,0016",
+          "replacement_policy": "increment_last_decimal_digit_preserve_length"
+        }
+      },
+      {
+        "edit_id": "02_mismatch_sop_instance_uid",
+        "mutation_id": "mutation.dataset_uid_mismatch",
+        "parameters": {
+          "dataset_tag": "0008,0018",
+          "replacement_policy": "increment_last_decimal_digit_preserve_length"
         }
       }
     ],
     "failure_layers": [
-      "provider_defined"
+      "semantic_validation"
     ],
     "acceptable_outcomes": [
-      "provider_defined"
+      "clean_rejection",
+      "validation_failure",
+      "accepted_with_bounded_warning"
     ],
     "output": {
       "role": "expected_invalid",
-      "provider_derived": true
+      "path": "negative/identity/meta_dataset_uid_mismatch/instance.dcm"
     },
     "retention": "expected_invalid_only"
   }

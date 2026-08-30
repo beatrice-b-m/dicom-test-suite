@@ -16,8 +16,7 @@
       "role": "mutation_source"
     }
   ],
-  "provider_parameters": {
-  },
+  "provider_parameters": {},
   "validation_rule_ids": [
     "validation.mutation"
   ],
@@ -29,24 +28,27 @@
       "recipe_id": "sc_mono2_u8",
       "recipe_version": "0.1.0"
     },
-    "source_logical_role": "primary_1",
+    "source_logical_role": "instance",
     "edits": [
       {
-        "edit_id": "edit_1",
-        "mutation_id": "mutation.registry_named",
+        "edit_id": "01_transfer_syntax_mismatch",
+        "mutation_id": "mutation.transfer_syntax_mismatch",
         "parameters": {
+          "replacement_uid": "1.2.840.10008.1.2.5",
+          "padding_policy": "preserve_value_length"
         }
       }
     ],
     "failure_layers": [
-      "provider_defined"
+      "dataset_parser"
     ],
     "acceptable_outcomes": [
-      "provider_defined"
+      "clean_rejection",
+      "parse_failure"
     ],
     "output": {
       "role": "expected_invalid",
-      "provider_derived": true
+      "path": "negative/encoding/transfer_syntax_mismatch/instance.dcm"
     },
     "retention": "expected_invalid_only"
   }

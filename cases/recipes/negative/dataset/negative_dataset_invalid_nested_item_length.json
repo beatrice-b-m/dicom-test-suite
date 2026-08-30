@@ -16,8 +16,7 @@
       "role": "mutation_source"
     }
   ],
-  "provider_parameters": {
-  },
+  "provider_parameters": {},
   "validation_rule_ids": [
     "validation.mutation"
   ],
@@ -29,24 +28,27 @@
       "recipe_id": "metadata_sc_defined_undefined_sequence_lengths",
       "recipe_version": "0.1.0"
     },
-    "source_logical_role": "primary_1",
+    "source_logical_role": "undefined",
     "edits": [
       {
-        "edit_id": "edit_1",
-        "mutation_id": "mutation.registry_named",
+        "edit_id": "01_invalid_nested_item_length",
+        "mutation_id": "mutation.invalid_nested_item_length",
         "parameters": {
+          "selector": "first_sequence_item",
+          "declared_length_adjustment": 3
         }
       }
     ],
     "failure_layers": [
-      "provider_defined"
+      "dataset_parser"
     ],
     "acceptable_outcomes": [
-      "provider_defined"
+      "clean_rejection",
+      "parse_failure"
     ],
     "output": {
       "role": "expected_invalid",
-      "provider_derived": true
+      "path": "negative/dataset/invalid_nested_item_length/instance.dcm"
     },
     "retention": "expected_invalid_only"
   }

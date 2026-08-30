@@ -6,11 +6,11 @@
     "case_id": "qualification/encapsulation/eot_u64_overflow"
   },
   "kind": "qualification",
-  "plan_provider_id": "qualification.bounded_plan",
-  "dependencies": [
-
-  ],
+  "plan_provider_id": "qualification.eot_arithmetic_plan",
+  "dependencies": [],
   "provider_parameters": {
+    "qualification_provider_id": "encapsulation.checked_eot_arithmetic",
+    "payload_policy": "evidence_only"
   },
   "validation_rule_ids": [
     "validation.qualification"
@@ -20,11 +20,21 @@
   ],
   "qualification": {
     "parameters": {
+      "qualification_kind": "checked_eot_u64_overflow",
+      "fragment_lengths": [
+        18446744073709551615
+      ],
+      "arithmetic_steps": [
+        "pad_fragment_to_even",
+        "add_item_header",
+        "accumulate_frame_offset"
+      ],
+      "expected_error": "fragment_padding_overflow"
     },
     "resource_policy": {
-      "max_input_bytes": 8388608,
-      "max_output_bytes": 8388608,
-      "max_operations": 100000000
+      "max_input_bytes": 0,
+      "max_output_bytes": 0,
+      "max_operations": 3
     },
     "retention": "evidence_only"
   }

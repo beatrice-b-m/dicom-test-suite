@@ -16,8 +16,7 @@
       "role": "mutation_source"
     }
   ],
-  "provider_parameters": {
-  },
+  "provider_parameters": {},
   "validation_rule_ids": [
     "validation.mutation"
   ],
@@ -29,24 +28,28 @@
       "recipe_id": "encapsulation_sc_eot_single_fragment_multiframe",
       "recipe_version": "0.1.0"
     },
-    "source_logical_role": "primary_1",
+    "source_logical_role": "instance",
     "edits": [
       {
-        "edit_id": "edit_1",
-        "mutation_id": "mutation.registry_named",
+        "edit_id": "01_break_extended_offset_table",
+        "mutation_id": "mutation.broken_extended_offset_table",
         "parameters": {
+          "entry_index": 0,
+          "offset": "u64_max"
         }
       }
     ],
     "failure_layers": [
-      "provider_defined"
+      "encapsulation"
     ],
     "acceptable_outcomes": [
-      "provider_defined"
+      "clean_rejection",
+      "decode_failure",
+      "validation_failure"
     ],
     "output": {
       "role": "expected_invalid",
-      "provider_derived": true
+      "path": "negative/encapsulation/broken_offset_table/instance.dcm"
     },
     "retention": "expected_invalid_only"
   }

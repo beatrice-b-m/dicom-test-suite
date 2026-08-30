@@ -16,8 +16,7 @@
       "role": "mutation_source"
     }
   ],
-  "provider_parameters": {
-  },
+  "provider_parameters": {},
   "validation_rule_ids": [
     "validation.mutation"
   ],
@@ -29,24 +28,38 @@
       "recipe_id": "metadata_sc_utf8_person_name",
       "recipe_version": "0.1.0"
     },
-    "source_logical_role": "primary_1",
+    "source_logical_role": "instance",
     "edits": [
       {
-        "edit_id": "edit_1",
-        "mutation_id": "mutation.registry_named",
+        "edit_id": "01_invalid_character_set_declaration",
+        "mutation_id": "mutation.invalid_character_set_declaration",
         "parameters": {
+          "tag": "0008,0005",
+          "replacement_byte": 88,
+          "fill_policy": "value_length"
+        }
+      },
+      {
+        "edit_id": "02_malformed_encoded_text",
+        "mutation_id": "mutation.malformed_encoded_text",
+        "parameters": {
+          "tag": "0010,0010",
+          "byte_offset": 0,
+          "replacement_byte": 255
         }
       }
     ],
     "failure_layers": [
-      "provider_defined"
+      "text_decoding"
     ],
     "acceptable_outcomes": [
-      "provider_defined"
+      "clean_rejection",
+      "decode_failure",
+      "validation_failure"
     ],
     "output": {
       "role": "expected_invalid",
-      "provider_derived": true
+      "path": "negative/charset/malformed_encoded_text/instance.dcm"
     },
     "retention": "expected_invalid_only"
   }

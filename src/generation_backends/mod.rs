@@ -15,6 +15,7 @@ pub use discovery::{BackendDiscovery, PreparedBackend, discover_prepared_backend
 mod process;
 pub use process::{
     BackendInvocation, BackendRun, environment_fingerprint, executable_fingerprint, invoke_backend,
+    invoke_backend_cancellable,
 };
 mod parametric_map;
 pub use parametric_map::{

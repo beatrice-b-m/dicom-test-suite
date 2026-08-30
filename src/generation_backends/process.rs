@@ -47,6 +47,19 @@ pub fn invoke_backend(
     input_root: &Path,
     staging_root: &Path,
 ) -> Result<BackendRun, BackendContractError> {
+    invoke_backend_cancellable(invocation, request, input_root, staging_root, &|| false)
+}
+
+pub fn invoke_backend_cancellable(
+    invocation: &BackendInvocation,
+    request: &Value,
+    input_root: &Path,
+    staging_root: &Path,
+    cancelled: &dyn Fn() -> bool,
+) -> Result<BackendRun, BackendContractError> {
+    if cancelled() {
+        return Err(invalid("backend invocation cancelled".into()));
+    }
     validate_request(request)?;
     prepare_private_staging(staging_root)?;
     let inputs = staging_root.join(INPUTS_DIRECTORY);
@@ -131,6 +144,10 @@ pub fn invoke_backend(
     let mut stdout_result = None;
     let mut stderr_result = None;
     while status.is_none() || stdout_result.is_none() || stderr_result.is_none() {
+        if cancelled() {
+            terminate_process_tree(&mut child, process_group_id);
+            return Err(invalid("backend invocation cancelled".into()));
+        }
         if status.is_none() {
             match child.try_wait() {
                 Ok(value) => status = value,
@@ -453,6 +470,26 @@ mod tests {
         )
         .expect_err("slow backend must time out");
         assert!(error.to_string().contains("exceeded"));
+        fs::remove_dir_all(staging).expect("remove fake staging");
+    }
+
+    #[test]
+    fn fake_backend_cancellation_kills_and_reaps_the_child_promptly() {
+        let staging = unique_staging("grandchild-cancelled");
+        let started = Instant::now();
+        let error = invoke_backend_cancellable(
+            &fake_invocation(Duration::from_secs(30)),
+            &request(),
+            Path::new("."),
+            &staging,
+            &|| started.elapsed() >= Duration::from_millis(30),
+        )
+        .expect_err("cancelled backend must be terminated");
+        assert!(error.to_string().contains("cancelled"));
+        assert!(
+            started.elapsed() < Duration::from_secs(15),
+            "cancellation must not wait for the backend timeout"
+        );
         fs::remove_dir_all(staging).expect("remove fake staging");
     }
 

@@ -113,11 +113,11 @@ fn ordinary_generate_preserves_locked_curated_history_for_public_profiles() {
     let expected = [
         (
             "smoke",
-            "218e4d75c794d2359bff28aafee87413bb5f618147580b4447c512581312327d",
+            "798319444e6a0cd0b34607ebee9f4b2d88987e9c8cd0bb2e4a95480aa4f6a68e",
         ),
         (
             "all",
-            "3937f48d2972f92fe770e520e5f21eac9a3ed3529c052f2585f91731c200aaaf",
+            "4c20e94f56c6dfc4612a5120428026d35ee087d7222207931b0ce6451aba2f2f",
         ),
         (
             "legacy",

@@ -146,13 +146,31 @@ fn production_projection_matches_every_historical_file_value() {
         })
         .collect::<Vec<_>>();
     assert_eq!(actual.len(), expected.len());
+    let direct_plan_sha256 = bundle.plan.canonical_sha256().unwrap();
     for (index, actual) in actual.iter().enumerate() {
         let expected = &expected[&(
             actual["case_id"].as_str().unwrap().to_owned(),
             actual["path"].as_str().unwrap().to_owned(),
         )];
-        if actual != expected {
-            let (pointer, left, right) = first_difference(actual, expected, "").unwrap();
+        assert_eq!(actual["corpus_plan_sha256"], direct_plan_sha256);
+        assert_eq!(
+            expected["corpus_plan_sha256"].as_str().map(str::len),
+            Some(64),
+            "generated profile entry lacks its own run provenance"
+        );
+        let mut actual_value = actual.clone();
+        let mut expected_value = expected.clone();
+        actual_value
+            .as_object_mut()
+            .unwrap()
+            .remove("corpus_plan_sha256");
+        expected_value
+            .as_object_mut()
+            .unwrap()
+            .remove("corpus_plan_sha256");
+        if actual_value != expected_value {
+            let (pointer, left, right) =
+                first_difference(&actual_value, &expected_value, "").unwrap();
             panic!(
                 "file mismatch index {index} path {} at {pointer}: actual={left:?} expected={right:?}",
                 expected["path"]

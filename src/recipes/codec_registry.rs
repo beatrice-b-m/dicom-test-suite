@@ -505,6 +505,7 @@ pub fn encoding_provider_matches(
 pub fn recipe_encoding_provider_id(backend_id: &str) -> Option<&'static str> {
     Some(match backend_id {
         "dicom_rs_deflated_dataset_writer" => "encoding.dicom_rs.deflated_dataset",
+        "dicom_rs_deflated_image_frame_writer" => "encoding.dicom_rs.deflated_image_frame",
         "dicom_rs_jpeg_baseline_writer" => "encoding.dicom_rs.jpeg_baseline",
         "dicom_rs_charls_jpeg_ls_lossless_writer" => "encoding.dicom_rs.jpeg_ls_lossless",
         "project_openjp2_jpeg2000_lossless_writer" => "encoding.openjp2.jpeg2000_lossless",

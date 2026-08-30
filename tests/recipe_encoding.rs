@@ -101,6 +101,7 @@ fn catalog_concrete_sc_and_metadata_policies_all_convert_and_legacy_bridges_do_n
     .unwrap();
     let mut converted = 0_usize;
     let mut rejected_provider = 0_usize;
+    let mut provider_parameterized = 0_usize;
     for recipe in catalog.recipes().values() {
         let Some(dicom) = &recipe.dicom else {
             continue;
@@ -119,7 +120,13 @@ fn catalog_concrete_sc_and_metadata_policies_all_convert_and_legacy_bridges_do_n
                 .flatten()
                 .any(|value| value == "provider");
             let result = encoding_plan_from_recipe(&artifact.encoding, implementation());
-            if unresolved {
+            if artifact.encoding.fragmentation_policy == "bounded_fragments" {
+                assert!(matches!(
+                    result,
+                    Err(RecipeEncodingError::MissingFragmentMaximum)
+                ));
+                provider_parameterized += 1;
+            } else if unresolved {
                 assert!(matches!(
                     result,
                     Err(RecipeEncodingError::UnresolvedProviderPolicy(_))
@@ -143,6 +150,10 @@ fn catalog_concrete_sc_and_metadata_policies_all_convert_and_legacy_bridges_do_n
     assert!(
         rejected_provider > 0,
         "the catalog must retain explicit future provider bridges"
+    );
+    assert!(
+        provider_parameterized > 0,
+        "bounded fragmentation must remain parameterized by its typed provider"
     );
 }
 

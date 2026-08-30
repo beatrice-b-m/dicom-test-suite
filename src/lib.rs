@@ -1131,11 +1131,16 @@ fn validate_stress_profile_qualifications(
         })
         .collect::<Vec<_>>();
 
-    if run_profile != "stress" {
+    let include_stress = manifest
+        .pointer("/run/include_stress")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let stress_selected = run_profile == "stress" || (run_profile == "all" && include_stress);
+    if !stress_selected {
         if !stress_qualifications.is_empty() {
             return Err(ValidateError::ManifestShape {
                 path: manifest_path.to_path_buf(),
-                message: "stress qualifications must be isolated to the stress profile",
+                message: "stress qualifications require the stress profile or all --include-stress",
             });
         }
         return Ok(());
@@ -39240,6 +39245,24 @@ mod tests {
             std::slice::from_ref(&file),
         )
         .expect("exact reduced stress evidence should pass");
+
+        let mut combined = manifest.clone();
+        combined["run"] = serde_json::json!({"profile": "all", "include_stress": true});
+        validate_stress_profile_qualifications(
+            Path::new("manifest.json"),
+            &combined,
+            std::slice::from_ref(&file),
+        )
+        .expect("all --include-stress must accept exact reduced stress evidence");
+        combined["run"]["include_stress"] = Value::from(false);
+        assert!(
+            validate_stress_profile_qualifications(
+                Path::new("manifest.json"),
+                &combined,
+                std::slice::from_ref(&file),
+            )
+            .is_err()
+        );
 
         let mut forged = manifest.clone();
         forged["qualifications"][0]["actual"]["frames"] = Value::from(255);

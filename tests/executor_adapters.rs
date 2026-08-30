@@ -7,9 +7,9 @@ use dicom_test_suite::corpus_plan::{
     ArtifactProvenance, ArtifactResourceEstimate, CORPUS_PLAN_SCHEMA_VERSION, CorpusPlan,
     EncodingPlan, EvidenceIndependence, EvidenceObligation, EvidencePlan, FileMetaPolicy,
     FragmentationPolicy, ImplementationIdentityPlan, ItemLengthPolicy, OffsetTablePolicy,
-    OutputPlan, OutputRelativePath, PlannedArtifact, PlannedDicomArtifact, PreamblePolicy,
-    PublicationPlan, PublicationTransaction, ResourcePlan, SequenceLengthPolicy, ValidationPlan,
-    ValidationRequirement, ValidationRule,
+    OutputPlan, OutputRelativePath, PlannedArtifact, PlannedDicomArtifact, PlannedQualification,
+    PreamblePolicy, PublicationPlan, PublicationTransaction, QualificationPayloadPolicy,
+    ResourcePlan, SequenceLengthPolicy, ValidationPlan, ValidationRequirement, ValidationRule,
 };
 use dicom_test_suite::executor::adapters::{
     ArtifactServiceOutputs, CodecExecutionRecord, ProviderExecutionRecord, PublicationTransition,
@@ -427,4 +427,132 @@ fn publication_transitions_are_plan_bound_and_deterministic() {
     assert!(promoted.cleanup_complete);
     assert_eq!(promoted.manifest_sha256.as_deref(), Some(hash.as_str()));
     assert_eq!(promoted.manifest_relative_path, "manifest.json");
+}
+
+#[test]
+fn adapter_retains_outputless_qualification_materialization_evidence_only() {
+    let validation = ValidationPlan {
+        rules: vec![ValidationRule {
+            rule_id: "validation.qualification".into(),
+            requirement: ValidationRequirement::Required,
+            parameters: BTreeMap::new(),
+        }],
+    };
+    let plan = CorpusPlan {
+        schema_version: CORPUS_PLAN_SCHEMA_VERSION.into(),
+        seed: 1,
+        artifacts: vec![PlannedArtifact::Qualification(PlannedQualification {
+            logical_id: "qualification".into(),
+            order: 0,
+            provenance: ArtifactProvenance::Requested,
+            case_binding: None,
+            profile: Some("fuzz".into()),
+            run_seed: Some(1),
+            qualification_kind: "bounded_deterministic_fuzz".into(),
+            parameters: BTreeMap::new(),
+            sources: Vec::new(),
+            payload_policy: QualificationPayloadPolicy::NoPayload,
+            validation: validation.clone(),
+            evidence: EvidencePlan {
+                obligations: Vec::new(),
+            },
+            resources: ArtifactResourceEstimate {
+                output_bytes: 0,
+                peak_working_bytes: 1,
+            },
+        })],
+        dependencies: Vec::new(),
+        unavailable: Vec::new(),
+        publication: PublicationPlan {
+            manifest_path: OutputRelativePath::new("manifest.json").unwrap(),
+            transaction: PublicationTransaction::AtomicNoReplace,
+            private_staging: true,
+            no_overwrite: true,
+        },
+        resources: ResourcePlan {
+            max_artifacts: 1,
+            max_total_output_bytes: 1,
+            max_peak_working_bytes: 1,
+            max_parallelism: 1,
+        },
+    };
+    let materialization = MaterializationResult {
+        artifact_id: "qualification".into(),
+        output: None,
+        backend: tool("bounded-fuzz", None),
+        evidence: vec![ServiceEvidence {
+            evidence_id: "qualification_record".into(),
+            evidence_kind: "bounded_deterministic_fuzz".into(),
+            producer: tool("bounded-fuzz", None),
+            claims: BTreeMap::from([("candidate_count".into(), serde_json::json!(7))]),
+        }],
+    };
+    let outputs = ArtifactServiceOutputs {
+        status: ExecutionStatus::Succeeded,
+        materialization: Some(materialization.clone()),
+        validation: Some(ServiceValidationResult {
+            artifact_id: "qualification".into(),
+            validator: tool("qualification-validator", None),
+            rules: vec![RuleExecutionResult {
+                rule_id: "validation.qualification".into(),
+                status: ValidationStatus::Passed,
+                message: "qualification passed".into(),
+                measurements: BTreeMap::new(),
+            }],
+            evidence: Vec::new(),
+        }),
+        obligations: Vec::new(),
+        providers: Vec::new(),
+        codecs: Vec::new(),
+        elapsed_milliseconds: 1,
+    };
+    let outcome = |materialization| ScheduleOutcome {
+        artifacts: vec![ScheduledArtifact {
+            logical_id: "qualification".into(),
+            order: 0,
+            value: ArtifactServiceOutputs {
+                materialization: Some(materialization),
+                ..outputs.clone()
+            },
+            resources: ActualResourceUsage {
+                output_bytes: 0,
+                peak_working_bytes: 1,
+            },
+        }],
+        planned: ResourceAccounting {
+            artifact_count: 1,
+            total_output_bytes: 0,
+            peak_working_bytes: 1,
+        },
+        actual: ResourceAccounting {
+            artifact_count: 1,
+            total_output_bytes: 0,
+            peak_working_bytes: 1,
+        },
+    };
+    let input = RunEvidenceAdapterInput {
+        requested_parallelism: 1,
+        used_parallelism: 1,
+        manifest_size_bytes: 0,
+        publication: PublicationTransition::staging(),
+    };
+    let evidence =
+        assemble_run_evidence(&plan, outcome(materialization.clone()), input.clone()).unwrap();
+    assert!(evidence.artifacts[0].output.is_none());
+    assert_eq!(
+        evidence.artifacts[0]
+            .materialization
+            .as_ref()
+            .unwrap()
+            .service_evidence[0]
+            .evidence_id,
+        "qualification_record"
+    );
+
+    let mut with_payload = materialization;
+    with_payload.output = Some(asset("unexpected", "unexpected.bin", b"payload"));
+    let error = assemble_run_evidence(&plan, outcome(with_payload), input).unwrap_err();
+    assert!(
+        matches!(error, dicom_test_suite::executor::adapters::AdapterError::UnexpectedMaterializedOutput(id) if id == "qualification")
+    );
 }

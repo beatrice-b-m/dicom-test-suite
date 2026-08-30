@@ -394,6 +394,25 @@ fn adapt_artifact(
             })
         }
         (None, None) => None,
+        (Some(result), None)
+            if matches!(
+                planned,
+                PlannedArtifact::Qualification(value)
+                    if value.resources.output_bytes == 0
+                        && matches!(
+                            value.payload_policy,
+                            crate::corpus_plan::QualificationPayloadPolicy::NoPayload
+                                | crate::corpus_plan::QualificationPayloadPolicy::EvidenceOnly
+                        )
+            ) && result.output.is_none() =>
+        {
+            if result.artifact_id != planned.logical_id() {
+                return Err(AdapterError::ArtifactIdentityMismatch(
+                    planned.logical_id().to_owned(),
+                ));
+            }
+            None
+        }
         (Some(_), None) => {
             return Err(AdapterError::UnexpectedMaterializedOutput(
                 planned.logical_id().to_owned(),

@@ -101,10 +101,7 @@
         },
         "artifact_logical_id": "segmentation",
         "role": "source_segmentation",
-        "referenced_frames": [
-          1,
-          2
-        ]
+        "referenced_frames": []
       }
     ]
   },

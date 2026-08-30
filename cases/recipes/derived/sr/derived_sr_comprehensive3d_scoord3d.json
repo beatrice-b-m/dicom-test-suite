@@ -75,7 +75,8 @@
         "artifact_logical_id": "advanced_enhanced_ct_multiframe_shared_perframe_artifact_1",
         "role": "source_image",
         "referenced_frames": [
-          1
+          1,
+          2
         ]
       }
     ]

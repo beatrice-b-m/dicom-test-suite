@@ -29,7 +29,7 @@ use crate::generation_backends::{
     generate_wsi_tile_segmentation_cancellable,
 };
 use crate::recipes::{ExternalImportBoundary, ExternalImportKind, SrDocumentKind, SrPlanInput};
-use crate::{DeterministicUidInput, UidRole, deterministic_uid, sha256_hex};
+use crate::sha256_hex;
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -183,6 +183,9 @@ fn invoke_quantitative(
                     generated.backend.backend_id,
                     generated.backend.version,
                     generated.backend.executable_fingerprint,
+                    generated.backend.entrypoint_fingerprint,
+                    generated.backend.environment_fingerprint,
+                    generated.backend.runtime_identity,
                     generated.response,
                 ),
             }
@@ -234,6 +237,9 @@ fn invoke_quantitative(
                     generated.backend.backend_id,
                     generated.backend.version,
                     generated.backend.executable_fingerprint,
+                    generated.backend.entrypoint_fingerprint,
+                    generated.backend.environment_fingerprint,
+                    generated.backend.runtime_identity,
                     generated.response,
                 ),
             }
@@ -262,17 +268,11 @@ fn invoke_sr(
     let request_root = prepare_request_root(private_staging_root, &request.request_id)?;
     let standards = standards(standards_lock_path, planned_standards_lock_sha256)?;
     let context = &parameters.input.context;
-    let derived_uid = |index| {
-        deterministic_uid(&DeterministicUidInput {
-            standards_lock_sha256: planned_standards_lock_sha256,
-            case_id: &context.case_id,
-            recipe_version: &context.recipe.recipe_version,
-            run_seed: parameters.seed,
-            file_index: 0,
-            frame_index: None,
-            referenced_object_index: Some(index),
-            role: UidRole::DerivedReference,
-        })
+    let planned_derived_uid = |name: &str| {
+        identity(
+            &context.identities,
+            CompositionUidRole::TemplateDefined(name.into()),
+        )
     };
     match &parameters.input.parameters.document {
         SrDocumentKind::Tid1500 { numeric_value, .. } => {
@@ -300,8 +300,8 @@ fn invoke_sr(
                         &context.identities,
                         CompositionUidRole::SopInstance,
                     )?,
-                    tracking_uid: derived_uid(0),
-                    observer_uid: derived_uid(1),
+                    tracking_uid: planned_derived_uid("tracking_uid")?,
+                    observer_uid: planned_derived_uid("observer_uid")?,
                 },
                 sources,
             };
@@ -329,6 +329,9 @@ fn invoke_sr(
                     generated.backend.backend_id,
                     generated.backend.version,
                     generated.backend.executable_fingerprint,
+                    generated.backend.entrypoint_fingerprint,
+                    generated.backend.environment_fingerprint,
+                    generated.backend.runtime_identity,
                     generated.response,
                 ),
             }
@@ -356,9 +359,9 @@ fn invoke_sr(
                         &context.identities,
                         CompositionUidRole::SopInstance,
                     )?,
-                    tracking_uid: derived_uid(0),
-                    observer_uid: derived_uid(1),
-                    fiducial_uid: derived_uid(2),
+                    tracking_uid: planned_derived_uid("tracking_uid")?,
+                    observer_uid: planned_derived_uid("observer_uid")?,
+                    fiducial_uid: planned_derived_uid("fiducial_uid")?,
                 },
                 sources,
             };
@@ -381,6 +384,9 @@ fn invoke_sr(
                     generated.backend.backend_id,
                     generated.backend.version,
                     generated.backend.executable_fingerprint,
+                    generated.backend.entrypoint_fingerprint,
+                    generated.backend.environment_fingerprint,
+                    generated.backend.runtime_identity,
                     generated.response,
                 ),
             }
@@ -567,6 +573,9 @@ fn provider_result(
     backend_id: String,
     runtime_version: String,
     executable_sha256: String,
+    entrypoint_sha256: String,
+    environment_sha256: String,
+    runtime_identity: Value,
     response: Value,
 ) -> Result<ProviderResult, ServiceInvocationError> {
     let expectation = request
@@ -612,6 +621,9 @@ fn provider_result(
                 ("network_policy".into(), json!("disabled")),
                 ("resource_outcome".into(), json!("within_limits")),
                 ("runtime_version".into(), json!(runtime_version)),
+                ("entrypoint_fingerprint".into(), json!(entrypoint_sha256)),
+                ("environment_fingerprint".into(), json!(environment_sha256)),
+                ("runtime_identity".into(), runtime_identity),
                 ("termination".into(), json!("exit_zero")),
                 ("response".into(), response),
             ]),

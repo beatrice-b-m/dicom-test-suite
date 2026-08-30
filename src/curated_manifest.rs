@@ -1,6 +1,7 @@
 //! Pure compatibility projection for plan-first curated generation.
 
 mod classic;
+mod external;
 mod negative;
 mod qualification;
 mod stress;
@@ -995,6 +996,9 @@ fn project_one(
     pair: &ManifestProjectionArtifact,
     input: &ManifestProjectionCompatibilityInput,
 ) -> Result<Value, CuratedManifestError> {
+    if matches!(pair.planned, PlannedArtifact::ImportedDicom(_)) {
+        return external::project_file_entry(ctx, pair, input);
+    }
     if let PlannedArtifact::Dicom(planned) = &pair.planned {
         if !planned.output.publish {
             return Ok(Value::Null);

@@ -21,6 +21,7 @@ use crate::curated_plan::{
 use crate::executor::cancellation::CancellationToken;
 use crate::executor::engine::{CorpusExecutor, ManifestProjectionError, ManifestProjector};
 use crate::executor::transaction::{OutputTransaction, TransactionError};
+use crate::runtime_capabilities::CapabilityInventory;
 
 use crate::codecs::{
     DEFLATED_IMAGE_FRAME_TRANSFER_SYNTAX_UID, FrameDecodeInput, FrameDecoder,
@@ -614,12 +615,44 @@ fn prepare_curated_plan_for_selection(
     selection: CuratedScSelection,
     seed: u64,
 ) -> Result<Option<CuratedScCorpusPlan>, GenerateError> {
-    let provider = CuratedScCorpusPlanProvider::load(curated_catalog_paths()).map_err(|error| {
-        GenerateError::PlanFirst {
+    let paths = curated_catalog_paths();
+    let repository_root = paths
+        .registry_path
+        .parent()
+        .and_then(Path::parent)
+        .unwrap_or_else(|| Path::new("."));
+    let mut inventory = CapabilityInventory::compiled();
+    let backend_lock =
+        generation_backends::load_backend_lock(repository_root).map_err(|error| {
+            GenerateError::PlanFirst {
+                stage: "external generation backend policy loading",
+                message: error.to_string(),
+            }
+        })?;
+    let backend_policy = generation_backends::backend_policy(&backend_lock, "highdicom_pydicom")
+        .ok_or_else(|| GenerateError::PlanFirst {
+            stage: "external generation backend policy loading",
+            message: "highdicom_pydicom has no committed backend policy".into(),
+        })?;
+    if matches!(
+        generation_backends::discover_prepared_backend(repository_root, backend_policy).map_err(
+            |error| GenerateError::PlanFirst {
+                stage: "external generation backend qualification",
+                message: error.to_string(),
+            }
+        )?,
+        generation_backends::BackendDiscovery::Available(_)
+    ) {
+        inventory
+            .external_providers
+            .insert("highdicom_pydicom".into());
+    }
+    let provider = CuratedScCorpusPlanProvider::load(paths)
+        .map_err(|error| GenerateError::PlanFirst {
             stage: "curated SC catalog loading",
             message: error.to_string(),
-        }
-    })?;
+        })?
+        .with_capability_inventory(inventory);
     provider
         .plan(&CuratedScPlanRequest {
             selection,
@@ -679,12 +712,19 @@ fn execute_curated_sc_plan_output(
     let unavailable_cases = bundle
         .pending
         .iter()
+        .filter(|pending| pending.reason_code == "external_backend_unavailable")
         .map(|pending| {
             serde_json::json!({
                 "case_id": pending.case_id,
                 "status": "unavailable",
                 "reason_code": pending.reason_code,
                 "message": pending.message,
+                "recheck_phase": match pending.case_id.as_str() {
+                    "derived/seg/wsi_tile_reference" => "phase-4",
+                    "derived/sr/tid1500_ct_measurement_report" | "derived/sr/comprehensive3d_scoord3d" => "phase-3",
+                    _ => "phase-1",
+                },
+                "standards_evidence": pending.standards_evidence,
             })
         })
         .collect();

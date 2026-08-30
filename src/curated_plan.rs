@@ -187,6 +187,7 @@ pub struct PendingCuratedCase {
     pub reason_code: String,
     pub message: String,
     pub artifact_ids: Vec<String>,
+    pub standards_evidence: Vec<Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -2578,6 +2579,40 @@ fn semantic_context(
             }),
         ));
     }
+    if recipe.plan_provider_id == HIGH_DICOM_SR_IMPORT_PROVIDER_ID {
+        for (index, name) in [(0, "tracking_uid"), (1, "observer_uid")] {
+            exact.push((
+                CompositionUidRole::TemplateDefined(name.into()),
+                0,
+                deterministic_uid(&DeterministicUidInput {
+                    standards_lock_sha256,
+                    case_id: &recipe.binding.case_id,
+                    recipe_version: &recipe.recipe_version,
+                    run_seed: seed,
+                    file_index: 0,
+                    frame_index: None,
+                    referenced_object_index: Some(index),
+                    role: UidRole::DerivedReference,
+                }),
+            ));
+        }
+        if recipe.binding.case_id.ends_with("comprehensive3d_scoord3d") {
+            exact.push((
+                CompositionUidRole::TemplateDefined("fiducial_uid".into()),
+                0,
+                deterministic_uid(&DeterministicUidInput {
+                    standards_lock_sha256,
+                    case_id: &recipe.binding.case_id,
+                    recipe_version: &recipe.recipe_version,
+                    run_seed: seed,
+                    file_index: 0,
+                    frame_index: None,
+                    referenced_object_index: Some(2),
+                    role: UidRole::DerivedReference,
+                }),
+            ));
+        }
+    }
     let template = artifact
         .template
         .as_ref()
@@ -3497,13 +3532,7 @@ fn external_sr_artifact(
             template_version: template.template_version.parse().map_err(|_| {
                 CuratedPlanError::InvalidTemplateVersion(template.template_version.clone())
             })?,
-            sop_class_uid: recipe
-                .binding
-                .case_id
-                .contains("tid1500")
-                .then_some("1.2.840.10008.5.1.4.1.1.88.34")
-                .unwrap_or("1.2.840.10008.5.1.4.1.1.88.33")
-                .into(),
+            sop_class_uid: "1.2.840.10008.5.1.4.1.1.88.34".into(),
             transfer_syntax_uid: input.context.encoding.transfer_syntax_uid.clone(),
             identities: input.context.identities.clone(),
             attributes: vec![],
@@ -4784,6 +4813,7 @@ fn record_unavailable_case(
         reason_code: reason_code.into(),
         message,
         artifact_ids,
+        standards_evidence: registry_case.standards_evidence.clone(),
     });
 }
 
@@ -4848,6 +4878,7 @@ fn record_runtime_unavailable_case(
             registry_case.requirements.summary()
         ),
         artifact_ids,
+        standards_evidence: registry_case.standards_evidence.clone(),
     });
 }
 

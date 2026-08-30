@@ -197,8 +197,44 @@ impl MaterializationDispatcher {
         }
         let path = self.output_path(artifact.output.relative_path.as_str())?;
         write_new(&path, &bytes)?;
-        let object = dicom_object::open_file(&path).map_err(|_| {
+        let mut object = dicom_object::open_file(&path).map_err(|_| {
             MaterializationError::ImportedDicomContract(artifact.logical_id.clone())
+        })?;
+        let implementation_class_uid = artifact
+            .declared_instance
+            .identities
+            .get(
+                &crate::composition::CompositionUidRole::ImplementationClass,
+                0,
+            )
+            .ok_or_else(|| {
+                MaterializationError::ImportedDicomContract(artifact.logical_id.clone())
+            })?
+            .to_owned();
+        let encoded_text_len = |value: &str| value.len() + value.len() % 2;
+        let old_version_len = object
+            .meta()
+            .implementation_version_name
+            .as_deref()
+            .map(encoded_text_len)
+            .unwrap_or(0);
+        let new_version_len = encoded_text_len(crate::IMPLEMENTATION_VERSION_NAME);
+        let old_implementation_len = encoded_text_len(object.meta().implementation_class_uid());
+        let new_implementation_len = encoded_text_len(&implementation_class_uid);
+        let meta = object.meta_mut();
+        meta.information_group_length = meta
+            .information_group_length
+            .saturating_sub(u32::try_from(old_version_len).unwrap_or(u32::MAX))
+            .saturating_add(u32::try_from(new_version_len).unwrap_or(u32::MAX))
+            .saturating_sub(u32::try_from(old_implementation_len).unwrap_or(u32::MAX))
+            .saturating_add(u32::try_from(new_implementation_len).unwrap_or(u32::MAX));
+        meta.implementation_class_uid = implementation_class_uid;
+        meta.implementation_version_name = Some(crate::IMPLEMENTATION_VERSION_NAME.into());
+        object.write_to_file(&path).map_err(|error| {
+            MaterializationError::ImportedDicomContract(format!(
+                "{}: normalize shared file meta: {error}",
+                artifact.logical_id
+            ))
         })?;
         let expected_sop_class = Some(artifact.declared_instance.sop_class_uid.as_str());
         let expected_sop_instance = artifact
@@ -219,9 +255,12 @@ impl MaterializationDispatcher {
             || expected_sop_class != actual_sop_class.as_deref()
             || expected_sop_instance != actual_sop_instance.as_deref()
         {
-            return Err(MaterializationError::ImportedDicomIdentity(
-                artifact.logical_id.clone(),
-            ));
+            return Err(MaterializationError::ImportedDicomIdentity(format!(
+                "{}: transfer syntax actual={} expected={}; SOP Class actual={actual_sop_class:?} expected={expected_sop_class:?}; SOP Instance actual={actual_sop_instance:?} expected={expected_sop_instance:?}",
+                artifact.logical_id,
+                object.meta().transfer_syntax(),
+                artifact.provider.transfer_syntax_uid,
+            )));
         }
         let observation = imported_dicom_observation(artifact, &object)?;
         let output = self.produced_file(
@@ -1337,6 +1376,18 @@ fn imported_dicom_observation(
             .ok()
             .map(|value| value.trim_matches([' ', '\0']).to_owned())
     }
+    fn recursive_string(object: &dicom_object::InMemDicomObject, name: &str) -> Option<String> {
+        if let Ok(element) = object.element_by_name(name) {
+            if let Ok(value) = element.to_str() {
+                return Some(value.trim_matches([' ', '\0']).to_owned());
+            }
+        }
+        object.iter().find_map(|element| {
+            element
+                .items()
+                .and_then(|items| items.iter().find_map(|item| recursive_string(item, name)))
+        })
+    }
     fn integer(object: &dicom_object::DefaultDicomObject, name: &str) -> Option<u32> {
         object.element_by_name(name).ok()?.to_int::<u32>().ok()
     }
@@ -1417,9 +1468,17 @@ fn imported_dicom_observation(
             MaterializationError::ImportedDicomIdentity(artifact.logical_id.clone())
         })?,
         transfer_syntax_uid: object.meta().transfer_syntax().to_owned(),
+        implementation_class_uid: object.meta().implementation_class_uid().to_owned(),
+        implementation_version_name: object
+            .meta()
+            .implementation_version_name
+            .as_deref()
+            .map(str::trim)
+            .map(str::to_owned),
         study_instance_uid: string(object, "StudyInstanceUID"),
         series_instance_uid: string(object, "SeriesInstanceUID"),
-        frame_of_reference_uid: string(object, "FrameOfReferenceUID"),
+        frame_of_reference_uid: string(object, "FrameOfReferenceUID")
+            .or_else(|| recursive_string(object, "ReferencedFrameOfReferenceUID")),
         rows,
         columns,
         frames,
@@ -1440,11 +1499,15 @@ fn imported_dicom_observation(
             observation.frame_of_reference_uid.as_deref(),
         ),
     ] {
-        if let Some(expected) = artifact.declared_instance.identities.get(&role, 0) {
-            if Some(expected) != actual {
-                return Err(MaterializationError::ImportedDicomIdentity(
-                    artifact.logical_id.clone(),
-                ));
+        if let (Some(expected), Some(actual)) =
+            (artifact.declared_instance.identities.get(&role, 0), actual)
+        {
+            if expected != actual {
+                return Err(MaterializationError::ImportedDicomIdentity(format!(
+                    "{}: planned {} actual={actual} expected={expected}",
+                    artifact.logical_id,
+                    role.as_str()
+                )));
             }
         }
     }

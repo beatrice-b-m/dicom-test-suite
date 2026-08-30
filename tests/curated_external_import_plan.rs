@@ -3,6 +3,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use dicom_test_suite::corpus_plan::PlannedArtifact;
 use dicom_test_suite::curated_execution::CuratedExecutionServiceFactory;
+use dicom_test_suite::curated_manifest::project_curated_file_entries;
 use dicom_test_suite::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
 };
@@ -226,4 +227,39 @@ fn prepared_external_provider_executes_through_private_staging() {
             .is_file()
     );
     assert_eq!(result.evidence.artifacts.len(), bundle.plan.artifacts.len());
+}
+
+#[test]
+fn all_prepared_external_imports_project_from_executor_evidence() {
+    if !std::path::Path::new("generation-backends/highdicom-pydicom/.venv/bin/python").is_file() {
+        return;
+    }
+    let bundle = provider(true).plan(&request()).unwrap();
+    let staging = TempRoot::new("projection", true);
+    let staged = CorpusExecutor::new(CuratedExecutionServiceFactory::new(&bundle), Projector)
+        .execute_into_staging(&bundle.plan, &staging.0, 4, &CancellationToken::new())
+        .unwrap();
+    let files = project_curated_file_entries(&bundle.projection, &staged.projection).unwrap();
+    let projected = files
+        .iter()
+        .filter(|file| {
+            file["case_id"]
+                .as_str()
+                .is_some_and(|case| EXTERNAL_CASES.contains(&case))
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(projected.len(), EXTERNAL_CASES.len());
+    for file in projected {
+        assert_eq!(
+            file.pointer("/generation_backend/backend_id")
+                .and_then(serde_json::Value::as_str),
+            Some("highdicom_pydicom")
+        );
+        assert_eq!(
+            file.pointer("/validation/status")
+                .and_then(serde_json::Value::as_str),
+            Some("passed")
+        );
+        assert!(staging.0.join(file["path"].as_str().unwrap()).is_file());
+    }
 }

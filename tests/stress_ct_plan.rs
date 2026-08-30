@@ -121,3 +121,26 @@ fn stress_ct_planning_is_filesystem_free_and_rejects_corruption() {
         Err(StressCtPlanError::Contract(_))
     ));
 }
+
+#[test]
+fn stress_ct_registry_preserves_frozen_public_standards_evidence() {
+    let registry: Value =
+        serde_json::from_slice(&fs::read("cases/registry.json").unwrap()).unwrap();
+    let case = registry["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| case["case_id"] == "stress/study/high_instance_count_ct")
+        .unwrap();
+    let baseline: Value = serde_json::from_slice(
+        &fs::read("/tmp/dts-unified-baseline-20260829-52e1d20/stress/manifest.json").unwrap(),
+    )
+    .unwrap();
+    let file = baseline["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|file| file["case_id"] == case["case_id"])
+        .unwrap();
+    assert_eq!(case["standards_evidence"], file["standards_evidence"]);
+}

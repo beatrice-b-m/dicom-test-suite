@@ -14240,6 +14240,78 @@
           "covered": true,
           "part": "PS3.6",
           "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod CT Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.3-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod CT Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.3-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module CT Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-3"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Image Plane",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7-10"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Frame of Reference",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7-6"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "resolve_attribute_context RescaleIntercept --iod CT Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-3"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "resolve_attribute_context RescaleSlope --iod CT Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-3"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "resolve_attribute_context WindowCenter --iod CT Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.11-2b"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "resolve_attribute_context WindowWidth --iod CT Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.11-2b"
         }
       ]
     },

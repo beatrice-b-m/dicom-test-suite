@@ -9,7 +9,9 @@ use dicom_test_suite::corpus_plan::{
     OffsetTablePolicy, OutputPlan, OutputRelativePath, PlannedDicomArtifact, PreamblePolicy,
     SequenceLengthPolicy, ValidationPlan,
 };
-use dicom_test_suite::executor::services::ArtifactExecutionBindings;
+use dicom_test_suite::executor::services::{
+    ArtifactExecutionBindings, ByteBinding, SlotExecutionBinding,
+};
 use dicom_test_suite::recipes::{
     ExternalDependencyContract, ExternalImportBoundary, ExternalImportKind,
     ExternalSemanticEvidence, QUANTITATIVE_EXTERNAL_PROVIDER_ID, QUANTITATIVE_NATIVE_PROVIDER_ID,
@@ -203,6 +205,50 @@ fn native_seg_rejects_bad_source_role_and_resource_bounds() {
         unreachable!()
     };
     segmentation.frames = 257;
+    assert!(
+        QuantitativePlanProvider
+            .plan(&input, QuantitativeProviderLimits::default())
+            .is_err()
+    );
+}
+
+#[test]
+fn deflated_binary_seg_provides_bounded_per_frame_codec_bindings() {
+    let mut input = binary_input();
+    let QuantitativePlanInput::NativeSeg { segmentation, .. } = &mut input else {
+        unreachable!()
+    };
+    segmentation.transfer_syntax_uid = "1.2.840.10008.1.2.8.1".into();
+    let QuantitativePlanOutput::Native { bindings, .. } = QuantitativePlanProvider
+        .plan(&input, QuantitativeProviderLimits::default())
+        .unwrap()
+    else {
+        panic!("expected native output")
+    };
+    let SlotExecutionBinding::CodecRequest { request } = &bindings.slots["pixels"] else {
+        panic!("Deflated Image Frame must be an explicit codec request")
+    };
+    assert_eq!(request.backend_id, "dicom_rs_deflated_image_frame_writer");
+    assert_eq!(request.frames.len(), 2);
+    let payloads = request
+        .frames
+        .iter()
+        .map(|frame| match &frame.bytes {
+            ByteBinding::Inline { bytes, .. } => bytes.clone(),
+            _ => panic!("provider-owned frame payload must be inline"),
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(payloads, [vec![0b0000_1001], vec![0b0000_0110]]);
+}
+
+#[test]
+fn deflated_binary_seg_rejects_frame_geometry_drift_before_binding() {
+    let mut input = binary_input();
+    let QuantitativePlanInput::NativeSeg { segmentation, .. } = &mut input else {
+        unreachable!()
+    };
+    segmentation.transfer_syntax_uid = "1.2.840.10008.1.2.8.1".into();
+    segmentation.stored_values.pop();
     assert!(
         QuantitativePlanProvider
             .plan(&input, QuantitativeProviderLimits::default())

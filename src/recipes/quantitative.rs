@@ -11,6 +11,7 @@ use std::str::FromStr;
 use dicom_core::Tag;
 use dicom_dictionary_std::tags;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::composition::{
     AttributeAddress, AttributeItem, AttributeOperation, AttributeValue, CanonicalContent,
@@ -25,7 +26,7 @@ use crate::corpus_plan::{
     SequenceLengthPolicy, ValidationPlan, ValidationRequirement, ValidationRule,
 };
 use crate::executor::services::{
-    ArtifactExecutionBindings, ByteBinding, NativeFrameBinding, SlotExecutionBinding,
+    ArtifactExecutionBindings, ByteBinding, CodecRequest, NativeFrameBinding, SlotExecutionBinding,
 };
 use crate::planning::RecipeIdentity;
 
@@ -599,7 +600,7 @@ fn plan_seg(
             set_u16(Tag(0x0062, 0x000E), 255),
         ]);
     }
-    finish_native(
+    let mut output = finish_native(
         recipe,
         case_id,
         context,
@@ -617,7 +618,78 @@ fn plan_seg(
         vec![reference],
         sources,
         limits,
-    )
+    )?;
+    if input.transfer_syntax_uid == DEFLATED_IMAGE_FRAME {
+        bind_deflated_segmentation_frames(&mut output, input)?;
+    }
+    Ok(output)
+}
+
+fn bind_deflated_segmentation_frames(
+    output: &mut QuantitativePlanOutput,
+    input: &SegmentationInput,
+) -> Result<(), QuantitativePlanError> {
+    if input.kind != SegmentationKind::Binary {
+        return Err(QuantitativePlanError::InvalidEncoding);
+    }
+    let values_per_frame = usize::from(input.rows)
+        .checked_mul(usize::from(input.columns))
+        .ok_or(QuantitativePlanError::ResourceOverflow)?;
+    let expected_values = values_per_frame
+        .checked_mul(usize::from(input.frames))
+        .ok_or(QuantitativePlanError::ResourceOverflow)?;
+    if values_per_frame == 0 || input.stored_values.len() != expected_values {
+        return Err(QuantitativePlanError::InvalidSegmentation);
+    }
+    let frames = input
+        .stored_values
+        .chunks_exact(values_per_frame)
+        .enumerate()
+        .map(|(index, values)| {
+            let mut bytes = vec![0_u8; values.len().div_ceil(8)];
+            for (value_index, value) in values.iter().enumerate() {
+                if *value > 1 {
+                    return Err(QuantitativePlanError::InvalidSegmentation);
+                }
+                bytes[value_index / 8] |= *value << (value_index % 8);
+            }
+            Ok(NativeFrameBinding {
+                frame_number: u32::try_from(index + 1)
+                    .map_err(|_| QuantitativePlanError::ResourceOverflow)?,
+                bytes: ByteBinding::Inline {
+                    sha256: crate::sha256_hex(&bytes),
+                    bytes,
+                },
+                rows: u32::from(input.rows),
+                columns: u32::from(input.columns),
+                samples_per_pixel: 1,
+                bits_allocated: 1,
+                photometric_interpretation: "MONOCHROME2".into(),
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let QuantitativePlanOutput::Native {
+        artifact, bindings, ..
+    } = output
+    else {
+        return Err(QuantitativePlanError::InvalidEncoding);
+    };
+    bindings.slots.insert(
+        "pixels".into(),
+        SlotExecutionBinding::CodecRequest {
+            request: CodecRequest {
+                request_id: format!("{}.codec", artifact.logical_id),
+                artifact_id: artifact.logical_id.clone(),
+                slot: "pixels".into(),
+                backend_id: "dicom_rs_deflated_image_frame_writer".into(),
+                source_transfer_syntax_uid: EXPLICIT_VR_LE.into(),
+                target_transfer_syntax_uid: DEFLATED_IMAGE_FRAME.into(),
+                frames,
+                parameters: BTreeMap::from([("bits_stored".into(), Value::from(1))]),
+            },
+        },
+    );
+    Ok(())
 }
 
 fn plan_rwvm(

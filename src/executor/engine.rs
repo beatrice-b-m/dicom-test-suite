@@ -521,14 +521,13 @@ fn evidence_for(
     manifest_size_bytes: u64,
     publication: PublicationTransition,
 ) -> Result<RunEvidence, CorpusExecutorError> {
+    let used_parallelism = outcome.maximum_parallelism;
     assemble_run_evidence(
         plan,
         outcome,
         RunEvidenceAdapterInput {
             requested_parallelism,
-            used_parallelism: requested_parallelism
-                .min(plan.resources.max_parallelism)
-                .min(plan.artifacts.len() as u32),
+            used_parallelism,
             manifest_size_bytes,
             publication,
         },

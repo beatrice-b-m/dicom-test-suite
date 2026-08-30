@@ -56,6 +56,7 @@ pub struct ScheduleOutcome<T> {
     pub artifacts: Vec<ScheduledArtifact<T>>,
     pub planned: ResourceAccounting,
     pub actual: ResourceAccounting,
+    pub maximum_parallelism: u32,
 }
 
 #[derive(Debug)]
@@ -192,10 +193,13 @@ where
     };
     let mut first_error = None;
     let mut halted = false;
+    let mut maximum_active = 0_usize;
 
     std::thread::scope(|scope| {
         let (sender, receiver) = mpsc::channel();
         let mut active = 0_usize;
+        let mut active_working_bytes = 0_u64;
+        let mut peak_active_working_bytes = 0_u64;
         loop {
             if cancellation.is_cancelled() {
                 halted = true;
@@ -204,10 +208,26 @@ where
                 }
             }
             while !halted && active < worker_limit {
-                let Some((_, logical_id)) = ready.pop_first() else {
+                let Some((_, logical_id)) = ready.first().cloned() else {
                     break;
                 };
                 let artifact = by_id[&logical_id];
+                let reserved_working_bytes = artifact.resource_estimate().peak_working_bytes;
+                let Some(next_active_working_bytes) =
+                    active_working_bytes.checked_add(reserved_working_bytes)
+                else {
+                    halted = true;
+                    first_error.get_or_insert(SchedulerError::ResourceOverflow {
+                        phase: "parallel admission",
+                    });
+                    break;
+                };
+                if next_active_working_bytes > plan.resources.max_peak_working_bytes {
+                    break;
+                }
+                ready.pop_first();
+                active_working_bytes = next_active_working_bytes;
+                peak_active_working_bytes = peak_active_working_bytes.max(active_working_bytes);
                 let sender = sender.clone();
                 scope.spawn(move || {
                     let completion = match catch_unwind(AssertUnwindSafe(|| {
@@ -219,12 +239,16 @@ where
                     let _ = sender.send((logical_id, completion));
                 });
                 active += 1;
+                maximum_active = maximum_active.max(active);
             }
             if active == 0 {
                 break;
             }
             let (logical_id, completion) = receiver.recv().expect("active worker owns sender");
             active -= 1;
+            active_working_bytes = active_working_bytes
+                .checked_sub(by_id[&logical_id].resource_estimate().peak_working_bytes)
+                .expect("active worker owns its working-byte reservation");
             match completion {
                 Completion::Completed(Ok(output)) => {
                     let next_count = actual.artifact_count.checked_add(1);
@@ -236,9 +260,7 @@ where
                             actual = ResourceAccounting {
                                 artifact_count,
                                 total_output_bytes,
-                                peak_working_bytes: actual
-                                    .peak_working_bytes
-                                    .max(output.resources.peak_working_bytes),
+                                peak_working_bytes: peak_active_working_bytes,
                             };
                             if let Err(error) = check_limits("actual", actual, &plan.resources) {
                                 halted = true;
@@ -293,6 +315,11 @@ where
         artifacts: results,
         planned,
         actual,
+        maximum_parallelism: u32::try_from(maximum_active).map_err(|_| {
+            SchedulerError::ResourceOverflow {
+                phase: "parallelism",
+            }
+        })?,
     })
 }
 
@@ -352,6 +379,15 @@ mod tests {
     };
 
     fn artifact(id: &str, order: u64, output_bytes: u64) -> PlannedArtifact {
+        artifact_with_peak(id, order, output_bytes, 4)
+    }
+
+    fn artifact_with_peak(
+        id: &str,
+        order: u64,
+        output_bytes: u64,
+        peak_working_bytes: u64,
+    ) -> PlannedArtifact {
         PlannedArtifact::Qualification(PlannedQualification {
             logical_id: id.into(),
             order,
@@ -375,7 +411,7 @@ mod tests {
             },
             resources: ArtifactResourceEstimate {
                 output_bytes,
-                peak_working_bytes: 4,
+                peak_working_bytes,
             },
         })
     }
@@ -498,6 +534,44 @@ mod tests {
         assert!(worker.maximum_active.load(Ordering::SeqCst) <= 2);
         assert_eq!(result.planned.total_output_bytes, 4);
         assert_eq!(result.actual.total_output_bytes, 4);
+    }
+
+    #[test]
+    fn parallel_dispatch_reserves_the_aggregate_working_set() {
+        let corpus = plan(
+            vec![
+                artifact_with_peak("a", 0, 1, 40),
+                artifact_with_peak("b", 1, 1, 40),
+            ],
+            Vec::new(),
+            limits(2),
+        );
+        let mut worker = recording_worker();
+        worker.delays = BTreeMap::from([("a".into(), 20), ("b".into(), 20)]);
+
+        let result = schedule(&corpus, 2, &CancellationToken::new(), &worker).unwrap();
+
+        assert_eq!(worker.maximum_active.load(Ordering::SeqCst), 1);
+        assert_eq!(result.actual.peak_working_bytes, 40);
+    }
+
+    #[test]
+    fn parallel_dispatch_uses_capacity_when_reservations_fit() {
+        let corpus = plan(
+            vec![
+                artifact_with_peak("a", 0, 1, 32),
+                artifact_with_peak("b", 1, 1, 32),
+            ],
+            Vec::new(),
+            limits(2),
+        );
+        let mut worker = recording_worker();
+        worker.delays = BTreeMap::from([("a".into(), 20), ("b".into(), 20)]);
+
+        let result = schedule(&corpus, 2, &CancellationToken::new(), &worker).unwrap();
+
+        assert_eq!(worker.maximum_active.load(Ordering::SeqCst), 2);
+        assert_eq!(result.actual.peak_working_bytes, 64);
     }
 
     #[test]

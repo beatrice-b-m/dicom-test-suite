@@ -121,6 +121,7 @@ fn two_artifact_plan() -> CorpusPlan {
     plan.artifacts.push(PlannedArtifact::Dicom(second.clone()));
     plan.resources.max_artifacts = 2;
     plan.resources.max_total_output_bytes = 2_000;
+    plan.resources.max_peak_working_bytes = 200;
     plan
 }
 

@@ -331,6 +331,7 @@ fn adapter_orders_records_and_preserves_typed_service_evidence() {
             total_output_bytes: (first_bytes.len() + second_bytes.len()) as u64,
             peak_working_bytes: 20,
         },
+        maximum_parallelism: 2,
     };
     let evidence = assemble_run_evidence(
         &plan,
@@ -550,6 +551,7 @@ fn adapter_retains_outputless_qualification_materialization_evidence_only() {
             total_output_bytes: 0,
             peak_working_bytes: 1,
         },
+        maximum_parallelism: 1,
     };
     let input = RunEvidenceAdapterInput {
         requested_parallelism: 1,

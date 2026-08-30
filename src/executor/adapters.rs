@@ -182,6 +182,9 @@ pub fn assemble_run_evidence(
     input: RunEvidenceAdapterInput,
 ) -> Result<RunEvidence, AdapterError> {
     plan.validate().map_err(AdapterError::InvalidPlan)?;
+    if input.used_parallelism != outcome.maximum_parallelism {
+        return Err(AdapterError::SchedulerPlanMismatch);
+    }
     let plan_sha256 = plan.canonical_sha256().map_err(AdapterError::InvalidPlan)?;
     let mut scheduled = outcome
         .artifacts

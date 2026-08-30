@@ -3182,12 +3182,12 @@ fn htj2k_lossless_backend_decision_selects_openjph_external_command() {
     assert!(
         evidence.iter().any(|item| {
             item.get("source").and_then(Value::as_str) == Some("local-verification")
-                && item.get("path").and_then(Value::as_str) == Some("src/generator.rs")
+                && item.get("path").and_then(Value::as_str) == Some("src/executor/frame_codec.rs")
                 && item
                     .get("finding")
                     .and_then(Value::as_str)
                     .is_some_and(|finding| {
-                        finding.contains("executable SHA-256 runtime identity")
+                        finding.contains("OpenJPH runtime identity evidence")
                             && finding.contains("exact decoded native frame hashes")
                     })
         }),

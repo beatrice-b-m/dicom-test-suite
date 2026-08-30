@@ -99,9 +99,16 @@ fn typed_stress_projection_matches_frozen_file_values_and_resources() {
         .map(|file| (file["path"].as_str().unwrap().to_owned(), file.clone()))
         .collect::<BTreeMap<_, _>>();
     assert_eq!(projected.len(), expected.len());
+    let plan_sha256 = bundle.plan.canonical_sha256().unwrap();
     for actual in &projected {
         let path = actual["path"].as_str().unwrap();
-        if actual != &expected[path] {
+        assert_eq!(actual["corpus_plan_sha256"], plan_sha256);
+        let mut actual_without_provenance = actual.clone();
+        actual_without_provenance
+            .as_object_mut()
+            .unwrap()
+            .remove("corpus_plan_sha256");
+        if actual_without_provenance != expected[path] {
             let expected_names = expected[path]["validation"]["internal"]
                 .as_array()
                 .into_iter()
@@ -116,7 +123,7 @@ fn typed_stress_projection_matches_frozen_file_values_and_resources() {
                 .collect::<std::collections::BTreeSet<_>>();
             panic!(
                 "stress file mismatch at {path}: {}; added={:?}; missing={:?}",
-                first_difference(&expected[path], actual, "$").unwrap(),
+                first_difference(&expected[path], &actual_without_provenance, "$").unwrap(),
                 actual_names.difference(&expected_names).collect::<Vec<_>>(),
                 expected_names.difference(&actual_names).collect::<Vec<_>>()
             );
@@ -230,10 +237,21 @@ fn stress_projection_order_is_parallelism_independent() {
     let (serial_bundle, serial_execution) = execute(&selected, 1);
     let (parallel_bundle, parallel_execution) = execute(&selected, 8);
 
-    let serial =
+    let mut serial =
         project_curated_file_entries(&serial_bundle.projection, &serial_execution).unwrap();
-    let parallel =
+    let mut parallel =
         project_curated_file_entries(&parallel_bundle.projection, &parallel_execution).unwrap();
+    let serial_sha256 = serial_bundle.plan.canonical_sha256().unwrap();
+    let parallel_sha256 = parallel_bundle.plan.canonical_sha256().unwrap();
+    assert_ne!(serial_sha256, parallel_sha256);
+    for entry in &mut serial {
+        assert_eq!(entry["corpus_plan_sha256"], serial_sha256);
+        entry.as_object_mut().unwrap().remove("corpus_plan_sha256");
+    }
+    for entry in &mut parallel {
+        assert_eq!(entry["corpus_plan_sha256"], parallel_sha256);
+        entry.as_object_mut().unwrap().remove("corpus_plan_sha256");
+    }
     assert_eq!(serial, parallel);
 
     let serial_paths = serial

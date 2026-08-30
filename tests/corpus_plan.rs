@@ -313,6 +313,11 @@ fn all_artifact_kinds_and_unavailable_capabilities_are_canonical_data() {
         logical_id: "invalid".into(),
         order: artifact_order("invalid"),
         provenance: ArtifactProvenance::Requested,
+        case_binding: CaseBinding {
+            case_id: "negative/invalid".into(),
+            recipe_id: "negative_invalid".into(),
+            recipe_version: "1.0.0".into(),
+        },
         source_artifact_id: "private-source".into(),
         mutation: MutationPlan {
             contract_version: "1.0.0".into(),

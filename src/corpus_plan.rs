@@ -609,6 +609,7 @@ pub struct PlannedMutationArtifact {
     pub logical_id: String,
     pub order: u64,
     pub provenance: ArtifactProvenance,
+    pub case_binding: CaseBinding,
     pub source_artifact_id: String,
     pub mutation: MutationPlan,
     pub output: OutputPlan,
@@ -619,6 +620,7 @@ pub struct PlannedMutationArtifact {
 
 impl PlannedMutationArtifact {
     fn validate(&self) -> Result<(), CorpusPlanError> {
+        self.case_binding.validate()?;
         validate_identifier("mutation source_artifact_id", &self.source_artifact_id)?;
         self.mutation.validate()?;
         if self.source_artifact_id != self.mutation.source_identity.artifact_id {

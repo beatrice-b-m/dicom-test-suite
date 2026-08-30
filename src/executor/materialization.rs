@@ -2753,6 +2753,11 @@ mod tests {
             logical_id: "mutated".into(),
             order: 1,
             provenance: ArtifactProvenance::Requested,
+            case_binding: CaseBinding {
+                case_id: "negative/mutated".into(),
+                recipe_id: "negative_mutated".into(),
+                recipe_version: "1.0.0".into(),
+            },
             source_artifact_id: "source".into(),
             mutation: MutationPlan {
                 contract_version: crate::mutation::MUTATION_CONTRACT_VERSION.into(),

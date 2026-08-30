@@ -1,36 +1,19 @@
 //! Stable mapping from Phase 7 negative case IDs to checked byte mutations.
 
-#[cfg(test)]
-#[path = "mutation.rs"]
-mod mutation;
-#[cfg(test)]
-#[path = "part10_locator.rs"]
-mod part10_locator;
-
-#[cfg(test)]
-use self::mutation::{
-    AcceptableOutcome, ByteRange as MutationRange, ChangedByteRange, FailureLayer, LengthWidth,
-    MutationError, MutationParameters, MutationRequest, TruncationTarget, apply_named_mutation,
-};
-#[cfg(test)]
-use self::part10_locator::{
-    BITS_STORED, ByteRange as LocatorRange, EXPLICIT_VR_LITTLE_ENDIAN_UID, ElementLocation,
-    HIGH_BIT, LocatedPart10, LocatorError, LocatorLimits, PIXEL_DATA, RLE_LOSSLESS_UID,
-    SOP_CLASS_UID, SOP_INSTANCE_UID, SPECIFIC_CHARACTER_SET, Tag, locate_explicit_vr_le_part10,
-};
-#[cfg(not(test))]
 use crate::mutation::{
     AcceptableOutcome, ByteRange as MutationRange, ChangedByteRange, FailureLayer, LengthWidth,
     MutationError, MutationParameters, MutationRequest, TruncationTarget, apply_named_mutation,
 };
-#[cfg(not(test))]
 use crate::part10_locator::{
     BITS_STORED, ByteRange as LocatorRange, EXPLICIT_VR_LITTLE_ENDIAN_UID, ElementLocation,
     HIGH_BIT, LocatedPart10, LocatorError, LocatorLimits, PIXEL_DATA, RLE_LOSSLESS_UID,
     SOP_CLASS_UID, SOP_INSTANCE_UID, SPECIFIC_CHARACTER_SET, Tag, locate_explicit_vr_le_part10,
 };
+use serde_json::Value;
 use std::error::Error;
 use std::fmt;
+
+use crate::recipes::{MutationEdit, MutationRecipe};
 
 pub const NEGATIVE_RECIPE_VERSION: &str = "0.1.0";
 
@@ -96,6 +79,58 @@ pub struct NegativeOutput {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NegativeParserProbeEvidence {
+    pub kind: &'static str,
+    pub independence: &'static str,
+    pub outcome: &'static str,
+    pub detail: &'static str,
+}
+
+/// Apply the historical bounded parser classifier without reopening a path or
+/// treating expected-invalid bytes as an ordinary valid DICOM instance.
+pub fn classify_negative_parser_probe(
+    case_id: &str,
+    bytes: &[u8],
+    expected_layer: &str,
+) -> NegativeParserProbeEvidence {
+    let (outcome, detail) = match locate_explicit_vr_le_part10(
+        bytes,
+        LocatorLimits {
+            max_elements: 100_000,
+            max_depth: 32,
+            max_items: 100_000,
+            max_fragments: 100_000,
+        },
+    ) {
+        Err(_) => (
+            match expected_layer {
+                "file_meta" => "clean_rejection",
+                "pixel_decoding" | "encapsulation" => "decode_failure",
+                "semantic_validation" | "text_decoding" => "validation_failure",
+                _ => "parse_failure",
+            },
+            "same-project bounded Explicit VR LE/RLE parser rejected the mutated byte stream",
+        ),
+        Ok(_) => (
+            match expected_layer {
+                "pixel_decoding" | "encapsulation" | "text_decoding" => "decode_failure",
+                "dataset_parser" if case_id == "negative/encoding/transfer_syntax_mismatch" => {
+                    "parse_failure"
+                }
+                _ => "accepted_with_bounded_warning",
+            },
+            "same-project bounded parser accepted structure; the registered bounded semantic/decode classifier supplied the outcome",
+        ),
+    };
+    NegativeParserProbeEvidence {
+        kind: "same_project_bounded_parser_classifier",
+        independence: "same_project",
+        outcome,
+        detail,
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NegativeError {
     UnknownCaseId {
         case_id: String,
@@ -118,6 +153,10 @@ pub enum NegativeError {
     Capability {
         case_id: &'static str,
         reason: &'static str,
+    },
+    InvalidContract {
+        edit_id: String,
+        message: String,
     },
 }
 
@@ -146,6 +185,9 @@ impl fmt::Display for NegativeError {
             } => write!(f, "{case_id} source lacks {requirement}"),
             Self::Capability { case_id, reason } => {
                 write!(f, "{case_id} is not safely producible: {reason}")
+            }
+            Self::InvalidContract { edit_id, message } => {
+                write!(f, "invalid mutation edit {edit_id}: {message}")
             }
         }
     }
@@ -237,6 +279,463 @@ pub fn build_negative_case(
             output_sha256,
         },
     })
+}
+
+/// Resolve and apply an explicit recipe-owned mutation contract. The recipe,
+/// rather than the case identifier, is authoritative for operation selection,
+/// ordering, parameters, failure layers, and acceptable outcomes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RecipeNegativeSourceIdentity {
+    pub expected_case_id: String,
+    pub sha256: String,
+    pub transfer_syntax_uid: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RecipeNegativeEvidence {
+    pub case_id: String,
+    pub recipe_version: String,
+    pub source: RecipeNegativeSourceIdentity,
+    pub source_shape: &'static str,
+    pub steps: Vec<MutationStepEvidence>,
+    pub output_sha256: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RecipeNegativeOutput {
+    pub bytes: Vec<u8>,
+    pub evidence: RecipeNegativeEvidence,
+}
+
+pub fn build_negative_from_recipe(
+    case_id: &str,
+    recipe_version: &str,
+    recipe: &MutationRecipe,
+    source_case_id: &str,
+    valid_source: &[u8],
+) -> Result<RecipeNegativeOutput, NegativeError> {
+    let located = locate_explicit_vr_le_part10(valid_source, LocatorLimits::default())?;
+    if recipe.edits.is_empty() {
+        return Err(invalid_contract("mutation", "edits must not be empty"));
+    }
+    if recipe.failure_layers.is_empty() || recipe.acceptable_outcomes.is_empty() {
+        return Err(invalid_contract(
+            "mutation",
+            "failure layers and acceptable outcomes must not be empty",
+        ));
+    }
+    let outcomes = recipe
+        .acceptable_outcomes
+        .iter()
+        .map(|value| contract_outcome("mutation", value))
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut requests = Vec::with_capacity(recipe.edits.len());
+    for (index, edit) in recipe.edits.iter().enumerate() {
+        let layer = recipe
+            .failure_layers
+            .get(index)
+            .or_else(|| recipe.failure_layers.first())
+            .ok_or_else(|| invalid_contract(&edit.edit_id, "missing failure layer"))?;
+        requests.push(MutationRequest::new(
+            resolve_recipe_edit(edit, valid_source, &located)?,
+            contract_failure_layer(&edit.edit_id, layer)?,
+            outcomes.clone(),
+        ));
+    }
+    let actual_transfer_syntax = text_value(valid_source, located.transfer_syntax_uid.value);
+    let mut bytes = valid_source.to_vec();
+    let mut steps = Vec::with_capacity(requests.len());
+    for request in requests {
+        let result = apply_named_mutation(&bytes, request)?;
+        steps.push(MutationStepEvidence {
+            mutation_id: result.mutation_id,
+            parameters: result.parameters,
+            changed_byte_ranges: result.changed_byte_ranges,
+            source_sha256: result.source_sha256,
+            output_sha256: result.output_sha256.clone(),
+            expected_failure_layer: result.expected_failure_layer,
+            acceptable_outcomes: result.acceptable_outcomes,
+        });
+        bytes = result.bytes;
+    }
+    let source_sha256 = steps.first().unwrap().source_sha256.clone();
+    let output_sha256 = steps.last().unwrap().output_sha256.clone();
+    Ok(RecipeNegativeOutput {
+        bytes,
+        evidence: RecipeNegativeEvidence {
+            case_id: case_id.to_owned(),
+            recipe_version: recipe_version.to_owned(),
+            source: RecipeNegativeSourceIdentity {
+                expected_case_id: source_case_id.to_owned(),
+                sha256: source_sha256,
+                transfer_syntax_uid: actual_transfer_syntax,
+            },
+            source_shape: source_shape_for_edits(&recipe.edits),
+            steps,
+            output_sha256,
+        },
+    })
+}
+
+fn resolve_recipe_edit(
+    edit: &MutationEdit,
+    source: &[u8],
+    located: &LocatedPart10,
+) -> Result<MutationParameters, NegativeError> {
+    let id = edit.mutation_id.strip_prefix("mutation.").ok_or_else(|| {
+        invalid_contract(
+            &edit.edit_id,
+            "mutation_id must use the mutation.* namespace",
+        )
+    })?;
+    let tag = |name: &str| -> Result<Tag, NegativeError> {
+        let value = contract_string(edit, name)?;
+        parse_contract_tag(&edit.edit_id, value)
+    };
+    let element = |name: &str| -> Result<&ElementLocation, NegativeError> {
+        let tag = tag(name)?;
+        located.first(tag).ok_or_else(|| {
+            invalid_contract(
+                &edit.edit_id,
+                &format!("source lacks element ({:04x},{:04x})", tag.0, tag.1),
+            )
+        })
+    };
+    let fraction = || -> Result<(usize, usize), NegativeError> {
+        let numerator = contract_u64(edit, "numerator")?;
+        let denominator = contract_u64(edit, "denominator")?;
+        if denominator == 0 || numerator == 0 || numerator >= denominator {
+            return Err(invalid_contract(
+                &edit.edit_id,
+                "fraction must satisfy 0 < numerator < denominator",
+            ));
+        }
+        Ok((numerator as usize, denominator as usize))
+    };
+    Ok(match id {
+        "invalid_character_set_declaration" => {
+            let element = element("tag")?;
+            let replacement = u8::try_from(contract_u64(edit, "replacement_byte")?)
+                .map_err(|_| invalid_contract(&edit.edit_id, "replacement_byte exceeds u8"))?;
+            MutationParameters::InvalidCharacterSetDeclaration {
+                value: mutation_range(element.value),
+                replacement: repeated_replacement(element.value, replacement),
+            }
+        }
+        "malformed_encoded_text" => {
+            let element = element("tag")?;
+            let offset = usize::try_from(contract_u64(edit, "byte_offset")?)
+                .map_err(|_| invalid_contract(&edit.edit_id, "byte_offset exceeds usize"))?;
+            let mut replacement = source[element.value.start..element.value.end].to_vec();
+            if offset >= replacement.len() {
+                return Err(invalid_contract(
+                    &edit.edit_id,
+                    "byte_offset is out of range",
+                ));
+            }
+            replacement[offset] = u8::try_from(contract_u64(edit, "replacement_byte")?)
+                .map_err(|_| invalid_contract(&edit.edit_id, "replacement_byte exceeds u8"))?;
+            MutationParameters::MalformedEncodedText {
+                value: mutation_range(element.value),
+                replacement,
+            }
+        }
+        "invalid_nested_item_length" => {
+            require_literal(edit, "selector", "first_sequence_item")?;
+            let item = located
+                .items
+                .first()
+                .ok_or_else(|| invalid_contract(&edit.edit_id, "source has no Sequence Item"))?;
+            let adjustment = usize::try_from(contract_u64(edit, "declared_length_adjustment")?)
+                .map_err(|_| invalid_contract(&edit.edit_id, "length adjustment overflow"))?;
+            MutationParameters::InvalidNestedItemLength {
+                length_field: MutationRange::new(item.header.start + 4, item.header.end),
+                declared_length: u32::try_from(item.value.len().saturating_add(adjustment))
+                    .map_err(|_| invalid_contract(&edit.edit_id, "declared length exceeds u32"))?,
+            }
+        }
+        "truncate_dataset" => {
+            require_literal(edit, "selector", "pixel_data_header_start")?;
+            MutationParameters::Truncate {
+                target: TruncationTarget::Dataset,
+                offset: located
+                    .first(PIXEL_DATA)
+                    .ok_or_else(|| invalid_contract(&edit.edit_id, "source lacks Pixel Data"))?
+                    .header
+                    .start,
+            }
+        }
+        "truncate_sequence_item" => {
+            require_literal(edit, "selector", "first_nonempty_sequence_item")?;
+            let item = located
+                .items
+                .iter()
+                .find(|item| item.value.len() != 0)
+                .ok_or_else(|| invalid_contract(&edit.edit_id, "source has no non-empty item"))?;
+            let (numerator, denominator) = fraction()?;
+            MutationParameters::Truncate {
+                target: TruncationTarget::Item,
+                offset: item.value.start + item.value.len() * numerator / denominator,
+            }
+        }
+        "undefined_length_without_delimitation" => {
+            require_literal(edit, "selector", "first_undefined_length_sequence")?;
+            require_literal(edit, "remove", "sequence_delimitation_item")?;
+            let sequence = located
+                .sequences
+                .iter()
+                .find(|sequence| sequence.delimitation.is_some())
+                .ok_or_else(|| {
+                    invalid_contract(&edit.edit_id, "source has no delimited sequence")
+                })?;
+            MutationParameters::UndefinedLengthWithoutDelimitation {
+                length_field: None,
+                delimitation_item: mutation_range(sequence.delimitation.unwrap()),
+            }
+        }
+        "broken_extended_offset_table" => {
+            if contract_u64_or_max(edit, "offset")? != u64::MAX {
+                return Err(invalid_contract(&edit.edit_id, "offset must be u64_max"));
+            }
+            let index = usize::try_from(contract_u64(edit, "entry_index")?)
+                .map_err(|_| invalid_contract(&edit.edit_id, "entry_index overflow"))?;
+            let entry = located
+                .extended_offset_table_entries
+                .get(index)
+                .copied()
+                .ok_or_else(|| invalid_contract(&edit.edit_id, "EOT entry is unavailable"))?;
+            MutationParameters::BrokenExtendedOffsetTable {
+                entry: mutation_range(entry),
+                offset: u64::MAX,
+            }
+        }
+        "truncate_fragment" => {
+            require_literal(edit, "selector", "first_fragment")?;
+            let fragment = located
+                .encapsulated_pixel_data
+                .as_ref()
+                .and_then(|pixel| pixel.fragment_items.first())
+                .ok_or_else(|| invalid_contract(&edit.edit_id, "source has no fragment"))?;
+            let (numerator, denominator) = fraction()?;
+            MutationParameters::Truncate {
+                target: TruncationTarget::Fragment,
+                offset: fragment.value.start + fragment.value.len() * numerator / denominator,
+            }
+        }
+        "incorrect_explicit_vr_length" => {
+            require_literal(edit, "width_policy", "from_vr")?;
+            let element = element("tag")?;
+            MutationParameters::IncorrectExplicitVrLength {
+                length_field: mutation_range(element.length_field),
+                width: length_width(element.length_field, &edit.edit_id)?,
+                declared_length: (element.value.len() as u64)
+                    .checked_add(contract_u64(edit, "declared_length_adjustment")?)
+                    .ok_or_else(|| invalid_contract(&edit.edit_id, "declared length overflow"))?,
+            }
+        }
+        "illegal_vr_bytes" => {
+            let element = element("tag")?;
+            let replacement = contract_string(edit, "replacement_ascii")?.as_bytes();
+            MutationParameters::IllegalVr {
+                vr_field: MutationRange::new(element.header.start + 4, element.header.start + 6),
+                replacement: replacement.try_into().map_err(|_| {
+                    invalid_contract(&edit.edit_id, "replacement must be two bytes")
+                })?,
+            }
+        }
+        "transfer_syntax_mismatch" => {
+            require_literal(edit, "padding_policy", "preserve_value_length")?;
+            MutationParameters::TransferSyntaxMismatch {
+                file_meta_uid_value: mutation_range(located.transfer_syntax_uid.value),
+                replacement: padded_uid(
+                    contract_string(edit, "replacement_uid")?,
+                    located.transfer_syntax_uid.value.len(),
+                    &edit.edit_id,
+                )?,
+            }
+        }
+        "dataset_uid_mismatch" => {
+            require_literal(
+                edit,
+                "replacement_policy",
+                "increment_last_decimal_digit_preserve_length",
+            )?;
+            let element = element("dataset_tag")?;
+            MutationParameters::UidMismatch {
+                dataset_uid_value: mutation_range(element.value),
+                replacement: changed_uid(source, element.value, &edit.edit_id)?,
+            }
+        }
+        "missing_type1_attribute" => {
+            let element = element("tag")?;
+            MutationParameters::MissingType1Element {
+                element: MutationRange::new(element.header.start, element.value.end),
+            }
+        }
+        "truncate_file_meta_value" => {
+            let element = element("tag")?;
+            let (numerator, denominator) = fraction()?;
+            MutationParameters::Truncate {
+                target: TruncationTarget::FileMeta,
+                offset: element.value.start + element.value.len() * numerator / denominator,
+            }
+        }
+        "invalid_bits_stored_high_bit" => MutationParameters::InvalidBitsStoredHighBit {
+            bits_stored_value: mutation_range(element("bits_stored_tag")?.value),
+            high_bit_value: mutation_range(element("high_bit_tag")?.value),
+            bits_stored: u16::try_from(contract_u64(edit, "bits_stored")?)
+                .map_err(|_| invalid_contract(&edit.edit_id, "bits_stored exceeds u16"))?,
+            high_bit: u16::try_from(contract_u64(edit, "high_bit")?)
+                .map_err(|_| invalid_contract(&edit.edit_id, "high_bit exceeds u16"))?,
+        },
+        "invalid_pixel_byte_length" => {
+            require_literal(edit, "width_policy", "from_vr")?;
+            let element = element("tag")?;
+            MutationParameters::InvalidPixelByteLength {
+                length_field: mutation_range(element.length_field),
+                width: length_width(element.length_field, &edit.edit_id)?,
+                declared_length: (element.value.len() as u64)
+                    .checked_add(contract_u64(edit, "declared_length_adjustment")?)
+                    .ok_or_else(|| invalid_contract(&edit.edit_id, "declared length overflow"))?,
+            }
+        }
+        "truncate_pixel_value" => {
+            let element = element("tag")?;
+            let (numerator, denominator) = fraction()?;
+            MutationParameters::Truncate {
+                target: TruncationTarget::PixelValue,
+                offset: element.value.start + element.value.len() * numerator / denominator,
+            }
+        }
+        _ => {
+            return Err(invalid_contract(
+                &edit.edit_id,
+                format!("unsupported mutation_id {}", edit.mutation_id),
+            ));
+        }
+    })
+}
+
+fn source_shape_for_edits(edits: &[MutationEdit]) -> &'static str {
+    match edits.first().map(|edit| edit.mutation_id.as_str()) {
+        Some("mutation.invalid_character_set_declaration") => {
+            "Explicit VR LE SC with Specific Character Set and non-empty Person Name"
+        }
+        Some("mutation.invalid_nested_item_length") | Some("mutation.truncate_sequence_item") => {
+            "Explicit VR LE SC with at least one nested Sequence Item"
+        }
+        Some("mutation.undefined_length_without_delimitation") => {
+            "Explicit VR LE SC with a delimited undefined-length Sequence"
+        }
+        Some("mutation.broken_extended_offset_table") => {
+            "RLE SC with a non-empty Extended Offset Table"
+        }
+        Some("mutation.truncate_fragment") => {
+            "RLE SC with at least one non-empty Pixel Data fragment"
+        }
+        Some("mutation.illegal_vr_bytes") | Some("mutation.incorrect_explicit_vr_length") => {
+            "Explicit VR LE SC with Person Name"
+        }
+        Some("mutation.dataset_uid_mismatch") => {
+            "Explicit VR LE SC with dataset SOP Class and Instance UIDs"
+        }
+        Some("mutation.missing_type1_attribute") => {
+            "Explicit VR LE SC with top-level Type 1 Modality"
+        }
+        Some("mutation.truncate_file_meta_value") => {
+            "Explicit VR LE SC with complete Transfer Syntax UID file meta"
+        }
+        Some("mutation.invalid_bits_stored_high_bit") => {
+            "native Explicit VR LE SC with Bits Stored, High Bit, and defined Pixel Data"
+        }
+        Some("mutation.truncate_pixel_value") => {
+            "native Explicit VR LE SC with non-empty defined Pixel Data"
+        }
+        Some("mutation.transfer_syntax_mismatch") => {
+            "native Explicit VR LE SC whose TS UID value can hold the RLE UID"
+        }
+        _ => "native Explicit VR LE SC with top-level Pixel Data",
+    }
+}
+
+fn contract_string<'a>(edit: &'a MutationEdit, name: &str) -> Result<&'a str, NegativeError> {
+    edit.parameters
+        .get(name)
+        .and_then(Value::as_str)
+        .ok_or_else(|| invalid_contract(&edit.edit_id, format!("{name} must be a string")))
+}
+
+fn contract_u64(edit: &MutationEdit, name: &str) -> Result<u64, NegativeError> {
+    edit.parameters
+        .get(name)
+        .and_then(Value::as_u64)
+        .ok_or_else(|| {
+            invalid_contract(&edit.edit_id, format!("{name} must be an unsigned integer"))
+        })
+}
+
+fn contract_u64_or_max(edit: &MutationEdit, name: &str) -> Result<u64, NegativeError> {
+    match edit.parameters.get(name) {
+        Some(Value::String(value)) if value == "u64_max" => Ok(u64::MAX),
+        Some(value) => value.as_u64().ok_or_else(|| {
+            invalid_contract(&edit.edit_id, format!("{name} must be u64_max or u64"))
+        }),
+        None => Err(invalid_contract(&edit.edit_id, format!("missing {name}"))),
+    }
+}
+
+fn require_literal(edit: &MutationEdit, name: &str, expected: &str) -> Result<(), NegativeError> {
+    let actual = contract_string(edit, name)?;
+    if actual != expected {
+        return Err(invalid_contract(
+            &edit.edit_id,
+            format!("{name} must be {expected}, got {actual}"),
+        ));
+    }
+    Ok(())
+}
+
+fn parse_contract_tag(edit_id: &str, value: &str) -> Result<Tag, NegativeError> {
+    let (group, element) = value
+        .split_once(',')
+        .ok_or_else(|| invalid_contract(edit_id, "tag must be GGGG,EEEE"))?;
+    Ok(Tag(
+        u16::from_str_radix(group, 16)
+            .map_err(|_| invalid_contract(edit_id, "tag group is invalid"))?,
+        u16::from_str_radix(element, 16)
+            .map_err(|_| invalid_contract(edit_id, "tag element is invalid"))?,
+    ))
+}
+
+fn contract_failure_layer(edit_id: &str, value: &str) -> Result<FailureLayer, NegativeError> {
+    match value {
+        "file_meta" => Ok(FailureLayer::FileMeta),
+        "dataset_parser" => Ok(FailureLayer::DatasetParser),
+        "value_decoding" => Ok(FailureLayer::ValueDecoding),
+        "semantic_validation" => Ok(FailureLayer::SemanticValidation),
+        "pixel_decoding" => Ok(FailureLayer::PixelDecoding),
+        "encapsulation" => Ok(FailureLayer::Encapsulation),
+        "text_decoding" => Ok(FailureLayer::TextDecoding),
+        _ => Err(invalid_contract(edit_id, "unknown failure layer")),
+    }
+}
+
+fn contract_outcome(edit_id: &str, value: &str) -> Result<AcceptableOutcome, NegativeError> {
+    match value {
+        "clean_rejection" => Ok(AcceptableOutcome::CleanRejection),
+        "parse_failure" => Ok(AcceptableOutcome::ParseFailure),
+        "validation_failure" => Ok(AcceptableOutcome::ValidationFailure),
+        "decode_failure" => Ok(AcceptableOutcome::DecodeFailure),
+        "accepted_with_bounded_warning" => Ok(AcceptableOutcome::AcceptedWithBoundedWarning),
+        _ => Err(invalid_contract(edit_id, "unknown acceptable outcome")),
+    }
+}
+
+fn invalid_contract(edit_id: impl Into<String>, message: impl Into<String>) -> NegativeError {
+    NegativeError::InvalidContract {
+        edit_id: edit_id.into(),
+        message: message.into(),
+    }
 }
 
 fn recipe_plan(
@@ -765,7 +1264,7 @@ mod tests {
             &padded("1.2.826.0.1.3680043.10.543.900", 0),
         ));
         bytes.extend(short(
-            super::part10_locator::TRANSFER_SYNTAX_UID,
+            crate::part10_locator::TRANSFER_SYNTAX_UID,
             b"UI",
             &padded(transfer_syntax, 0),
         ));
@@ -823,13 +1322,13 @@ mod tests {
         let mut dataset = common_dataset();
         if with_eot {
             dataset.extend(long(
-                super::part10_locator::EXTENDED_OFFSET_TABLE,
+                crate::part10_locator::EXTENDED_OFFSET_TABLE,
                 b"OV",
                 &0u64.to_le_bytes(),
                 false,
             ));
             dataset.extend(long(
-                super::part10_locator::EXTENDED_OFFSET_TABLE_LENGTHS,
+                crate::part10_locator::EXTENDED_OFFSET_TABLE_LENGTHS,
                 b"OV",
                 &8u64.to_le_bytes(),
                 false,

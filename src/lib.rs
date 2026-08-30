@@ -76,6 +76,7 @@ pub mod negative;
 pub mod negative_plan;
 pub mod part10_locator;
 pub mod planning;
+pub mod planning_preview;
 pub mod protocol;
 pub mod quantitative_evidence;
 pub mod qualification_plan;

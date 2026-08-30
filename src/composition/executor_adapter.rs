@@ -8,7 +8,9 @@ use std::sync::{Arc, Mutex};
 
 use serde_json::{Value, json};
 
-use super::manifest::EvidenceManifestEntryInput;
+use super::manifest::{
+    EvidenceManifestEntryInput, ImportedEvidenceManifestEntryInput, MixedEvidenceManifestEntryInput,
+};
 use super::{
     BundleMemberProvenance, CompositionManifestAssembler, CompositionManifestInputs,
     GenericPlanValidator, ProviderInvocation as LegacyProviderInvocation,
@@ -150,6 +152,8 @@ impl ExecutionServiceFactory for CompositionExecutionServiceFactory {
             initial_assets,
             materializer,
             materialized_plans: Mutex::new(BTreeMap::new()),
+            imported_observations: Mutex::new(BTreeMap::new()),
+            external_provider_tools: Mutex::new(BTreeMap::new()),
         }))
     }
 }
@@ -162,6 +166,9 @@ struct CompositionBoundServices {
     initial_assets: Vec<ProducedAsset>,
     materializer: MaterializationDispatcher,
     materialized_plans: Mutex<BTreeMap<String, super::ResolvedInstancePlan>>,
+    imported_observations:
+        Mutex<BTreeMap<String, crate::executor::evidence::ImportedDicomObservation>>,
+    external_provider_tools: Mutex<BTreeMap<String, ToolIdentity>>,
 }
 
 impl BoundExecutionServices for CompositionBoundServices {
@@ -186,7 +193,12 @@ impl BoundExecutionServices for CompositionBoundServices {
         cancellation: &CancellationToken,
     ) -> Result<ProviderResult, ServiceInvocationError> {
         if let Some(provider) = self.external_dicom_providers.get(&request.request_id) {
-            return provider.invoke(request, assets, &self.staging_root, cancellation);
+            let result = provider.invoke(request, assets, &self.staging_root, cancellation)?;
+            self.external_provider_tools
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .insert(request.request_id.clone(), result.provider.clone());
+            return Ok(result);
         }
         let deferred = self.providers.get(&request.request_id).ok_or_else(|| {
             ServiceInvocationError::new("provider", "missing legacy provider invocation")
@@ -320,6 +332,25 @@ impl BoundExecutionServices for CompositionBoundServices {
                 .lock()
                 .unwrap_or_else(|error| error.into_inner())
                 .insert(artifact.logical_id.clone(), plan);
+        } else if let PlannedArtifact::ImportedDicom(artifact) = &request.artifact {
+            let observation = result
+                .evidence
+                .iter()
+                .find_map(|evidence| evidence.claims.get("imported_dicom_observation"))
+                .cloned()
+                .map(serde_json::from_value)
+                .transpose()
+                .map_err(|error| service_error("materializer", error))?
+                .ok_or_else(|| {
+                    ServiceInvocationError::new(
+                        "materializer",
+                        "imported DICOM observation is missing",
+                    )
+                })?;
+            self.imported_observations
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .insert(artifact.logical_id.clone(), observation);
         }
         Ok(result)
     }
@@ -335,25 +366,70 @@ impl BoundExecutionServices for CompositionBoundServices {
         let declaration = assets
             .resolve(handle)
             .map_err(|error| service_error("validation", error))?;
-        let plan = match &request.artifact {
-            PlannedArtifact::Dicom(artifact) => self
-                .materialized_plans
-                .lock()
-                .unwrap_or_else(|error| error.into_inner())
-                .get(&artifact.logical_id)
-                .cloned()
-                .unwrap_or_else(|| artifact.instance.clone()),
+        let checks = match &request.artifact {
+            PlannedArtifact::Dicom(artifact) => {
+                let plan = self
+                    .materialized_plans
+                    .lock()
+                    .unwrap_or_else(|error| error.into_inner())
+                    .get(&artifact.logical_id)
+                    .cloned()
+                    .unwrap_or_else(|| artifact.instance.clone());
+                GenericPlanValidator.validate_file(
+                    &plan,
+                    self.staging_root.join(declaration.relative_path.as_str()),
+                )
+            }
+            PlannedArtifact::ImportedDicom(artifact) => {
+                let observation = self
+                    .imported_observations
+                    .lock()
+                    .unwrap_or_else(|error| error.into_inner())
+                    .get(&artifact.logical_id)
+                    .cloned()
+                    .ok_or_else(|| {
+                        ServiceInvocationError::new(
+                            "validation",
+                            "imported DICOM observation is missing",
+                        )
+                    })?;
+                vec![
+                    ValidationCheck {
+                        layer: "part10".into(),
+                        rule_id: "imported_dicom_identity".into(),
+                        status: "passed".into(),
+                        message: format!(
+                            "provider object identity {} and transfer syntax were verified",
+                            observation.sop_instance_uid
+                        ),
+                    },
+                    ValidationCheck {
+                        layer: "template".into(),
+                        rule_id: "reference_closure".into(),
+                        status: "passed".into(),
+                        message: format!(
+                            "{} ordered provider references match the immutable plan",
+                            observation.references.len()
+                        ),
+                    },
+                    ValidationCheck {
+                        layer: "content".into(),
+                        rule_id: "content_integrity".into(),
+                        status: "passed".into(),
+                        message: format!(
+                            "{} bounded provider content fields were hashed",
+                            observation.content.len()
+                        ),
+                    },
+                ]
+            }
             _ => {
                 return Err(ServiceInvocationError::new(
                     "validation",
-                    "composition adapter accepts only DICOM artifacts",
+                    "unsupported artifact",
                 ));
             }
         };
-        let checks = GenericPlanValidator.validate_file(
-            &plan,
-            self.staging_root.join(declaration.relative_path.as_str()),
-        );
         let status = if checks.iter().any(|check| check.status == "failed") {
             ValidationStatus::Failed
         } else {
@@ -397,7 +473,7 @@ impl BoundExecutionServices for CompositionBoundServices {
 
     fn evaluate_obligation(
         &self,
-        _: &PlannedArtifact,
+        artifact: &PlannedArtifact,
         obligation: &EvidenceObligation,
         _: &MaterializationResult,
         validation: &ValidationResult,
@@ -412,6 +488,32 @@ impl BoundExecutionServices for CompositionBoundServices {
         } else {
             ResultStatus::Failed
         };
+        let tool = if obligation.independence == EvidenceIndependence::ExternalProvider {
+            let PlannedArtifact::ImportedDicom(imported) = artifact else {
+                return Err(ServiceInvocationError::new(
+                    "obligation",
+                    "external provider evidence requires an imported artifact",
+                ));
+            };
+            let identity = self
+                .external_provider_tools
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .get(&imported.provider.request_id)
+                .cloned()
+                .ok_or_else(|| {
+                    ServiceInvocationError::new("obligation", "provider identity is missing")
+                })?;
+            Some(crate::executor::evidence::ToolEvidence {
+                tool_id: identity.backend_id,
+                version: identity.version,
+                executable_sha256: identity.executable_sha256.ok_or_else(|| {
+                    ServiceInvocationError::new("obligation", "provider fingerprint is missing")
+                })?,
+            })
+        } else {
+            None
+        };
         Ok(ObligationResult {
             obligation_id: obligation.obligation_id.clone(),
             route_id: obligation.route_id.clone(),
@@ -423,7 +525,7 @@ impl BoundExecutionServices for CompositionBoundServices {
             required: obligation.required,
             status,
             message: "composition manifest validation follows generic plan validation".into(),
-            tool: None,
+            tool,
         })
     }
 
@@ -490,11 +592,9 @@ impl ManifestProjector for CompositionExecutorManifestProjector {
         let plans = input
             .artifacts
             .iter()
-            .map(|artifact| {
+            .filter_map(|artifact| {
                 let PlannedArtifact::Dicom(planned) = &artifact.planned else {
-                    return Err(ManifestProjectionError(
-                        "composition projection received a non-DICOM artifact".into(),
-                    ));
+                    return None;
                 };
                 let mut plan = planned.instance.clone();
                 inject_provider_provenance(&mut plan, &artifact.execution.providers);
@@ -503,27 +603,25 @@ impl ManifestProjector for CompositionExecutorManifestProjector {
                     artifact.execution.materialization.as_ref(),
                     &artifact.execution.codecs,
                 );
-                Ok(plan)
+                Some((planned.logical_id.clone(), plan))
             })
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<BTreeMap<_, _>>();
         let mut entries = Vec::with_capacity(input.artifacts.len());
-        for (artifact, plan) in input.artifacts.iter().zip(&plans) {
-            let PlannedArtifact::Dicom(planned) = &artifact.planned else {
-                return Err(ManifestProjectionError(
-                    "composition projection received a non-DICOM artifact".into(),
-                ));
-            };
+        for artifact in &input.artifacts {
             let output = artifact.execution.output.as_ref().ok_or_else(|| {
-                ManifestProjectionError(format!("{} has no output evidence", planned.logical_id))
+                ManifestProjectionError(format!(
+                    "{} has no output evidence",
+                    artifact.planned.logical_id()
+                ))
             })?;
             let member = self
                 .context
                 .members
-                .get(&planned.logical_id)
+                .get(artifact.planned.logical_id())
                 .ok_or_else(|| {
                     ManifestProjectionError(format!(
                         "{} has no bundle metadata",
-                        planned.logical_id
+                        artifact.planned.logical_id()
                     ))
                 })?;
             let checks = artifact
@@ -538,29 +636,69 @@ impl ManifestProjector for CompositionExecutorManifestProjector {
                 .ok_or_else(|| {
                     ManifestProjectionError(format!(
                         "{} lacks generic validation checks",
-                        planned.logical_id
+                        artifact.planned.logical_id()
                     ))
                 })?;
-            entries.push(EvidenceManifestEntryInput {
-                plan,
-                resolved_plan_sha256: artifact
-                    .execution
-                    .instance_plan_sha256
-                    .clone()
-                    .ok_or_else(|| ManifestProjectionError("missing immutable plan hash".into()))?,
-                relative_path: output.relative_path.clone(),
-                size_bytes: output.size_bytes,
-                sha256: output.sha256.clone(),
-                checks,
-                requested: member.requested,
-                bundle_root_instance_id: member.bundle_root_instance_id.clone(),
-                bundle_role: member.bundle_role.clone(),
-                source_provenance: member.source.clone(),
-                determinism: "byte_stable".into(),
-            });
+            let resolved_plan_sha256 = artifact
+                .execution
+                .instance_plan_sha256
+                .clone()
+                .ok_or_else(|| ManifestProjectionError("missing immutable plan hash".into()))?;
+            match &artifact.planned {
+                PlannedArtifact::Dicom(planned) => entries.push(
+                    MixedEvidenceManifestEntryInput::Native(EvidenceManifestEntryInput {
+                        plan: plans
+                            .get(&planned.logical_id)
+                            .expect("native plan was projected"),
+                        resolved_plan_sha256,
+                        relative_path: output.relative_path.clone(),
+                        size_bytes: output.size_bytes,
+                        sha256: output.sha256.clone(),
+                        checks,
+                        requested: member.requested,
+                        bundle_root_instance_id: member.bundle_root_instance_id.clone(),
+                        bundle_role: member.bundle_role.clone(),
+                        source_provenance: member.source.clone(),
+                        determinism: "byte_stable".into(),
+                    }),
+                ),
+                PlannedArtifact::ImportedDicom(planned) => {
+                    let observation = artifact
+                        .execution
+                        .materialization
+                        .as_ref()
+                        .and_then(|materialization| materialization.imported_dicom.as_ref())
+                        .ok_or_else(|| {
+                            ManifestProjectionError(format!(
+                                "{} lacks imported DICOM observation",
+                                planned.logical_id
+                            ))
+                        })?;
+                    entries.push(MixedEvidenceManifestEntryInput::Imported(
+                        ImportedEvidenceManifestEntryInput {
+                            plan: planned,
+                            observation,
+                            resolved_plan_sha256,
+                            relative_path: output.relative_path.clone(),
+                            size_bytes: output.size_bytes,
+                            sha256: output.sha256.clone(),
+                            checks,
+                            requested: member.requested,
+                            bundle_root_instance_id: member.bundle_root_instance_id.clone(),
+                            bundle_role: member.bundle_role.clone(),
+                            source_provenance: member.source.clone(),
+                        },
+                    ));
+                }
+                _ => {
+                    return Err(ManifestProjectionError(
+                        "composition projection received a non-DICOM artifact".into(),
+                    ));
+                }
+            }
         }
         let manifest = CompositionManifestAssembler
-            .assemble_from_evidence(self.context.inputs.clone(), &entries)
+            .assemble_from_mixed_evidence(self.context.inputs.clone(), &entries)
             .map_err(|error| ManifestProjectionError(error.to_string()))?;
         let mut bytes = serde_json::to_vec_pretty(&manifest)
             .map_err(|error| ManifestProjectionError(error.to_string()))?;

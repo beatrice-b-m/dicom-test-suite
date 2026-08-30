@@ -56,6 +56,27 @@ pub struct EvidenceManifestEntryInput<'a> {
     pub determinism: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct ImportedEvidenceManifestEntryInput<'a> {
+    pub plan: &'a crate::corpus_plan::PlannedImportedDicomArtifact,
+    pub observation: &'a crate::executor::evidence::ImportedDicomObservation,
+    pub resolved_plan_sha256: String,
+    pub relative_path: String,
+    pub size_bytes: u64,
+    pub sha256: String,
+    pub checks: Vec<ValidationCheck>,
+    pub requested: bool,
+    pub bundle_root_instance_id: String,
+    pub bundle_role: String,
+    pub source_provenance: String,
+}
+
+#[derive(Debug, Clone)]
+pub enum MixedEvidenceManifestEntryInput<'a> {
+    Native(EvidenceManifestEntryInput<'a>),
+    Imported(ImportedEvidenceManifestEntryInput<'a>),
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ValidationCheck {
     pub layer: String,
@@ -353,6 +374,108 @@ fn validate_primitive_content(
 pub struct CompositionManifestAssembler;
 
 impl CompositionManifestAssembler {
+    pub fn assemble_from_mixed_evidence(
+        &self,
+        inputs: CompositionManifestInputs,
+        entries: &[MixedEvidenceManifestEntryInput<'_>],
+    ) -> Result<Value, ManifestError> {
+        if entries.is_empty() {
+            return Err(ManifestError::NoEntries);
+        }
+        let mut manifest_entries = Vec::with_capacity(entries.len());
+        let mut assets = BTreeMap::<String, Value>::new();
+        let mut output_bytes = 0_u64;
+        for entry in entries {
+            match entry {
+                MixedEvidenceManifestEntryInput::Native(input) => {
+                    if input.checks.iter().any(|check| check.status == "failed") {
+                        return Err(ManifestError::ValidationFailed {
+                            instance_id: input.plan.instance_id.clone(),
+                            checks: input.checks.clone(),
+                        });
+                    }
+                    output_bytes = output_bytes
+                        .checked_add(input.size_bytes)
+                        .ok_or(ManifestError::OutputSizeOverflow)?;
+                    collect_assets(input.plan, &mut assets)?;
+                    let provenance = input
+                        .plan
+                        .attributes
+                        .iter()
+                        .map(|attribute| json!({"tag": attribute.address.normalized_tag(), "origin": attribute.origin}))
+                        .collect::<Vec<_>>();
+                    manifest_entries.push(json!({
+                        "instance_id": input.plan.instance_id, "template_id": input.plan.template_id,
+                        "template_version": input.plan.template_version, "requested": input.requested,
+                        "bundle_root_instance_id": input.bundle_root_instance_id, "bundle_role": input.bundle_role,
+                        "source_provenance": input.source_provenance, "path": input.relative_path,
+                        "size_bytes": input.size_bytes, "sha256": input.sha256, "determinism": input.determinism,
+                        "resolved_plan_sha256": input.resolved_plan_sha256,
+                        "dicom": {"sop_class_uid": input.plan.sop_class_uid, "transfer_syntax_uid": input.plan.transfer_syntax_uid},
+                        "uids": input.plan.identities.identities, "resolved_attributes": input.plan.attributes,
+                        "value_provenance": provenance, "content": input.plan.content,
+                        "references": input.plan.references,
+                        "validation": {"status":"passed", "checks": input.checks}
+                    }));
+                }
+                MixedEvidenceManifestEntryInput::Imported(input) => {
+                    if input.checks.iter().any(|check| check.status == "failed") {
+                        return Err(ManifestError::ValidationFailed {
+                            instance_id: input.plan.logical_id.clone(),
+                            checks: input.checks.clone(),
+                        });
+                    }
+                    output_bytes = output_bytes
+                        .checked_add(input.size_bytes)
+                        .ok_or(ManifestError::OutputSizeOverflow)?;
+                    let semantic = input
+                        .plan
+                        .provider
+                        .parameters
+                        .get("semantic_evidence")
+                        .cloned()
+                        .unwrap_or(Value::Null);
+                    let content = input.observation.content.iter().map(|actual| {
+                        let kind = match actual.tag.as_str() {
+                            "7FE0,0008" => "float_pixels",
+                            "7FE0,0009" => "double_float_pixels",
+                            _ => "native_pixels",
+                        };
+                        json!({
+                            "slot":"pixels", "kind":kind, "vr":actual.vr,
+                            "size_bytes":actual.size_bytes, "sha256":actual.sha256,
+                            "materialization": null,
+                            "properties": {
+                                "bulk_source":"external_provider_import",
+                                "semantic_validator":"imported_dicom_observation",
+                                "observed_tag":actual.tag,
+                                "semantic_evidence": serde_json::to_string(&semantic).expect("semantic evidence serializes")
+                            }
+                        })
+                    }).collect::<Vec<_>>();
+                    manifest_entries.push(json!({
+                        "instance_id": input.plan.logical_id,
+                        "template_id": input.plan.declared_instance.template_id,
+                        "template_version": input.plan.declared_instance.template_version,
+                        "requested": input.requested,
+                        "bundle_root_instance_id": input.bundle_root_instance_id,
+                        "bundle_role": input.bundle_role,
+                        "source_provenance": input.source_provenance,
+                        "path": input.relative_path, "size_bytes": input.size_bytes,
+                        "sha256": input.sha256, "determinism":"semantic_stable",
+                        "resolved_plan_sha256": input.resolved_plan_sha256,
+                        "dicom": {"sop_class_uid": input.observation.sop_class_uid, "transfer_syntax_uid": input.observation.transfer_syntax_uid},
+                        "uids": input.plan.declared_instance.identities.identities,
+                        "resolved_attributes": [], "value_provenance": [], "content": content,
+                        "references": input.plan.declared_instance.references,
+                        "validation": {"status":"passed", "checks":input.checks}
+                    }));
+                }
+            }
+        }
+        finish_manifest(inputs, manifest_entries, assets, output_bytes)
+    }
+
     /// Project an already-validated run without reopening materialized files.
     pub fn assemble_from_evidence(
         &self,

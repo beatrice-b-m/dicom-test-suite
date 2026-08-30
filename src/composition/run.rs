@@ -16,7 +16,8 @@ use crate::encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData};
 
 use super::advanced_defaults::{
     AdvancedDefaultMember, AdvancedSourceMember, group_identity, is_direct_advanced_default,
-    is_native_quantitative_default, is_reference_default, is_typed_bulk_default, plan_image_group,
+    is_external_quantitative_default, is_native_quantitative_default, is_reference_default,
+    is_typed_bulk_default, plan_external_quantitative_default, plan_image_group,
     plan_native_quantitative_default, plan_reference_default, plan_typed_bulk_default,
 };
 use super::advanced_semantic_defaults::{
@@ -27,6 +28,9 @@ use super::executor_adapter::{
     CompositionExecutionBundle, CompositionExecutionServiceFactory,
     CompositionExecutorManifestProjector, CompositionProjectionContext, CompositionSource,
     CompositionSourceAsset, DeferredCompositionProvider, remove_planning_scratch,
+};
+use super::external_quantitative::{
+    plan_caller_parametric_map, seed_parametric_reference_sequence,
 };
 use super::{
     AdvancedFamilyProfile, BundleResolver, CompositionManifestInputs, CompositionSpec,
@@ -378,6 +382,7 @@ fn resolve_execution_bundle(
         &options.catalog_path,
     )
     .map_err(|error| ComposeError::AdvancedDefaults(error.to_string()))?;
+    let repository_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let advanced_limits = advanced_provider_limits(&spec)?;
     let mut plans_by_id = BTreeMap::new();
     let mut advanced_artifacts: BTreeMap<
@@ -385,8 +390,10 @@ fn resolve_execution_bundle(
         super::corpus_adapter::AdvancedCompositionArtifact,
     > = BTreeMap::new();
     let mut advanced_dependencies = Vec::new();
+    let mut external_dicom_providers = BTreeMap::new();
     let mut processed_advanced_groups = std::collections::BTreeSet::new();
     let mut native_codec_plans = BTreeMap::new();
+    let mut caller_parametric_ids = std::collections::BTreeSet::new();
     let mut templates = Vec::with_capacity(spec.instances.len());
     let mut identity_plans = BTreeMap::new();
 
@@ -603,7 +610,23 @@ fn resolve_execution_bundle(
             execution_bindings.extend(output.bindings);
             advanced_artifacts.insert(planned.logical_id.clone(), planned.clone().into());
             plans_by_id.insert(instance.instance_id.clone(), planned.instance);
-        } else if is_native_quantitative_default(template) {
+        } else if is_external_quantitative_default(template)
+            && instance
+                .content
+                .iter()
+                .any(|assignment| !matches!(assignment.source, ContentSource::Default))
+        {
+            let plan =
+                plan_caller_parametric_map(base_plan, instance, template, &mut content_resolver)?;
+            caller_parametric_ids.insert(instance.instance_id.clone());
+            plans_by_id.insert(instance.instance_id.clone(), plan);
+        } else if is_native_quantitative_default(template)
+            || (is_external_quantitative_default(template)
+                && instance
+                    .content
+                    .iter()
+                    .all(|assignment| matches!(assignment.source, ContentSource::Default)))
+        {
             continue;
         } else if is_native_sr_default(template) {
             continue;
@@ -669,6 +692,87 @@ fn resolve_execution_bundle(
         .zip(templates.iter().copied())
         .enumerate()
     {
+        if is_external_quantitative_default(template)
+            && instance
+                .content
+                .iter()
+                .all(|assignment| matches!(assignment.source, ContentSource::Default))
+        {
+            check_cancelled(cancellation)?;
+            if template
+                .template_id
+                .0
+                .starts_with("derived/parametric-map/")
+            {
+                for (source_index, reference) in instance.references.iter().enumerate() {
+                    let source_plan = plans_by_id
+                        .get_mut(&reference.target_instance_id)
+                        .ok_or_else(|| {
+                            ComposeError::AdvancedDefaults(format!(
+                                "quantitative source {} is not planned",
+                                reference.target_instance_id
+                            ))
+                        })?;
+                    qualify_parametric_source_geometry(source_plan, source_index)?;
+                }
+            }
+            let sources = instance
+                .references
+                .iter()
+                .map(|reference| {
+                    let source_index = spec
+                        .instances
+                        .iter()
+                        .position(|candidate| candidate.instance_id == reference.target_instance_id)
+                        .ok_or_else(|| {
+                            ComposeError::AdvancedDefaults(format!(
+                                "quantitative source {} is absent",
+                                reference.target_instance_id
+                            ))
+                        })?;
+                    advanced_source_member(
+                        &reference.target_instance_id,
+                        source_index,
+                        &plans_by_id,
+                        &advanced_artifacts,
+                        &execution_bindings,
+                        &bundle_resolution.members,
+                        &spec.resource_limits,
+                    )
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            let member = AdvancedDefaultMember {
+                instance,
+                template,
+                identities: identity_plans
+                    .get(&instance.instance_id)
+                    .cloned()
+                    .expect("identity pass covered every instance"),
+                order: u64::try_from(instance_index).map_err(|_| ComposeError::ResourceRange)?,
+            };
+            let output = plan_external_quantitative_default(
+                &recipes,
+                &repository_root,
+                &catalog.standards_lock_sha256,
+                options.seed,
+                &member,
+                &sources,
+            )
+            .map_err(ComposeError::AdvancedDefaults)?;
+            advanced_dependencies.extend(output.dependencies);
+            let request_id = output.artifact.provider.request_id.clone();
+            execution_bindings.insert(instance.instance_id.clone(), output.bindings);
+            plans_by_id.insert(
+                instance.instance_id.clone(),
+                output.artifact.declared_instance.clone(),
+            );
+            advanced_artifacts.insert(
+                instance.instance_id.clone(),
+                super::corpus_adapter::AdvancedCompositionArtifact::Imported(output.artifact),
+            );
+            external_dicom_providers.insert(request_id, output.provider);
+            continue;
+        }
         if is_native_quantitative_default(template) {
             check_cancelled(cancellation)?;
             let source_reference = instance.references.first().ok_or_else(|| {
@@ -976,8 +1080,33 @@ fn resolve_execution_bundle(
 
     super::advanced_family::validate_concatenation_closure(&plans, &bundle_resolution.members)?;
     validate_explicit_reference_frames(&plans, &spec)?;
+    let imported_references = advanced_artifacts
+        .iter()
+        .filter_map(|(id, artifact)| match artifact {
+            super::corpus_adapter::AdvancedCompositionArtifact::Imported(_) => plans
+                .iter_mut()
+                .find(|plan| plan.instance_id == *id)
+                .map(|plan| (id.clone(), std::mem::take(&mut plan.references))),
+            super::corpus_adapter::AdvancedCompositionArtifact::Native(_) => None,
+        })
+        .collect::<BTreeMap<_, _>>();
     materialize_reference_graph(&mut plans, &spec, &bundle_resolution.members)?;
+    for plan in &mut plans {
+        if caller_parametric_ids.contains(&plan.instance_id) {
+            seed_parametric_reference_sequence(plan)?;
+        }
+    }
+    for plan in &mut plans {
+        if imported_references.contains_key(&plan.instance_id) {
+            plan.references.clear();
+        }
+    }
     super::advanced_family::rewrite_materialized_dicom_references(&mut plans)?;
+    for plan in &mut plans {
+        if let Some(references) = imported_references.get(&plan.instance_id) {
+            plan.references = references.clone();
+        }
+    }
     for plan in &plans {
         if let Some(artifact) = advanced_artifacts.get_mut(&plan.instance_id) {
             *artifact.resolved_instance_mut() = plan.clone();
@@ -1038,11 +1167,59 @@ fn resolve_execution_bundle(
             projection,
             source_assets,
             providers: deferred_providers,
-            external_dicom_providers: BTreeMap::new(),
+            external_dicom_providers,
             planning_scratch_root: planning_scratch.map(PlanningScratch::into_path),
         },
         dry_run_output,
     })
+}
+
+fn qualify_parametric_source_geometry(
+    plan: &mut ResolvedInstancePlan,
+    index: usize,
+) -> Result<(), ComposeError> {
+    let positions = ["0", "5", "10"];
+    let instance_numbers = ["30", "10", "20"];
+    let position = positions.get(index).ok_or(ComposeError::ResourceRange)?;
+    for (tag, vr, value) in [
+        (
+            "0020,0032",
+            super::DicomVr::DS,
+            super::AttributeValue::Multi(vec![
+                super::PrimitiveValue::String("0".into()),
+                super::PrimitiveValue::String("0".into()),
+                super::PrimitiveValue::String((*position).into()),
+            ]),
+        ),
+        (
+            "0020,0013",
+            super::DicomVr::IS,
+            super::AttributeValue::Primitive(super::PrimitiveValue::String(
+                instance_numbers[index].into(),
+            )),
+        ),
+    ] {
+        let address = super::AttributeAddress::from_normalized_tag(tag)
+            .map_err(|error| ComposeError::AdvancedDefaults(error.to_string()))?;
+        let replacement = super::ResolvedAttribute {
+            address: address.clone(),
+            vr,
+            value: Some(value),
+            origin: super::ValueOrigin::DerivedStructural,
+        };
+        if let Some(existing) = plan
+            .attributes
+            .iter_mut()
+            .find(|attribute| attribute.address == address)
+        {
+            *existing = replacement;
+        } else {
+            plan.attributes.push(replacement);
+        }
+    }
+    plan.attributes
+        .sort_by(|left, right| left.address.cmp(&right.address));
+    Ok(())
 }
 
 fn advanced_provider_limits(
@@ -2481,6 +2658,50 @@ mod tests {
             );
         }
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn external_quantitative_composition_artifacts_have_no_curated_case_binding() {
+        let spec_bytes =
+            fs::read("tests/fixtures/composition/valid/p6-quantitative-defaults.json").unwrap();
+        let catalog_bytes = fs::read("templates/catalog.json").unwrap();
+        let spec = CompositionSpec::from_slice(&spec_bytes).unwrap();
+        let catalog = TemplateCatalog::from_slice(&catalog_bytes).unwrap();
+        let root = output("external-quantitative-plan");
+        let planned = resolve_execution_bundle(
+            &ComposeOptions {
+                spec_path: "tests/fixtures/composition/valid/p6-quantitative-defaults.json".into(),
+                out_dir: root.clone(),
+                seed: 69,
+                catalog_path: "templates/catalog.json".into(),
+                dry_run: false,
+            },
+            &spec,
+            &catalog,
+            &spec_bytes,
+            &catalog_bytes,
+            Path::new("tests/fixtures/composition/valid"),
+            Path::new("tests/fixtures/composition/valid"),
+            &ComposeCancellationToken::new(),
+        )
+        .unwrap();
+        let imported = planned
+            .bundle
+            .plan
+            .artifacts
+            .iter()
+            .filter_map(|artifact| match artifact {
+                crate::corpus_plan::PlannedArtifact::ImportedDicom(imported) => Some(imported),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(imported.len(), 3);
+        assert!(
+            imported
+                .iter()
+                .all(|artifact| artifact.case_binding.is_none())
+        );
+        assert!(!root.exists());
     }
 
     #[test]

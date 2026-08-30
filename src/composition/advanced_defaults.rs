@@ -5,11 +5,18 @@
 //! a DICOM file.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::Arc;
 
 use crate::corpus_plan::{
-    ArtifactDependency, OutputPlan, OutputRelativePath, PlannedDicomArtifact,
+    ArtifactDependency, ArtifactProvenance, ArtifactResourceEstimate, CaseBinding,
+    EvidenceIndependence, EvidenceObligation, EvidencePlan, ImportedDicomProviderPlan, OutputPlan,
+    OutputRelativePath, PlannedDicomArtifact, PlannedImportedDicomArtifact, ValidationPlan,
+    ValidationRequirement, ValidationRule,
 };
-use crate::executor::services::ArtifactExecutionBindings;
+use crate::executor::services::{
+    ArtifactExecutionBindings, ProviderOutputExpectation, ProviderRequest, SlotExecutionBinding,
+    StagedAssetHandle,
+};
 use crate::planning::RecipeIdentity;
 use crate::recipes::{
     AdvancedArtifactPlanningContext, AdvancedPlanProvider, AdvancedPlanProviderOutput,
@@ -26,6 +33,10 @@ use crate::recipes::{
 };
 use crate::{DeterministicUidInput, UidRole, deterministic_uid};
 
+use super::executor_adapter::CompositionExternalDicomProvider;
+use super::external_quantitative::{
+    ExternalQuantitativeSource, ParametricMapExternalProvider, WsiSegExternalProvider,
+};
 use super::{
     CompositionUidRole, IdentityPlan, MaterializedReference, SpecInstance, TemplateDescriptor,
 };
@@ -49,6 +60,14 @@ pub(crate) struct AdvancedDefaultOutput {
     pub artifacts: BTreeMap<String, PlannedDicomArtifact>,
     pub bindings: BTreeMap<String, ArtifactExecutionBindings>,
     pub dependencies: Vec<ArtifactDependency>,
+}
+
+#[derive(Clone)]
+pub(crate) struct ExternalQuantitativeDefaultOutput {
+    pub artifact: PlannedImportedDicomArtifact,
+    pub bindings: ArtifactExecutionBindings,
+    pub dependencies: Vec<ArtifactDependency>,
+    pub provider: Arc<dyn CompositionExternalDicomProvider>,
 }
 
 pub(crate) fn is_direct_advanced_default(template: &TemplateDescriptor) -> bool {
@@ -142,6 +161,405 @@ pub(crate) fn is_native_quantitative_default(template: &TemplateDescriptor) -> b
             | "derived/segmentation/labelmap"
             | "derived/real-world-value-mapping/linear"
     )
+}
+
+pub(crate) fn is_external_quantitative_default(template: &TemplateDescriptor) -> bool {
+    matches!(
+        template.template_id.0.as_str(),
+        "derived/segmentation/wsi-tile"
+            | "derived/parametric-map/float32"
+            | "derived/parametric-map/float64"
+    )
+}
+
+pub(crate) fn plan_external_quantitative_default(
+    recipes: &RecipeCatalog,
+    repository_root: &std::path::Path,
+    standards_lock_sha256: &str,
+    seed: u64,
+    member: &AdvancedDefaultMember<'_>,
+    sources: &[AdvancedSourceMember],
+) -> Result<ExternalQuantitativeDefaultOutput, String> {
+    let (recipe_id, artifact_id, roles) = match member.template.template_id.0.as_str() {
+        "derived/segmentation/wsi-tile" => (
+            "derived_seg_wsi_tile_reference",
+            "segmentation",
+            vec![QuantitativeSourceRole::WholeSlideSourceImage],
+        ),
+        "derived/parametric-map/float32" => (
+            "derived_parametric_map_float32_ct_derived_explicit_le",
+            "parametric_map",
+            vec![QuantitativeSourceRole::ParametricMapSourceImage; 3],
+        ),
+        "derived/parametric-map/float64" => (
+            "derived_parametric_map_float64_ct_derived_explicit_le",
+            "parametric_map",
+            vec![QuantitativeSourceRole::ParametricMapSourceImage; 3],
+        ),
+        other => {
+            return Err(format!(
+                "unsupported external quantitative template {other}"
+            ));
+        }
+    };
+    if sources.len() != roles.len() {
+        return Err("external quantitative source cardinality differs from recipe".into());
+    }
+    let recipe = recipe_by_id(recipes, recipe_id)?;
+    let artifact_recipe = recipe
+        .dicom
+        .as_ref()
+        .and_then(|dicom| dicom.artifacts.first())
+        .ok_or_else(|| format!("quantitative recipe {recipe_id} has no artifact"))?;
+    let recipe_path = artifact_recipe
+        .output
+        .path
+        .as_deref()
+        .ok_or_else(|| format!("quantitative recipe {recipe_id} has no output path"))?;
+    let mut parser_identities = member.identities.clone();
+    parser_identities.logical_instance_id = artifact_id.into();
+    let parser_context = QuantitativeArtifactContext {
+        recipe_artifact_logical_id: artifact_id.into(),
+        target_instance_id: artifact_id.into(),
+        order: u64::from(artifact_recipe.order),
+        output: OutputPlan {
+            relative_path: OutputRelativePath::new(recipe_path)
+                .map_err(|error| error.to_string())?,
+            role: artifact_recipe.output.role.clone(),
+            publish: true,
+        },
+        identities: parser_identities,
+    };
+    let declarations = recipe
+        .provider_parameters
+        .get("sources")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| format!("quantitative recipe {recipe_id} has no sources"))?;
+    let parser_sources = sources
+        .iter()
+        .zip(&roles)
+        .zip(declarations)
+        .map(|((source, role), declaration)| {
+            let logical_id = declaration["artifact_logical_id"]
+                .as_str()
+                .ok_or_else(|| "external source declaration lacks artifact ID".to_string())?;
+            let referenced_frames = declaration
+                .get("referenced_frames")
+                .cloned()
+                .map(serde_json::from_value)
+                .transpose()
+                .map_err(|error| error.to_string())?
+                .unwrap_or_default();
+            let mut artifact = source.artifact.clone();
+            artifact.logical_id = logical_id.into();
+            artifact.case_binding = Some(CaseBinding {
+                case_id: "composition_parser_source".into(),
+                recipe_id: declaration
+                    .pointer("/recipe/recipe_id")
+                    .and_then(serde_json::Value::as_str)
+                    .ok_or_else(|| "external source declaration lacks recipe ID".to_string())?
+                    .into(),
+                recipe_version: declaration
+                    .pointer("/recipe/recipe_version")
+                    .and_then(serde_json::Value::as_str)
+                    .ok_or_else(|| "external source declaration lacks recipe version".to_string())?
+                    .into(),
+            });
+            let mut bindings = source.binding.clone();
+            bindings.artifact_id = logical_id.into();
+            Ok(QuantitativeSourceInput {
+                role: *role,
+                artifact,
+                bindings,
+                referenced_frames,
+            })
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    let mut input =
+        crate::recipes::quantitative_input_from_recipe(recipe, parser_context, parser_sources)
+            .map_err(|error| error.to_string())?
+            .ok_or_else(|| "quantitative recipe did not produce typed input".to_string())?;
+    let QuantitativePlanInput::ExternalImport {
+        artifact: context,
+        sources: bound_sources,
+        ..
+    } = &mut input
+    else {
+        return Err("external quantitative recipe produced native input".into());
+    };
+    context.target_instance_id = member.instance.instance_id.clone();
+    context.order = member.order;
+    context.output = composition_output(&member.instance.instance_id)?;
+    context.identities = member.identities.clone();
+    *bound_sources = sources
+        .iter()
+        .zip(&roles)
+        .zip(declarations)
+        .map(|((source, role), declaration)| {
+            Ok(QuantitativeSourceInput {
+                role: *role,
+                artifact: source.artifact.clone(),
+                bindings: source.binding.clone(),
+                referenced_frames: declaration
+                    .get("referenced_frames")
+                    .cloned()
+                    .map(serde_json::from_value)
+                    .transpose()
+                    .map_err(|error| error.to_string())?
+                    .unwrap_or_default(),
+            })
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    let QuantitativePlanOutput::ExternalImport {
+        recipe,
+        case_id,
+        artifact,
+        import,
+        sources,
+        dependencies,
+        references,
+    } = QuantitativePlanProvider
+        .plan(&input, QuantitativeProviderLimits::default())
+        .map_err(|error| error.to_string())?
+    else {
+        return Err("external quantitative recipe produced native output".into());
+    };
+    let provider_sources = sources
+        .iter()
+        .enumerate()
+        .map(|(index, source)| {
+            let role = if sources.len() == 1 {
+                "source_image".to_string()
+            } else {
+                format!("source_{}", index + 1)
+            };
+            (role, source)
+        })
+        .collect::<Vec<_>>();
+    let source_assets = provider_sources
+        .iter()
+        .map(|(role, source)| (role.clone(), source.artifact.logical_id.clone()))
+        .collect::<BTreeMap<_, _>>();
+    let input_assets = provider_sources
+        .iter()
+        .map(|(role, source)| {
+            Ok((
+                role.clone(),
+                StagedAssetHandle::new(format!("output:{}", source.artifact.logical_id))
+                    .map_err(|error| error.to_string())?,
+            ))
+        })
+        .collect::<Result<BTreeMap<_, _>, String>>()?;
+    let parameters = BTreeMap::from([
+        (
+            "import_kind".into(),
+            serde_json::to_value(import.kind).unwrap(),
+        ),
+        (
+            "timeout_seconds".into(),
+            serde_json::json!(import.timeout_seconds),
+        ),
+        (
+            "dependency_lock_sha256".into(),
+            serde_json::json!(import.dependency.dependency_lock_sha256),
+        ),
+        (
+            "semantic_evidence".into(),
+            serde_json::to_value(&import.semantic_evidence).unwrap(),
+        ),
+    ]);
+    let provider_plan = ImportedDicomProviderPlan {
+        request_id: format!("{}-{}", import.request_id, member.instance.instance_id),
+        provider_id: import.dependency.executable_provider_id.clone(),
+        required_version: import.dependency.required_tool_version.clone(),
+        output_slot: "dicom".into(),
+        media_type: import.output_media_type.clone(),
+        maximum_size_bytes: import.maximum_output_bytes,
+        expected_sha256: None,
+        transfer_syntax_uid: import.semantic_evidence.transfer_syntax_uid.clone(),
+        parameters: parameters.clone(),
+        source_assets,
+    };
+    let declared_instance = super::ResolvedInstancePlan {
+        plan_schema_version: "0.1.0".into(),
+        instance_id: artifact.target_instance_id.clone(),
+        template_id: member.template.template_id.clone(),
+        template_version: member.template.template_version,
+        sop_class_uid: import.semantic_evidence.sop_class_uid.clone(),
+        transfer_syntax_uid: import.semantic_evidence.transfer_syntax_uid.clone(),
+        identities: artifact.identities.clone(),
+        attributes: vec![],
+        content: vec![],
+        references,
+    };
+    let recipe_case_id = case_id.clone();
+    let recipe_version = recipe.recipe_version.clone();
+    let planned = PlannedImportedDicomArtifact {
+        logical_id: artifact.target_instance_id.clone(),
+        order: artifact.order,
+        provenance: ArtifactProvenance::Requested,
+        case_binding: None,
+        provider: provider_plan.clone(),
+        declared_instance,
+        output: artifact.output,
+        validation: ValidationPlan {
+            rules: vec![ValidationRule {
+                rule_id: "composition_imported_quantitative".into(),
+                requirement: ValidationRequirement::Required,
+                parameters: BTreeMap::new(),
+            }],
+        },
+        evidence: EvidencePlan {
+            obligations: vec![
+                EvidenceObligation {
+                    obligation_id: "composition_manifest".into(),
+                    route_id: "composition_manifest".into(),
+                    independence: EvidenceIndependence::SameProject,
+                    required: true,
+                    parameters: BTreeMap::new(),
+                },
+                EvidenceObligation {
+                    obligation_id: "external_quantitative_provider".into(),
+                    route_id: import.dependency.executable_provider_id.clone(),
+                    independence: EvidenceIndependence::ExternalProvider,
+                    required: true,
+                    parameters: BTreeMap::new(),
+                },
+            ],
+        },
+        resources: ArtifactResourceEstimate {
+            output_bytes: import.maximum_output_bytes,
+            peak_working_bytes: import.maximum_output_bytes,
+        },
+    };
+    let request = ProviderRequest {
+        request_id: provider_plan.request_id.clone(),
+        artifact_id: planned.logical_id.clone(),
+        provider_id: provider_plan.provider_id.clone(),
+        required_version: provider_plan.required_version.clone(),
+        parameters,
+        input_assets,
+        expected_outputs: vec![ProviderOutputExpectation {
+            slot: provider_plan.output_slot.clone(),
+            media_type: provider_plan.media_type.clone(),
+            maximum_size_bytes: provider_plan.maximum_size_bytes,
+            expected_sha256: None,
+        }],
+    };
+    let required_uid = |role: CompositionUidRole| {
+        artifact
+            .identities
+            .get(&role, 0)
+            .map(str::to_owned)
+            .ok_or_else(|| format!("import target lacks {}", role.as_str()))
+    };
+    let external_sources = provider_sources
+        .iter()
+        .map(|(role, source)| {
+            Ok(ExternalQuantitativeSource {
+                role: role.clone(),
+                case_id: source
+                    .artifact
+                    .case_binding
+                    .as_ref()
+                    .map(|binding| binding.case_id.clone())
+                    .unwrap_or_else(|| source.artifact.logical_id.clone()),
+                sop_class_uid: source.artifact.instance.sop_class_uid.clone(),
+                sop_instance_uid: source
+                    .artifact
+                    .instance
+                    .identities
+                    .get(&CompositionUidRole::SopInstance, 0)
+                    .ok_or_else(|| "quantitative source lacks SOP Instance UID".to_string())?
+                    .into(),
+                series_instance_uid: source
+                    .artifact
+                    .instance
+                    .identities
+                    .get(&CompositionUidRole::SeriesInstance, 0)
+                    .map(str::to_owned),
+                frame_numbers: source.referenced_frames.clone(),
+            })
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    let study = required_uid(CompositionUidRole::StudyInstance)?;
+    let series = required_uid(CompositionUidRole::SeriesInstance)?;
+    let frame_of_reference = required_uid(CompositionUidRole::FrameOfReference)?;
+    let sop = required_uid(CompositionUidRole::SopInstance)?;
+    let dimension = artifact
+        .identities
+        .get(&CompositionUidRole::DimensionOrganization, 0)
+        .map(str::to_owned)
+        .unwrap_or_else(|| {
+            crate::deterministic_uid(&crate::DeterministicUidInput {
+                standards_lock_sha256,
+                case_id: &recipe_case_id,
+                recipe_version: &recipe_version,
+                run_seed: seed,
+                file_index: 0,
+                frame_index: None,
+                referenced_object_index: None,
+                role: crate::UidRole::DimensionOrganization,
+            })
+        });
+    let provider: Arc<dyn CompositionExternalDicomProvider> = match import.kind {
+        crate::recipes::ExternalImportKind::WholeSlideTileSegmentation => {
+            Arc::new(WsiSegExternalProvider {
+                repository_root: repository_root.to_owned(),
+                standards_lock_path: repository_root.join("standards.lock.json"),
+                seed,
+                standards_lock_sha256: standards_lock_sha256.into(),
+                study_instance_uid: study,
+                series_instance_uid: series,
+                frame_of_reference_uid: frame_of_reference,
+                sop_instance_uid: sop,
+                dimension_organization_uid: dimension,
+                source: external_sources
+                    .into_iter()
+                    .next()
+                    .ok_or_else(|| "WSI import has no source".to_string())?,
+            })
+        }
+        kind => Arc::new(ParametricMapExternalProvider {
+            repository_root: repository_root.to_owned(),
+            standards_lock_path: repository_root.join("standards.lock.json"),
+            seed,
+            standards_lock_sha256: standards_lock_sha256.into(),
+            study_instance_uid: study,
+            series_instance_uid: series,
+            frame_of_reference_uid: frame_of_reference,
+            sop_instance_uid: sop,
+            dimension_organization_uid: dimension,
+            sources: external_sources,
+            float64: matches!(
+                kind,
+                crate::recipes::ExternalImportKind::ParametricMapFloat64
+            ),
+            // These values are part of the pinned highdicom request protocol,
+            // not independently generated composition content.
+            stored_value_scale: 0.25,
+            spatial_rank_increment: if matches!(
+                kind,
+                crate::recipes::ExternalImportKind::ParametricMapFloat64
+            ) {
+                9.313_226e-10
+            } else {
+                0.25
+            },
+        }),
+    };
+    Ok(ExternalQuantitativeDefaultOutput {
+        artifact: planned,
+        bindings: ArtifactExecutionBindings {
+            artifact_id: member.instance.instance_id.clone(),
+            slots: BTreeMap::from([(
+                provider_plan.output_slot.clone(),
+                SlotExecutionBinding::ProviderRequest { request },
+            )]),
+        },
+        dependencies,
+        provider,
+    })
 }
 
 pub(crate) fn plan_native_quantitative_default(

@@ -20,7 +20,8 @@ use crate::{
 use super::{
     BackendContractError, BackendDiscovery, BackendInvocation, ControlledMetadata,
     PROTOCOL_VERSION, ParametricMapSource, PreparedBackend, StandardsProvenance, backend_policy,
-    discover_prepared_backend, invoke_backend, load_backend_lock, promote_staged_outputs,
+    discover_prepared_backend, invoke_backend_cancellable, load_backend_lock,
+    promote_staged_outputs,
 };
 
 pub const BACKEND_ID: &str = "highdicom_pydicom";
@@ -84,6 +85,13 @@ pub enum WsiTileSegmentationOutcome {
 pub fn generate_wsi_tile_segmentation(
     input: &WsiTileSegmentationGenerationInput,
 ) -> Result<WsiTileSegmentationOutcome, BackendContractError> {
+    generate_wsi_tile_segmentation_cancellable(input, &|| false)
+}
+
+pub fn generate_wsi_tile_segmentation_cancellable(
+    input: &WsiTileSegmentationGenerationInput,
+    cancelled: &dyn Fn() -> bool,
+) -> Result<WsiTileSegmentationOutcome, BackendContractError> {
     validate_input(input)?;
     let lock = load_backend_lock(&input.repository_root)?;
     let policy = backend_policy(&lock, BACKEND_ID)
@@ -107,11 +115,12 @@ pub fn generate_wsi_tile_segmentation(
         environment_fingerprint: backend.environment_fingerprint.clone(),
     };
     let invocation_started = Instant::now();
-    let run = invoke_backend(
+    let run = invoke_backend_cancellable(
         &invocation,
         &request,
         &input.generated_root,
         &input.staging_root,
+        cancelled,
     )?;
     let invocation_elapsed = invocation_started.elapsed();
     match run.response["status"]

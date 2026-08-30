@@ -12,7 +12,7 @@ use crate::sha256_hex;
 
 use super::{
     BackendContractError, BackendDiscovery, BackendInvocation, PROTOCOL_VERSION, PreparedBackend,
-    backend_policy, discover_prepared_backend, invoke_backend, load_backend_lock,
+    backend_policy, discover_prepared_backend, invoke_backend_cancellable, load_backend_lock,
     promote_staged_outputs,
 };
 
@@ -228,6 +228,14 @@ pub fn generate_parametric_map_for_spec(
     input: &ParametricMapGenerationInput,
     spec: ParametricMapSpec,
 ) -> Result<ParametricMapVariantOutcome, BackendContractError> {
+    generate_parametric_map_for_spec_cancellable(input, spec, &|| false)
+}
+
+pub fn generate_parametric_map_for_spec_cancellable(
+    input: &ParametricMapGenerationInput,
+    spec: ParametricMapSpec,
+    cancelled: &dyn Fn() -> bool,
+) -> Result<ParametricMapVariantOutcome, BackendContractError> {
     validate_input(input)?;
     let lock = load_backend_lock(&input.repository_root)?;
     let policy = backend_policy(&lock, BACKEND_ID)
@@ -250,11 +258,12 @@ pub fn generate_parametric_map_for_spec(
         dependency_lock_sha256: backend.dependency_lock_sha256.clone(),
         environment_fingerprint: backend.environment_fingerprint.clone(),
     };
-    let run = invoke_backend(
+    let run = invoke_backend_cancellable(
         &invocation,
         &request,
         &input.generated_root,
         &input.staging_root,
+        cancelled,
     )?;
     match run.response["status"]
         .as_str()

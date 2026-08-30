@@ -12,7 +12,7 @@ use serde_json::{Value, json};
 use super::{
     BACKEND_LOCK_FILE, BackendContractError, BackendDiscovery, BackendInvocation,
     ControlledMetadata, PROTOCOL_VERSION, ParametricMapSource, PreparedBackend,
-    StandardsProvenance, backend_policy, discover_prepared_backend, invoke_backend,
+    StandardsProvenance, backend_policy, discover_prepared_backend, invoke_backend_cancellable,
     load_backend_lock, promote_staged_outputs,
 };
 use crate::sha256_hex;
@@ -74,6 +74,13 @@ pub enum Scoord3dOutcome {
 pub fn generate_scoord3d(
     input: &Scoord3dGenerationInput,
 ) -> Result<Scoord3dOutcome, BackendContractError> {
+    generate_scoord3d_cancellable(input, &|| false)
+}
+
+pub fn generate_scoord3d_cancellable(
+    input: &Scoord3dGenerationInput,
+    cancelled: &dyn Fn() -> bool,
+) -> Result<Scoord3dOutcome, BackendContractError> {
     validate_input(input)?;
     validate_source_geometry(input)?;
     let lock = load_backend_lock(&input.repository_root)?;
@@ -97,11 +104,12 @@ pub fn generate_scoord3d(
         dependency_lock_sha256: backend.dependency_lock_sha256.clone(),
         environment_fingerprint: backend.environment_fingerprint.clone(),
     };
-    let run = invoke_backend(
+    let run = invoke_backend_cancellable(
         &invocation,
         &request,
         &input.generated_root,
         &input.staging_root,
+        cancelled,
     )?;
     match run.response["status"]
         .as_str()

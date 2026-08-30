@@ -24,7 +24,7 @@ pub use parametric_map::{
     ParametricMapIdentities, ParametricMapOutcome, ParametricMapPayload, ParametricMapSampleKind,
     ParametricMapSource, ParametricMapSpec, ParametricMapVariantGenerated,
     ParametricMapVariantOutcome, StandardsProvenance, generate_parametric_map,
-    generate_parametric_map_for_spec,
+    generate_parametric_map_for_spec, generate_parametric_map_for_spec_cancellable,
 };
 mod staging;
 pub use staging::{
@@ -33,11 +33,12 @@ pub use staging::{
 mod scoord3d;
 pub use scoord3d::{
     Scoord3dGenerated, Scoord3dGenerationInput, Scoord3dIdentities, Scoord3dOutcome,
-    generate_scoord3d,
+    generate_scoord3d, generate_scoord3d_cancellable,
 };
 mod tid1500;
 pub use tid1500::{
     Tid1500Generated, Tid1500GenerationInput, Tid1500Identities, Tid1500Outcome, generate_tid1500,
+    generate_tid1500_cancellable,
 };
 mod wsi_tile_segmentation;
 pub use wsi_tile_segmentation::{
@@ -52,6 +53,7 @@ pub use wsi_tile_segmentation::{
     SOURCE_FRAME_NUMBERS as WSI_TILE_SEGMENTATION_SOURCE_FRAME_NUMBERS,
     WsiTileSegmentationGenerated, WsiTileSegmentationGenerationInput,
     WsiTileSegmentationIdentities, WsiTileSegmentationOutcome, generate_wsi_tile_segmentation,
+    generate_wsi_tile_segmentation_cancellable,
 };
 
 pub const PROTOCOL_VERSION: &str = "0.1.0";

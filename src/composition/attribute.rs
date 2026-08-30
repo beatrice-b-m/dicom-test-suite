@@ -335,6 +335,16 @@ pub struct AttributeAddress {
     pub element: u16,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub private_creator: Option<String>,
+    /// Preserve an explicitly addressed private data element without
+    /// synthesizing a private-creator reservation. This is only for bounded
+    /// compatibility plans which must reproduce an existing raw encoding;
+    /// public composition specs cannot request it.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub raw_private: bool,
+}
+
+const fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 impl AttributeAddress {
@@ -343,6 +353,7 @@ impl AttributeAddress {
             group: tag.group(),
             element: tag.element(),
             private_creator: None,
+            raw_private: false,
         };
         address.validate_shape()?;
         Ok(address)
@@ -353,6 +364,18 @@ impl AttributeAddress {
             group: tag.group(),
             element: tag.element(),
             private_creator: Some(private_creator.into()),
+            raw_private: false,
+        };
+        address.validate_shape()?;
+        Ok(address)
+    }
+
+    pub fn raw_private(tag: Tag) -> Result<Self, AttributeError> {
+        let address = Self {
+            group: tag.group(),
+            element: tag.element(),
+            private_creator: None,
+            raw_private: true,
         };
         address.validate_shape()?;
         Ok(address)
@@ -390,22 +413,31 @@ impl AttributeAddress {
 
     fn validate_shape(&self) -> Result<(), AttributeError> {
         let is_private_group = self.group & 1 == 1;
-        match (&self.private_creator, is_private_group, self.element) {
-            (Some(creator), true, 0x1000..=0xFFFF)
+        match (
+            &self.private_creator,
+            self.raw_private,
+            is_private_group,
+            self.element,
+        ) {
+            (None, true, true, 0x1000..=0xFFFF) => Ok(()),
+            (_, true, _, _) => Err(AttributeError::InvalidRawPrivateTag {
+                tag: self.normalized_tag(),
+            }),
+            (Some(creator), false, true, 0x1000..=0xFFFF)
                 if !creator.is_empty() && creator.len() <= 64 =>
             {
                 Ok(())
             }
-            (Some(_), true, 0x1000..=0xFFFF) => Err(AttributeError::InvalidPrivateCreator {
+            (Some(_), false, true, 0x1000..=0xFFFF) => Err(AttributeError::InvalidPrivateCreator {
                 tag: self.normalized_tag(),
             }),
-            (Some(_), _, _) => Err(AttributeError::InvalidPrivateTag {
+            (Some(_), false, _, _) => Err(AttributeError::InvalidPrivateTag {
                 tag: self.normalized_tag(),
             }),
-            (None, true, 0x1000..=0xFFFF) => Err(AttributeError::MissingPrivateCreator {
+            (None, false, true, 0x1000..=0xFFFF) => Err(AttributeError::MissingPrivateCreator {
                 tag: self.normalized_tag(),
             }),
-            (None, _, _) => Ok(()),
+            (None, false, _, _) => Ok(()),
         }
     }
 }
@@ -562,7 +594,7 @@ impl AttributeOperation {
 }
 
 fn valid_multi_value_count(address: &AttributeAddress, count: usize) -> bool {
-    if address.private_creator.is_some() {
+    if address.private_creator.is_some() || address.raw_private {
         return count > 0;
     }
     let tag = (address.group, address.element);
@@ -585,7 +617,7 @@ fn valid_multi_value_count(address: &AttributeAddress, count: usize) -> bool {
 }
 
 fn validate_dictionary_vr(address: &AttributeAddress, vr: DicomVr) -> Result<(), AttributeError> {
-    if address.private_creator.is_some() {
+    if address.private_creator.is_some() || address.raw_private {
         return Ok(());
     }
     let dictionary = StandardDataDictionary;
@@ -624,6 +656,9 @@ pub enum AttributeError {
         tag: String,
     },
     InvalidPrivateTag {
+        tag: String,
+    },
+    InvalidRawPrivateTag {
         tag: String,
     },
     DictionaryVrMismatch {
@@ -665,6 +700,12 @@ impl fmt::Display for AttributeError {
                     "private creator was supplied for non-private data tag {tag}"
                 )
             }
+            Self::InvalidRawPrivateTag { tag } => {
+                write!(
+                    formatter,
+                    "raw private address {tag} is not a private data tag"
+                )
+            }
             Self::DictionaryVrMismatch {
                 tag,
                 supplied,
@@ -701,6 +742,69 @@ mod tests {
         let address = AttributeAddress::from_keyword("PatientName").unwrap();
         assert_eq!(address.normalized_tag(), "0010,0010");
         assert_eq!(address.private_creator, None);
+        assert!(!address.raw_private);
+    }
+
+    #[test]
+    fn raw_private_addresses_are_explicit_bounded_and_canonical() {
+        let address = AttributeAddress::raw_private(Tag(0x7777, 0x1002)).unwrap();
+        assert_eq!(address.normalized_tag(), "7777,1002");
+        assert_eq!(address.private_creator, None);
+        assert!(address.raw_private);
+        assert_eq!(
+            serde_json::to_value(&address).unwrap(),
+            serde_json::json!({
+                "group": 0x7777,
+                "element": 0x1002,
+                "raw_private": true
+            })
+        );
+        assert!(
+            set(
+                address,
+                DicomVr::SQ,
+                AttributeValue::Sequence(vec![AttributeItem { attributes: vec![] }])
+            )
+            .validate()
+            .is_ok()
+        );
+
+        assert!(matches!(
+            AttributeAddress::raw_private(Tag(0x7776, 0x1002)),
+            Err(AttributeError::InvalidRawPrivateTag { .. })
+        ));
+        assert!(matches!(
+            AttributeAddress::raw_private(Tag(0x7777, 0x0010)),
+            Err(AttributeError::InvalidRawPrivateTag { .. })
+        ));
+    }
+
+    #[test]
+    fn raw_private_is_backward_compatible_and_cannot_be_selected_implicitly() {
+        let standard = AttributeAddress::from_keyword("PatientName").unwrap();
+        let serialized = serde_json::to_value(&standard).unwrap();
+        assert_eq!(
+            serialized,
+            serde_json::json!({"group": 0x0010, "element": 0x0010})
+        );
+        let restored: AttributeAddress = serde_json::from_value(serialized).unwrap();
+        assert_eq!(restored, standard);
+        assert!(matches!(
+            AttributeAddress::from_normalized_tag("7777,1002"),
+            Err(AttributeError::MissingPrivateCreator { .. })
+        ));
+
+        let conflicting: AttributeAddress = serde_json::from_value(serde_json::json!({
+            "group": 0x7777,
+            "element": 0x1002,
+            "private_creator": "DTS_MANAGED",
+            "raw_private": true
+        }))
+        .unwrap();
+        assert!(matches!(
+            set(conflicting, DicomVr::SQ, AttributeValue::Sequence(vec![])).validate(),
+            Err(AttributeError::InvalidRawPrivateTag { .. })
+        ));
     }
 
     #[test]

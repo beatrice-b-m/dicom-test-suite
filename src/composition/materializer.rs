@@ -1885,4 +1885,28 @@ mod tests {
         );
         fs::remove_file(path).unwrap();
     }
+
+    #[test]
+    fn raw_private_address_does_not_synthesize_creator_reservation() {
+        let mut object = Dataset::new_empty();
+        let mut creators = BTreeMap::new();
+        let address = AttributeAddress::raw_private(Tag(0x7777, 0x1002)).unwrap();
+        put_private_creator(&mut object, &address, &mut creators).unwrap();
+        assert!(creators.is_empty());
+        assert!(object.element_opt(Tag(0x7777, 0x0010)).unwrap().is_none());
+
+        put_resolved_attribute(
+            &mut object,
+            &ResolvedAttribute {
+                address,
+                vr: DicomVr::SQ,
+                value: Some(AttributeValue::Sequence(vec![])),
+                origin: ValueOrigin::InstanceOverride,
+            },
+            &mut creators,
+        )
+        .unwrap();
+        assert!(object.element(Tag(0x7777, 0x1002)).is_ok());
+        assert!(object.element_opt(Tag(0x7777, 0x0010)).unwrap().is_none());
+    }
 }

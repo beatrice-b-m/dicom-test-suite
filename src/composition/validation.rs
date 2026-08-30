@@ -47,7 +47,8 @@ pub fn validate_composition_root(root: &Path, manifest: &Value) -> (usize, Vec<S
                 "{instance_id}: output SHA-256 differs from manifest"
             ));
         }
-        let plan = match plan_from_entry(entry) {
+        let external_import = entry["construction_origin"] == "external_provider_import";
+        let plan = match plan_from_entry(entry, external_import) {
             Ok(plan) => plan,
             Err(error) => {
                 failures.push(format!("{instance_id}: reconstruct resolved plan: {error}"));
@@ -55,7 +56,7 @@ pub fn validate_composition_root(root: &Path, manifest: &Value) -> (usize, Vec<S
             }
         };
         let plan_sha = plan.canonical_sha256();
-        if entry["resolved_plan_sha256"].as_str() != Some(plan_sha.as_str()) {
+        if !external_import && entry["resolved_plan_sha256"].as_str() != Some(plan_sha.as_str()) {
             failures.push(format!(
                 "{instance_id}: resolved plan SHA-256 differs from manifest"
             ));
@@ -86,7 +87,10 @@ pub fn validate_composition_root(root: &Path, manifest: &Value) -> (usize, Vec<S
     (entries.len(), failures)
 }
 
-fn plan_from_entry(entry: &Value) -> Result<ResolvedInstancePlan, serde_json::Error> {
+fn plan_from_entry(
+    entry: &Value,
+    external_import: bool,
+) -> Result<ResolvedInstancePlan, serde_json::Error> {
     Ok(ResolvedInstancePlan {
         plan_schema_version: "0.1.0".into(),
         instance_id: entry["instance_id"].as_str().unwrap().into(),
@@ -106,7 +110,11 @@ fn plan_from_entry(entry: &Value) -> Result<ResolvedInstancePlan, serde_json::Er
         attributes: serde_json::from_value::<Vec<ResolvedAttribute>>(
             entry["resolved_attributes"].clone(),
         )?,
-        content: serde_json::from_value::<Vec<CanonicalContent>>(entry["content"].clone())?,
+        content: if external_import {
+            Vec::new()
+        } else {
+            serde_json::from_value::<Vec<CanonicalContent>>(entry["content"].clone())?
+        },
         references: serde_json::from_value::<Vec<MaterializedReference>>(
             entry["references"].clone(),
         )?,

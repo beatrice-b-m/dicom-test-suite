@@ -561,6 +561,12 @@
           "minItems": 1,
           "uniqueItems": true
         },
+        "corpus_plan_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "resolved_plan_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
         "path": {
           "type": "string",
           "minLength": 1,

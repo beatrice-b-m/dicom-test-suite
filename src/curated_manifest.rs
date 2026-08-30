@@ -1,4 +1,4 @@
-//! Pure compatibility projection for plan-first curated generation.
+//! Typed public projection for plan-first curated generation.
 
 mod classic;
 mod external;
@@ -792,7 +792,21 @@ pub fn project_curated_file_entries(
                     ctx.artifact_id
                 ));
             }
-            project_one(ctx, artifact, input).map(|entry| {
+            project_one(ctx, artifact, input).map(|mut entry| {
+                if let Some(object) = entry.as_object_mut() {
+                    object.insert(
+                        "corpus_plan_sha256".into(),
+                        Value::String(input.corpus_plan_sha256.clone()),
+                    );
+                    if let Some(instance_plan_sha256) =
+                        artifact.execution.instance_plan_sha256.as_ref()
+                    {
+                        object.insert(
+                            "resolved_plan_sha256".into(),
+                            Value::String(instance_plan_sha256.clone()),
+                        );
+                    }
+                }
                 (
                     ctx.case_recipe
                         .projection_order

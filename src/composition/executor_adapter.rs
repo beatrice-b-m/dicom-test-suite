@@ -673,9 +673,11 @@ impl ManifestProjector for CompositionExecutorManifestProjector {
                 }
             }
         }
-        let manifest = CompositionManifestAssembler
+        let mut manifest = CompositionManifestAssembler
             .assemble_from_mixed_evidence(self.context.inputs.clone(), &entries)
             .map_err(|error| ManifestProjectionError(error.to_string()))?;
+        manifest["run"]["corpus_plan_sha256"] =
+            serde_json::Value::String(input.corpus_plan_sha256.clone());
         let mut bytes = serde_json::to_vec_pretty(&manifest)
             .map_err(|error| ManifestProjectionError(error.to_string()))?;
         bytes.push(b'\n');

@@ -1,7 +1,7 @@
 //! Deterministic adapters from executor service records to run evidence.
 //!
 //! This module is deliberately filesystem-free.  Every byte identity used by
-//! evidence or a compatibility projector comes from a validated staged-asset
+//! evidence or a manifest projector comes from a validated staged-asset
 //! declaration returned by an execution service.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -155,7 +155,7 @@ pub struct RunEvidenceAdapterInput {
     pub publication: PublicationTransition,
 }
 
-/// Filesystem-free input for a legacy manifest projector.
+/// Filesystem-free typed input shared by terminal manifest projectors.
 ///
 /// The planned artifact retains recipe/instance/reference semantics, while the
 /// paired execution record supplies observed byte identities and all evidence.

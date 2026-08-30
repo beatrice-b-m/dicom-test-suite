@@ -85,6 +85,10 @@ fn migrated_curated_recipes_record_shared_plan_materialization() {
     let mut observed_p6 = 0;
     for entry in entries {
         let case_id = entry["case_id"].as_str().unwrap();
+        assert_eq!(entry["corpus_plan_sha256"].as_str().unwrap().len(), 64);
+        if entry.get("validity").and_then(serde_json::Value::as_str) != Some("expected_invalid") {
+            assert_eq!(entry["resolved_plan_sha256"].as_str().unwrap().len(), 64);
+        }
         if !classic(case_id) && !p5(case_id) && !p6(case_id) {
             continue;
         }

@@ -162,13 +162,22 @@ fn every_qualified_default_and_bundle_passes_p8_reproducibility_validation_and_r
     }
 
     assert_eq!(projection(&sequential), projection(&parallel));
+    for manifest in [&sequential, &parallel] {
+        assert_eq!(
+            manifest["run"]["corpus_plan_sha256"]
+                .as_str()
+                .unwrap()
+                .len(),
+            64
+        );
+    }
     let projection_sha256 = sha256_hex(
         &serde_json::to_vec(&projection(&sequential))
             .expect("full-catalog composition projection should serialize"),
     );
     assert_eq!(
-        projection_sha256, "d41165570cf24e211a67b64df933715b05656cc1b2d6532c2904c99935089e07",
-        "the pre-U5 full-catalog plan, identity, content, and reference projection changed"
+        projection_sha256, "f77c3aba2f42dffbe1eb358f6cf83e26c437e84ff3a0f816ddda70affeec4ba1",
+        "the terminal full-catalog plan, identity, content, and reference projection changed"
     );
     let observed_templates = sequential["composition"]["entries"]
         .as_array()

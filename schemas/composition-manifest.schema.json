@@ -33,6 +33,7 @@
       "properties": {
         "kind": { "const": "composition" },
         "seed": { "type": "integer", "minimum": 0 },
+        "corpus_plan_sha256": { "$ref": "#/$defs/sha256" },
         "composition_spec_schema_version": { "const": "0.1.0" },
         "input_spec_sha256": { "$ref": "#/$defs/sha256" },
         "template_catalog_schema_version": { "const": "0.1.0" },
@@ -67,7 +68,7 @@
     },
     "entry": {
       "type": "object",
-      "required": ["instance_id", "template_id", "template_version", "requested", "bundle_root_instance_id", "bundle_role", "source_provenance", "path", "size_bytes", "sha256", "determinism", "resolved_plan_sha256", "dicom", "uids", "resolved_attributes", "value_provenance", "content", "references", "validation"],
+      "required": ["instance_id", "template_id", "template_version", "requested", "bundle_root_instance_id", "bundle_role", "source_provenance", "construction_origin", "path", "size_bytes", "sha256", "determinism", "resolved_plan_sha256", "dicom", "uids", "resolved_attributes", "value_provenance", "content", "references", "validation"],
       "properties": {
         "instance_id": { "$ref": "#/$defs/id" },
         "template_id": { "type": "string", "minLength": 1 },
@@ -76,6 +77,7 @@
         "bundle_root_instance_id": { "$ref": "#/$defs/id" },
         "bundle_role": { "$ref": "#/$defs/id" },
         "source_provenance": { "enum": ["requested", "default_template_dependency"] },
+        "construction_origin": { "enum": ["native_plan", "external_provider_import"] },
         "path": { "$ref": "#/$defs/safe_path" },
         "size_bytes": { "type": "integer", "minimum": 1 },
         "sha256": { "$ref": "#/$defs/sha256" },

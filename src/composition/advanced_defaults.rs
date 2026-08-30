@@ -277,18 +277,29 @@ fn recipe_by_id<'a>(
 }
 
 pub(crate) fn group_identity(
+    recipes: &RecipeCatalog,
     member: &AdvancedDefaultMember<'_>,
     bundle_root: &str,
-) -> Result<(String, String, String), String> {
+) -> Result<(String, String, String, Option<String>), String> {
     let binding = member
         .template
         .default_recipe
         .as_ref()
         .ok_or_else(|| format!("{} has no default recipe", member.template.template_id))?;
+    let identity = RecipeIdentity {
+        recipe_id: binding.recipe_id.clone(),
+        recipe_version: binding.recipe_version.clone(),
+    };
+    let artifact_count = recipes
+        .recipes()
+        .get(&identity)
+        .and_then(|recipe| recipe.dicom.as_ref())
+        .map_or(0, |dicom| dicom.artifacts.len());
     Ok((
         bundle_root.to_owned(),
         binding.recipe_id.clone(),
         binding.recipe_version.clone(),
+        (artifact_count <= 1).then(|| member.instance.instance_id.clone()),
     ))
 }
 

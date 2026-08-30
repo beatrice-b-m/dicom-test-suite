@@ -67,8 +67,19 @@ pub(crate) fn resolved_composition_corpus_plan_with_advanced(
                 artifact.provenance = if member.requested {
                     ArtifactProvenance::Requested
                 } else {
+                    let consumers = advanced_dependencies
+                        .iter()
+                        .filter_map(|dependency| {
+                            (dependency.depends_on == plan.instance_id)
+                                .then_some(dependency.artifact_id.clone())
+                        })
+                        .collect::<Vec<_>>();
                     ArtifactProvenance::Dependency {
-                        requested_by: vec![member.bundle_root_instance_id.clone()],
+                        requested_by: if consumers.is_empty() {
+                            vec![member.bundle_root_instance_id.clone()]
+                        } else {
+                            consumers
+                        },
                     }
                 };
                 artifact.output.publish = true;

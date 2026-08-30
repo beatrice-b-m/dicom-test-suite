@@ -203,6 +203,14 @@ impl AdvancedFamilyProfile {
                 normalize_quantitative_content(family, plan)?;
                 apply_quantitative_content(family, instance, plan, content_resolver)?;
             }
+            AdvancedFamilyKind::StructuredReport(family) => {
+                if !instance.content.is_empty() {
+                    return Err(AdvancedFamilyError::UnsupportedContent(
+                        instance.instance_id.clone(),
+                    ));
+                }
+                apply_structured_report_parameters(family, instance, plan)?;
+            }
             _ => {
                 return Err(AdvancedFamilyError::DefaultArtifact(
                     "direct advanced customization is not registered for this provider".into(),
@@ -217,11 +225,14 @@ impl AdvancedFamilyProfile {
             AdvancedFamilyKind::DerivedReference => {}
             AdvancedFamilyKind::TypedBulk(_) => {}
             AdvancedFamilyKind::Quantitative(_) => {}
+            AdvancedFamilyKind::StructuredReport(_) => {}
             _ => unreachable!(),
         }
         if !matches!(
             self.kind,
-            AdvancedFamilyKind::TypedBulk(_) | AdvancedFamilyKind::Quantitative(_)
+            AdvancedFamilyKind::TypedBulk(_)
+                | AdvancedFamilyKind::Quantitative(_)
+                | AdvancedFamilyKind::StructuredReport(_)
         ) {
             normalize_direct_legacy_plan(plan);
         }

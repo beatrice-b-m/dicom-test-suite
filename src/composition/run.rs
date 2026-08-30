@@ -19,6 +19,7 @@ use super::advanced_defaults::{
     is_native_quantitative_default, is_reference_default, is_typed_bulk_default, plan_image_group,
     plan_native_quantitative_default, plan_reference_default, plan_typed_bulk_default,
 };
+use super::advanced_semantic_defaults::{is_native_sr_default, plan_native_sr_default};
 use super::executor_adapter::{
     CompositionExecutionBundle, CompositionExecutionServiceFactory,
     CompositionExecutorManifestProjector, CompositionProjectionContext, CompositionSource,
@@ -477,8 +478,8 @@ fn resolve_execution_bundle(
             let bundle_root = &bundle_resolution
                 .member(&instance.instance_id)
                 .bundle_root_instance_id;
-            let group =
-                group_identity(&member, bundle_root).map_err(ComposeError::AdvancedDefaults)?;
+            let group = group_identity(&recipes, &member, bundle_root)
+                .map_err(ComposeError::AdvancedDefaults)?;
             if !processed_advanced_groups.insert(group.clone()) {
                 continue;
             }
@@ -506,7 +507,7 @@ fn resolve_execution_bundle(
                 let candidate_root = &bundle_resolution
                     .member(&candidate.instance_id)
                     .bundle_root_instance_id;
-                if group_identity(&candidate_member, candidate_root)
+                if group_identity(&recipes, &candidate_member, candidate_root)
                     .map_err(ComposeError::AdvancedDefaults)?
                     == group
                 {
@@ -591,6 +592,8 @@ fn resolve_execution_bundle(
             advanced_artifacts.insert(planned.logical_id.clone(), planned.clone());
             plans_by_id.insert(instance.instance_id.clone(), planned.instance);
         } else if is_native_quantitative_default(template) {
+            continue;
+        } else if is_native_sr_default(template) {
             continue;
         } else if let Some(profile) = AdvancedFamilyProfile::for_template(&template.template_id.0) {
             let scratch = match &planning_scratch {
@@ -797,6 +800,65 @@ fn resolve_execution_bundle(
         planned.instance = resolved.clone();
         advanced_artifacts.insert(planned.logical_id.clone(), planned);
         plans_by_id.insert(resolved.instance_id.clone(), resolved);
+    }
+
+    for (instance_index, (instance, template)) in spec
+        .instances
+        .iter()
+        .zip(templates.iter().copied())
+        .enumerate()
+    {
+        if !is_native_sr_default(template) {
+            continue;
+        }
+        check_cancelled(cancellation)?;
+        let sources = instance
+            .references
+            .iter()
+            .map(|reference| {
+                advanced_source_member(
+                    &reference.target_instance_id,
+                    spec.instances
+                        .iter()
+                        .position(|candidate| candidate.instance_id == reference.target_instance_id)
+                        .ok_or_else(|| {
+                            ComposeError::AdvancedDefaults(format!(
+                                "SR source {} is absent",
+                                reference.target_instance_id
+                            ))
+                        })?,
+                    &plans_by_id,
+                    &advanced_artifacts,
+                    &execution_bindings,
+                    &bundle_resolution.members,
+                    &spec.resource_limits,
+                )
+            })
+            .collect::<Result<Vec<_>, ComposeError>>()?;
+        let member = AdvancedDefaultMember {
+            instance,
+            template,
+            identities: identity_plans
+                .get(&instance.instance_id)
+                .cloned()
+                .expect("identity pass covered every instance"),
+            order: u64::try_from(instance_index).map_err(|_| ComposeError::ResourceRange)?,
+        };
+        let mut output = plan_native_sr_default(&recipes, &member, &sources)
+            .map_err(ComposeError::AdvancedDefaults)?;
+        advanced_dependencies.extend(output.dependencies);
+        let mut planned = output
+            .artifacts
+            .remove(&instance.instance_id)
+            .ok_or_else(|| {
+                ComposeError::AdvancedDefaults("SR provider omitted composition target".into())
+            })?;
+        let profile = AdvancedFamilyProfile::for_template(&template.template_id.0)
+            .expect("SR template has an advanced profile");
+        profile.customize_direct_plan(instance, &mut planned.instance, &mut content_resolver)?;
+        execution_bindings.extend(output.bindings);
+        advanced_artifacts.insert(planned.logical_id.clone(), planned.clone());
+        plans_by_id.insert(instance.instance_id.clone(), planned.instance);
     }
 
     let mut plans = spec

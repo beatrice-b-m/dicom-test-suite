@@ -4,6 +4,7 @@
 
 mod advanced_defaults;
 pub mod advanced_family;
+mod advanced_semantic_defaults;
 pub mod attribute;
 pub mod bulk;
 pub mod bundle;

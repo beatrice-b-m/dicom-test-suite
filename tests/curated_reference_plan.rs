@@ -83,4 +83,3 @@ fn reference_recipes_plan_with_closed_source_dags_before_output_exists() {
     }
     bundle.plan.validate().unwrap();
 }
-

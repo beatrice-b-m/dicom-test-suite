@@ -8388,6 +8388,63 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
         Some(7),
         "all --include-stress must record seven reduced/full-scale qualifications"
     );
+    let qualifications = stress_manifest["qualifications"].as_array().unwrap();
+    assert_eq!(
+        qualifications
+            .iter()
+            .map(|qualification| qualification["case_id"].as_str().unwrap())
+            .collect::<Vec<_>>(),
+        vec![
+            "stress/wsi/large_pyramid",
+            "stress/study/high_instance_count_ct",
+            "stress/sc/large_bulk_data",
+            "stress/sc/deep_nested_sequences",
+            "stress/sc/long_value_metadata",
+            "stress/sc/large_encapsulated_multifragment",
+            "stress/enhanced-ct/many_frames",
+        ],
+        "plan-first stress qualifications must preserve the public dispatcher order"
+    );
+    for qualification in qualifications.iter().filter(|qualification| {
+        matches!(
+            qualification["case_id"].as_str(),
+            Some("stress/study/high_instance_count_ct")
+                | Some("stress/sc/large_bulk_data")
+                | Some("stress/sc/deep_nested_sequences")
+                | Some("stress/sc/long_value_metadata")
+                | Some("stress/sc/large_encapsulated_multifragment")
+        )
+    }) {
+        let case_id = qualification["case_id"].as_str().unwrap();
+        let output_bytes = stress_manifest["files"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|file| file["case_id"] == case_id)
+            .map(|file| file["size_bytes"].as_u64().unwrap())
+            .sum::<u64>();
+        assert_eq!(qualification["actual"]["output_bytes"], output_bytes);
+        assert_eq!(qualification["observation"]["output_bytes"], output_bytes);
+        assert_eq!(qualification["observation"]["peak_rss_bytes"], Value::Null);
+        assert_eq!(
+            qualification["resource_envelope"],
+            serde_json::json!({
+                "case_wall_milliseconds": 120000,
+                "job_wall_milliseconds": 600000,
+                "output_bytes": 268435456,
+                "peak_rss_bytes": 536870912,
+                "recipe_output_bytes": null
+            })
+        );
+        assert_eq!(
+            qualification["unavailable_scales"],
+            serde_json::json!([{
+                "message": "The scheduled full-scale streaming runner and independent resource qualification are not implemented.",
+                "reason_code": "full_scale_runner_unimplemented",
+                "scale": "full"
+            }])
+        );
+    }
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
     fs::remove_dir_all(stress_out_dir).expect("stress output root should be removable");

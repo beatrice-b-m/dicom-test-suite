@@ -117,3 +117,36 @@ fn stress_ct_plan_is_parallelism_independent_and_explicitly_ordered() {
         (0..128).collect::<Vec<_>>()
     );
 }
+
+#[test]
+fn stress_ct_is_opt_in_and_never_leaks_into_all_feature_free() {
+    let all_feature_free = provider()
+        .plan(&CuratedScPlanRequest {
+            selection: CuratedScSelection::AllFeatureFree,
+            seed: 1,
+            max_parallelism: 4,
+        })
+        .unwrap();
+    let all_without_stress = provider()
+        .plan(&CuratedScPlanRequest {
+            selection: CuratedScSelection::Profile {
+                profile: "all".into(),
+                include_stress: false,
+            },
+            seed: 1,
+            max_parallelism: 4,
+        })
+        .unwrap();
+    for bundle in [&all_feature_free, &all_without_stress] {
+        assert!(bundle.plan.artifacts.iter().all(|artifact| {
+            let PlannedArtifact::Dicom(artifact) = artifact else {
+                return true;
+            };
+            artifact
+                .case_binding
+                .as_ref()
+                .is_none_or(|binding| binding.case_id != CASE_ID)
+        }));
+    }
+    assert_eq!(plan(4).plan.artifacts.len(), 128);
+}

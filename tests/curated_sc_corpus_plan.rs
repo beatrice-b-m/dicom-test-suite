@@ -55,7 +55,12 @@ fn source_inventory() -> (Vec<(String, String, String)>, BTreeSet<String>) {
         let feature_free = ["features", "external_codecs", "external_validators"]
             .iter()
             .all(|field| requirements[field].as_array().unwrap().is_empty());
-        if case["status"] != "implemented" || !feature_free {
+        let stress = case["profiles"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|profile| profile == "stress");
+        if case["status"] != "implemented" || !feature_free || stress {
             continue;
         }
         let case_id = case["case_id"].as_str().unwrap();

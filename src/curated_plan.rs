@@ -2703,7 +2703,11 @@ fn selected_case_ids(
         CuratedScSelection::AllFeatureFree => Ok(registry
             .cases
             .iter()
-            .filter(|case| case.status == "implemented" && case.requirements.is_feature_free())
+            .filter(|case| {
+                case.status == "implemented"
+                    && case.requirements.is_feature_free()
+                    && !case.profiles.iter().any(|profile| profile == "stress")
+            })
             .map(|case| case.case_id.clone())
             .collect()),
         CuratedScSelection::Profile {

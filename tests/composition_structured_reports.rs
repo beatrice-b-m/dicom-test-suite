@@ -8,6 +8,7 @@ use dicom_core::header::Header;
 use dicom_dictionary_std::tags;
 use dicom_object::{InMemDicomObject, open_file};
 use dicom_test_suite::composition::{ComposeOptions, compose};
+use dicom_test_suite::sha256_hex;
 use serde_json::{Value, json};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -29,6 +30,37 @@ fn run(spec: impl Into<PathBuf>, out: PathBuf, seed: u64) {
         dry_run: false,
     })
     .unwrap();
+}
+
+fn oracle_digest(root: &PathBuf) -> String {
+    let manifest: Value =
+        serde_json::from_slice(&fs::read(root.join("manifest.json")).unwrap()).unwrap();
+    let entries = manifest["composition"]["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|entry| {
+            let path = entry["path"].as_str().unwrap();
+            json!({
+                "instance_id": entry["instance_id"],
+                "template_id": entry["template_id"],
+                "uids": entry["uids"],
+                "resolved_plan_sha256": entry["resolved_plan_sha256"],
+                "content": entry["content"],
+                "references": entry["references"],
+                "path": path,
+                "sha256": entry["sha256"],
+                "payload_sha256": sha256_hex(&fs::read(root.join(path)).unwrap()),
+            })
+        })
+        .collect::<Vec<_>>();
+    sha256_hex(
+        &serde_json::to_vec(&json!({
+            "entries": entries,
+            "bundles": manifest["composition"]["bundles"],
+        }))
+        .unwrap(),
+    )
 }
 
 fn strings_for(object: &InMemDicomObject, tag: Tag) -> Vec<String> {
@@ -115,6 +147,10 @@ fn structured_report_defaults_have_closed_reproducible_reference_graphs() {
             fs::read(second.join(entry["path"].as_str().unwrap())).unwrap()
         );
     }
+    assert_eq!(
+        oracle_digest(&first),
+        "d16ddc02cea19b9458dc04b14425e2dbf6675f4ea2774be169f4176fcdc86e99"
+    );
     fs::remove_dir_all(first).unwrap();
     fs::remove_dir_all(second).unwrap();
 }

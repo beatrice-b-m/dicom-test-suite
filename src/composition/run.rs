@@ -380,7 +380,10 @@ fn resolve_execution_bundle(
     .map_err(|error| ComposeError::AdvancedDefaults(error.to_string()))?;
     let advanced_limits = advanced_provider_limits(&spec)?;
     let mut plans_by_id = BTreeMap::new();
-    let mut advanced_artifacts = BTreeMap::new();
+    let mut advanced_artifacts: BTreeMap<
+        String,
+        super::corpus_adapter::AdvancedCompositionArtifact,
+    > = BTreeMap::new();
     let mut advanced_dependencies = Vec::new();
     let mut processed_advanced_groups = std::collections::BTreeSet::new();
     let mut native_codec_plans = BTreeMap::new();
@@ -565,7 +568,7 @@ fn resolve_execution_bundle(
                     .expect("advanced identity plan includes implementation class")
                     .to_owned();
                 planned.instance = resolved.clone();
-                advanced_artifacts.insert(planned.logical_id.clone(), planned);
+                advanced_artifacts.insert(planned.logical_id.clone(), planned.into());
                 plans_by_id.insert(resolved.instance_id.clone(), resolved);
             }
         } else if is_typed_bulk_default(template) {
@@ -598,7 +601,7 @@ fn resolve_execution_bundle(
                 output.bindings.remove(&instance.instance_id);
             }
             execution_bindings.extend(output.bindings);
-            advanced_artifacts.insert(planned.logical_id.clone(), planned.clone());
+            advanced_artifacts.insert(planned.logical_id.clone(), planned.clone().into());
             plans_by_id.insert(instance.instance_id.clone(), planned.instance);
         } else if is_native_quantitative_default(template) {
             continue;
@@ -728,7 +731,7 @@ fn resolve_execution_bundle(
                 output.bindings.remove(&instance.instance_id);
             }
             execution_bindings.extend(output.bindings);
-            advanced_artifacts.insert(planned.logical_id.clone(), planned.clone());
+            advanced_artifacts.insert(planned.logical_id.clone(), planned.clone().into());
             plans_by_id.insert(instance.instance_id.clone(), planned.instance);
             continue;
         }
@@ -809,7 +812,7 @@ fn resolve_execution_bundle(
             .expect("advanced identity plan includes implementation class")
             .to_owned();
         planned.instance = resolved.clone();
-        advanced_artifacts.insert(planned.logical_id.clone(), planned);
+        advanced_artifacts.insert(planned.logical_id.clone(), planned.into());
         plans_by_id.insert(resolved.instance_id.clone(), resolved);
     }
 
@@ -868,7 +871,7 @@ fn resolve_execution_bundle(
             .expect("SR template has an advanced profile");
         profile.customize_direct_plan(instance, &mut planned.instance, &mut content_resolver)?;
         execution_bindings.extend(output.bindings);
-        advanced_artifacts.insert(planned.logical_id.clone(), planned.clone());
+        advanced_artifacts.insert(planned.logical_id.clone(), planned.clone().into());
         plans_by_id.insert(instance.instance_id.clone(), planned.instance);
     }
 
@@ -945,7 +948,7 @@ fn resolve_execution_bundle(
                 &mut content_resolver,
             )?;
             execution_bindings.extend(output.bindings);
-            advanced_artifacts.insert(planned.logical_id.clone(), planned.clone());
+            advanced_artifacts.insert(planned.logical_id.clone(), planned.clone().into());
             plans_by_id.insert(instance.instance_id.clone(), planned.instance);
         }
         if deferred.len() == before {
@@ -977,7 +980,7 @@ fn resolve_execution_bundle(
     super::advanced_family::rewrite_materialized_dicom_references(&mut plans)?;
     for plan in &plans {
         if let Some(artifact) = advanced_artifacts.get_mut(&plan.instance_id) {
-            artifact.instance = plan.clone();
+            *artifact.resolved_instance_mut() = plan.clone();
         }
     }
 
@@ -1067,7 +1070,7 @@ fn advanced_source_member(
     instance_id: &str,
     order: usize,
     plans: &BTreeMap<String, ResolvedInstancePlan>,
-    advanced: &BTreeMap<String, crate::corpus_plan::PlannedDicomArtifact>,
+    advanced: &BTreeMap<String, super::corpus_adapter::AdvancedCompositionArtifact>,
     bindings: &BTreeMap<String, ArtifactExecutionBindings>,
     members: &BTreeMap<String, super::BundleMemberProvenance>,
     limits: &super::ResourceLimits,
@@ -1076,7 +1079,11 @@ fn advanced_source_member(
         ComposeError::AdvancedDefaults(format!("reference source {instance_id} is not planned"))
     })?;
     let artifact = if let Some(artifact) = advanced.get(instance_id) {
-        artifact.clone()
+        artifact.native().cloned().ok_or_else(|| {
+            ComposeError::AdvancedDefaults(format!(
+                "imported artifact {instance_id} cannot be used as a native planning source"
+            ))
+        })?
     } else {
         let per_artifact_limit = limits
             .max_total_output_bytes

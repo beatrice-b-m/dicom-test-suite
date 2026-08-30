@@ -16,6 +16,33 @@ use crate::corpus_plan::{
     SequenceLengthPolicy, ValidationPlan, ValidationRequirement, ValidationRule,
 };
 
+#[derive(Debug, Clone)]
+pub(crate) enum AdvancedCompositionArtifact {
+    Native(PlannedDicomArtifact),
+    Imported(crate::corpus_plan::PlannedImportedDicomArtifact),
+}
+
+impl From<PlannedDicomArtifact> for AdvancedCompositionArtifact {
+    fn from(value: PlannedDicomArtifact) -> Self {
+        Self::Native(value)
+    }
+}
+
+impl AdvancedCompositionArtifact {
+    pub(crate) fn native(&self) -> Option<&PlannedDicomArtifact> {
+        match self {
+            Self::Native(value) => Some(value),
+            Self::Imported(_) => None,
+        }
+    }
+    pub(crate) fn resolved_instance_mut(&mut self) -> &mut ResolvedInstancePlan {
+        match self {
+            Self::Native(value) => &mut value.instance,
+            Self::Imported(value) => &mut value.declared_instance,
+        }
+    }
+}
+
 use super::{
     BundleMemberProvenance, CompositionUidRole, ContentMaterialization, ResolvedInstancePlan,
     ResourceLimits,
@@ -45,7 +72,7 @@ pub(crate) fn resolved_composition_corpus_plan_with_advanced(
     members: &BTreeMap<String, BundleMemberProvenance>,
     limits: &ResourceLimits,
     parallelism: u32,
-    advanced: &BTreeMap<String, PlannedDicomArtifact>,
+    advanced: &BTreeMap<String, AdvancedCompositionArtifact>,
     advanced_dependencies: &[ArtifactDependency],
 ) -> Result<CorpusPlan, CorpusPlanError> {
     let per_artifact_output_limit = limits
@@ -59,12 +86,20 @@ pub(crate) fn resolved_composition_corpus_plan_with_advanced(
         .map(|(index, plan)| {
             if let Some(artifact) = advanced.get(&plan.instance_id) {
                 let mut artifact = artifact.clone();
-                artifact.order =
+                let (order, provenance, output) = match &mut artifact {
+                    AdvancedCompositionArtifact::Native(value) => {
+                        (&mut value.order, &mut value.provenance, &mut value.output)
+                    }
+                    AdvancedCompositionArtifact::Imported(value) => {
+                        (&mut value.order, &mut value.provenance, &mut value.output)
+                    }
+                };
+                *order =
                     u64::try_from(index).map_err(|_| CorpusPlanError::ResourceEstimateOverflow)?;
                 let member = members
                     .get(&plan.instance_id)
                     .ok_or_else(|| CorpusPlanError::UnknownArtifact(plan.instance_id.clone()))?;
-                artifact.provenance = if member.requested {
+                *provenance = if member.requested {
                     ArtifactProvenance::Requested
                 } else {
                     let consumers = advanced_dependencies
@@ -82,8 +117,13 @@ pub(crate) fn resolved_composition_corpus_plan_with_advanced(
                         },
                     }
                 };
-                artifact.output.publish = true;
-                Ok(PlannedArtifact::Dicom(artifact))
+                output.publish = true;
+                Ok(match artifact {
+                    AdvancedCompositionArtifact::Native(value) => PlannedArtifact::Dicom(value),
+                    AdvancedCompositionArtifact::Imported(value) => {
+                        PlannedArtifact::ImportedDicom(value)
+                    }
+                })
             } else {
                 planned_artifact(index, plan, members, per_artifact_output_limit)
             }

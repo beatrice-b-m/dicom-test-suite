@@ -244,6 +244,55 @@ pub struct MaterializationEvidence {
     pub content: Vec<MaterializedContentEvidence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub imported_dicom: Option<ImportedDicomObservation>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub service_evidence: Vec<MaterializationServiceEvidence>,
+}
+
+pub const MAX_MATERIALIZATION_SERVICE_EVIDENCE: usize = 64;
+pub const MAX_MATERIALIZATION_SERVICE_CLAIMS: usize = 64;
+pub const MAX_MATERIALIZATION_SERVICE_CLAIMS_BYTES: usize = 256 * 1024;
+
+/// Service-originated materialization facts retained without depending on the
+/// executor service contract layer.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MaterializationServiceEvidence {
+    pub evidence_id: String,
+    pub evidence_kind: String,
+    pub producer_id: String,
+    pub producer_version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub producer_executable_sha256: Option<String>,
+    #[serde(default)]
+    pub claims: BTreeMap<String, serde_json::Value>,
+}
+
+impl MaterializationServiceEvidence {
+    fn validate(&self) -> Result<(), EvidenceError> {
+        validate_identifier("materialization service evidence ID", &self.evidence_id)?;
+        validate_identifier("materialization service evidence kind", &self.evidence_kind)?;
+        validate_identifier("materialization service producer ID", &self.producer_id)?;
+        validate_identifier(
+            "materialization service producer version",
+            &self.producer_version,
+        )?;
+        if let Some(hash) = &self.producer_executable_sha256 {
+            validate_sha256("materialization service executable", hash)?;
+        }
+        if self.claims.len() > MAX_MATERIALIZATION_SERVICE_CLAIMS {
+            return Err(EvidenceError::MaterializationServiceEvidenceBounds);
+        }
+        for key in self.claims.keys() {
+            validate_identifier("materialization service claim", key)?;
+        }
+        let size = serde_json::to_vec(&self.claims)
+            .map_err(|_| EvidenceError::MaterializationServiceEvidenceBounds)?
+            .len();
+        if size > MAX_MATERIALIZATION_SERVICE_CLAIMS_BYTES {
+            return Err(EvidenceError::MaterializationServiceEvidenceBounds);
+        }
+        Ok(())
+    }
 }
 
 pub const IMPORTED_DICOM_OBSERVATION_SCHEMA_VERSION: &str = "0.1.0";
@@ -388,6 +437,18 @@ impl MaterializationEvidence {
             "materialized content slot",
             self.content.iter().map(|c| &c.slot),
         )?;
+        if self.service_evidence.len() > MAX_MATERIALIZATION_SERVICE_EVIDENCE {
+            return Err(EvidenceError::MaterializationServiceEvidenceBounds);
+        }
+        validate_unique_results(
+            "materialization service evidence",
+            self.service_evidence
+                .iter()
+                .map(|evidence| &evidence.evidence_id),
+        )?;
+        for evidence in &self.service_evidence {
+            evidence.validate()?;
+        }
         for content in &self.content {
             validate_identifier("materialized content kind", &content.kind)?;
             validate_identifier("materialized content VR", &content.vr)?;
@@ -1065,6 +1126,7 @@ pub enum EvidenceError {
     FragmentEvidenceArithmetic(String),
     NativeBitPacking(String),
     NativeValueField(String),
+    MaterializationServiceEvidenceBounds,
     UnsafeRelativePath(String),
     ArtifactOutputLimitExceeded,
     ArtifactWorkingLimitExceeded,

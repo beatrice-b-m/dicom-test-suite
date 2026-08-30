@@ -17,10 +17,10 @@ use crate::corpus_plan::{
 use crate::executor::evidence::{
     ArtifactExecutionEvidence, ArtifactKind, ArtifactResourceEvidence, CodecEvidence,
     EvidenceError, EvidenceIndependence, ExecutionStatus, ImportedDicomObservation,
-    MaterializationEvidence, MaterializedContentEvidence, ObligationResult, OutputEvidence,
-    ProviderEvidence, PublicationEvidence, PublicationState, RUN_EVIDENCE_SCHEMA_VERSION,
-    ResultStatus, RunEvidence, RunResourceEvidence, ToolEvidence, UnavailableExecutionEvidence,
-    ValidationResult,
+    MaterializationEvidence, MaterializationServiceEvidence, MaterializedContentEvidence,
+    ObligationResult, OutputEvidence, ProviderEvidence, PublicationEvidence, PublicationState,
+    RUN_EVIDENCE_SCHEMA_VERSION, ResultStatus, RunEvidence, RunResourceEvidence, ToolEvidence,
+    UnavailableExecutionEvidence, ValidationResult,
 };
 use crate::executor::scheduler::{ScheduleOutcome, ScheduledArtifact};
 use crate::executor::services::{
@@ -473,6 +473,18 @@ fn adapt_artifact(
                     .map(serde_json::from_value::<ImportedDicomObservation>)
                     .transpose()
                     .map_err(AdapterError::Serialize)?,
+                service_evidence: result
+                    .evidence
+                    .iter()
+                    .map(|evidence| MaterializationServiceEvidence {
+                        evidence_id: evidence.evidence_id.clone(),
+                        evidence_kind: evidence.evidence_kind.clone(),
+                        producer_id: evidence.producer.backend_id.clone(),
+                        producer_version: evidence.producer.version.clone(),
+                        producer_executable_sha256: evidence.producer.executable_sha256.clone(),
+                        claims: evidence.claims.clone(),
+                    })
+                    .collect(),
             })
         })
         .transpose()?;

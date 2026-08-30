@@ -36,6 +36,7 @@ fn artifact(logical_id: &str, order: u64, path: &str) -> ArtifactExecutionEviden
             implementation_version_name: Some("DICOMTS010".into()),
             content: vec![],
             imported_dicom: None,
+            service_evidence: vec![],
         }),
         validation: vec![ValidationResult {
             rule_id: "meta_identity".into(),
@@ -169,5 +170,84 @@ fn uncancelled_checkpoint_passes_and_default_cancel_reason_is_stable() {
         .unwrap();
     assert!(token.cancel());
     assert_eq!(token.reason().as_deref(), Some("requested"));
+}
+
+#[test]
+fn materialization_service_evidence_is_bounded_unique_and_backward_compatible() {
+    let mut value = evidence(vec![artifact("source", 0, "instances/source.dcm")]);
+    let empty = serde_json::to_value(value.artifacts[0].materialization.as_ref().unwrap()).unwrap();
+    assert!(empty.get("service_evidence").is_none());
+    let record = MaterializationServiceEvidence {
+        evidence_id: "qualification_record".into(),
+        evidence_kind: "bounded_qualification".into(),
+        producer_id: "qualification_service".into(),
+        producer_version: "1.0.0".into(),
+        producer_executable_sha256: Some(HASH.into()),
+        claims: BTreeMap::from([("candidate_count".into(), serde_json::json!(7))]),
+    };
+    value.artifacts[0]
+        .materialization
+        .as_mut()
+        .unwrap()
+        .service_evidence
+        .push(record.clone());
+    value.validate(&["source".into()]).unwrap();
+    let encoded = serde_json::to_value(&value).unwrap();
+    assert_eq!(
+        encoded["artifacts"][0]["materialization"]["service_evidence"][0]["evidence_id"],
+        "qualification_record"
+    );
+
+    value.artifacts[0]
+        .materialization
+        .as_mut()
+        .unwrap()
+        .service_evidence
+        .push(record);
+    assert!(matches!(
+        value.validate(&["source".into()]),
+        Err(EvidenceError::DuplicateResult {
+            label: "materialization service evidence",
+            ..
+        })
+    ));
+}
+
+#[test]
+fn materialization_service_claim_count_and_size_are_bounded() {
+    let mut value = evidence(vec![artifact("source", 0, "instances/source.dcm")]);
+    value.artifacts[0]
+        .materialization
+        .as_mut()
+        .unwrap()
+        .service_evidence
+        .push(MaterializationServiceEvidence {
+            evidence_id: "qualification_record".into(),
+            evidence_kind: "bounded_qualification".into(),
+            producer_id: "qualification_service".into(),
+            producer_version: "1.0.0".into(),
+            producer_executable_sha256: None,
+            claims: (0..=MAX_MATERIALIZATION_SERVICE_CLAIMS)
+                .map(|index| (format!("claim_{index}"), serde_json::json!(index)))
+                .collect(),
+        });
+    assert_eq!(
+        value.validate(&["source".into()]),
+        Err(EvidenceError::MaterializationServiceEvidenceBounds)
+    );
+
+    value.artifacts[0]
+        .materialization
+        .as_mut()
+        .unwrap()
+        .service_evidence[0]
+        .claims = BTreeMap::from([(
+        "payload".into(),
+        serde_json::json!("x".repeat(MAX_MATERIALIZATION_SERVICE_CLAIMS_BYTES)),
+    )]);
+    assert_eq!(
+        value.validate(&["source".into()]),
+        Err(EvidenceError::MaterializationServiceEvidenceBounds)
+    );
 }
 use std::collections::BTreeMap;

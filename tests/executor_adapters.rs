@@ -25,8 +25,9 @@ use dicom_test_suite::executor::scheduler::{
 use dicom_test_suite::executor::services::{
     AssetVisibility, ByteBinding, CodecRequest, CodecResult, EncodedFrameResult,
     MaterializationResult, NativeFrameBinding, ProducedAsset, ProviderOutputExpectation,
-    ProviderRequest, ProviderResult, RuleExecutionResult, StagedAssetHandle, StagingRelativePath,
-    ToolIdentity, ValidationResult as ServiceValidationResult, ValidationStatus,
+    ProviderRequest, ProviderResult, RuleExecutionResult, ServiceEvidence, StagedAssetHandle,
+    StagingRelativePath, ToolIdentity, ValidationResult as ServiceValidationResult,
+    ValidationStatus,
 };
 use dicom_test_suite::sha256_hex;
 
@@ -154,7 +155,12 @@ fn outputs(id: &str, path: &str, bytes: &[u8], include_services: bool) -> Artifa
         artifact_id: id.into(),
         output: Some(output),
         backend: tool("dicom-rs.part10", None),
-        evidence: vec![],
+        evidence: vec![ServiceEvidence {
+            evidence_id: "qualification_record".into(),
+            evidence_kind: "bounded_qualification".into(),
+            producer: tool("qualification-service", Some("e".repeat(64))),
+            claims: BTreeMap::from([("candidate_count".into(), serde_json::json!(7))]),
+        }],
     };
     let validation = ServiceValidationResult {
         artifact_id: id.into(),
@@ -373,6 +379,20 @@ fn adapter_orders_records_and_preserves_typed_service_evidence() {
     assert_eq!(evidence.artifacts[0].codecs[0].display_name, "Fake codec");
     assert_eq!(evidence.artifacts[0].codecs[0].feature_gate, None);
     assert_eq!(evidence.artifacts[0].validation[0].layer, "part10");
+    let service_evidence = &evidence.artifacts[0]
+        .materialization
+        .as_ref()
+        .unwrap()
+        .service_evidence[0];
+    assert_eq!(service_evidence.evidence_id, "qualification_record");
+    assert_eq!(service_evidence.evidence_kind, "bounded_qualification");
+    assert_eq!(service_evidence.producer_id, "qualification-service");
+    assert_eq!(service_evidence.producer_version, "1.0.0");
+    assert_eq!(
+        service_evidence.producer_executable_sha256,
+        Some("e".repeat(64))
+    );
+    assert_eq!(service_evidence.claims["candidate_count"], 7);
     assert_eq!(
         evidence.artifacts[0].obligations[0].route_id,
         "builtin.strict"

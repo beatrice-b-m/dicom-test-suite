@@ -77,6 +77,7 @@ pub mod part10_locator;
 pub mod planning;
 pub mod protocol;
 pub mod quantitative_evidence;
+pub mod qualification_plan;
 pub mod sr_rt_manifest;
 pub mod sr_rt_validation;
 pub mod protocol_baseline;

@@ -25,9 +25,10 @@ use crate::composition::{
 use crate::corpus_plan::{
     ArtifactDependency, ArtifactProvenance, ArtifactResourceEstimate, CORPUS_PLAN_SCHEMA_VERSION,
     CapabilityKind, CaseBinding, CorpusPlan, CorpusPlanError, EncodingPlan, EvidenceIndependence,
-    EvidenceObligation, EvidencePlan, FileMetaPolicy, FragmentationPolicy, ItemLengthPolicy,
-    OffsetTablePolicy, OutputPlan, OutputRelativePath, PlannedArtifact, PlannedDicomArtifact,
-    PreamblePolicy, PublicationPlan, PublicationTransaction, ResourcePlan, SequenceLengthPolicy,
+    EvidenceObligation, EvidencePlan, FileMetaPolicy, FragmentationPolicy,
+    ImportedDicomProviderPlan, ItemLengthPolicy, OffsetTablePolicy, OutputPlan, OutputRelativePath,
+    PlannedArtifact, PlannedDicomArtifact, PlannedImportedDicomArtifact, PreamblePolicy,
+    PublicationPlan, PublicationTransaction, ResourcePlan, SequenceLengthPolicy,
     UnavailableCapability, ValidationPlan, ValidationRequirement, ValidationRule,
 };
 use crate::executor::services::{
@@ -52,15 +53,15 @@ use crate::recipes::{
     ClassicResolvedPlanInput, ContentProviderLimits, ENCAPSULATED_PAYLOAD_PLAN_PROVIDER_ID,
     EXCEPTIONAL_SC_PLAN_PROVIDER_ID, EncapsulatedPayload, EncapsulatedPayloadPlanProvider,
     EnhancedPlanProvider, ExceptionalScEncodingRequest, ExceptionalScPlanInput,
-    MetadataScPlanInput, OrderedSeriesProvider, PRESENTATION_ADVANCED_PROVIDER_ID,
-    PresentationPlanProvider, PresentationSourceInput, QUANTITATIVE_NATIVE_PROVIDER_ID,
-    QuantitativeArtifactContext, QuantitativePlanInput, QuantitativePlanOutput,
-    QuantitativePlanProvider, QuantitativeProviderLimits, QuantitativeSourceInput,
-    QuantitativeSourceRole, REGISTRATION_PLAN_PROVIDER_ID, RT_PLAN_PROVIDER_ID, RecipeCatalog,
-    RecipeReference, RegistrationPlanProvider, RegistrationSourceInput, RtPlanProvider,
-    SR_PLAN_PROVIDER_ID, STRESS_CT_PLAN_PROVIDER_ID, STRESS_SC_PLAN_PROVIDER_ID,
-    SecondaryCapturePlanInput, SemanticPlanContext, SemanticSource, SrPlanProvider,
-    TypedBulkPlanningContext, WAVEFORM_PLAN_PROVIDER_ID, WSI_ADVANCED_PROVIDER_ID,
+    LockedFullFileCodecRequest, MetadataScPlanInput, OrderedSeriesProvider,
+    PRESENTATION_ADVANCED_PROVIDER_ID, PresentationPlanProvider, PresentationSourceInput,
+    QUANTITATIVE_NATIVE_PROVIDER_ID, QuantitativeArtifactContext, QuantitativePlanInput,
+    QuantitativePlanOutput, QuantitativePlanProvider, QuantitativeProviderLimits,
+    QuantitativeSourceInput, QuantitativeSourceRole, REGISTRATION_PLAN_PROVIDER_ID,
+    RT_PLAN_PROVIDER_ID, RecipeCatalog, RecipeReference, RegistrationPlanProvider,
+    RegistrationSourceInput, RtPlanProvider, SR_PLAN_PROVIDER_ID, STRESS_CT_PLAN_PROVIDER_ID,
+    STRESS_SC_PLAN_PROVIDER_ID, SecondaryCapturePlanInput, SemanticPlanContext, SemanticSource,
+    SrPlanProvider, TypedBulkPlanningContext, WAVEFORM_PLAN_PROVIDER_ID, WSI_ADVANCED_PROVIDER_ID,
     WaveformPlanProvider, WsiAdvancedPlanProvider, encapsulated_payload_input_from_recipe,
     encoding_plan_from_recipe, native_pixel_request_from_recipe, plan_exceptional_sc,
     plan_stress_ct_recipe, plan_stress_sc_recipe, resolved_classic_instance_plan,
@@ -205,6 +206,8 @@ pub struct CuratedScCorpusPlan {
     /// immutable snapshot before invoking a backend.
     #[serde(skip, default = "CapabilityInventory::compiled")]
     pub capability_inventory: CapabilityInventory,
+    #[serde(skip, default)]
+    pub locked_full_file_requests: BTreeMap<String, LockedFullFileCodecRequest>,
 }
 
 /// Immutable source metadata needed to project a curated artifact after
@@ -349,6 +352,7 @@ impl CuratedScCorpusPlanProvider {
         let mut selected_recipes = Vec::new();
         let mut classic_dependencies = Vec::new();
         let mut advanced_dependencies = Vec::new();
+        let mut locked_full_file_requests = BTreeMap::new();
         let capability_evaluator = RuntimeCapabilityEvaluator::committed()
             .map_err(|error| CuratedPlanError::Catalog(error.to_string()))?;
 
@@ -464,13 +468,17 @@ impl CuratedScCorpusPlanProvider {
                 if matches!(
                     output.encoding,
                     ExceptionalScEncodingRequest::LockedFullFile(_)
-                ) {
+                ) && !self
+                    .capability_inventory
+                    .executable_identities
+                    .contains_key("dcmcjpeg")
+                {
                     record_unavailable_case(
                         registry_case,
                         recipe,
                         CapabilityKind::ExternalBackend,
                         "locked_full_file_codec_unavailable",
-                        "the qualified codec requires the explicit locked full-file transform service"
+                        "the locked full-file transform requires an explicitly qualified dcmcjpeg executable identity"
                             .into(),
                         &mut unavailable,
                         &mut pending,
@@ -500,11 +508,18 @@ impl CuratedScCorpusPlanProvider {
                     .first()
                     .map(|content| content.slot.clone())
                     .ok_or_else(|| CuratedPlanError::MissingPixelContent(global_id.clone()))?;
+                let locked_request = match &output.encoding {
+                    ExceptionalScEncodingRequest::LockedFullFile(request) => Some(request.clone()),
+                    _ => None,
+                };
+                let locked_source_id = locked_request
+                    .as_ref()
+                    .map(|_| format!("{global_id}_locked_source"));
                 let execution_binding = match output.encoding {
                     ExceptionalScEncodingRequest::Dataset(_) => ArtifactExecutionBindings {
                         artifact_id: global_id.clone(),
                         slots: BTreeMap::from([(
-                            content_slot,
+                            content_slot.clone(),
                             SlotExecutionBinding::NativeFrames {
                                 frames: native_frame_bindings(&output.native_pixels)?,
                             },
@@ -516,12 +531,43 @@ impl CuratedScCorpusPlanProvider {
                         ArtifactExecutionBindings {
                             artifact_id: global_id.clone(),
                             slots: BTreeMap::from([(
-                                content_slot,
+                                content_slot.clone(),
                                 SlotExecutionBinding::CodecRequest { request: codec },
                             )]),
                         }
                     }
-                    ExceptionalScEncodingRequest::LockedFullFile(_) => unreachable!(),
+                    ExceptionalScEncodingRequest::LockedFullFile(locked) => {
+                        let identity = &self.capability_inventory.executable_identities["dcmcjpeg"];
+                        let source_id = locked_source_id.as_ref().expect("locked source identity");
+                        ArtifactExecutionBindings {
+                            artifact_id: global_id.clone(),
+                            slots: BTreeMap::from([(
+                                "dicom".into(),
+                                SlotExecutionBinding::ProviderRequest {
+                                    request: ProviderRequest {
+                                        request_id: locked.request_id.clone(),
+                                        artifact_id: global_id.clone(),
+                                        provider_id: locked.backend_id.clone(),
+                                        required_version: identity.version.clone(),
+                                        parameters: locked.parameters.clone(),
+                                        input_assets: BTreeMap::from([(
+                                            "source_dicom".into(),
+                                            StagedAssetHandle::new(format!("output:{source_id}"))
+                                                .map_err(|error| {
+                                                CuratedPlanError::Catalog(error.to_string())
+                                            })?,
+                                        )]),
+                                        expected_outputs: vec![ProviderOutputExpectation {
+                                            slot: "dicom".into(),
+                                            media_type: "application/dicom".into(),
+                                            maximum_size_bytes: 128 * 1024 * 1024,
+                                            expected_sha256: None,
+                                        }],
+                                    },
+                                },
+                            )]),
+                        }
+                    }
                 };
                 let output_path =
                     artifact_recipe.output.path.as_ref().ok_or_else(|| {
@@ -575,7 +621,7 @@ impl CuratedScCorpusPlanProvider {
                     message: error.to_string(),
                 })?;
                 native_content_requests.push(native_content_request(
-                    &global_id,
+                    locked_source_id.as_deref().unwrap_or(&global_id),
                     artifact_recipe,
                     native_request,
                     &output.native_pixels,
@@ -590,9 +636,120 @@ impl CuratedScCorpusPlanProvider {
                 );
                 artifact_by_recipe_role.insert(
                     (recipe.identity(), artifact_recipe.output.role.clone()),
-                    global_id,
+                    global_id.clone(),
                 );
-                artifacts.push(PlannedArtifact::Dicom(planned));
+                if let Some(locked) = locked_request {
+                    let source_id = locked_source_id.expect("locked source identity");
+                    let mut source_encoding = planned.encoding.clone();
+                    source_encoding.transfer_syntax_uid = locked.source_transfer_syntax_uid.clone();
+                    source_encoding.fragmentation = FragmentationPolicy::Native;
+                    source_encoding.offset_table = OffsetTablePolicy::NotApplicable;
+                    source_encoding.backend_id = "encoding.dicom_rs.explicit_vr_le".into();
+                    let mut source_instance = locked.source_plan.clone();
+                    source_instance.instance_id = source_id.clone();
+                    source_instance.identities.logical_instance_id = source_id.clone();
+                    let source_path = format!("private/locked-sources/{source_id}.dcm");
+                    let source = PlannedDicomArtifact {
+                        logical_id: source_id.clone(),
+                        order,
+                        provenance: ArtifactProvenance::PrivateSource {
+                            consumed_by: vec![global_id.clone()],
+                        },
+                        case_binding: planned.case_binding.clone(),
+                        instance: source_instance,
+                        output: OutputPlan {
+                            relative_path: OutputRelativePath::new(source_path.clone())?,
+                            role: "locked_source".into(),
+                            publish: false,
+                        },
+                        encoding: source_encoding,
+                        validation: planned.validation.clone(),
+                        evidence: planned.evidence.clone(),
+                        resources: planned.resources.clone(),
+                    };
+                    let source_binding = ArtifactExecutionBindings {
+                        artifact_id: source_id.clone(),
+                        slots: BTreeMap::from([(
+                            content_slot.clone(),
+                            SlotExecutionBinding::NativeFrames {
+                                frames: native_frame_bindings(&output.native_pixels)?,
+                            },
+                        )]),
+                    };
+                    bindings.insert(source_id.clone(), source_binding);
+                    let mut source_artifact_recipe = artifact_recipe.clone();
+                    source_artifact_recipe.logical_id =
+                        format!("{}_locked_source", source_artifact_recipe.logical_id);
+                    source_artifact_recipe.output.role = "locked_source".into();
+                    source_artifact_recipe.output.path = Some(source_path);
+                    projection_artifacts.insert(
+                        projection_artifacts.len() - 1,
+                        CuratedArtifactProjectionContext {
+                            artifact_id: source_id.clone(),
+                            plan_order: order,
+                            registry_order: registry_order[registry_case.case_id.as_str()],
+                            historical_recipe_order: recipe.planning_order.ok_or_else(|| {
+                                CuratedPlanError::MissingProjectionOrder(recipe.recipe_id.clone())
+                            })?,
+                            historical_artifact_order: artifact_recipe.order,
+                            registry_case: registry_case.clone().into(),
+                            case_recipe: recipe.clone(),
+                            artifact_recipe: source_artifact_recipe,
+                        },
+                    );
+                    projection_artifacts
+                        .last_mut()
+                        .expect("target projection")
+                        .plan_order = order + 1;
+                    artifacts.push(PlannedArtifact::Dicom(source));
+                    let mut declared_instance = planned.instance.clone();
+                    declared_instance.transfer_syntax_uid =
+                        locked.target_transfer_syntax_uid.clone();
+                    let maximum_size_bytes = 128 * 1024 * 1024;
+                    artifacts.push(PlannedArtifact::ImportedDicom(
+                        PlannedImportedDicomArtifact {
+                            logical_id: global_id.clone(),
+                            order: order + 1,
+                            provenance: ArtifactProvenance::Requested,
+                            case_binding: planned.case_binding.clone(),
+                            provider: ImportedDicomProviderPlan {
+                                request_id: locked.request_id.clone(),
+                                provider_id: locked.backend_id.clone(),
+                                required_version:
+                                    self.capability_inventory.executable_identities["dcmcjpeg"]
+                                        .version
+                                        .clone(),
+                                output_slot: "dicom".into(),
+                                media_type: "application/dicom".into(),
+                                maximum_size_bytes,
+                                expected_sha256: None,
+                                transfer_syntax_uid: locked.target_transfer_syntax_uid.clone(),
+                                parameters: locked.parameters.clone(),
+                                source_assets: BTreeMap::from([(
+                                    "source_dicom".into(),
+                                    source_id.clone(),
+                                )]),
+                            },
+                            declared_instance,
+                            output: planned.output.clone(),
+                            validation: planned.validation.clone(),
+                            evidence: planned.evidence.clone(),
+                            resources: ArtifactResourceEstimate {
+                                output_bytes: maximum_size_bytes,
+                                peak_working_bytes: maximum_size_bytes,
+                            },
+                        },
+                    ));
+                    advanced_dependencies.push(ArtifactDependency {
+                        artifact_id: global_id.clone(),
+                        depends_on: source_id,
+                        relationship: "locked_full_file_source".into(),
+                        frame_numbers: Vec::new(),
+                    });
+                    locked_full_file_requests.insert(global_id.clone(), locked);
+                } else {
+                    artifacts.push(PlannedArtifact::Dicom(planned));
+                }
                 selected_recipes.push(recipe);
                 continue;
             }
@@ -1490,6 +1647,7 @@ impl CuratedScCorpusPlanProvider {
             projection,
             pending,
             capability_inventory: self.capability_inventory.clone(),
+            locked_full_file_requests,
         })
     }
 }

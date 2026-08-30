@@ -2308,7 +2308,7 @@ fn merge_typed_artifact(
     registry_case: &RegistryCase,
     registry_order: u64,
     artifact_recipe: &crate::recipes::PlannedArtifactRecipe,
-    artifact: PlannedDicomArtifact,
+    mut artifact: PlannedDicomArtifact,
     execution_binding: ArtifactExecutionBindings,
     dependencies: Vec<ArtifactDependency>,
     artifacts: &mut Vec<PlannedArtifact>,
@@ -2333,6 +2333,18 @@ fn merge_typed_artifact(
             artifact_id: artifact.logical_id,
         });
     }
+    let mut seen_rules = artifact
+        .validation
+        .rules
+        .iter()
+        .map(|rule| rule.rule_id.clone())
+        .collect::<BTreeSet<_>>();
+    artifact.validation.rules.extend(
+        validation_plan(recipe, artifact_recipe)
+            .rules
+            .into_iter()
+            .filter(|rule| seen_rules.insert(rule.rule_id.clone())),
+    );
     let historical_recipe_order = recipe
         .planning_order
         .ok_or_else(|| CuratedPlanError::MissingProjectionOrder(recipe.recipe_id.clone()))?;

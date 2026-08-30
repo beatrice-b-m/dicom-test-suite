@@ -5,10 +5,10 @@ use dicom_test_suite::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
 };
 use dicom_test_suite::qualification_plan::{
-    plan_qualification, PreparedQualificationSource, QualificationPlanError,
-    QualificationPlanRequest,
+    PreparedQualificationSource, QualificationPlanError, QualificationPlanRequest,
+    plan_qualification,
 };
-use dicom_test_suite::recipes::{qualification_parameters, RecipeCatalog};
+use dicom_test_suite::recipes::{RecipeCatalog, qualification_parameters};
 
 const FUZZ_CASE: &str = "fuzz/parser/bounded_seed_corpus";
 const EOT_CASE: &str = "qualification/encapsulation/eot_u64_overflow";

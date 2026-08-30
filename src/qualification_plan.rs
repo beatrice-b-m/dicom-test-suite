@@ -20,8 +20,8 @@ use crate::executor::services::{
     ArtifactExecutionBindings, SlotExecutionBinding, StagedAssetHandle,
 };
 use crate::recipes::{
-    qualification_parameters, CaseRecipe, QualificationParameters, EOT_ARITHMETIC_PLAN_PROVIDER_ID,
-    FUZZ_PLAN_PROVIDER_ID,
+    CaseRecipe, EOT_ARITHMETIC_PLAN_PROVIDER_ID, FUZZ_PLAN_PROVIDER_ID, QualificationParameters,
+    qualification_parameters,
 };
 
 const FUZZ_KIND: &str = "bounded_deterministic_fuzz";

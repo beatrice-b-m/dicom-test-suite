@@ -42,6 +42,13 @@ pub struct QualifiedExecutableIdentity {
     pub executable_sha256: String,
 }
 
+pub fn qualified_executable_version_id(identity: &QualifiedExecutableIdentity) -> String {
+    format!(
+        "qualified_{}",
+        crate::sha256_hex(identity.version.as_bytes())
+    )
+}
+
 impl CapabilityInventory {
     /// Compile-time feature inventory only. Runtime capabilities remain empty
     /// until the caller injects its already-qualified inventory.

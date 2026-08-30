@@ -653,11 +653,26 @@ impl DcmtkDcmcjpegLosslessSv1Encoder {
         input_path: impl AsRef<Path>,
         output_path: impl AsRef<Path>,
     ) -> Result<EncodedDicomFile, CodecError> {
+        self.encode_file_with_process_cancellable(process, input_path, output_path, &|| false)
+    }
+
+    pub fn encode_file_with_process_cancellable(
+        &self,
+        process: DcmtkDcmcjpegLosslessProcess,
+        input_path: impl AsRef<Path>,
+        output_path: impl AsRef<Path>,
+        is_cancelled: &dyn Fn() -> bool,
+    ) -> Result<EncodedDicomFile, CodecError> {
         let input_path = input_path.as_ref();
         let output_path = output_path.as_ref();
         let identity = self.discover_backend_identity()?;
-
-        let output = Command::new(&identity.executable_path)
+        if is_cancelled() {
+            return Err(CodecError::encode_failed(
+                process.backend_id(),
+                "execution cancelled",
+            ));
+        }
+        let mut child = Command::new(&identity.executable_path)
             .arg(process.dcmcjpeg_encode_arg())
             .args([
                 "--true-lossless",
@@ -667,23 +682,40 @@ impl DcmtkDcmcjpegLosslessSv1Encoder {
             ])
             .arg(input_path)
             .arg(output_path)
-            .output()
+            .spawn()
             .map_err(|err| {
                 CodecError::encode_failed(
                     process.backend_id(),
                     format!("failed to run dcmcjpeg: {err}"),
                 )
             })?;
-        if !output.status.success() {
-            return Err(CodecError::encode_failed(
-                process.backend_id(),
-                format!(
-                    "dcmcjpeg failed with status {:?}: stdout={}, stderr={}",
-                    output.status.code(),
-                    String::from_utf8_lossy(&output.stdout),
-                    String::from_utf8_lossy(&output.stderr)
-                ),
-            ));
+        loop {
+            if is_cancelled() {
+                let _ = child.kill();
+                let _ = child.wait();
+                let _ = fs::remove_file(output_path);
+                return Err(CodecError::encode_failed(
+                    process.backend_id(),
+                    "execution cancelled",
+                ));
+            }
+            match child.try_wait().map_err(|err| {
+                CodecError::encode_failed(
+                    process.backend_id(),
+                    format!("failed waiting for dcmcjpeg: {err}"),
+                )
+            })? {
+                Some(status) => {
+                    if !status.success() {
+                        return Err(CodecError::encode_failed(
+                            process.backend_id(),
+                            format!("dcmcjpeg failed with status {:?}", status.code()),
+                        ));
+                    }
+                    break;
+                }
+                None => std::thread::sleep(std::time::Duration::from_millis(10)),
+            }
         }
 
         let output_bytes = fs::read(output_path).map_err(|err| {

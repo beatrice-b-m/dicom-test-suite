@@ -5,6 +5,8 @@ pub mod cancellation;
 pub mod engine;
 pub mod evidence;
 pub mod frame_codec;
+#[cfg(feature = "legacy_jpeg_dcmtk")]
+pub mod locked_full_file;
 pub mod materialization;
 pub mod native_codec;
 pub mod scheduler;

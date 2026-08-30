@@ -1286,6 +1286,16 @@ fn imported_reference_order_matches(
             .collect::<Vec<_>>();
         return actual == normalized;
     }
+    if imported_sop_class_uid == "1.2.840.10008.5.1.4.1.1.88.34"
+        && expected.len() == 1
+        && !expected[0].2.is_empty()
+    {
+        let normalized = vec![
+            (expected[0].0.clone(), expected[0].1.clone(), vec![]),
+            expected[0].clone(),
+        ];
+        return actual == normalized;
+    }
     false
 }
 
@@ -2116,6 +2126,32 @@ mod tests {
         assert!(!imported_reference_order_matches(
             "1.2.3",
             &[first.clone(), first],
+            &expected,
+        ));
+    }
+
+    #[test]
+    fn comprehensive_3d_sr_reference_contract_preserves_evidence_then_content_order() {
+        let expected = vec![("1.2.3".into(), "1.2.3.1".into(), vec![1, 2])];
+        let actual = vec![
+            ("1.2.3".into(), "1.2.3.1".into(), vec![]),
+            expected[0].clone(),
+        ];
+        assert!(imported_reference_order_matches(
+            "1.2.840.10008.5.1.4.1.1.88.34",
+            &actual,
+            &expected,
+        ));
+        let mut reversed = actual.clone();
+        reversed.reverse();
+        assert!(!imported_reference_order_matches(
+            "1.2.840.10008.5.1.4.1.1.88.34",
+            &reversed,
+            &expected,
+        ));
+        assert!(!imported_reference_order_matches(
+            "1.2.840.10008.5.1.4.1.1.88.34",
+            &[actual[1].clone(), actual[1].clone()],
             &expected,
         ));
     }

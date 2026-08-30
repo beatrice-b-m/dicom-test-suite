@@ -337,11 +337,37 @@ pub struct CuratedExecutionServiceFactory {
     planned_artifact_ids: Arc<BTreeSet<String>>,
     planned_artifacts: Arc<BTreeMap<String, crate::corpus_plan::PlannedDicomArtifact>>,
     frame_codec: RegisteredFrameCodecService,
+    #[cfg(feature = "legacy_jpeg_dcmtk")]
+    locked_full_file: Option<crate::executor::locked_full_file::DcmtkLockedFullFileService>,
+    locked_requests: Arc<BTreeMap<String, crate::recipes::LockedFullFileCodecRequest>>,
 }
 
 impl CuratedExecutionServiceFactory {
     pub fn new(bundle: &CuratedScCorpusPlan) -> Self {
         Self::build(bundle, RegisteredFrameCodecService::default())
+    }
+
+    #[cfg(feature = "legacy_jpeg_dcmtk")]
+    pub fn with_dcmtk_command(
+        bundle: &CuratedScCorpusPlan,
+        command: PathBuf,
+    ) -> Result<Self, ServiceInvocationError> {
+        let expected = bundle
+            .capability_inventory
+            .executable_identities
+            .get("dcmcjpeg")
+            .cloned()
+            .ok_or_else(|| {
+                ServiceInvocationError::new(
+                    "locked DCMTK",
+                    "planning inventory has no qualified dcmcjpeg identity",
+                )
+            })?;
+        let mut factory = Self::new(bundle);
+        factory.locked_full_file = Some(
+            crate::executor::locked_full_file::DcmtkLockedFullFileService::new(command, expected)?,
+        );
+        Ok(factory)
     }
 
     pub fn with_frame_codec_commands(
@@ -421,6 +447,9 @@ impl CuratedExecutionServiceFactory {
                     .collect(),
             ),
             frame_codec,
+            #[cfg(feature = "legacy_jpeg_dcmtk")]
+            locked_full_file: None,
+            locked_requests: Arc::new(bundle.locked_full_file_requests.clone()),
         }
     }
 }
@@ -445,15 +474,24 @@ impl ExecutionServiceFactory for CuratedExecutionServiceFactory {
                     format!("binding key {artifact_id} differs from its artifact identity"),
                 ));
             }
-            binding
-                .validate(&empty_assets)
-                .map_err(|error| service_error("curated bindings", error))?;
+            if !self.locked_requests.contains_key(artifact_id) {
+                binding
+                    .validate(&empty_assets)
+                    .map_err(|error| service_error("curated bindings", error))?;
+            }
         }
         let materializer = MaterializationDispatcher::new(
             private_staging_root,
             Arc::new(RejectAuxiliaryMaterialization),
         )
         .map_err(|error| service_error("materializer", error))?;
+        #[cfg(feature = "legacy_jpeg_dcmtk")]
+        if !self.locked_requests.is_empty() && self.locked_full_file.is_none() {
+            return Err(ServiceInvocationError::new(
+                "locked DCMTK",
+                "planned locked full-file artifacts require an explicitly injected command",
+            ));
+        }
         Ok(Arc::new(CuratedBoundExecutionServices {
             staging_root: private_staging_root.to_owned(),
             bindings: self.bindings.clone(),
@@ -461,6 +499,9 @@ impl ExecutionServiceFactory for CuratedExecutionServiceFactory {
             planned_artifacts: self.planned_artifacts.clone(),
             materializer,
             frame_codec: self.frame_codec.clone(),
+            #[cfg(feature = "legacy_jpeg_dcmtk")]
+            locked_full_file: self.locked_full_file.clone(),
+            locked_requests: self.locked_requests.clone(),
             materialized: Mutex::new(BTreeMap::new()),
             decoded_codec_frames: Mutex::new(BTreeMap::new()),
         }))
@@ -474,6 +515,9 @@ struct CuratedBoundExecutionServices {
     planned_artifacts: Arc<BTreeMap<String, crate::corpus_plan::PlannedDicomArtifact>>,
     materializer: MaterializationDispatcher,
     frame_codec: RegisteredFrameCodecService,
+    #[cfg(feature = "legacy_jpeg_dcmtk")]
+    locked_full_file: Option<crate::executor::locked_full_file::DcmtkLockedFullFileService>,
+    locked_requests: Arc<BTreeMap<String, crate::recipes::LockedFullFileCodecRequest>>,
     materialized: Mutex<BTreeMap<String, MaterializedValidationState>>,
     decoded_codec_frames: Mutex<BTreeMap<String, Vec<String>>>,
 }
@@ -502,9 +546,19 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
     fn invoke_provider(
         &self,
         request: &ProviderRequest,
-        _: &StagedAssetRegistry,
+        assets: &StagedAssetRegistry,
         cancellation: &CancellationToken,
     ) -> Result<ProviderResult, ServiceInvocationError> {
+        #[cfg(feature = "legacy_jpeg_dcmtk")]
+        if let Some(locked) = self.locked_requests.get(&request.artifact_id) {
+            return self
+                .locked_full_file
+                .as_ref()
+                .ok_or_else(|| {
+                    ServiceInvocationError::new("locked DCMTK", "command service is absent")
+                })?
+                .invoke(request, locked, &self.staging_root, assets, cancellation);
+        }
         if request.provider_id == crate::executor::stress_content::STRESS_CONTENT_PROVIDER_ID {
             return crate::executor::stress_content::execute_stress_content(
                 request,
@@ -593,6 +647,41 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
         let declaration = assets
             .resolve(handle)
             .map_err(|error| service_error("validation", error))?;
+        if let PlannedArtifact::ImportedDicom(artifact) = &request.artifact {
+            let checks = GenericPlanValidator.validate_file(
+                &artifact.declared_instance,
+                self.staging_root.join(declaration.relative_path.as_str()),
+            );
+            if checks.iter().any(|check| check.status != "passed") {
+                return Err(ServiceInvocationError::new(
+                    "validation",
+                    "locked full-file output failed its declared instance plan",
+                ));
+            }
+            let measurements = BTreeMap::from([(
+                "generic_plan_checks".into(),
+                serde_json::to_value(checks).map_err(|error| service_error("validation", error))?,
+            )]);
+            return Ok(ValidationResult {
+                artifact_id: artifact.logical_id.clone(),
+                validator: built_in_tool("curated_locked_full_file_validator"),
+                rules: request
+                    .plan
+                    .rules
+                    .iter()
+                    .map(|rule| RuleExecutionResult {
+                        rule_id: rule.rule_id.clone(),
+                        status: ValidationStatus::Passed,
+                        message: format!(
+                            "{}: locked full-file transfer syntax and decoded frame validation passed",
+                            rule.rule_id
+                        ),
+                        measurements: measurements.clone(),
+                    })
+                    .collect(),
+                evidence: Vec::new(),
+            });
+        }
         let PlannedArtifact::Dicom(artifact) = &request.artifact else {
             return Err(ServiceInvocationError::new(
                 "validation",

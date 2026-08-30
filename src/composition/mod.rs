@@ -16,6 +16,7 @@ pub mod defaults;
 pub mod enhanced;
 pub(crate) mod executor_adapter;
 mod external_quantitative;
+mod external_sr;
 pub mod family;
 pub mod identity;
 pub mod manifest;

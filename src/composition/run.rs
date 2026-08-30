@@ -21,8 +21,9 @@ use super::advanced_defaults::{
     plan_native_quantitative_default, plan_reference_default, plan_typed_bulk_default,
 };
 use super::advanced_semantic_defaults::{
-    is_native_rt_default, is_native_sr_default, plan_native_rt_default, plan_native_sr_default,
-    semantic_identity_roles,
+    align_external_sr_source_graph, is_external_sr_default, is_native_rt_default,
+    is_native_sr_default, plan_external_sr_default, plan_native_rt_default, plan_native_sr_default,
+    qualify_tid1500_segmentation_sources, semantic_identity_roles,
 };
 use super::executor_adapter::{
     CompositionExecutionBundle, CompositionExecutionServiceFactory,
@@ -357,7 +358,8 @@ fn resolve_execution_bundle(
     cancellation: &ComposeCancellationToken,
 ) -> Result<PlannedCompositionExecution, ComposeError> {
     let bundle_resolution = BundleResolver.resolve(spec.clone(), catalog)?;
-    let spec = bundle_resolution.spec.clone();
+    let mut spec = bundle_resolution.spec.clone();
+    align_external_sr_source_graph(&mut spec).map_err(ComposeError::AdvancedDefaults)?;
     if spec.instances.len() as u64 > spec.resource_limits.max_instances {
         return Err(ComposeError::Spec(super::SpecError::InstanceLimit {
             count: spec.instances.len(),
@@ -628,7 +630,7 @@ fn resolve_execution_bundle(
                     .all(|assignment| matches!(assignment.source, ContentSource::Default)))
         {
             continue;
-        } else if is_native_sr_default(template) {
+        } else if is_native_sr_default(template) || is_external_sr_default(template) {
             continue;
         } else if is_native_rt_default(template) {
             continue;
@@ -926,6 +928,71 @@ fn resolve_execution_bundle(
         .zip(templates.iter().copied())
         .enumerate()
     {
+        if !is_external_sr_default(template) {
+            continue;
+        }
+        check_cancelled(cancellation)?;
+        let sources = instance
+            .references
+            .iter()
+            .map(|reference| {
+                advanced_source_member(
+                    &reference.target_instance_id,
+                    spec.instances
+                        .iter()
+                        .position(|candidate| candidate.instance_id == reference.target_instance_id)
+                        .ok_or_else(|| {
+                            ComposeError::AdvancedDefaults(format!(
+                                "external SR source {} is absent",
+                                reference.target_instance_id
+                            ))
+                        })?,
+                    &plans_by_id,
+                    &advanced_artifacts,
+                    &execution_bindings,
+                    &bundle_resolution.members,
+                    &spec.resource_limits,
+                )
+            })
+            .collect::<Result<Vec<_>, ComposeError>>()?;
+        let member = AdvancedDefaultMember {
+            instance,
+            template,
+            identities: identity_plans
+                .get(&instance.instance_id)
+                .cloned()
+                .expect("identity pass covered every instance"),
+            order: u64::try_from(instance_index).map_err(|_| ComposeError::ResourceRange)?,
+        };
+        let output = plan_external_sr_default(
+            &recipes,
+            &repository_root,
+            &catalog.standards_lock_sha256,
+            options.seed,
+            &member,
+            &sources,
+        )
+        .map_err(ComposeError::AdvancedDefaults)?;
+        advanced_dependencies.extend(output.dependencies);
+        let request_id = output.artifact.provider.request_id.clone();
+        execution_bindings.insert(instance.instance_id.clone(), output.bindings);
+        plans_by_id.insert(
+            instance.instance_id.clone(),
+            output.artifact.declared_instance.clone(),
+        );
+        advanced_artifacts.insert(
+            instance.instance_id.clone(),
+            super::corpus_adapter::AdvancedCompositionArtifact::Imported(output.artifact),
+        );
+        external_dicom_providers.insert(request_id, output.provider);
+    }
+
+    for (instance_index, (instance, template)) in spec
+        .instances
+        .iter()
+        .zip(templates.iter().copied())
+        .enumerate()
+    {
         if !is_native_sr_default(template) {
             continue;
         }
@@ -1102,6 +1169,8 @@ fn resolve_execution_bundle(
         }
     }
     super::advanced_family::rewrite_materialized_dicom_references(&mut plans)?;
+    qualify_tid1500_segmentation_sources(&spec, &mut plans)
+        .map_err(ComposeError::AdvancedDefaults)?;
     for plan in &mut plans {
         if let Some(references) = imported_references.get(&plan.instance_id) {
             plan.references = references.clone();

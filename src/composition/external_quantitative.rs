@@ -377,7 +377,7 @@ impl CompositionExternalDicomProvider for WsiSegExternalProvider {
     }
 }
 
-fn standards(
+pub(crate) fn standards(
     path: &Path,
     expected_sha256: &str,
 ) -> Result<StandardsProvenance, ServiceInvocationError> {
@@ -403,7 +403,7 @@ fn standards(
     })
 }
 
-fn controlled_metadata(model_name: &str) -> ControlledMetadata {
+pub(crate) fn controlled_metadata(model_name: &str) -> ControlledMetadata {
     ControlledMetadata {
         patient_name: "DTS^Synthetic^Patient001".into(),
         patient_id: "DTS-PATIENT-001".into(),
@@ -419,7 +419,7 @@ fn controlled_metadata(model_name: &str) -> ControlledMetadata {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn provider_result(
+pub(crate) fn provider_result(
     request: &ProviderRequest,
     private_staging_root: &Path,
     output_path: PathBuf,
@@ -479,6 +479,9 @@ fn provider_result(
     })
 }
 
-fn service_error(stage: &'static str, error: impl std::fmt::Display) -> ServiceInvocationError {
+pub(crate) fn service_error(
+    stage: &'static str,
+    error: impl std::fmt::Display,
+) -> ServiceInvocationError {
     ServiceInvocationError::new(stage, error.to_string())
 }

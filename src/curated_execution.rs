@@ -5,7 +5,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use dicom_core::VR;
+use dicom_core::{Tag, VR};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -77,15 +77,18 @@ use crate::validation::{
     MgImageExpectations, MrImageExpectations, NmDetectorExpectations, NmEnergyWindowExpectations,
     NmImageExpectations, PaletteExpectations, Part10Expectations, PetImageExpectations,
     PixelDataLengthFormula, PresentationStateExpectations, RealWorldValueMappingExpectations,
-    SegmentationExpectations, SpatialRegistrationExpectations,
-    SpatialRegistrationReferenceExpectations, UsImageExpectations, UsMultiframeExpectations,
-    XaImageExpectations, XrfImageExpectations, validate_advanced_blending_presentation_state_file,
-    validate_basic_text_sr_file, validate_blending_presentation_state_file,
-    validate_color_softcopy_presentation_state_file, validate_comprehensive_sr_file,
-    validate_deformable_spatial_registration_file, validate_key_object_selection_file,
-    validate_part10_file, validate_presentation_state_file, validate_spatial_registration_file,
-    validate_wsi_multiple_optical_paths_file, validate_wsi_pyramid_file,
-    validate_wsi_tiled_full_file, validate_wsi_tiled_sparse_file,
+    RtDoseExpectations, RtImageExpectations, RtPlanExpectations, RtRadiationExpectations,
+    RtRadiationSetExpectations, RtStructureSetExpectations, SegmentationExpectations,
+    SpatialRegistrationExpectations, SpatialRegistrationReferenceExpectations, UsImageExpectations,
+    UsMultiframeExpectations, XaImageExpectations, XrfImageExpectations,
+    validate_advanced_blending_presentation_state_file, validate_basic_text_sr_file,
+    validate_blending_presentation_state_file, validate_color_softcopy_presentation_state_file,
+    validate_comprehensive_sr_file, validate_deformable_spatial_registration_file,
+    validate_key_object_selection_file, validate_part10_file, validate_presentation_state_file,
+    validate_rt_dose_file, validate_rt_image_file, validate_rt_plan_file,
+    validate_rt_radiation_file, validate_rt_radiation_set_file, validate_rt_structure_set_file,
+    validate_spatial_registration_file, validate_wsi_multiple_optical_paths_file,
+    validate_wsi_pyramid_file, validate_wsi_tiled_full_file, validate_wsi_tiled_sparse_file,
 };
 use crate::{
     PACKAGE_VERSION, WsiPyramidLockedInputs, WsiPyramidMemberIdentity, WsiPyramidRole, sha256_hex,
@@ -783,6 +786,7 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
             )?;
             let typed = validate_semantic_compatibility(
                 &self.staging_root.join(declaration.relative_path.as_str()),
+                &self.staging_root,
                 artifact,
                 context,
                 &plan,
@@ -1420,6 +1424,7 @@ fn validate_quantitative_source_declaration(
 
 fn validate_semantic_compatibility(
     path: &Path,
+    staging_root: &Path,
     artifact: &crate::corpus_plan::PlannedDicomArtifact,
     context: &CuratedArtifactProjectionContext,
     plan: &ResolvedInstancePlan,
@@ -1435,7 +1440,7 @@ fn validate_semantic_compatibility(
         modality: semantic_modality(&context.case_recipe)?,
     };
     let references = semantic_reference_observations(plan, planned_artifacts)?;
-    let evidence = if context.case_recipe.plan_provider_id == SR_PLAN_PROVIDER_ID {
+    if context.case_recipe.plan_provider_id == SR_PLAN_PROVIDER_ID {
         let parameters = serde_json::from_value::<SrDocumentParameters>(Value::Object(
             context.case_recipe.provider_parameters.clone(),
         ))
@@ -1487,7 +1492,7 @@ fn validate_semantic_compatibility(
                 })
                 .ok_or_else(|| ServiceInvocationError::new("RT validation", "missing pixels"))
         };
-        let object = match parameters.object {
+        let object = match &parameters.object {
             RtObjectParameters::StructureSet(value) => RtObjectObservation::StructureSet {
                 roi_count: 1,
                 contour_count: value.contour_number,
@@ -1497,17 +1502,17 @@ fn validate_semantic_compatibility(
                 rows: value.rows,
                 columns: value.columns,
                 frames: value.frames,
-                dose_units: value.dose_units,
-                dose_type: value.dose_type,
-                dose_summation_type: value.dose_summation_type,
-                dose_grid_scaling: value.dose_grid_scaling,
+                dose_units: value.dose_units.clone(),
+                dose_type: value.dose_type.clone(),
+                dose_summation_type: value.dose_summation_type.clone(),
+                dose_grid_scaling: value.dose_grid_scaling.clone(),
                 pixel_sha256: pixels()?,
             },
             RtObjectParameters::Plan(value) => RtObjectObservation::Plan {
                 fraction_group_count: 1,
                 beam_count: 1,
                 control_point_count: value.control_point_count,
-                plan_geometry: value.plan_geometry,
+                plan_geometry: value.plan_geometry.clone(),
             },
             RtObjectParameters::Image(value) => RtObjectObservation::Image {
                 rows: value.rows,
@@ -1519,7 +1524,7 @@ fn validate_semantic_compatibility(
             RtObjectParameters::CarmRadiation(value) => RtObjectObservation::CarmRadiation {
                 treatment_position_count: 1,
                 control_point_count: value.control_point_count,
-                rt_record_flag: value.rt_record_flag,
+                rt_record_flag: value.rt_record_flag.clone(),
             },
             RtObjectParameters::RadiationSet(_) => RtObjectObservation::RadiationSet {
                 treatment_position_group_count: 1,
@@ -1529,15 +1534,270 @@ fn validate_semantic_compatibility(
         };
         let contract = RtValidationContract {
             identity,
-            label: parameters.label,
+            label: parameters.label.clone(),
             pixel_data_absent: plan.content.is_empty(),
             object,
-            references,
+            references: references.clone(),
         };
-        validate_rt_object(&contract, &contract)
-            .map_err(|error| service_error("RT validation", error))?
+        let typed = validate_rt_object(&contract, &contract)
+            .map_err(|error| service_error("RT validation", error))?;
+        return validate_historical_rt(
+            path,
+            staging_root,
+            artifact,
+            plan,
+            &parameters,
+            &references,
+            planned_artifacts,
+            typed,
+        );
+    }
+}
+
+fn validate_historical_rt(
+    path: &Path,
+    staging_root: &Path,
+    artifact: &crate::corpus_plan::PlannedDicomArtifact,
+    plan: &ResolvedInstancePlan,
+    parameters: &RtDocumentParameters,
+    references: &[SemanticReferenceObservation],
+    planned_artifacts: &BTreeMap<String, crate::corpus_plan::PlannedDicomArtifact>,
+    typed_evidence: SpecializedValidationEvidence,
+) -> Result<TypedValidationReport, ServiceInvocationError> {
+    let sop_instance_uid = required_identity(artifact, CompositionUidRole::SopInstance)?;
+    let study_uid = required_identity(artifact, CompositionUidRole::StudyInstance)?;
+    let series_uid = required_identity(artifact, CompositionUidRole::SeriesInstance)?;
+    let frame_uid = required_identity(artifact, CompositionUidRole::FrameOfReference)?;
+    let implementation_class_uid = &artifact.encoding.implementation.class_uid;
+    let source = |role: &str| {
+        references
+            .iter()
+            .find(|reference| reference.role == role)
+            .ok_or_else(|| ServiceInvocationError::new("RT validation", format!("missing {role}")))
     };
-    specialized_evidence_report(path, evidence)
+    let source_hash = |role: &str| {
+        let reference = plan
+            .references
+            .iter()
+            .find(|reference| reference.role == role)
+            .ok_or_else(|| {
+                ServiceInvocationError::new("RT validation", format!("missing {role}"))
+            })?;
+        let source = planned_artifacts
+            .get(&reference.target_instance_id)
+            .ok_or_else(|| {
+                ServiceInvocationError::new("RT validation", "planned source missing")
+            })?;
+        let bytes = fs::read(staging_root.join(source.output.relative_path.as_str()))
+            .map_err(|error| service_error("RT validation", error))?;
+        Ok::<String, ServiceInvocationError>(sha256_hex(&bytes))
+    };
+    let result = match &parameters.object {
+        RtObjectParameters::StructureSet(value) => {
+            let image = source("source_image")?;
+            let contour_data = value.contour_data.join("\\");
+            validate_rt_structure_set_file(
+                path,
+                &RtStructureSetExpectations {
+                    sop_class_uid: &plan.sop_class_uid,
+                    sop_instance_uid,
+                    transfer_syntax_uid: &artifact.encoding.transfer_syntax_uid,
+                    implementation_class_uid,
+                    synthetic_data: "YES",
+                    modality: "RTSTRUCT",
+                    frame_of_reference_uid: frame_uid,
+                    structure_set_label: &parameters.label,
+                    structure_set_roi_items: 1,
+                    roi_number: u16::try_from(value.roi_number).map_err(|_| {
+                        ServiceInvocationError::new("RT validation", "ROI number exceeds u16")
+                    })?,
+                    roi_name: &value.roi_name,
+                    roi_generation_algorithm: &value.generation_algorithm,
+                    roi_contour_items: 1,
+                    contour_items: 1,
+                    contour_geometric_type: &value.contour_geometric_type,
+                    contour_points: u16::try_from(value.contour_points).map_err(|_| {
+                        ServiceInvocationError::new("RT validation", "contour points exceed u16")
+                    })?,
+                    contour_data: &contour_data,
+                    rt_roi_observation_items: 1,
+                    roi_interpreted_type: &value.interpreted_type,
+                    roi_interpreter: &value.interpreter,
+                    referenced_series_instance_uid: &image.series_instance_uid,
+                    referenced_sop_class_uid: &image.sop_class_uid,
+                    referenced_sop_instance_uid: &image.sop_instance_uid,
+                },
+            )
+        }
+        RtObjectParameters::Dose(value) => {
+            let image = source("source_image")?;
+            let structure = source("referenced_structure_set")?;
+            let pixel_len = plan.content.first().map(|c| c.size_bytes).ok_or_else(|| {
+                ServiceInvocationError::new("RT validation", "dose pixels missing")
+            })?;
+            validate_rt_dose_file(
+                path,
+                &RtDoseExpectations {
+                    sop_class_uid: &plan.sop_class_uid,
+                    sop_instance_uid,
+                    transfer_syntax_uid: &artifact.encoding.transfer_syntax_uid,
+                    implementation_class_uid,
+                    synthetic_data: "YES",
+                    modality: "RTDOSE",
+                    frame_of_reference_uid: frame_uid,
+                    rows: u16::try_from(value.rows).map_err(|_| {
+                        ServiceInvocationError::new("RT validation", "rows exceed u16")
+                    })?,
+                    columns: u16::try_from(value.columns).map_err(|_| {
+                        ServiceInvocationError::new("RT validation", "columns exceed u16")
+                    })?,
+                    frames: u16::try_from(value.frames).map_err(|_| {
+                        ServiceInvocationError::new("RT validation", "frames exceed u16")
+                    })?,
+                    pixel_bytes_len: usize::try_from(pixel_len).map_err(|_| {
+                        ServiceInvocationError::new("RT validation", "pixel size exceeds usize")
+                    })?,
+                    pixel_vr: VR::OW,
+                    pixel_spacing: &value.pixel_spacing.join("\\"),
+                    image_orientation_patient: &value.image_orientation_patient.join("\\"),
+                    image_position_patient: &value.image_position_patient.join("\\"),
+                    slice_thickness: &value.slice_thickness,
+                    frame_increment_pointer: Tag(0x3004, 0x000C),
+                    grid_frame_offset_vector: &value.grid_frame_offset_vector.join("\\"),
+                    dose_units: &value.dose_units,
+                    dose_type: &value.dose_type,
+                    dose_summation_type: &value.dose_summation_type,
+                    dose_grid_scaling: &value.dose_grid_scaling,
+                    referenced_image_sop_class_uid: &image.sop_class_uid,
+                    referenced_image_sop_instance_uid: &image.sop_instance_uid,
+                    referenced_structure_set_sop_class_uid: &structure.sop_class_uid,
+                    referenced_structure_set_sop_instance_uid: &structure.sop_instance_uid,
+                },
+            )
+        }
+        RtObjectParameters::Plan(_) => {
+            let structure = source("referenced_structure_set")?;
+            let dose = source("referenced_dose")?;
+            let structure_hash = source_hash("referenced_structure_set")?;
+            let dose_hash = source_hash("referenced_dose")?;
+            let expected = crate::rt_manifest::linked_rt_plan_expected(
+                crate::rt_manifest::LinkedRtPlanInput {
+                    sop_instance_uid,
+                    study_instance_uid: study_uid,
+                    series_instance_uid: series_uid,
+                    frame_of_reference_uid: frame_uid,
+                    structure_set_series_instance_uid: &structure.series_instance_uid,
+                    structure_set_sop_instance_uid: &structure.sop_instance_uid,
+                    structure_set_sha256: &structure_hash,
+                    dose_series_instance_uid: &dose.series_instance_uid,
+                    dose_sop_instance_uid: &dose.sop_instance_uid,
+                    dose_sha256: &dose_hash,
+                },
+            );
+            validate_rt_plan_file(
+                path,
+                &RtPlanExpectations {
+                    implementation_class_uid,
+                    synthetic_data: "YES",
+                    expected_rt_plan: expected,
+                },
+            )
+        }
+        RtObjectParameters::Image(_) => {
+            let source = source("referenced_plan")?;
+            let plan_hash = source_hash("referenced_plan")?;
+            let expected = crate::rt_manifest::linked_rt_image_expected(
+                crate::rt_manifest::LinkedRtImageInput {
+                    sop_instance_uid,
+                    study_instance_uid: study_uid,
+                    series_instance_uid: series_uid,
+                    frame_of_reference_uid: frame_uid,
+                    plan_series_instance_uid: &source.series_instance_uid,
+                    plan_sop_instance_uid: &source.sop_instance_uid,
+                    plan_sha256: &plan_hash,
+                },
+            );
+            validate_rt_image_file(
+                path,
+                &RtImageExpectations {
+                    implementation_class_uid,
+                    synthetic_data: "YES",
+                    expected_rt_image: expected,
+                },
+            )
+        }
+        RtObjectParameters::CarmRadiation(_) => {
+            let source = source("referenced_plan")?;
+            let plan_hash = source_hash("referenced_plan")?;
+            let expected = crate::rt_radiation_manifest::minimal_carm_rt_radiation_expected(
+                crate::rt_radiation_manifest::CArmRtRadiationInput {
+                    sop_instance_uid,
+                    study_instance_uid: study_uid,
+                    series_instance_uid: series_uid,
+                    frame_of_reference_uid: frame_uid,
+                    plan_series_instance_uid: &source.series_instance_uid,
+                    plan_sop_instance_uid: &source.sop_instance_uid,
+                    plan_sha256: &plan_hash,
+                    software_versions: PACKAGE_VERSION,
+                },
+            );
+            validate_rt_radiation_file(
+                path,
+                &RtRadiationExpectations {
+                    implementation_class_uid,
+                    synthetic_data: "YES",
+                    expected_rt_radiation: expected,
+                },
+            )
+        }
+        RtObjectParameters::RadiationSet(_) => {
+            let plan_source = source("referenced_plan")?;
+            let radiation = source("referenced_radiation")?;
+            let plan_hash = source_hash("referenced_plan")?;
+            let radiation_hash = source_hash("referenced_radiation")?;
+            let treatment_position_group_uid = artifact
+                .instance
+                .identities
+                .get(
+                    &CompositionUidRole::TemplateDefined("derived_reference_0".into()),
+                    0,
+                )
+                .ok_or_else(|| {
+                    ServiceInvocationError::new(
+                        "RT validation",
+                        "treatment position group UID missing",
+                    )
+                })?;
+            let expected = crate::rt_radiation_manifest::minimal_rt_radiation_set_expected(
+                crate::rt_radiation_manifest::RtRadiationSetInput {
+                    sop_instance_uid,
+                    study_instance_uid: study_uid,
+                    series_instance_uid: series_uid,
+                    frame_of_reference_uid: frame_uid,
+                    treatment_position_group_uid,
+                    plan_series_instance_uid: &plan_source.series_instance_uid,
+                    plan_sop_instance_uid: &plan_source.sop_instance_uid,
+                    plan_sha256: &plan_hash,
+                    radiation_series_instance_uid: &radiation.series_instance_uid,
+                    radiation_sop_instance_uid: &radiation.sop_instance_uid,
+                    radiation_sha256: &radiation_hash,
+                    software_versions: PACKAGE_VERSION,
+                },
+            );
+            validate_rt_radiation_set_file(
+                path,
+                &RtRadiationSetExpectations {
+                    implementation_class_uid,
+                    synthetic_data: "YES",
+                    expected_rt_radiation_set: expected,
+                },
+            )
+        }
+    };
+    let mut report = legacy_validated_report(result)?;
+    append_specialized_checks(&mut report, typed_evidence);
+    report.checks.push(TypedValidationCheck::passed_internal("curated_composition_plan", "The curated dataset resolved through the shared composition plan before Part 10 materialization."));
+    Ok(report)
 }
 
 fn validate_historical_sr(
@@ -1546,7 +1806,7 @@ fn validate_historical_sr(
     plan: &ResolvedInstancePlan,
     parameters: &SrDocumentParameters,
     references: &[SemanticReferenceObservation],
-    _typed_evidence: SpecializedValidationEvidence,
+    typed_evidence: SpecializedValidationEvidence,
 ) -> Result<TypedValidationReport, ServiceInvocationError> {
     let sop_instance_uid = required_identity(artifact, CompositionUidRole::SopInstance)?;
     let implementation_class_uid = &artifact.encoding.implementation.class_uid;
@@ -1698,11 +1958,41 @@ fn validate_historical_sr(
         }
     };
     let mut report = legacy_validated_report(result)?;
+    append_specialized_checks(&mut report, typed_evidence);
     report.checks.push(TypedValidationCheck::passed_internal(
         "curated_composition_plan",
         "The curated dataset resolved through the shared composition plan before Part 10 materialization.",
     ));
     Ok(report)
+}
+
+fn append_specialized_checks(
+    report: &mut TypedValidationReport,
+    evidence: SpecializedValidationEvidence,
+) {
+    use crate::curated_validation::CheckLayer;
+    report.checks.extend(
+        evidence
+            .internal
+            .into_iter()
+            .map(|check| TypedValidationCheck {
+                layer: CheckLayer::Internal,
+                name: check.name,
+                status: check.status,
+                message: check.message,
+            }),
+    );
+    report.checks.extend(
+        evidence
+            .standards
+            .into_iter()
+            .map(|check| TypedValidationCheck {
+                layer: CheckLayer::Standards,
+                name: check.name,
+                status: check.status,
+                message: check.message,
+            }),
+    );
 }
 
 fn semantic_modality(

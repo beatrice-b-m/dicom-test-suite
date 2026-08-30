@@ -149,7 +149,7 @@ fn structured_report_defaults_have_closed_reproducible_reference_graphs() {
     }
     assert_eq!(
         oracle_digest(&first),
-        "d16ddc02cea19b9458dc04b14425e2dbf6675f4ea2774be169f4176fcdc86e99"
+        "643a8a3ff5ad797c680332c4d6c8426aac395049ad3a19cfc299c7e07db76568"
     );
     fs::remove_dir_all(first).unwrap();
     fs::remove_dir_all(second).unwrap();

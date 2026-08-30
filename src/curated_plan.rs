@@ -42,6 +42,10 @@ use crate::executor::stress_content::{
 use crate::native_pixel::{ByteOrder, NativePixelFactory, NativePixelRequest};
 use crate::negative_plan::{NegativePlanProvider, NegativePlanProviderRequest};
 use crate::planning::RecipeIdentity;
+use crate::planning_preview::{PlanningPreviewLimits, preview_planned_dicom};
+use crate::qualification_plan::{
+    PreparedQualificationSource, QualificationPlanRequest, plan_qualification,
+};
 use crate::recipes::classic_ct::plan_ct_recipe;
 use crate::recipes::classic_dx_mg::plan_dx_mg_recipe;
 use crate::recipes::classic_mr_cr::plan_mr_cr_recipe;
@@ -52,22 +56,23 @@ use crate::recipes::{
     AdvancedPlanProviderOutput, AdvancedPlanProviderRequest, AdvancedProviderFamily,
     AdvancedProviderLimits, AdvancedSourceRole, CaseRecipe, ClassicInstanceRequest,
     ClassicResolvedPlanInput, ContentProviderLimits, ENCAPSULATED_PAYLOAD_PLAN_PROVIDER_ID,
-    EXCEPTIONAL_SC_PLAN_PROVIDER_ID, EncapsulatedPayload, EncapsulatedPayloadPlanProvider,
-    EnhancedPlanProvider, ExceptionalScEncodingRequest, ExceptionalScPlanInput,
-    LockedFullFileCodecRequest, MetadataScPlanInput, OrderedSeriesProvider,
-    PRESENTATION_ADVANCED_PROVIDER_ID, PresentationPlanProvider, PresentationSourceInput,
-    QUANTITATIVE_NATIVE_PROVIDER_ID, QuantitativeArtifactContext, QuantitativePlanInput,
-    QuantitativePlanOutput, QuantitativePlanProvider, QuantitativeProviderLimits,
-    QuantitativeSourceInput, QuantitativeSourceRole, REGISTRATION_PLAN_PROVIDER_ID,
-    RT_PLAN_PROVIDER_ID, RecipeCatalog, RecipeReference, RegistrationPlanProvider,
-    RegistrationSourceInput, RtPlanProvider, SR_PLAN_PROVIDER_ID, STRESS_CT_PLAN_PROVIDER_ID,
-    STRESS_SC_PLAN_PROVIDER_ID, SecondaryCapturePlanInput, SemanticPlanContext, SemanticSource,
-    SrPlanProvider, TypedBulkPlanningContext, WAVEFORM_PLAN_PROVIDER_ID, WSI_ADVANCED_PROVIDER_ID,
+    EOT_ARITHMETIC_PLAN_PROVIDER_ID, EXCEPTIONAL_SC_PLAN_PROVIDER_ID, EncapsulatedPayload,
+    EncapsulatedPayloadPlanProvider, EnhancedPlanProvider, ExceptionalScEncodingRequest,
+    ExceptionalScPlanInput, FUZZ_PLAN_PROVIDER_ID, LockedFullFileCodecRequest, MetadataScPlanInput,
+    OrderedSeriesProvider, PRESENTATION_ADVANCED_PROVIDER_ID, PresentationPlanProvider,
+    PresentationSourceInput, QUANTITATIVE_NATIVE_PROVIDER_ID, QualificationParameters,
+    QuantitativeArtifactContext, QuantitativePlanInput, QuantitativePlanOutput,
+    QuantitativePlanProvider, QuantitativeProviderLimits, QuantitativeSourceInput,
+    QuantitativeSourceRole, REGISTRATION_PLAN_PROVIDER_ID, RT_PLAN_PROVIDER_ID, RecipeCatalog,
+    RecipeReference, RegistrationPlanProvider, RegistrationSourceInput, RtPlanProvider,
+    SR_PLAN_PROVIDER_ID, STRESS_CT_PLAN_PROVIDER_ID, STRESS_SC_PLAN_PROVIDER_ID,
+    SecondaryCapturePlanInput, SemanticPlanContext, SemanticSource, SrPlanProvider,
+    TypedBulkPlanningContext, WAVEFORM_PLAN_PROVIDER_ID, WSI_ADVANCED_PROVIDER_ID,
     WaveformPlanProvider, WsiAdvancedPlanProvider, encapsulated_payload_input_from_recipe,
     encoding_plan_from_recipe, native_pixel_request_from_recipe, plan_exceptional_sc,
-    plan_stress_ct_recipe, plan_stress_sc_recipe, resolved_classic_instance_plan,
-    resolved_metadata_sc_plan, resolved_secondary_capture_plan, rt_input_from_recipe,
-    sr_input_from_recipe, waveform_input_from_recipe,
+    plan_stress_ct_recipe, plan_stress_sc_recipe, qualification_parameters,
+    resolved_classic_instance_plan, resolved_metadata_sc_plan, resolved_secondary_capture_plan,
+    rt_input_from_recipe, sr_input_from_recipe, waveform_input_from_recipe,
 };
 use crate::runtime_capabilities::{
     CapabilityEvaluationRequest, CapabilityInventory, CapabilityKind as RuntimeCapabilityKind,
@@ -237,11 +242,16 @@ pub struct CuratedScProjectionContext {
 
 impl CuratedScProjectionContext {
     pub fn validate(&self, plan: &CorpusPlan) -> Result<(), CuratedPlanError> {
-        if self.artifacts.len() != plan.artifacts.len() {
+        let projected_plan_artifacts = plan
+            .artifacts
+            .iter()
+            .filter(|artifact| !matches!(artifact, PlannedArtifact::Qualification(_)))
+            .collect::<Vec<_>>();
+        if self.artifacts.len() != projected_plan_artifacts.len() {
             return Err(CuratedPlanError::ProjectionArtifactSetMismatch);
         }
         let mut ids = BTreeSet::new();
-        for (planned, projected) in plan.artifacts.iter().zip(&self.artifacts) {
+        for (planned, projected) in projected_plan_artifacts.into_iter().zip(&self.artifacts) {
             let mutation_projection =
                 projected.case_recipe.plan_provider_id == NEGATIVE_PLAN_PROVIDER;
             let private_source_projection = matches!(
@@ -359,6 +369,9 @@ impl CuratedScCorpusPlanProvider {
         expand_recipe_dependency_closure(&self.recipes, &mut selected_ids)?;
         let mut required_mutation_sources: BTreeMap<RecipeIdentity, BTreeSet<String>> =
             BTreeMap::new();
+        let mut required_qualification_sources: BTreeMap<RecipeIdentity, BTreeSet<String>> =
+            BTreeMap::new();
+        let mut required_other_dependencies = BTreeSet::new();
         for case_id in &directly_selected_ids {
             let Some(identity) = self.recipes.binding_for_case(case_id) else {
                 continue;
@@ -369,6 +382,34 @@ impl CuratedScCorpusPlanProvider {
                     .entry(mutation.source.identity())
                     .or_default()
                     .insert(mutation.source_logical_role.clone());
+            }
+            if recipe.plan_provider_id == FUZZ_PLAN_PROVIDER_ID {
+                let parameters = qualification_parameters(recipe).map_err(|error| {
+                    CuratedPlanError::QualificationPlan {
+                        recipe_id: recipe.recipe_id.clone(),
+                        message: error.to_string(),
+                    }
+                })?;
+                let QualificationParameters::BoundedDeterministicFuzz { sources, .. } = parameters
+                else {
+                    return Err(CuratedPlanError::QualificationPlan {
+                        recipe_id: recipe.recipe_id.clone(),
+                        message: "fuzz provider has a non-fuzz qualification contract".into(),
+                    });
+                };
+                for source in sources {
+                    required_qualification_sources
+                        .entry(source.recipe.identity())
+                        .or_default()
+                        .insert(source.artifact_logical_id);
+                }
+            } else {
+                required_other_dependencies.extend(
+                    recipe
+                        .dependencies
+                        .iter()
+                        .map(|dependency| dependency.recipe.identity()),
+                );
             }
         }
         let mut artifacts: Vec<PlannedArtifact> = Vec::new();
@@ -418,6 +459,17 @@ impl CuratedScCorpusPlanProvider {
                 .recipes()
                 .get(identity)
                 .expect("recipe binding points to a loaded recipe");
+            if !directly_selected_ids.contains(&registry_case.case_id)
+                && required_qualification_sources.contains_key(&recipe.identity())
+                && !required_mutation_sources.contains_key(&recipe.identity())
+                && !required_other_dependencies.contains(&recipe.identity())
+            {
+                // Fuzz sources are replanned below with their recipe-locked
+                // source-generation seed. They must never leak into the
+                // public corpus merely because dependency closure selected
+                // their owning recipes.
+                continue;
+            }
             if !registry_case.requirements.is_feature_free() {
                 let runtime_requirements = RegistryRuntimeRequirements {
                     features: registry_case.requirements.features.clone(),
@@ -460,6 +512,198 @@ impl CuratedScCorpusPlanProvider {
                     &mut unavailable,
                     &mut pending,
                 );
+                continue;
+            }
+            if recipe.plan_provider_id == FUZZ_PLAN_PROVIDER_ID {
+                let parameters = qualification_parameters(recipe).map_err(|error| {
+                    CuratedPlanError::QualificationPlan {
+                        recipe_id: recipe.recipe_id.clone(),
+                        message: error.to_string(),
+                    }
+                })?;
+                let QualificationParameters::BoundedDeterministicFuzz {
+                    source_generation_seed,
+                    ref sources,
+                    ..
+                } = parameters
+                else {
+                    return Err(CuratedPlanError::QualificationPlan {
+                        recipe_id: recipe.recipe_id.clone(),
+                        message: "fuzz provider has a non-fuzz qualification contract".into(),
+                    });
+                };
+                let logical_id = artifact_id(recipe, "qualification");
+                let first_source_order = u64::try_from(artifacts.len())
+                    .map_err(|_| CuratedPlanError::ResourceOverflow)?;
+                let mut prepared_sources = Vec::with_capacity(sources.len());
+                let mut private_projections = Vec::with_capacity(sources.len());
+                let mut private_native_requests = Vec::new();
+
+                for (index, source_contract) in sources.iter().enumerate() {
+                    let source_recipe = self
+                        .recipes
+                        .recipes()
+                        .get(&source_contract.recipe.identity())
+                        .ok_or_else(|| CuratedPlanError::MissingQualificationSource {
+                            recipe_id: recipe.recipe_id.clone(),
+                            source: source_contract.recipe.identity(),
+                            role: source_contract.artifact_logical_id.clone(),
+                        })?;
+                    let source_bundle = self.plan(&CuratedScPlanRequest {
+                        selection: CuratedScSelection::CaseIds(vec![
+                            source_recipe.binding.case_id.clone(),
+                        ]),
+                        seed: source_generation_seed,
+                        max_parallelism: request.max_parallelism,
+                    })?;
+                    let source_global_id =
+                        artifact_id(source_recipe, &source_contract.artifact_logical_id);
+                    let mut source = source_bundle
+                        .plan
+                        .artifacts
+                        .iter()
+                        .find_map(|artifact| match artifact {
+                            PlannedArtifact::Dicom(source)
+                                if source.logical_id == source_global_id =>
+                            {
+                                Some(source.clone())
+                            }
+                            _ => None,
+                        })
+                        .ok_or_else(|| CuratedPlanError::MissingQualificationSource {
+                            recipe_id: recipe.recipe_id.clone(),
+                            source: source_contract.recipe.identity(),
+                            role: source_contract.artifact_logical_id.clone(),
+                        })?;
+                    let private_source_id = format!("{logical_id}__source_{index:02}");
+                    let source_order = first_source_order
+                        .checked_add(
+                            u64::try_from(index).map_err(|_| CuratedPlanError::ResourceOverflow)?,
+                        )
+                        .ok_or(CuratedPlanError::ResourceOverflow)?;
+                    source.logical_id = private_source_id.clone();
+                    source.instance.instance_id = private_source_id.clone();
+                    source.order = source_order;
+                    source.provenance = ArtifactProvenance::PrivateSource {
+                        consumed_by: vec![logical_id.clone()],
+                    };
+                    source.output.relative_path = OutputRelativePath::new(format!(
+                        "private-sources/{private_source_id}.dcm"
+                    ))?;
+                    source.output.publish = false;
+
+                    let source_bindings = source_bundle
+                        .bindings
+                        .get(&source_global_id)
+                        .cloned()
+                        .ok_or_else(|| CuratedPlanError::MissingQualificationSource {
+                            recipe_id: recipe.recipe_id.clone(),
+                            source: source_contract.recipe.identity(),
+                            role: source_contract.artifact_logical_id.clone(),
+                        })?;
+                    let source_bindings = retarget_bindings(source_bindings, &private_source_id);
+                    let preview = preview_planned_dicom(
+                        &source,
+                        &source_bindings,
+                        PlanningPreviewLimits::default(),
+                        &|| false,
+                    )
+                    .map_err(|error| CuratedPlanError::QualificationPlan {
+                        recipe_id: recipe.recipe_id.clone(),
+                        message: format!(
+                            "source {} planning preview failed: {error}",
+                            source_contract.seed_description_id
+                        ),
+                    })?;
+
+                    let mut source_projection = source_bundle
+                        .projection
+                        .artifacts
+                        .iter()
+                        .find(|projection| projection.artifact_id == source_global_id)
+                        .cloned()
+                        .ok_or_else(|| CuratedPlanError::MissingQualificationSource {
+                            recipe_id: recipe.recipe_id.clone(),
+                            source: source_contract.recipe.identity(),
+                            role: source_contract.artifact_logical_id.clone(),
+                        })?;
+                    source_projection.artifact_id = private_source_id.clone();
+                    source_projection.plan_order = source_order;
+                    source_projection.artifact_recipe.output.path =
+                        Some(source.output.relative_path.as_str().to_owned());
+                    private_projections.push(source_projection);
+
+                    if let Some(native_request) = source_bundle
+                        .native_content_requests
+                        .iter()
+                        .find(|request| request.artifact_id == source_global_id)
+                    {
+                        let mut native_request = native_request.clone();
+                        native_request.artifact_id = private_source_id.clone();
+                        private_native_requests.push(native_request);
+                    }
+                    prepared_sources.push(PreparedQualificationSource {
+                        artifact: source,
+                        bindings: source_bindings,
+                        dependency_role: source_contract.dependency_role.clone(),
+                        recipe_artifact_logical_id: source_contract.artifact_logical_id.clone(),
+                        preflight_sha256: preview.sha256,
+                        preflight_size_bytes: preview.size_bytes,
+                    });
+                }
+
+                let qualification_order = first_source_order
+                    .checked_add(
+                        u64::try_from(prepared_sources.len())
+                            .map_err(|_| CuratedPlanError::ResourceOverflow)?,
+                    )
+                    .ok_or(CuratedPlanError::ResourceOverflow)?;
+                let output = plan_qualification(QualificationPlanRequest {
+                    recipe,
+                    parameters,
+                    logical_id: logical_id.clone(),
+                    order: qualification_order,
+                    run_seed: Some(request.seed),
+                    profile: Some("fuzz".into()),
+                    sources: prepared_sources,
+                })
+                .map_err(|error| CuratedPlanError::QualificationPlan {
+                    recipe_id: recipe.recipe_id.clone(),
+                    message: error.to_string(),
+                })?;
+                projection_artifacts.extend(private_projections);
+                native_content_requests.extend(private_native_requests);
+                artifacts.extend(output.artifacts);
+                bindings.extend(output.bindings);
+                advanced_dependencies.extend(output.dependencies);
+                continue;
+            }
+            if recipe.plan_provider_id == EOT_ARITHMETIC_PLAN_PROVIDER_ID {
+                let parameters = qualification_parameters(recipe).map_err(|error| {
+                    CuratedPlanError::QualificationPlan {
+                        recipe_id: recipe.recipe_id.clone(),
+                        message: error.to_string(),
+                    }
+                })?;
+                let logical_id = artifact_id(recipe, "qualification");
+                let order = u64::try_from(artifacts.len())
+                    .map_err(|_| CuratedPlanError::ResourceOverflow)?;
+                let output = plan_qualification(QualificationPlanRequest {
+                    recipe,
+                    parameters,
+                    logical_id,
+                    order,
+                    run_seed: None,
+                    profile: None,
+                    sources: Vec::new(),
+                })
+                .map_err(|error| CuratedPlanError::QualificationPlan {
+                    recipe_id: recipe.recipe_id.clone(),
+                    message: error.to_string(),
+                })?;
+                artifacts.extend(output.artifacts);
+                bindings.extend(output.bindings);
+                advanced_dependencies.extend(output.dependencies);
                 continue;
             }
             if recipe.plan_provider_id == NEGATIVE_PLAN_PROVIDER {
@@ -4111,6 +4355,7 @@ fn selected_case_ids(
             .filter(|case| {
                 case.status == "implemented"
                     && case.requirements.is_feature_free()
+                    && !case.profiles.is_empty()
                     && !case
                         .profiles
                         .iter()
@@ -4124,7 +4369,7 @@ fn selected_case_ids(
         } => {
             if !matches!(
                 profile.as_str(),
-                "smoke" | "core" | "extended" | "legacy" | "negative" | "stress" | "all"
+                "smoke" | "core" | "extended" | "legacy" | "negative" | "fuzz" | "stress" | "all"
             ) {
                 return Err(CuratedPlanError::UnknownProfile(profile.clone()));
             }
@@ -4335,7 +4580,16 @@ pub enum CuratedPlanError {
         recipe_id: String,
         role: String,
     },
+    MissingQualificationSource {
+        recipe_id: String,
+        source: RecipeIdentity,
+        role: String,
+    },
     NegativePlan {
+        recipe_id: String,
+        message: String,
+    },
+    QualificationPlan {
         recipe_id: String,
         message: String,
     },

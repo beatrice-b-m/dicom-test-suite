@@ -548,6 +548,7 @@ impl ExecutionServiceFactory for CuratedExecutionServiceFactory {
             frame_codec: self.frame_codec.clone(),
             #[cfg(feature = "legacy_jpeg_dcmtk")]
             locked_full_file: self.locked_full_file.clone(),
+            #[cfg(feature = "legacy_jpeg_dcmtk")]
             locked_requests: self.locked_requests.clone(),
             external_provider_repository_root: self.external_provider_repository_root.clone(),
             external_provider_standards_lock_path: self
@@ -571,6 +572,7 @@ struct CuratedBoundExecutionServices {
     frame_codec: RegisteredFrameCodecService,
     #[cfg(feature = "legacy_jpeg_dcmtk")]
     locked_full_file: Option<crate::executor::locked_full_file::DcmtkLockedFullFileService>,
+    #[cfg(feature = "legacy_jpeg_dcmtk")]
     locked_requests: Arc<BTreeMap<String, crate::recipes::LockedFullFileCodecRequest>>,
     external_provider_repository_root: PathBuf,
     external_provider_standards_lock_path: PathBuf,
@@ -2580,45 +2582,6 @@ fn semantic_reference_observations(
             })
         })
         .collect()
-}
-
-fn specialized_evidence_report(
-    path: &Path,
-    evidence: SpecializedValidationEvidence,
-) -> Result<TypedValidationReport, ServiceInvocationError> {
-    use crate::curated_validation::CheckLayer;
-    let mut checks = Vec::new();
-    checks.extend(
-        evidence
-            .internal
-            .into_iter()
-            .map(|check| TypedValidationCheck {
-                layer: CheckLayer::Internal,
-                name: check.name,
-                status: check.status,
-                message: check.message,
-            }),
-    );
-    checks.extend(
-        evidence
-            .standards
-            .into_iter()
-            .map(|check| TypedValidationCheck {
-                layer: CheckLayer::Standards,
-                name: check.name,
-                status: check.status,
-                message: check.message,
-            }),
-    );
-    checks.push(TypedValidationCheck::passed_internal(
-        "curated_composition_plan",
-        "The native SR/RT dataset resolved through the unified plan before Part 10 materialization.",
-    ));
-    Ok(TypedValidationReport {
-        bytes: fs::read(path).map_err(|error| service_error("semantic validation", error))?,
-        checks,
-        metadata_observation: None,
-    })
 }
 
 fn validation_result(

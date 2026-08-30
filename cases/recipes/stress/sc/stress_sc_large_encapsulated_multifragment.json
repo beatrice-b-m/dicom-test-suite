@@ -6,14 +6,29 @@
     "case_id": "stress/sc/large_encapsulated_multifragment"
   },
   "kind": "dicom",
-  "plan_provider_id": "native.case_plan",
+  "plan_provider_id": "native.stress_sc_plan",
   "dependencies": [
 
   ],
   "provider_parameters": {
+    "kind": "large_encapsulated_multifragment",
+    "rows": 512,
+    "columns": 512,
+    "frames": 256,
+    "fragments_per_frame": 64,
+    "native_algorithm": "index_mul_37_frame_mul_17_xor_index_shift_8",
+    "offset_table_policy": "empty_basic_with_extended",
+    "policy": {
+      "qualification_scale": "reduced",
+      "full_scale_available": false,
+      "full_scale_reason": "Full-scale resource behavior is not qualified by the bounded repository corpus."
+    }
   },
   "validation_rule_ids": [
-    "validation.shared"
+    "validation.shared",
+    "validation.sc.pixel",
+    "validation.sc.encapsulation",
+    "validation.sc.eot"
   ],
   "projection_rule_ids": [
     "projection.curated"
@@ -21,18 +36,20 @@
   "dicom": {
     "artifacts": [
       {
-        "logical_id": "artifact_1",
+        "logical_id": "instance",
         "output": {
-          "role": "primary_1",
-          "provider_derived": true
+          "role": "instance",
+          "path": "stress/sc/large_encapsulated_multifragment/instance.dcm"
         },
         "encoding": {
           "transfer_syntax_uid": "1.2.840.10008.1.2.5",
-          "sequence_length_policy": "provider",
-          "item_length_policy": "provider",
-          "offset_table_policy": "provider",
-          "fragmentation_policy": "provider",
-          "non_template_encoding_provider_id": "encoding.transfer_syntax_plan"
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "extended",
+          "fragmentation_policy": "bounded_fragments",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard",
+          "non_template_encoding_provider_id": "encoding.native.rle_lossless"
         },
         "parameters": {
         },
@@ -40,21 +57,28 @@
 
         ],
         "content": {
-          "provider_id": "content.case_default",
+          "provider_id": "content.stress.synthetic",
           "parameters": {
           }
         },
         "validation_rule_ids": [
-          "validation.shared"
+          "validation.shared",
+          "validation.sc.pixel",
+          "validation.sc.encapsulation",
+          "validation.sc.eot"
         ],
         "projection_rule_ids": [
           "projection.curated"
         ],
         "determinism": "byte_stable",
         "stressors": [
-
+          "reduced_stress_scale",
+          "large_encapsulated_pixel_data",
+          "multi_fragment_frames",
+          "extended_offset_table",
+          "empty_basic_offset_table"
         ],
-        "algorithm_provider_id": "algorithm.case_provider",
+        "algorithm_provider_id": "algorithm.stress_sc",
         "template": {
           "template_id": "classic/secondary-capture/multiframe-grayscale-byte",
           "template_version": "1.0.0"
@@ -62,5 +86,6 @@
         "order": 0
       }
     ]
-  }
+  },
+  "planning_order": 1404
 }

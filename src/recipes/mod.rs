@@ -22,6 +22,7 @@ mod rt;
 mod sc;
 mod semantic;
 mod sr;
+mod stress_sc;
 mod typed_bulk;
 pub mod typed_bulk_compatibility;
 mod waveform;
@@ -128,6 +129,12 @@ pub use sr::{
     SR_ALGORITHM_PROVIDER_ID, SR_CONTENT_PROVIDER_ID, SR_PLAN_PROVIDER_ID, SrDocumentKind,
     SrDocumentParameters, SrPlanError, SrPlanInput, SrPlanProvider, SrSourceDeclaration,
     sr_input_from_recipe,
+};
+pub use stress_sc::{
+    ReducedStressPolicy, STRESS_SC_ALGORITHM_PROVIDER_ID, STRESS_SC_CONTENT_PROVIDER_ID,
+    STRESS_SC_PLAN_PROVIDER_ID, StressScArtifactPlan, StressScContentRequest,
+    StressScCommonPlan, StressScIdentityPlan, StressScParameters, StressScPixelRequest,
+    StressScPlanError, plan_stress_sc_recipe,
 };
 pub use typed_bulk::{TypedBulkPlanProviderOutput, TypedBulkPlanningContext};
 pub use typed_bulk_compatibility::{

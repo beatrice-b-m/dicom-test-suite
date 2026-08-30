@@ -6,11 +6,21 @@
     "case_id": "stress/sc/deep_nested_sequences"
   },
   "kind": "dicom",
-  "plan_provider_id": "native.case_plan",
+  "plan_provider_id": "native.stress_sc_plan",
   "dependencies": [
 
   ],
   "provider_parameters": {
+    "kind": "deep_nested_sequences",
+    "sequence_depth": 32,
+    "payload_bytes": 16777216,
+    "fill_byte": 90,
+    "private_creator": "DTS_STRESS_NESTED",
+    "policy": {
+      "qualification_scale": "reduced",
+      "full_scale_available": false,
+      "full_scale_reason": "Full-scale resource behavior is not qualified by the bounded repository corpus."
+    }
   },
   "validation_rule_ids": [
     "validation.shared"
@@ -21,17 +31,19 @@
   "dicom": {
     "artifacts": [
       {
-        "logical_id": "artifact_1",
+        "logical_id": "instance",
         "output": {
-          "role": "primary_1",
-          "provider_derived": true
+          "role": "instance",
+          "path": "stress/sc/deep_nested_sequences/instance.dcm"
         },
         "encoding": {
           "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-          "sequence_length_policy": "provider",
-          "item_length_policy": "provider",
-          "offset_table_policy": "provider",
-          "fragmentation_policy": "provider"
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
         },
         "parameters": {
         },
@@ -39,7 +51,7 @@
 
         ],
         "content": {
-          "provider_id": "content.case_default",
+          "provider_id": "content.stress.synthetic",
           "parameters": {
           }
         },
@@ -51,9 +63,11 @@
         ],
         "determinism": "byte_stable",
         "stressors": [
-
+          "reduced_stress_scale",
+          "deep_nested_sequences",
+          "16_mib_nested_bulk_value"
         ],
-        "algorithm_provider_id": "algorithm.case_provider",
+        "algorithm_provider_id": "algorithm.stress_sc",
         "template": {
           "template_id": "classic/secondary-capture/monochrome",
           "template_version": "1.0.0"
@@ -61,5 +75,6 @@
         "order": 0
       }
     ]
-  }
+  },
+  "planning_order": 1402
 }

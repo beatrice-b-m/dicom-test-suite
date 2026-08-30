@@ -6,11 +6,21 @@
     "case_id": "stress/sc/large_bulk_data"
   },
   "kind": "dicom",
-  "plan_provider_id": "native.case_plan",
+  "plan_provider_id": "native.stress_sc_plan",
   "dependencies": [
 
   ],
   "provider_parameters": {
+    "kind": "large_bulk",
+    "rows": 8192,
+    "columns": 4096,
+    "payload_bytes": 67108864,
+    "fill_byte": 0,
+    "policy": {
+      "qualification_scale": "reduced",
+      "full_scale_available": false,
+      "full_scale_reason": "Full-scale resource behavior is not qualified by the bounded repository corpus."
+    }
   },
   "validation_rule_ids": [
     "validation.shared"
@@ -21,17 +31,19 @@
   "dicom": {
     "artifacts": [
       {
-        "logical_id": "artifact_1",
+        "logical_id": "instance",
         "output": {
-          "role": "primary_1",
-          "provider_derived": true
+          "role": "instance",
+          "path": "stress/sc/large_bulk_data/instance.dcm"
         },
         "encoding": {
           "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-          "sequence_length_policy": "provider",
-          "item_length_policy": "provider",
-          "offset_table_policy": "provider",
-          "fragmentation_policy": "provider"
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
         },
         "parameters": {
         },
@@ -39,7 +51,7 @@
 
         ],
         "content": {
-          "provider_id": "content.case_default",
+          "provider_id": "content.stress.synthetic",
           "parameters": {
           }
         },
@@ -51,9 +63,11 @@
         ],
         "determinism": "byte_stable",
         "stressors": [
-
+          "reduced_stress_scale",
+          "large_native_bulk_data",
+          "64_mib_pixel_data"
         ],
-        "algorithm_provider_id": "algorithm.case_provider",
+        "algorithm_provider_id": "algorithm.stress_sc",
         "template": {
           "template_id": "classic/secondary-capture/monochrome",
           "template_version": "1.0.0"
@@ -61,5 +75,6 @@
         "order": 0
       }
     ]
-  }
+  },
+  "planning_order": 1401
 }

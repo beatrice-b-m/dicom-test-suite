@@ -497,6 +497,7 @@ fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), Recip
         "native.rt_plan",
         "native.waveform_plan",
         "native.encapsulated_payload_plan",
+        "native.stress_sc_plan",
         "external.import_plan",
         "mutation.named_plan",
         "qualification.bounded_plan",
@@ -518,6 +519,7 @@ fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), Recip
         "content.rt_semantics",
         "content.waveform_samples",
         "content.declared_byte_payload",
+        "content.stress.synthetic",
     ];
     const ALGORITHM_PROVIDERS: &[&str] = &[
         "algorithm.case_provider",
@@ -537,6 +539,7 @@ fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), Recip
         "algorithm.waveform_deterministic_multiplex",
         "algorithm.encapsulated_pdf_minimal",
         "algorithm.binary_stl_tetrahedron",
+        "algorithm.stress_sc",
     ];
     const ENCODING_PROVIDERS: &[&str] = &[
         "encoding.transfer_syntax_plan",
@@ -1406,6 +1409,11 @@ fn validate_registry_bindings(
         ) && case.provider.kind == "external_backend"
             && case.provider.id == "highdicom_pydicom"
             && expected_kind == RecipeKind::Dicom;
+        let migrated_stress_sc = recipe.plan_provider_id == "native.stress_sc_plan"
+            && case.provider.kind == "rust_native"
+            && case.provider.id == "rust_native"
+            && case.case_id.starts_with("stress/sc/")
+            && expected_kind == RecipeKind::Dicom;
         if recipe.plan_provider_id != expected_provider
             && !migrated_secondary_capture
             && !migrated_exceptional_sc
@@ -1414,6 +1422,7 @@ fn validate_registry_bindings(
             && !migrated_advanced
             && !migrated_u6_native
             && !migrated_u6_external
+            && !migrated_stress_sc
         {
             return Err(RecipeCatalogError::Completeness {
                 message: format!(
@@ -1585,6 +1594,7 @@ fn validate_migrated_planning_orders(
                 | "native.rt_plan"
                 | "native.waveform_plan"
                 | "native.encapsulated_payload_plan"
+                | "native.stress_sc_plan"
         )
     }) {
         let order = recipe

@@ -4,7 +4,7 @@
 
 **Contract:** `docs/unified-generation-spine-plan.md`
 
-**Status:** implementation complete; terminal clean-worktree verification in progress
+**Status:** complete; all Program Acceptance Criteria satisfied
 
 ## Promoted architecture
 
@@ -51,7 +51,9 @@ explicit.
 10. `unified_generation_spine_audit` and `unified_spine_boundaries` derive
     writer classification, bridge absence, dependency direction, recipe and
     template completeness, and validation/evidence attachment.
-11. The final clean-worktree command matrix is recorded below after execution.
+11. The final locked default regression, applicable feature/backend matrix,
+    documented fresh-root workflows, reproducibility comparisons, schema
+    checks, and repository-hygiene gates all pass.
 12. Operating guides, architecture, taxonomy, documentation map, and this
     dated record describe the promoted spine. Generated run roots remain
     ignored and uncommitted.
@@ -89,18 +91,26 @@ feature/backend gates are applicable to the terminal matrix.
 
 ## Terminal verification matrix
 
-This table is intentionally pending until the documentation state containing
-this record is committed and the commands can run from a clean worktree.
-
 | Gate | Command | Result |
 | --- | --- | --- |
-| Format | `cargo fmt --check` | Pending |
-| Default regression | `cargo test --locked --all-targets --no-default-features` | Pending |
-| Feature/backend regression | Applicable codec and external backend gates | Pending |
-| Fresh-root workflows | Profile generation, validation, report, and composition | Pending |
-| Reproducibility | Two-run curated and composition comparisons | Pending |
-| Repository hygiene | Architecture audits, schemas, `git diff --check`, generated-artifact audit | Pending |
+| Format | `cargo fmt --check` | Pass |
+| Default regression | `cargo test --locked --all-targets --no-default-features` | Pass; every target completed, including maximal SC/stress/WSI parity and execution gates |
+| Feature/backend regression | `cargo test --locked --all-features` for the exceptional execution/matrix/import/full-file, frame-codec, reproducibility, backend artifact/contract/discovery, legacy JPEG wrapper, and runtime-capability test targets | Pass; exercised native RLE, JPEG baseline, JPEG-LS, JPEG XL, JPEG 2000, deflate, Deflated Image Frame, OpenJPH HTJ2K, DCMTK legacy JPEG, and prepared highdicom/pydicom import paths |
+| Fresh-root workflows | Documented `generate`, `validate`, and `report` commands for `smoke`, `core`, `extended`, `all`, `legacy`, `negative`, `fuzz`, and `stress`; `all --include-stress`; and `compose tests/fixtures/composition/valid/template-only.json` | Pass; strict validation reported zero failures, and both stress-inclusive manifests contained all seven approved reduced-scale qualifications |
+| Reproducibility | Exact recursive comparisons for two fresh `smoke` and composition roots; `composition_parallel`, `composition_p8_qualification`, and `generate_reproducibility` | Pass; byte trees and canonical sequential/parallel outputs matched |
+| Architecture and schemas | `unified_generation_spine_audit`, `unified_spine_boundaries`, and `schema_artifacts` | Pass; 5 architecture, 3 boundary, and 73 schema assertions |
+| Repository hygiene | `git diff --check`, `git ls-files '*.dcm'`, generated-artifact audit, and clean-worktree check | Pass; no tracked generated DICOM payloads or pending changes |
 
-Unavailable capability is not converted into a pass. Any runtime that fails
-discovery or fingerprint qualification will be recorded with its exact
-explicit-unavailable evidence in the finalized table.
+Terminal verification exposed and closed acceptance defects rather than
+weakening the gates: manifest publication resources now include the bounded
+manifest allowance; contextual profile, negative, stress, and U3 compatibility
+oracles validate canonical plan provenance separately from historical fields;
+all seven approved stress qualifications are projected; `all --include-stress`
+validation accepts only its explicit opt-in stress evidence; quantitative
+recipes resolve every encoding policy; and the HTJ2K audit follows the promoted
+executor codec boundary.
+
+Unavailable capability remains explicit plan and manifest evidence and is
+never converted into a pass. Feature/backend success above applies only to the
+locally discovered and fingerprint-qualified runtimes exercised by the stated
+matrix.

@@ -129,26 +129,32 @@ fn typed_stress_projection_matches_frozen_file_values_and_resources() {
     let qualifications = project_curated_stress_qualifications(&bundle.projection, &execution)
         .expect("typed stress qualifications");
     assert_eq!(qualifications.len(), selected.len());
+    let expected_qualifications = baseline["qualifications"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|qualification| selected.contains(&qualification["case_id"].as_str().unwrap()))
+        .map(|qualification| {
+            (
+                qualification["case_id"].as_str().unwrap().to_owned(),
+                qualification.clone(),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
     for qualification in qualifications {
         assert_eq!(qualification["scale"], "reduced");
         assert_eq!(qualification["status"], "passed");
         assert_eq!(qualification["outcome"], "completed");
         assert_eq!(qualification["unavailable_scales"][0]["scale"], "full");
-        assert!(
-            qualification["resource_envelope"]["output_bytes"]
-                .as_u64()
-                .unwrap()
-                >= qualification["observation"]["output_bytes"]
-                    .as_u64()
-                    .unwrap()
-        );
-        assert!(
-            qualification["resource_envelope"]["peak_rss_bytes"]
-                .as_u64()
-                .unwrap()
-                >= qualification["observation"]["peak_rss_bytes"]
-                    .as_u64()
-                    .unwrap()
+        let case_id = qualification["case_id"].as_str().unwrap();
+        let mut expected = expected_qualifications[case_id].clone();
+        // Runtime duration is observational rather than byte-stable. Every
+        // other public qualification field is frozen compatibility surface.
+        expected["observation"]["elapsed_milliseconds"] =
+            qualification["observation"]["elapsed_milliseconds"].clone();
+        assert_eq!(
+            qualification, expected,
+            "qualification mismatch for {case_id}"
         );
     }
 }

@@ -500,27 +500,12 @@ fn qualification(
     if policy.qualification_scale != "reduced" || policy.full_scale_available {
         return fail("stress qualification policy is not reduced-only");
     }
-    let planned_output = pairs
-        .iter()
-        .try_fold(0_u64, |sum, (_, p)| {
-            sum.checked_add(p.execution.resources.planned_output_bytes)
-        })
-        .ok_or_else(|| err("planned stress output overflow"))?;
     let actual_output = pairs
         .iter()
         .try_fold(0_u64, |sum, (_, p)| {
             sum.checked_add(p.execution.resources.actual_output_bytes)
         })
         .ok_or_else(|| err("actual stress output overflow"))?;
-    let planned_peak = pairs
-        .iter()
-        .map(|(_, p)| p.execution.resources.planned_peak_working_bytes)
-        .max()
-        .unwrap_or(0);
-    let actual_peak = pairs
-        .iter()
-        .filter_map(|(_, p)| p.execution.resources.actual_peak_working_bytes)
-        .max();
     let elapsed = pairs
         .iter()
         .try_fold(0_u64, |sum, (_, p)| {
@@ -529,13 +514,19 @@ fn qualification(
         .ok_or_else(|| err("stress elapsed overflow"))?;
     let mut actual = requested.clone();
     actual["output_bytes"] = json!(actual_output);
+    const PUBLIC_OUTPUT_CEILING: u64 = 256 * 1024 * 1024;
+    const PUBLIC_PEAK_RSS_CEILING: u64 = 512 * 1024 * 1024;
+    if actual_output > PUBLIC_OUTPUT_CEILING {
+        return fail("stress output exceeds the versioned public resource envelope");
+    }
     Ok(
         json!({"case_id":case_id,"kind":"stress_case_run","contract_version":"0.1.0","profile":"stress","recipe":recipe,
         "scale":"reduced","requested":requested,"actual":actual,
-        "resource_envelope":{"output_bytes":planned_output,"peak_rss_bytes":planned_peak,"case_wall_milliseconds":120000,
-            "job_wall_milliseconds":600000,"recipe_output_bytes":planned_output},
-        "observation":{"output_bytes":actual_output,"elapsed_milliseconds":elapsed,"peak_rss_bytes":actual_peak},
-        "outcome":"completed","unavailable_scales":[{"scale":"full","reason_code":"full_scale_runner_unimplemented","message":policy.full_scale_reason}],
+        "resource_envelope":{"output_bytes":PUBLIC_OUTPUT_CEILING,"peak_rss_bytes":PUBLIC_PEAK_RSS_CEILING,"case_wall_milliseconds":120000,
+            "job_wall_milliseconds":600000,"recipe_output_bytes":Value::Null},
+        "observation":{"output_bytes":actual_output,"elapsed_milliseconds":elapsed,"peak_rss_bytes":Value::Null},
+        "outcome":"completed","unavailable_scales":[{"scale":"full","reason_code":"full_scale_runner_unimplemented",
+            "message":"The scheduled full-scale streaming runner and independent resource qualification are not implemented."}],
         "payload_policy":"generated_payloads_uncommitted","status":"passed"}),
     )
 }

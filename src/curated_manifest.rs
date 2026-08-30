@@ -19,7 +19,7 @@ use crate::curated_execution::{
 };
 use crate::curated_plan::{CuratedArtifactProjectionContext, CuratedScProjectionContext};
 use crate::curated_validation::{CheckLayer, MetadataObservation, TypedValidationCheck};
-use crate::executor::adapters::{ManifestProjectionArtifact, ManifestProjectionCompatibilityInput};
+use crate::executor::adapters::{ManifestProjectionArtifact, ManifestProjectionInput};
 use crate::executor::evidence::{
     ArtifactExecutionEvidence, MaterializedContentEvidence, ResultStatus,
 };
@@ -53,7 +53,7 @@ fn project_semantic_file_entry(
     ctx: &CuratedArtifactProjectionContext,
     pair: &ManifestProjectionArtifact,
     planned: &PlannedDicomArtifact,
-    input: &ManifestProjectionCompatibilityInput,
+    input: &ManifestProjectionInput,
 ) -> Result<Value, CuratedManifestError> {
     let output = pair
         .execution
@@ -768,7 +768,7 @@ impl std::error::Error for CuratedManifestError {}
 
 pub fn project_curated_file_entries(
     context: &CuratedScProjectionContext,
-    input: &ManifestProjectionCompatibilityInput,
+    input: &ManifestProjectionInput,
 ) -> Result<Vec<Value>, CuratedManifestError> {
     let file_artifacts = input
         .artifacts
@@ -824,21 +824,21 @@ pub fn project_curated_file_entries(
 /// evidence. Source DICOM artifacts remain ordinary file projection inputs;
 /// qualifications never manufacture a file entry.
 pub fn project_curated_qualifications(
-    input: &ManifestProjectionCompatibilityInput,
+    input: &ManifestProjectionInput,
 ) -> Result<Vec<Value>, CuratedManifestError> {
     qualification::project_qualifications(input)
 }
 
 pub fn project_curated_stress_qualifications(
     context: &CuratedScProjectionContext,
-    input: &ManifestProjectionCompatibilityInput,
+    input: &ManifestProjectionInput,
 ) -> Result<Vec<Value>, CuratedManifestError> {
     stress::project_qualifications(context, input)
 }
 
 fn project_wsi_pyramid_group(
     context: &CuratedScProjectionContext,
-    input: &ManifestProjectionCompatibilityInput,
+    input: &ManifestProjectionInput,
     entries: &mut [Value],
 ) -> Result<(), CuratedManifestError> {
     const CASE_ID: &str = "vl/wsi/pyramid_multiresolution";
@@ -994,7 +994,7 @@ fn project_wsi_pyramid_group(
 fn project_one(
     ctx: &CuratedArtifactProjectionContext,
     pair: &ManifestProjectionArtifact,
-    input: &ManifestProjectionCompatibilityInput,
+    input: &ManifestProjectionInput,
 ) -> Result<Value, CuratedManifestError> {
     if matches!(pair.planned, PlannedArtifact::ImportedDicom(_)) {
         return external::project_file_entry(ctx, pair, input);
@@ -1205,7 +1205,7 @@ fn project_native_quantitative_file_entry(
     ctx: &CuratedArtifactProjectionContext,
     pair: &ManifestProjectionArtifact,
     planned: &PlannedDicomArtifact,
-    input: &ManifestProjectionCompatibilityInput,
+    input: &ManifestProjectionInput,
 ) -> Result<Value, CuratedManifestError> {
     let execution = &pair.execution;
     let output = execution
@@ -1776,7 +1776,7 @@ fn project_reference_file_entry(
     ctx: &CuratedArtifactProjectionContext,
     pair: &ManifestProjectionArtifact,
     planned: &PlannedDicomArtifact,
-    input: &ManifestProjectionCompatibilityInput,
+    input: &ManifestProjectionInput,
 ) -> Result<Value, CuratedManifestError> {
     let execution = &pair.execution;
     let output = execution

@@ -11,7 +11,7 @@ use dicom_test_suite::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlan, CuratedScCorpusPlanProvider, CuratedScPlanRequest,
     CuratedScSelection,
 };
-use dicom_test_suite::executor::adapters::ManifestProjectionCompatibilityInput;
+use dicom_test_suite::executor::adapters::ManifestProjectionInput;
 use dicom_test_suite::executor::cancellation::CancellationToken;
 use dicom_test_suite::executor::engine::{
     CorpusExecutor, ManifestProjectionError, ManifestProjector, StagedCorpusExecution,
@@ -55,10 +55,7 @@ impl Drop for TempRoot {
 struct NoManifest;
 
 impl ManifestProjector for NoManifest {
-    fn project(
-        &self,
-        _: &ManifestProjectionCompatibilityInput,
-    ) -> Result<Vec<u8>, ManifestProjectionError> {
+    fn project(&self, _: &ManifestProjectionInput) -> Result<Vec<u8>, ManifestProjectionError> {
         panic!("qualification staging test must not project a manifest")
     }
 }

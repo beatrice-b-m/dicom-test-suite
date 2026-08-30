@@ -7,7 +7,7 @@ use serde_json::{Map, Value};
 
 use super::{CuratedManifestError, err, fail};
 use crate::corpus_plan::{PlannedArtifact, PlannedQualification, QualificationPayloadPolicy};
-use crate::executor::adapters::{ManifestProjectionArtifact, ManifestProjectionCompatibilityInput};
+use crate::executor::adapters::{ManifestProjectionArtifact, ManifestProjectionInput};
 use crate::executor::evidence::{ArtifactKind, ExecutionStatus};
 
 const FUZZ_KIND: &str = "bounded_deterministic_fuzz";
@@ -17,7 +17,7 @@ const FUZZ_PRODUCER_ID: &str = "bounded_deterministic_fuzz";
 const EOT_KIND: &str = "checked_eot_u64_overflow";
 
 pub(super) fn project_qualifications(
-    input: &ManifestProjectionCompatibilityInput,
+    input: &ManifestProjectionInput,
 ) -> Result<Vec<Value>, CuratedManifestError> {
     let mut projected = Vec::new();
     for pair in &input.artifacts {
@@ -400,7 +400,7 @@ mod tests {
 
     const PLAN_SHA256: &str = "1111111111111111111111111111111111111111111111111111111111111111";
 
-    fn input() -> ManifestProjectionCompatibilityInput {
+    fn input() -> ManifestProjectionInput {
         let claims = json!({
             "case_id":FUZZ_CASE_ID,"kind":"bounded_fuzz_run","contract_version":"0.1.0",
             "profile":"fuzz","run_seed":1,
@@ -557,7 +557,7 @@ mod tests {
                 elapsed_milliseconds: 1,
             },
         };
-        ManifestProjectionCompatibilityInput {
+        ManifestProjectionInput {
             corpus_plan_sha256: PLAN_SHA256.into(),
             artifacts: vec![ManifestProjectionArtifact { planned, execution }],
             unavailable: vec![],

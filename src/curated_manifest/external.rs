@@ -5,7 +5,7 @@ use serde_json::{Value, json};
 use crate::composition::CompositionUidRole;
 use crate::corpus_plan::{PlannedArtifact, PlannedImportedDicomArtifact};
 use crate::curated_plan::CuratedArtifactProjectionContext;
-use crate::executor::adapters::{ManifestProjectionArtifact, ManifestProjectionCompatibilityInput};
+use crate::executor::adapters::{ManifestProjectionArtifact, ManifestProjectionInput};
 use crate::executor::evidence::{ExecutionStatus, ImportedDicomObservation};
 
 use super::{CuratedManifestError, err, fail, required};
@@ -13,7 +13,7 @@ use super::{CuratedManifestError, err, fail, required};
 pub(super) fn project_file_entry(
     ctx: &CuratedArtifactProjectionContext,
     pair: &ManifestProjectionArtifact,
-    input: &ManifestProjectionCompatibilityInput,
+    input: &ManifestProjectionInput,
 ) -> Result<Value, CuratedManifestError> {
     let PlannedArtifact::ImportedDicom(planned) = &pair.planned else {
         return fail("external projector received a non-imported artifact");
@@ -186,7 +186,7 @@ fn backend(
 
 fn references(
     planned: &PlannedImportedDicomArtifact,
-    input: &ManifestProjectionCompatibilityInput,
+    input: &ManifestProjectionInput,
 ) -> Result<Vec<Value>, CuratedManifestError> {
     planned.declared_instance.references.iter().map(|reference| {
         let source = input.artifacts.iter().find(|candidate| candidate.planned.logical_id() == reference.target_instance_id).ok_or_else(|| err("external source artifact is absent"))?;
@@ -267,7 +267,7 @@ fn project_wsi_seg(
     parameters: &serde_json::Map<String, Value>,
     output: &Value,
     planned: &PlannedImportedDicomArtifact,
-    input: &ManifestProjectionCompatibilityInput,
+    input: &ManifestProjectionInput,
 ) -> Result<(), CuratedManifestError> {
     entry["references"][0]["relationship"] = json!("source_image_for_segmentation");
     let semantics = &output["expected_semantics"];
@@ -347,7 +347,7 @@ fn project_tid1500(
     entry: &mut Value,
     output: &Value,
     planned: &PlannedImportedDicomArtifact,
-    _input: &ManifestProjectionCompatibilityInput,
+    _input: &ManifestProjectionInput,
 ) -> Result<(), CuratedManifestError> {
     entry["references"][0]["relationship"] = json!("source_image_for_segmentation");
     entry["references"][1]["relationship"] = json!("referenced_segment");
@@ -396,7 +396,7 @@ fn project_scoord3d(
     entry: &mut Value,
     output: &Value,
     planned: &PlannedImportedDicomArtifact,
-    _input: &ManifestProjectionCompatibilityInput,
+    _input: &ManifestProjectionInput,
 ) -> Result<(), CuratedManifestError> {
     entry["references"][0]["relationship"] = json!("source_of_measurement");
     let s = &output["expected_semantics"];

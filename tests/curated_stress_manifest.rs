@@ -10,7 +10,7 @@ use dicom_test_suite::curated_manifest::{
 use dicom_test_suite::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
 };
-use dicom_test_suite::executor::adapters::ManifestProjectionCompatibilityInput;
+use dicom_test_suite::executor::adapters::ManifestProjectionInput;
 use dicom_test_suite::executor::cancellation::CancellationToken;
 use dicom_test_suite::executor::engine::{
     CorpusExecutor, ManifestProjectionError, ManifestProjector,
@@ -47,10 +47,7 @@ impl Drop for Temp {
 
 struct Unused;
 impl ManifestProjector for Unused {
-    fn project(
-        &self,
-        _: &ManifestProjectionCompatibilityInput,
-    ) -> Result<Vec<u8>, ManifestProjectionError> {
+    fn project(&self, _: &ManifestProjectionInput) -> Result<Vec<u8>, ManifestProjectionError> {
         panic!("staging-only execution invoked a manifest projector")
     }
 }
@@ -60,7 +57,7 @@ fn execute(
     parallelism: u32,
 ) -> (
     dicom_test_suite::curated_plan::CuratedScCorpusPlan,
-    ManifestProjectionCompatibilityInput,
+    ManifestProjectionInput,
 ) {
     let provider =
         CuratedScCorpusPlanProvider::load(CuratedCatalogPaths::from_repository_root(".")).unwrap();

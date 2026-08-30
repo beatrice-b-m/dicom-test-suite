@@ -7,7 +7,7 @@ use serde_json::{Value, json};
 use crate::composition::CompositionUidRole;
 use crate::corpus_plan::{PlannedArtifact, PlannedDicomArtifact};
 use crate::curated_plan::{CuratedArtifactProjectionContext, CuratedScProjectionContext};
-use crate::executor::adapters::{ManifestProjectionArtifact, ManifestProjectionCompatibilityInput};
+use crate::executor::adapters::{ManifestProjectionArtifact, ManifestProjectionInput};
 use crate::executor::evidence::{ExecutionStatus, MaterializedContentEvidence, ResultStatus};
 use crate::recipes::{
     STRESS_CT_PLAN_PROVIDER_ID, STRESS_SC_PLAN_PROVIDER_ID, StressCtArtifactParameters,
@@ -379,7 +379,7 @@ fn project_ct(
 /// execution resource evidence. No filesystem or wall-clock readback occurs.
 pub fn project_qualifications(
     context: &CuratedScProjectionContext,
-    input: &ManifestProjectionCompatibilityInput,
+    input: &ManifestProjectionInput,
 ) -> Result<Vec<Value>, CuratedManifestError> {
     let mut grouped: BTreeMap<
         &str,

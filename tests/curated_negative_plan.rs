@@ -7,7 +7,7 @@ use dicom_test_suite::curated_manifest::project_curated_file_entries;
 use dicom_test_suite::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
 };
-use dicom_test_suite::executor::adapters::ManifestProjectionCompatibilityInput;
+use dicom_test_suite::executor::adapters::ManifestProjectionInput;
 use dicom_test_suite::executor::cancellation::CancellationToken;
 use dicom_test_suite::executor::engine::{
     CorpusExecutor, ManifestProjectionError, ManifestProjector,
@@ -199,10 +199,7 @@ fn negative_planning_preview_has_no_concrete_executor_or_filesystem_boundary() {
 struct NoManifest;
 
 impl ManifestProjector for NoManifest {
-    fn project(
-        &self,
-        _: &ManifestProjectionCompatibilityInput,
-    ) -> Result<Vec<u8>, ManifestProjectionError> {
+    fn project(&self, _: &ManifestProjectionInput) -> Result<Vec<u8>, ManifestProjectionError> {
         Err(ManifestProjectionError("staging-only test".into()))
     }
 }

@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 
 use crate::corpus_plan::{PlannedArtifact, PlannedMutationArtifact};
 use crate::curated_plan::CuratedArtifactProjectionContext;
-use crate::executor::adapters::{ManifestProjectionArtifact, ManifestProjectionCompatibilityInput};
+use crate::executor::adapters::{ManifestProjectionArtifact, ManifestProjectionInput};
 use crate::executor::evidence::{ExecutionStatus, ResultStatus};
 use crate::negative_plan::NEGATIVE_PARSER_RULE_ID;
 
@@ -13,7 +13,7 @@ use super::{CuratedManifestError, err, fail};
 pub(super) fn project_file_entry(
     context: &CuratedArtifactProjectionContext,
     pair: &ManifestProjectionArtifact,
-    input: &ManifestProjectionCompatibilityInput,
+    input: &ManifestProjectionInput,
 ) -> Result<Value, CuratedManifestError> {
     let PlannedArtifact::Mutation(planned) = &pair.planned else {
         return fail("negative projection received a non-mutation artifact");

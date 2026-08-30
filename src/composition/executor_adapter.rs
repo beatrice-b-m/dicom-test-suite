@@ -17,7 +17,7 @@ use super::{
     ProviderRequest as LegacyProviderRequest, ValidationCheck,
 };
 use crate::corpus_plan::{CorpusPlan, EvidenceIndependence, EvidenceObligation, PlannedArtifact};
-use crate::executor::adapters::ManifestProjectionCompatibilityInput;
+use crate::executor::adapters::ManifestProjectionInput;
 use crate::executor::cancellation::CancellationToken;
 use crate::executor::engine::{
     BoundExecutionServices, CodecServiceOutcome, ExecutionServiceFactory, ManifestProjectionError,
@@ -564,10 +564,7 @@ impl CompositionExecutorManifestProjector {
 }
 
 impl ManifestProjector for CompositionExecutorManifestProjector {
-    fn project(
-        &self,
-        input: &ManifestProjectionCompatibilityInput,
-    ) -> Result<Vec<u8>, ManifestProjectionError> {
+    fn project(&self, input: &ManifestProjectionInput) -> Result<Vec<u8>, ManifestProjectionError> {
         let plans = input
             .artifacts
             .iter()

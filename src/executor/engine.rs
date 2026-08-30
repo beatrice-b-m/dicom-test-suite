@@ -12,9 +12,9 @@ use crate::corpus_plan::{
     ValidationRequirement,
 };
 use crate::executor::adapters::{
-    AdapterError, ArtifactServiceOutputs, CodecExecutionRecord,
-    ManifestProjectionCompatibilityInput, ProviderExecutionRecord, PublicationTransition,
-    RunEvidenceAdapterInput, assemble_run_evidence, compatibility_projection_input,
+    AdapterError, ArtifactServiceOutputs, CodecExecutionRecord, ManifestProjectionInput,
+    ProviderExecutionRecord, PublicationTransition, RunEvidenceAdapterInput, assemble_run_evidence,
+    manifest_projection_input,
 };
 use crate::executor::cancellation::{
     CancellationPoint, CancellationStage, CancellationToken, Cancelled,
@@ -143,10 +143,7 @@ pub struct CodecServiceOutcome {
 }
 
 pub trait ManifestProjector: Send + Sync {
-    fn project(
-        &self,
-        input: &ManifestProjectionCompatibilityInput,
-    ) -> Result<Vec<u8>, ManifestProjectionError>;
+    fn project(&self, input: &ManifestProjectionInput) -> Result<Vec<u8>, ManifestProjectionError>;
 }
 
 pub trait ExecutorTransaction: Send {
@@ -332,7 +329,7 @@ where
             0,
             PublicationTransition::staging(),
         )?;
-        let projection = compatibility_projection_input(plan, &preliminary)?;
+        let projection = manifest_projection_input(plan, &preliminary)?;
         let asset_snapshot = worker
             .registry
             .lock()
@@ -351,7 +348,7 @@ where
 struct StagingExecutionCore {
     outcome: ScheduleOutcome<ArtifactServiceOutputs>,
     preliminary: RunEvidence,
-    projection: ManifestProjectionCompatibilityInput,
+    projection: ManifestProjectionInput,
 }
 
 fn validate_execution_request(
@@ -1061,7 +1058,7 @@ pub struct CorpusExecutionResult {
 /// unmigrated artifacts while retaining one outer publication transaction.
 /// It never writes a manifest or promotes the staging directory.
 pub struct StagedCorpusExecution {
-    pub projection: ManifestProjectionCompatibilityInput,
+    pub projection: ManifestProjectionInput,
     pub evidence: RunEvidence,
 }
 

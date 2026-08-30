@@ -719,7 +719,7 @@ fn unavailable_curated_cases(bundle: &CuratedScCorpusPlan) -> Vec<Value> {
 
 fn project_curated_execution_output(
     bundle: &CuratedScCorpusPlan,
-    projection: &crate::executor::adapters::ManifestProjectionCompatibilityInput,
+    projection: &crate::executor::adapters::ManifestProjectionInput,
 ) -> Result<CuratedScExecutionOutput, GenerateError> {
     let unavailable_cases = unavailable_curated_cases(bundle);
     let files = project_curated_file_entries(&bundle.projection, projection)
@@ -782,7 +782,7 @@ struct CuratedGenerationManifestProjector {
 impl ManifestProjector for CuratedGenerationManifestProjector {
     fn project(
         &self,
-        input: &crate::executor::adapters::ManifestProjectionCompatibilityInput,
+        input: &crate::executor::adapters::ManifestProjectionInput,
     ) -> Result<Vec<u8>, ManifestProjectionError> {
         let generated = project_curated_execution_output(&self.bundle, input)
             .map_err(|error| ManifestProjectionError(error.to_string()))?;

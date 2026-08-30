@@ -5,7 +5,7 @@ use dicom_test_suite::curated_execution::CuratedExecutionServiceFactory;
 use dicom_test_suite::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
 };
-use dicom_test_suite::executor::adapters::ManifestProjectionCompatibilityInput;
+use dicom_test_suite::executor::adapters::ManifestProjectionInput;
 use dicom_test_suite::executor::cancellation::CancellationToken;
 use dicom_test_suite::executor::engine::{
     CorpusExecutor, ManifestProjectionError, ManifestProjector,
@@ -63,10 +63,7 @@ fn native_preview_matches_the_existing_exact_part10_bytes() {
 
 struct NoManifest;
 impl ManifestProjector for NoManifest {
-    fn project(
-        &self,
-        _: &ManifestProjectionCompatibilityInput,
-    ) -> Result<Vec<u8>, ManifestProjectionError> {
+    fn project(&self, _: &ManifestProjectionInput) -> Result<Vec<u8>, ManifestProjectionError> {
         Err(ManifestProjectionError("staging only".into()))
     }
 }

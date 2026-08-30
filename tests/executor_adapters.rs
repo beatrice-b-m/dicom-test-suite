@@ -13,7 +13,7 @@ use dicom_test_suite::corpus_plan::{
 };
 use dicom_test_suite::executor::adapters::{
     ArtifactServiceOutputs, CodecExecutionRecord, ProviderExecutionRecord, PublicationTransition,
-    RunEvidenceAdapterInput, assemble_run_evidence, compatibility_projection_input,
+    RunEvidenceAdapterInput, assemble_run_evidence, manifest_projection_input,
 };
 use dicom_test_suite::executor::evidence::{
     EvidenceIndependence as ExecutionIndependence, ExecutionStatus, ObligationResult,
@@ -398,7 +398,7 @@ fn adapter_orders_records_and_preserves_typed_service_evidence() {
         "builtin.strict"
     );
 
-    let projection = compatibility_projection_input(&plan, &evidence).unwrap();
+    let projection = manifest_projection_input(&plan, &evidence).unwrap();
     assert_eq!(projection.artifacts[0].planned, plan.artifacts[0]);
     assert_eq!(
         projection.artifacts[0]

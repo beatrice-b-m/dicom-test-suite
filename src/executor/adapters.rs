@@ -161,7 +161,7 @@ pub struct RunEvidenceAdapterInput {
 /// paired execution record supplies observed byte identities and all evidence.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ManifestProjectionCompatibilityInput {
+pub struct ManifestProjectionInput {
     pub corpus_plan_sha256: String,
     pub artifacts: Vec<ManifestProjectionArtifact>,
     pub unavailable: Vec<UnavailableExecutionEvidence>,
@@ -275,10 +275,10 @@ pub fn assemble_run_evidence(
     Ok(evidence)
 }
 
-pub fn compatibility_projection_input(
+pub fn manifest_projection_input(
     plan: &CorpusPlan,
     evidence: &RunEvidence,
-) -> Result<ManifestProjectionCompatibilityInput, AdapterError> {
+) -> Result<ManifestProjectionInput, AdapterError> {
     let expected_hash = plan.canonical_sha256().map_err(AdapterError::InvalidPlan)?;
     if evidence.corpus_plan_sha256 != expected_hash {
         return Err(AdapterError::PlanHashMismatch);
@@ -301,7 +301,7 @@ pub fn compatibility_projection_input(
     if by_id.len() != artifacts.len() {
         return Err(AdapterError::ArtifactSetMismatch);
     }
-    Ok(ManifestProjectionCompatibilityInput {
+    Ok(ManifestProjectionInput {
         corpus_plan_sha256: expected_hash,
         artifacts,
         unavailable: evidence.unavailable.clone(),

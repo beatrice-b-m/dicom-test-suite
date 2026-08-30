@@ -11,7 +11,7 @@ use dicom_test_suite::curated_validation::{
     ExtendedOffsetTableValidationSpec, ScPart10ValidationInput, ScPixelLengthFormula,
     validate_extended_offset_table_round_trip, validate_metadata_round_trip, validate_sc_part10,
 };
-use dicom_test_suite::executor::adapters::ManifestProjectionCompatibilityInput;
+use dicom_test_suite::executor::adapters::ManifestProjectionInput;
 use dicom_test_suite::executor::cancellation::CancellationToken;
 use dicom_test_suite::executor::engine::{
     CorpusExecutor, ManifestProjectionError, ManifestProjector,
@@ -44,10 +44,7 @@ impl Drop for TempOutput {
 struct EvidenceProjector;
 
 impl ManifestProjector for EvidenceProjector {
-    fn project(
-        &self,
-        input: &ManifestProjectionCompatibilityInput,
-    ) -> Result<Vec<u8>, ManifestProjectionError> {
+    fn project(&self, input: &ManifestProjectionInput) -> Result<Vec<u8>, ManifestProjectionError> {
         let mut bytes = serde_json::to_vec_pretty(&serde_json::json!({
             "corpus_plan_sha256": input.corpus_plan_sha256,
             "artifacts": input

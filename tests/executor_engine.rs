@@ -801,7 +801,7 @@ struct Projector {
 impl ManifestProjector for Projector {
     fn project(
         &self,
-        input: &dicom_test_suite::executor::adapters::ManifestProjectionCompatibilityInput,
+        input: &dicom_test_suite::executor::adapters::ManifestProjectionInput,
     ) -> Result<Vec<u8>, ManifestProjectionError> {
         if let Some(token) = &self.cancel {
             token.cancel_with_reason("projector requested stop");

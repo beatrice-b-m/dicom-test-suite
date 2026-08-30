@@ -504,35 +504,6 @@ impl CuratedScCorpusPlanProvider {
                 // their owning recipes.
                 continue;
             }
-            let external_provider = registry_case
-                .provider
-                .get("kind")
-                .and_then(Value::as_str)
-                .filter(|kind| *kind == "external_backend")
-                .and_then(|_| registry_case.provider.get("id"))
-                .and_then(Value::as_str)
-                .map(str::to_owned);
-            if let Some(provider_id) = external_provider.as_deref() {
-                if !self
-                    .capability_inventory
-                    .external_providers
-                    .contains(provider_id)
-                {
-                    record_unavailable_case(
-                        registry_case,
-                        recipe,
-                        CapabilityKind::ExternalBackend,
-                        "external_backend_unavailable",
-                        format!(
-                            "external plan provider {} ({provider_id}) is not caller-qualified",
-                            recipe.plan_provider_id
-                        ),
-                        &mut unavailable,
-                        &mut pending,
-                    );
-                    continue;
-                }
-            }
             if !registry_case.requirements.is_feature_free() {
                 let runtime_requirements = RegistryRuntimeRequirements {
                     features: registry_case.requirements.features.clone(),
@@ -556,6 +527,43 @@ impl CuratedScCorpusPlanProvider {
                         registry_case,
                         recipe,
                         &evaluation.unavailable,
+                        &mut unavailable,
+                        &mut pending,
+                    );
+                    continue;
+                }
+            }
+            let external_provider = matches!(
+                recipe.plan_provider_id.as_str(),
+                HIGH_DICOM_SR_IMPORT_PROVIDER_ID
+                    | crate::recipes::QUANTITATIVE_EXTERNAL_PROVIDER_ID
+            )
+            .then(|| {
+                registry_case
+                    .provider
+                    .get("kind")
+                    .and_then(Value::as_str)
+                    .filter(|kind| *kind == "external_backend")
+                    .and_then(|_| registry_case.provider.get("id"))
+                    .and_then(Value::as_str)
+                    .map(str::to_owned)
+            })
+            .flatten();
+            if let Some(provider_id) = external_provider.as_deref() {
+                if !self
+                    .capability_inventory
+                    .external_providers
+                    .contains(provider_id)
+                {
+                    record_unavailable_case(
+                        registry_case,
+                        recipe,
+                        CapabilityKind::ExternalBackend,
+                        "external_backend_unavailable",
+                        format!(
+                            "external plan provider {} ({provider_id}) is not caller-qualified",
+                            recipe.plan_provider_id
+                        ),
                         &mut unavailable,
                         &mut pending,
                     );

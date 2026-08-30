@@ -6,14 +6,15 @@
     "case_id": "classic/sc/mono2_u16_jpeg_lossless_sv1"
   },
   "kind": "dicom",
-  "plan_provider_id": "native.case_plan",
+  "plan_provider_id": "native.exceptional_sc_plan",
   "dependencies": [
 
   ],
   "provider_parameters": {
   },
   "validation_rule_ids": [
-    "validation.shared"
+    "validation.sc.pixel",
+    "validation.sc.encapsulation"
   ],
   "projection_rule_ids": [
     "projection.curated"
@@ -21,46 +22,84 @@
   "dicom": {
     "artifacts": [
       {
-        "logical_id": "artifact_1",
+        "logical_id": "instance",
         "output": {
-          "role": "primary_1",
-          "provider_derived": true
+          "role": "instance",
+          "path": "classic/sc/mono2_u16_jpeg_lossless_sv1/instance.dcm"
         },
         "encoding": {
           "transfer_syntax_uid": "1.2.840.10008.1.2.4.70",
-          "sequence_length_policy": "provider",
-          "item_length_policy": "provider",
-          "offset_table_policy": "provider",
-          "fragmentation_policy": "provider",
-          "non_template_encoding_provider_id": "encoding.transfer_syntax_plan"
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "populated_basic",
+          "fragmentation_policy": "one_per_frame",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard",
+          "non_template_encoding_provider_id": "encoding.dcmtk.jpeg_lossless_sv1"
         },
         "parameters": {
+          "kind": "dcmtk_jpeg_lossless",
+          "process": "sv1"
         },
         "attribute_operations": [
-
+          {
+            "operation": "set",
+            "tag": "0028,2110",
+            "vr": "CS",
+            "value": "00"
+          }
         ],
         "content": {
-          "provider_id": "content.case_default",
+          "provider_id": "content.sc.pixel_pattern",
           "parameters": {
           }
         },
         "validation_rule_ids": [
-          "validation.shared"
+          "validation.sc.pixel",
+          "validation.sc.encapsulation"
         ],
         "projection_rule_ids": [
           "projection.curated"
         ],
         "determinism": "semantic_stable",
         "stressors": [
-
+          "minimal_secondary_capture",
+          "locked_full_file_codec_boundary",
+          "jpeg_lossless_sv1_transfer_syntax"
         ],
-        "algorithm_provider_id": "algorithm.case_provider",
         "template": {
           "template_id": "classic/secondary-capture/monochrome",
           "template_version": "1.0.0"
         },
-        "order": 0
+        "order": 0,
+        "secondary_capture": {
+          "rows": 2,
+          "columns": 2,
+          "frames": 1,
+          "samples_per_pixel": 1,
+          "photometric_interpretation": "MONOCHROME2",
+          "bits_allocated": 16,
+          "bits_stored": 16,
+          "high_bit": 15,
+          "pixel_representation": 0,
+          "pixel_data_vr": "OB",
+          "stored_value_type": "u16",
+          "stored_values": [
+            0,
+            21845,
+            43690,
+            65535
+          ],
+          "frame_sha256": [
+            "d08bba5811a12539ff2f0d8c7ec743f442798f3340e8f865835601fb81944688"
+          ],
+          "visual_pattern": "2x2_monochrome_u16_gradient",
+          "semantic_note": "full unsigned range after JPEG Lossless SV1 decode",
+          "pixel_min": 0,
+          "pixel_max": 65535
+        }
       }
     ]
-  }
+  },
+  "planning_order": 1309
 }

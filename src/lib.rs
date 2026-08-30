@@ -10,7 +10,9 @@ use dicom_object::{FileDicomObject, InMemDicomObject, open_file};
 use serde_json::Value;
 
 use crate::curated_execution::CuratedExecutionServiceFactory;
-use crate::curated_manifest::project_curated_file_entries;
+use crate::curated_manifest::{
+    project_curated_file_entries, project_curated_stress_qualifications,
+};
 use crate::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlan, CuratedScCorpusPlanProvider, CuratedScPlanRequest,
     CuratedScSelection,
@@ -667,15 +669,21 @@ fn curated_catalog_paths() -> CuratedCatalogPaths {
     }
 }
 
-pub(crate) fn execute_curated_sc_plan(
+#[derive(Debug, Default)]
+struct CuratedScExecutionOutput {
+    files: Vec<generator::GeneratedFile>,
+    qualifications: Vec<Value>,
+}
+
+fn execute_curated_sc_plan_output(
     bundle: Option<&CuratedScCorpusPlan>,
     staging_root: &Path,
-) -> Result<Vec<generator::GeneratedFile>, GenerateError> {
+) -> Result<CuratedScExecutionOutput, GenerateError> {
     let Some(bundle) = bundle else {
-        return Ok(Vec::new());
+        return Ok(CuratedScExecutionOutput::default());
     };
     if bundle.plan.artifacts.is_empty() {
-        return Ok(Vec::new());
+        return Ok(CuratedScExecutionOutput::default());
     }
     let staged = CorpusExecutor::new(
         CuratedExecutionServiceFactory::new(bundle),
@@ -691,7 +699,7 @@ pub(crate) fn execute_curated_sc_plan(
         stage: "curated SC execution",
         message: error.to_string(),
     })?;
-    project_curated_file_entries(&bundle.projection, &staged.projection)
+    let files = project_curated_file_entries(&bundle.projection, &staged.projection)
         .map_err(|error| GenerateError::PlanFirst {
             stage: "curated SC manifest projection",
             message: error.to_string(),
@@ -711,7 +719,25 @@ pub(crate) fn execute_curated_sc_plan(
                 manifest_entry,
             })
         })
-        .collect()
+        .collect::<Result<Vec<_>, _>>()?;
+    let qualifications =
+        project_curated_stress_qualifications(&bundle.projection, &staged.projection).map_err(
+            |error| GenerateError::PlanFirst {
+                stage: "curated stress qualification projection",
+                message: error.to_string(),
+            },
+        )?;
+    Ok(CuratedScExecutionOutput {
+        files,
+        qualifications,
+    })
+}
+
+pub(crate) fn execute_curated_sc_plan(
+    bundle: Option<&CuratedScCorpusPlan>,
+    staging_root: &Path,
+) -> Result<Vec<generator::GeneratedFile>, GenerateError> {
+    execute_curated_sc_plan_output(bundle, staging_root).map(|output| output.files)
 }
 
 pub fn write_generation_run(
@@ -773,13 +799,14 @@ pub fn write_generation_run(
     let registry = read_json_metadata(registry_path)?;
     validate_case_registry_semantics(&registry).map_err(GenerateError::InvalidRegistry)?;
 
-    let plan_first_sc_files = execute_curated_sc_plan(curated_sc_plan.as_ref(), &staging_root)?;
+    let plan_first_sc = execute_curated_sc_plan_output(curated_sc_plan.as_ref(), &staging_root)?;
 
     let generated = generator::write_supported_cases_with_plan_first_sc(
         &staged_run,
         &registry,
         &sha256_hex(&standards_lock_bytes),
-        plan_first_sc_files,
+        plan_first_sc.files,
+        plan_first_sc.qualifications,
     )?;
     let files_written = generated.files.len();
     let mut generated_case_ids: Vec<String> = generated
@@ -38656,6 +38683,7 @@ mod tests {
             &run,
             &registry,
             "0000000000000000000000000000000000000000000000000000000000000000",
+            Vec::new(),
             Vec::new(),
         )
         .expect("blocked registry case should not fail generation");

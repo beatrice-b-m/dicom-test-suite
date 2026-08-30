@@ -4137,6 +4137,7 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
     registry: &Value,
     standards_lock_sha256: &str,
     plan_first_files: Vec<GeneratedFile>,
+    plan_first_qualifications: Vec<Value>,
 ) -> Result<GenerationOutput, GenerateError> {
     if run.profile == "negative" {
         return write_negative_cases(run, registry, standards_lock_sha256);
@@ -4152,6 +4153,27 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
             .entry(file.case_id.clone())
             .or_default()
             .push(file);
+    }
+    let mut plan_first_qualifications_by_case = BTreeMap::<String, Value>::new();
+    for qualification in plan_first_qualifications {
+        let case_id = qualification
+            .get("case_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| GenerateError::PlanFirst {
+                stage: "stress qualification dispatch",
+                message: "projected stress qualification has no string case_id".into(),
+            })?
+            .to_owned();
+        if qualification.get("kind").and_then(Value::as_str) != Some("stress_case_run")
+            || plan_first_qualifications_by_case
+                .insert(case_id.clone(), qualification)
+                .is_some()
+        {
+            return Err(GenerateError::PlanFirst {
+                stage: "stress qualification dispatch",
+                message: format!("invalid or duplicate projected stress qualification {case_id}"),
+            });
+        }
     }
     let mut context = GenerationContext::default();
     for case_id in U9_PLAN_FIRST_WSI_CASE_IDS.iter().copied() {
@@ -4205,79 +4227,30 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
         CuratedRecipeStage::SecondaryCapture,
         &mut plan_first_files_by_case,
     )?;
-    if let Some(case) = registry_case(registry, STRESS_HIGH_INSTANCE_CT_CASE_ID)? {
-        if should_generate_case(case, run)? {
-            let (request, started) = context.preflight_stress(
-                StressRecipeKind::CtStudy,
-                8 * 1024 * 1024,
-                128 * 1024 * 1024,
-            )?;
-            let files = write_stress_high_instance_ct_case(run, case, standards_lock_sha256)?;
-            context.record_stress_files(
-                STRESS_HIGH_INSTANCE_CT_CASE_ID,
-                request,
-                started,
-                files,
-            )?;
-        }
-    }
-    if let Some(case) = registry_case(registry, STRESS_LARGE_BULK_CASE_ID)? {
-        if should_generate_case(case, run)? {
-            let (request, started) = context.preflight_stress(
-                StressRecipeKind::NativeBulkData,
-                72 * 1024 * 1024,
-                384 * 1024 * 1024,
-            )?;
-            let file = write_stress_large_bulk_case(run, case, standards_lock_sha256)?;
-            context.record_stress_files(STRESS_LARGE_BULK_CASE_ID, request, started, vec![file])?;
-        }
-    }
-    if let Some(case) = registry_case(registry, STRESS_DEEP_NESTED_CASE_ID)? {
-        if should_generate_case(case, run)? {
-            let (request, started) = context.preflight_stress(
-                StressRecipeKind::NestedSequences,
-                20 * 1024 * 1024,
-                128 * 1024 * 1024,
-            )?;
-            let file = write_stress_deep_nested_case(run, case, standards_lock_sha256)?;
-            context.record_stress_files(
-                STRESS_DEEP_NESTED_CASE_ID,
-                request,
-                started,
-                vec![file],
-            )?;
-        }
-    }
-    if let Some(case) = registry_case(registry, STRESS_LONG_METADATA_CASE_ID)? {
-        if should_generate_case(case, run)? {
-            let (request, started) = context.preflight_stress(
-                StressRecipeKind::LongMetadata,
-                4 * 1024 * 1024,
-                64 * 1024 * 1024,
-            )?;
-            let file = write_stress_long_metadata_case(run, case, standards_lock_sha256)?;
-            context.record_stress_files(
-                STRESS_LONG_METADATA_CASE_ID,
-                request,
-                started,
-                vec![file],
-            )?;
-        }
-    }
-    if let Some(case) = registry_case(registry, STRESS_ENCAPSULATED_CASE_ID)? {
-        if should_generate_case(case, run)? {
-            let (request, started) = context.preflight_stress(
-                StressRecipeKind::EncapsulatedEot,
-                80 * 1024 * 1024,
-                384 * 1024 * 1024,
-            )?;
-            let file = write_stress_encapsulated_case(run, case, standards_lock_sha256)?;
-            context.record_stress_files(
-                STRESS_ENCAPSULATED_CASE_ID,
-                request,
-                started,
-                vec![file],
-            )?;
+    for case_id in [
+        STRESS_HIGH_INSTANCE_CT_CASE_ID,
+        STRESS_LARGE_BULK_CASE_ID,
+        STRESS_DEEP_NESTED_CASE_ID,
+        STRESS_LONG_METADATA_CASE_ID,
+        STRESS_ENCAPSULATED_CASE_ID,
+    ] {
+        if let Some(files) = take_plan_first_advanced_case(
+            run,
+            registry,
+            &mut plan_first_files_by_case,
+            case_id,
+            "stress stage",
+        )? {
+            context.record_many(files)?;
+            let qualification = plan_first_qualifications_by_case
+                .remove(case_id)
+                .ok_or_else(|| GenerateError::PlanFirst {
+                    stage: "stress qualification dispatch",
+                    message: format!(
+                        "selected plan-first stress case {case_id} has no typed qualification"
+                    ),
+                })?;
+            context.record_qualification(qualification);
         }
     }
     write_curated_recipe_stage(
@@ -5237,6 +5210,17 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
             .to_string(),
         });
     }
+    if !plan_first_qualifications_by_case.is_empty() {
+        return Err(GenerateError::PlanFirst {
+            stage: "stress qualification dispatch",
+            message: format!(
+                "unmatched projected stress qualifications: {:?}",
+                plan_first_qualifications_by_case
+                    .into_keys()
+                    .collect::<Vec<_>>()
+            ),
+        });
+    }
     migrate_shared_plan_curated_files(run, &mut context.generated_files, &plan_first_case_ids)?;
     Ok(context.into_output())
 }
@@ -5739,6 +5723,7 @@ pub(crate) fn write_composition_default_artifacts(
         &private_registry,
         &standards_lock_sha256,
         migrated_source_files,
+        Vec::new(),
     )?;
     let mut artifacts = output
         .files
@@ -20854,7 +20839,13 @@ mod tests {
         registry: &Value,
         standards_lock_sha256: &str,
     ) -> Result<GenerationOutput, GenerateError> {
-        write_supported_cases_with_plan_first_sc(run, registry, standards_lock_sha256, Vec::new())
+        write_supported_cases_with_plan_first_sc(
+            run,
+            registry,
+            standards_lock_sha256,
+            Vec::new(),
+            Vec::new(),
+        )
     }
 
     fn execute_plan_first_case(run: &PreparedGenerationRun, case_id: &str) -> GeneratedFile {

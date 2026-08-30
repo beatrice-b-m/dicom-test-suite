@@ -46,6 +46,8 @@ use crate::executor::services::{
     SlotExecutionBinding, StagedAssetRegistry, ToolIdentity, ValidationRequest, ValidationResult,
     ValidationStatus,
 };
+use crate::negative::classify_negative_parser_probe;
+use crate::negative_plan::NEGATIVE_PARSER_RULE_ID;
 use crate::recipes::classic_ct::{ClassicCtArtifactParameters, ClassicCtProviderParameters};
 use crate::recipes::classic_dx_mg::{DxMgArtifactParameters, DxMgFamily};
 use crate::recipes::classic_mr_cr::{CrArtifactParameters, MrArtifactParameters};
@@ -475,9 +477,32 @@ impl ExecutionServiceFactory for CuratedExecutionServiceFactory {
                 ));
             }
             if !self.locked_requests.contains_key(artifact_id) {
-                binding
+                let mut immediate = binding.clone();
+                immediate
+                    .slots
+                    .retain(|_, slot| !matches!(slot, SlotExecutionBinding::StagedAsset { .. }));
+                immediate
                     .validate(&empty_assets)
                     .map_err(|error| service_error("curated bindings", error))?;
+                for slot in binding.slots.values() {
+                    if let SlotExecutionBinding::StagedAsset { asset } = slot {
+                        let dependency =
+                            asset.as_str().strip_prefix("output:").ok_or_else(|| {
+                                ServiceInvocationError::new(
+                                    "curated bindings",
+                                    "deferred staged binding is not a planned output handle",
+                                )
+                            })?;
+                        if !self.planned_artifact_ids.contains(dependency) {
+                            return Err(ServiceInvocationError::new(
+                                "curated bindings",
+                                format!(
+                                    "deferred staged binding names unknown artifact {dependency}"
+                                ),
+                            ));
+                        }
+                    }
+                }
             }
         }
         let materializer = MaterializationDispatcher::new(
@@ -504,6 +529,7 @@ impl ExecutionServiceFactory for CuratedExecutionServiceFactory {
             locked_requests: self.locked_requests.clone(),
             materialized: Mutex::new(BTreeMap::new()),
             decoded_codec_frames: Mutex::new(BTreeMap::new()),
+            mutation_steps: Mutex::new(BTreeMap::new()),
         }))
     }
 }
@@ -520,6 +546,7 @@ struct CuratedBoundExecutionServices {
     locked_requests: Arc<BTreeMap<String, crate::recipes::LockedFullFileCodecRequest>>,
     materialized: Mutex<BTreeMap<String, MaterializedValidationState>>,
     decoded_codec_frames: Mutex<BTreeMap<String, Vec<String>>>,
+    mutation_steps: Mutex<BTreeMap<String, Value>>,
 }
 
 struct MaterializedValidationState {
@@ -621,6 +648,24 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
             .materializer
             .dispatch_cancellable(request, assets, cancellation)
             .map_err(|error| service_error("materializer", error))?;
+        if matches!(request.artifact, PlannedArtifact::Mutation(_)) {
+            let steps = result
+                .evidence
+                .iter()
+                .find(|evidence| evidence.evidence_id == "ordered_mutation_steps")
+                .and_then(|evidence| evidence.claims.get("steps"))
+                .cloned()
+                .ok_or_else(|| {
+                    ServiceInvocationError::new(
+                        "negative materialization",
+                        "ordered mutation-step evidence is absent",
+                    )
+                })?;
+            self.mutation_steps
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .insert(request.artifact.logical_id().to_owned(), steps);
+        }
         if let PlannedArtifact::Dicom(artifact) = &request.artifact {
             let mut plan = artifact.instance.clone();
             let content = materialized_content(&result)?;
@@ -647,6 +692,109 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
         let declaration = assets
             .resolve(handle)
             .map_err(|error| service_error("validation", error))?;
+        if let PlannedArtifact::Mutation(artifact) = &request.artifact {
+            if request.plan.rules.len() != 1
+                || request.plan.rules[0].rule_id != NEGATIVE_PARSER_RULE_ID
+            {
+                return Err(ServiceInvocationError::new(
+                    "negative validation",
+                    "expected-invalid artifact requested ordinary valid-DICOM validation",
+                ));
+            }
+            let path = self.staging_root.join(declaration.relative_path.as_str());
+            let bytes =
+                fs::read(&path).map_err(|error| service_error("negative validation", error))?;
+            if u64::try_from(bytes.len()).ok() != Some(declaration.size_bytes)
+                || sha256_hex(&bytes) != declaration.sha256
+            {
+                return Err(ServiceInvocationError::new(
+                    "negative validation",
+                    "expected-invalid staged bytes differ from materialization evidence",
+                ));
+            }
+            let failure_layer = artifact
+                .mutation
+                .expected_failure_layers
+                .last()
+                .ok_or_else(|| {
+                    ServiceInvocationError::new(
+                        "negative validation",
+                        "mutation has no expected failure layer",
+                    )
+                })?;
+            let probe = classify_negative_parser_probe(
+                &artifact.case_binding.case_id,
+                &bytes,
+                failure_layer,
+            );
+            let outcome = probe.outcome.to_string();
+            if !artifact.mutation.acceptable_outcomes.contains(&outcome) {
+                return Err(ServiceInvocationError::new(
+                    "negative validation",
+                    format!("parser probe outcome {outcome} is not accepted by the mutation plan"),
+                ));
+            }
+            let actual_steps = self
+                .mutation_steps
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .get(&artifact.logical_id)
+                .cloned()
+                .ok_or_else(|| {
+                    ServiceInvocationError::new(
+                        "negative validation",
+                        "ordered materializer mutation-step evidence is absent",
+                    )
+                })?;
+            let expected_steps = Value::Array(
+                artifact
+                    .mutation
+                    .operations
+                    .iter()
+                    .map(|operation| {
+                        serde_json::json!({
+                            "order": operation.order,
+                            "operation_id": operation.operation_id,
+                            "source_sha256": operation.expected_source_sha256,
+                            "output_sha256": operation.expected_output_sha256,
+                            "changed_byte_ranges": operation.changed_byte_ranges,
+                            "expected_failure_layer": operation.expected_failure_layer,
+                            "acceptable_outcomes": operation.acceptable_outcomes,
+                        })
+                    })
+                    .collect(),
+            );
+            if actual_steps != expected_steps {
+                return Err(ServiceInvocationError::new(
+                    "negative validation",
+                    "materializer mutation-step evidence differs from the immutable plan",
+                ));
+            }
+            return Ok(ValidationResult {
+                artifact_id: artifact.logical_id.clone(),
+                validator: built_in_tool("expected_invalid_parser_probe"),
+                rules: vec![RuleExecutionResult {
+                    rule_id: NEGATIVE_PARSER_RULE_ID.into(),
+                    status: ValidationStatus::Passed,
+                    message: "The bounded parser probe produced an explicitly acceptable expected-invalid outcome."
+                        .into(),
+                    measurements: BTreeMap::from([
+                        (
+                            "probe".into(),
+                            serde_json::json!({
+                                "kind": probe.kind,
+                                "independence": probe.independence,
+                                "outcome": probe.outcome,
+                                "detail": probe.detail,
+                            }),
+                        ),
+                        ("ordinary_valid_dicom_validation".into(), Value::Bool(false)),
+                        ("ordered_mutation_steps".into(), actual_steps),
+                    ]),
+                }],
+                evidence: Vec::new(),
+            });
+        }
         if let PlannedArtifact::ImportedDicom(artifact) = &request.artifact {
             let checks = GenericPlanValidator.validate_file(
                 &artifact.declared_instance,

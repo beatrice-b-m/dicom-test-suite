@@ -10,6 +10,7 @@ use std::fmt;
 
 use serde_json::{Value, json};
 
+use crate::codecs::{FrameEncodeInput, FrameEncoder, NativeRleLosslessEncoder};
 use crate::composition::Part10Materializer;
 use crate::corpus_plan::{
     ArtifactDependency, ArtifactProvenance, ArtifactResourceEstimate, CaseBinding,
@@ -18,8 +19,9 @@ use crate::corpus_plan::{
     PlannedMutationArtifact, PlannedMutationOperation, PlannedMutationSource, ValidationPlan,
     ValidationRequirement, ValidationRule,
 };
+use crate::encoded_content::{EncodedSlotInput, resolve_encoded_content};
 use crate::executor::services::{
-    ArtifactExecutionBindings, SlotExecutionBinding, StagedAssetHandle,
+    ArtifactExecutionBindings, ByteBinding, SlotExecutionBinding, StagedAssetHandle,
 };
 use crate::mutation::{
     AcceptableOutcome, ByteRange, FailureLayer, LengthWidth, MutationParameters,
@@ -29,6 +31,7 @@ use crate::negative::{
     build_negative_from_recipe, classify_negative_parser_probe,
 };
 use crate::recipes::MutationRecipe;
+use crate::sha256_hex;
 
 pub const NEGATIVE_PLAN_PROVIDER_ID: &str = "native.negative_mutation_plan";
 pub const NEGATIVE_PARSER_RULE_ID: &str = "expected_invalid_parser_probe";
@@ -101,13 +104,22 @@ impl NegativePlanProvider {
             return Err(NegativePlanProviderError::DuplicateArtifactIdentity);
         }
 
-        let source_bytes = Part10Materializer
-            .preview_part10_bytes_with_encoding(
-                &request.source.instance,
-                &request.source.encoding,
-                request.max_source_bytes,
-            )
-            .map_err(NegativePlanProviderError::Preview)?;
+        let preview_bindings = resolve_builtin_codec_preflight(&request.source_bindings)?;
+        let source_bytes = if preview_bindings
+            .slots
+            .values()
+            .any(|binding| matches!(binding, SlotExecutionBinding::EncodedFrames { .. }))
+        {
+            preview_encoded_source(&request.source, &preview_bindings, request.max_source_bytes)?
+        } else {
+            Part10Materializer
+                .preview_part10_bytes_with_encoding(
+                    &request.source.instance,
+                    &request.source.encoding,
+                    request.max_source_bytes,
+                )
+                .map_err(NegativePlanProviderError::Preview)?
+        };
         let negative = build_negative_from_recipe(
             &request.case_binding.case_id,
             &request.case_binding.recipe_version,
@@ -241,6 +253,148 @@ impl NegativePlanProvider {
             parser_probe,
         })
     }
+}
+
+fn preview_encoded_source(
+    source: &PlannedDicomArtifact,
+    bindings: &ArtifactExecutionBindings,
+    max_source_bytes: u64,
+) -> Result<Vec<u8>, NegativePlanProviderError> {
+    let mut inputs = Vec::new();
+    for (slot, binding) in &bindings.slots {
+        let SlotExecutionBinding::EncodedFrames { frames } = binding else {
+            return Err(NegativePlanProviderError::BoundPreview(
+                "encoded planning preview accepts encoded inline frames only".into(),
+            ));
+        };
+        let mut ordered = frames.iter().collect::<Vec<_>>();
+        ordered.sort_by_key(|frame| frame.frame_number);
+        let mut payloads = Vec::with_capacity(ordered.len());
+        for (index, frame) in ordered.into_iter().enumerate() {
+            if frame.frame_number != u32::try_from(index + 1).unwrap_or(u32::MAX) {
+                return Err(NegativePlanProviderError::BoundPreview(
+                    "encoded planning preview frames are not contiguous".into(),
+                ));
+            }
+            let ByteBinding::Inline { bytes, sha256 } = &frame.bytes else {
+                return Err(NegativePlanProviderError::BoundPreview(
+                    "encoded planning preview rejects staged frames".into(),
+                ));
+            };
+            if bytes.len() as u64 != frame.encoded_size_bytes
+                || sha256_hex(bytes) != frame.encoded_sha256
+                || sha256_hex(bytes) != *sha256
+            {
+                return Err(NegativePlanProviderError::BoundPreview(
+                    "encoded planning preview frame identity drifted".into(),
+                ));
+            }
+            payloads.push(bytes.clone());
+        }
+        inputs.push(EncodedSlotInput {
+            slot: slot.clone(),
+            ordered_frames: payloads,
+        });
+    }
+    let resolved = resolve_encoded_content(&source.instance, &source.encoding, &inputs)
+        .map_err(NegativePlanProviderError::BoundPreview)?;
+    Part10Materializer
+        .preview_part10_bytes_with_encoding(&resolved.instance, &source.encoding, max_source_bytes)
+        .map_err(NegativePlanProviderError::Preview)
+}
+
+fn resolve_builtin_codec_preflight(
+    bindings: &ArtifactExecutionBindings,
+) -> Result<ArtifactExecutionBindings, NegativePlanProviderError> {
+    let mut resolved = bindings.clone();
+    for binding in resolved.slots.values_mut() {
+        let SlotExecutionBinding::CodecRequest { request } = binding else {
+            continue;
+        };
+        if request.backend_id != NativeRleLosslessEncoder::BACKEND_ID {
+            return Err(NegativePlanProviderError::BoundPreview(format!(
+                "codec {} is not eligible for deterministic plan preflight",
+                request.backend_id
+            )));
+        }
+        if request.source_transfer_syntax_uid != "1.2.840.10008.1.2.1"
+            || request.target_transfer_syntax_uid != crate::codecs::RLE_LOSSLESS_TRANSFER_SYNTAX_UID
+            || request.frames.is_empty()
+            || request.frames.len() > 4_096
+        {
+            return Err(NegativePlanProviderError::BoundPreview(
+                "native RLE preflight request is outside the bounded contract".into(),
+            ));
+        }
+        let bits_stored = request
+            .parameters
+            .get("bits_stored")
+            .and_then(Value::as_u64)
+            .and_then(|value| u16::try_from(value).ok());
+        let mut frames = request.frames.iter().collect::<Vec<_>>();
+        frames.sort_by_key(|frame| frame.frame_number);
+        let mut encoded_frames = Vec::with_capacity(frames.len());
+        let mut total_encoded = 0usize;
+        for (index, frame) in frames.into_iter().enumerate() {
+            if frame.frame_number != u32::try_from(index + 1).unwrap_or(u32::MAX) {
+                return Err(NegativePlanProviderError::BoundPreview(
+                    "native RLE preflight frames are not contiguous".into(),
+                ));
+            }
+            let ByteBinding::Inline { bytes, sha256 } = &frame.bytes else {
+                return Err(NegativePlanProviderError::BoundPreview(
+                    "native RLE preflight accepts inline frames only".into(),
+                ));
+            };
+            if bytes.len() > 256 * 1024 * 1024 || sha256_hex(bytes) != *sha256 {
+                return Err(NegativePlanProviderError::BoundPreview(
+                    "native RLE preflight frame exceeds bounds or has hash drift".into(),
+                ));
+            }
+            let rows = u16::try_from(frame.rows).map_err(|_| {
+                NegativePlanProviderError::BoundPreview("native RLE rows exceed u16".into())
+            })?;
+            let columns = u16::try_from(frame.columns).map_err(|_| {
+                NegativePlanProviderError::BoundPreview("native RLE columns exceed u16".into())
+            })?;
+            let encoded = NativeRleLosslessEncoder::new()
+                .encode_frame(FrameEncodeInput {
+                    native_frame: bytes,
+                    rows,
+                    columns,
+                    samples_per_pixel: frame.samples_per_pixel,
+                    bits_allocated: frame.bits_allocated,
+                    bits_stored: bits_stored.unwrap_or(frame.bits_allocated),
+                    photometric_interpretation: &frame.photometric_interpretation,
+                })
+                .map_err(|error| NegativePlanProviderError::BoundPreview(error.to_string()))?;
+            total_encoded = total_encoded
+                .checked_add(encoded.bytes.len())
+                .ok_or_else(|| {
+                    NegativePlanProviderError::BoundPreview("native RLE size overflow".into())
+                })?;
+            if encoded.bytes.len() > 256 * 1024 * 1024 || total_encoded > 512 * 1024 * 1024 {
+                return Err(NegativePlanProviderError::BoundPreview(
+                    "native RLE encoded output exceeds planning bounds".into(),
+                ));
+            }
+            let encoded_size_bytes = encoded.bytes.len() as u64;
+            let encoded_sha256 = sha256_hex(&encoded.bytes);
+            encoded_frames.push(crate::executor::services::EncodedFrameResult {
+                frame_number: frame.frame_number,
+                bytes: ByteBinding::Inline {
+                    bytes: encoded.bytes,
+                    sha256: encoded_sha256.clone(),
+                },
+                encoded_size_bytes,
+                encoded_sha256,
+            });
+        }
+        *binding = SlotExecutionBinding::EncodedFrames {
+            frames: encoded_frames,
+        };
+    }
+    Ok(resolved)
 }
 
 fn mutation_operation(
@@ -378,6 +532,7 @@ pub enum NegativePlanProviderError {
     MissingMutationStep,
     ResourceOverflow,
     Preview(crate::composition::MaterializeError),
+    BoundPreview(String),
     Negative(NegativeError),
     SourceHandle(crate::executor::services::ServiceError),
 }

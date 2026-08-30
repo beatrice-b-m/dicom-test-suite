@@ -40,6 +40,7 @@ use crate::executor::stress_content::{
     stress_payload_identity,
 };
 use crate::native_pixel::{ByteOrder, NativePixelFactory, NativePixelRequest};
+use crate::negative_plan::{NegativePlanProvider, NegativePlanProviderRequest};
 use crate::planning::RecipeIdentity;
 use crate::recipes::classic_ct::plan_ct_recipe;
 use crate::recipes::classic_dx_mg::plan_dx_mg_recipe;
@@ -80,6 +81,7 @@ const SC_PLAN_PROVIDER: &str = "native.sc_plan";
 const METADATA_SC_PLAN_PROVIDER: &str = "native.metadata_sc_plan";
 const CLASSIC_PLAN_PROVIDER: &str = "native.classic_plan";
 const ENHANCED_PLAN_PROVIDER: &str = "native.enhanced_plan";
+const NEGATIVE_PLAN_PROVIDER: &str = "mutation.named_plan";
 const EXPLICIT_VR_LE: &str = "1.2.840.10008.1.2.1";
 const EXPLICIT_VR_BE: &str = "1.2.840.10008.1.2.2";
 const ARTIFACT_OVERHEAD_BYTES: u64 = 16 * 1024;
@@ -240,18 +242,31 @@ impl CuratedScProjectionContext {
         }
         let mut ids = BTreeSet::new();
         for (planned, projected) in plan.artifacts.iter().zip(&self.artifacts) {
+            let mutation_projection =
+                projected.case_recipe.plan_provider_id == NEGATIVE_PLAN_PROVIDER;
+            let private_source_projection = matches!(
+                planned.provenance(),
+                ArtifactProvenance::PrivateSource { .. }
+            );
             if !ids.insert(projected.artifact_id.clone())
                 || planned.logical_id() != projected.artifact_id
                 || planned.order() != projected.plan_order
                 || projected.registry_case.case_id != projected.case_recipe.binding.case_id
                 || projected.registry_case.recipe_id != projected.case_recipe.recipe_id
                 || projected.registry_case.recipe_version != projected.case_recipe.recipe_version
-                || projection_artifact_id(
-                    &projected.case_recipe,
-                    &projected.artifact_recipe.logical_id,
-                ) != projected.artifact_id
-                || projected.artifact_recipe.order != projected.historical_artifact_order
-                || projected.case_recipe.planning_order != Some(projected.historical_recipe_order)
+                || (!mutation_projection
+                    && !private_source_projection
+                    && projection_artifact_id(
+                        &projected.case_recipe,
+                        &projected.artifact_recipe.logical_id,
+                    ) != projected.artifact_id)
+                || (!mutation_projection
+                    && !private_source_projection
+                    && projected.artifact_recipe.order != projected.historical_artifact_order)
+                || projected
+                    .case_recipe
+                    .planning_order
+                    .is_some_and(|order| order != projected.historical_recipe_order)
             {
                 return Err(CuratedPlanError::ProjectionArtifactMismatch(
                     projected.artifact_id.clone(),
@@ -339,16 +354,32 @@ impl CuratedScCorpusPlanProvider {
         if request.max_parallelism == 0 {
             return Err(CuratedPlanError::ZeroParallelism);
         }
-        let mut selected_ids = selected_case_ids(&self.registry, &request.selection)?;
+        let directly_selected_ids = selected_case_ids(&self.registry, &request.selection)?;
+        let mut selected_ids = directly_selected_ids.clone();
         expand_recipe_dependency_closure(&self.recipes, &mut selected_ids)?;
-        let mut artifacts = Vec::new();
+        let mut required_mutation_sources: BTreeMap<RecipeIdentity, BTreeSet<String>> =
+            BTreeMap::new();
+        for case_id in &directly_selected_ids {
+            let Some(identity) = self.recipes.binding_for_case(case_id) else {
+                continue;
+            };
+            let recipe = &self.recipes.recipes()[identity];
+            if let Some(mutation) = &recipe.mutation {
+                required_mutation_sources
+                    .entry(mutation.source.identity())
+                    .or_default()
+                    .insert(mutation.source_logical_role.clone());
+            }
+        }
+        let mut artifacts: Vec<PlannedArtifact> = Vec::new();
         let mut bindings = BTreeMap::new();
         let mut native_content_requests = Vec::new();
-        let mut projection_artifacts = Vec::new();
+        let mut projection_artifacts: Vec<CuratedArtifactProjectionContext> = Vec::new();
         let mut pending = Vec::new();
         let mut unavailable = Vec::new();
         let mut artifact_by_recipe_role = BTreeMap::new();
-        let mut source_artifacts = BTreeMap::new();
+        let mut source_artifacts: BTreeMap<(RecipeIdentity, String), CuratedSourceArtifact> =
+            BTreeMap::new();
         let mut selected_recipes = Vec::new();
         let mut classic_dependencies = Vec::new();
         let mut advanced_dependencies = Vec::new();
@@ -429,6 +460,215 @@ impl CuratedScCorpusPlanProvider {
                     &mut unavailable,
                     &mut pending,
                 );
+                continue;
+            }
+            if recipe.plan_provider_id == NEGATIVE_PLAN_PROVIDER {
+                let mutation_recipe = recipe
+                    .mutation
+                    .clone()
+                    .ok_or_else(|| CuratedPlanError::MissingMutation(recipe.recipe_id.clone()))?;
+                let source_recipe = self
+                    .recipes
+                    .recipes()
+                    .get(&mutation_recipe.source.identity())
+                    .ok_or_else(|| CuratedPlanError::MissingMutationSource {
+                        recipe_id: recipe.recipe_id.clone(),
+                        source: mutation_recipe.source.identity(),
+                    })?;
+                let source_matches = source_recipe
+                    .dicom
+                    .as_ref()
+                    .map(|dicom| {
+                        dicom
+                            .artifacts
+                            .iter()
+                            .filter(|artifact| {
+                                artifact.logical_id == mutation_recipe.source_logical_role
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default();
+                if source_matches.len() != 1 {
+                    return Err(CuratedPlanError::MissingMutationSourceRole {
+                        recipe_id: recipe.recipe_id.clone(),
+                        role: mutation_recipe.source_logical_role.clone(),
+                    });
+                }
+                let source_artifact_recipe = source_matches[0];
+                let source_key = (
+                    mutation_recipe.source.identity(),
+                    source_artifact_recipe.logical_id.clone(),
+                );
+                let source = source_artifacts.get(&source_key).cloned().ok_or_else(|| {
+                    CuratedPlanError::MissingMutationSourceRole {
+                        recipe_id: recipe.recipe_id.clone(),
+                        role: mutation_recipe.source_logical_role.clone(),
+                    }
+                })?;
+                let logical_id = artifact_id(recipe, "instance");
+                let source_is_explicitly_requested =
+                    directly_selected_ids.contains(&source_recipe.binding.case_id);
+                let mut planned_source = source.planned.clone();
+                let mut planned_source_bindings = source.bindings.clone();
+                if source_is_explicitly_requested {
+                    let private_source_id = format!("{logical_id}__private_source");
+                    planned_source.logical_id = private_source_id.clone();
+                    planned_source.instance.instance_id = private_source_id.clone();
+                    planned_source.order = u64::try_from(artifacts.len())
+                        .map_err(|_| CuratedPlanError::ResourceOverflow)?;
+                    planned_source.output.relative_path = OutputRelativePath::new(format!(
+                        "private-sources/{private_source_id}.dcm"
+                    ))?;
+                    planned_source_bindings =
+                        retarget_bindings(planned_source_bindings, &private_source_id);
+                }
+                let order =
+                    u64::try_from(artifacts.len() + usize::from(source_is_explicitly_requested))
+                        .map_err(|_| CuratedPlanError::ResourceOverflow)?;
+                let output_path =
+                    mutation_recipe.output.path.clone().ok_or_else(|| {
+                        CuratedPlanError::ProviderDerivedOutput(logical_id.clone())
+                    })?;
+                let provider_output = NegativePlanProvider
+                    .plan(NegativePlanProviderRequest {
+                        case_binding: CaseBinding {
+                            case_id: recipe.binding.case_id.clone(),
+                            recipe_id: recipe.recipe_id.clone(),
+                            recipe_version: recipe.recipe_version.clone(),
+                        },
+                        logical_id: logical_id.clone(),
+                        order,
+                        output: OutputPlan {
+                            relative_path: OutputRelativePath::new(output_path.clone())?,
+                            role: mutation_recipe.output.role.clone(),
+                            publish: true,
+                        },
+                        mutation_recipe,
+                        source: planned_source,
+                        source_logical_role: source_artifact_recipe.logical_id.clone(),
+                        source_bindings: planned_source_bindings,
+                        max_source_bytes: source.planned.resources.output_bytes,
+                    })
+                    .map_err(|error| CuratedPlanError::NegativePlan {
+                        recipe_id: recipe.recipe_id.clone(),
+                        message: error.to_string(),
+                    })?;
+
+                let provider_source = provider_output
+                    .artifacts
+                    .iter()
+                    .find_map(|artifact| match artifact {
+                        PlannedArtifact::Dicom(source) => Some(source),
+                        _ => None,
+                    })
+                    .ok_or_else(|| CuratedPlanError::MissingMutationSourceRole {
+                        recipe_id: recipe.recipe_id.clone(),
+                        role: source_artifact_recipe.output.role.clone(),
+                    })?;
+                if source_is_explicitly_requested {
+                    artifacts.push(PlannedArtifact::Dicom(provider_source.clone()));
+                    let mut private_projection = projection_artifacts
+                        .iter()
+                        .find(|projected| projected.artifact_id == source.planned.logical_id)
+                        .cloned()
+                        .ok_or_else(|| CuratedPlanError::MissingMutationSourceRole {
+                            recipe_id: recipe.recipe_id.clone(),
+                            role: source_artifact_recipe.logical_id.clone(),
+                        })?;
+                    private_projection.artifact_id = provider_source.logical_id.clone();
+                    private_projection.plan_order = provider_source.order;
+                    private_projection.artifact_recipe.output.path =
+                        Some(provider_source.output.relative_path.as_str().to_owned());
+                    projection_artifacts.push(private_projection);
+                    let provider_binding = provider_output
+                        .bindings
+                        .get(&provider_source.logical_id)
+                        .cloned()
+                        .ok_or_else(|| CuratedPlanError::MissingMutationSourceRole {
+                            recipe_id: recipe.recipe_id.clone(),
+                            role: source_artifact_recipe.logical_id.clone(),
+                        })?;
+                    bindings.insert(provider_source.logical_id.clone(), provider_binding);
+                }
+                let source_position = artifacts
+                    .iter()
+                    .position(|artifact| artifact.logical_id() == provider_source.logical_id)
+                    .ok_or_else(|| CuratedPlanError::MissingMutationSourceRole {
+                        recipe_id: recipe.recipe_id.clone(),
+                        role: source_artifact_recipe.output.role.clone(),
+                    })?;
+                let PlannedArtifact::Dicom(existing_source) = &mut artifacts[source_position]
+                else {
+                    return Err(CuratedPlanError::MissingMutationSourceRole {
+                        recipe_id: recipe.recipe_id.clone(),
+                        role: source_artifact_recipe.output.role.clone(),
+                    });
+                };
+                let consumed_by = match &mut existing_source.provenance {
+                    ArtifactProvenance::PrivateSource { consumed_by } => consumed_by,
+                    _ => {
+                        existing_source.provenance = ArtifactProvenance::PrivateSource {
+                            consumed_by: Vec::new(),
+                        };
+                        let ArtifactProvenance::PrivateSource { consumed_by } =
+                            &mut existing_source.provenance
+                        else {
+                            unreachable!()
+                        };
+                        consumed_by
+                    }
+                };
+                if !consumed_by.contains(&logical_id) {
+                    consumed_by.push(logical_id.clone());
+                }
+                existing_source.output.publish = false;
+                existing_source.resources = provider_source.resources.clone();
+                if !source_is_explicitly_requested {
+                    source_artifacts.insert(
+                        source_key,
+                        CuratedSourceArtifact {
+                            planned: existing_source.clone(),
+                            bindings: source.bindings,
+                        },
+                    );
+                }
+
+                let mutation_artifact = provider_output
+                    .artifacts
+                    .into_iter()
+                    .find(|artifact| matches!(artifact, PlannedArtifact::Mutation(_)))
+                    .ok_or_else(|| CuratedPlanError::NegativePlan {
+                        recipe_id: recipe.recipe_id.clone(),
+                        message: "provider omitted the mutation artifact".into(),
+                    })?;
+                artifacts.push(mutation_artifact);
+                bindings.extend(provider_output.bindings);
+                advanced_dependencies.extend(provider_output.dependencies);
+                artifact_by_recipe_role.insert(
+                    (
+                        recipe.identity(),
+                        recipe.mutation.as_ref().unwrap().output.role.clone(),
+                    ),
+                    logical_id.clone(),
+                );
+                let mut projection_recipe = source_artifact_recipe.clone();
+                projection_recipe.logical_id = "instance".into();
+                projection_recipe.output.role =
+                    recipe.mutation.as_ref().unwrap().output.role.clone();
+                projection_recipe.output.path = Some(output_path);
+                projection_artifacts.push(CuratedArtifactProjectionContext {
+                    artifact_id: logical_id,
+                    plan_order: order,
+                    registry_order: registry_order[registry_case.case_id.as_str()],
+                    historical_recipe_order: recipe.planning_order.unwrap_or_else(|| {
+                        u32::try_from(registry_order[registry_case.case_id.as_str()])
+                            .unwrap_or(u32::MAX)
+                    }),
+                    historical_artifact_order: 0,
+                    registry_case: registry_case.clone().into(),
+                    case_recipe: recipe.clone(),
+                    artifact_recipe: projection_recipe,
+                });
                 continue;
             }
             if recipe.plan_provider_id == EXCEPTIONAL_SC_PLAN_PROVIDER_ID {
@@ -1458,6 +1698,14 @@ impl CuratedScCorpusPlanProvider {
                 .as_ref()
                 .ok_or_else(|| CuratedPlanError::MissingDicom(recipe.recipe_id.clone()))?;
             let mut recipe_artifacts = dicom.artifacts.iter().collect::<Vec<_>>();
+            if !directly_selected_ids.contains(&recipe.binding.case_id) {
+                if let Some(required_roles) = required_mutation_sources.get(&recipe.identity()) {
+                    recipe_artifacts.retain(|artifact| {
+                        required_roles.contains(&artifact.logical_id)
+                            || required_roles.contains(&artifact.output.role)
+                    });
+                }
+            }
             recipe_artifacts.sort_by_key(|artifact| artifact.order);
             selected_recipes.push(recipe);
             for artifact_recipe in recipe_artifacts {
@@ -3670,6 +3918,31 @@ fn artifact_id(recipe: &CaseRecipe, logical_id: &str) -> String {
     format!("curated_{}_{logical_id}", recipe.recipe_id)
 }
 
+fn retarget_bindings(
+    mut bindings: ArtifactExecutionBindings,
+    artifact_id: &str,
+) -> ArtifactExecutionBindings {
+    bindings.artifact_id = artifact_id.to_owned();
+    for binding in bindings.slots.values_mut() {
+        match binding {
+            SlotExecutionBinding::ProviderRequest { request } => {
+                request.artifact_id = artifact_id.to_owned();
+            }
+            SlotExecutionBinding::CodecRequest { request } => {
+                request.artifact_id = artifact_id.to_owned();
+            }
+            SlotExecutionBinding::ProviderCodecPipeline { provider, codec } => {
+                provider.artifact_id = artifact_id.to_owned();
+                codec.artifact_id = artifact_id.to_owned();
+            }
+            SlotExecutionBinding::StagedAsset { .. }
+            | SlotExecutionBinding::NativeFrames { .. }
+            | SlotExecutionBinding::EncodedFrames { .. } => {}
+        }
+    }
+    bindings
+}
+
 fn projection_artifact_id(recipe: &CaseRecipe, logical_id: &str) -> String {
     if matches!(
         recipe.plan_provider_id.as_str(),
@@ -3838,7 +4111,10 @@ fn selected_case_ids(
             .filter(|case| {
                 case.status == "implemented"
                     && case.requirements.is_feature_free()
-                    && !case.profiles.iter().any(|profile| profile == "stress")
+                    && !case
+                        .profiles
+                        .iter()
+                        .any(|profile| matches!(profile.as_str(), "stress" | "negative" | "fuzz"))
             })
             .map(|case| case.case_id.clone())
             .collect()),
@@ -3848,7 +4124,7 @@ fn selected_case_ids(
         } => {
             if !matches!(
                 profile.as_str(),
-                "smoke" | "core" | "extended" | "legacy" | "stress" | "all"
+                "smoke" | "core" | "extended" | "legacy" | "negative" | "stress" | "all"
             ) {
                 return Err(CuratedPlanError::UnknownProfile(profile.clone()));
             }
@@ -3902,6 +4178,16 @@ fn expand_recipe_dependency_closure(
                         role: dependency.role.clone(),
                     })?;
                 selected.insert(dependency_recipe.binding.case_id.clone());
+            }
+            if let Some(mutation) = &recipe.mutation {
+                let source_recipe = catalog
+                    .recipes()
+                    .get(&mutation.source.identity())
+                    .ok_or_else(|| CuratedPlanError::MissingMutationSource {
+                        recipe_id: recipe.recipe_id.clone(),
+                        source: mutation.source.identity(),
+                    })?;
+                selected.insert(source_recipe.binding.case_id.clone());
             }
         }
         if selected.len() == before {
@@ -4040,6 +4326,19 @@ pub enum CuratedPlanError {
     },
     MissingRecipe(String),
     MissingDicom(String),
+    MissingMutation(String),
+    MissingMutationSource {
+        recipe_id: String,
+        source: RecipeIdentity,
+    },
+    MissingMutationSourceRole {
+        recipe_id: String,
+        role: String,
+    },
+    NegativePlan {
+        recipe_id: String,
+        message: String,
+    },
     MissingTemplate(String),
     InvalidTemplateVersion(String),
     MissingSecondaryCapture(String),

@@ -1035,6 +1035,7 @@ fn resolve_execution_bundle(
             projection,
             source_assets,
             providers: deferred_providers,
+            external_dicom_providers: BTreeMap::new(),
             planning_scratch_root: planning_scratch.map(PlanningScratch::into_path),
         },
         dry_run_output,

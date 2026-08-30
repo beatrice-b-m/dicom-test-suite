@@ -42,6 +42,7 @@ pub struct CompositionExecutionBundle {
     pub projection: Arc<CompositionProjectionContext>,
     pub source_assets: Vec<CompositionSourceAsset>,
     pub providers: BTreeMap<String, DeferredCompositionProvider>,
+    pub external_dicom_providers: BTreeMap<String, Arc<dyn CompositionExternalDicomProvider>>,
     /// Exact temporary root used only by the allowlisted U5.6 advanced-default
     /// bridge. Ordinary caller content never creates planning scratch.
     pub planning_scratch_root: Option<PathBuf>,
@@ -75,11 +76,22 @@ pub struct DeferredCompositionProvider {
     pub invocation: LegacyProviderInvocation,
 }
 
+pub trait CompositionExternalDicomProvider: Send + Sync + std::fmt::Debug {
+    fn invoke(
+        &self,
+        request: &ProviderRequest,
+        assets: &StagedAssetRegistry,
+        private_staging_root: &Path,
+        cancellation: &CancellationToken,
+    ) -> Result<ProviderResult, ServiceInvocationError>;
+}
+
 #[derive(Clone)]
 pub struct CompositionExecutionServiceFactory {
     bindings: Arc<BTreeMap<String, ArtifactExecutionBindings>>,
     sources: Arc<Vec<CompositionSourceAsset>>,
     providers: Arc<BTreeMap<String, DeferredCompositionProvider>>,
+    external_dicom_providers: Arc<BTreeMap<String, Arc<dyn CompositionExternalDicomProvider>>>,
     auxiliary: Arc<dyn AuxiliaryMaterializationHandler>,
     planning_scratch_root: Option<PathBuf>,
 }
@@ -93,6 +105,7 @@ impl CompositionExecutionServiceFactory {
             bindings: Arc::new(bundle.bindings.clone()),
             sources: Arc::new(bundle.source_assets.clone()),
             providers: Arc::new(bundle.providers.clone()),
+            external_dicom_providers: Arc::new(bundle.external_dicom_providers.clone()),
             auxiliary,
             planning_scratch_root: bundle.planning_scratch_root.clone(),
         }
@@ -133,6 +146,7 @@ impl ExecutionServiceFactory for CompositionExecutionServiceFactory {
             staging_root: private_staging_root.to_owned(),
             bindings: self.bindings.clone(),
             providers: self.providers.clone(),
+            external_dicom_providers: self.external_dicom_providers.clone(),
             initial_assets,
             materializer,
             materialized_plans: Mutex::new(BTreeMap::new()),
@@ -144,6 +158,7 @@ struct CompositionBoundServices {
     staging_root: PathBuf,
     bindings: Arc<BTreeMap<String, ArtifactExecutionBindings>>,
     providers: Arc<BTreeMap<String, DeferredCompositionProvider>>,
+    external_dicom_providers: Arc<BTreeMap<String, Arc<dyn CompositionExternalDicomProvider>>>,
     initial_assets: Vec<ProducedAsset>,
     materializer: MaterializationDispatcher,
     materialized_plans: Mutex<BTreeMap<String, super::ResolvedInstancePlan>>,
@@ -167,9 +182,12 @@ impl BoundExecutionServices for CompositionBoundServices {
     fn invoke_provider(
         &self,
         request: &ProviderRequest,
-        _: &StagedAssetRegistry,
+        assets: &StagedAssetRegistry,
         cancellation: &CancellationToken,
     ) -> Result<ProviderResult, ServiceInvocationError> {
+        if let Some(provider) = self.external_dicom_providers.get(&request.request_id) {
+            return provider.invoke(request, assets, &self.staging_root, cancellation);
+        }
         let deferred = self.providers.get(&request.request_id).ok_or_else(|| {
             ServiceInvocationError::new("provider", "missing legacy provider invocation")
         })?;

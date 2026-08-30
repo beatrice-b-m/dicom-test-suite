@@ -431,7 +431,7 @@ pub struct PlannedImportedDicomArtifact {
     pub logical_id: String,
     pub order: u64,
     pub provenance: ArtifactProvenance,
-    pub case_binding: CaseBinding,
+    pub case_binding: Option<CaseBinding>,
     pub provider: ImportedDicomProviderPlan,
     pub declared_instance: ResolvedInstancePlan,
     pub output: OutputPlan,
@@ -442,7 +442,9 @@ pub struct PlannedImportedDicomArtifact {
 
 impl PlannedImportedDicomArtifact {
     fn validate(&self) -> Result<(), CorpusPlanError> {
-        self.case_binding.validate()?;
+        if let Some(binding) = &self.case_binding {
+            binding.validate()?;
+        }
         self.provider.validate(&self.logical_id)?;
         if self.declared_instance.instance_id != self.logical_id {
             return Err(CorpusPlanError::InstanceIdentityMismatch {

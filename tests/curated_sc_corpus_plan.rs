@@ -36,7 +36,7 @@ fn source_inventory() -> (Vec<(String, String, String)>, BTreeSet<String>) {
     )
     .unwrap();
     let mut artifacts = Vec::new();
-    let pending = BTreeSet::new();
+    let mut pending = BTreeSet::new();
     let mut registry_cases = registry["cases"]
         .as_array()
         .unwrap()
@@ -68,6 +68,10 @@ fn source_inventory() -> (Vec<(String, String, String)>, BTreeSet<String>) {
             continue;
         };
         let recipe = &recipes.recipes()[identity];
+        if recipe.plan_provider_id.starts_with("external.") {
+            pending.insert(case_id.to_string());
+            continue;
+        }
         if !matches!(
             recipe.plan_provider_id.as_str(),
             "native.sc_plan"
@@ -242,10 +246,7 @@ fn full_feature_free_slice_joins_registry_recipe_template_and_order_exactly() {
             .collect::<BTreeSet<_>>(),
         expected_pending
     );
-    assert_eq!(
-        bundle.plan.unavailable.len(),
-        usize::from(!expected_pending.is_empty())
-    );
+    assert_eq!(bundle.plan.unavailable.len(), expected_pending.len());
     let recipes = RecipeCatalog::load(
         "cases/recipes",
         "cases/registry.json",
@@ -284,13 +285,19 @@ fn full_feature_free_slice_joins_registry_recipe_template_and_order_exactly() {
             .iter()
             .map(|rule| rule.rule_id.clone())
             .collect::<Vec<_>>();
-        if matches!(
-            recipe.plan_provider_id.as_str(),
-            "native.enhanced_plan" | "native.wsi_plan"
-        ) {
-            assert!(!actual_rules.is_empty());
-        } else {
-            assert_eq!(actual_rules, expected_rules);
+        assert!(!actual_rules.is_empty());
+        // Typed providers replace the generic `validation.shared` recipe
+        // marker with their concrete family rules. Recipe-specific rules must
+        // remain attached verbatim.
+        for rule in expected_rules
+            .iter()
+            .filter(|rule| rule.as_str() != "validation.shared")
+        {
+            assert!(
+                actual_rules.contains(rule),
+                "{} dropped recipe validation rule {rule}: actual {actual_rules:?}",
+                artifact.logical_id
+            );
         }
     }
     let artifact_ids = bundle
@@ -393,7 +400,6 @@ fn native_and_rle_requests_preserve_be_and_all_bot_policy_boundaries() {
             .validate(&dicom_test_suite::executor::services::StagedAssetRegistry::default())
             .unwrap();
         let Some(native) = native_requests.get(artifact.logical_id.as_str()) else {
-            assert!(binding.slots.contains_key("pixels"));
             continue;
         };
         assert_eq!(

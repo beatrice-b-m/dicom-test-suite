@@ -268,6 +268,28 @@ fn stress_projection_order_is_parallelism_independent() {
 }
 
 #[test]
+fn migrated_wsi_and_enhanced_ct_emit_typed_stress_qualifications() {
+    let selected = ["stress/wsi/large_pyramid", "stress/enhanced-ct/many_frames"];
+    let (bundle, execution) = execute(&selected, 4);
+    let qualifications =
+        project_curated_stress_qualifications(&bundle.projection, &execution).unwrap();
+    assert_eq!(qualifications.len(), 2);
+    assert_eq!(qualifications[0]["case_id"], selected[0]);
+    assert_eq!(qualifications[0]["recipe"], "wsi_pyramid");
+    assert_eq!(qualifications[0]["requested"]["instances"], 3);
+    assert_eq!(qualifications[0]["requested"]["pyramid_levels"], 3);
+    assert_eq!(qualifications[0]["requested"]["tile_rows"], 256);
+    assert_eq!(qualifications[1]["case_id"], selected[1]);
+    assert_eq!(qualifications[1]["recipe"], "enhanced_ct");
+    assert_eq!(qualifications[1]["requested"]["frames"], 256);
+    assert!(qualifications.iter().all(|qualification| {
+        qualification["status"] == "passed"
+            && qualification["scale"] == "reduced"
+            && qualification["unavailable_scales"][0]["scale"] == "full"
+    }));
+}
+
+#[test]
 fn stress_projection_source_has_no_filesystem_or_sc_parameter_bridge() {
     let source = include_str!("../src/curated_manifest/stress.rs");
     for forbidden in [

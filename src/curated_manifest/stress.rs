@@ -389,20 +389,38 @@ pub fn project_qualifications(
         )>,
     > = BTreeMap::new();
     for (ctx, pair) in context.artifacts.iter().zip(&input.artifacts) {
-        if matches!(
-            ctx.case_recipe.plan_provider_id.as_str(),
-            STRESS_CT_PLAN_PROVIDER_ID | STRESS_SC_PLAN_PROVIDER_ID
-        ) {
+        if stress_qualification_order(&ctx.registry_case.case_id).is_some() {
             grouped
                 .entry(&ctx.registry_case.case_id)
                 .or_default()
                 .push((ctx, pair));
         }
     }
-    grouped
+    let mut qualifications = grouped
         .into_iter()
         .map(|(case_id, pairs)| qualification(case_id, &pairs))
-        .collect()
+        .collect::<Result<Vec<_>, _>>()?;
+    qualifications.sort_by_key(|value| {
+        value["case_id"]
+            .as_str()
+            .and_then(stress_qualification_order)
+            .unwrap_or(usize::MAX)
+    });
+    Ok(qualifications)
+}
+
+fn stress_qualification_order(case_id: &str) -> Option<usize> {
+    [
+        "stress/wsi/large_pyramid",
+        "stress/study/high_instance_count_ct",
+        "stress/sc/large_bulk_data",
+        "stress/sc/deep_nested_sequences",
+        "stress/sc/long_value_metadata",
+        "stress/sc/large_encapsulated_multifragment",
+        "stress/enhanced-ct/many_frames",
+    ]
+    .iter()
+    .position(|approved| *approved == case_id)
 }
 
 fn qualification(
@@ -415,8 +433,16 @@ fn qualification(
     let first = pairs
         .first()
         .ok_or_else(|| err("empty stress qualification group"))?;
-    let (recipe, requested, policy) =
-        if first.0.case_recipe.plan_provider_id == STRESS_CT_PLAN_PROVIDER_ID {
+    let (recipe, requested, policy) = match case_id {
+        "stress/wsi/large_pyramid" => (
+            "wsi_pyramid",
+            scale_with_tiles(3, 0, 0, 0, 1024, 1024, 256, 256, 3, 0, 0),
+            None,
+        ),
+        "stress/enhanced-ct/many_frames" => {
+            ("enhanced_ct", scale(1, 256, 0, 0, 64, 64, 0, 0), None)
+        }
+        _ if first.0.case_recipe.plan_provider_id == STRESS_CT_PLAN_PROVIDER_ID => {
             let p: StressCtParameters = serde_json::from_value(Value::Object(
                 first.0.case_recipe.provider_parameters.clone(),
             ))
@@ -424,9 +450,10 @@ fn qualification(
             (
                 "ct_study",
                 scale(p.instances, p.instances, 0, 0, p.rows, p.columns, 0, 0),
-                p.policy,
+                Some(p.policy),
             )
-        } else {
+        }
+        _ if first.0.case_recipe.plan_provider_id == STRESS_SC_PLAN_PROVIDER_ID => {
             let p: StressScParameters = serde_json::from_value(Value::Object(
                 first.0.case_recipe.provider_parameters.clone(),
             ))
@@ -439,7 +466,7 @@ fn qualification(
                 } => (
                     "native_bulk_data",
                     scale(0, 0, 0, payload_bytes, 0, 0, 0, 0),
-                    policy,
+                    Some(policy),
                 ),
                 StressScParameters::DeepNestedSequences {
                     sequence_depth,
@@ -449,7 +476,7 @@ fn qualification(
                 } => (
                     "nested_sequences",
                     scale(0, 0, 0, payload_bytes, 0, 0, sequence_depth, 0),
-                    policy,
+                    Some(policy),
                 ),
                 StressScParameters::LongValueMetadata {
                     creator_blocks,
@@ -471,7 +498,7 @@ fn qualification(
                             0,
                             values,
                         ),
-                        policy,
+                        Some(policy),
                     )
                 }
                 StressScParameters::LargeEncapsulatedMultifragment {
@@ -493,11 +520,20 @@ fn qualification(
                         0,
                         0,
                     ),
-                    policy,
+                    Some(policy),
                 ),
             }
-        };
-    if policy.qualification_scale != "reduced" || policy.full_scale_available {
+        }
+        _ => return fail("approved stress case has no stress plan provider"),
+    };
+    if policy.as_ref().is_some_and(|policy| {
+        policy.qualification_scale != "reduced"
+            || policy.full_scale_available
+            || policy.full_scale_reason.trim().is_empty()
+    }) || pairs
+        .iter()
+        .any(|(_, pair)| !has_reduced_stress_evidence(&pair.planned))
+    {
         return fail("stress qualification policy is not reduced-only");
     }
     let actual_output = pairs
@@ -531,6 +567,24 @@ fn qualification(
     )
 }
 
+fn has_reduced_stress_evidence(artifact: &crate::corpus_plan::PlannedArtifact) -> bool {
+    let Some(evidence) = (match artifact {
+        crate::corpus_plan::PlannedArtifact::Dicom(artifact) => Some(&artifact.evidence),
+        _ => None,
+    }) else {
+        return false;
+    };
+    evidence.obligations.iter().any(|obligation| {
+        obligation.parameters.get("qualification_scale") == Some(&Value::from("reduced"))
+            && obligation.parameters.get("full_scale_available") == Some(&Value::from(false))
+            && obligation
+                .parameters
+                .get("full_scale_reason")
+                .and_then(Value::as_str)
+                .is_some_and(|reason| !reason.trim().is_empty())
+    })
+}
+
 fn scale(
     instances: u32,
     frames: u32,
@@ -543,4 +597,23 @@ fn scale(
 ) -> Value {
     json!({"instances":instances,"frames":frames,"fragments":fragments,"payload_bytes":payload_bytes,"output_bytes":0,
         "rows":rows,"columns":columns,"tile_rows":0,"tile_columns":0,"pyramid_levels":0,"sequence_depth":sequence_depth,"metadata_values":metadata_values})
+}
+
+#[allow(clippy::too_many_arguments)]
+fn scale_with_tiles(
+    instances: u32,
+    frames: u32,
+    fragments: u32,
+    payload_bytes: u64,
+    rows: u32,
+    columns: u32,
+    tile_rows: u32,
+    tile_columns: u32,
+    pyramid_levels: u32,
+    sequence_depth: u32,
+    metadata_values: u32,
+) -> Value {
+    json!({"instances":instances,"frames":frames,"fragments":fragments,"payload_bytes":payload_bytes,"output_bytes":0,
+        "rows":rows,"columns":columns,"tile_rows":tile_rows,"tile_columns":tile_columns,"pyramid_levels":pyramid_levels,
+        "sequence_depth":sequence_depth,"metadata_values":metadata_values})
 }

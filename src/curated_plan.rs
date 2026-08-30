@@ -1306,7 +1306,7 @@ impl CuratedScCorpusPlanProvider {
                 } else {
                     AdvancedProviderFamily::WholeSlide
                 };
-                let provider_output = if family == AdvancedProviderFamily::Enhanced {
+                let mut provider_output = if family == AdvancedProviderFamily::Enhanced {
                     let input = self
                         .recipes
                         .enhanced_input_for_case(&registry_case.case_id)
@@ -1373,6 +1373,19 @@ impl CuratedScCorpusPlanProvider {
                         }
                     })?
                 };
+                if let Some(reason) = match registry_case.case_id.as_str() {
+                    "stress/wsi/large_pyramid" => Some(
+                        "Full-scale WSI resource behavior is not qualified by the bounded repository corpus.",
+                    ),
+                    "stress/enhanced-ct/many_frames" => Some(
+                        "Full-scale enhanced CT resource behavior is not qualified by the bounded repository corpus.",
+                    ),
+                    _ => None,
+                } {
+                    for artifact in &mut provider_output.artifacts {
+                        artifact.planned.evidence = reduced_stress_generation_evidence_plan(reason);
+                    }
+                }
                 merge_advanced_output(
                     recipe,
                     registry_case,
@@ -4472,6 +4485,22 @@ fn generation_evidence_plan() -> EvidencePlan {
 }
 
 fn stress_generation_evidence_plan(policy: &crate::recipes::ReducedStressPolicy) -> EvidencePlan {
+    generation_evidence_plan_with_stress_policy(
+        &policy.qualification_scale,
+        policy.full_scale_available,
+        &policy.full_scale_reason,
+    )
+}
+
+fn reduced_stress_generation_evidence_plan(full_scale_reason: &str) -> EvidencePlan {
+    generation_evidence_plan_with_stress_policy("reduced", false, full_scale_reason)
+}
+
+fn generation_evidence_plan_with_stress_policy(
+    qualification_scale: &str,
+    full_scale_available: bool,
+    full_scale_reason: &str,
+) -> EvidencePlan {
     EvidencePlan {
         obligations: vec![EvidenceObligation {
             obligation_id: "curated_generation_validation".into(),
@@ -4481,15 +4510,15 @@ fn stress_generation_evidence_plan(policy: &crate::recipes::ReducedStressPolicy)
             parameters: BTreeMap::from([
                 (
                     "qualification_scale".into(),
-                    Value::String(policy.qualification_scale.clone()),
+                    Value::String(qualification_scale.to_owned()),
                 ),
                 (
                     "full_scale_available".into(),
-                    Value::Bool(policy.full_scale_available),
+                    Value::Bool(full_scale_available),
                 ),
                 (
                     "full_scale_reason".into(),
-                    Value::String(policy.full_scale_reason.clone()),
+                    Value::String(full_scale_reason.to_owned()),
                 ),
             ]),
         }],

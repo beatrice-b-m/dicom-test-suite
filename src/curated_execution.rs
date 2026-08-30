@@ -20,9 +20,9 @@ use crate::curated_plan::{CuratedArtifactProjectionContext, CuratedScCorpusPlan}
 use crate::curated_validation::{
     ExtendedOffsetTableValidationSpec, ScPaddingValidation, ScPaletteValidation,
     ScPart10ValidationInput, ScPixelLengthFormula, TypedValidationCheck, TypedValidationReport,
-    validate_extended_offset_table_round_trip, validate_icc_profile_round_trip,
-    validate_metadata_round_trip, validate_nonsquare_round_trip, validate_part10_with_expectations,
-    validate_rwvm_with_expectations, validate_sc_part10,
+    validate_extended_offset_table_arithmetic, validate_extended_offset_table_round_trip,
+    validate_icc_profile_round_trip, validate_metadata_round_trip, validate_nonsquare_round_trip,
+    validate_part10_with_expectations, validate_rwvm_with_expectations, validate_sc_part10,
 };
 use crate::executor::cancellation::CancellationToken;
 use crate::executor::engine::{
@@ -450,8 +450,16 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
         &self,
         request: &ProviderRequest,
         _: &StagedAssetRegistry,
-        _: &CancellationToken,
+        cancellation: &CancellationToken,
     ) -> Result<ProviderResult, ServiceInvocationError> {
+        if request.provider_id == crate::executor::stress_content::STRESS_CONTENT_PROVIDER_ID {
+            return crate::executor::stress_content::execute_stress_content(
+                request,
+                &self.staging_root,
+                cancellation,
+            )
+            .map_err(|error| service_error("stress content provider", error));
+        }
         Err(ServiceInvocationError::new(
             "provider",
             format!(
@@ -847,10 +855,15 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
                 "curated_quantitative_plan_validator",
             );
         }
-        let sc = context
-            .artifact_recipe
-            .secondary_capture
+        let stress_sc =
+            if context.case_recipe.plan_provider_id == crate::recipes::STRESS_SC_PLAN_PROVIDER_ID {
+                Some(stress_sc_validation_parameters(context)?)
+            } else {
+                None
+            };
+        let sc = stress_sc
             .as_ref()
+            .or(context.artifact_recipe.secondary_capture.as_ref())
             .ok_or_else(|| ServiceInvocationError::new("validation", "missing SC recipe"))?;
         let rows = u16::try_from(sc.rows).map_err(|error| service_error("validation", error))?;
         let columns =
@@ -984,7 +997,12 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
                     i32::try_from(value).map_err(|error| service_error("validation", error))
                 })
                 .collect::<Result<Vec<_>, _>>()?;
-            let (check, observation) = validate_extended_offset_table_round_trip(
+            let validator = if context.case_recipe.plan_provider_id == "native.stress_sc_plan" {
+                validate_extended_offset_table_arithmetic
+            } else {
+                validate_extended_offset_table_round_trip
+            };
+            let (check, observation) = validator(
                 &self.staging_root.join(declaration.relative_path.as_str()),
                 &ExtendedOffsetTableValidationSpec {
                     offsets: pixel_content.extended_offset_table.clone(),
@@ -4502,6 +4520,61 @@ fn built_in_tool(id: &str) -> ToolIdentity {
         protocol_version: Some("0.1.0".into()),
         executable_sha256: None,
     }
+}
+
+fn stress_sc_validation_parameters(
+    context: &CuratedArtifactProjectionContext,
+) -> Result<crate::recipes::SecondaryCaptureParameters, ServiceInvocationError> {
+    let parameters: crate::recipes::StressScParameters = serde_json::from_value(Value::Object(
+        context.case_recipe.provider_parameters.clone(),
+    ))
+    .map_err(|error| service_error("stress validation", error))?;
+    let (rows, columns, frames, bits_allocated, pixel_data_vr, stored_value_type, pixel_max) =
+        match parameters {
+            crate::recipes::StressScParameters::LargeBulk { rows, columns, .. } => {
+                (rows, columns, 1, 16, "OW", "u16", 0)
+            }
+            crate::recipes::StressScParameters::DeepNestedSequences { .. }
+            | crate::recipes::StressScParameters::LongValueMetadata { .. } => {
+                (2, 2, 1, 8, "OB", "u8", 255)
+            }
+            crate::recipes::StressScParameters::LargeEncapsulatedMultifragment {
+                rows,
+                columns,
+                frames,
+                ..
+            } => (rows, columns, frames, 8, "OB", "u8", 255),
+        };
+    Ok(crate::recipes::SecondaryCaptureParameters {
+        rows,
+        columns,
+        frames,
+        samples_per_pixel: 1,
+        photometric_interpretation: "MONOCHROME2".into(),
+        bits_allocated,
+        bits_stored: bits_allocated,
+        high_bit: bits_allocated - 1,
+        pixel_representation: 0,
+        pixel_data_vr: pixel_data_vr.into(),
+        stored_value_type: stored_value_type.into(),
+        stored_values: Vec::new(),
+        frame_sha256: Vec::new(),
+        visual_pattern: "bounded_stress".into(),
+        semantic_note: "Reduced-scale typed stress content".into(),
+        pixel_min: 0,
+        pixel_max,
+        padding: None,
+        palette: None,
+        color: None,
+        bit_packing: None,
+        integer_word: None,
+        encapsulation_projection: (frames > 1).then_some(
+            crate::recipes::EncapsulationProjectionParameters {
+                offset_origin: "first_fragment_item_tag".into(),
+                item_header_bytes: 8,
+            },
+        ),
+    })
 }
 
 fn service_error(stage: &'static str, error: impl std::fmt::Display) -> ServiceInvocationError {

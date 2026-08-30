@@ -17,19 +17,26 @@ use serde_json::Value;
 
 use crate::codecs::{NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID};
 use crate::composition::{
-    AttributeAddress, AttributeValue, CompositionUidRole, ContentMaterialization, DicomVr,
-    IdentityPlan, MaterializedReference, PrimitiveValue, ResolvedAttribute, TemplateCatalog,
-    TemplateId, ValueOrigin,
+    AttributeAddress, AttributeItem, AttributeOperation, AttributeValue, CanonicalContent,
+    CompositionUidRole, ContentMaterialization, ContentPlacement, DicomVr, IdentityPlan,
+    MaterializedReference, PrimitiveValue, ResolvedAttribute, ResolvedInstancePlan,
+    SequenceItemPlacement, TemplateCatalog, TemplateDescriptor, TemplateId, ValueOrigin,
 };
 use crate::corpus_plan::{
     ArtifactDependency, ArtifactProvenance, ArtifactResourceEstimate, CORPUS_PLAN_SCHEMA_VERSION,
-    CapabilityKind, CaseBinding, CorpusPlan, CorpusPlanError, EvidenceIndependence,
-    EvidenceObligation, EvidencePlan, OutputPlan, OutputRelativePath, PlannedArtifact,
-    PlannedDicomArtifact, PublicationPlan, PublicationTransaction, ResourcePlan,
+    CapabilityKind, CaseBinding, CorpusPlan, CorpusPlanError, EncodingPlan, EvidenceIndependence,
+    EvidenceObligation, EvidencePlan, FileMetaPolicy, FragmentationPolicy, ItemLengthPolicy,
+    OffsetTablePolicy, OutputPlan, OutputRelativePath, PlannedArtifact, PlannedDicomArtifact,
+    PreamblePolicy, PublicationPlan, PublicationTransaction, ResourcePlan, SequenceLengthPolicy,
     UnavailableCapability, ValidationPlan, ValidationRequirement, ValidationRule,
 };
 use crate::executor::services::{
-    ArtifactExecutionBindings, ByteBinding, CodecRequest, NativeFrameBinding, SlotExecutionBinding,
+    ArtifactExecutionBindings, ByteBinding, CodecRequest, NativeFrameBinding,
+    ProviderOutputExpectation, ProviderRequest, SlotExecutionBinding, StagedAssetHandle,
+};
+use crate::executor::stress_content::{
+    STRESS_CONTENT_PROVIDER_ID, STRESS_CONTENT_PROVIDER_VERSION, StressPayloadRequest,
+    stress_payload_identity,
 };
 use crate::native_pixel::{ByteOrder, NativePixelFactory, NativePixelRequest};
 use crate::planning::RecipeIdentity;
@@ -50,13 +57,14 @@ use crate::recipes::{
     QuantitativePlanProvider, QuantitativeProviderLimits, QuantitativeSourceInput,
     QuantitativeSourceRole, REGISTRATION_PLAN_PROVIDER_ID, RT_PLAN_PROVIDER_ID, RecipeCatalog,
     RecipeReference, RegistrationPlanProvider, RegistrationSourceInput, RtPlanProvider,
-    SR_PLAN_PROVIDER_ID, STRESS_CT_PLAN_PROVIDER_ID, SecondaryCapturePlanInput,
-    SemanticPlanContext, SemanticSource, SrPlanProvider, TypedBulkPlanningContext,
-    WAVEFORM_PLAN_PROVIDER_ID, WSI_ADVANCED_PROVIDER_ID, WaveformPlanProvider,
-    WsiAdvancedPlanProvider, encapsulated_payload_input_from_recipe, encoding_plan_from_recipe,
-    native_pixel_request_from_recipe, plan_stress_ct_recipe, resolved_classic_instance_plan,
-    resolved_metadata_sc_plan, resolved_secondary_capture_plan, rt_input_from_recipe,
-    sr_input_from_recipe, waveform_input_from_recipe,
+    SR_PLAN_PROVIDER_ID, STRESS_CT_PLAN_PROVIDER_ID, STRESS_SC_PLAN_PROVIDER_ID,
+    SecondaryCapturePlanInput, SemanticPlanContext, SemanticSource, SrPlanProvider,
+    TypedBulkPlanningContext, WAVEFORM_PLAN_PROVIDER_ID, WSI_ADVANCED_PROVIDER_ID,
+    WaveformPlanProvider, WsiAdvancedPlanProvider, encapsulated_payload_input_from_recipe,
+    encoding_plan_from_recipe, native_pixel_request_from_recipe, plan_stress_ct_recipe,
+    plan_stress_sc_recipe, resolved_classic_instance_plan, resolved_metadata_sc_plan,
+    resolved_secondary_capture_plan, rt_input_from_recipe, sr_input_from_recipe,
+    waveform_input_from_recipe,
 };
 use crate::sha256_hex;
 use crate::uid::{DeterministicUidInput, UidRole, deterministic_uid};
@@ -805,6 +813,88 @@ impl CuratedScCorpusPlanProvider {
                     &mut source_artifacts,
                     &mut advanced_dependencies,
                 )?;
+                continue;
+            }
+            if recipe.plan_provider_id == STRESS_SC_PLAN_PROVIDER_ID {
+                let stress =
+                    plan_stress_sc_recipe(recipe, &self.standards_lock_sha256, request.seed)
+                        .map_err(|error| CuratedPlanError::ScPlan {
+                            artifact_id: recipe.recipe_id.clone(),
+                            message: error.to_string(),
+                        })?
+                        .ok_or_else(|| CuratedPlanError::ScPlan {
+                            artifact_id: recipe.recipe_id.clone(),
+                            message: "stress SC provider did not own its selected recipe".into(),
+                        })?;
+                let artifact_recipe = recipe
+                    .dicom
+                    .as_ref()
+                    .and_then(|dicom| dicom.artifacts.first())
+                    .ok_or_else(|| CuratedPlanError::MissingDicom(recipe.recipe_id.clone()))?;
+                let artifact_id = artifact_id(recipe, &stress.logical_id);
+                let template = self
+                    .templates
+                    .resolve_qualified(
+                        &TemplateId(stress.template_id.clone()),
+                        Some(stress.template_version.parse().map_err(|_| {
+                            CuratedPlanError::InvalidTemplateVersion(
+                                stress.template_version.clone(),
+                            )
+                        })?),
+                    )
+                    .map_err(|error| CuratedPlanError::Catalog(error.to_string()))?;
+                let (instance, execution_binding, implementation_class_uid) =
+                    resolved_stress_sc_artifact(&artifact_id, &stress, template)?;
+                let encoding =
+                    stress_sc_encoding(artifact_recipe, &stress, implementation_class_uid)?;
+                let order = u64::try_from(artifacts.len())
+                    .map_err(|_| CuratedPlanError::ResourceOverflow)?;
+                let planned = PlannedDicomArtifact {
+                    logical_id: artifact_id.clone(),
+                    order,
+                    provenance: ArtifactProvenance::Requested,
+                    case_binding: Some(CaseBinding {
+                        case_id: recipe.binding.case_id.clone(),
+                        recipe_id: recipe.recipe_id.clone(),
+                        recipe_version: recipe.recipe_version.clone(),
+                    }),
+                    instance,
+                    output: OutputPlan {
+                        relative_path: stress.output_relative_path.clone(),
+                        role: artifact_recipe.output.role.clone(),
+                        publish: true,
+                    },
+                    encoding,
+                    validation: validation_plan(recipe, artifact_recipe),
+                    evidence: stress_generation_evidence_plan(stress.parameters.policy()),
+                    resources: stress.resources.clone(),
+                };
+                projection_artifacts.push(CuratedArtifactProjectionContext {
+                    artifact_id: artifact_id.clone(),
+                    plan_order: order,
+                    registry_order: registry_order[registry_case.case_id.as_str()],
+                    historical_recipe_order: recipe.planning_order.ok_or_else(|| {
+                        CuratedPlanError::MissingProjectionOrder(recipe.recipe_id.clone())
+                    })?,
+                    historical_artifact_order: artifact_recipe.order,
+                    registry_case: registry_case.clone().into(),
+                    case_recipe: recipe.clone(),
+                    artifact_recipe: artifact_recipe.clone(),
+                });
+                artifact_by_recipe_role.insert(
+                    (recipe.identity(), artifact_recipe.output.role.clone()),
+                    artifact_id.clone(),
+                );
+                bindings.insert(artifact_id.clone(), execution_binding.clone());
+                source_artifacts.insert(
+                    (recipe.identity(), artifact_recipe.logical_id.clone()),
+                    CuratedSourceArtifact {
+                        planned: planned.clone(),
+                        bindings: execution_binding,
+                    },
+                );
+                artifacts.push(PlannedArtifact::Dicom(planned));
+                selected_recipes.push(recipe);
                 continue;
             }
             if matches!(
@@ -2288,6 +2378,565 @@ fn merge_advanced_output(
     }
     dependencies.extend(output.dependencies);
     Ok(())
+}
+
+fn resolved_stress_sc_artifact(
+    artifact_id: &str,
+    stress: &crate::recipes::StressScArtifactPlan,
+    template: &TemplateDescriptor,
+) -> Result<(ResolvedInstancePlan, ArtifactExecutionBindings, String), CuratedPlanError> {
+    if template.sop_class_uid != stress.sop_class_uid {
+        return Err(CuratedPlanError::ScPlan {
+            artifact_id: artifact_id.into(),
+            message: "stress SC template SOP class mismatch".into(),
+        });
+    }
+    let identities = IdentityPlan::from_exact_values(
+        artifact_id,
+        vec![
+            (
+                CompositionUidRole::StudyInstance,
+                0,
+                stress.identities.study_instance_uid.clone(),
+            ),
+            (
+                CompositionUidRole::SeriesInstance,
+                0,
+                stress.identities.series_instance_uid.clone(),
+            ),
+            (
+                CompositionUidRole::SopInstance,
+                0,
+                stress.identities.sop_instance_uid.clone(),
+            ),
+            (
+                CompositionUidRole::ImplementationClass,
+                0,
+                stress.identities.implementation_class_uid.clone(),
+            ),
+        ],
+    )
+    .map_err(|error| CuratedPlanError::ScPlan {
+        artifact_id: artifact_id.into(),
+        message: error.to_string(),
+    })?;
+    let mut attributes = stress_sc_common_attributes(stress)?;
+    let (pixel_payload, rows, columns, frames, bits_allocated, pixel_vr) = match &stress.pixels {
+        crate::recipes::StressScPixelRequest::RepeatedU16 {
+            rows,
+            columns,
+            value,
+        } => {
+            if *value != 0 {
+                return Err(CuratedPlanError::ScPlan {
+                    artifact_id: artifact_id.into(),
+                    message: "unsupported nonzero repeated stress pixels".into(),
+                });
+            }
+            (
+                StressPayloadRequest::RepeatedByte {
+                    byte: 0,
+                    length: u64::from(*rows)
+                        .checked_mul(u64::from(*columns))
+                        .and_then(|value| value.checked_mul(2))
+                        .ok_or(CuratedPlanError::ResourceOverflow)?,
+                },
+                *rows,
+                *columns,
+                1,
+                16,
+                DicomVr::OW,
+            )
+        }
+        crate::recipes::StressScPixelRequest::LiteralU8 {
+            rows,
+            columns,
+            values,
+        } => (
+            StressPayloadRequest::Literal {
+                bytes: values.clone(),
+            },
+            *rows,
+            *columns,
+            1,
+            8,
+            DicomVr::OB,
+        ),
+        crate::recipes::StressScPixelRequest::AlgorithmicU8Multiframe {
+            rows,
+            columns,
+            frames,
+            algorithm,
+        } => (
+            StressPayloadRequest::DeterministicU8Frames {
+                rows: *rows,
+                columns: *columns,
+                frames: *frames,
+                algorithm: algorithm.clone(),
+            },
+            *rows,
+            *columns,
+            *frames,
+            8,
+            DicomVr::OB,
+        ),
+    };
+    stress_sc_pixel_attributes(&mut attributes, rows, columns, frames, bits_allocated)?;
+    let (pixel_content, pixel_request, pixel_identity) = stress_content_slot(
+        artifact_id,
+        "pixels",
+        pixel_payload,
+        AttributeAddress::standard(Tag(0x7FE0, 0x0010)).map_err(attribute_error)?,
+        pixel_vr,
+        ContentPlacement::TopLevel,
+    )?;
+    let mut contents = vec![pixel_content];
+    let mut slots = BTreeMap::new();
+    if stress.transfer_syntax_uid == RLE_LOSSLESS_TRANSFER_SYNTAX_UID {
+        let handle = stress_asset_handle(artifact_id, "pixels")?;
+        let frame_bindings = pixel_identity
+            .frame_ranges
+            .iter()
+            .enumerate()
+            .map(|(index, (offset, length))| NativeFrameBinding {
+                frame_number: index as u32 + 1,
+                bytes: ByteBinding::VerifiedAssetRange {
+                    asset: handle.clone(),
+                    offset: *offset,
+                    length: *length,
+                },
+                rows,
+                columns,
+                samples_per_pixel: 1,
+                bits_allocated,
+                photometric_interpretation: "MONOCHROME2".into(),
+            })
+            .collect();
+        slots.insert(
+            "pixels".into(),
+            SlotExecutionBinding::ProviderCodecPipeline {
+                provider: pixel_request,
+                codec: CodecRequest {
+                    request_id: format!("stress_codec_{artifact_id}_pixels"),
+                    artifact_id: artifact_id.into(),
+                    slot: "pixels".into(),
+                    backend_id: NativeRleLosslessEncoder::BACKEND_ID.into(),
+                    source_transfer_syntax_uid: EXPLICIT_VR_LE.into(),
+                    target_transfer_syntax_uid: RLE_LOSSLESS_TRANSFER_SYNTAX_UID.into(),
+                    frames: frame_bindings,
+                    parameters: BTreeMap::from([("bits_stored".into(), Value::from(8))]),
+                },
+            },
+        );
+    } else {
+        slots.insert(
+            "pixels".into(),
+            SlotExecutionBinding::ProviderRequest {
+                request: pixel_request,
+            },
+        );
+    }
+
+    match &stress.content {
+        crate::recipes::StressScContentRequest::NestedPrivateBulk {
+            sequence_depth,
+            creator,
+            byte,
+            length,
+        } => {
+            let sequence = AttributeAddress::private(Tag(0x7777, 0x1002), creator.clone())
+                .map_err(attribute_error)?;
+            attributes.push(nested_sequence_attribute(
+                *sequence_depth,
+                creator,
+                sequence.clone(),
+            )?);
+            let (content, request, _) = stress_content_slot(
+                artifact_id,
+                "nested_bulk",
+                StressPayloadRequest::RepeatedByte {
+                    byte: *byte,
+                    length: *length,
+                },
+                AttributeAddress::private(Tag(0x7777, 0x1001), creator.clone())
+                    .map_err(attribute_error)?,
+                DicomVr::OB,
+                ContentPlacement::Nested {
+                    sequence_path: (0..*sequence_depth)
+                        .map(|_| SequenceItemPlacement {
+                            sequence: sequence.clone(),
+                            item_index: 0,
+                        })
+                        .collect(),
+                },
+            )?;
+            contents.push(content);
+            slots.insert(
+                "nested_bulk".into(),
+                SlotExecutionBinding::ProviderRequest { request },
+            );
+        }
+        crate::recipes::StressScContentRequest::RepeatedPrivateText {
+            creator_blocks,
+            values_per_block,
+            value_bytes,
+            fill_character,
+        } => add_stress_private_text(
+            &mut attributes,
+            *creator_blocks,
+            *values_per_block,
+            *value_bytes,
+            *fill_character,
+        )?,
+        crate::recipes::StressScContentRequest::RepeatedNativeBytes { .. }
+        | crate::recipes::StressScContentRequest::DeterministicRleFrames { .. } => {}
+    }
+    attributes.sort_by(|left, right| left.address.cmp(&right.address));
+    Ok((
+        ResolvedInstancePlan {
+            plan_schema_version: "0.1.0".into(),
+            instance_id: artifact_id.into(),
+            template_id: template.template_id.clone(),
+            template_version: template.template_version,
+            sop_class_uid: stress.sop_class_uid.clone(),
+            transfer_syntax_uid: stress.transfer_syntax_uid.clone(),
+            identities,
+            attributes,
+            content: contents,
+            references: Vec::new(),
+        },
+        ArtifactExecutionBindings {
+            artifact_id: artifact_id.into(),
+            slots,
+        },
+        stress.identities.implementation_class_uid.clone(),
+    ))
+}
+
+fn stress_content_slot(
+    artifact_id: &str,
+    slot: &str,
+    payload: StressPayloadRequest,
+    address: AttributeAddress,
+    vr: DicomVr,
+    placement: ContentPlacement,
+) -> Result<
+    (
+        CanonicalContent,
+        ProviderRequest,
+        crate::executor::stress_content::StressPayloadIdentity,
+    ),
+    CuratedPlanError,
+> {
+    let identity = stress_payload_identity(&payload).map_err(|error| CuratedPlanError::ScPlan {
+        artifact_id: artifact_id.into(),
+        message: error.to_string(),
+    })?;
+    let request = ProviderRequest {
+        request_id: format!("stress_content_{artifact_id}_{slot}"),
+        artifact_id: artifact_id.into(),
+        provider_id: STRESS_CONTENT_PROVIDER_ID.into(),
+        required_version: STRESS_CONTENT_PROVIDER_VERSION.into(),
+        parameters: BTreeMap::from([(
+            "payload".into(),
+            serde_json::to_value(&payload)
+                .map_err(|error| CuratedPlanError::Catalog(error.to_string()))?,
+        )]),
+        input_assets: BTreeMap::new(),
+        expected_outputs: vec![ProviderOutputExpectation {
+            slot: slot.into(),
+            media_type: "application/octet-stream".into(),
+            maximum_size_bytes: identity.size_bytes,
+            expected_sha256: Some(identity.sha256.clone()),
+        }],
+    };
+    Ok((
+        CanonicalContent {
+            slot: slot.into(),
+            kind: if slot == "pixels" {
+                "native_pixel_data"
+            } else {
+                "private_bulk_data"
+            }
+            .into(),
+            address,
+            vr,
+            size_bytes: identity.size_bytes,
+            sha256: identity.sha256.clone(),
+            properties: BTreeMap::from([("provider_id".into(), STRESS_CONTENT_PROVIDER_ID.into())]),
+            placement,
+            materialization: None,
+        },
+        request,
+        identity,
+    ))
+}
+
+fn stress_asset_handle(
+    artifact_id: &str,
+    slot: &str,
+) -> Result<StagedAssetHandle, CuratedPlanError> {
+    StagedAssetHandle::new(format!("stress_{artifact_id}_{slot}"))
+        .map_err(|error| CuratedPlanError::Catalog(error.to_string()))
+}
+
+fn stress_sc_encoding(
+    artifact: &crate::recipes::PlannedArtifactRecipe,
+    stress: &crate::recipes::StressScArtifactPlan,
+    implementation_class_uid: String,
+) -> Result<EncodingPlan, CuratedPlanError> {
+    if stress.transfer_syntax_uid != RLE_LOSSLESS_TRANSFER_SYNTAX_UID {
+        return encoding_plan_from_recipe(
+            &artifact.encoding,
+            crate::corpus_plan::ImplementationIdentityPlan {
+                class_uid: implementation_class_uid,
+                version_name: Some(crate::IMPLEMENTATION_VERSION_NAME.into()),
+            },
+        )
+        .map_err(|error| CuratedPlanError::Encoding {
+            artifact_id: stress.logical_id.clone(),
+            message: error.to_string(),
+        });
+    }
+    let fragments_per_frame = match stress.content {
+        crate::recipes::StressScContentRequest::DeterministicRleFrames {
+            fragments_per_frame,
+            ..
+        } => fragments_per_frame,
+        _ => {
+            return Err(CuratedPlanError::ScPlan {
+                artifact_id: stress.logical_id.clone(),
+                message: "RLE stress artifact lacks deterministic frame content".into(),
+            });
+        }
+    };
+    Ok(EncodingPlan {
+        transfer_syntax_uid: stress.transfer_syntax_uid.clone(),
+        sequence_length: SequenceLengthPolicy::WriterDefault,
+        item_length: ItemLengthPolicy::WriterDefault,
+        fragmentation: FragmentationPolicy::FixedFragmentsPerFrame {
+            fragments_per_frame,
+        },
+        offset_table: OffsetTablePolicy::Extended,
+        preamble: PreamblePolicy::ZeroFilled,
+        file_meta: FileMetaPolicy::Standard,
+        implementation: crate::corpus_plan::ImplementationIdentityPlan {
+            class_uid: implementation_class_uid,
+            version_name: Some(crate::IMPLEMENTATION_VERSION_NAME.into()),
+        },
+        backend_id: "encoding.native.rle_lossless".into(),
+    })
+}
+
+fn stress_sc_common_attributes(
+    stress: &crate::recipes::StressScArtifactPlan,
+) -> Result<Vec<ResolvedAttribute>, CuratedPlanError> {
+    let common = &stress.common;
+    let mut attributes = vec![
+        stress_string("0008,0016", DicomVr::UI, &stress.sop_class_uid)?,
+        stress_string(
+            "0008,0018",
+            DicomVr::UI,
+            &stress.identities.sop_instance_uid,
+        )?,
+        stress_string("0008,001C", DicomVr::CS, "YES")?,
+        stress_string("0010,0010", DicomVr::PN, &common.patient_name)?,
+        stress_string("0010,0020", DicomVr::LO, &common.patient_id)?,
+        stress_string("0010,0030", DicomVr::DA, &common.patient_birth_date)?,
+        stress_string("0010,0040", DicomVr::CS, &common.patient_sex)?,
+        stress_string(
+            "0020,000D",
+            DicomVr::UI,
+            &stress.identities.study_instance_uid,
+        )?,
+        stress_string("0008,0020", DicomVr::DA, &common.study_date)?,
+        stress_string("0008,0030", DicomVr::TM, &common.study_time)?,
+        stress_string("0008,0090", DicomVr::PN, "")?,
+        stress_string("0020,0010", DicomVr::SH, &common.study_id)?,
+        stress_string("0008,0050", DicomVr::SH, "")?,
+        stress_string("0008,0060", DicomVr::CS, &common.modality)?,
+        stress_string(
+            "0020,000E",
+            DicomVr::UI,
+            &stress.identities.series_instance_uid,
+        )?,
+        stress_string("0020,0011", DicomVr::IS, &common.series_number)?,
+        stress_string("0020,0060", DicomVr::CS, "")?,
+        stress_string("0008,0064", DicomVr::CS, &common.conversion_type)?,
+        stress_string("0008,0070", DicomVr::LO, &common.manufacturer)?,
+        stress_string("0008,1090", DicomVr::LO, &common.manufacturer_model_name)?,
+        stress_string("0018,1020", DicomVr::LO, crate::PACKAGE_VERSION)?,
+        stress_string("0020,0013", DicomVr::IS, &common.instance_number)?,
+        stress_string("0020,0020", DicomVr::CS, "")?,
+        stress_string("0008,0023", DicomVr::DA, "20260101")?,
+        stress_string("0008,0033", DicomVr::TM, "000000")?,
+    ];
+    if stress.transfer_syntax_uid == RLE_LOSSLESS_TRANSFER_SYNTAX_UID {
+        attributes.extend([
+            stress_string("0008,002A", DicomVr::DT, "20260101000000")?,
+            stress_string("0020,0012", DicomVr::IS, "1")?,
+            stress_string("0028,0301", DicomVr::CS, "NO")?,
+            stress_string("0028,2110", DicomVr::CS, "00")?,
+            stress_string("0028,1052", DicomVr::DS, "0")?,
+            stress_string("0028,1053", DicomVr::DS, "1")?,
+            stress_string("0028,1054", DicomVr::LO, "US")?,
+            stress_string("2050,0020", DicomVr::CS, "IDENTITY")?,
+        ]);
+    }
+    Ok(attributes)
+}
+
+fn stress_sc_pixel_attributes(
+    attributes: &mut Vec<ResolvedAttribute>,
+    rows: u32,
+    columns: u32,
+    frames: u32,
+    bits_allocated: u16,
+) -> Result<(), CuratedPlanError> {
+    attributes.extend([
+        stress_unsigned("0028,0002", DicomVr::US, 1)?,
+        stress_string("0028,0004", DicomVr::CS, "MONOCHROME2")?,
+        stress_unsigned("0028,0010", DicomVr::US, u64::from(rows))?,
+        stress_unsigned("0028,0011", DicomVr::US, u64::from(columns))?,
+        stress_unsigned("0028,0100", DicomVr::US, u64::from(bits_allocated))?,
+        stress_unsigned("0028,0101", DicomVr::US, u64::from(bits_allocated))?,
+        stress_unsigned(
+            "0028,0102",
+            DicomVr::US,
+            u64::from(bits_allocated.saturating_sub(1)),
+        )?,
+        stress_unsigned("0028,0103", DicomVr::US, 0)?,
+    ]);
+    if frames > 1 {
+        attributes.push(stress_string(
+            "0028,0008",
+            DicomVr::IS,
+            &frames.to_string(),
+        )?);
+        let page = AttributeAddress::standard(Tag(0x0018, 0x2001)).map_err(attribute_error)?;
+        attributes.push(ResolvedAttribute {
+            address: AttributeAddress::standard(Tag(0x0028, 0x0009)).map_err(attribute_error)?,
+            vr: DicomVr::AT,
+            value: Some(AttributeValue::Primitive(PrimitiveValue::Tag(page))),
+            origin: ValueOrigin::InstanceOverride,
+        });
+        attributes.push(ResolvedAttribute {
+            address: AttributeAddress::standard(Tag(0x0018, 0x2001)).map_err(attribute_error)?,
+            vr: DicomVr::IS,
+            value: Some(AttributeValue::Multi(
+                (1..=frames)
+                    .map(|frame| PrimitiveValue::String(frame.to_string()))
+                    .collect(),
+            )),
+            origin: ValueOrigin::InstanceOverride,
+        });
+    }
+    Ok(())
+}
+
+fn nested_sequence_attribute(
+    depth: u32,
+    creator: &str,
+    sequence: AttributeAddress,
+) -> Result<ResolvedAttribute, CuratedPlanError> {
+    if depth == 0 {
+        return Err(CuratedPlanError::Catalog(
+            "zero stress sequence depth".into(),
+        ));
+    }
+    let creator_operation = || AttributeOperation::Set {
+        address: AttributeAddress::standard(Tag(0x7777, 0x0010)).expect("private creator tag"),
+        vr: DicomVr::LO,
+        value: AttributeValue::Primitive(PrimitiveValue::String(creator.into())),
+    };
+    let mut item_operations = vec![creator_operation()];
+    for _ in 1..depth {
+        item_operations = vec![
+            creator_operation(),
+            AttributeOperation::Set {
+                address: sequence.clone(),
+                vr: DicomVr::SQ,
+                value: AttributeValue::Sequence(vec![AttributeItem {
+                    attributes: item_operations,
+                }]),
+            },
+        ];
+    }
+    Ok(ResolvedAttribute {
+        address: sequence,
+        vr: DicomVr::SQ,
+        value: Some(AttributeValue::Sequence(vec![AttributeItem {
+            attributes: item_operations,
+        }])),
+        origin: ValueOrigin::InstanceOverride,
+    })
+}
+
+fn add_stress_private_text(
+    attributes: &mut Vec<ResolvedAttribute>,
+    creator_blocks: u32,
+    values_per_block: u32,
+    value_bytes: u32,
+    fill_character: char,
+) -> Result<(), CuratedPlanError> {
+    let value = fill_character.to_string().repeat(value_bytes as usize);
+    for block in 0..creator_blocks {
+        let creator = format!("DTS_STRESS_LONG_{block}");
+        attributes.push(ResolvedAttribute {
+            address: AttributeAddress::standard(Tag(0x7777, 0x0010 + block as u16))
+                .map_err(attribute_error)?,
+            vr: DicomVr::LO,
+            value: Some(AttributeValue::Primitive(PrimitiveValue::String(
+                creator.clone(),
+            ))),
+            origin: ValueOrigin::InstanceOverride,
+        });
+        for element in 0..values_per_block {
+            let physical = (((0x10 + block) << 8) | element) as u16;
+            attributes.push(ResolvedAttribute {
+                address: AttributeAddress::private(Tag(0x7777, physical), creator.clone())
+                    .map_err(attribute_error)?,
+                vr: DicomVr::UT,
+                value: Some(AttributeValue::Primitive(PrimitiveValue::String(
+                    value.clone(),
+                ))),
+                origin: ValueOrigin::InstanceOverride,
+            });
+        }
+    }
+    Ok(())
+}
+
+fn stress_string(
+    tag: &str,
+    vr: DicomVr,
+    value: &str,
+) -> Result<ResolvedAttribute, CuratedPlanError> {
+    Ok(ResolvedAttribute {
+        address: AttributeAddress::from_normalized_tag(tag).map_err(attribute_error)?,
+        vr,
+        value: Some(AttributeValue::Primitive(PrimitiveValue::String(
+            value.into(),
+        ))),
+        origin: ValueOrigin::InstanceOverride,
+    })
+}
+
+fn stress_unsigned(
+    tag: &str,
+    vr: DicomVr,
+    value: u64,
+) -> Result<ResolvedAttribute, CuratedPlanError> {
+    Ok(ResolvedAttribute {
+        address: AttributeAddress::from_normalized_tag(tag).map_err(attribute_error)?,
+        vr,
+        value: Some(AttributeValue::Primitive(PrimitiveValue::Unsigned(value))),
+        origin: ValueOrigin::InstanceOverride,
+    })
+}
+
+fn attribute_error(error: impl fmt::Display) -> CuratedPlanError {
+    CuratedPlanError::Catalog(error.to_string())
 }
 
 fn classic_requests(

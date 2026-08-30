@@ -368,6 +368,7 @@ fn content_plan(
 > {
     const EXPLICIT_LE: &str = "1.2.840.10008.1.2.1";
     const RLE: &str = "1.2.840.10008.1.2.5";
+    const PART10_STRUCTURAL_BUDGET: u64 = 1024 * 1024;
     let result = match parameters {
         StressScParameters::LargeBulk {
             payload_bytes,
@@ -384,7 +385,9 @@ fn content_plan(
                 value: 0,
             },
             estimate(
-                *payload_bytes,
+                payload_bytes
+                    .checked_add(PART10_STRUCTURAL_BUDGET)
+                    .ok_or(StressScPlanError::ResourceOverflow)?,
                 payload_bytes
                     .checked_mul(2)
                     .ok_or(StressScPlanError::ResourceOverflow)?,
@@ -410,7 +413,12 @@ fn content_plan(
                 columns: 2,
                 values: vec![0, 85, 170, 255],
             },
-            estimate(*payload_bytes + 16_384, *payload_bytes + 1_048_576)?,
+            estimate(
+                payload_bytes
+                    .checked_add(PART10_STRUCTURAL_BUDGET)
+                    .ok_or(StressScPlanError::ResourceOverflow)?,
+                *payload_bytes + 1_048_576,
+            )?,
             "classic/secondary-capture/monochrome",
             EXPLICIT_LE,
         ),
@@ -440,7 +448,12 @@ fn content_plan(
                     columns: 2,
                     values: vec![0, 85, 170, 255],
                 },
-                estimate(payload + 32_768, payload + 1_048_576)?,
+                estimate(
+                    payload
+                        .checked_add(PART10_STRUCTURAL_BUDGET)
+                        .ok_or(StressScPlanError::ResourceOverflow)?,
+                    payload + 1_048_576,
+                )?,
                 "classic/secondary-capture/monochrome",
                 EXPLICIT_LE,
             )
@@ -477,9 +490,13 @@ fn content_plan(
                     algorithm: native_algorithm.clone(),
                 },
                 estimate(
-                    native + fragment_headers + 65_536,
                     native
-                        .checked_mul(2)
+                        .checked_add(fragment_headers)
+                        .and_then(|value| value.checked_add(PART10_STRUCTURAL_BUDGET))
+                        .ok_or(StressScPlanError::ResourceOverflow)?,
+                    native
+                        .checked_mul(4)
+                        .and_then(|value| value.checked_add(4 * 1024 * 1024))
                         .ok_or(StressScPlanError::ResourceOverflow)?,
                 )?,
                 "classic/secondary-capture/multiframe-grayscale-byte",

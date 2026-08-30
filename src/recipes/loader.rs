@@ -646,7 +646,8 @@ fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), Recip
         }
     }
     if recipe.mutation.is_some() {
-        robustness::validate_mutation_contract(recipe).map_err(|message| semantic(path, message))?;
+        robustness::validate_mutation_contract(recipe)
+            .map_err(|message| semantic(path, message))?;
     }
     if matches!(
         recipe.plan_provider_id.as_str(),
@@ -1779,7 +1780,9 @@ fn validate_dependencies(
             }
             if dependencies.len() != 1 {
                 return Err(RecipeCatalogError::Completeness {
-                    message: format!("{identity} mutation must declare exactly its source dependency"),
+                    message: format!(
+                        "{identity} mutation must declare exactly its source dependency"
+                    ),
                 });
             }
             let source_recipe = &recipes[&source];
@@ -1813,13 +1816,18 @@ fn validate_dependencies(
             for declared in sources {
                 let source = declared.recipe.identity();
                 let source_recipe = &recipes[&source];
-                let exists = source_recipe
-                    .dicom
-                    .as_ref()
-                    .is_some_and(|dicom| dicom.artifacts.iter().any(|artifact| artifact.logical_id == declared.artifact_logical_id));
+                let exists = source_recipe.dicom.as_ref().is_some_and(|dicom| {
+                    dicom
+                        .artifacts
+                        .iter()
+                        .any(|artifact| artifact.logical_id == declared.artifact_logical_id)
+                });
                 if !exists {
                     return Err(RecipeCatalogError::Completeness {
-                        message: format!("{identity} fuzz source {source} lacks artifact {}", declared.artifact_logical_id),
+                        message: format!(
+                            "{identity} fuzz source {source} lacks artifact {}",
+                            declared.artifact_logical_id
+                        ),
                     });
                 }
                 validate_robustness_source_profile(identity, source_recipe, &registry_by_case)?;
@@ -1836,7 +1844,10 @@ fn validate_robustness_source_profile(
 ) -> Result<(), RecipeCatalogError> {
     let Some(registry_case) = registry_by_case.get(source.binding.case_id.as_str()) else {
         return Err(RecipeCatalogError::Completeness {
-            message: format!("{owner} source {} is absent from the registry", source.identity()),
+            message: format!(
+                "{owner} source {} is absent from the registry",
+                source.identity()
+            ),
         });
     };
     if registry_case.artifact_kind != "dicom_instance"
@@ -1965,5 +1976,126 @@ mod tests {
         recipe.plan_provider_id = "unknown.provider".into();
         let error = validate_registered_ids(Path::new("fixture.json"), &recipe).unwrap_err();
         assert!(error.to_string().contains("unknown plan provider"));
+    }
+
+    fn robustness_fixture() -> (RegistryDocument, BTreeMap<RecipeIdentity, CaseRecipe>) {
+        let source: CaseRecipe = serde_json::from_str(include_str!(
+            "../../cases/recipes/classic/sc/sc_mono2_u8.json"
+        ))
+        .unwrap();
+        let mutation: CaseRecipe = serde_json::from_str(include_str!(
+            "../../cases/recipes/negative/iod/negative_iod_missing_type1_attribute.json"
+        ))
+        .unwrap();
+        let registry: RegistryDocument = serde_json::from_value(serde_json::json!({
+            "cases": [
+                {
+                    "case_id": source.binding.case_id,
+                    "status": "implemented",
+                    "profiles": ["core"],
+                    "recipe_id": source.recipe_id,
+                    "recipe_version": source.recipe_version,
+                    "sop_class_uid": null,
+                    "transfer_syntax_uid": null,
+                    "artifact_kind": "dicom_instance",
+                    "determinism": "byte_stable",
+                    "provider": {"kind": "rust_native", "id": "rust_native"},
+                    "requirements": {"features": [], "external_codecs": [], "external_validators": []}
+                },
+                {
+                    "case_id": mutation.binding.case_id,
+                    "status": "implemented",
+                    "profiles": ["negative"],
+                    "recipe_id": mutation.recipe_id,
+                    "recipe_version": mutation.recipe_version,
+                    "sop_class_uid": null,
+                    "transfer_syntax_uid": null,
+                    "artifact_kind": "negative_instance",
+                    "determinism": "byte_stable",
+                    "provider": {"kind": "mutation_layer", "id": "mutation_layer"},
+                    "requirements": {"features": [], "external_codecs": [], "external_validators": []}
+                }
+            ]
+        }))
+        .unwrap();
+        let recipes = [source, mutation]
+            .into_iter()
+            .map(|recipe| (recipe.identity(), recipe))
+            .collect();
+        (registry, recipes)
+    }
+
+    #[test]
+    fn robustness_source_requires_exact_version_and_artifact_role() {
+        let (registry, recipes) = robustness_fixture();
+        validate_dependencies(&registry, &recipes).unwrap();
+
+        let mut wrong_version = recipes.clone();
+        let mutation_id = wrong_version
+            .keys()
+            .find(|identity| identity.recipe_id.starts_with("negative_"))
+            .unwrap()
+            .clone();
+        wrong_version
+            .get_mut(&mutation_id)
+            .unwrap()
+            .mutation
+            .as_mut()
+            .unwrap()
+            .source
+            .recipe_version = "9.9.9".into();
+        assert!(
+            validate_dependencies(&registry, &wrong_version)
+                .unwrap_err()
+                .to_string()
+                .contains("not a declared dependency")
+        );
+
+        let mut missing_role = recipes.clone();
+        missing_role
+            .get_mut(&mutation_id)
+            .unwrap()
+            .mutation
+            .as_mut()
+            .unwrap()
+            .source_logical_role = "missing".into();
+        assert!(
+            validate_dependencies(&registry, &missing_role)
+                .unwrap_err()
+                .to_string()
+                .contains("no artifact logical role")
+        );
+    }
+
+    #[test]
+    fn robustness_source_rejects_invalid_profile_boundary() {
+        let (mut registry, recipes) = robustness_fixture();
+        registry.cases[0].profiles = vec!["negative".into()];
+        assert!(
+            validate_dependencies(&registry, &recipes)
+                .unwrap_err()
+                .to_string()
+                .contains("invalid robustness profile boundary")
+        );
+    }
+
+    #[test]
+    fn robustness_source_rejects_self_reference() {
+        let (registry, mut recipes) = robustness_fixture();
+        let mutation_id = recipes
+            .keys()
+            .find(|identity| identity.recipe_id.starts_with("negative_"))
+            .unwrap()
+            .clone();
+        let mutation = recipes.get_mut(&mutation_id).unwrap();
+        mutation.dependencies[0].recipe.recipe_id = mutation_id.recipe_id.clone();
+        mutation.dependencies[0].recipe.recipe_version = mutation_id.recipe_version.clone();
+        mutation.mutation.as_mut().unwrap().source = mutation.dependencies[0].recipe.clone();
+        assert!(
+            validate_dependencies(&registry, &recipes)
+                .unwrap_err()
+                .to_string()
+                .contains("invalid dependency")
+        );
     }
 }

@@ -1,0 +1,54 @@
+{
+  "case_recipe_schema_version": "0.1.0",
+  "recipe_id": "fixture_negative",
+  "recipe_version": "0.1.0",
+  "binding": {
+    "case_id": "negative/fixture/example"
+  },
+  "kind": "mutation",
+  "plan_provider_id": "mutation.named_plan",
+  "dependencies": [
+    {
+      "recipe": {
+        "recipe_id": "source",
+        "recipe_version": "0.1.0"
+      },
+      "role": "mutation_source"
+    }
+  ],
+  "provider_parameters": {},
+  "validation_rule_ids": [
+    "validation.mutation"
+  ],
+  "projection_rule_ids": [
+    "projection.mutation"
+  ],
+  "mutation": {
+    "source": {
+      "recipe_id": "source",
+      "recipe_version": "0.1.0"
+    },
+    "source_logical_role": "instance",
+    "edits": [
+      {
+        "edit_id": "01_missing_type1",
+        "mutation_id": "mutation.missing_type1_attribute",
+        "parameters": {
+          "tag": "0008,0060"
+        }
+      }
+    ],
+    "failure_layers": [
+      "semantic_validation"
+    ],
+    "acceptable_outcomes": [
+      "clean_rejection",
+      "validation_failure"
+    ],
+    "output": {
+      "role": "expected_invalid",
+      "path": "negative/fixture/example/instance.dcm"
+    },
+    "retention": "expected_invalid_only"
+  }
+}

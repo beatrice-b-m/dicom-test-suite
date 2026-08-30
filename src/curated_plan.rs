@@ -50,10 +50,11 @@ use crate::recipes::{
     QuantitativePlanProvider, QuantitativeProviderLimits, QuantitativeSourceInput,
     QuantitativeSourceRole, REGISTRATION_PLAN_PROVIDER_ID, RT_PLAN_PROVIDER_ID, RecipeCatalog,
     RecipeReference, RegistrationPlanProvider, RegistrationSourceInput, RtPlanProvider,
-    SR_PLAN_PROVIDER_ID, SecondaryCapturePlanInput, SemanticPlanContext, SemanticSource,
-    SrPlanProvider, TypedBulkPlanningContext, WAVEFORM_PLAN_PROVIDER_ID, WSI_ADVANCED_PROVIDER_ID,
-    WaveformPlanProvider, WsiAdvancedPlanProvider, encapsulated_payload_input_from_recipe,
-    encoding_plan_from_recipe, native_pixel_request_from_recipe, resolved_classic_instance_plan,
+    SR_PLAN_PROVIDER_ID, STRESS_CT_PLAN_PROVIDER_ID, SecondaryCapturePlanInput,
+    SemanticPlanContext, SemanticSource, SrPlanProvider, TypedBulkPlanningContext,
+    WAVEFORM_PLAN_PROVIDER_ID, WSI_ADVANCED_PROVIDER_ID, WaveformPlanProvider,
+    WsiAdvancedPlanProvider, encapsulated_payload_input_from_recipe, encoding_plan_from_recipe,
+    native_pixel_request_from_recipe, plan_stress_ct_recipe, resolved_classic_instance_plan,
     resolved_metadata_sc_plan, resolved_secondary_capture_plan, rt_input_from_recipe,
     sr_input_from_recipe, waveform_input_from_recipe,
 };
@@ -806,8 +807,12 @@ impl CuratedScCorpusPlanProvider {
                 )?;
                 continue;
             }
-            if recipe.plan_provider_id == CLASSIC_PLAN_PROVIDER {
-                let requests = classic_requests(recipe, &self.standards_lock_sha256, request.seed)?;
+            if matches!(
+                recipe.plan_provider_id.as_str(),
+                CLASSIC_PLAN_PROVIDER | STRESS_CT_PLAN_PROVIDER_ID
+            ) {
+                let (requests, explicit_resources, reduced_policy) =
+                    classic_requests(recipe, &self.standards_lock_sha256, request.seed)?;
                 let scope = format!("curated_{}", recipe.recipe_id);
                 let planned_instances = OrderedSeriesProvider
                     .plan_scoped(&scope, requests)
@@ -815,12 +820,21 @@ impl CuratedScCorpusPlanProvider {
                         recipe_id: recipe.recipe_id.clone(),
                         message: error.to_string(),
                     })?;
+                if explicit_resources
+                    .as_ref()
+                    .is_some_and(|resources| resources.len() != planned_instances.len())
+                {
+                    return Err(CuratedPlanError::ClassicArtifactMismatch {
+                        recipe_id: recipe.recipe_id.clone(),
+                        artifact_id: "resource_set".into(),
+                    });
+                }
                 let dicom = recipe
                     .dicom
                     .as_ref()
                     .ok_or_else(|| CuratedPlanError::MissingDicom(recipe.recipe_id.clone()))?;
                 selected_recipes.push(recipe);
-                for planned in planned_instances {
+                for (instance_index, planned) in planned_instances.into_iter().enumerate() {
                     let global_id = planned.logical_id.clone();
                     let artifact_recipe = dicom
                         .artifacts
@@ -896,7 +910,13 @@ impl CuratedScCorpusPlanProvider {
                             artifact_id: global_id,
                         });
                     }
-                    let resources = resource_estimate(&instance, native.plan.padded_value_bytes)?;
+                    let resources = explicit_resources
+                        .as_ref()
+                        .map(|resources| resources[instance_index].clone())
+                        .map(Ok)
+                        .unwrap_or_else(|| {
+                            resource_estimate(&instance, native.plan.padded_value_bytes)
+                        })?;
                     let order = u64::try_from(artifacts.len())
                         .map_err(|_| CuratedPlanError::ResourceOverflow)?;
                     let historical_recipe_order = recipe.planning_order.ok_or_else(|| {
@@ -919,7 +939,10 @@ impl CuratedScCorpusPlanProvider {
                         },
                         encoding,
                         validation: validation_plan(recipe, artifact_recipe),
-                        evidence: generation_evidence_plan(),
+                        evidence: reduced_policy
+                            .as_ref()
+                            .map(stress_generation_evidence_plan)
+                            .unwrap_or_else(generation_evidence_plan),
                         resources,
                     }));
                     projection_artifacts.push(CuratedArtifactProjectionContext {
@@ -2271,7 +2294,26 @@ fn classic_requests(
     recipe: &CaseRecipe,
     standards_lock_sha256: &str,
     seed: u64,
-) -> Result<Vec<ClassicInstanceRequest>, CuratedPlanError> {
+) -> Result<
+    (
+        Vec<ClassicInstanceRequest>,
+        Option<Vec<ArtifactResourceEstimate>>,
+        Option<crate::recipes::ReducedStressPolicy>,
+    ),
+    CuratedPlanError,
+> {
+    if recipe.plan_provider_id == STRESS_CT_PLAN_PROVIDER_ID {
+        let output = plan_stress_ct_recipe(recipe, standards_lock_sha256, seed)
+            .map_err(|error| CuratedPlanError::ClassicPlan {
+                recipe_id: recipe.recipe_id.clone(),
+                message: error.to_string(),
+            })?
+            .ok_or_else(|| CuratedPlanError::ClassicProviderCardinality {
+                recipe_id: recipe.recipe_id.clone(),
+                matches: 0,
+            })?;
+        return Ok((output.requests, Some(output.resources), Some(output.policy)));
+    }
     let mut matched = Vec::new();
     macro_rules! try_provider {
         ($provider:expr) => {
@@ -2298,7 +2340,11 @@ fn classic_requests(
             matches: matched.len(),
         });
     }
-    Ok(matched.pop().expect("one classic provider matched"))
+    Ok((
+        matched.pop().expect("one classic provider matched"),
+        None,
+        None,
+    ))
 }
 
 fn generation_evidence_plan() -> EvidencePlan {
@@ -2309,6 +2355,31 @@ fn generation_evidence_plan() -> EvidencePlan {
             independence: EvidenceIndependence::SameProject,
             required: true,
             parameters: BTreeMap::new(),
+        }],
+    }
+}
+
+fn stress_generation_evidence_plan(policy: &crate::recipes::ReducedStressPolicy) -> EvidencePlan {
+    EvidencePlan {
+        obligations: vec![EvidenceObligation {
+            obligation_id: "curated_generation_validation".into(),
+            route_id: "shared_corpus_executor".into(),
+            independence: EvidenceIndependence::SameProject,
+            required: true,
+            parameters: BTreeMap::from([
+                (
+                    "qualification_scale".into(),
+                    Value::String(policy.qualification_scale.clone()),
+                ),
+                (
+                    "full_scale_available".into(),
+                    Value::Bool(policy.full_scale_available),
+                ),
+                (
+                    "full_scale_reason".into(),
+                    Value::String(policy.full_scale_reason.clone()),
+                ),
+            ]),
         }],
     }
 }

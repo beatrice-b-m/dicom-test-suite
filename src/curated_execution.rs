@@ -1795,6 +1795,25 @@ fn validate_historical_rt(
         }
     };
     let mut report = legacy_validated_report(result)?;
+    match parameters.object {
+        RtObjectParameters::Plan(_) => report.checks.push(TypedValidationCheck::passed_internal(
+            "rt_plan_source_precheck",
+            "Rust reopened and hashed the linked RT Structure Set and RT Dose sources, then verified their manifest identities and shared Study and Frame of Reference before construction.",
+        )),
+        RtObjectParameters::Image(_) => report.checks.push(TypedValidationCheck::passed_internal(
+            "rt_image_plan_source_precheck",
+            "Rust reopened and hashed the linked RT Plan, then verified its generated-source identity and shared Study and Frame of Reference before construction.",
+        )),
+        RtObjectParameters::CarmRadiation(_) => report.checks.push(TypedValidationCheck::passed_internal(
+            "rt_radiation_source_precheck",
+            "Rust reopened and hashed the linked RT Plan, then verified its manifest identity, Study, and Frame of Reference before Radiation construction.",
+        )),
+        RtObjectParameters::RadiationSet(_) => report.checks.push(TypedValidationCheck::passed_internal(
+            "rt_radiation_set_source_precheck",
+            "Rust reopened and hashed the linked RT Plan and companion Radiation, then verified their manifest identities and shared Study and Frame of Reference before Set construction.",
+        )),
+        RtObjectParameters::StructureSet(_) | RtObjectParameters::Dose(_) => {}
+    }
     append_specialized_checks(&mut report, typed_evidence);
     report.checks.push(TypedValidationCheck::passed_internal("curated_composition_plan", "The curated dataset resolved through the shared composition plan before Part 10 materialization."));
     Ok(report)

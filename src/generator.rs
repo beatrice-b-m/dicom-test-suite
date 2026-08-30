@@ -9,6 +9,8 @@ use dicom_core::{
     DataElement, Length, PrimitiveValue, Tag, VR,
     value::{DataSetSequence, PixelFragmentSequence},
 };
+#[cfg(feature = "legacy_jpeg_dcmtk")]
+use dicom_core::value::Value as DicomValue;
 use dicom_dictionary_std::{tags, uids};
 use dicom_object::{FileMetaTableBuilder, InMemDicomObject, open_file};
 use dicom_parser::dataset::write::{DataSetWriterOptions, ExplicitLengthSqItemStrategy};

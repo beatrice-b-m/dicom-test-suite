@@ -80,6 +80,7 @@ pub mod protocol_baseline;
 pub mod recipes;
 pub(crate) mod rt_manifest;
 pub(crate) mod rt_radiation_manifest;
+pub mod runtime_capabilities;
 pub mod stress;
 pub mod uid;
 mod validation;

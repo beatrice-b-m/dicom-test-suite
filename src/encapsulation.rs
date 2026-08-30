@@ -1,7 +1,10 @@
+use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt;
 
 use crate::sha256_hex;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 const ITEM_TAG_BYTES: [u8; 4] = [0xfe, 0xff, 0x00, 0xe0];
 const SEQUENCE_DELIMITATION_ITEM_BYTES: [u8; 8] = [0xfe, 0xff, 0xdd, 0xe0, 0, 0, 0, 0];
@@ -153,6 +156,212 @@ impl fmt::Display for EncapsulationError {
 }
 
 impl Error for EncapsulationError {}
+
+pub const EOT_ARITHMETIC_QUALIFICATION_KIND: &str = "checked_eot_u64_overflow";
+pub const EOT_ARITHMETIC_PROVIDER_ID: &str = "encapsulation.checked_eot_arithmetic";
+pub const EOT_ARITHMETIC_CONTRACT_VERSION: &str = "0.1.0";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EotArithmeticStep {
+    PadFragmentToEven,
+    AddItemHeader,
+    AccumulateFrameOffset,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EotArithmeticExpectedError {
+    FragmentPaddingOverflow,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EotQualificationLimits {
+    pub max_input_bytes: u64,
+    pub max_output_bytes: u64,
+    pub max_operations: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EotArithmeticQualificationRequest {
+    pub fragment_lengths: Vec<u64>,
+    pub arithmetic_steps: Vec<EotArithmeticStep>,
+    pub expected_error: EotArithmeticExpectedError,
+    pub limits: EotQualificationLimits,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct EotArithmeticQualificationEvidence {
+    pub qualification_kind: &'static str,
+    pub contract_version: &'static str,
+    pub provider_id: &'static str,
+    pub fragment_lengths: Vec<u64>,
+    pub arithmetic_steps: Vec<EotArithmeticStep>,
+    pub expected_error: EotArithmeticExpectedError,
+    pub observed_error: EotArithmeticExpectedError,
+    pub overflow_frame_index: usize,
+    pub overflow_step: EotArithmeticStep,
+    pub operations_executed: u64,
+    pub max_operations: u64,
+    pub input_bytes: u64,
+    pub output_bytes: u64,
+    pub payload_policy: &'static str,
+    pub status: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EotQualificationError {
+    InvalidContract(&'static str),
+    ResourceLimit(&'static str),
+    ExpectedOverflowNotObserved,
+    UnexpectedOverflow {
+        frame_index: usize,
+        step: EotArithmeticStep,
+    },
+}
+
+impl fmt::Display for EotQualificationError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidContract(message) => {
+                write!(formatter, "invalid EOT qualification contract: {message}")
+            }
+            Self::ResourceLimit(message) => {
+                write!(formatter, "EOT qualification resource limit: {message}")
+            }
+            Self::ExpectedOverflowNotObserved => {
+                formatter.write_str("declared EOT arithmetic overflow was not observed")
+            }
+            Self::UnexpectedOverflow { frame_index, step } => write!(
+                formatter,
+                "unexpected EOT arithmetic overflow at frame {frame_index} during {step:?}"
+            ),
+        }
+    }
+}
+
+impl Error for EotQualificationError {}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct EotRecipeParameters {
+    qualification_kind: String,
+    fragment_lengths: Vec<u64>,
+    arithmetic_steps: Vec<EotArithmeticStep>,
+    expected_error: EotArithmeticExpectedError,
+}
+
+impl EotArithmeticQualificationRequest {
+    /// Adapter seam for `PlannedQualification.parameters` and its resource policy.
+    pub fn from_planned_parameters(
+        parameters: &BTreeMap<String, Value>,
+        limits: EotQualificationLimits,
+    ) -> Result<Self, EotQualificationError> {
+        let value = Value::Object(parameters.clone().into_iter().collect());
+        let parsed: EotRecipeParameters = serde_json::from_value(value).map_err(|_| {
+            EotQualificationError::InvalidContract("parameters do not match the typed EOT recipe")
+        })?;
+        if parsed.qualification_kind != EOT_ARITHMETIC_QUALIFICATION_KIND {
+            return Err(EotQualificationError::InvalidContract(
+                "qualification kind changed",
+            ));
+        }
+        Ok(Self {
+            fragment_lengths: parsed.fragment_lengths,
+            arithmetic_steps: parsed.arithmetic_steps,
+            expected_error: parsed.expected_error,
+            limits,
+        })
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct CheckedEotArithmeticQualificationService;
+
+impl CheckedEotArithmeticQualificationService {
+    pub fn execute(
+        &self,
+        request: EotArithmeticQualificationRequest,
+    ) -> Result<EotArithmeticQualificationEvidence, EotQualificationError> {
+        const STEPS: [EotArithmeticStep; 3] = [
+            EotArithmeticStep::PadFragmentToEven,
+            EotArithmeticStep::AddItemHeader,
+            EotArithmeticStep::AccumulateFrameOffset,
+        ];
+        if request.fragment_lengths.as_slice() != [u64::MAX]
+            || request.arithmetic_steps.as_slice() != STEPS
+            || request.expected_error != EotArithmeticExpectedError::FragmentPaddingOverflow
+        {
+            return Err(EotQualificationError::InvalidContract(
+                "the locked overflow boundary changed",
+            ));
+        }
+        if request.limits.max_input_bytes != 0 || request.limits.max_output_bytes != 0 {
+            return Err(EotQualificationError::ResourceLimit(
+                "qualification must remain payload-free",
+            ));
+        }
+        if request.limits.max_operations < u64::try_from(STEPS.len()).unwrap() {
+            return Err(EotQualificationError::ResourceLimit(
+                "max_operations cannot cover the declared arithmetic plan",
+            ));
+        }
+
+        let mut operations = 0_u64;
+        let mut next_offset = 0_u64;
+        for (frame_index, compressed_length) in request.fragment_lengths.iter().copied().enumerate()
+        {
+            operations = checked_operation(operations, request.limits.max_operations)?;
+            let Some(padded) = compressed_length.checked_add(compressed_length % 2) else {
+                if frame_index != 0 {
+                    return Err(EotQualificationError::UnexpectedOverflow {
+                        frame_index,
+                        step: EotArithmeticStep::PadFragmentToEven,
+                    });
+                }
+                return Ok(EotArithmeticQualificationEvidence {
+                    qualification_kind: EOT_ARITHMETIC_QUALIFICATION_KIND,
+                    contract_version: EOT_ARITHMETIC_CONTRACT_VERSION,
+                    provider_id: EOT_ARITHMETIC_PROVIDER_ID,
+                    fragment_lengths: request.fragment_lengths,
+                    arithmetic_steps: request.arithmetic_steps,
+                    expected_error: request.expected_error,
+                    observed_error: EotArithmeticExpectedError::FragmentPaddingOverflow,
+                    overflow_frame_index: frame_index,
+                    overflow_step: EotArithmeticStep::PadFragmentToEven,
+                    operations_executed: operations,
+                    max_operations: request.limits.max_operations,
+                    input_bytes: 0,
+                    output_bytes: 0,
+                    payload_policy: "evidence_only",
+                    status: "passed",
+                });
+            };
+            operations = checked_operation(operations, request.limits.max_operations)?;
+            let Some(span) = 8_u64.checked_add(padded) else {
+                return Err(EotQualificationError::UnexpectedOverflow {
+                    frame_index,
+                    step: EotArithmeticStep::AddItemHeader,
+                });
+            };
+            operations = checked_operation(operations, request.limits.max_operations)?;
+            let Some(offset) = next_offset.checked_add(span) else {
+                return Err(EotQualificationError::UnexpectedOverflow {
+                    frame_index,
+                    step: EotArithmeticStep::AccumulateFrameOffset,
+                });
+            };
+            next_offset = offset;
+        }
+        Err(EotQualificationError::ExpectedOverflowNotObserved)
+    }
+}
+
+fn checked_operation(current: u64, limit: u64) -> Result<u64, EotQualificationError> {
+    current.checked_add(1).filter(|next| *next <= limit).ok_or(
+        EotQualificationError::ResourceLimit("max_operations exceeded"),
+    )
+}
 
 pub fn encapsulate_frames(
     frames: &[Vec<u8>],

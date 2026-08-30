@@ -38,9 +38,10 @@ fn reference_recipes_plan_with_closed_source_dags_before_output_exists() {
         .artifacts
         .iter()
         .filter_map(|artifact| match artifact {
-            PlannedArtifact::Dicom(artifact) => {
-                artifact.case_binding.as_ref().map(|binding| binding.case_id.clone())
-            }
+            PlannedArtifact::Dicom(artifact) => artifact
+                .case_binding
+                .as_ref()
+                .map(|binding| binding.case_id.clone()),
             _ => None,
         })
         .collect::<BTreeSet<_>>();

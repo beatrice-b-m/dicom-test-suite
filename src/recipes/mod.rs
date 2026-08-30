@@ -141,9 +141,9 @@ pub use stress_ct::{
 };
 pub use stress_sc::{
     ReducedStressPolicy, STRESS_SC_ALGORITHM_PROVIDER_ID, STRESS_SC_CONTENT_PROVIDER_ID,
-    STRESS_SC_PLAN_PROVIDER_ID, StressScArtifactPlan, StressScContentRequest,
-    StressScCommonPlan, StressScIdentityPlan, StressScParameters, StressScPixelRequest,
-    StressScPlanError, plan_stress_sc_recipe,
+    STRESS_SC_PLAN_PROVIDER_ID, StressScArtifactPlan, StressScCommonPlan, StressScContentRequest,
+    StressScIdentityPlan, StressScParameters, StressScPixelRequest, StressScPlanError,
+    plan_stress_sc_recipe,
 };
 pub use typed_bulk::{TypedBulkPlanProviderOutput, TypedBulkPlanningContext};
 pub use typed_bulk_compatibility::{

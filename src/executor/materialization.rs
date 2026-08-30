@@ -1287,6 +1287,19 @@ fn imported_reference_order_matches(
         return actual == normalized;
     }
     if imported_sop_class_uid == "1.2.840.10008.5.1.4.1.1.88.34"
+        && expected.len() == 2
+        && !expected[0].2.is_empty()
+        && expected[1].2.is_empty()
+    {
+        let normalized = vec![
+            (expected[0].0.clone(), expected[0].1.clone(), vec![]),
+            expected[1].clone(),
+            expected[1].clone(),
+            expected[0].clone(),
+        ];
+        return actual == normalized;
+    }
+    if imported_sop_class_uid == "1.2.840.10008.5.1.4.1.1.88.34"
         && expected.len() == 1
         && !expected[0].2.is_empty()
     {
@@ -2154,6 +2167,36 @@ mod tests {
             &[actual[1].clone(), actual[1].clone()],
             &expected,
         ));
+    }
+
+    #[test]
+    fn tid1500_reference_contract_preserves_exact_evidence_shape() {
+        let ct: (String, String, Vec<u32>) = ("1.2.ct".into(), "1.2.ct.1".into(), vec![1, 2]);
+        let seg: (String, String, Vec<u32>) = ("1.2.seg".into(), "1.2.seg.1".into(), vec![]);
+        let expected = vec![ct.clone(), seg.clone()];
+        let actual = vec![
+            (ct.0.clone(), ct.1.clone(), vec![]),
+            seg.clone(),
+            seg.clone(),
+            ct.clone(),
+        ];
+        let matches = |candidate: &[(String, String, Vec<u32>)]| {
+            imported_reference_order_matches("1.2.840.10008.5.1.4.1.1.88.34", candidate, &expected)
+        };
+        assert!(matches(&actual));
+        let mut reordered = actual.clone();
+        reordered.swap(0, 1);
+        assert!(!matches(&reordered));
+        assert!(!matches(&actual[..3]));
+        let mut extra = actual.clone();
+        extra.insert(2, seg.clone());
+        assert!(!matches(&extra));
+        let mut wrong_frame = actual.clone();
+        wrong_frame[3].2 = vec![2, 1];
+        assert!(!matches(&wrong_frame));
+        let mut cross_instance = actual.clone();
+        cross_instance[2].1 = "1.2.seg.other".into();
+        assert!(!matches(&cross_instance));
     }
 
     fn native_request(

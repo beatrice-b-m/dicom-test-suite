@@ -992,6 +992,13 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
                 &plan,
                 &content,
                 &self.planned_artifacts,
+                &self
+                    .decoded_codec_frames
+                    .lock()
+                    .unwrap_or_else(|error| error.into_inner())
+                    .get(&artifact.logical_id)
+                    .cloned()
+                    .unwrap_or_default(),
             )?;
             typed.append(TypedValidationCheck::passed_internal(
                 "curated_composition_plan",
@@ -1356,6 +1363,7 @@ fn validate_quantitative_compatibility(
     plan: &ResolvedInstancePlan,
     content: &[MaterializedContentEvidence],
     planned_artifacts: &BTreeMap<String, crate::corpus_plan::PlannedDicomArtifact>,
+    decoded_codec_frames: &[String],
 ) -> Result<TypedValidationReport, ServiceInvocationError> {
     let reference = plan.references.first().ok_or_else(|| {
         ServiceInvocationError::new("quantitative validation", "missing source reference")
@@ -1406,13 +1414,16 @@ fn validate_quantitative_compatibility(
             crate::recipes::QuantitativeSourceRole::SegmentationSourceImage,
         )?;
         let segmentation = parameters.segmentation;
-        let _pixel = content.first().ok_or_else(|| {
+        let pixel = content.first().ok_or_else(|| {
             ServiceInvocationError::new(
                 "quantitative validation",
                 "segmentation content evidence is missing",
             )
         })?;
-        let decoded_hashes: Vec<&str> = Vec::new();
+        let decoded_hashes = decoded_codec_frames
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>();
         let referenced_frames = reference
             .referenced_frames
             .iter()
@@ -1467,7 +1478,15 @@ fn validate_quantitative_compatibility(
                 pixel_representation: 0,
                 planar_configuration: None,
                 pixel_data_vr: VR::OB,
-                pixel_data_length_formula: if bits_allocated == 1 {
+                pixel_data_length_formula: if artifact.encoding.transfer_syntax_uid
+                    == "1.2.840.10008.1.2.8.1"
+                {
+                    PixelDataLengthFormula::Encapsulated {
+                        fragments: usize::try_from(pixel.fragment_count)
+                            .map_err(|error| service_error("quantitative validation", error))?,
+                        basic_offset_table_offsets: pixel.basic_offset_table.len(),
+                    }
+                } else if bits_allocated == 1 {
                     PixelDataLengthFormula::BitPackedContinuousFrames
                 } else {
                     PixelDataLengthFormula::ContiguousSamples

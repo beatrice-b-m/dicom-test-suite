@@ -3,6 +3,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use dicom_test_suite::corpus_plan::PlannedArtifact;
 use dicom_test_suite::curated_execution::CuratedExecutionServiceFactory;
 use dicom_test_suite::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlan, CuratedScCorpusPlanProvider, CuratedScPlanRequest,
@@ -18,6 +19,7 @@ use dicom_test_suite::executor::evidence::ResultStatus;
 use dicom_test_suite::executor::frame_codec::{
     ExternalFrameCodecCommands, FrameCodecLimits, RegisteredFrameCodecService,
 };
+use dicom_test_suite::executor::services::{ByteBinding, SlotExecutionBinding};
 use dicom_test_suite::runtime_capabilities::CapabilityInventory;
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -95,6 +97,73 @@ fn qualified_deflated_dataset_executes_with_shared_materialization_evidence() {
         destination
             .0
             .join("classic/sc/mono2_u8_deflated_explicit_le/instance.dcm")
+            .is_file()
+    );
+}
+
+#[cfg(feature = "deflate")]
+#[test]
+fn qualified_deflated_seg_executes_per_frame_with_reference_closure() {
+    let bundle = plan(
+        "derived/seg/binary_multiframe_deflated_image_frame",
+        CapabilityInventory {
+            compiled_features: set(&["deflate"]),
+            executable_codec_backends: set(&["dicom_rs_deflated_image_frame_writer"]),
+            ..CapabilityInventory::default()
+        },
+    );
+    let target = bundle
+        .plan
+        .artifacts
+        .iter()
+        .find(|artifact| {
+            let binding = match artifact {
+                PlannedArtifact::Dicom(artifact) => artifact.case_binding.as_ref(),
+                PlannedArtifact::ImportedDicom(artifact) => artifact.case_binding.as_ref(),
+                PlannedArtifact::Auxiliary(_)
+                | PlannedArtifact::Mutation(_)
+                | PlannedArtifact::Qualification(_) => None,
+            };
+            binding.is_some_and(|binding| {
+                binding.case_id == "derived/seg/binary_multiframe_deflated_image_frame"
+            })
+        })
+        .unwrap();
+    let SlotExecutionBinding::CodecRequest { request } =
+        &bundle.bindings[target.logical_id()].slots["pixels"]
+    else {
+        panic!("Deflated Image Frame SEG must execute through the frame codec")
+    };
+    assert_eq!(request.backend_id, "dicom_rs_deflated_image_frame_writer");
+    assert_eq!(request.frames.len(), 2);
+    for frame in &request.frames {
+        let ByteBinding::Inline { bytes, sha256 } = &frame.bytes else {
+            panic!("Deflated Image Frame native payloads must be inline")
+        };
+        assert_eq!(bytes.len(), 1);
+        assert_eq!(sha256, &dicom_test_suite::sha256_hex(bytes));
+    }
+    assert!(bundle.plan.dependencies.iter().any(|dependency| {
+        dependency.artifact_id == target.logical_id()
+            && dependency.relationship == "source_image_for_segmentation"
+    }));
+
+    let destination = TempRoot::absent("deflated-seg");
+    let result = CorpusExecutor::new(CuratedExecutionServiceFactory::new(&bundle), Projector)
+        .execute(&bundle.plan, &destination.0, 1, &CancellationToken::new())
+        .unwrap();
+    let evidence = result
+        .evidence
+        .artifacts
+        .iter()
+        .find(|artifact| artifact.logical_id == target.logical_id())
+        .unwrap();
+    assert_eq!(evidence.codecs.len(), 1);
+    assert_eq!(evidence.codecs[0].decoded_frame_sha256.len(), 2);
+    assert!(
+        destination
+            .0
+            .join("derived/seg/binary_multiframe_deflated_image_frame/instance.dcm")
             .is_file()
     );
 }

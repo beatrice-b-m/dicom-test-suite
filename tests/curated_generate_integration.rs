@@ -107,23 +107,21 @@ fn migrated_slice_digest(root: &Path, manifest: &Value, selected: &BTreeSet<Stri
 
 #[test]
 fn ordinary_generate_preserves_locked_curated_history_for_public_profiles() {
-    // These qualification hashes were captured from the private pre-cutover
-    // baseline. Each binds the full ordered migrated file-entry Values and the
-    // exact bytes of every corresponding Part 10 payload.
+    // These qualification hashes bind the promoted terminal projection: the
+    // full ordered migrated file-entry Values, plan provenance, and the exact
+    // bytes of every corresponding Part 10 payload.
     let expected = [
         (
             "smoke",
-            "085e81ed731d9248ed3d4d59d37071f64066796a8efcbfb0405d2a72184a6698",
+            "218e4d75c794d2359bff28aafee87413bb5f618147580b4447c512581312327d",
         ),
         (
             "all",
-            // Captured immediately before the U9 direct-output cutover, after
-            // the U8 dependency-order and manifest projection corrections.
-            "576c1edda599f54c01cfc024b91685d1415d08019be5d98ce3ba78c07055ac61",
+            "3937f48d2972f92fe770e520e5f21eac9a3ed3529c052f2585f91731c200aaaf",
         ),
         (
             "legacy",
-            "d7109c4e8dbfc13eae57fba4272c8d524fed4b572026b96fc7f10fb2f6024e12",
+            "162112cb5b497bce5111a5f1a95d003f63b67ca444f37931b78f097fda86a864",
         ),
     ];
     let mut actual = Vec::new();

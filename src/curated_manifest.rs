@@ -2,6 +2,7 @@
 
 mod classic;
 mod negative;
+mod qualification;
 mod stress;
 
 use std::collections::BTreeSet;
@@ -768,13 +769,18 @@ pub fn project_curated_file_entries(
     context: &CuratedScProjectionContext,
     input: &ManifestProjectionCompatibilityInput,
 ) -> Result<Vec<Value>, CuratedManifestError> {
-    if context.artifacts.len() != input.artifacts.len() {
+    let file_artifacts = input
+        .artifacts
+        .iter()
+        .filter(|artifact| !matches!(artifact.planned, PlannedArtifact::Qualification(_)))
+        .collect::<Vec<_>>();
+    if context.artifacts.len() != file_artifacts.len() {
         return fail("projection context and execution artifact counts differ");
     }
     let mut entries = context
         .artifacts
         .iter()
-        .zip(&input.artifacts)
+        .zip(file_artifacts)
         .map(|(ctx, artifact)| {
             if ctx.artifact_id != artifact.execution.logical_id
                 || artifact.planned.logical_id() != ctx.artifact_id
@@ -791,6 +797,15 @@ pub fn project_curated_file_entries(
     project_wsi_pyramid_group(context, input, &mut entries)?;
     entries.retain(|entry| !entry.is_null());
     Ok(entries)
+}
+
+/// Projects public payload-free qualification records from preserved executor
+/// evidence. Source DICOM artifacts remain ordinary file projection inputs;
+/// qualifications never manufacture a file entry.
+pub fn project_curated_qualifications(
+    input: &ManifestProjectionCompatibilityInput,
+) -> Result<Vec<Value>, CuratedManifestError> {
+    qualification::project_qualifications(input)
 }
 
 pub fn project_curated_stress_qualifications(

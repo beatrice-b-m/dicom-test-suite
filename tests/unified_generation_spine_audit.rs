@@ -198,23 +198,20 @@ fn every_temporary_bridge_is_named_and_assigned_to_a_removal_task() {
     let generator = fs::read_to_string("src/generator.rs").unwrap();
     let advanced = fs::read_to_string("src/composition/advanced_family.rs").unwrap();
     let curated = fs::read_to_string("src/composition/curated.rs").unwrap();
-    for (symbol, source, removal) in [
-        (
-            "migrate_shared_plan_curated_files",
-            generator.as_str(),
-            "U9.1",
-        ),
-        (
-            "write_composition_default_artifacts",
-            advanced.as_str(),
-            "U5.6",
-        ),
-        (
-            "resolved_plan_from_curated_dataset",
-            curated.as_str(),
-            "U9.1",
-        ),
-    ] {
+    assert!(
+        !generator.contains("migrate_shared_plan_curated_files"),
+        "the post-write curated migration pass must be absent"
+    );
+    assert!(
+        !generator.contains("write_composition_default_artifacts")
+            && !advanced.contains("write_composition_default_artifacts"),
+        "composition defaults must not invoke or retain a curated generator bridge"
+    );
+    for (symbol, source, removal) in [(
+        "resolved_plan_from_curated_dataset",
+        curated.as_str(),
+        "U9.1",
+    )] {
         assert!(
             source.contains(symbol),
             "baseline no longer contains {symbol}"

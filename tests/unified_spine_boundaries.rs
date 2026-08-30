@@ -96,7 +96,7 @@ fn neutral_spine_modules_do_not_depend_on_frontends_or_reporting() {
 }
 
 #[test]
-fn composition_has_only_the_named_temporary_generator_dependency() {
+fn composition_has_no_generator_dependency() {
     let composition_root = repository_root().join("src/composition");
     let mut imports = BTreeSet::new();
     for path in rust_files(&composition_root) {
@@ -115,15 +115,9 @@ fn composition_has_only_the_named_temporary_generator_dependency() {
         }
     }
 
-    // U5.6 removes this reverse dependency when advanced defaults move to
-    // neutral plan providers. Keeping the exact import here prevents the
-    // temporary exception from expanding to another file or generator API.
-    let expected = BTreeSet::from([String::from(
-        "src/composition/advanced_family.rs:use crate::generator::write_composition_default_artifacts;",
-    )]);
-    assert_eq!(
-        imports, expected,
-        "composition-to-generator imports changed; only the U5.6 exception is permitted"
+    assert!(
+        imports.is_empty(),
+        "composition must not depend on the curated generator: {imports:?}"
     );
 }
 

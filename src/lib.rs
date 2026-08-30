@@ -610,16 +610,6 @@ fn prepare_curated_sc_plan(
     )
 }
 
-pub(crate) fn prepare_curated_case_plan(
-    case_ids: Vec<String>,
-    seed: u64,
-) -> Result<Option<CuratedScCorpusPlan>, GenerateError> {
-    if case_ids.is_empty() {
-        return Ok(None);
-    }
-    prepare_curated_plan_for_selection(CuratedScSelection::CaseIds(case_ids), seed)
-}
-
 fn prepare_curated_plan_for_selection(
     selection: CuratedScSelection,
     seed: u64,
@@ -741,13 +731,6 @@ fn execute_curated_sc_plan_output(
         files,
         qualifications,
     })
-}
-
-pub(crate) fn execute_curated_sc_plan(
-    bundle: Option<&CuratedScCorpusPlan>,
-    staging_root: &Path,
-) -> Result<Vec<generator::GeneratedFile>, GenerateError> {
-    execute_curated_sc_plan_output(bundle, staging_root).map(|output| output.files)
 }
 
 pub fn write_generation_run(

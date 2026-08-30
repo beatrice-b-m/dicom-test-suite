@@ -166,6 +166,22 @@ impl CorpusPlan {
                     });
                 }
             }
+            if let PlannedArtifact::ImportedDicom(imported) = artifact {
+                for source_id in imported.provider.source_assets.values() {
+                    if !ids.contains(source_id) {
+                        return Err(CorpusPlanError::UnknownDependency {
+                            artifact_id: imported.logical_id.clone(),
+                            depends_on: source_id.clone(),
+                        });
+                    }
+                    if !dependency_pairs.contains(&(&imported.logical_id, source_id)) {
+                        return Err(CorpusPlanError::MissingImportedDicomDependency {
+                            artifact_id: imported.logical_id.clone(),
+                            source_artifact_id: source_id.clone(),
+                        });
+                    }
+                }
+            }
         }
 
         for capability in &self.unavailable {
@@ -333,6 +349,7 @@ impl CorpusPlan {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum PlannedArtifact {
     Dicom(PlannedDicomArtifact),
+    ImportedDicom(PlannedImportedDicomArtifact),
     Mutation(PlannedMutationArtifact),
     Qualification(PlannedQualification),
     Auxiliary(PlannedAuxiliaryArtifact),
@@ -342,6 +359,7 @@ impl PlannedArtifact {
     pub fn logical_id(&self) -> &str {
         match self {
             Self::Dicom(value) => &value.logical_id,
+            Self::ImportedDicom(value) => &value.logical_id,
             Self::Mutation(value) => &value.logical_id,
             Self::Qualification(value) => &value.logical_id,
             Self::Auxiliary(value) => &value.logical_id,
@@ -351,6 +369,7 @@ impl PlannedArtifact {
     pub fn provenance(&self) -> &ArtifactProvenance {
         match self {
             Self::Dicom(value) => &value.provenance,
+            Self::ImportedDicom(value) => &value.provenance,
             Self::Mutation(value) => &value.provenance,
             Self::Qualification(value) => &value.provenance,
             Self::Auxiliary(value) => &value.provenance,
@@ -360,6 +379,7 @@ impl PlannedArtifact {
     pub fn order(&self) -> u64 {
         match self {
             Self::Dicom(value) => value.order,
+            Self::ImportedDicom(value) => value.order,
             Self::Mutation(value) => value.order,
             Self::Qualification(value) => value.order,
             Self::Auxiliary(value) => value.order,
@@ -369,6 +389,7 @@ impl PlannedArtifact {
     pub fn output(&self) -> Option<&OutputPlan> {
         match self {
             Self::Dicom(value) => Some(&value.output),
+            Self::ImportedDicom(value) => Some(&value.output),
             Self::Mutation(value) => Some(&value.output),
             Self::Qualification(_) => None,
             Self::Auxiliary(value) => Some(&value.output),
@@ -378,6 +399,7 @@ impl PlannedArtifact {
     pub fn resource_estimate(&self) -> &ArtifactResourceEstimate {
         match self {
             Self::Dicom(value) => &value.resources,
+            Self::ImportedDicom(value) => &value.resources,
             Self::Mutation(value) => &value.resources,
             Self::Qualification(value) => &value.resources,
             Self::Auxiliary(value) => &value.resources,
@@ -389,10 +411,106 @@ impl PlannedArtifact {
         self.provenance().validate()?;
         match self {
             Self::Dicom(value) => value.validate(),
+            Self::ImportedDicom(value) => value.validate(),
             Self::Mutation(value) => value.validate(),
             Self::Qualification(value) => value.validate(),
             Self::Auxiliary(value) => value.validate(),
         }
+    }
+}
+
+/// A full Part 10 object produced by a pinned external provider.
+///
+/// Unlike native DICOM artifacts, this contract deliberately does not carry
+/// dataset construction instructions. The provider output is an opaque Part 10
+/// payload until execution, where its declared identity is verified before it
+/// becomes a publication candidate.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PlannedImportedDicomArtifact {
+    pub logical_id: String,
+    pub order: u64,
+    pub provenance: ArtifactProvenance,
+    pub case_binding: CaseBinding,
+    pub provider: ImportedDicomProviderPlan,
+    pub declared_instance: ResolvedInstancePlan,
+    pub output: OutputPlan,
+    pub validation: ValidationPlan,
+    pub evidence: EvidencePlan,
+    pub resources: ArtifactResourceEstimate,
+}
+
+impl PlannedImportedDicomArtifact {
+    fn validate(&self) -> Result<(), CorpusPlanError> {
+        self.case_binding.validate()?;
+        self.provider.validate(&self.logical_id)?;
+        if self.declared_instance.instance_id != self.logical_id {
+            return Err(CorpusPlanError::InstanceIdentityMismatch {
+                logical_id: self.logical_id.clone(),
+                instance_id: self.declared_instance.instance_id.clone(),
+            });
+        }
+        if self.declared_instance.transfer_syntax_uid != self.provider.transfer_syntax_uid {
+            return Err(CorpusPlanError::TransferSyntaxMismatch {
+                logical_id: self.logical_id.clone(),
+                instance_uid: self.declared_instance.transfer_syntax_uid.clone(),
+                encoding_uid: self.provider.transfer_syntax_uid.clone(),
+            });
+        }
+        self.output.validate()?;
+        self.validation.validate()?;
+        self.evidence.validate()?;
+        self.resources.validate()?;
+        if self.provider.maximum_size_bytes > self.resources.output_bytes
+            || self.provider.maximum_size_bytes > self.resources.peak_working_bytes
+        {
+            return Err(CorpusPlanError::ImportedDicomResourceMismatch {
+                logical_id: self.logical_id.clone(),
+            });
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ImportedDicomProviderPlan {
+    pub request_id: String,
+    pub provider_id: String,
+    pub required_version: String,
+    pub output_slot: String,
+    pub media_type: String,
+    pub maximum_size_bytes: u64,
+    pub expected_sha256: Option<String>,
+    pub transfer_syntax_uid: String,
+    #[serde(default)]
+    pub parameters: BTreeMap<String, Value>,
+    /// Provider input role to logical dependency/source artifact ID.
+    #[serde(default)]
+    pub source_assets: BTreeMap<String, String>,
+}
+
+impl ImportedDicomProviderPlan {
+    fn validate(&self, artifact_id: &str) -> Result<(), CorpusPlanError> {
+        validate_identifier("import request ID", &self.request_id)?;
+        validate_identifier("import provider ID", &self.provider_id)?;
+        validate_identifier("import provider version", &self.required_version)?;
+        validate_identifier("import output slot", &self.output_slot)?;
+        validate_identifier("import media type", &self.media_type)?;
+        validate_uid("import transfer syntax UID", &self.transfer_syntax_uid)?;
+        if self.media_type != "application/dicom" || self.maximum_size_bytes == 0 {
+            return Err(CorpusPlanError::InvalidImportedDicomProvider(
+                artifact_id.to_owned(),
+            ));
+        }
+        if let Some(digest) = &self.expected_sha256 {
+            validate_sha256("import expected SHA-256", digest)?;
+        }
+        for (role, source) in &self.source_assets {
+            validate_identifier("import source role", role)?;
+            validate_identifier("import source artifact ID", source)?;
+        }
+        Ok(())
     }
 }
 
@@ -1129,6 +1247,14 @@ pub enum CorpusPlanError {
         artifact_id: String,
         source_artifact_id: String,
     },
+    MissingImportedDicomDependency {
+        artifact_id: String,
+        source_artifact_id: String,
+    },
+    InvalidImportedDicomProvider(String),
+    ImportedDicomResourceMismatch {
+        logical_id: String,
+    },
     UnknownProvenance {
         artifact_id: String,
         referenced_id: String,
@@ -1256,6 +1382,23 @@ impl fmt::Display for CorpusPlanError {
             } => write!(
                 formatter,
                 "mutation artifact {artifact_id} lacks an explicit dependency on source {source_artifact_id}"
+            ),
+            Self::MissingImportedDicomDependency {
+                artifact_id,
+                source_artifact_id,
+            } => write!(
+                formatter,
+                "imported DICOM artifact {artifact_id} lacks an explicit dependency on source {source_artifact_id}"
+            ),
+            Self::InvalidImportedDicomProvider(id) => {
+                write!(
+                    formatter,
+                    "invalid imported DICOM provider contract for {id}"
+                )
+            }
+            Self::ImportedDicomResourceMismatch { logical_id } => write!(
+                formatter,
+                "imported DICOM provider maximum exceeds resource estimate for {logical_id}"
             ),
             Self::UnknownProvenance {
                 artifact_id,

@@ -558,6 +558,7 @@ impl ArtifactWorker<ArtifactServiceOutputs, ArtifactExecutionError> for Executio
                 artifact_id.to_owned(),
             ));
         }
+        validate_imported_dicom_binding(artifact, &bindings)?;
         let mut providers = Vec::new();
         let mut codecs = Vec::new();
         let mut transient_peak_working_bytes = 0_u64;
@@ -804,6 +805,46 @@ impl ArtifactWorker<ArtifactServiceOutputs, ArtifactExecutionError> for Executio
     }
 }
 
+fn validate_imported_dicom_binding(
+    artifact: &PlannedArtifact,
+    bindings: &crate::executor::services::ArtifactExecutionBindings,
+) -> Result<(), ArtifactExecutionError> {
+    let PlannedArtifact::ImportedDicom(imported) = artifact else {
+        return Ok(());
+    };
+    let Some(crate::executor::services::SlotExecutionBinding::ProviderRequest { request }) =
+        bindings.slots.get(&imported.provider.output_slot)
+    else {
+        return Err(ArtifactExecutionError::ImportedDicomBindingMismatch(
+            imported.logical_id.clone(),
+        ));
+    };
+    let expected = &imported.provider;
+    let output_matches = request.expected_outputs.as_slice()
+        == [crate::executor::services::ProviderOutputExpectation {
+            slot: expected.output_slot.clone(),
+            media_type: expected.media_type.clone(),
+            maximum_size_bytes: expected.maximum_size_bytes,
+            expected_sha256: expected.expected_sha256.clone(),
+        }];
+    if request.request_id != expected.request_id
+        || request.artifact_id != imported.logical_id
+        || request.provider_id != expected.provider_id
+        || request.required_version != expected.required_version
+        || request.parameters != expected.parameters
+        || request
+            .input_assets
+            .keys()
+            .ne(expected.source_assets.keys())
+        || !output_matches
+    {
+        return Err(ArtifactExecutionError::ImportedDicomBindingMismatch(
+            imported.logical_id.clone(),
+        ));
+    }
+    Ok(())
+}
+
 impl ExecutionWorker<'_> {
     fn asset_snapshot(&self) -> StagedAssetRegistry {
         self.registry
@@ -916,6 +957,7 @@ fn materialization_transient_bytes(
 fn artifact_validation(artifact: &PlannedArtifact) -> &ValidationPlan {
     match artifact {
         PlannedArtifact::Dicom(value) => &value.validation,
+        PlannedArtifact::ImportedDicom(value) => &value.validation,
         PlannedArtifact::Mutation(value) => &value.validation,
         PlannedArtifact::Qualification(value) => &value.validation,
         PlannedArtifact::Auxiliary(value) => &value.validation,
@@ -925,6 +967,7 @@ fn artifact_validation(artifact: &PlannedArtifact) -> &ValidationPlan {
 fn artifact_obligations(artifact: &PlannedArtifact) -> &[EvidenceObligation] {
     match artifact {
         PlannedArtifact::Dicom(value) => &value.evidence.obligations,
+        PlannedArtifact::ImportedDicom(value) => &value.evidence.obligations,
         PlannedArtifact::Mutation(value) => &value.evidence.obligations,
         PlannedArtifact::Qualification(value) => &value.evidence.obligations,
         PlannedArtifact::Auxiliary(value) => &value.evidence.obligations,
@@ -1058,6 +1101,7 @@ impl std::error::Error for ManifestProjectionError {}
 
 #[derive(Debug)]
 pub enum ArtifactExecutionError {
+    ImportedDicomBindingMismatch(String),
     Service(ServiceInvocationError),
     ServiceContract(crate::executor::services::ServiceError),
     Cancelled(Cancelled),

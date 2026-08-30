@@ -422,6 +422,9 @@ fn adapt_artifact(
                     PlannedArtifact::Dicom(value) => {
                         Some(value.encoding.transfer_syntax_uid.clone())
                     }
+                    PlannedArtifact::ImportedDicom(value) => {
+                        Some(value.provider.transfer_syntax_uid.clone())
+                    }
                     _ => None,
                 },
                 streamed_slots,
@@ -471,6 +474,10 @@ fn adapt_artifact(
         PlannedArtifact::Dicom(value) => {
             (ArtifactKind::Dicom, Some(value.instance.canonical_sha256()))
         }
+        PlannedArtifact::ImportedDicom(value) => (
+            ArtifactKind::Dicom,
+            Some(value.declared_instance.canonical_sha256()),
+        ),
         PlannedArtifact::Mutation(_) => (ArtifactKind::Mutation, None),
         PlannedArtifact::Qualification(_) => (ArtifactKind::Qualification, None),
         PlannedArtifact::Auxiliary(_) => (ArtifactKind::Auxiliary, None),
@@ -676,6 +683,7 @@ fn service_claim<'a>(result: &'a MaterializationResult, key: &str) -> Option<&'a
 fn artifact_contracts(artifact: &PlannedArtifact) -> (&ValidationPlan, &EvidencePlan) {
     match artifact {
         PlannedArtifact::Dicom(value) => (&value.validation, &value.evidence),
+        PlannedArtifact::ImportedDicom(value) => (&value.validation, &value.evidence),
         PlannedArtifact::Mutation(value) => (&value.validation, &value.evidence),
         PlannedArtifact::Qualification(value) => (&value.validation, &value.evidence),
         PlannedArtifact::Auxiliary(value) => (&value.validation, &value.evidence),

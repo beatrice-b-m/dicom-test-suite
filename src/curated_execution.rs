@@ -361,6 +361,7 @@ impl CuratedExecutionServiceFactory {
                             Some((artifact.logical_id.clone(), artifact.clone()))
                         }
                         PlannedArtifact::Auxiliary(_)
+                        | PlannedArtifact::ImportedDicom(_)
                         | PlannedArtifact::Mutation(_)
                         | PlannedArtifact::Qualification(_) => None,
                     })

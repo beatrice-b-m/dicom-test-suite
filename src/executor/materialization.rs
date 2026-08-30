@@ -13,8 +13,8 @@ use serde_json::{Value, json};
 use crate::composition::{ContentMaterialization, Part10Materializer};
 use crate::corpus_plan::{
     FragmentationPolicy, OffsetTablePolicy, PlannedArtifact, PlannedAuxiliaryArtifact,
-    PlannedDicomArtifact, PlannedMutationArtifact, PlannedMutationOperation, PlannedQualification,
-    QualificationPayloadPolicy,
+    PlannedDicomArtifact, PlannedImportedDicomArtifact, PlannedMutationArtifact,
+    PlannedMutationOperation, PlannedQualification, QualificationPayloadPolicy,
 };
 use crate::encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData, encapsulate_frames};
 use crate::executor::cancellation::CancellationToken;
@@ -115,6 +115,9 @@ impl MaterializationDispatcher {
             PlannedArtifact::Dicom(artifact) => {
                 self.materialize_dicom(artifact, request, assets, cancellation)
             }
+            PlannedArtifact::ImportedDicom(artifact) => {
+                self.materialize_imported_dicom(artifact, request, assets, cancellation)
+            }
             PlannedArtifact::Mutation(artifact) => {
                 self.materialize_mutation(artifact, request, assets)
             }
@@ -129,6 +132,118 @@ impl MaterializationDispatcher {
             return Err(MaterializationError::Cancelled);
         }
         Ok(result)
+    }
+
+    fn materialize_imported_dicom(
+        &self,
+        artifact: &PlannedImportedDicomArtifact,
+        request: &MaterializationRequest,
+        assets: &StagedAssetRegistry,
+        cancellation: &CancellationToken,
+    ) -> Result<MaterializationResult, MaterializationError> {
+        let binding = request
+            .bindings
+            .slots
+            .get(&artifact.provider.output_slot)
+            .ok_or_else(|| {
+                MaterializationError::MissingImportedDicomBinding(artifact.logical_id.clone())
+            })?;
+        let SlotExecutionBinding::StagedAsset { asset } = binding else {
+            return Err(MaterializationError::UnresolvedProviderBinding {
+                artifact_id: artifact.logical_id.clone(),
+                slot: artifact.provider.output_slot.clone(),
+            });
+        };
+        let declaration = assets.resolve(asset)?;
+        if declaration.media_type != artifact.provider.media_type
+            || declaration.size_bytes > artifact.provider.maximum_size_bytes
+            || artifact
+                .provider
+                .expected_sha256
+                .as_ref()
+                .is_some_and(|expected| expected != &declaration.sha256)
+        {
+            return Err(MaterializationError::ImportedDicomContract(
+                artifact.logical_id.clone(),
+            ));
+        }
+        if cancellation.is_cancelled() {
+            return Err(MaterializationError::Cancelled);
+        }
+        let source = self.staging_root.join(declaration.relative_path.as_str());
+        let bytes = fs::read(&source).map_err(|source_error| MaterializationError::Io {
+            path: source.clone(),
+            source: source_error,
+        })?;
+        if bytes.len() as u64 != declaration.size_bytes || sha256_hex(&bytes) != declaration.sha256
+        {
+            return Err(MaterializationError::StagedAssetChanged(asset.clone()));
+        }
+        if cancellation.is_cancelled() {
+            return Err(MaterializationError::Cancelled);
+        }
+        let path = self.output_path(artifact.output.relative_path.as_str())?;
+        write_new(&path, &bytes)?;
+        let object = dicom_object::open_file(&path).map_err(|_| {
+            MaterializationError::ImportedDicomContract(artifact.logical_id.clone())
+        })?;
+        let expected_sop_class = Some(artifact.declared_instance.sop_class_uid.as_str());
+        let expected_sop_instance = artifact
+            .declared_instance
+            .identities
+            .get(&crate::composition::CompositionUidRole::SopInstance, 0);
+        let actual_sop_class = object
+            .element_by_name("SOPClassUID")
+            .ok()
+            .and_then(|element| element.to_str().ok())
+            .map(|value| value.trim_matches([' ', '\0']).to_owned());
+        let actual_sop_instance = object
+            .element_by_name("SOPInstanceUID")
+            .ok()
+            .and_then(|element| element.to_str().ok())
+            .map(|value| value.trim_matches([' ', '\0']).to_owned());
+        if object.meta().transfer_syntax() != artifact.provider.transfer_syntax_uid
+            || expected_sop_class != actual_sop_class.as_deref()
+            || expected_sop_instance != actual_sop_instance.as_deref()
+        {
+            return Err(MaterializationError::ImportedDicomIdentity(
+                artifact.logical_id.clone(),
+            ));
+        }
+        let output = self.produced_file(
+            &artifact.logical_id,
+            artifact.output.relative_path.as_str(),
+            "application/dicom",
+            artifact.output.publish,
+        )?;
+        Ok(MaterializationResult {
+            artifact_id: artifact.logical_id.clone(),
+            output: Some(output.clone()),
+            backend: built_in_identity("imported_part10_materializer"),
+            evidence: vec![ServiceEvidence {
+                evidence_id: format!("imported_part10:{}", artifact.logical_id),
+                evidence_kind: "imported_part10_contract".into(),
+                producer: built_in_identity("imported_part10_materializer"),
+                claims: BTreeMap::from([
+                    (
+                        "materialized_instance_plan_sha256".into(),
+                        json!(artifact.declared_instance.canonical_sha256()),
+                    ),
+                    (
+                        "materialized_artifact_sha256".into(),
+                        json!(output.observed_sha256),
+                    ),
+                    (
+                        "provider_request_id".into(),
+                        json!(artifact.provider.request_id),
+                    ),
+                    (
+                        "transfer_syntax_uid".into(),
+                        json!(artifact.provider.transfer_syntax_uid),
+                    ),
+                ]),
+            }],
+        })
     }
 
     fn materialize_dicom(
@@ -1353,6 +1468,9 @@ pub enum MaterializationError {
         actual_sha256: String,
     },
     InvalidPart10FileMeta,
+    MissingImportedDicomBinding(String),
+    ImportedDicomContract(String),
+    ImportedDicomIdentity(String),
     MissingPrivateMutationSource(String),
     MutationSourceNotPrivate(StagedAssetHandle),
     StagedAssetChanged(StagedAssetHandle),
@@ -1413,11 +1531,13 @@ mod tests {
         CompositionUidRole, IdentityPlan, ResolvedInstancePlan, TemplateId, TemplateVersion,
     };
     use crate::corpus_plan::{
-        ArtifactProvenance, ArtifactResourceEstimate, EncodingPlan, EvidenceIndependence,
-        EvidenceObligation, EvidencePlan, FileMetaPolicy, FragmentationPolicy,
-        ImplementationIdentityPlan, ItemLengthPolicy, MutationPlan, OffsetTablePolicy, OutputPlan,
-        OutputRelativePath, PlannedByteRange, PlannedMutationOperation, PreamblePolicy,
-        SequenceLengthPolicy, ValidationPlan, ValidationRequirement, ValidationRule,
+        ArtifactProvenance, ArtifactResourceEstimate, CORPUS_PLAN_SCHEMA_VERSION, CaseBinding,
+        CorpusPlan, EncodingPlan, EvidenceIndependence, EvidenceObligation, EvidencePlan,
+        FileMetaPolicy, FragmentationPolicy, ImplementationIdentityPlan, ImportedDicomProviderPlan,
+        ItemLengthPolicy, MutationPlan, OffsetTablePolicy, OutputPlan, OutputRelativePath,
+        PlannedByteRange, PlannedImportedDicomArtifact, PlannedMutationOperation, PreamblePolicy,
+        PublicationPlan, PublicationTransaction, ResourcePlan, SequenceLengthPolicy,
+        ValidationPlan, ValidationRequirement, ValidationRule,
     };
 
     static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -1546,6 +1666,142 @@ mod tests {
 
     fn dispatcher(root: &Path) -> MaterializationDispatcher {
         MaterializationDispatcher::new(root, Arc::new(TextAuxiliary)).unwrap()
+    }
+
+    #[test]
+    fn imported_part10_is_byte_exact_and_identity_checked() {
+        let native_root = root("import-source");
+        let native_dispatcher = dispatcher(&native_root);
+        let native = dicom("primary", "source.dcm", true);
+        let native_request = MaterializationRequest {
+            bindings: ArtifactExecutionBindings {
+                artifact_id: "primary".into(),
+                slots: BTreeMap::new(),
+            },
+            artifact: native.clone(),
+        };
+        native_dispatcher
+            .dispatch(&native_request, &StagedAssetRegistry::default())
+            .unwrap();
+        let bytes = fs::read(native_root.join("source.dcm")).unwrap();
+        let PlannedArtifact::Dicom(native) = native else {
+            unreachable!()
+        };
+
+        let import_root = root("import-target");
+        fs::create_dir(import_root.join("provider")).unwrap();
+        fs::write(import_root.join("provider/result.dcm"), &bytes).unwrap();
+        let handle = StagedAssetHandle::new("provider-result").unwrap();
+        let produced = ProducedAsset::from_bytes(
+            handle.clone(),
+            StagingRelativePath::new("provider/result.dcm").unwrap(),
+            "application/dicom",
+            &bytes,
+        );
+        let mut registry = StagedAssetRegistry::default();
+        registry.register(produced).unwrap();
+        let imported = PlannedArtifact::ImportedDicom(PlannedImportedDicomArtifact {
+            logical_id: "primary".into(),
+            order: 0,
+            provenance: ArtifactProvenance::Requested,
+            case_binding: CaseBinding {
+                case_id: "external/test".into(),
+                recipe_id: "external.test".into(),
+                recipe_version: "1.0.0".into(),
+            },
+            provider: ImportedDicomProviderPlan {
+                request_id: "external-test".into(),
+                provider_id: "external.test".into(),
+                required_version: "1.0.0".into(),
+                output_slot: "dicom".into(),
+                media_type: "application/dicom".into(),
+                maximum_size_bytes: bytes.len() as u64,
+                expected_sha256: Some(sha256_hex(&bytes)),
+                transfer_syntax_uid: native.instance.transfer_syntax_uid.clone(),
+                parameters: BTreeMap::new(),
+                source_assets: BTreeMap::new(),
+            },
+            declared_instance: native.instance,
+            output: output("instances/imported.dcm", true),
+            validation: validation(),
+            evidence: evidence(),
+            resources: ArtifactResourceEstimate {
+                output_bytes: bytes.len() as u64,
+                peak_working_bytes: bytes.len() as u64,
+            },
+        });
+        let request = MaterializationRequest {
+            artifact: imported.clone(),
+            bindings: ArtifactExecutionBindings {
+                artifact_id: "primary".into(),
+                slots: BTreeMap::from([(
+                    "dicom".into(),
+                    SlotExecutionBinding::StagedAsset { asset: handle },
+                )]),
+            },
+        };
+        let round_trip: PlannedArtifact =
+            serde_json::from_slice(&serde_json::to_vec(&imported).unwrap()).unwrap();
+        assert_eq!(round_trip, imported);
+        let plan = CorpusPlan {
+            schema_version: CORPUS_PLAN_SCHEMA_VERSION.into(),
+            seed: 1,
+            artifacts: vec![imported.clone()],
+            dependencies: vec![],
+            unavailable: vec![],
+            publication: PublicationPlan {
+                manifest_path: OutputRelativePath::new("manifest.json").unwrap(),
+                transaction: PublicationTransaction::AtomicNoReplace,
+                private_staging: true,
+                no_overwrite: true,
+            },
+            resources: ResourcePlan {
+                max_artifacts: 1,
+                max_total_output_bytes: bytes.len() as u64,
+                max_peak_working_bytes: bytes.len() as u64,
+                max_parallelism: 1,
+            },
+        };
+        plan.validate().unwrap();
+        assert_eq!(
+            plan.canonical_bytes().unwrap(),
+            plan.canonical_bytes().unwrap()
+        );
+        let mut resource_mismatch = plan.clone();
+        let PlannedArtifact::ImportedDicom(value) = &mut resource_mismatch.artifacts[0] else {
+            unreachable!()
+        };
+        value.provider.maximum_size_bytes += 1;
+        assert!(matches!(
+            resource_mismatch.validate(),
+            Err(crate::corpus_plan::CorpusPlanError::ImportedDicomResourceMismatch { .. })
+        ));
+        let cancelled = CancellationToken::new();
+        cancelled.cancel();
+        assert!(matches!(
+            dispatcher(&import_root).dispatch_cancellable(&request, &registry, &cancelled),
+            Err(MaterializationError::Cancelled)
+        ));
+        dispatcher(&import_root)
+            .dispatch(&request, &registry)
+            .unwrap();
+        assert_eq!(
+            fs::read(import_root.join("instances/imported.dcm")).unwrap(),
+            bytes
+        );
+
+        let PlannedArtifact::ImportedDicom(mut mismatched) = imported else {
+            unreachable!()
+        };
+        mismatched.provider.transfer_syntax_uid = "1.2.840.10008.1.2".into();
+        let error = dispatcher(&import_root).dispatch(
+            &MaterializationRequest {
+                artifact: PlannedArtifact::ImportedDicom(mismatched),
+                bindings: request.bindings,
+            },
+            &registry,
+        );
+        assert!(error.is_err());
     }
 
     fn native_request(

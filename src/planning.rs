@@ -607,6 +607,7 @@ impl<'a> CorpusPlanAssembler<'a> {
 fn validation_plan(artifact: &PlannedArtifact) -> &ValidationPlan {
     match artifact {
         PlannedArtifact::Dicom(value) => &value.validation,
+        PlannedArtifact::ImportedDicom(value) => &value.validation,
         PlannedArtifact::Mutation(value) => &value.validation,
         PlannedArtifact::Qualification(value) => &value.validation,
         PlannedArtifact::Auxiliary(value) => &value.validation,

@@ -61,6 +61,7 @@ use crate::recipes::{
     encapsulated_payload_input_from_recipe, validate_encapsulated_payload, validate_waveform,
     waveform_input_from_recipe,
 };
+use crate::recipes::{STRESS_CT_PLAN_PROVIDER_ID, StressCtArtifactParameters, StressCtParameters};
 use crate::sr_rt_validation::{
     DicomIdentityObservation, NativeSrKind, NativeSrValidationContract, RtObjectObservation,
     RtValidationContract, SemanticReferenceObservation, SpecializedValidationEvidence,
@@ -582,7 +583,10 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
                 ),
             ));
         }
-        if context.case_recipe.plan_provider_id == "native.classic_plan" {
+        if matches!(
+            context.case_recipe.plan_provider_id.as_str(),
+            "native.classic_plan" | STRESS_CT_PLAN_PROVIDER_ID
+        ) {
             let mut typed = validate_classic_part10(
                 &self.staging_root.join(declaration.relative_path.as_str()),
                 artifact,
@@ -605,6 +609,12 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
                 == Some("algorithm.classic_ct")
             {
                 typed.append(validate_classic_ct_group(
+                    context,
+                    &self.projection,
+                    &self.planned_artifacts,
+                )?);
+            } else if context.case_recipe.plan_provider_id == STRESS_CT_PLAN_PROVIDER_ID {
+                typed.append(validate_stress_ct_group(
                     context,
                     &self.projection,
                     &self.planned_artifacts,
@@ -3479,6 +3489,67 @@ fn validate_classic_part10(
         .collect::<Vec<_>>();
     let parameters = Value::Object(context.artifact_recipe.parameters.clone());
     match context.artifact_recipe.algorithm_provider_id.as_deref() {
+        Some("algorithm.stress_ct") => {
+            let provider: StressCtParameters = serde_json::from_value(Value::Object(
+                context.case_recipe.provider_parameters.clone(),
+            ))
+            .map_err(|error| service_error("validation", error))?;
+            let item: StressCtArtifactParameters = serde_json::from_value(parameters)
+                .map_err(|error| service_error("validation", error))?;
+            let frame_of_reference_uid = plan
+                .identities
+                .get(&CompositionUidRole::FrameOfReference, 0)
+                .ok_or_else(|| {
+                    ServiceInvocationError::new(
+                        "validation",
+                        "stress CT lacks Frame of Reference UID",
+                    )
+                })?;
+            let pixel_spacing = provider.pixel_spacing_mm.join("\\");
+            let position = item.image_position_patient.join("\\");
+            let rows =
+                u16::try_from(provider.rows).map_err(|error| service_error("validation", error))?;
+            let columns = u16::try_from(provider.columns)
+                .map_err(|error| service_error("validation", error))?;
+            validate_classic_base(
+                path,
+                artifact,
+                plan,
+                pixel_content,
+                ClassicPixelValidation {
+                    rows,
+                    columns,
+                    frames: 1,
+                    samples_per_pixel: 1,
+                    photometric_interpretation: "MONOCHROME2",
+                    bits_allocated: 16,
+                    bits_stored: 12,
+                    high_bit: 11,
+                    pixel_representation: 1,
+                    planar_configuration: None,
+                    decoded_frame_hashes: if encapsulated { &decoded_hashes } else { &[] },
+                    palette: None,
+                },
+                |expected| {
+                    expected.ct_image = Some(CtImageExpectations {
+                        modality: "CT",
+                        frame_of_reference_uid,
+                        image_type: "ORIGINAL\\PRIMARY\\AXIAL",
+                        pixel_spacing: &pixel_spacing,
+                        image_orientation_patient: "1\\0\\0\\0\\1\\0",
+                        image_position_patient: &position,
+                        slice_thickness: &provider.slice_spacing_mm,
+                        kvp: "120",
+                        acquisition_number: "1",
+                        rescale_intercept: "-1024",
+                        rescale_slope: "1",
+                        rescale_type: "HU",
+                        window_center: "40",
+                        window_width: "400",
+                    });
+                },
+            )
+        }
         Some("algorithm.classic_ct") => {
             let provider: ClassicCtProviderParameters = serde_json::from_value(Value::Object(
                 context.case_recipe.provider_parameters.clone(),
@@ -4380,6 +4451,84 @@ fn validate_classic_ct_group(
     Ok(TypedValidationCheck::passed_internal(
         "classic_ct_group_topology",
         "All planned CT siblings have ordered spatial positions, shared Study/Frame of Reference identity, and consistent distinct Series identity topology.",
+    ))
+}
+
+fn validate_stress_ct_group(
+    current: &CuratedArtifactProjectionContext,
+    contexts: &BTreeMap<String, CuratedArtifactProjectionContext>,
+    planned: &BTreeMap<String, crate::corpus_plan::PlannedDicomArtifact>,
+) -> Result<TypedValidationCheck, ServiceInvocationError> {
+    let provider: StressCtParameters = serde_json::from_value(Value::Object(
+        current.case_recipe.provider_parameters.clone(),
+    ))
+    .map_err(|error| service_error("validation", error))?;
+    if provider.policy.qualification_scale != "reduced"
+        || provider.policy.full_scale_available
+        || provider.policy.full_scale_reason.trim().is_empty()
+    {
+        return Err(ServiceInvocationError::new(
+            "validation",
+            "stress CT reduced-scale policy differs from the typed recipe",
+        ));
+    }
+    let mut members = contexts
+        .values()
+        .filter(|context| {
+            context.case_recipe.binding.case_id == current.case_recipe.binding.case_id
+                && context.artifact_recipe.algorithm_provider_id.as_deref()
+                    == Some("algorithm.stress_ct")
+        })
+        .map(|context| {
+            let parameters: StressCtArtifactParameters =
+                serde_json::from_value(Value::Object(context.artifact_recipe.parameters.clone()))
+                    .map_err(|error| service_error("validation", error))?;
+            let artifact = planned.get(&context.artifact_id).ok_or_else(|| {
+                ServiceInvocationError::new(
+                    "validation",
+                    "stress CT group member lacks a planned artifact",
+                )
+            })?;
+            Ok((context, parameters, artifact))
+        })
+        .collect::<Result<Vec<_>, ServiceInvocationError>>()?;
+    members.sort_by_key(|(context, _, _)| context.historical_artifact_order);
+    if members.len()
+        != usize::try_from(provider.instances)
+            .map_err(|error| service_error("validation", error))?
+    {
+        return Err(ServiceInvocationError::new(
+            "validation",
+            "stress CT planned cardinality differs from reduced-scale policy",
+        ));
+    }
+    let study = classic_identity(members[0].2, CompositionUidRole::StudyInstance)?;
+    let series = classic_identity(members[0].2, CompositionUidRole::SeriesInstance)?;
+    let frame = classic_identity(members[0].2, CompositionUidRole::FrameOfReference)?;
+    for (index, (_, parameters, artifact)) in members.iter().enumerate() {
+        if usize::try_from(parameters.uid_file_index)
+            .map_err(|error| service_error("validation", error))?
+            != index
+            || parameters.instance_number != (index + 1).to_string()
+            || parameters.position_along_normal != index as f64 * 2.5
+            || classic_identity(artifact, CompositionUidRole::StudyInstance)? != study
+            || classic_identity(artifact, CompositionUidRole::SeriesInstance)? != series
+            || classic_identity(artifact, CompositionUidRole::FrameOfReference)? != frame
+            || artifact.evidence.obligations.iter().all(|obligation| {
+                obligation.parameters.get("qualification_scale") != Some(&Value::from("reduced"))
+                    || obligation.parameters.get("full_scale_available")
+                        != Some(&Value::from(false))
+            })
+        {
+            return Err(ServiceInvocationError::new(
+                "validation",
+                "stress CT ordering, identities, or qualification evidence differ from plan",
+            ));
+        }
+    }
+    Ok(TypedValidationCheck::passed_internal(
+        "stress_ct_reduced_qualification",
+        "All planned stress CT slices preserve ordered geometry, shared study/series/frame identity, and explicit reduced-scale qualification evidence.",
     ))
 }
 

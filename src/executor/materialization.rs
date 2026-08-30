@@ -16,7 +16,10 @@ use crate::corpus_plan::{
     PlannedDicomArtifact, PlannedImportedDicomArtifact, PlannedMutationArtifact,
     PlannedMutationOperation, PlannedQualification, QualificationPayloadPolicy,
 };
-use crate::encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData, encapsulate_frames};
+use crate::encapsulation::{
+    BasicOffsetTablePolicy, EncapsulatedPixelData, ExtendedOffsetTable, encapsulate_frames,
+    serialize_ov_words_little_endian,
+};
 use crate::executor::cancellation::CancellationToken;
 use crate::mutation::{
     AcceptableOutcome, ByteRange, FailureLayer, LengthWidth, MutationParameters, MutationRequest,
@@ -455,7 +458,7 @@ impl MaterializationDispatcher {
                         }
                         OffsetTablePolicy::NotApplicable => unreachable!("prevalidated"),
                     };
-                    let encapsulated = match artifact.encoding.fragmentation {
+                    let mut encapsulated = match artifact.encoding.fragmentation {
                         FragmentationPolicy::OneFragmentPerFrame
                         | FragmentationPolicy::PreserveEncodedFrames => {
                             if artifact.encoding.offset_table == OffsetTablePolicy::Extended {
@@ -487,9 +490,67 @@ impl MaterializationDispatcher {
                                 .collect::<Result<Vec<_>, _>>()?;
                             encapsulate_frames(&encoded_frames, &fragments_per_frame, policy)
                         }
+                        FragmentationPolicy::FixedFragmentsPerFrame {
+                            fragments_per_frame,
+                        } => {
+                            if fragments_per_frame == 0 {
+                                return Err(MaterializationError::FragmentMaximumTooSmall);
+                            }
+                            let count = usize::try_from(fragments_per_frame)
+                                .map_err(|_| MaterializationError::FragmentMaximumRange)?;
+                            encapsulate_frames(
+                                &encoded_frames,
+                                &vec![count; encoded_frames.len()],
+                                policy,
+                            )
+                        }
                         FragmentationPolicy::Native => unreachable!("prevalidated"),
                     }
                     .map_err(MaterializationError::Encapsulation)?;
+                    if artifact.encoding.offset_table == OffsetTablePolicy::Extended
+                        && encapsulated.extended_offset_table.is_none()
+                    {
+                        let first_item_start = encapsulated
+                            .fragments
+                            .first()
+                            .ok_or(MaterializationError::FragmentMaximumRange)?
+                            .item_start_offset;
+                        let mut offsets =
+                            Vec::with_capacity(encapsulated.fragments_per_frame.len());
+                        let mut lengths =
+                            Vec::with_capacity(encapsulated.fragments_per_frame.len());
+                        let mut fragment_index = 0usize;
+                        for fragment_count in &encapsulated.fragments_per_frame {
+                            let first = encapsulated
+                                .fragments
+                                .get(fragment_index)
+                                .ok_or(MaterializationError::FragmentMaximumRange)?;
+                            offsets.push(u64::from(
+                                first
+                                    .item_start_offset
+                                    .checked_sub(first_item_start)
+                                    .ok_or(MaterializationError::FragmentMaximumRange)?,
+                            ));
+                            let mut frame_length = 0_u64;
+                            for _ in 0..*fragment_count {
+                                let fragment = encapsulated
+                                    .fragments
+                                    .get(fragment_index)
+                                    .ok_or(MaterializationError::FragmentMaximumRange)?;
+                                frame_length = frame_length
+                                    .checked_add(fragment.compressed_length as u64)
+                                    .ok_or(MaterializationError::FragmentMaximumRange)?;
+                                fragment_index += 1;
+                            }
+                            lengths.push(frame_length);
+                        }
+                        encapsulated.extended_offset_table = Some(ExtendedOffsetTable {
+                            offset_value_bytes: serialize_ov_words_little_endian(&offsets),
+                            length_value_bytes: serialize_ov_words_little_endian(&lengths),
+                            offsets,
+                            lengths,
+                        });
+                    }
                     let basic_offset_table = encapsulated.basic_offset_table.offsets.clone();
                     let compressed_frame_sha256 = encapsulated.compressed_frame_hashes.clone();
                     let fragment_count = encapsulated.fragments.len() as u64;

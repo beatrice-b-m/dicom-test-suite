@@ -799,14 +799,21 @@ impl EncodingPlan {
         if matches!(
             self.fragmentation,
             FragmentationPolicy::FixedMaximumBytes { maximum_bytes: 0 }
+                | FragmentationPolicy::FixedFragmentsPerFrame {
+                    fragments_per_frame: 0
+                }
         ) {
             return Err(CorpusPlanError::ZeroFragmentSizeLimit);
         }
         if self.offset_table == OffsetTablePolicy::Extended
-            && self.fragmentation != FragmentationPolicy::OneFragmentPerFrame
+            && !matches!(
+                self.fragmentation,
+                FragmentationPolicy::OneFragmentPerFrame
+                    | FragmentationPolicy::FixedFragmentsPerFrame { .. }
+            )
         {
             return Err(CorpusPlanError::InvalidEncodingCombination(
-                "extended offset tables require one fragment per frame",
+                "extended offset tables require a deterministic per-frame fragmentation policy",
             ));
         }
 
@@ -873,6 +880,7 @@ pub enum FragmentationPolicy {
     Native,
     OneFragmentPerFrame,
     FixedMaximumBytes { maximum_bytes: u64 },
+    FixedFragmentsPerFrame { fragments_per_frame: u32 },
     PreserveEncodedFrames,
 }
 

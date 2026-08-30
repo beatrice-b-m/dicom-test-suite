@@ -9,4 +9,5 @@ pub mod materialization;
 pub mod native_codec;
 pub mod scheduler;
 pub mod services;
+pub mod stress_content;
 pub mod transaction;

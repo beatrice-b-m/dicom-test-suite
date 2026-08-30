@@ -694,45 +694,157 @@ pub fn validate_extended_offset_table_round_trip(
     ))
 }
 
+/// Validate the neutral encapsulation facts shared by any Extended Offset
+/// Table user without imposing image-family module attributes.
+pub fn validate_extended_offset_table_arithmetic(
+    path: &Path,
+    expected: &ExtendedOffsetTableValidationSpec,
+) -> Result<(TypedValidationCheck, MetadataObservation), CuratedValidationError> {
+    validate_eot_spec(path, expected)?;
+    let object = open_file(path).map_err(|error| {
+        fail(
+            path,
+            format!("reopen Extended Offset Table fixture: {error}"),
+        )
+    })?;
+    for (tag, label, words) in [
+        (
+            tags::EXTENDED_OFFSET_TABLE,
+            "Extended Offset Table",
+            expected.offsets.as_slice(),
+        ),
+        (
+            tags::EXTENDED_OFFSET_TABLE_LENGTHS,
+            "Extended Offset Table Lengths",
+            expected.lengths.as_slice(),
+        ),
+    ] {
+        let element = object
+            .element(tag)
+            .map_err(|error| fail(path, format!("read {label}: {error}")))?;
+        let actual = element
+            .value()
+            .to_bytes()
+            .map_err(|error| fail(path, format!("decode {label}: {error}")))?;
+        let expected_bytes = words
+            .iter()
+            .flat_map(|word| word.to_le_bytes())
+            .collect::<Vec<_>>();
+        if element.vr() != VR::OV || actual.as_ref() != expected_bytes {
+            return Err(fail(
+                path,
+                format!("{label} did not preserve its exact OV words"),
+            ));
+        }
+    }
+    let pixel_data = object
+        .element(tags::PIXEL_DATA)
+        .map_err(|error| fail(path, format!("read EOT Pixel Data: {error}")))?;
+    let DicomValue::PixelSequence(sequence) = pixel_data.value() else {
+        return Err(fail(path, "EOT fixture Pixel Data is not encapsulated"));
+    };
+    let fragment_lengths = sequence
+        .fragments()
+        .iter()
+        .map(|fragment| fragment.len() as u64)
+        .collect::<Vec<_>>();
+    if !sequence.offset_table().is_empty() || fragment_lengths != expected.padded_fragment_lengths {
+        return Err(fail(
+            path,
+            format!(
+                "EOT Pixel Data expected an empty BOT and padded item lengths {:?}, found {:?}",
+                expected.padded_fragment_lengths, fragment_lengths
+            ),
+        ));
+    }
+    for (fragment, (compressed, padded)) in sequence.fragments().iter().zip(
+        expected
+            .compressed_fragment_lengths
+            .iter()
+            .zip(&expected.padded_fragment_lengths),
+    ) {
+        if padded > compressed && fragment.last() != Some(&0) {
+            return Err(fail(path, "EOT fragment padding byte is not zero"));
+        }
+    }
+    Ok((
+        TypedValidationCheck::passed_internal(
+            "extended_offset_table_arithmetic",
+            "Exact OV offsets and lengths reopened with an empty Basic Offset Table and validated frame-to-fragment grouping.",
+        ),
+        MetadataObservation::ExtendedOffsetTable {
+            offsets: expected.offsets.clone(),
+            lengths: expected.lengths.clone(),
+            padded_fragment_lengths: fragment_lengths,
+            basic_offset_table_entries: sequence.offset_table().len() as u32,
+            page_numbers: Vec::new(),
+        },
+    ))
+}
+
 fn validate_eot_spec(
     path: &Path,
     expected: &ExtendedOffsetTableValidationSpec,
 ) -> Result<(), CuratedValidationError> {
     let count = expected.offsets.len();
+    let fragment_count = expected.compressed_fragment_lengths.len();
+    let declared_fragment_count = expected
+        .fragments_per_frame
+        .iter()
+        .try_fold(0_u64, |total, value| total.checked_add(*value));
     if count == 0
         || expected.offset_origin != "first_fragment_item_tag"
         || expected.item_header_bytes != 8
         || expected.lengths.len() != count
-        || expected.compressed_fragment_lengths.len() != count
-        || expected.padded_fragment_lengths.len() != count
+        || fragment_count == 0
+        || expected.padded_fragment_lengths.len() != fragment_count
         || expected.fragments_per_frame.len() != count
-        || expected.fragment_item_start_offsets.len() != count
+        || expected.fragment_item_start_offsets.len() != fragment_count
         || expected.page_numbers.len() != count
-        || expected.lengths != expected.compressed_fragment_lengths
-        || expected.fragments_per_frame.iter().any(|count| *count != 1)
+        || expected.fragments_per_frame.iter().any(|count| *count == 0)
+        || declared_fragment_count != u64::try_from(fragment_count).ok()
     {
         return Err(fail(path, "invalid typed Extended Offset Table evidence"));
     }
     let mut next_offset = 0_u64;
-    for index in 0..count {
-        let compressed = expected.compressed_fragment_lengths[index];
-        let padded = expected.padded_fragment_lengths[index];
-        if expected.offsets[index] != next_offset
-            || expected.fragment_item_start_offsets[index]
-                != next_offset + expected.item_header_bytes
-            || padded < compressed
-            || padded - compressed > 1
-            || padded % 2 != 0
-        {
+    let mut fragment_index = 0usize;
+    for frame_index in 0..count {
+        if expected.offsets[frame_index] != next_offset {
             return Err(fail(
                 path,
-                "inconsistent Extended Offset Table fragment arithmetic",
+                "inconsistent Extended Offset Table frame offset",
             ));
         }
-        next_offset = next_offset
-            .checked_add(expected.item_header_bytes)
-            .and_then(|value| value.checked_add(padded))
-            .ok_or_else(|| fail(path, "Extended Offset Table arithmetic overflow"))?;
+        let mut frame_compressed_length = 0_u64;
+        for _ in 0..expected.fragments_per_frame[frame_index] {
+            let compressed = expected.compressed_fragment_lengths[fragment_index];
+            let padded = expected.padded_fragment_lengths[fragment_index];
+            if expected.fragment_item_start_offsets[fragment_index]
+                != next_offset + expected.item_header_bytes
+                || padded < compressed
+                || padded - compressed > 1
+                || padded % 2 != 0
+            {
+                return Err(fail(
+                    path,
+                    "inconsistent Extended Offset Table fragment arithmetic",
+                ));
+            }
+            next_offset = next_offset
+                .checked_add(expected.item_header_bytes)
+                .and_then(|value| value.checked_add(padded))
+                .ok_or_else(|| fail(path, "Extended Offset Table arithmetic overflow"))?;
+            frame_compressed_length = frame_compressed_length
+                .checked_add(compressed)
+                .ok_or_else(|| fail(path, "Extended Offset Table arithmetic overflow"))?;
+            fragment_index += 1;
+        }
+        if expected.lengths[frame_index] != frame_compressed_length {
+            return Err(fail(
+                path,
+                "inconsistent Extended Offset Table frame length",
+            ));
+        }
     }
     Ok(())
 }

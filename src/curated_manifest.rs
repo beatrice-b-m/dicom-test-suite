@@ -1,6 +1,7 @@
 //! Pure compatibility projection for plan-first curated generation.
 
 mod classic;
+mod stress;
 
 use std::collections::BTreeSet;
 use std::fmt;
@@ -790,6 +791,13 @@ pub fn project_curated_file_entries(
     Ok(entries)
 }
 
+pub fn project_curated_stress_qualifications(
+    context: &CuratedScProjectionContext,
+    input: &ManifestProjectionCompatibilityInput,
+) -> Result<Vec<Value>, CuratedManifestError> {
+    stress::project_qualifications(context, input)
+}
+
 fn project_wsi_pyramid_group(
     context: &CuratedScProjectionContext,
     input: &ManifestProjectionCompatibilityInput,
@@ -966,6 +974,12 @@ fn project_one(
     }
     if ctx.case_recipe.plan_provider_id == "native.classic_plan" {
         return classic::project_classic_file_entry(ctx, pair);
+    }
+    if matches!(
+        ctx.case_recipe.plan_provider_id.as_str(),
+        crate::recipes::STRESS_CT_PLAN_PROVIDER_ID | crate::recipes::STRESS_SC_PLAN_PROVIDER_ID
+    ) {
+        return stress::project_file_entry(ctx, pair);
     }
     if matches!(
         ctx.case_recipe.plan_provider_id.as_str(),

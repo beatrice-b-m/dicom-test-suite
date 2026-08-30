@@ -2925,8 +2925,8 @@ fn resolved_stress_sc_artifact(
             byte,
             length,
         } => {
-            let sequence = AttributeAddress::private(Tag(0x7777, 0x1002), creator.clone())
-                .map_err(attribute_error)?;
+            let sequence =
+                AttributeAddress::raw_private(Tag(0x7777, 0x1002)).map_err(attribute_error)?;
             attributes.push(nested_sequence_attribute(
                 *sequence_depth,
                 creator,
@@ -2944,8 +2944,13 @@ fn resolved_stress_sc_artifact(
                 DicomVr::OB,
                 ContentPlacement::Nested {
                     sequence_path: (0..*sequence_depth)
-                        .map(|_| SequenceItemPlacement {
-                            sequence: sequence.clone(),
+                        .map(|depth| SequenceItemPlacement {
+                            sequence: if depth == 0 {
+                                sequence.clone()
+                            } else {
+                                AttributeAddress::private(sequence.tag(), creator.clone())
+                                    .expect("validated stress private sequence")
+                            },
                             item_index: 0,
                         })
                         .collect(),
@@ -3218,7 +3223,7 @@ fn stress_sc_pixel_attributes(
 fn nested_sequence_attribute(
     depth: u32,
     creator: &str,
-    sequence: AttributeAddress,
+    top_level_sequence: AttributeAddress,
 ) -> Result<ResolvedAttribute, CuratedPlanError> {
     if depth == 0 {
         return Err(CuratedPlanError::Catalog(
@@ -3230,12 +3235,14 @@ fn nested_sequence_attribute(
         vr: DicomVr::LO,
         value: AttributeValue::Primitive(PrimitiveValue::String(creator.into())),
     };
+    let nested_sequence = AttributeAddress::private(top_level_sequence.tag(), creator.to_owned())
+        .map_err(attribute_error)?;
     let mut item_operations = vec![creator_operation()];
     for _ in 1..depth {
         item_operations = vec![
             creator_operation(),
             AttributeOperation::Set {
-                address: sequence.clone(),
+                address: nested_sequence.clone(),
                 vr: DicomVr::SQ,
                 value: AttributeValue::Sequence(vec![AttributeItem {
                     attributes: item_operations,
@@ -3244,7 +3251,7 @@ fn nested_sequence_attribute(
         ];
     }
     Ok(ResolvedAttribute {
-        address: sequence,
+        address: top_level_sequence,
         vr: DicomVr::SQ,
         value: Some(AttributeValue::Sequence(vec![AttributeItem {
             attributes: item_operations,

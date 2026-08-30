@@ -271,6 +271,59 @@ fn fuzz_dispatch_matches_frozen_qualification_and_publishes_no_payload() {
         EXPECTED_QUALIFICATION_SHA256
     );
 
+    let mut missing = request.clone();
+    missing.bindings.slots.remove("source_0");
+    assert!(matches!(
+        dispatcher.dispatch(&missing, &registry),
+        Err(MaterializationError::QualificationContract(_))
+    ));
+    let mut extra = request.clone();
+    extra
+        .bindings
+        .slots
+        .insert("extra".into(), extra.bindings.slots["source_0"].clone());
+    assert!(matches!(
+        dispatcher.dispatch(&extra, &registry),
+        Err(MaterializationError::QualificationContract(_))
+    ));
+
+    let mut public_registry = StagedAssetRegistry::default();
+    for declaration in registry.iter() {
+        let mut declaration = declaration.clone();
+        declaration.visibility = AssetVisibility::PublicationCandidate;
+        public_registry
+            .register(ProducedAsset {
+                observed_size_bytes: declaration.size_bytes,
+                observed_sha256: declaration.sha256.clone(),
+                declaration,
+            })
+            .unwrap();
+    }
+    assert!(matches!(
+        dispatcher.dispatch(&request, &public_registry),
+        Err(MaterializationError::QualificationSourceIdentity(_))
+    ));
+
+    let mut drift = request.clone();
+    let PlannedArtifact::Qualification(artifact) = &mut drift.artifact else {
+        unreachable!()
+    };
+    artifact.sources[0].expected_sha256 = "0".repeat(64);
+    assert!(matches!(
+        dispatcher.dispatch(&drift, &registry),
+        Err(MaterializationError::QualificationSourceIdentity(_))
+    ));
+
+    let mut unacceptable = request.clone();
+    let PlannedArtifact::Qualification(artifact) = &mut unacceptable.artifact else {
+        unreachable!()
+    };
+    artifact.parameters.get_mut("budget").unwrap()["max_target_operations"] = Value::from(1);
+    assert!(matches!(
+        dispatcher.dispatch(&unacceptable, &registry),
+        Err(MaterializationError::UnacceptableQualificationOutcome(_))
+    ));
+
     let cancellation = CancellationToken::new();
     cancellation.cancel_with_reason("qualification test");
     assert!(matches!(

@@ -25,18 +25,17 @@ comprise 154 native and seven explicit external-backend boundaries. These
 figures are retained only to identify the reviewed baseline; tests calculate
 their expectations from source data.
 
-## Current paths
+## Terminal paths
 
-| Classification | Current path | Required removal or convergence |
+| Classification | Promoted path | Evidence boundary |
 | --- | --- | --- |
-| Composition SC/classic | composition resolver -> `ResolvedInstancePlan` -> `Part10Materializer` -> composition transaction | Wrap in `CorpusPlan`; move transaction to `CorpusExecutor` (U1.5, U2.5). |
-| Composition advanced defaults | composition -> `write_composition_default_artifacts` -> curated writer -> reopen -> `resolved_plan_from_curated_dataset` | Replace with neutral providers and remove reverse dependency (U5.6). |
-| Curated native valid | generator family builder/writer -> file -> reopen/import -> delete -> `Part10Materializer` | Recipes must return plans before file creation; delete migration pass (U3-U7, U9.1). |
-| Curated external construction | locked backend emits full Part 10 file -> checked import/publication | Preserve only as named external-provider import boundaries with exact tool/request/response evidence (U6.7, U7.2). |
-| Negative | private valid source writer -> typed byte mutation -> isolated invalid publication | Obtain source from versioned plan-first recipe and execute through shared mutation stage (U8.1-U8.3). |
-| Fuzz | private valid source writer -> bounded mutation session -> source/candidate cleanup -> qualification only | Obtain source from plan-first recipe and execute a payload-free `QualificationPlan` (U8.4-U8.5). |
-| Stress | specialized generator writers and resource guard | Use ordinary valid plan providers with shared preflight and actual resource evidence (U7.4-U7.5). |
-| Non-instance EOT qualification | direct qualification record | Represent as `QualificationPlan` and execute through the shared executor (U8.4). |
+| Composition | spec/template resolution -> `CorpusPlan` -> `CorpusExecutor` -> composition projector | Template evidence only; no registry coverage. |
+| Curated native valid | registry/recipe resolution -> `CorpusPlan` -> `CorpusExecutor` -> curated projector | Case/profile, specialized, and independent evidence retained. |
+| Curated external construction | planned provider request -> private full-file import -> strict validation -> shared publication | Named U6.7/U7.2 boundary with exact tool/request/response evidence. |
+| Negative | private plan-first valid source -> typed `MutationPlan` -> isolated invalid publication | U8 mutation hashes, ranges, failure layers, and outcomes. |
+| Fuzz | private plan-first source -> bounded `QualificationPlan` -> cleanup | U8 qualification evidence only; no payload. |
+| Stress | ordinary plan providers -> shared resource preflight/execution -> stress qualification | Reduced-scale evidence remains explicit and opt-in. |
+| Non-instance EOT qualification | `QualificationPlan` -> shared executor -> qualification projector | No fabricated DICOM artifact. |
 
 ## Direct writer and ordering inventory
 
@@ -120,9 +119,7 @@ The U2 gate completed on 2026-08-29. Composition now resolves one immutable
 evidence projection, private-asset cleanup, manifest writing, and atomic
 publication to `CorpusExecutor`. Ordinary caller files are securely read and
 hash-checked during planning without being copied; neutral source handles are
-staged exactly once inside the executor transaction. The only remaining
-composition planning scratch is the advanced-default compatibility bridge
-already assigned to U5.6, and it is removed before scheduling or publication.
+staged exactly once inside the executor transaction.
 
 Adversarial qualification covers provider-to-codec chaining, in-flight codec
 and streamed-materialization cancellation, plan-derived public-file
@@ -145,3 +142,15 @@ compared with the private pre-migration `52e1d20` oracle. The output trees were
 identical, including the manifest SHA-256
 `df9b9b972aacaa70f580184716217c2096f895d12a7c3abbbf882f09e0ab6c66`.
 Generated roots remain private, ignored evidence and are not committed.
+
+## U9 terminal checkpoint
+
+The migration-era generator module, curated dataset-to-plan conversion,
+post-write rematerialization pass, advanced-default scratch lifecycle, reverse
+composition-to-curated dependency, manual family dispatcher, and duplicate
+writer tree are deleted. Both frontends invoke `CorpusExecutor::execute`
+directly with typed manifest projectors. Architecture audits derive recipe and
+template completeness, reject forbidden dependency directions, classify every
+production writer, and prove the retired bridge symbols and files are absent.
+The dated completion status records the terminal command matrix and runtime
+availability outcomes.

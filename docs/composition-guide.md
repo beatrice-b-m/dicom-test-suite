@@ -1,10 +1,12 @@
 # Composing DICOM objects
 
 `compose` creates DICOM from a caller-owned declarative specification. Phase P8
-qualification is complete. The workflow uses
-the same standards-locked plan, Part 10 writer, manifest projection, and generic
-validator as the shared composition library. It is separate from `generate`:
-the latter selects curated registry cases and retains their case-specific
+qualification is complete. The workflow resolves caller input into the same
+versioned `CorpusPlan` and executes through the same bounded transaction used
+by `generate`: dependency scheduling, content/provider resolution, Part 10
+materialization, validation, evidence collection, cleanup, and atomic
+publication are shared. The manifest projector remains composition-specific.
+`generate` selects curated registry recipes and retains case-specific
 qualification contracts; composition runs do not claim registry coverage.
 
 The catalog currently qualifies every valid DICOM SOP Class implemented by the
@@ -232,9 +234,13 @@ preserved after exact source hashing and decode qualification. Both paths emit
 one fragment per frame with a populated Basic Offset Table and record the
 applicable compressed and decoded frame hashes. No external codec is required.
 
-`validate` reconstructs each resolved plan from the manifest, verifies file
-size and SHA-256, reopens Part 10 and data elements, checks content hashes, and
-detects undeclared instance files. `report` groups only composition templates
+`validate` reconstructs each native resolved plan from the manifest, verifies
+file size and SHA-256, reopens Part 10 and data elements, checks content hashes,
+and detects undeclared instance files. Named external-provider imports retain
+their immutable plan hash and observed imported-content projection separately;
+validation does not pretend the observation was a native construction plan.
+The manifest run records `corpus_plan_sha256`, and every entry records
+`resolved_plan_sha256`. `report` groups only composition templates
 and transfer syntaxes. It deliberately has no registry `case_id`, profile, or
 coverage projection.
 

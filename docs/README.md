@@ -73,13 +73,15 @@ These are dated evidence records for implemented vertical slices:
   protocol, and security availability boundaries.
 - [Arbitrary composition status](arbitrary-dicom-composition-status.md): dated
   gates and evidence for the shared standards-aware composition program.
+- [Unified generation spine completion](unified-generation-spine-completion-status-2026-08-30.md):
+  terminal architecture, acceptance evidence, and verification outcomes for
+  the shared plan-first executor migration.
 
 ## Planning And Decision Records
 
-- [Unified generation spine plan](unified-generation-spine-plan.md): active
-  migration plan for making curated generation and caller-authored composition
-  share one plan-first corpus executor while preserving their distinct
-  registry and evidence semantics.
+- [Unified generation spine plan](unified-generation-spine-plan.md): completed
+  execution contract for the shared plan-first corpus model and executor. The
+  dated completion record and operating guides describe the promoted state.
 - [Arbitrary DICOM composition plan](arbitrary-dicom-composition-plan.md):
   completed phased execution contract for the standards-aware caller-supplied
   attribute and content composition engine. The operating guides and P8 status

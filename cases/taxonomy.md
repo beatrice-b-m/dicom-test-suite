@@ -10,6 +10,13 @@ belong to profiles, and never add registry coverage. For current composition
 support, query `templates list` or `templates describe`, then use the generated
 composition manifest as the authority for what a particular spec emitted.
 
+Every implemented registry row binds exactly one `recipe_id` plus
+`recipe_version` from the modular documents under `cases/recipes/`. Static
+scenario differences belong in those schema-validated documents; bounded Rust
+plan providers are named only for algorithmic construction. A binding resolves
+to a plan before any retained file is written. This recipe namespace is also
+distinct from both case IDs and caller-visible template IDs.
+
 ## Case ID Format
 
 Case IDs are stable, human-readable, path-safe identifiers:

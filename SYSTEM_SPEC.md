@@ -1,10 +1,10 @@
 # System Specification: `dicom-test-suite`
 
-**Status:** architecture baseline; implementation status is tracked elsewhere
+**Status:** architecture baseline with unified generation spine promoted
 
 **Spec version:** 0.2.1
 
-**Last reviewed:** 2026-08-28
+**Last reviewed:** 2026-08-30
 
 **Primary consumer today:** `dcmview`  
 **Design stance:** viewer-agnostic, standards-led, deterministic, synthetic
@@ -15,12 +15,11 @@
 
 Generated DICOM payloads are build artifacts. They must not be committed. The repository commits code, case recipes, metadata schemas, expected results, validation logic, coverage reports, and compatibility report schemas.
 
-> **Current-state note:** This specification preserves the original architecture
-> and phased requirements. Several sections intentionally describe initial or
-> historical milestones. For current commands and implemented capability, use
-> `README.md`, `docs/generation-guide.md`, `cases/registry.json`, and a fresh
-> generated coverage report. Those artifacts supersede future-tense phase text
-> when determining what the executable can do today.
+> **Current-state note:** The original phased requirements below remain useful
+> historical context. The terminal implementation uses the unified plan-first
+> architecture in Section 16. For current commands and implemented capability,
+> use `README.md`, `docs/generation-guide.md`, `cases/registry.json`, and a fresh
+> generated coverage report.
 
 The project should become useful in three modes:
 
@@ -991,50 +990,58 @@ Generation shall fail if internal validation or standards-derived recipe validat
 
 ## 16. Architecture
 
-The repository should be a Rust workspace with these crates or modules:
+The terminal architecture is one neutral generation spine with two evidence
+frontends:
 
-- `dicom-test-suite`: CLI binary.
-- `suite-core`: shared case model, case registry, manifest schema, UID generation, deterministic seeding, output layout.
-- `suite-standards`: `dicom-standard-kb` integration, standards lock handling, source-note lookup, evidence recording.
-- `suite-iod`: IOD builders and module builders.
-- `suite-pixel`: synthetic pixel generators, LUT generators, color conversion helpers, compression adapters.
-- `suite-validate`: internal validation and optional external validator adapters.
-- `suite-report`: coverage and compatibility report generation.
-
-Initial single-crate development is acceptable if module boundaries match the future workspace layout.
-
-Recommended internal traits:
-
-```rust
-trait CaseRecipe {
-    fn id(&self) -> CaseId;
-    fn profiles(&self) -> &'static [Profile];
-    fn requirements(&self) -> CaseRequirements;
-    fn standards_evidence(&self) -> StandardsEvidence;
-    fn generate(&self, ctx: &GenerationContext) -> Result<Vec<GeneratedInstance>>;
-}
-
-trait IodBuilder {
-    fn sop_class_uid(&self) -> &'static str;
-    fn iod_name(&self) -> &'static str;
-    fn required_modules(&self) -> ModuleSet;
-    fn build(&self, attrs: AttributePlan) -> Result<InMemDicomObject>;
-}
-
-trait TransferSyntaxWriter {
-    fn uid(&self) -> &'static str;
-    fn name(&self) -> &'static str;
-    fn capability(&self, features: &FeatureSet) -> TransferSyntaxCapability;
-    fn encode_pixel_data(&self, frame_data: &[Frame]) -> Result<PixelDataEncoding>;
-}
-
-trait Validator {
-    fn name(&self) -> &'static str;
-    fn validate(&self, instance: &GeneratedInstance) -> ValidationResult;
-}
+```text
+registry selection or composition specification
+  -> versioned recipe/template resolution
+  -> immutable CorpusPlan and explicit artifact DAG
+  -> one bounded CorpusExecutor
+       -> providers and codecs
+       -> Part10Materializer
+       -> mutation or payload-free qualification stages
+       -> validation and evidence collection
+  -> curated or composition manifest projector
+  -> private cleanup and atomic no-overwrite publication
 ```
 
-The DICOM-rs family shall be pinned coherently in `Cargo.lock`. As of 2026-06-13, the current docs.rs versions for the umbrella `dicom` and `dicom-object` crates are `0.9.1`; recheck before the first real implementation phase and whenever updating dependencies.
+`generate` owns registry selection, profile semantics, recipe lookup, skipped
+rows, curated manifest fields, and coverage reporting. `compose` owns
+composition-spec parsing, template selection, caller assets, and its template
+manifest/report semantics. Neither frontend writes DICOM or publishes files.
+
+`CorpusPlan` is the versioned run-neutral contract. It contains deterministically
+ordered DICOM, imported-DICOM, mutation, qualification, and auxiliary artifacts;
+dependencies; output and encoding policies; validation/evidence obligations;
+resource ceilings; unavailable capabilities; and publication policy. Native
+valid recipes return this plan before file creation. Static recipe differences
+are stored under `cases/recipes/`; named typed providers implement bounded
+algorithms without receiving an output directory.
+
+`Part10Materializer` is the only ordinary valid DICOM writer. The executor may
+normalize a full Part 10 object only at an explicitly named external-provider
+import boundary. Such imports preserve request, tool, dependency, content,
+resource, and semantic evidence and are never presented as native plan
+construction. Negative output is produced only by typed mutation plans from
+private valid sources; fuzz publishes no source or candidate payload.
+
+Execution produces typed `RunEvidence`. Curated and composition projectors
+consume the plan/evidence join without reopening output to infer known facts.
+Generated curated entries record `corpus_plan_sha256` and, for valid DICOM,
+`resolved_plan_sha256`; composition manifests record the corpus hash in the run
+and the resolved-plan hash per entry. Publication is transactional, privately
+staged, validated, cleaned, and atomically promoted without overwrite.
+
+Dependency direction is acyclic: neutral plan/types and providers are consumed
+by the curated and composition planners; the shared executor consumes their
+plans; CLI/API frontends and manifest/report projectors sit at the boundary.
+Neutral modules do not import CLI, registry reporting, or composition-spec
+types, and composition has no dependency on curated generation.
+
+The DICOM-rs family remains pinned coherently in `Cargo.lock`; dependency
+updates must preserve the plan, materialization, validation, and determinism
+contracts above.
 
 ## 17. CLI
 

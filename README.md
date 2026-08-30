@@ -40,6 +40,17 @@ cargo run --locked -- report \
 The output directory must not already exist. Generation is staged and promoted
 as a complete directory, and the result always includes `manifest.json`.
 
+Both public generation workflows now use one plan-first spine. `generate`
+resolves registry-selected, versioned case recipes into an immutable
+`CorpusPlan`; `compose` resolves caller specifications and qualified templates
+into the same model. One bounded executor then schedules the dependency graph,
+materializes Part 10 through the shared writer, validates, projects the
+frontend-specific manifest, cleans private assets, and atomically publishes.
+Curated case coverage and composition template evidence remain deliberately
+separate. Generated manifest entries expose corpus-plan and resolved-instance
+hashes so the construction provenance is auditable without reopening a file as
+a planning input.
+
 For caller-defined objects, the Phase P8 composition platform qualifies every
 currently implemented valid DICOM SOP Class through a template or deterministic
 bundle, with bounded typed content models:

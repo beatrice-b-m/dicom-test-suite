@@ -1,6 +1,6 @@
 # Unified Generation Spine Migration Plan
 
-**Status:** active implementation plan
+**Status:** implementation complete; terminal verification recorded in the dated completion status
 
 **Prepared:** 2026-08-29
 

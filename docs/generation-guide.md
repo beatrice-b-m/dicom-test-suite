@@ -35,6 +35,19 @@ that deliberately span independent DICOM compatibility axes:
 Cases are intentionally orthogonal where practical. Test conclusions should be
 made per `case_id`, not inferred from a modality name alone.
 
+### Unified plan-first execution
+
+Every retained DICOM artifact is declared before file creation. Registry
+selection and caller-authored composition are separate frontends, but both
+produce the same versioned `CorpusPlan` and use the same bounded DAG executor,
+content/codec services, `Part10Materializer`, validation evidence model,
+private staging, and atomic no-overwrite publication transaction. Native
+recipes cannot import a temporary generated DICOM file back into a plan.
+Expected-invalid files use typed mutations of private plan-first sources; fuzz
+publishes qualification evidence only. The only full-file import path is a
+named external provider boundary with locked request, tool, output, resource,
+and semantic evidence.
+
 ## 2. Inspect Before Generating
 
 The registry is the authority for available and planned coverage. Its CLI view
@@ -223,7 +236,8 @@ The manifest records:
 - immutable run inputs: profile, seed, features, toolchain and lock hashes;
 - DICOM Standard edition and standards-evidence identity;
 - generated files with `case_id`, relative path, SHA-256, determinism class,
-  SOP/transfer-syntax/modality identities, UIDs, and profile membership;
+  SOP/transfer-syntax/modality identities, UIDs, profile membership,
+  `corpus_plan_sha256`, and `resolved_plan_sha256` for valid instances;
 - pixel, frame, geometry, metadata, codec, visual-pattern, and specialized
   semantic expectations when applicable;
 - references and expected graph relationships;

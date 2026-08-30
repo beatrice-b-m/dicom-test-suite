@@ -35,6 +35,7 @@ fn artifact(logical_id: &str, order: u64, path: &str) -> ArtifactExecutionEviden
             implementation_class_uid: Some("2.25.100".into()),
             implementation_version_name: Some("DICOMTS010".into()),
             content: vec![],
+            imported_dicom: None,
         }),
         validation: vec![ValidationResult {
             rule_id: "meta_identity".into(),

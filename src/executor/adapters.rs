@@ -16,10 +16,11 @@ use crate::corpus_plan::{
 };
 use crate::executor::evidence::{
     ArtifactExecutionEvidence, ArtifactKind, ArtifactResourceEvidence, CodecEvidence,
-    EvidenceError, EvidenceIndependence, ExecutionStatus, MaterializationEvidence,
-    MaterializedContentEvidence, ObligationResult, OutputEvidence, ProviderEvidence,
-    PublicationEvidence, PublicationState, RUN_EVIDENCE_SCHEMA_VERSION, ResultStatus, RunEvidence,
-    RunResourceEvidence, ToolEvidence, UnavailableExecutionEvidence, ValidationResult,
+    EvidenceError, EvidenceIndependence, ExecutionStatus, ImportedDicomObservation,
+    MaterializationEvidence, MaterializedContentEvidence, ObligationResult, OutputEvidence,
+    ProviderEvidence, PublicationEvidence, PublicationState, RUN_EVIDENCE_SCHEMA_VERSION,
+    ResultStatus, RunEvidence, RunResourceEvidence, ToolEvidence, UnavailableExecutionEvidence,
+    ValidationResult,
 };
 use crate::executor::scheduler::{ScheduleOutcome, ScheduledArtifact};
 use crate::executor::services::{
@@ -467,6 +468,11 @@ fn adapt_artifact(
                     .transpose()
                     .map_err(AdapterError::Serialize)?
                     .unwrap_or_default(),
+                imported_dicom: service_claim(result, "imported_dicom_observation")
+                    .cloned()
+                    .map(serde_json::from_value::<ImportedDicomObservation>)
+                    .transpose()
+                    .map_err(AdapterError::Serialize)?,
             })
         })
         .transpose()?;

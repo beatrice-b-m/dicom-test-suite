@@ -7,7 +7,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use dicom_core::ops::{AttributeSelector, AttributeSelectorStep};
+use dicom_core::{
+    Tag,
+    ops::{AttributeSelector, AttributeSelectorStep},
+};
 use serde_json::{Value, json};
 
 use crate::composition::{ContentMaterialization, Part10Materializer};
@@ -213,6 +216,7 @@ impl MaterializationDispatcher {
                 artifact.logical_id.clone(),
             ));
         }
+        let observation = imported_dicom_observation(artifact, &object)?;
         let output = self.produced_file(
             &artifact.logical_id,
             artifact.output.relative_path.as_str(),
@@ -244,6 +248,7 @@ impl MaterializationDispatcher {
                         "transfer_syntax_uid".into(),
                         json!(artifact.provider.transfer_syntax_uid),
                     ),
+                    ("imported_dicom_observation".into(), json!(observation)),
                 ]),
             }],
         })
@@ -1072,6 +1077,159 @@ impl MaterializationDispatcher {
     }
 }
 
+fn imported_dicom_observation(
+    artifact: &PlannedImportedDicomArtifact,
+    object: &dicom_object::DefaultDicomObject,
+) -> Result<crate::executor::evidence::ImportedDicomObservation, MaterializationError> {
+    fn collect_references(
+        object: &dicom_object::InMemDicomObject,
+        output: &mut Vec<(String, String, Vec<u32>)>,
+    ) {
+        let class = object
+            .element_by_name("ReferencedSOPClassUID")
+            .ok()
+            .and_then(|value| value.to_str().ok())
+            .map(|value| value.trim_matches([' ', '\0']).to_owned());
+        let instance = object
+            .element_by_name("ReferencedSOPInstanceUID")
+            .ok()
+            .and_then(|value| value.to_str().ok())
+            .map(|value| value.trim_matches([' ', '\0']).to_owned());
+        if let (Some(class), Some(instance)) = (class, instance) {
+            let frames = object
+                .element_by_name("ReferencedFrameNumber")
+                .ok()
+                .and_then(|value| value.to_multi_int::<u32>().ok())
+                .unwrap_or_default();
+            output.push((class, instance, frames));
+        }
+        for element in object.iter() {
+            if let Some(items) = element.items() {
+                for item in items {
+                    collect_references(item, output);
+                }
+            }
+        }
+    }
+    fn string(object: &dicom_object::DefaultDicomObject, name: &str) -> Option<String> {
+        object
+            .element_by_name(name)
+            .ok()?
+            .to_str()
+            .ok()
+            .map(|value| value.trim_matches([' ', '\0']).to_owned())
+    }
+    fn integer(object: &dicom_object::DefaultDicomObject, name: &str) -> Option<u32> {
+        object.element_by_name(name).ok()?.to_int::<u32>().ok()
+    }
+    let mut content = Vec::new();
+    for (tag, label) in [
+        (Tag(0x7FE0, 0x0010), "7FE0,0010"),
+        (Tag(0x7FE0, 0x0008), "7FE0,0008"),
+        (Tag(0x7FE0, 0x0009), "7FE0,0009"),
+    ] {
+        if let Ok(element) = object.element(tag) {
+            let bytes = element.to_bytes().map_err(|_| {
+                MaterializationError::ImportedDicomContract(artifact.logical_id.clone())
+            })?;
+            content.push(crate::executor::evidence::ImportedDicomContentObservation {
+                tag: label.into(),
+                vr: format!("{:?}", element.vr()),
+                size_bytes: bytes.len() as u64,
+                sha256: sha256_hex(bytes.as_ref()),
+            });
+        }
+    }
+    let rows = integer(object, "Rows");
+    let columns = integer(object, "Columns");
+    let frames = integer(object, "NumberOfFrames")
+        .or_else(|| (rows.is_some() && columns.is_some() && !content.is_empty()).then_some(1));
+    let mut actual_references = Vec::new();
+    collect_references(object, &mut actual_references);
+    let expected_references = artifact
+        .declared_instance
+        .references
+        .iter()
+        .map(|declared| {
+            (
+                declared.referenced_sop_class_uid.clone(),
+                declared.referenced_sop_instance_uid.clone(),
+                declared.referenced_frames.clone(),
+            )
+        })
+        .collect::<Vec<_>>();
+    if !imported_reference_order_matches(&actual_references, &expected_references) {
+        return Err(MaterializationError::ImportedDicomReference(
+            artifact.logical_id.clone(),
+        ));
+    }
+    let references = artifact
+        .declared_instance
+        .references
+        .iter()
+        .zip(expected_references)
+        .map(
+            |(declared, expected)| crate::executor::evidence::ImportedDicomReferenceObservation {
+                role: declared.role.clone(),
+                sop_class_uid: expected.0,
+                sop_instance_uid: expected.1,
+                frame_numbers: expected.2,
+            },
+        )
+        .collect();
+    let observation = crate::executor::evidence::ImportedDicomObservation {
+        schema_version: crate::executor::evidence::IMPORTED_DICOM_OBSERVATION_SCHEMA_VERSION.into(),
+        sop_class_uid: string(object, "SOPClassUID").ok_or_else(|| {
+            MaterializationError::ImportedDicomIdentity(artifact.logical_id.clone())
+        })?,
+        sop_instance_uid: string(object, "SOPInstanceUID").ok_or_else(|| {
+            MaterializationError::ImportedDicomIdentity(artifact.logical_id.clone())
+        })?,
+        transfer_syntax_uid: object.meta().transfer_syntax().to_owned(),
+        study_instance_uid: string(object, "StudyInstanceUID"),
+        series_instance_uid: string(object, "SeriesInstanceUID"),
+        frame_of_reference_uid: string(object, "FrameOfReferenceUID"),
+        rows,
+        columns,
+        frames,
+        content,
+        references,
+    };
+    for (role, actual) in [
+        (
+            crate::composition::CompositionUidRole::StudyInstance,
+            observation.study_instance_uid.as_deref(),
+        ),
+        (
+            crate::composition::CompositionUidRole::SeriesInstance,
+            observation.series_instance_uid.as_deref(),
+        ),
+        (
+            crate::composition::CompositionUidRole::FrameOfReference,
+            observation.frame_of_reference_uid.as_deref(),
+        ),
+    ] {
+        if let Some(expected) = artifact.declared_instance.identities.get(&role, 0) {
+            if Some(expected) != actual {
+                return Err(MaterializationError::ImportedDicomIdentity(
+                    artifact.logical_id.clone(),
+                ));
+            }
+        }
+    }
+    observation
+        .validate()
+        .map_err(|_| MaterializationError::ImportedDicomContract(artifact.logical_id.clone()))?;
+    Ok(observation)
+}
+
+fn imported_reference_order_matches(
+    actual: &[(String, String, Vec<u32>)],
+    expected: &[(String, String, Vec<u32>)],
+) -> bool {
+    actual == expected
+}
+
 impl MaterializationService for MaterializationDispatcher {
     fn materialize(
         &self,
@@ -1532,6 +1690,7 @@ pub enum MaterializationError {
     MissingImportedDicomBinding(String),
     ImportedDicomContract(String),
     ImportedDicomIdentity(String),
+    ImportedDicomReference(String),
     MissingPrivateMutationSource(String),
     MutationSourceNotPrivate(StagedAssetHandle),
     StagedAssetChanged(StagedAssetHandle),
@@ -1863,6 +2022,22 @@ mod tests {
             &registry,
         );
         assert!(error.is_err());
+    }
+
+    #[test]
+    fn imported_reference_contract_rejects_duplicates_and_reordering() {
+        let first = ("1.2.3".into(), "1.2.3.1".into(), vec![1]);
+        let second = ("1.2.3".into(), "1.2.3.2".into(), vec![2]);
+        let expected = vec![first.clone(), second.clone()];
+        assert!(imported_reference_order_matches(&expected, &expected));
+        assert!(!imported_reference_order_matches(
+            &[second.clone(), first.clone()],
+            &expected,
+        ));
+        assert!(!imported_reference_order_matches(
+            &[first.clone(), first],
+            &expected,
+        ));
     }
 
     fn native_request(

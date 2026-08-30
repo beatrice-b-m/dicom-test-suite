@@ -242,6 +242,127 @@ pub struct MaterializationEvidence {
     pub implementation_version_name: Option<String>,
     #[serde(default)]
     pub content: Vec<MaterializedContentEvidence>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub imported_dicom: Option<ImportedDicomObservation>,
+}
+
+pub const IMPORTED_DICOM_OBSERVATION_SCHEMA_VERSION: &str = "0.1.0";
+pub const MAX_IMPORTED_DICOM_REFERENCES: usize = 64;
+pub const MAX_IMPORTED_DICOM_CONTENT_FIELDS: usize = 8;
+pub const MAX_IMPORTED_DICOM_FRAMES_PER_REFERENCE: usize = 1024;
+pub const MAX_IMPORTED_DICOM_TOTAL_REFERENCED_FRAMES: usize = 4096;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ImportedDicomObservation {
+    pub schema_version: String,
+    pub sop_class_uid: String,
+    pub sop_instance_uid: String,
+    pub transfer_syntax_uid: String,
+    pub study_instance_uid: Option<String>,
+    pub series_instance_uid: Option<String>,
+    pub frame_of_reference_uid: Option<String>,
+    pub rows: Option<u32>,
+    pub columns: Option<u32>,
+    pub frames: Option<u32>,
+    #[serde(default)]
+    pub content: Vec<ImportedDicomContentObservation>,
+    #[serde(default)]
+    pub references: Vec<ImportedDicomReferenceObservation>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ImportedDicomContentObservation {
+    pub tag: String,
+    pub vr: String,
+    pub size_bytes: u64,
+    pub sha256: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ImportedDicomReferenceObservation {
+    pub role: String,
+    pub sop_class_uid: String,
+    pub sop_instance_uid: String,
+    #[serde(default)]
+    pub frame_numbers: Vec<u32>,
+}
+
+impl ImportedDicomObservation {
+    pub fn validate(&self) -> Result<(), EvidenceError> {
+        if self.schema_version != IMPORTED_DICOM_OBSERVATION_SCHEMA_VERSION {
+            return Err(EvidenceError::UnsupportedImportedDicomObservationVersion(
+                self.schema_version.clone(),
+            ));
+        }
+        for uid in [
+            Some(&self.sop_class_uid),
+            Some(&self.sop_instance_uid),
+            Some(&self.transfer_syntax_uid),
+            self.study_instance_uid.as_ref(),
+            self.series_instance_uid.as_ref(),
+            self.frame_of_reference_uid.as_ref(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            validate_identifier("imported DICOM UID", uid)?;
+        }
+        if self.content.len() > MAX_IMPORTED_DICOM_CONTENT_FIELDS
+            || self.references.len() > MAX_IMPORTED_DICOM_REFERENCES
+        {
+            return Err(EvidenceError::ImportedDicomObservationBounds);
+        }
+        if [self.rows, self.columns, self.frames]
+            .into_iter()
+            .flatten()
+            .any(|value| value == 0)
+        {
+            return Err(EvidenceError::ImportedDicomObservationBounds);
+        }
+        let mut content_tags = BTreeSet::new();
+        for content in &self.content {
+            validate_identifier("imported content tag", &content.tag)?;
+            validate_identifier("imported content VR", &content.vr)?;
+            validate_sha256("imported content", &content.sha256)?;
+            if content.size_bytes == 0 || !content_tags.insert(&content.tag) {
+                return Err(EvidenceError::ImportedDicomObservationBounds);
+            }
+        }
+        let mut references = BTreeSet::new();
+        let mut total_frames = 0usize;
+        for reference in &self.references {
+            validate_identifier("imported reference role", &reference.role)?;
+            validate_identifier("imported reference SOP class", &reference.sop_class_uid)?;
+            validate_identifier(
+                "imported reference SOP instance",
+                &reference.sop_instance_uid,
+            )?;
+            if !references.insert((
+                &reference.role,
+                &reference.sop_class_uid,
+                &reference.sop_instance_uid,
+            )) || reference.frame_numbers.len() > MAX_IMPORTED_DICOM_FRAMES_PER_REFERENCE
+            {
+                return Err(EvidenceError::ImportedDicomObservationBounds);
+            }
+            let mut frames = BTreeSet::new();
+            for frame in &reference.frame_numbers {
+                if *frame == 0 || !frames.insert(frame) {
+                    return Err(EvidenceError::ImportedDicomObservationBounds);
+                }
+            }
+            total_frames = total_frames
+                .checked_add(reference.frame_numbers.len())
+                .ok_or(EvidenceError::ImportedDicomObservationBounds)?;
+        }
+        if total_frames > MAX_IMPORTED_DICOM_TOTAL_REFERENCED_FRAMES {
+            return Err(EvidenceError::ImportedDicomObservationBounds);
+        }
+        Ok(())
+    }
 }
 
 impl MaterializationEvidence {
@@ -288,6 +409,9 @@ impl MaterializationEvidence {
                 ));
             }
             content.validate_encoding_facts()?;
+        }
+        if let Some(observation) = &self.imported_dicom {
+            observation.validate()?;
         }
         Ok(())
     }
@@ -912,6 +1036,8 @@ fn validate_relative_path(value: &str) -> Result<(), EvidenceError> {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EvidenceError {
+    UnsupportedImportedDicomObservationVersion(String),
+    ImportedDicomObservationBounds,
     UnsupportedSchemaVersion(String),
     ArtifactOrderMismatch {
         expected: Vec<String>,
@@ -1012,6 +1138,71 @@ mod tests {
             native_value_field_sha256: None,
             writer_materialization: None,
         }
+    }
+
+    fn imported_observation() -> ImportedDicomObservation {
+        ImportedDicomObservation {
+            schema_version: IMPORTED_DICOM_OBSERVATION_SCHEMA_VERSION.into(),
+            sop_class_uid: "1.2.3".into(),
+            sop_instance_uid: "1.2.3.4".into(),
+            transfer_syntax_uid: "1.2.840.10008.1.2.1".into(),
+            study_instance_uid: Some("1.2.5".into()),
+            series_instance_uid: Some("1.2.6".into()),
+            frame_of_reference_uid: Some("1.2.7".into()),
+            rows: Some(2),
+            columns: Some(2),
+            frames: Some(1),
+            content: vec![ImportedDicomContentObservation {
+                tag: "7FE0,0010".into(),
+                vr: "OB".into(),
+                size_bytes: 4,
+                sha256: crate::sha256_hex(&[0, 1, 2, 3]),
+            }],
+            references: vec![],
+        }
+    }
+
+    #[test]
+    fn imported_observation_is_strict_and_bounded() {
+        imported_observation().validate().unwrap();
+        let mut value = serde_json::to_value(imported_observation()).unwrap();
+        value
+            .as_object_mut()
+            .unwrap()
+            .insert("unknown".into(), 1.into());
+        assert!(serde_json::from_value::<ImportedDicomObservation>(value).is_err());
+
+        let mut oversized = imported_observation();
+        oversized.references = (0..=MAX_IMPORTED_DICOM_REFERENCES)
+            .map(|index| ImportedDicomReferenceObservation {
+                role: format!("source_{index}"),
+                sop_class_uid: "1.2.3".into(),
+                sop_instance_uid: format!("1.2.3.{index}"),
+                frame_numbers: vec![1],
+            })
+            .collect();
+        assert!(matches!(
+            oversized.validate(),
+            Err(EvidenceError::ImportedDicomObservationBounds)
+        ));
+
+        let mut invalid = imported_observation();
+        invalid.rows = Some(0);
+        assert!(matches!(
+            invalid.validate(),
+            Err(EvidenceError::ImportedDicomObservationBounds)
+        ));
+        let mut invalid = imported_observation();
+        invalid.references.push(ImportedDicomReferenceObservation {
+            role: "source".into(),
+            sop_class_uid: "1.2.3".into(),
+            sop_instance_uid: "1.2.3.8".into(),
+            frame_numbers: vec![1, 1],
+        });
+        assert!(matches!(
+            invalid.validate(),
+            Err(EvidenceError::ImportedDicomObservationBounds)
+        ));
     }
 
     #[test]

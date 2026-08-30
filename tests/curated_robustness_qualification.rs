@@ -6,6 +6,7 @@ use dicom_test_suite::corpus_plan::{
     ArtifactProvenance, PlannedArtifact, QualificationPayloadPolicy,
 };
 use dicom_test_suite::curated_execution::CuratedExecutionServiceFactory;
+use dicom_test_suite::curated_manifest::project_curated_qualifications;
 use dicom_test_suite::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlan, CuratedScCorpusPlanProvider, CuratedScPlanRequest,
     CuratedScSelection,
@@ -13,9 +14,10 @@ use dicom_test_suite::curated_plan::{
 use dicom_test_suite::executor::adapters::ManifestProjectionCompatibilityInput;
 use dicom_test_suite::executor::cancellation::CancellationToken;
 use dicom_test_suite::executor::engine::{
-    CorpusExecutor, ManifestProjectionError, ManifestProjector,
+    CorpusExecutor, ManifestProjectionError, ManifestProjector, StagedCorpusExecution,
 };
 use dicom_test_suite::executor::services::SlotExecutionBinding;
+use dicom_test_suite::sha256_hex;
 
 const FUZZ_CASE: &str = "fuzz/parser/bounded_seed_corpus";
 const EOT_CASE: &str = "qualification/encapsulation/eot_u64_overflow";
@@ -25,6 +27,8 @@ const SOURCE_SHA256: [&str; 2] = [
     "9cef18fdbe59b90f0e79ce87b454f7f8660fae202f18edb5bb17edd95f393126",
 ];
 const SOURCE_SIZE_BYTES: [u64; 2] = [926, 1032];
+const QUALIFICATION_SHA256: &str =
+    "7d4897cdbefa79a1ab96c64c8c6505d7b95945c4b269b7de933f4a2b93f76df7";
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
@@ -96,6 +100,19 @@ fn qualification(
             _ => None,
         })
         .unwrap()
+}
+
+fn execute(bundle: &CuratedScCorpusPlan, workers: u32, label: &str) -> StagedCorpusExecution {
+    let root = TempRoot::new(label);
+    let staged = CorpusExecutor::new(CuratedExecutionServiceFactory::new(bundle), NoManifest)
+        .execute_into_staging(&bundle.plan, &root.0, workers, &CancellationToken::new())
+        .unwrap();
+    let paths = files(&root.0);
+    assert!(
+        paths.is_empty(),
+        "consumed private sources and generated candidates must be removed"
+    );
+    staged
 }
 
 fn files(root: &Path) -> Vec<String> {
@@ -269,6 +286,81 @@ fn eot_is_case_id_reachable_but_all_feature_free_excludes_robustness() {
             .iter()
             .all(|artifact| !matches!(artifact, PlannedArtifact::Qualification(_)))
     );
+}
+
+#[test]
+fn one_fuzz_plan_executes_serially_and_in_parallel_with_exact_frozen_evidence() {
+    let bundle = fuzz(1, 4);
+    let serial = execute(&bundle, 1, "serial");
+    let parallel = execute(&bundle, 4, "parallel");
+    let serial_qualification = project_curated_qualifications(&serial.projection).unwrap();
+    let parallel_qualification = project_curated_qualifications(&parallel.projection).unwrap();
+    assert_eq!(serial_qualification, parallel_qualification);
+    assert_eq!(serial_qualification.len(), 1);
+    assert_eq!(
+        sha256_hex(&serde_json::to_vec(&serial_qualification[0]).unwrap()),
+        QUALIFICATION_SHA256
+    );
+    for staged in [&serial, &parallel] {
+        let qualification = staged
+            .projection
+            .artifacts
+            .iter()
+            .find(|artifact| matches!(artifact.planned, PlannedArtifact::Qualification(_)))
+            .unwrap();
+        assert!(qualification.execution.output.is_none());
+        assert_eq!(qualification.execution.resources.actual_output_bytes, 0);
+        assert_eq!(
+            qualification
+                .execution
+                .materialization
+                .as_ref()
+                .unwrap()
+                .service_evidence
+                .len(),
+            1
+        );
+    }
+}
+
+#[test]
+fn eot_executes_as_internal_evidence_without_public_record_or_payload() {
+    let bundle = plan(CuratedScSelection::CaseIds(vec![EOT_CASE.into()]), 1, 1);
+    let root = TempRoot::new("eot-execution");
+    let staged = CorpusExecutor::new(CuratedExecutionServiceFactory::new(&bundle), NoManifest)
+        .execute_into_staging(&bundle.plan, &root.0, 1, &CancellationToken::new())
+        .unwrap();
+    assert!(files(&root.0).is_empty());
+    assert!(
+        project_curated_qualifications(&staged.projection)
+            .unwrap()
+            .is_empty()
+    );
+    let execution = &staged.projection.artifacts[0].execution;
+    assert!(execution.output.is_none());
+    assert_eq!(execution.resources.actual_output_bytes, 0);
+    assert_eq!(
+        execution.materialization.as_ref().unwrap().service_evidence[0].evidence_kind,
+        "checked_eot_u64_overflow"
+    );
+}
+
+#[test]
+fn source_identity_failure_cleans_transactional_private_staging() {
+    let mut bundle = fuzz(1, 2);
+    let PlannedArtifact::Qualification(qualification) = &mut bundle.plan.artifacts[2] else {
+        unreachable!()
+    };
+    qualification.sources[0].expected_sha256 = "0".repeat(64);
+    bundle.plan.validate().unwrap();
+
+    let root = TempRoot::new("identity-failure");
+    let destination = root.0.join("failed-output");
+    let result = CorpusExecutor::new(CuratedExecutionServiceFactory::new(&bundle), NoManifest)
+        .execute(&bundle.plan, &destination, 2, &CancellationToken::new());
+    assert!(result.is_err());
+    assert!(!destination.exists());
+    assert!(files(&root.0).is_empty());
 }
 
 #[test]

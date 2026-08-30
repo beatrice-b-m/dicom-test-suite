@@ -10,6 +10,7 @@ use std::sync::Arc;
 use dicom_core::{
     Tag,
     ops::{AttributeSelector, AttributeSelectorStep},
+    value::Value as DicomValue,
 };
 use serde_json::{Value, json};
 
@@ -1129,14 +1130,23 @@ fn imported_dicom_observation(
         (Tag(0x7FE0, 0x0009), "7FE0,0009"),
     ] {
         if let Ok(element) = object.element(tag) {
-            let bytes = element.to_bytes().map_err(|_| {
-                MaterializationError::ImportedDicomContract(artifact.logical_id.clone())
-            })?;
+            let (size_bytes, sha256) = match element.value() {
+                DicomValue::PixelSequence(sequence) => encapsulated_content_identity(sequence)
+                    .ok_or_else(|| {
+                        MaterializationError::ImportedDicomContract(artifact.logical_id.clone())
+                    })?,
+                _ => {
+                    let bytes = element.to_bytes().map_err(|_| {
+                        MaterializationError::ImportedDicomContract(artifact.logical_id.clone())
+                    })?;
+                    (bytes.len() as u64, sha256_hex(bytes.as_ref()))
+                }
+            };
             content.push(crate::executor::evidence::ImportedDicomContentObservation {
                 tag: label.into(),
                 vr: format!("{:?}", element.vr()),
-                size_bytes: bytes.len() as u64,
-                sha256: sha256_hex(bytes.as_ref()),
+                size_bytes,
+                sha256,
             });
         }
     }
@@ -1225,6 +1235,18 @@ fn imported_dicom_observation(
         .validate()
         .map_err(|_| MaterializationError::ImportedDicomContract(artifact.logical_id.clone()))?;
     Ok(observation)
+}
+
+fn encapsulated_content_identity<P: AsRef<[u8]>>(
+    sequence: &dicom_core::value::PixelFragmentSequence<P>,
+) -> Option<(u64, String)> {
+    let mut size_bytes = 0_u64;
+    let mut hasher = crate::hashing::StreamingSha256::new();
+    for fragment in sequence.fragments() {
+        size_bytes = size_bytes.checked_add(u64::try_from(fragment.as_ref().len()).ok()?)?;
+        hasher.update(fragment.as_ref());
+    }
+    (size_bytes > 0).then(|| (size_bytes, hasher.finish_hex()))
 }
 
 fn imported_reference_order_matches(
@@ -2059,6 +2081,23 @@ mod tests {
             &registry,
         );
         assert!(error.is_err());
+    }
+
+    #[test]
+    fn encapsulated_import_observation_hashes_bounded_fragment_payloads() {
+        let sequence = dicom_core::value::PixelFragmentSequence::new(
+            vec![0_u32, 12],
+            vec![vec![1_u8, 2, 3, 0], vec![4_u8, 5]],
+        );
+        let (size_bytes, sha256) = super::encapsulated_content_identity(&sequence).unwrap();
+        assert_eq!(size_bytes, 6);
+        assert_eq!(sha256, sha256_hex(&[1, 2, 3, 0, 4, 5]));
+
+        let empty = dicom_core::value::PixelFragmentSequence::<Vec<u8>>::new(
+            Vec::<u32>::new(),
+            Vec::<Vec<u8>>::new(),
+        );
+        assert!(super::encapsulated_content_identity(&empty).is_none());
     }
 
     #[test]

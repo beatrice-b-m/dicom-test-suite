@@ -30,6 +30,7 @@ const CT_IMAGE_STORAGE: &str = "1.2.840.10008.5.1.4.1.1.2";
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StressCtParameters {
+    pub manufacturer_model_name: String,
     pub instances: u32,
     pub rows: u32,
     pub columns: u32,
@@ -164,7 +165,7 @@ pub fn plan_stress_ct_recipe(
             .map_err(|error| contract(error.to_string()))?,
             dependencies: Vec::new(),
             common: common(
-                recipe,
+                &parameters,
                 &study_uid,
                 &series_uid,
                 &frame_uid,
@@ -236,7 +237,8 @@ pub fn plan_stress_ct_recipe(
 }
 
 fn validate_parameters(parameters: &StressCtParameters) -> Result<(), StressCtPlanError> {
-    if parameters.instances != 128
+    if parameters.manufacturer_model_name != "stress_high_instance_count_ct"
+        || parameters.instances != 128
         || parameters.rows != 64
         || parameters.columns != 64
         || parameters.pixel_modulus != 3072
@@ -257,7 +259,7 @@ fn validate_parameters(parameters: &StressCtParameters) -> Result<(), StressCtPl
 }
 
 fn common(
-    recipe: &CaseRecipe,
+    parameters: &StressCtParameters,
     study_uid: &str,
     series_uid: &str,
     frame_uid: &str,
@@ -292,7 +294,9 @@ fn common(
         }),
         equipment: EquipmentModuleInput {
             manufacturer: ElementPresence::Value("dicom-test-suite".into()),
-            manufacturer_model_name: ElementPresence::Value(recipe.recipe_id.clone()),
+            manufacturer_model_name: ElementPresence::Value(
+                parameters.manufacturer_model_name.clone(),
+            ),
             software_versions: ElementPresence::Value(crate::PACKAGE_VERSION.into()),
         },
         image: ImageModuleInput {

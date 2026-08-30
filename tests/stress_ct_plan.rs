@@ -59,6 +59,12 @@ fn high_instance_ct_plan_is_complete_ordered_and_dag_closed() {
         assert_eq!(request.pixels.pixels.declared_pixel_min, -1024);
         assert_eq!(request.pixels.pixels.declared_pixel_max, 2047);
         assert_eq!(
+            request.common.equipment.manufacturer_model_name,
+            dicom_test_suite::recipes::ElementPresence::Value(
+                "stress_high_instance_count_ct".into()
+            )
+        );
+        assert_eq!(
             request.pixels.pixels.expected_frame_sha256,
             ["e8b46d597c2c40be1ee400f37a882b9513860456f8e1cadb53f44b0b3ffe986d"]
         );

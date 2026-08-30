@@ -11,6 +11,7 @@
 
   ],
   "provider_parameters": {
+    "manufacturer_model_name": "stress_high_instance_count_ct",
     "instances": 128,
     "rows": 64,
     "columns": 64,

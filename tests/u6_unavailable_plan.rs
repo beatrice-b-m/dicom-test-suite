@@ -20,16 +20,31 @@ fn feature_gated_case_is_an_explicit_plan_capability() {
         .unwrap();
 
     assert_eq!(bundle.pending.len(), 1);
-    assert_eq!(bundle.plan.unavailable.len(), 1);
-    let unavailable = &bundle.plan.unavailable[0];
-    assert_eq!(unavailable.kind, CapabilityKind::Feature);
-    assert_eq!(unavailable.reason_code, "feature_gated_case_unavailable");
+    assert_eq!(bundle.plan.unavailable.len(), 2);
+    let unavailable = bundle
+        .plan
+        .unavailable
+        .iter()
+        .find(|item| item.kind == CapabilityKind::Feature)
+        .expect("compile-time feature capability");
+    assert_eq!(unavailable.reason_code, "feature_disabled");
     assert_eq!(
         unavailable.requirements["features"],
         vec!["deflate".to_string()]
     );
     assert_eq!(
         bundle.pending[0].artifact_ids,
+        unavailable.affected_artifact_ids
+    );
+    let codec = bundle
+        .plan
+        .unavailable
+        .iter()
+        .find(|item| item.kind == CapabilityKind::Codec)
+        .expect("runtime codec capability");
+    assert_eq!(codec.reason_code, "codec_backend_unavailable");
+    assert_eq!(
+        codec.affected_artifact_ids,
         unavailable.affected_artifact_ids
     );
 }

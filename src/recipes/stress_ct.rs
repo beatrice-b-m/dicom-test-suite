@@ -12,7 +12,7 @@ use crate::composition::{
 use crate::corpus_plan::{ArtifactResourceEstimate, OutputRelativePath};
 use crate::native_pixel::{
     ByteOrder, NativePixelRequest, PhotometricInterpretation, PixelDataVr, PixelShape,
-    StoredValueType,
+    SignedStoredBitsPolicy, StoredValueType,
 };
 use crate::{DeterministicUidInput, UidRole, deterministic_uid, sha256_hex};
 
@@ -90,7 +90,7 @@ pub fn plan_stress_ct_recipe(
         .collect::<Vec<_>>();
     let mut native_bytes = Vec::with_capacity(stored_values.len() * 2);
     for value in &stored_values {
-        let stored_word = (*value as u64 & 0x0fff) as u16;
+        let stored_word = i16::try_from(*value).map_err(|_| StressCtPlanError::ResourceOverflow)?;
         native_bytes.extend_from_slice(&stored_word.to_le_bytes());
     }
     let frame_sha256 = sha256_hex(&native_bytes);
@@ -202,6 +202,7 @@ pub fn plan_stress_ct_recipe(
                     declared_pixel_min: parameters.pixel_min,
                     declared_pixel_max: parameters.pixel_max,
                     expected_frame_sha256: vec![frame_sha256.clone()],
+                    signed_stored_bits: SignedStoredBitsPolicy::SignExtendToAllocation,
                     padding: None,
                     palette: None,
                 },

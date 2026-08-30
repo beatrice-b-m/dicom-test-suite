@@ -159,7 +159,13 @@ fn outputs(id: &str, path: &str, bytes: &[u8], include_services: bool) -> Artifa
             evidence_id: "qualification_record".into(),
             evidence_kind: "bounded_qualification".into(),
             producer: tool("qualification-service", Some("e".repeat(64))),
-            claims: BTreeMap::from([("candidate_count".into(), serde_json::json!(7))]),
+            claims: BTreeMap::from([
+                ("candidate_count".into(), serde_json::json!(7)),
+                (
+                    "materialized_artifact_sha256".into(),
+                    serde_json::json!(sha256_hex(bytes)),
+                ),
+            ]),
         }],
     };
     let validation = ServiceValidationResult {
@@ -393,6 +399,21 @@ fn adapter_orders_records_and_preserves_typed_service_evidence() {
         Some("e".repeat(64))
     );
     assert_eq!(service_evidence.claims["candidate_count"], 7);
+    assert!(
+        !service_evidence
+            .claims
+            .contains_key("materialized_artifact_sha256"),
+        "structural claims are promoted once instead of retained as a raw duplicate"
+    );
+    assert_eq!(
+        evidence.artifacts[0]
+            .materialization
+            .as_ref()
+            .unwrap()
+            .materialized_artifact_sha256
+            .as_deref(),
+        Some(sha256_hex(b"first").as_str())
+    );
     assert_eq!(
         evidence.artifacts[0].obligations[0].route_id,
         "builtin.strict"

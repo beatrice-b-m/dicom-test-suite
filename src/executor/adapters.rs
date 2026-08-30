@@ -501,7 +501,7 @@ fn adapt_artifact(
                         producer_id: evidence.producer.backend_id.clone(),
                         producer_version: evidence.producer.version.clone(),
                         producer_executable_sha256: evidence.producer.executable_sha256.clone(),
-                        claims: evidence.claims.clone(),
+                        claims: retained_service_claims(&evidence.claims),
                     })
                     .collect(),
             })
@@ -715,6 +715,34 @@ fn service_claim<'a>(result: &'a MaterializationResult, key: &str) -> Option<&'a
         .evidence
         .iter()
         .find_map(|evidence| evidence.claims.get(key))
+}
+
+/// Retain service-specific evidence without duplicating the structural claims
+/// promoted into typed `MaterializationEvidence` fields above. In particular,
+/// bounded stress runs can carry thousands of fragment records in
+/// `materialized_content`; keeping a second raw copy would make the evidence
+/// envelope scale with an implementation detail rather than the planned
+/// artifact contract.
+fn retained_service_claims(claims: &BTreeMap<String, Value>) -> BTreeMap<String, Value> {
+    const PROMOTED: &[&str] = &[
+        "materialized_instance_plan_sha256",
+        "materialized_encoding_sha256",
+        "materialized_artifact_sha256",
+        "preamble_policy",
+        "preamble_sha256",
+        "file_meta_policy",
+        "file_meta_sha256",
+        "file_meta_size_bytes",
+        "implementation_class_uid",
+        "implementation_version_name",
+        "materialized_content",
+        "imported_dicom_observation",
+    ];
+    claims
+        .iter()
+        .filter(|(key, _)| !PROMOTED.contains(&key.as_str()))
+        .map(|(key, value)| (key.clone(), value.clone()))
+        .collect()
 }
 
 fn artifact_contracts(artifact: &PlannedArtifact) -> (&ValidationPlan, &EvidencePlan) {

@@ -68,19 +68,22 @@ use crate::sr_rt_validation::{
 };
 use crate::validation::{
     AdvancedBlendingPresentationStateExpectations, AdvancedBlendingSourceSeriesExpectations,
-    BlendingPresentationStateExpectations, BlendingSourceSeriesExpectations,
-    ColorSoftcopyPresentationStateExpectations, CrImageExpectations, CtImageExpectations,
+    BasicTextSrExpectations, BlendingPresentationStateExpectations,
+    BlendingSourceSeriesExpectations, ColorSoftcopyPresentationStateExpectations,
+    ComprehensiveSrExpectations, CrImageExpectations, CtImageExpectations,
     DeformableSpatialRegistrationExpectations, DxImageExpectations,
     EnhancedCtConcatenationExpectations, EnhancedCtImageExpectations, EnhancedMrImageExpectations,
-    EnhancedPetImageExpectations, MgImageExpectations, MrImageExpectations, NmDetectorExpectations,
-    NmEnergyWindowExpectations, NmImageExpectations, PaletteExpectations, Part10Expectations,
-    PetImageExpectations, PixelDataLengthFormula, PresentationStateExpectations,
-    RealWorldValueMappingExpectations, SegmentationExpectations, SpatialRegistrationExpectations,
+    EnhancedPetImageExpectations, KeyObjectReferenceExpectations, KeyObjectSelectionExpectations,
+    MgImageExpectations, MrImageExpectations, NmDetectorExpectations, NmEnergyWindowExpectations,
+    NmImageExpectations, PaletteExpectations, Part10Expectations, PetImageExpectations,
+    PixelDataLengthFormula, PresentationStateExpectations, RealWorldValueMappingExpectations,
+    SegmentationExpectations, SpatialRegistrationExpectations,
     SpatialRegistrationReferenceExpectations, UsImageExpectations, UsMultiframeExpectations,
     XaImageExpectations, XrfImageExpectations, validate_advanced_blending_presentation_state_file,
-    validate_blending_presentation_state_file, validate_color_softcopy_presentation_state_file,
-    validate_deformable_spatial_registration_file, validate_part10_file,
-    validate_presentation_state_file, validate_spatial_registration_file,
+    validate_basic_text_sr_file, validate_blending_presentation_state_file,
+    validate_color_softcopy_presentation_state_file, validate_comprehensive_sr_file,
+    validate_deformable_spatial_registration_file, validate_key_object_selection_file,
+    validate_part10_file, validate_presentation_state_file, validate_spatial_registration_file,
     validate_wsi_multiple_optical_paths_file, validate_wsi_pyramid_file,
     validate_wsi_tiled_full_file, validate_wsi_tiled_sparse_file,
 };
@@ -1452,18 +1455,19 @@ fn validate_semantic_compatibility(
             identity,
             completion_flag: format!("{:?}", parameters.completion_flag).to_uppercase(),
             verification_flag: format!("{:?}", parameters.verification_flag).to_uppercase(),
-            continuity_of_content: parameters.continuity_of_content,
-            title_code_value: parameters.title.code_value,
-            title_coding_scheme_designator: parameters.title.coding_scheme_designator,
-            title_code_meaning: parameters.title.code_meaning,
+            continuity_of_content: parameters.continuity_of_content.clone(),
+            title_code_value: parameters.title.code_value.clone(),
+            title_coding_scheme_designator: parameters.title.coding_scheme_designator.clone(),
+            title_code_meaning: parameters.title.code_meaning.clone(),
             content_tree_sha256: sha256_hex(
                 &serde_json::to_vec(&plan.attributes)
                     .map_err(|error| service_error("SR validation", error))?,
             ),
-            references,
+            references: references.clone(),
         };
-        validate_native_sr(&contract, &contract)
-            .map_err(|error| service_error("SR validation", error))?
+        let typed = validate_native_sr(&contract, &contract)
+            .map_err(|error| service_error("SR validation", error))?;
+        return validate_historical_sr(path, artifact, plan, &parameters, &references, typed);
     } else {
         let parameters = serde_json::from_value::<RtDocumentParameters>(Value::Object(
             context.case_recipe.provider_parameters.clone(),
@@ -1533,6 +1537,171 @@ fn validate_semantic_compatibility(
             .map_err(|error| service_error("RT validation", error))?
     };
     specialized_evidence_report(path, evidence)
+}
+
+fn validate_historical_sr(
+    path: &Path,
+    artifact: &crate::corpus_plan::PlannedDicomArtifact,
+    plan: &ResolvedInstancePlan,
+    parameters: &SrDocumentParameters,
+    references: &[SemanticReferenceObservation],
+    _typed_evidence: SpecializedValidationEvidence,
+) -> Result<TypedValidationReport, ServiceInvocationError> {
+    let sop_instance_uid = required_identity(artifact, CompositionUidRole::SopInstance)?;
+    let implementation_class_uid = &artifact.encoding.implementation.class_uid;
+    let transfer_syntax_uid = &artifact.encoding.transfer_syntax_uid;
+    let completion_flag = format!("{:?}", parameters.completion_flag).to_uppercase();
+    let verification_flag = format!("{:?}", parameters.verification_flag).to_uppercase();
+    let first = references.first().ok_or_else(|| {
+        ServiceInvocationError::new("SR validation", "native SR lacks its declared source")
+    })?;
+    let result = match &parameters.document {
+        SrDocumentKind::BasicText {
+            observation,
+            observation_text,
+        } => validate_basic_text_sr_file(
+            path,
+            &BasicTextSrExpectations {
+                sop_class_uid: &plan.sop_class_uid,
+                sop_instance_uid,
+                transfer_syntax_uid,
+                implementation_class_uid,
+                synthetic_data: "YES",
+                modality: "SR",
+                completion_flag: &completion_flag,
+                verification_flag: &verification_flag,
+                referenced_study_instance_uid: &first.study_instance_uid,
+                referenced_series_instance_uid: &first.series_instance_uid,
+                referenced_sop_class_uid: &first.sop_class_uid,
+                referenced_sop_instance_uid: &first.sop_instance_uid,
+                root_value_type: "CONTAINER",
+                root_continuity_of_content: &parameters.continuity_of_content,
+                title_code_value: &parameters.title.code_value,
+                title_coding_scheme_designator: &parameters.title.coding_scheme_designator,
+                title_code_meaning: &parameters.title.code_meaning,
+                observation_relationship_type: "CONTAINS",
+                observation_value_type: "TEXT",
+                observation_code_value: &observation.code_value,
+                observation_coding_scheme_designator: &observation.coding_scheme_designator,
+                observation_code_meaning: &observation.code_meaning,
+                observation_text,
+            },
+        ),
+        SrDocumentKind::Comprehensive {
+            measurement,
+            numeric_value,
+            units,
+            image_concept,
+        } => {
+            let frames = first
+                .referenced_frames
+                .iter()
+                .copied()
+                .map(u16::try_from)
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|_| ServiceInvocationError::new("SR validation", "frame exceeds u16"))?;
+            validate_comprehensive_sr_file(
+                path,
+                &ComprehensiveSrExpectations {
+                    sop_class_uid: &plan.sop_class_uid,
+                    sop_instance_uid,
+                    transfer_syntax_uid,
+                    implementation_class_uid,
+                    synthetic_data: "YES",
+                    modality: "SR",
+                    completion_flag: &completion_flag,
+                    verification_flag: &verification_flag,
+                    referenced_study_instance_uid: &first.study_instance_uid,
+                    referenced_series_instance_uid: &first.series_instance_uid,
+                    referenced_sop_class_uid: &first.sop_class_uid,
+                    referenced_sop_instance_uid: &first.sop_instance_uid,
+                    root_value_type: "CONTAINER",
+                    root_continuity_of_content: &parameters.continuity_of_content,
+                    title_code_value: &parameters.title.code_value,
+                    title_coding_scheme_designator: &parameters.title.coding_scheme_designator,
+                    title_code_meaning: &parameters.title.code_meaning,
+                    measurement_relationship_type: "CONTAINS",
+                    measurement_value_type: "NUM",
+                    measurement_code_value: &measurement.code_value,
+                    measurement_coding_scheme_designator: &measurement.coding_scheme_designator,
+                    measurement_code_meaning: &measurement.code_meaning,
+                    numeric_value,
+                    unit_code_value: &units.code_value,
+                    unit_coding_scheme_designator: &units.coding_scheme_designator,
+                    unit_code_meaning: &units.code_meaning,
+                    image_relationship_type: "CONTAINS",
+                    image_value_type: "IMAGE",
+                    image_code_value: &image_concept.code_value,
+                    image_coding_scheme_designator: &image_concept.coding_scheme_designator,
+                    image_code_meaning: &image_concept.code_meaning,
+                    referenced_frame_numbers: &frames,
+                },
+            )
+        }
+        SrDocumentKind::KeyObjectSelection {
+            mapping_resource,
+            template_identifier,
+        } => {
+            let frame_storage = references
+                .iter()
+                .map(|reference| {
+                    reference
+                        .referenced_frames
+                        .iter()
+                        .copied()
+                        .map(u16::try_from)
+                        .collect::<Result<Vec<_>, _>>()
+                })
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|_| ServiceInvocationError::new("SR validation", "frame exceeds u16"))?;
+            let key_objects = references
+                .iter()
+                .zip(&frame_storage)
+                .map(|(reference, frames)| KeyObjectReferenceExpectations {
+                    referenced_series_instance_uid: &reference.series_instance_uid,
+                    referenced_sop_class_uid: &reference.sop_class_uid,
+                    referenced_sop_instance_uid: &reference.sop_instance_uid,
+                    referenced_frame_numbers: (!frames.is_empty()).then_some(frames.as_slice()),
+                })
+                .collect::<Vec<_>>();
+            validate_key_object_selection_file(
+                path,
+                &KeyObjectSelectionExpectations {
+                    sop_class_uid: &plan.sop_class_uid,
+                    sop_instance_uid,
+                    transfer_syntax_uid,
+                    implementation_class_uid,
+                    synthetic_data: "YES",
+                    modality: "KO",
+                    completion_flag: &completion_flag,
+                    verification_flag: &verification_flag,
+                    referenced_study_instance_uid: &first.study_instance_uid,
+                    root_value_type: "CONTAINER",
+                    root_continuity_of_content: &parameters.continuity_of_content,
+                    title_code_value: &parameters.title.code_value,
+                    title_coding_scheme_designator: &parameters.title.coding_scheme_designator,
+                    title_code_meaning: &parameters.title.code_meaning,
+                    mapping_resource,
+                    template_identifier,
+                    relationship_type: "CONTAINS",
+                    image_value_type: "IMAGE",
+                    key_objects: &key_objects,
+                },
+            )
+        }
+        SrDocumentKind::Comprehensive3d { .. } | SrDocumentKind::Tid1500 { .. } => {
+            return Err(ServiceInvocationError::new(
+                "SR validation",
+                "external SR document reached the native validator",
+            ));
+        }
+    };
+    let mut report = legacy_validated_report(result)?;
+    report.checks.push(TypedValidationCheck::passed_internal(
+        "curated_composition_plan",
+        "The curated dataset resolved through the shared composition plan before Part 10 materialization.",
+    ));
+    Ok(report)
 }
 
 fn semantic_modality(

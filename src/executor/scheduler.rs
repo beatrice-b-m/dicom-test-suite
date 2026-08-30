@@ -356,8 +356,12 @@ mod tests {
             logical_id: id.into(),
             order,
             provenance: ArtifactProvenance::Requested,
+            case_binding: None,
+            profile: None,
+            run_seed: None,
             qualification_kind: "test_qualification".into(),
             parameters: BTreeMap::new(),
+            sources: vec![],
             payload_policy: QualificationPayloadPolicy::EvidenceOnly,
             validation: ValidationPlan {
                 rules: vec![ValidationRule {

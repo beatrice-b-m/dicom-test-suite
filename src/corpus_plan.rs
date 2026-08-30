@@ -15,7 +15,7 @@ use serde_json::Value;
 use crate::composition::ResolvedInstancePlan;
 use crate::sha256_hex;
 
-pub const CORPUS_PLAN_SCHEMA_VERSION: &str = "0.2.0";
+pub const CORPUS_PLAN_SCHEMA_VERSION: &str = "0.3.0";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -122,6 +122,11 @@ impl CorpusPlan {
             .iter()
             .map(|dependency| (&dependency.artifact_id, &dependency.depends_on))
             .collect::<BTreeSet<_>>();
+        let artifacts_by_id = self
+            .artifacts
+            .iter()
+            .map(|artifact| (artifact.logical_id(), artifact))
+            .collect::<BTreeMap<_, _>>();
         for artifact in &self.artifacts {
             let (references, private_source) = match artifact.provenance() {
                 ArtifactProvenance::Requested => (&[][..], false),
@@ -178,6 +183,46 @@ impl CorpusPlan {
                         return Err(CorpusPlanError::MissingImportedDicomDependency {
                             artifact_id: imported.logical_id.clone(),
                             source_artifact_id: source_id.clone(),
+                        });
+                    }
+                }
+            }
+            if let PlannedArtifact::Qualification(qualification) = artifact {
+                for source in &qualification.sources {
+                    let source_artifact = artifacts_by_id
+                        .get(source.artifact_id.as_str())
+                        .ok_or_else(|| CorpusPlanError::UnknownDependency {
+                            artifact_id: qualification.logical_id.clone(),
+                            depends_on: source.artifact_id.clone(),
+                        })?;
+                    if !dependency_pairs.contains(&(&qualification.logical_id, &source.artifact_id))
+                    {
+                        return Err(CorpusPlanError::MissingQualificationDependency {
+                            artifact_id: qualification.logical_id.clone(),
+                            source_artifact_id: source.artifact_id.clone(),
+                        });
+                    }
+                    let ArtifactProvenance::PrivateSource { consumed_by } =
+                        source_artifact.provenance()
+                    else {
+                        return Err(CorpusPlanError::QualificationSourceNotPrivate(
+                            source.artifact_id.clone(),
+                        ));
+                    };
+                    if !consumed_by.contains(&qualification.logical_id) {
+                        return Err(CorpusPlanError::QualificationSourceNotPrivate(
+                            source.artifact_id.clone(),
+                        ));
+                    }
+                    let actual_binding = match source_artifact {
+                        PlannedArtifact::Dicom(value) => value.case_binding.as_ref(),
+                        PlannedArtifact::ImportedDicom(value) => value.case_binding.as_ref(),
+                        _ => None,
+                    };
+                    if actual_binding != Some(&source.case_binding) {
+                        return Err(CorpusPlanError::QualificationSourceIdentityMismatch {
+                            artifact_id: qualification.logical_id.clone(),
+                            source_artifact_id: source.artifact_id.clone(),
                         });
                     }
                 }
@@ -642,8 +687,15 @@ pub struct PlannedQualification {
     pub logical_id: String,
     pub order: u64,
     pub provenance: ArtifactProvenance,
+    pub case_binding: Option<CaseBinding>,
+    pub profile: Option<String>,
+    pub run_seed: Option<u64>,
     pub qualification_kind: String,
     pub parameters: BTreeMap<String, Value>,
+    /// Ordered private source declarations. Their ordering is semantic and is
+    /// preserved in qualification evidence.
+    #[serde(default)]
+    pub sources: Vec<PlannedQualificationSource>,
     pub payload_policy: QualificationPayloadPolicy,
     pub validation: ValidationPlan,
     pub evidence: EvidencePlan,
@@ -652,10 +704,67 @@ pub struct PlannedQualification {
 
 impl PlannedQualification {
     fn validate(&self) -> Result<(), CorpusPlanError> {
+        if let Some(binding) = &self.case_binding {
+            binding.validate()?;
+        }
+        if let Some(profile) = &self.profile {
+            validate_identifier("qualification profile", profile)?;
+        }
         validate_identifier("qualification_kind", &self.qualification_kind)?;
+        let mut artifact_ids = BTreeSet::new();
+        let mut roles = BTreeSet::new();
+        let mut slots = BTreeSet::new();
+        for source in &self.sources {
+            source.validate()?;
+            if !artifact_ids.insert(&source.artifact_id)
+                || !roles.insert(&source.dependency_role)
+                || !slots.insert(&source.binding_slot)
+            {
+                return Err(CorpusPlanError::DuplicateQualificationSource(
+                    source.artifact_id.clone(),
+                ));
+            }
+        }
         self.validation.validate()?;
         self.evidence.validate()?;
         self.resources.validate()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PlannedQualificationSource {
+    pub artifact_id: String,
+    pub case_binding: CaseBinding,
+    pub artifact_logical_id: String,
+    pub dependency_role: String,
+    pub binding_slot: String,
+    pub expected_sha256: String,
+    pub expected_size_bytes: u64,
+    #[serde(default)]
+    pub parameters: BTreeMap<String, Value>,
+}
+
+impl PlannedQualificationSource {
+    fn validate(&self) -> Result<(), CorpusPlanError> {
+        validate_identifier("qualification source artifact_id", &self.artifact_id)?;
+        self.case_binding.validate()?;
+        validate_identifier(
+            "qualification source artifact_logical_id",
+            &self.artifact_logical_id,
+        )?;
+        validate_identifier(
+            "qualification source dependency_role",
+            &self.dependency_role,
+        )?;
+        validate_identifier("qualification source binding_slot", &self.binding_slot)?;
+        validate_sha256("qualification source SHA-256", &self.expected_sha256)?;
+        if self.expected_size_bytes == 0 {
+            return Err(CorpusPlanError::IncompleteQualificationSource(
+                self.artifact_id.clone(),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -1360,6 +1469,17 @@ pub enum CorpusPlanError {
         artifact_id: String,
         source_artifact_id: String,
     },
+    MissingQualificationDependency {
+        artifact_id: String,
+        source_artifact_id: String,
+    },
+    QualificationSourceNotPrivate(String),
+    QualificationSourceIdentityMismatch {
+        artifact_id: String,
+        source_artifact_id: String,
+    },
+    DuplicateQualificationSource(String),
+    IncompleteQualificationSource(String),
     InvalidImportedDicomProvider(String),
     ImportedDicomResourceMismatch {
         logical_id: String,
@@ -1513,6 +1633,35 @@ impl fmt::Display for CorpusPlanError {
                 formatter,
                 "imported DICOM artifact {artifact_id} lacks an explicit dependency on source {source_artifact_id}"
             ),
+            Self::MissingQualificationDependency {
+                artifact_id,
+                source_artifact_id,
+            } => write!(
+                formatter,
+                "qualification artifact {artifact_id} lacks an explicit dependency on source {source_artifact_id}"
+            ),
+            Self::QualificationSourceNotPrivate(id) => {
+                write!(formatter, "qualification source {id} is not private")
+            }
+            Self::QualificationSourceIdentityMismatch {
+                artifact_id,
+                source_artifact_id,
+            } => write!(
+                formatter,
+                "qualification artifact {artifact_id} source {source_artifact_id} differs from its declared case binding"
+            ),
+            Self::DuplicateQualificationSource(id) => {
+                write!(
+                    formatter,
+                    "duplicate qualification source identity for {id}"
+                )
+            }
+            Self::IncompleteQualificationSource(id) => {
+                write!(
+                    formatter,
+                    "incomplete qualification source declaration for {id}"
+                )
+            }
             Self::InvalidImportedDicomProvider(id) => {
                 write!(
                     formatter,

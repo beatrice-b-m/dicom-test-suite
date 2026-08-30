@@ -12,6 +12,7 @@ use dicom_core::{
     ops::{AttributeSelector, AttributeSelectorStep},
     value::Value as DicomValue,
 };
+use serde::Deserialize;
 use serde_json::{Value, json};
 
 use crate::composition::{ContentMaterialization, Part10Materializer};
@@ -21,10 +22,16 @@ use crate::corpus_plan::{
     PlannedMutationOperation, PlannedQualification, QualificationPayloadPolicy,
 };
 use crate::encapsulation::{
-    BasicOffsetTablePolicy, EncapsulatedPixelData, ExtendedOffsetTable, encapsulate_frames,
+    BasicOffsetTablePolicy, CheckedEotArithmeticQualificationService,
+    EOT_ARITHMETIC_QUALIFICATION_KIND, EncapsulatedPixelData, EotArithmeticQualificationRequest,
+    EotQualificationLimits, ExtendedOffsetTable, encapsulate_frames,
     serialize_ov_words_little_endian,
 };
 use crate::executor::cancellation::CancellationToken;
+use crate::fuzz::{
+    BoundedFuzzQualificationService, FuzzBudget, FuzzQualificationRequest, FuzzSourceAsset,
+    INITIAL_SEED_DESCRIPTIONS, MutationSurface, TargetObservation, TargetOutcome,
+};
 use crate::mutation::{
     AcceptableOutcome, ByteRange, FailureLayer, LengthWidth, MutationParameters, MutationRequest,
     TruncationTarget, apply_named_mutation,
@@ -129,7 +136,7 @@ impl MaterializationDispatcher {
                 self.materialize_mutation(artifact, request, assets)
             }
             PlannedArtifact::Qualification(artifact) => {
-                self.materialize_qualification(artifact, request)
+                self.materialize_qualification(artifact, request, assets, cancellation)
             }
             PlannedArtifact::Auxiliary(artifact) => {
                 self.materialize_auxiliary(artifact, request, assets)
@@ -925,35 +932,225 @@ impl MaterializationDispatcher {
         &self,
         artifact: &PlannedQualification,
         request: &MaterializationRequest,
+        assets: &StagedAssetRegistry,
+        cancellation: &CancellationToken,
     ) -> Result<MaterializationResult, MaterializationError> {
-        if !request.bindings.slots.is_empty() {
+        let (backend_id, evidence_kind, claims) = match artifact.qualification_kind.as_str() {
+            "bounded_deterministic_fuzz" => {
+                self.materialize_fuzz_qualification(artifact, request, assets, cancellation)?
+            }
+            EOT_ARITHMETIC_QUALIFICATION_KIND => {
+                self.materialize_eot_qualification(artifact, request, cancellation)?
+            }
+            other => {
+                return Err(MaterializationError::UnsupportedQualification(
+                    other.to_owned(),
+                ));
+            }
+        };
+        Ok(MaterializationResult {
+            artifact_id: artifact.logical_id.clone(),
+            output: None,
+            backend: built_in_identity(backend_id),
+            evidence: vec![ServiceEvidence {
+                evidence_id: "qualification_record".into(),
+                evidence_kind: evidence_kind.into(),
+                producer: built_in_identity(backend_id),
+                claims,
+            }],
+        })
+    }
+
+    fn materialize_fuzz_qualification(
+        &self,
+        artifact: &PlannedQualification,
+        request: &MaterializationRequest,
+        assets: &StagedAssetRegistry,
+        cancellation: &CancellationToken,
+    ) -> Result<(&'static str, &'static str, BTreeMap<String, Value>), MaterializationError> {
+        if artifact.payload_policy != QualificationPayloadPolicy::NoPayload
+            || artifact.resources.output_bytes != 0
+        {
             return Err(MaterializationError::QualificationPayloadForbidden(
                 artifact.logical_id.clone(),
             ));
         }
-        if artifact.payload_policy == QualificationPayloadPolicy::EvidenceOnly
-            && artifact.evidence.obligations.is_empty()
+        let parameters = FuzzPlannedParameters::parse(&artifact.parameters)?;
+        let budget = parameters.budget.try_into_budget()?;
+        let case_binding = artifact.case_binding.as_ref().ok_or_else(|| {
+            MaterializationError::QualificationContract(artifact.logical_id.clone())
+        })?;
+        let profile = artifact.profile.as_deref().ok_or_else(|| {
+            MaterializationError::QualificationContract(artifact.logical_id.clone())
+        })?;
+        let run_seed = artifact.run_seed.ok_or_else(|| {
+            MaterializationError::QualificationContract(artifact.logical_id.clone())
+        })?;
+        if parameters.qualification_kind != artifact.qualification_kind
+            || case_binding.case_id != "fuzz/parser/bounded_seed_corpus"
+            || profile != "fuzz"
+            || parameters.sources.len() != artifact.sources.len()
+            || artifact.sources.len() != INITIAL_SEED_DESCRIPTIONS.len()
+            || request.bindings.slots.len() != artifact.sources.len()
+            || parameters.source_generation_seed == 0
+            || u64::try_from(artifact.resources.peak_working_bytes).unwrap_or(u64::MAX)
+                < parameters
+                    .budget
+                    .max_input_bytes
+                    .max(parameters.budget.max_output_bytes)
         {
-            return Err(MaterializationError::MissingQualificationEvidence(
+            return Err(MaterializationError::QualificationContract(
                 artifact.logical_id.clone(),
             ));
         }
-        Ok(MaterializationResult {
-            artifact_id: artifact.logical_id.clone(),
-            output: None,
-            backend: built_in_identity("qualification_dispatch"),
-            evidence: artifact
-                .evidence
-                .obligations
+
+        let mut loaded = Vec::with_capacity(artifact.sources.len());
+        for ((declared, recipe), committed) in artifact
+            .sources
+            .iter()
+            .zip(&parameters.sources)
+            .zip(INITIAL_SEED_DESCRIPTIONS)
+        {
+            let declared_fuzz = FuzzPlannedSourceParameters::parse(&declared.parameters)?;
+            let committed_surfaces = committed
+                .surfaces
                 .iter()
-                .map(|obligation| ServiceEvidence {
-                    evidence_id: obligation.obligation_id.clone(),
-                    evidence_kind: artifact.qualification_kind.clone(),
-                    producer: built_in_identity("qualification_dispatch"),
-                    claims: obligation.parameters.clone(),
-                })
-                .collect(),
-        })
+                .map(fuzz_surface_name)
+                .collect::<Vec<_>>();
+            if declared_fuzz.seed_description_id != committed.id
+                || recipe.seed_description_id != committed.id
+                || declared.case_binding.case_id != committed.source_case_id
+                || declared.case_binding.recipe_id != committed.source_recipe_id
+                || declared.case_binding.recipe_version != committed.source_recipe_version
+                || declared.case_binding.recipe_id != recipe.recipe.recipe_id
+                || declared.case_binding.recipe_version != recipe.recipe.recipe_version
+                || declared.artifact_logical_id != recipe.artifact_logical_id
+                || declared.dependency_role != recipe.dependency_role
+                || declared_fuzz.mutation_surfaces != committed_surfaces
+                || recipe.mutation_surfaces != committed_surfaces
+                || parameters.source_generation_seed != committed.source_generation_seed
+            {
+                return Err(MaterializationError::QualificationSourceIdentity(
+                    declared.artifact_id.clone(),
+                ));
+            }
+            let binding = request
+                .bindings
+                .slots
+                .get(&declared.binding_slot)
+                .ok_or_else(|| {
+                    MaterializationError::MissingQualificationSource(declared.binding_slot.clone())
+                })?;
+            let SlotExecutionBinding::StagedAsset { asset } = binding else {
+                return Err(MaterializationError::QualificationPayloadForbidden(
+                    declared.binding_slot.clone(),
+                ));
+            };
+            let expected_handle = format!("output:{}", declared.artifact_id);
+            let declaration = assets.resolve(asset)?;
+            if asset.as_str() != expected_handle
+                || declaration.visibility != AssetVisibility::Private
+                || declaration.media_type != "application/dicom"
+                || declaration.size_bytes != declared.expected_size_bytes
+                || declaration.sha256 != declared.expected_sha256
+            {
+                return Err(MaterializationError::QualificationSourceIdentity(
+                    declared.artifact_id.clone(),
+                ));
+            }
+            let bytes = self.read_asset(asset, assets, true)?;
+            if u64::try_from(bytes.len()).ok() != Some(declared.expected_size_bytes)
+                || sha256_hex(&bytes) != declared.expected_sha256
+            {
+                return Err(MaterializationError::QualificationSourceIdentity(
+                    declared.artifact_id.clone(),
+                ));
+            }
+            loaded.push((asset.as_str().to_owned(), bytes));
+        }
+        if cancellation.is_cancelled() {
+            return Err(MaterializationError::Cancelled);
+        }
+        let sources = artifact
+            .sources
+            .iter()
+            .zip(&loaded)
+            .zip(INITIAL_SEED_DESCRIPTIONS)
+            .map(
+                |((declared, (handle, bytes)), description)| FuzzSourceAsset {
+                    private_asset_id: handle,
+                    description: *description,
+                    declared_sha256: &declared.expected_sha256,
+                    declared_size_bytes: usize::try_from(declared.expected_size_bytes)
+                        .unwrap_or(usize::MAX),
+                    bytes,
+                },
+            )
+            .collect::<Vec<_>>();
+        let evidence = BoundedFuzzQualificationService
+            .execute(
+                FuzzQualificationRequest {
+                    case_id: &case_binding.case_id,
+                    profile,
+                    run_seed,
+                    budget,
+                    iterations_per_source: parameters.candidates_per_source,
+                    sources: &sources,
+                },
+                bounded_part10_observation,
+                &|| cancellation.is_cancelled(),
+            )
+            .map_err(|error| MaterializationError::Qualification(error.to_string()))?;
+        if evidence.status != "passed" {
+            return Err(MaterializationError::UnacceptableQualificationOutcome(
+                artifact.logical_id.clone(),
+            ));
+        }
+        Ok((
+            "bounded_deterministic_fuzz",
+            "bounded_fuzz_run",
+            serialized_claims(&evidence)?,
+        ))
+    }
+
+    fn materialize_eot_qualification(
+        &self,
+        artifact: &PlannedQualification,
+        request: &MaterializationRequest,
+        cancellation: &CancellationToken,
+    ) -> Result<(&'static str, &'static str, BTreeMap<String, Value>), MaterializationError> {
+        if artifact.payload_policy != QualificationPayloadPolicy::EvidenceOnly
+            || !artifact.sources.is_empty()
+            || !request.bindings.slots.is_empty()
+            || artifact.resources.output_bytes != 0
+        {
+            return Err(MaterializationError::QualificationPayloadForbidden(
+                artifact.logical_id.clone(),
+            ));
+        }
+        if cancellation.is_cancelled() {
+            return Err(MaterializationError::Cancelled);
+        }
+        let qualification = EotArithmeticQualificationRequest::from_planned_parameters(
+            &artifact.parameters,
+            EotQualificationLimits {
+                max_input_bytes: 0,
+                max_output_bytes: artifact.resources.output_bytes,
+                max_operations: 3,
+            },
+        )
+        .map_err(|error| MaterializationError::Qualification(error.to_string()))?;
+        let evidence = CheckedEotArithmeticQualificationService
+            .execute(qualification)
+            .map_err(|error| MaterializationError::Qualification(error.to_string()))?;
+        if cancellation.is_cancelled() {
+            return Err(MaterializationError::Cancelled);
+        }
+        Ok((
+            "checked_eot_arithmetic",
+            EOT_ARITHMETIC_QUALIFICATION_KIND,
+            serialized_claims(&evidence)?,
+        ))
     }
 
     fn materialize_auxiliary(
@@ -1107,6 +1304,140 @@ impl MaterializationDispatcher {
             observed_sha256: sha256,
         })
     }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FuzzPlannedParameters {
+    qualification_kind: String,
+    source_generation_seed: u64,
+    candidates_per_source: u64,
+    sources: Vec<FuzzRecipeSource>,
+    budget: FuzzBudgetParameters,
+}
+
+impl FuzzPlannedParameters {
+    fn parse(parameters: &BTreeMap<String, Value>) -> Result<Self, MaterializationError> {
+        serde_json::from_value(Value::Object(parameters.clone().into_iter().collect()))
+            .map_err(|error| MaterializationError::Qualification(error.to_string()))
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FuzzRecipeSource {
+    seed_description_id: String,
+    dependency_role: String,
+    recipe: FuzzRecipeReference,
+    artifact_logical_id: String,
+    mutation_surfaces: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FuzzRecipeReference {
+    recipe_id: String,
+    recipe_version: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FuzzPlannedSourceParameters {
+    seed_description_id: String,
+    mutation_surfaces: Vec<String>,
+}
+
+impl FuzzPlannedSourceParameters {
+    fn parse(parameters: &BTreeMap<String, Value>) -> Result<Self, MaterializationError> {
+        serde_json::from_value(Value::Object(parameters.clone().into_iter().collect()))
+            .map_err(|error| MaterializationError::Qualification(error.to_string()))
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FuzzBudgetParameters {
+    max_iterations: u64,
+    max_candidates: u64,
+    max_mutations_per_candidate: u32,
+    max_total_mutations: u64,
+    max_bytes_per_mutation: u64,
+    max_input_bytes: u64,
+    max_output_bytes: u64,
+    max_minimization_attempts: u64,
+    max_total_target_operations: u64,
+    max_target_operations: u64,
+}
+
+impl FuzzBudgetParameters {
+    fn try_into_budget(&self) -> Result<FuzzBudget, MaterializationError> {
+        let conversion =
+            || MaterializationError::Qualification("fuzz budget exceeds platform bounds".into());
+        Ok(FuzzBudget {
+            max_iterations: self.max_iterations,
+            max_candidates: self.max_candidates,
+            max_mutations_per_candidate: self.max_mutations_per_candidate,
+            max_total_mutations: self.max_total_mutations,
+            max_bytes_per_mutation: usize::try_from(self.max_bytes_per_mutation)
+                .map_err(|_| conversion())?,
+            max_input_bytes: usize::try_from(self.max_input_bytes).map_err(|_| conversion())?,
+            max_output_bytes: usize::try_from(self.max_output_bytes).map_err(|_| conversion())?,
+            max_minimization_attempts: self.max_minimization_attempts,
+            max_total_target_operations: self.max_total_target_operations,
+            max_target_operations: self.max_target_operations,
+        })
+    }
+}
+
+fn fuzz_surface_name(surface: &MutationSurface) -> &'static str {
+    match surface {
+        MutationSurface::FileMeta => "file_meta",
+        MutationSurface::DatasetHeaders => "dataset_headers",
+        MutationSurface::SequenceStructure => "sequence_structure",
+        MutationSurface::Encapsulation => "encapsulation",
+        MutationSurface::PixelData => "pixel_data",
+        MutationSurface::TextValues => "text_values",
+    }
+}
+
+fn bounded_part10_observation(bytes: &[u8], operation_limit: u64) -> TargetObservation {
+    let operations = u64::try_from(bytes.len()).unwrap_or(u64::MAX).max(1);
+    if operations > operation_limit {
+        return TargetObservation {
+            outcome: TargetOutcome::ResourceLimit,
+            operations: operation_limit,
+        };
+    }
+    let outcome = match crate::part10_locator::locate_explicit_vr_le_part10(
+        bytes,
+        crate::part10_locator::LocatorLimits {
+            max_elements: 100_000,
+            max_depth: 32,
+            max_items: 100_000,
+            max_fragments: 100_000,
+        },
+    ) {
+        Ok(_) => TargetOutcome::Accepted,
+        Err(crate::part10_locator::LocatorError::NotPart10) => TargetOutcome::CleanRejection,
+        Err(_) => TargetOutcome::ParseFailure,
+    };
+    TargetObservation {
+        outcome,
+        operations,
+    }
+}
+
+fn serialized_claims<T: serde::Serialize>(
+    evidence: &T,
+) -> Result<BTreeMap<String, Value>, MaterializationError> {
+    let Value::Object(object) = serde_json::to_value(evidence)
+        .map_err(|error| MaterializationError::Qualification(error.to_string()))?
+    else {
+        return Err(MaterializationError::Qualification(
+            "qualification evidence is not an object".into(),
+        ));
+    };
+    Ok(object.into_iter().collect())
 }
 
 fn imported_dicom_observation(
@@ -1839,6 +2170,12 @@ pub enum MaterializationError {
     UnsupportedMutationContract(String),
     QualificationPayloadForbidden(String),
     MissingQualificationEvidence(String),
+    UnsupportedQualification(String),
+    QualificationContract(String),
+    MissingQualificationSource(String),
+    QualificationSourceIdentity(String),
+    Qualification(String),
+    UnacceptableQualificationOutcome(String),
     Auxiliary(String),
 }
 
@@ -2899,8 +3236,27 @@ mod tests {
             logical_id: "qualification".into(),
             order: 0,
             provenance: ArtifactProvenance::Requested,
-            qualification_kind: "bounded_check".into(),
-            parameters: BTreeMap::new(),
+            case_binding: None,
+            profile: None,
+            run_seed: None,
+            qualification_kind: EOT_ARITHMETIC_QUALIFICATION_KIND.into(),
+            parameters: BTreeMap::from([
+                (
+                    "qualification_kind".into(),
+                    json!(EOT_ARITHMETIC_QUALIFICATION_KIND),
+                ),
+                ("fragment_lengths".into(), json!([u64::MAX])),
+                (
+                    "arithmetic_steps".into(),
+                    json!([
+                        "pad_fragment_to_even",
+                        "add_item_header",
+                        "accumulate_frame_offset"
+                    ]),
+                ),
+                ("expected_error".into(), json!("fragment_padding_overflow")),
+            ]),
+            sources: vec![],
             payload_policy: QualificationPayloadPolicy::EvidenceOnly,
             validation: validation(),
             evidence: evidence(),
@@ -2921,6 +3277,7 @@ mod tests {
             .unwrap();
         assert!(result.output.is_none());
         assert_eq!(result.evidence.len(), 1);
+        assert_eq!(result.evidence[0].claims["status"], "passed");
 
         let payload = produced_for_test(
             "qualification-payload",

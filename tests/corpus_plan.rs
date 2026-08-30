@@ -10,10 +10,10 @@ use dicom_test_suite::corpus_plan::{
     ImplementationIdentityPlan, ItemLengthPolicy, MutationPlan, OffsetTablePolicy, OutputPlan,
     OutputRelativePath, PlannedArtifact, PlannedAuxiliaryArtifact, PlannedByteRange,
     PlannedChangedByteRange, PlannedDicomArtifact, PlannedMutationArtifact,
-    PlannedMutationOperation, PlannedMutationSource, PlannedQualification, PreamblePolicy,
-    PublicationPlan, PublicationTransaction, QualificationPayloadPolicy, ResourcePlan,
-    SequenceLengthPolicy, UnavailableCapability, ValidationPlan, ValidationRequirement,
-    ValidationRule,
+    PlannedMutationOperation, PlannedMutationSource, PlannedQualification,
+    PlannedQualificationSource, PreamblePolicy, PublicationPlan, PublicationTransaction,
+    QualificationPayloadPolicy, ResourcePlan, SequenceLengthPolicy, UnavailableCapability,
+    ValidationPlan, ValidationRequirement, ValidationRule,
 };
 
 const EXPLICIT_LE: &str = "1.2.840.10008.1.2.1";
@@ -44,6 +44,116 @@ fn instance(logical_id: &str, sop_uid: &str) -> ResolvedInstancePlan {
         content: vec![],
         references: vec![],
     }
+}
+
+#[test]
+fn qualification_sources_are_ordered_private_and_identity_bound() {
+    let mut source = dicom(
+        "private-source",
+        ArtifactProvenance::PrivateSource {
+            consumed_by: vec!["fuzz".into()],
+        },
+        "private/fuzz-source.dcm",
+    );
+    let PlannedArtifact::Dicom(source_artifact) = &mut source else {
+        unreachable!()
+    };
+    source_artifact.output.publish = false;
+    let case_binding = source_artifact.case_binding.clone().unwrap();
+    let qualification_artifact = PlannedArtifact::Qualification(PlannedQualification {
+        logical_id: "fuzz".into(),
+        order: 0,
+        provenance: ArtifactProvenance::Requested,
+        case_binding: Some(CaseBinding {
+            case_id: "fuzz/parser/bounded_seed_corpus".into(),
+            recipe_id: "fuzz_parser_bounded_seed_corpus".into(),
+            recipe_version: "0.1.0".into(),
+        }),
+        profile: Some("fuzz".into()),
+        run_seed: Some(1),
+        qualification_kind: "bounded_deterministic_fuzz".into(),
+        parameters: BTreeMap::new(),
+        sources: vec![PlannedQualificationSource {
+            artifact_id: "private-source".into(),
+            case_binding,
+            artifact_logical_id: "instance".into(),
+            dependency_role: "part10_explicit_vr_le".into(),
+            binding_slot: "source_0".into(),
+            expected_sha256: "a".repeat(64),
+            expected_size_bytes: 926,
+            parameters: BTreeMap::from([
+                (
+                    "seed_description_id".into(),
+                    serde_json::json!("part10-explicit-vr-le-v1"),
+                ),
+                (
+                    "mutation_surfaces".into(),
+                    serde_json::json!(["file_meta", "pixel_data"]),
+                ),
+            ]),
+        }],
+        payload_policy: QualificationPayloadPolicy::NoPayload,
+        validation: validation(),
+        evidence: evidence(),
+        resources: ArtifactResourceEstimate {
+            output_bytes: 0,
+            peak_working_bytes: 8192,
+        },
+    });
+    let plan = plan(
+        vec![qualification_artifact, source],
+        vec![edge("fuzz", "private-source")],
+    );
+    plan.validate().unwrap();
+
+    fn qualification_mut(plan: &mut CorpusPlan) -> &mut PlannedQualification {
+        plan.artifacts
+            .iter_mut()
+            .find_map(|artifact| match artifact {
+                PlannedArtifact::Qualification(value) => Some(value),
+                _ => None,
+            })
+            .unwrap()
+    }
+    let mut duplicate = plan.clone();
+    let repeated = qualification_mut(&mut duplicate).sources[0].clone();
+    qualification_mut(&mut duplicate).sources.push(repeated);
+    assert!(matches!(
+        duplicate.validate(),
+        Err(CorpusPlanError::DuplicateQualificationSource(_))
+    ));
+
+    let mut missing_edge = plan.clone();
+    missing_edge.dependencies.clear();
+    assert!(matches!(
+        missing_edge.validate(),
+        Err(CorpusPlanError::ProvenanceDependencyMismatch { .. })
+            | Err(CorpusPlanError::MissingQualificationDependency { .. })
+    ));
+
+    let mut identity_drift = plan.clone();
+    qualification_mut(&mut identity_drift).sources[0]
+        .case_binding
+        .recipe_version = "2.0.0".into();
+    assert!(matches!(
+        identity_drift.validate(),
+        Err(CorpusPlanError::QualificationSourceIdentityMismatch { .. })
+    ));
+
+    let mut public = plan;
+    let PlannedArtifact::Dicom(source) = public
+        .artifacts
+        .iter_mut()
+        .find(|artifact| artifact.logical_id() == "private-source")
+        .unwrap()
+    else {
+        unreachable!()
+    };
+    source.provenance = ArtifactProvenance::Requested;
+    assert!(matches!(
+        public.validate(),
+        Err(CorpusPlanError::QualificationSourceNotPrivate(_))
+    ));
 }
 
 fn validation() -> ValidationPlan {
@@ -369,8 +479,12 @@ fn all_artifact_kinds_and_unavailable_capabilities_are_canonical_data() {
         logical_id: "fuzz".into(),
         order: artifact_order("fuzz"),
         provenance: ArtifactProvenance::Requested,
+        case_binding: None,
+        profile: None,
+        run_seed: None,
         qualification_kind: "bounded_fuzz".into(),
         parameters: BTreeMap::new(),
+        sources: vec![],
         payload_policy: QualificationPayloadPolicy::NoPayload,
         validation: validation(),
         evidence: evidence(),

@@ -40,8 +40,12 @@ fn qualification(id: &str, order: u64, provenance: ArtifactProvenance) -> Planne
         logical_id: id.into(),
         order,
         provenance,
+        case_binding: None,
+        profile: None,
+        run_seed: None,
         qualification_kind: "test_qualification".into(),
         parameters: BTreeMap::new(),
+        sources: vec![],
         payload_policy: QualificationPayloadPolicy::EvidenceOnly,
         validation: validation("part10.identity"),
         evidence: EvidencePlan {

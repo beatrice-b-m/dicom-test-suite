@@ -1137,10 +1137,15 @@ fn validate_stress_profile_qualifications(
         .unwrap_or(false);
     let stress_selected = run_profile == "stress" || (run_profile == "all" && include_stress);
     if !stress_selected {
-        if !stress_qualifications.is_empty() {
+        let contains_stress_files = files.iter().any(|file| {
+            file.get("case_id")
+                .and_then(Value::as_str)
+                .is_some_and(|case_id| case_id.starts_with("stress/"))
+        });
+        if !stress_qualifications.is_empty() || contains_stress_files {
             return Err(ValidateError::ManifestShape {
                 path: manifest_path.to_path_buf(),
-                message: "stress qualifications require the stress profile or all --include-stress",
+                message: "stress files and qualifications require the stress profile or all --include-stress",
             });
         }
         return Ok(());
@@ -39255,6 +39260,15 @@ mod tests {
         )
         .expect("all --include-stress must accept exact reduced stress evidence");
         combined["run"]["include_stress"] = Value::from(false);
+        assert!(
+            validate_stress_profile_qualifications(
+                Path::new("manifest.json"),
+                &combined,
+                std::slice::from_ref(&file),
+            )
+            .is_err()
+        );
+        combined["qualifications"] = serde_json::json!([]);
         assert!(
             validate_stress_profile_qualifications(
                 Path::new("manifest.json"),

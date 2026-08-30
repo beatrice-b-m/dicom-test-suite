@@ -830,34 +830,65 @@ impl MaterializationDispatcher {
                 actual: source_sha256,
             });
         }
-        let outcomes = artifact
-            .mutation
-            .acceptable_outcomes
-            .iter()
-            .map(|value| parse_outcome(value))
-            .collect::<Result<Vec<_>, _>>()?;
         let mut bytes = source;
         let mut steps = Vec::new();
-        for (index, operation) in artifact.mutation.operations.iter().enumerate() {
+        for operation in &artifact.mutation.operations {
+            let actual_step_source = sha256_hex(&bytes);
+            if actual_step_source != operation.expected_source_sha256 {
+                return Err(MaterializationError::MutationStepSourceHash {
+                    order: operation.order,
+                    expected: operation.expected_source_sha256.clone(),
+                    actual: actual_step_source,
+                });
+            }
             let parameters = mutation_parameters(operation)?;
-            let layer_name = artifact
-                .mutation
-                .expected_failure_layers
-                .get(index)
-                .or_else(|| artifact.mutation.expected_failure_layers.first())
-                .expect("validated mutation plan has a failure layer");
+            let outcomes = operation
+                .acceptable_outcomes
+                .iter()
+                .map(|value| parse_outcome(value))
+                .collect::<Result<Vec<_>, _>>()?;
             let result = apply_named_mutation(
                 &bytes,
                 MutationRequest::new(
                     parameters,
-                    parse_failure_layer(layer_name)?,
-                    outcomes.clone(),
+                    parse_failure_layer(&operation.expected_failure_layer)?,
+                    outcomes,
                 ),
             )?;
+            let observed_ranges = result
+                .changed_byte_ranges
+                .iter()
+                .map(|range| crate::corpus_plan::PlannedChangedByteRange {
+                    source: crate::corpus_plan::PlannedByteRange {
+                        start: range.source.start as u64,
+                        end: range.source.end as u64,
+                    },
+                    output: crate::corpus_plan::PlannedByteRange {
+                        start: range.output.start as u64,
+                        end: range.output.end as u64,
+                    },
+                })
+                .collect::<Vec<_>>();
+            if observed_ranges != operation.changed_byte_ranges {
+                return Err(MaterializationError::MutationStepRanges {
+                    order: operation.order,
+                });
+            }
+            if result.output_sha256 != operation.expected_output_sha256 {
+                return Err(MaterializationError::MutationStepOutputHash {
+                    order: operation.order,
+                    expected: operation.expected_output_sha256.clone(),
+                    actual: result.output_sha256,
+                });
+            }
             steps.push(json!({
+                "order": operation.order,
                 "operation_id": result.mutation_id,
                 "source_sha256": result.source_sha256,
                 "output_sha256": result.output_sha256,
+                "changed_byte_ranges": operation.changed_byte_ranges,
+                "expected_failure_layer": operation.expected_failure_layer,
+                "acceptable_outcomes": operation.acceptable_outcomes,
             }));
             bytes = result.bytes;
         }
@@ -1782,6 +1813,19 @@ pub enum MaterializationError {
         expected: String,
         actual: String,
     },
+    MutationStepSourceHash {
+        order: u64,
+        expected: String,
+        actual: String,
+    },
+    MutationStepOutputHash {
+        order: u64,
+        expected: String,
+        actual: String,
+    },
+    MutationStepRanges {
+        order: u64,
+    },
     MutationSourceIdentity {
         expected: String,
         actual: String,
@@ -1837,9 +1881,10 @@ mod tests {
         CorpusPlan, EncodingPlan, EvidenceIndependence, EvidenceObligation, EvidencePlan,
         FileMetaPolicy, FragmentationPolicy, ImplementationIdentityPlan, ImportedDicomProviderPlan,
         ItemLengthPolicy, MutationPlan, OffsetTablePolicy, OutputPlan, OutputRelativePath,
-        PlannedByteRange, PlannedImportedDicomArtifact, PlannedMutationOperation, PreamblePolicy,
-        PublicationPlan, PublicationTransaction, ResourcePlan, SequenceLengthPolicy,
-        ValidationPlan, ValidationRequirement, ValidationRule,
+        PlannedByteRange, PlannedChangedByteRange, PlannedImportedDicomArtifact,
+        PlannedMutationOperation, PlannedMutationSource, PreamblePolicy, PublicationPlan,
+        PublicationTransaction, ResourcePlan, SequenceLengthPolicy, ValidationPlan,
+        ValidationRequirement, ValidationRule,
     };
 
     static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -2711,12 +2756,34 @@ mod tests {
             source_artifact_id: "source".into(),
             mutation: MutationPlan {
                 contract_version: crate::mutation::MUTATION_CONTRACT_VERSION.into(),
+                source_identity: PlannedMutationSource {
+                    artifact_id: "source".into(),
+                    case_id: "classic/sc/source".into(),
+                    recipe_id: "source_recipe".into(),
+                    recipe_version: "1.0.0".into(),
+                    expected_sha256: sha256_hex(&source_bytes),
+                },
                 operations: vec![PlannedMutationOperation {
+                    order: 0,
                     operation_id: "truncate_dataset".into(),
                     source_ranges: vec![PlannedByteRange {
                         start: truncate_at as u64,
                         end: source_bytes.len() as u64,
                     }],
+                    changed_byte_ranges: vec![PlannedChangedByteRange {
+                        source: PlannedByteRange {
+                            start: truncate_at as u64,
+                            end: source_bytes.len() as u64,
+                        },
+                        output: PlannedByteRange {
+                            start: truncate_at as u64,
+                            end: truncate_at as u64,
+                        },
+                    }],
+                    expected_source_sha256: sha256_hex(&source_bytes),
+                    expected_output_sha256: sha256_hex(expected),
+                    expected_failure_layer: "dataset_parser".into(),
+                    acceptable_outcomes: vec!["clean_rejection".into()],
                     parameters: BTreeMap::new(),
                 }],
                 expected_source_sha256: sha256_hex(&source_bytes),
@@ -2744,6 +2811,31 @@ mod tests {
             },
             artifact,
         };
+        let mut range_drift = request.clone();
+        let PlannedArtifact::Mutation(range_drift_artifact) = &mut range_drift.artifact else {
+            unreachable!()
+        };
+        range_drift_artifact.mutation.operations[0].changed_byte_ranges[0]
+            .output
+            .end += 1;
+        assert!(matches!(
+            dispatcher.dispatch(&range_drift, &assets),
+            Err(MaterializationError::MutationStepRanges { order: 0 })
+        ));
+        assert!(!root.join("negative/mutated.dcm").exists());
+
+        let mut hash_drift = request.clone();
+        let PlannedArtifact::Mutation(hash_drift_artifact) = &mut hash_drift.artifact else {
+            unreachable!()
+        };
+        hash_drift_artifact.mutation.operations[0].expected_output_sha256 = "0".repeat(64);
+        hash_drift_artifact.mutation.expected_output_sha256 = "0".repeat(64);
+        assert!(matches!(
+            dispatcher.dispatch(&hash_drift, &assets),
+            Err(MaterializationError::MutationStepOutputHash { order: 0, .. })
+        ));
+        assert!(!root.join("negative/mutated.dcm").exists());
+
         let result = dispatcher.dispatch(&request, &assets).unwrap();
         assert_eq!(
             fs::read(root.join("negative/mutated.dcm")).unwrap(),

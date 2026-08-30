@@ -621,6 +621,12 @@ impl PlannedMutationArtifact {
     fn validate(&self) -> Result<(), CorpusPlanError> {
         validate_identifier("mutation source_artifact_id", &self.source_artifact_id)?;
         self.mutation.validate()?;
+        if self.source_artifact_id != self.mutation.source_identity.artifact_id {
+            return Err(CorpusPlanError::MutationSourceArtifactMismatch {
+                declared: self.source_artifact_id.clone(),
+                identity: self.mutation.source_identity.artifact_id.clone(),
+            });
+        }
         self.output.validate()?;
         self.validation.validate()?;
         self.evidence.validate()?;
@@ -1079,6 +1085,7 @@ impl ArtifactResourceEstimate {
 #[serde(deny_unknown_fields)]
 pub struct MutationPlan {
     pub contract_version: String,
+    pub source_identity: PlannedMutationSource,
     pub operations: Vec<PlannedMutationOperation>,
     pub expected_source_sha256: String,
     pub expected_output_sha256: String,
@@ -1089,6 +1096,7 @@ pub struct MutationPlan {
 impl MutationPlan {
     fn validate(&self) -> Result<(), CorpusPlanError> {
         validate_identifier("mutation contract_version", &self.contract_version)?;
+        self.source_identity.validate()?;
         validate_sha256("mutation source SHA-256", &self.expected_source_sha256)?;
         validate_sha256("mutation output SHA-256", &self.expected_output_sha256)?;
         if self.operations.is_empty()
@@ -1097,8 +1105,36 @@ impl MutationPlan {
         {
             return Err(CorpusPlanError::IncompleteMutationPlan);
         }
-        for operation in &self.operations {
+        if self.source_identity.expected_sha256 != self.expected_source_sha256 {
+            return Err(CorpusPlanError::MutationSourceIdentityHashMismatch);
+        }
+        let mut expected_step_source = self.expected_source_sha256.as_str();
+        for (index, operation) in self.operations.iter().enumerate() {
+            if operation.order != index as u64 {
+                return Err(CorpusPlanError::MutationOperationOrder {
+                    expected: index as u64,
+                    actual: operation.order,
+                });
+            }
             validate_identifier("mutation operation_id", &operation.operation_id)?;
+            validate_sha256(
+                "mutation operation source SHA-256",
+                &operation.expected_source_sha256,
+            )?;
+            validate_sha256(
+                "mutation operation output SHA-256",
+                &operation.expected_output_sha256,
+            )?;
+            validate_identifier(
+                "mutation expected failure layer",
+                &operation.expected_failure_layer,
+            )?;
+            if operation.changed_byte_ranges.is_empty()
+                || operation.acceptable_outcomes.is_empty()
+                || operation.expected_source_sha256 != expected_step_source
+            {
+                return Err(CorpusPlanError::IncompleteMutationOperation(index as u64));
+            }
             for range in &operation.source_ranges {
                 if range.start >= range.end {
                     return Err(CorpusPlanError::InvalidByteRange {
@@ -1107,6 +1143,22 @@ impl MutationPlan {
                     });
                 }
             }
+            if operation.source_ranges
+                != operation
+                    .changed_byte_ranges
+                    .iter()
+                    .map(|range| range.source)
+                    .collect::<Vec<_>>()
+            {
+                return Err(CorpusPlanError::MutationRangeContractMismatch(index as u64));
+            }
+            for range in &operation.changed_byte_ranges {
+                range.validate()?;
+            }
+            expected_step_source = &operation.expected_output_sha256;
+        }
+        if expected_step_source != self.expected_output_sha256 {
+            return Err(CorpusPlanError::MutationHashChainMismatch);
         }
         Ok(())
     }
@@ -1114,11 +1166,56 @@ impl MutationPlan {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct PlannedMutationSource {
+    pub artifact_id: String,
+    pub case_id: String,
+    pub recipe_id: String,
+    pub recipe_version: String,
+    pub expected_sha256: String,
+}
+
+impl PlannedMutationSource {
+    fn validate(&self) -> Result<(), CorpusPlanError> {
+        validate_identifier("mutation source artifact_id", &self.artifact_id)?;
+        validate_identifier("mutation source case_id", &self.case_id)?;
+        validate_identifier("mutation source recipe_id", &self.recipe_id)?;
+        validate_identifier("mutation source recipe_version", &self.recipe_version)?;
+        validate_sha256("mutation source identity SHA-256", &self.expected_sha256)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PlannedMutationOperation {
+    pub order: u64,
     pub operation_id: String,
     pub source_ranges: Vec<PlannedByteRange>,
+    pub changed_byte_ranges: Vec<PlannedChangedByteRange>,
+    pub expected_source_sha256: String,
+    pub expected_output_sha256: String,
+    pub expected_failure_layer: String,
+    pub acceptable_outcomes: Vec<String>,
     #[serde(default)]
     pub parameters: BTreeMap<String, Value>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PlannedChangedByteRange {
+    pub source: PlannedByteRange,
+    pub output: PlannedByteRange,
+}
+
+impl PlannedChangedByteRange {
+    fn validate(&self) -> Result<(), CorpusPlanError> {
+        if self.source.start > self.source.end || self.output.start > self.output.end {
+            return Err(CorpusPlanError::InvalidMutationChangedRange);
+        }
+        if self.source.start == self.source.end && self.output.start == self.output.end {
+            return Err(CorpusPlanError::EmptyMutationChangedRange);
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -1327,6 +1424,20 @@ pub enum CorpusPlanError {
         frame: u32,
     },
     IncompleteMutationPlan,
+    IncompleteMutationOperation(u64),
+    MutationSourceIdentityHashMismatch,
+    MutationSourceArtifactMismatch {
+        declared: String,
+        identity: String,
+    },
+    MutationOperationOrder {
+        expected: u64,
+        actual: u64,
+    },
+    MutationRangeContractMismatch(u64),
+    MutationHashChainMismatch,
+    InvalidMutationChangedRange,
+    EmptyMutationChangedRange,
     InvalidByteRange {
         start: u64,
         end: u64,
@@ -1522,6 +1633,33 @@ impl fmt::Display for CorpusPlanError {
                 "dependency {artifact_id} -> {depends_on} repeats frame {frame}"
             ),
             Self::IncompleteMutationPlan => formatter.write_str("mutation plan is incomplete"),
+            Self::IncompleteMutationOperation(order) => {
+                write!(formatter, "mutation operation {order} is incomplete")
+            }
+            Self::MutationSourceIdentityHashMismatch => formatter.write_str(
+                "mutation source identity hash does not match the mutation plan source hash",
+            ),
+            Self::MutationSourceArtifactMismatch { declared, identity } => write!(
+                formatter,
+                "mutation source artifact {declared} does not match bound identity {identity}"
+            ),
+            Self::MutationOperationOrder { expected, actual } => write!(
+                formatter,
+                "mutation operation order {actual} is not the expected contiguous order {expected}"
+            ),
+            Self::MutationRangeContractMismatch(order) => write!(
+                formatter,
+                "mutation operation {order} parameter ranges differ from its changed-range contract"
+            ),
+            Self::MutationHashChainMismatch => {
+                formatter.write_str("mutation operation hashes do not form the declared chain")
+            }
+            Self::InvalidMutationChangedRange => {
+                formatter.write_str("mutation changed-byte range is reversed")
+            }
+            Self::EmptyMutationChangedRange => {
+                formatter.write_str("mutation changed-byte range has no source or output bytes")
+            }
             Self::InvalidByteRange { start, end } => {
                 write!(formatter, "invalid mutation byte range {start}..{end}")
             }

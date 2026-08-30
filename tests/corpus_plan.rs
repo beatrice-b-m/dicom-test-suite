@@ -9,10 +9,11 @@ use dicom_test_suite::corpus_plan::{
     EvidenceObligation, EvidencePlan, FileMetaPolicy, FragmentationPolicy,
     ImplementationIdentityPlan, ItemLengthPolicy, MutationPlan, OffsetTablePolicy, OutputPlan,
     OutputRelativePath, PlannedArtifact, PlannedAuxiliaryArtifact, PlannedByteRange,
-    PlannedDicomArtifact, PlannedMutationArtifact, PlannedMutationOperation, PlannedQualification,
-    PreamblePolicy, PublicationPlan, PublicationTransaction, QualificationPayloadPolicy,
-    ResourcePlan, SequenceLengthPolicy, UnavailableCapability, ValidationPlan,
-    ValidationRequirement, ValidationRule,
+    PlannedChangedByteRange, PlannedDicomArtifact, PlannedMutationArtifact,
+    PlannedMutationOperation, PlannedMutationSource, PlannedQualification, PreamblePolicy,
+    PublicationPlan, PublicationTransaction, QualificationPayloadPolicy, ResourcePlan,
+    SequenceLengthPolicy, UnavailableCapability, ValidationPlan, ValidationRequirement,
+    ValidationRule,
 };
 
 const EXPLICIT_LE: &str = "1.2.840.10008.1.2.1";
@@ -315,12 +316,34 @@ fn all_artifact_kinds_and_unavailable_capabilities_are_canonical_data() {
         source_artifact_id: "private-source".into(),
         mutation: MutationPlan {
             contract_version: "1.0.0".into(),
+            source_identity: PlannedMutationSource {
+                artifact_id: "private-source".into(),
+                case_id: "classic/sc/source".into(),
+                recipe_id: "source_recipe".into(),
+                recipe_version: "1.0.0".into(),
+                expected_sha256: "1".repeat(64),
+            },
             operations: vec![PlannedMutationOperation {
+                order: 0,
                 operation_id: "truncate_dataset".into(),
                 source_ranges: vec![PlannedByteRange {
                     start: 128,
                     end: 256,
                 }],
+                changed_byte_ranges: vec![PlannedChangedByteRange {
+                    source: PlannedByteRange {
+                        start: 128,
+                        end: 256,
+                    },
+                    output: PlannedByteRange {
+                        start: 128,
+                        end: 128,
+                    },
+                }],
+                expected_source_sha256: "1".repeat(64),
+                expected_output_sha256: "2".repeat(64),
+                expected_failure_layer: "dataset_parser".into(),
+                acceptable_outcomes: vec!["clean_rejection".into()],
                 parameters: BTreeMap::new(),
             }],
             expected_source_sha256: "1".repeat(64),
@@ -364,6 +387,41 @@ fn all_artifact_kinds_and_unavailable_capabilities_are_canonical_data() {
         vec![edge("invalid", "private-source")],
     );
     plan.validate().unwrap();
+    fn mutate(plan: &mut CorpusPlan) -> &mut PlannedMutationArtifact {
+        plan.artifacts
+            .iter_mut()
+            .find_map(|artifact| match artifact {
+                PlannedArtifact::Mutation(mutation) => Some(mutation),
+                _ => None,
+            })
+            .unwrap()
+    }
+    let mut broken = plan.clone();
+    mutate(&mut broken).mutation.operations[0].order = 1;
+    assert!(matches!(
+        broken.validate(),
+        Err(CorpusPlanError::MutationOperationOrder { .. })
+    ));
+    let mut broken = plan.clone();
+    mutate(&mut broken).mutation.operations[0].expected_output_sha256 = "3".repeat(64);
+    assert!(matches!(
+        broken.validate(),
+        Err(CorpusPlanError::MutationHashChainMismatch)
+    ));
+    let mut broken = plan.clone();
+    mutate(&mut broken).mutation.operations[0].changed_byte_ranges[0]
+        .source
+        .start = 256;
+    assert!(matches!(
+        broken.validate(),
+        Err(CorpusPlanError::MutationRangeContractMismatch(0))
+    ));
+    let mut broken = plan.clone();
+    mutate(&mut broken).mutation.source_identity.artifact_id = "other-source".into();
+    assert!(matches!(
+        broken.validate(),
+        Err(CorpusPlanError::MutationSourceArtifactMismatch { .. })
+    ));
     let json: serde_json::Value = serde_json::from_slice(&plan.canonical_bytes().unwrap()).unwrap();
     let kinds = json["artifacts"]
         .as_array()

@@ -4329,6 +4329,16 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
         }
     }
     for recipe in SEGMENTATION_RECIPES {
+        if let Some(files) = take_plan_first_advanced_case(
+            run,
+            registry,
+            &mut plan_first_files_by_case,
+            recipe.case_id,
+            "quantitative stage",
+        )? {
+            context.record_many(files)?;
+            continue;
+        }
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
         };
@@ -4687,7 +4697,15 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
             )?)?;
         }
     }
-    if let Some(case) = registry_case(registry, TWELVE_LEAD_ECG_CASE_ID)? {
+    if let Some(files) = take_plan_first_advanced_case(
+        run,
+        registry,
+        &mut plan_first_files_by_case,
+        TWELVE_LEAD_ECG_CASE_ID,
+        "waveform stage",
+    )? {
+        context.record_many(files)?;
+    } else if let Some(case) = registry_case(registry, TWELVE_LEAD_ECG_CASE_ID)? {
         if should_generate_case(case, run)? {
             context.record_one(write_twelve_lead_ecg_case(
                 run,
@@ -4696,7 +4714,15 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
             )?)?;
         }
     }
-    if let Some(case) = registry_case(registry, GENERAL_ECG_CASE_ID)? {
+    if let Some(files) = take_plan_first_advanced_case(
+        run,
+        registry,
+        &mut plan_first_files_by_case,
+        GENERAL_ECG_CASE_ID,
+        "waveform stage",
+    )? {
+        context.record_many(files)?;
+    } else if let Some(case) = registry_case(registry, GENERAL_ECG_CASE_ID)? {
         if should_generate_case(case, run)? {
             context.record_one(write_general_ecg_case(run, case, standards_lock_sha256)?)?;
         }
@@ -4736,6 +4762,16 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
         )?)?;
     }
     for recipe in REAL_WORLD_VALUE_MAPPING_RECIPES {
+        if let Some(files) = take_plan_first_advanced_case(
+            run,
+            registry,
+            &mut plan_first_files_by_case,
+            recipe.case_id,
+            "quantitative stage",
+        )? {
+            context.record_many(files)?;
+            continue;
+        }
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
         };
@@ -4759,6 +4795,16 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
         )?)?;
     }
     for recipe in BASIC_TEXT_SR_RECIPES {
+        if let Some(files) = take_plan_first_advanced_case(
+            run,
+            registry,
+            &mut plan_first_files_by_case,
+            recipe.case_id,
+            "structured report stage",
+        )? {
+            context.record_many(files)?;
+            continue;
+        }
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
         };
@@ -4782,6 +4828,16 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
         )?)?;
     }
     for recipe in COMPREHENSIVE_SR_RECIPES {
+        if let Some(files) = take_plan_first_advanced_case(
+            run,
+            registry,
+            &mut plan_first_files_by_case,
+            recipe.case_id,
+            "structured report stage",
+        )? {
+            context.record_many(files)?;
+            continue;
+        }
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
         };
@@ -4806,6 +4862,16 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
         )?)?;
     }
     for recipe in KEY_OBJECT_SELECTION_RECIPES {
+        if let Some(files) = take_plan_first_advanced_case(
+            run,
+            registry,
+            &mut plan_first_files_by_case,
+            recipe.case_id,
+            "structured report stage",
+        )? {
+            context.record_many(files)?;
+            continue;
+        }
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
         };
@@ -4838,6 +4904,16 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
         )?)?;
     }
     for recipe in RT_STRUCTURE_SET_RECIPES {
+        if let Some(files) = take_plan_first_advanced_case(
+            run,
+            registry,
+            &mut plan_first_files_by_case,
+            recipe.case_id,
+            "radiotherapy stage",
+        )? {
+            context.record_many(files)?;
+            continue;
+        }
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
         };
@@ -4862,6 +4938,16 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
         )?)?;
     }
     for recipe in RT_DOSE_RECIPES {
+        if let Some(files) = take_plan_first_advanced_case(
+            run,
+            registry,
+            &mut plan_first_files_by_case,
+            recipe.case_id,
+            "radiotherapy stage",
+        )? {
+            context.record_many(files)?;
+            continue;
+        }
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
         };
@@ -4894,6 +4980,16 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
         )?)?;
     }
     for recipe in RT_PLAN_RECIPES {
+        if let Some(files) = take_plan_first_advanced_case(
+            run,
+            registry,
+            &mut plan_first_files_by_case,
+            recipe.case_id,
+            "radiotherapy stage",
+        )? {
+            context.record_many(files)?;
+            continue;
+        }
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
         };
@@ -4926,6 +5022,16 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
         )?)?;
     }
     for recipe in RT_RADIATION_RECIPES {
+        if let Some(files) = take_plan_first_advanced_case(
+            run,
+            registry,
+            &mut plan_first_files_by_case,
+            recipe.case_id,
+            "radiotherapy stage",
+        )? {
+            context.record_many(files)?;
+            continue;
+        }
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
         };
@@ -4949,6 +5055,16 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
         )?)?;
     }
     for recipe in RT_RADIATION_SET_RECIPES {
+        if let Some(files) = take_plan_first_advanced_case(
+            run,
+            registry,
+            &mut plan_first_files_by_case,
+            recipe.case_id,
+            "radiotherapy stage",
+        )? {
+            context.record_many(files)?;
+            continue;
+        }
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
         };
@@ -4981,6 +5097,16 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
         )?)?;
     }
     for recipe in RT_IMAGE_RECIPES {
+        if let Some(files) = take_plan_first_advanced_case(
+            run,
+            registry,
+            &mut plan_first_files_by_case,
+            recipe.case_id,
+            "radiotherapy stage",
+        )? {
+            context.record_many(files)?;
+            continue;
+        }
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
         };
@@ -5004,6 +5130,16 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
         )?)?;
     }
     for recipe in ENCAPSULATED_PDF_RECIPES {
+        if let Some(files) = take_plan_first_advanced_case(
+            run,
+            registry,
+            &mut plan_first_files_by_case,
+            recipe.case_id,
+            "encapsulated document stage",
+        )? {
+            context.record_many(files)?;
+            continue;
+        }
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
         };
@@ -5018,6 +5154,16 @@ pub(crate) fn write_supported_cases_with_plan_first_sc(
         )?)?;
     }
     for recipe in ENCAPSULATED_STL_RECIPES {
+        if let Some(files) = take_plan_first_advanced_case(
+            run,
+            registry,
+            &mut plan_first_files_by_case,
+            recipe.case_id,
+            "encapsulated mesh stage",
+        )? {
+            context.record_many(files)?;
+            continue;
+        }
         let Some(case) = registry_case(registry, recipe.case_id)? else {
             continue;
         };

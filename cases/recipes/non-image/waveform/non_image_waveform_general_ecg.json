@@ -7,7 +7,7 @@
   },
   "kind": "dicom",
   "plan_provider_id": "native.waveform_plan",
-  "planning_order": 711,
+  "planning_order": 711,"projection_order":119,
   "dependencies": [
 
   ],

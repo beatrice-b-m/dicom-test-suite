@@ -7,7 +7,7 @@
   },
   "kind": "dicom",
   "plan_provider_id": "native.classic_plan",
-  "planning_order": 304,
+  "planning_order": 304,"projection_order":142,
   "dependencies": [],
   "provider_parameters": {
     "family": "dx"

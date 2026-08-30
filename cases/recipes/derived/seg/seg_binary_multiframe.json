@@ -1,7 +1,7 @@
 {
   "case_recipe_schema_version": "0.1.0",
   "recipe_id": "seg_binary_multiframe", "recipe_version": "0.1.0",
-  "binding": { "case_id": "derived/seg/binary_multiframe_explicit_le" }, "kind": "dicom", "planning_order": 1100,
+  "binding": { "case_id": "derived/seg/binary_multiframe_explicit_le" }, "kind": "dicom", "planning_order": 1100,"projection_order":108,
   "plan_provider_id": "native.quantitative_plan",
   "provider_parameters": { "segmentation": { "kind": "binary", "rows": 2, "columns": 2, "frames": 2, "transfer_syntax_uid": "1.2.840.10008.1.2.1", "segment_label": "DTS_SYNTHETIC_REGION", "segment_number": 1, "stored_values": [1,0,0,1,0,1,1,0], "visual_pattern": "two_frame_binary_segmentation_mask" }, "sources": [{ "recipe": { "recipe_id": "enhanced_ct_multiframe_shared_perframe", "recipe_version": "0.1.0" }, "artifact_logical_id": "advanced_enhanced_ct_multiframe_shared_perframe_artifact_1", "role": "segmentation_source_image", "referenced_frames": [1,2] }] },
   "dependencies": [{ "recipe": { "recipe_id": "enhanced_ct_multiframe_shared_perframe", "recipe_version": "0.1.0" }, "role": "segmentation_source_image" }],

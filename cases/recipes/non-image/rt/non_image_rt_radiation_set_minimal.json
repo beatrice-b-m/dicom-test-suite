@@ -7,7 +7,7 @@
   },
   "kind": "dicom",
   "plan_provider_id": "native.rt_plan",
-  "planning_order": 1205,
+  "planning_order": 1205,"projection_order":129,
   "dependencies": [
     {
       "recipe": {

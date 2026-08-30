@@ -7,7 +7,7 @@
   },
   "kind": "dicom",
   "plan_provider_id": "native.classic_plan",
-  "planning_order": 602,
+  "planning_order": 602,"projection_order":9,
   "dependencies": [],
   "provider_parameters": {
     "patient_name": "DICOMTEST^SMOKE",

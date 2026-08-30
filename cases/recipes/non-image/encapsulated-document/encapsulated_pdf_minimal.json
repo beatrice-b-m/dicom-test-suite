@@ -5,7 +5,7 @@
   "binding": {"case_id": "non-image/encapsulated-document/pdf_minimal_explicit_le"},
   "kind": "dicom",
   "plan_provider_id": "native.encapsulated_payload_plan",
-  "planning_order": 720,
+  "planning_order": 720,"projection_order":131,
   "dependencies": [],
   "provider_parameters": {
     "sop_class_uid": "1.2.840.10008.5.1.4.1.1.104.1",

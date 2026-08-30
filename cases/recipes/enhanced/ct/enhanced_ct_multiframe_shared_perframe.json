@@ -7,7 +7,7 @@
   },
   "kind": "dicom",
   "plan_provider_id": "native.enhanced_plan",
-  "planning_order": 801,
+  "planning_order": 801,"projection_order":107,
   "provider_parameters": {
     "family": "ct",
     "common": {

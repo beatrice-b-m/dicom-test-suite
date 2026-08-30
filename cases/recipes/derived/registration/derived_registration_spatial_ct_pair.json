@@ -7,7 +7,7 @@
   },
   "kind": "dicom",
   "plan_provider_id": "native.registration_plan",
-  "planning_order": 900,
+  "planning_order": 900,"projection_order":113,
   "provider_parameters": {
     "series_number": "8003",
     "study_id": "DTS-ECT",

@@ -7,7 +7,7 @@
   },
   "kind": "dicom",
   "plan_provider_id": "native.wsi_plan",
-  "planning_order": 701,
+  "planning_order": 701,"projection_order":1,
   "provider_parameters": {
     "dependency_mode": "none"
   },

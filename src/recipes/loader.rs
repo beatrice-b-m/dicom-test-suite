@@ -1594,6 +1594,7 @@ fn validate_migrated_planning_orders(
     recipes: &BTreeMap<RecipeIdentity, CaseRecipe>,
 ) -> Result<(), RecipeCatalogError> {
     let mut owners = BTreeMap::new();
+    let mut projection_owners = BTreeMap::new();
     for recipe in recipes.values().filter(|recipe| {
         matches!(
             recipe.plan_provider_id.as_str(),
@@ -1631,6 +1632,18 @@ fn validate_migrated_planning_orders(
                     recipe.binding.case_id
                 ),
             });
+        }
+        if let Some(projection_order) = recipe.projection_order {
+            if let Some(previous) =
+                projection_owners.insert(projection_order, recipe.binding.case_id.as_str())
+            {
+                return Err(RecipeCatalogError::Completeness {
+                    message: format!(
+                        "projection_order {projection_order} is shared by migrated cases {previous} and {}",
+                        recipe.binding.case_id
+                    ),
+                });
+            }
         }
     }
     Ok(())
@@ -1923,6 +1936,7 @@ mod tests {
             kind: RecipeKind::Qualification,
             plan_provider_id: "qualification.bounded_plan".into(),
             planning_order: None,
+            projection_order: None,
             provider_parameters: Default::default(),
             dependencies: dependency
                 .map(|dependency| DependencyBinding {

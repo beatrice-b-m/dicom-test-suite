@@ -7,7 +7,7 @@
   },
   "kind": "dicom",
   "plan_provider_id": "native.enhanced_plan",
-  "planning_order": 806,
+  "planning_order": 806,"projection_order":146,
   "provider_parameters": {
     "family": "pet",
     "common": {

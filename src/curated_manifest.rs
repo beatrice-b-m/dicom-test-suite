@@ -791,10 +791,30 @@ pub fn project_curated_file_entries(
                     ctx.artifact_id
                 ));
             }
-            project_one(ctx, artifact, input)
+            project_one(ctx, artifact, input).map(|entry| {
+                (
+                    ctx.case_recipe
+                        .projection_order
+                        .unwrap_or(ctx.historical_recipe_order),
+                    ctx.historical_artifact_order,
+                    entry,
+                )
+            })
         })
         .collect::<Result<Vec<_>, _>>()?;
-    project_wsi_pyramid_group(context, input, &mut entries)?;
+    let mut projected = entries
+        .iter()
+        .map(|(_, _, entry)| entry.clone())
+        .collect::<Vec<_>>();
+    project_wsi_pyramid_group(context, input, &mut projected)?;
+    for ((_, _, entry), grouped) in entries.iter_mut().zip(projected) {
+        *entry = grouped;
+    }
+    entries.sort_by_key(|(recipe_order, artifact_order, _)| (*recipe_order, *artifact_order));
+    let mut entries = entries
+        .into_iter()
+        .map(|(_, _, entry)| entry)
+        .collect::<Vec<_>>();
     entries.retain(|entry| !entry.is_null());
     Ok(entries)
 }

@@ -7,7 +7,7 @@
   },
   "kind": "dicom",
   "plan_provider_id": "native.classic_plan",
-  "planning_order": 204,
+  "planning_order": 204,"projection_order":95,
   "dependencies": [],
   "provider_parameters": {
     "patient": {

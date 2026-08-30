@@ -7,7 +7,7 @@
   },
   "kind": "dicom",
   "plan_provider_id": "native.classic_plan",
-  "planning_order": 302,
+  "planning_order": 302,"projection_order":140,
   "dependencies": [],
   "provider_parameters": {
     "family": "mammography"

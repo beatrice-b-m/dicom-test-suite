@@ -7,7 +7,7 @@
   },
   "kind": "dicom",
   "plan_provider_id": "native.sc_plan",
-  "planning_order": 57,
+  "planning_order": 57,"projection_order":69,
   "dependencies": [],
   "provider_parameters": {},
   "validation_rule_ids": [

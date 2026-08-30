@@ -7,7 +7,7 @@
   },
   "kind": "dicom",
   "plan_provider_id": "native.presentation_state_plan",
-  "planning_order": 913,
+  "planning_order": 913,"projection_order":120,
   "provider_parameters": {
     "uid_reference_index": 0,
     "presentation": {

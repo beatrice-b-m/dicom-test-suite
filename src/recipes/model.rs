@@ -459,6 +459,9 @@ pub struct CaseRecipe {
     pub plan_provider_id: String,
     #[serde(default)]
     pub planning_order: Option<u32>,
+    /// Stable public manifest order retained independently from DAG order.
+    #[serde(default)]
+    pub projection_order: Option<u32>,
     pub provider_parameters: Parameters,
     pub dependencies: Vec<DependencyBinding>,
     pub validation_rule_ids: Vec<String>,

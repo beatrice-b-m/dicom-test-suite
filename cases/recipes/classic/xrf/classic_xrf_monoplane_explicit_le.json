@@ -7,7 +7,7 @@
   },
   "kind": "dicom",
   "plan_provider_id": "native.classic_plan",
-  "planning_order": 609,
+  "planning_order": 609,"projection_order":149,
   "dependencies": [],
   "provider_parameters": {
     "patient_name": "DTS^Synthetic^Patient001",

@@ -603,12 +603,29 @@ fn external_identity<E: ExternalIdentity>(
     let identity = encoder
         .discover()
         .map_err(|error| service_error(error.to_string()))?;
+    let version = qualified_external_version(&identity)?;
     Ok(ToolIdentity {
         backend_id: backend.backend_id.into(),
-        version: identity.version.unwrap_or_else(|| backend.version.into()),
+        version,
         protocol_version: Some(identity.version_source.into()),
         executable_sha256: Some(identity.executable_sha256),
     })
+}
+
+#[cfg(any(feature = "htj2k_openjph", feature = "jpegxl"))]
+fn qualified_external_version(
+    identity: &crate::codecs::ExternalCommandBackendIdentity,
+) -> Result<String, ServiceInvocationError> {
+    if let Some(version) = identity.version.as_ref() {
+        return Ok(version.clone());
+    }
+    if identity.version_source == "executable_sha256" {
+        return Ok(format!("sha256:{}", identity.executable_sha256));
+    }
+    Err(service_error(format!(
+        "injected command {} did not report a version",
+        identity.command
+    )))
 }
 
 #[cfg(any(feature = "htj2k_openjph", feature = "jpegxl"))]
@@ -622,11 +639,7 @@ fn validate_qualified_identity(
             "injected command {executable_id} has no planning-qualified identity"
         ))
     })?;
-    let actual_version = actual.version.ok_or_else(|| {
-        service_error(format!(
-            "injected command {executable_id} did not report a version"
-        ))
-    })?;
+    let actual_version = qualified_external_version(&actual)?;
     if actual.executable_sha256 != expected.executable_sha256 || actual_version != expected.version
     {
         return Err(service_error(format!(

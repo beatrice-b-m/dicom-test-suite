@@ -498,6 +498,7 @@ fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), Recip
         "native.waveform_plan",
         "native.encapsulated_payload_plan",
         "native.stress_sc_plan",
+        "native.stress_ct_plan",
         "external.import_plan",
         "mutation.named_plan",
         "qualification.bounded_plan",
@@ -540,6 +541,7 @@ fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), Recip
         "algorithm.encapsulated_pdf_minimal",
         "algorithm.binary_stl_tetrahedron",
         "algorithm.stress_sc",
+        "algorithm.stress_ct",
     ];
     const ENCODING_PROVIDERS: &[&str] = &[
         "encoding.transfer_syntax_plan",
@@ -1414,6 +1416,11 @@ fn validate_registry_bindings(
             && case.provider.id == "rust_native"
             && case.case_id.starts_with("stress/sc/")
             && expected_kind == RecipeKind::Dicom;
+        let migrated_stress_ct = recipe.plan_provider_id == "native.stress_ct_plan"
+            && case.provider.kind == "rust_native"
+            && case.provider.id == "rust_native"
+            && case.case_id == "stress/study/high_instance_count_ct"
+            && expected_kind == RecipeKind::Dicom;
         if recipe.plan_provider_id != expected_provider
             && !migrated_secondary_capture
             && !migrated_exceptional_sc
@@ -1423,6 +1430,7 @@ fn validate_registry_bindings(
             && !migrated_u6_native
             && !migrated_u6_external
             && !migrated_stress_sc
+            && !migrated_stress_ct
         {
             return Err(RecipeCatalogError::Completeness {
                 message: format!(
@@ -1595,6 +1603,7 @@ fn validate_migrated_planning_orders(
                 | "native.waveform_plan"
                 | "native.encapsulated_payload_plan"
                 | "native.stress_sc_plan"
+                | "native.stress_ct_plan"
         )
     }) {
         let order = recipe

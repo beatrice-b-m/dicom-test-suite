@@ -6,11 +6,28 @@
     "case_id": "stress/study/high_instance_count_ct"
   },
   "kind": "dicom",
-  "plan_provider_id": "native.case_plan",
+  "plan_provider_id": "native.stress_ct_plan",
   "dependencies": [
 
   ],
   "provider_parameters": {
+    "instances": 128,
+    "rows": 64,
+    "columns": 64,
+    "pixel_modulus": 3072,
+    "pixel_offset": -1024,
+    "pixel_min": -1024,
+    "pixel_max": 2047,
+    "slice_spacing_mm": "2.5",
+    "pixel_spacing_mm": [
+      "0.75",
+      "0.75"
+    ],
+    "policy": {
+      "qualification_scale": "reduced",
+      "full_scale_available": false,
+      "full_scale_reason": "Full-scale high-instance-count studies are intentionally outside the bounded repository qualification."
+    }
   },
   "validation_rule_ids": [
     "validation.shared"
@@ -21,25 +38,40 @@
   "dicom": {
     "artifacts": [
       {
-        "logical_id": "artifact_1",
+        "logical_id": "slice_001",
+        "order": 0,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
         "output": {
-          "role": "primary_1",
-          "provider_derived": true
+          "role": "slice_001",
+          "path": "stress/study/high_instance_count_ct/slice-001.dcm"
         },
         "encoding": {
           "transfer_syntax_uid": "1.2.840.10008.1.2.1",
-          "sequence_length_policy": "provider",
-          "item_length_policy": "provider",
-          "offset_table_policy": "provider",
-          "fragmentation_policy": "provider"
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
         },
         "parameters": {
+          "uid_file_index": 0,
+          "instance_number": "1",
+          "image_position_patient": [
+            "0",
+            "0",
+            "0"
+          ],
+          "position_along_normal": 0.0
         },
         "attribute_operations": [
 
         ],
         "content": {
-          "provider_id": "content.case_default",
+          "provider_id": "content.native_pixels",
           "parameters": {
           }
         },
@@ -51,15 +83,6617 @@
         ],
         "determinism": "byte_stable",
         "stressors": [
-
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
         ],
-        "algorithm_provider_id": "algorithm.case_provider",
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_002",
+        "order": 1,
         "template": {
           "template_id": "classic/ct",
           "template_version": "1.0.0"
         },
-        "order": 0
+        "output": {
+          "role": "slice_002",
+          "path": "stress/study/high_instance_count_ct/slice-002.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 1,
+          "instance_number": "2",
+          "image_position_patient": [
+            "0",
+            "0",
+            "2.5"
+          ],
+          "position_along_normal": 2.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_003",
+        "order": 2,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_003",
+          "path": "stress/study/high_instance_count_ct/slice-003.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 2,
+          "instance_number": "3",
+          "image_position_patient": [
+            "0",
+            "0",
+            "5"
+          ],
+          "position_along_normal": 5.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_004",
+        "order": 3,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_004",
+          "path": "stress/study/high_instance_count_ct/slice-004.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 3,
+          "instance_number": "4",
+          "image_position_patient": [
+            "0",
+            "0",
+            "7.5"
+          ],
+          "position_along_normal": 7.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_005",
+        "order": 4,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_005",
+          "path": "stress/study/high_instance_count_ct/slice-005.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 4,
+          "instance_number": "5",
+          "image_position_patient": [
+            "0",
+            "0",
+            "10"
+          ],
+          "position_along_normal": 10.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_006",
+        "order": 5,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_006",
+          "path": "stress/study/high_instance_count_ct/slice-006.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 5,
+          "instance_number": "6",
+          "image_position_patient": [
+            "0",
+            "0",
+            "12.5"
+          ],
+          "position_along_normal": 12.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_007",
+        "order": 6,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_007",
+          "path": "stress/study/high_instance_count_ct/slice-007.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 6,
+          "instance_number": "7",
+          "image_position_patient": [
+            "0",
+            "0",
+            "15"
+          ],
+          "position_along_normal": 15.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_008",
+        "order": 7,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_008",
+          "path": "stress/study/high_instance_count_ct/slice-008.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 7,
+          "instance_number": "8",
+          "image_position_patient": [
+            "0",
+            "0",
+            "17.5"
+          ],
+          "position_along_normal": 17.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_009",
+        "order": 8,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_009",
+          "path": "stress/study/high_instance_count_ct/slice-009.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 8,
+          "instance_number": "9",
+          "image_position_patient": [
+            "0",
+            "0",
+            "20"
+          ],
+          "position_along_normal": 20.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_010",
+        "order": 9,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_010",
+          "path": "stress/study/high_instance_count_ct/slice-010.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 9,
+          "instance_number": "10",
+          "image_position_patient": [
+            "0",
+            "0",
+            "22.5"
+          ],
+          "position_along_normal": 22.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_011",
+        "order": 10,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_011",
+          "path": "stress/study/high_instance_count_ct/slice-011.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 10,
+          "instance_number": "11",
+          "image_position_patient": [
+            "0",
+            "0",
+            "25"
+          ],
+          "position_along_normal": 25.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_012",
+        "order": 11,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_012",
+          "path": "stress/study/high_instance_count_ct/slice-012.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 11,
+          "instance_number": "12",
+          "image_position_patient": [
+            "0",
+            "0",
+            "27.5"
+          ],
+          "position_along_normal": 27.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_013",
+        "order": 12,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_013",
+          "path": "stress/study/high_instance_count_ct/slice-013.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 12,
+          "instance_number": "13",
+          "image_position_patient": [
+            "0",
+            "0",
+            "30"
+          ],
+          "position_along_normal": 30.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_014",
+        "order": 13,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_014",
+          "path": "stress/study/high_instance_count_ct/slice-014.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 13,
+          "instance_number": "14",
+          "image_position_patient": [
+            "0",
+            "0",
+            "32.5"
+          ],
+          "position_along_normal": 32.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_015",
+        "order": 14,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_015",
+          "path": "stress/study/high_instance_count_ct/slice-015.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 14,
+          "instance_number": "15",
+          "image_position_patient": [
+            "0",
+            "0",
+            "35"
+          ],
+          "position_along_normal": 35.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_016",
+        "order": 15,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_016",
+          "path": "stress/study/high_instance_count_ct/slice-016.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 15,
+          "instance_number": "16",
+          "image_position_patient": [
+            "0",
+            "0",
+            "37.5"
+          ],
+          "position_along_normal": 37.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_017",
+        "order": 16,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_017",
+          "path": "stress/study/high_instance_count_ct/slice-017.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 16,
+          "instance_number": "17",
+          "image_position_patient": [
+            "0",
+            "0",
+            "40"
+          ],
+          "position_along_normal": 40.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_018",
+        "order": 17,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_018",
+          "path": "stress/study/high_instance_count_ct/slice-018.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 17,
+          "instance_number": "18",
+          "image_position_patient": [
+            "0",
+            "0",
+            "42.5"
+          ],
+          "position_along_normal": 42.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_019",
+        "order": 18,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_019",
+          "path": "stress/study/high_instance_count_ct/slice-019.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 18,
+          "instance_number": "19",
+          "image_position_patient": [
+            "0",
+            "0",
+            "45"
+          ],
+          "position_along_normal": 45.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_020",
+        "order": 19,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_020",
+          "path": "stress/study/high_instance_count_ct/slice-020.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 19,
+          "instance_number": "20",
+          "image_position_patient": [
+            "0",
+            "0",
+            "47.5"
+          ],
+          "position_along_normal": 47.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_021",
+        "order": 20,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_021",
+          "path": "stress/study/high_instance_count_ct/slice-021.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 20,
+          "instance_number": "21",
+          "image_position_patient": [
+            "0",
+            "0",
+            "50"
+          ],
+          "position_along_normal": 50.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_022",
+        "order": 21,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_022",
+          "path": "stress/study/high_instance_count_ct/slice-022.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 21,
+          "instance_number": "22",
+          "image_position_patient": [
+            "0",
+            "0",
+            "52.5"
+          ],
+          "position_along_normal": 52.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_023",
+        "order": 22,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_023",
+          "path": "stress/study/high_instance_count_ct/slice-023.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 22,
+          "instance_number": "23",
+          "image_position_patient": [
+            "0",
+            "0",
+            "55"
+          ],
+          "position_along_normal": 55.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_024",
+        "order": 23,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_024",
+          "path": "stress/study/high_instance_count_ct/slice-024.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 23,
+          "instance_number": "24",
+          "image_position_patient": [
+            "0",
+            "0",
+            "57.5"
+          ],
+          "position_along_normal": 57.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_025",
+        "order": 24,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_025",
+          "path": "stress/study/high_instance_count_ct/slice-025.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 24,
+          "instance_number": "25",
+          "image_position_patient": [
+            "0",
+            "0",
+            "60"
+          ],
+          "position_along_normal": 60.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_026",
+        "order": 25,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_026",
+          "path": "stress/study/high_instance_count_ct/slice-026.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 25,
+          "instance_number": "26",
+          "image_position_patient": [
+            "0",
+            "0",
+            "62.5"
+          ],
+          "position_along_normal": 62.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_027",
+        "order": 26,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_027",
+          "path": "stress/study/high_instance_count_ct/slice-027.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 26,
+          "instance_number": "27",
+          "image_position_patient": [
+            "0",
+            "0",
+            "65"
+          ],
+          "position_along_normal": 65.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_028",
+        "order": 27,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_028",
+          "path": "stress/study/high_instance_count_ct/slice-028.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 27,
+          "instance_number": "28",
+          "image_position_patient": [
+            "0",
+            "0",
+            "67.5"
+          ],
+          "position_along_normal": 67.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_029",
+        "order": 28,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_029",
+          "path": "stress/study/high_instance_count_ct/slice-029.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 28,
+          "instance_number": "29",
+          "image_position_patient": [
+            "0",
+            "0",
+            "70"
+          ],
+          "position_along_normal": 70.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_030",
+        "order": 29,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_030",
+          "path": "stress/study/high_instance_count_ct/slice-030.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 29,
+          "instance_number": "30",
+          "image_position_patient": [
+            "0",
+            "0",
+            "72.5"
+          ],
+          "position_along_normal": 72.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_031",
+        "order": 30,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_031",
+          "path": "stress/study/high_instance_count_ct/slice-031.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 30,
+          "instance_number": "31",
+          "image_position_patient": [
+            "0",
+            "0",
+            "75"
+          ],
+          "position_along_normal": 75.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_032",
+        "order": 31,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_032",
+          "path": "stress/study/high_instance_count_ct/slice-032.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 31,
+          "instance_number": "32",
+          "image_position_patient": [
+            "0",
+            "0",
+            "77.5"
+          ],
+          "position_along_normal": 77.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_033",
+        "order": 32,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_033",
+          "path": "stress/study/high_instance_count_ct/slice-033.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 32,
+          "instance_number": "33",
+          "image_position_patient": [
+            "0",
+            "0",
+            "80"
+          ],
+          "position_along_normal": 80.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_034",
+        "order": 33,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_034",
+          "path": "stress/study/high_instance_count_ct/slice-034.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 33,
+          "instance_number": "34",
+          "image_position_patient": [
+            "0",
+            "0",
+            "82.5"
+          ],
+          "position_along_normal": 82.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_035",
+        "order": 34,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_035",
+          "path": "stress/study/high_instance_count_ct/slice-035.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 34,
+          "instance_number": "35",
+          "image_position_patient": [
+            "0",
+            "0",
+            "85"
+          ],
+          "position_along_normal": 85.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_036",
+        "order": 35,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_036",
+          "path": "stress/study/high_instance_count_ct/slice-036.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 35,
+          "instance_number": "36",
+          "image_position_patient": [
+            "0",
+            "0",
+            "87.5"
+          ],
+          "position_along_normal": 87.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_037",
+        "order": 36,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_037",
+          "path": "stress/study/high_instance_count_ct/slice-037.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 36,
+          "instance_number": "37",
+          "image_position_patient": [
+            "0",
+            "0",
+            "90"
+          ],
+          "position_along_normal": 90.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_038",
+        "order": 37,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_038",
+          "path": "stress/study/high_instance_count_ct/slice-038.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 37,
+          "instance_number": "38",
+          "image_position_patient": [
+            "0",
+            "0",
+            "92.5"
+          ],
+          "position_along_normal": 92.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_039",
+        "order": 38,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_039",
+          "path": "stress/study/high_instance_count_ct/slice-039.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 38,
+          "instance_number": "39",
+          "image_position_patient": [
+            "0",
+            "0",
+            "95"
+          ],
+          "position_along_normal": 95.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_040",
+        "order": 39,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_040",
+          "path": "stress/study/high_instance_count_ct/slice-040.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 39,
+          "instance_number": "40",
+          "image_position_patient": [
+            "0",
+            "0",
+            "97.5"
+          ],
+          "position_along_normal": 97.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_041",
+        "order": 40,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_041",
+          "path": "stress/study/high_instance_count_ct/slice-041.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 40,
+          "instance_number": "41",
+          "image_position_patient": [
+            "0",
+            "0",
+            "100"
+          ],
+          "position_along_normal": 100.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_042",
+        "order": 41,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_042",
+          "path": "stress/study/high_instance_count_ct/slice-042.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 41,
+          "instance_number": "42",
+          "image_position_patient": [
+            "0",
+            "0",
+            "102.5"
+          ],
+          "position_along_normal": 102.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_043",
+        "order": 42,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_043",
+          "path": "stress/study/high_instance_count_ct/slice-043.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 42,
+          "instance_number": "43",
+          "image_position_patient": [
+            "0",
+            "0",
+            "105"
+          ],
+          "position_along_normal": 105.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_044",
+        "order": 43,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_044",
+          "path": "stress/study/high_instance_count_ct/slice-044.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 43,
+          "instance_number": "44",
+          "image_position_patient": [
+            "0",
+            "0",
+            "107.5"
+          ],
+          "position_along_normal": 107.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_045",
+        "order": 44,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_045",
+          "path": "stress/study/high_instance_count_ct/slice-045.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 44,
+          "instance_number": "45",
+          "image_position_patient": [
+            "0",
+            "0",
+            "110"
+          ],
+          "position_along_normal": 110.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_046",
+        "order": 45,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_046",
+          "path": "stress/study/high_instance_count_ct/slice-046.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 45,
+          "instance_number": "46",
+          "image_position_patient": [
+            "0",
+            "0",
+            "112.5"
+          ],
+          "position_along_normal": 112.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_047",
+        "order": 46,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_047",
+          "path": "stress/study/high_instance_count_ct/slice-047.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 46,
+          "instance_number": "47",
+          "image_position_patient": [
+            "0",
+            "0",
+            "115"
+          ],
+          "position_along_normal": 115.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_048",
+        "order": 47,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_048",
+          "path": "stress/study/high_instance_count_ct/slice-048.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 47,
+          "instance_number": "48",
+          "image_position_patient": [
+            "0",
+            "0",
+            "117.5"
+          ],
+          "position_along_normal": 117.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_049",
+        "order": 48,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_049",
+          "path": "stress/study/high_instance_count_ct/slice-049.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 48,
+          "instance_number": "49",
+          "image_position_patient": [
+            "0",
+            "0",
+            "120"
+          ],
+          "position_along_normal": 120.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_050",
+        "order": 49,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_050",
+          "path": "stress/study/high_instance_count_ct/slice-050.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 49,
+          "instance_number": "50",
+          "image_position_patient": [
+            "0",
+            "0",
+            "122.5"
+          ],
+          "position_along_normal": 122.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_051",
+        "order": 50,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_051",
+          "path": "stress/study/high_instance_count_ct/slice-051.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 50,
+          "instance_number": "51",
+          "image_position_patient": [
+            "0",
+            "0",
+            "125"
+          ],
+          "position_along_normal": 125.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_052",
+        "order": 51,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_052",
+          "path": "stress/study/high_instance_count_ct/slice-052.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 51,
+          "instance_number": "52",
+          "image_position_patient": [
+            "0",
+            "0",
+            "127.5"
+          ],
+          "position_along_normal": 127.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_053",
+        "order": 52,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_053",
+          "path": "stress/study/high_instance_count_ct/slice-053.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 52,
+          "instance_number": "53",
+          "image_position_patient": [
+            "0",
+            "0",
+            "130"
+          ],
+          "position_along_normal": 130.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_054",
+        "order": 53,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_054",
+          "path": "stress/study/high_instance_count_ct/slice-054.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 53,
+          "instance_number": "54",
+          "image_position_patient": [
+            "0",
+            "0",
+            "132.5"
+          ],
+          "position_along_normal": 132.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_055",
+        "order": 54,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_055",
+          "path": "stress/study/high_instance_count_ct/slice-055.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 54,
+          "instance_number": "55",
+          "image_position_patient": [
+            "0",
+            "0",
+            "135"
+          ],
+          "position_along_normal": 135.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_056",
+        "order": 55,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_056",
+          "path": "stress/study/high_instance_count_ct/slice-056.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 55,
+          "instance_number": "56",
+          "image_position_patient": [
+            "0",
+            "0",
+            "137.5"
+          ],
+          "position_along_normal": 137.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_057",
+        "order": 56,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_057",
+          "path": "stress/study/high_instance_count_ct/slice-057.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 56,
+          "instance_number": "57",
+          "image_position_patient": [
+            "0",
+            "0",
+            "140"
+          ],
+          "position_along_normal": 140.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_058",
+        "order": 57,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_058",
+          "path": "stress/study/high_instance_count_ct/slice-058.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 57,
+          "instance_number": "58",
+          "image_position_patient": [
+            "0",
+            "0",
+            "142.5"
+          ],
+          "position_along_normal": 142.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_059",
+        "order": 58,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_059",
+          "path": "stress/study/high_instance_count_ct/slice-059.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 58,
+          "instance_number": "59",
+          "image_position_patient": [
+            "0",
+            "0",
+            "145"
+          ],
+          "position_along_normal": 145.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_060",
+        "order": 59,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_060",
+          "path": "stress/study/high_instance_count_ct/slice-060.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 59,
+          "instance_number": "60",
+          "image_position_patient": [
+            "0",
+            "0",
+            "147.5"
+          ],
+          "position_along_normal": 147.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_061",
+        "order": 60,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_061",
+          "path": "stress/study/high_instance_count_ct/slice-061.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 60,
+          "instance_number": "61",
+          "image_position_patient": [
+            "0",
+            "0",
+            "150"
+          ],
+          "position_along_normal": 150.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_062",
+        "order": 61,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_062",
+          "path": "stress/study/high_instance_count_ct/slice-062.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 61,
+          "instance_number": "62",
+          "image_position_patient": [
+            "0",
+            "0",
+            "152.5"
+          ],
+          "position_along_normal": 152.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_063",
+        "order": 62,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_063",
+          "path": "stress/study/high_instance_count_ct/slice-063.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 62,
+          "instance_number": "63",
+          "image_position_patient": [
+            "0",
+            "0",
+            "155"
+          ],
+          "position_along_normal": 155.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_064",
+        "order": 63,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_064",
+          "path": "stress/study/high_instance_count_ct/slice-064.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 63,
+          "instance_number": "64",
+          "image_position_patient": [
+            "0",
+            "0",
+            "157.5"
+          ],
+          "position_along_normal": 157.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_065",
+        "order": 64,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_065",
+          "path": "stress/study/high_instance_count_ct/slice-065.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 64,
+          "instance_number": "65",
+          "image_position_patient": [
+            "0",
+            "0",
+            "160"
+          ],
+          "position_along_normal": 160.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_066",
+        "order": 65,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_066",
+          "path": "stress/study/high_instance_count_ct/slice-066.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 65,
+          "instance_number": "66",
+          "image_position_patient": [
+            "0",
+            "0",
+            "162.5"
+          ],
+          "position_along_normal": 162.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_067",
+        "order": 66,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_067",
+          "path": "stress/study/high_instance_count_ct/slice-067.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 66,
+          "instance_number": "67",
+          "image_position_patient": [
+            "0",
+            "0",
+            "165"
+          ],
+          "position_along_normal": 165.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_068",
+        "order": 67,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_068",
+          "path": "stress/study/high_instance_count_ct/slice-068.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 67,
+          "instance_number": "68",
+          "image_position_patient": [
+            "0",
+            "0",
+            "167.5"
+          ],
+          "position_along_normal": 167.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_069",
+        "order": 68,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_069",
+          "path": "stress/study/high_instance_count_ct/slice-069.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 68,
+          "instance_number": "69",
+          "image_position_patient": [
+            "0",
+            "0",
+            "170"
+          ],
+          "position_along_normal": 170.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_070",
+        "order": 69,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_070",
+          "path": "stress/study/high_instance_count_ct/slice-070.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 69,
+          "instance_number": "70",
+          "image_position_patient": [
+            "0",
+            "0",
+            "172.5"
+          ],
+          "position_along_normal": 172.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_071",
+        "order": 70,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_071",
+          "path": "stress/study/high_instance_count_ct/slice-071.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 70,
+          "instance_number": "71",
+          "image_position_patient": [
+            "0",
+            "0",
+            "175"
+          ],
+          "position_along_normal": 175.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_072",
+        "order": 71,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_072",
+          "path": "stress/study/high_instance_count_ct/slice-072.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 71,
+          "instance_number": "72",
+          "image_position_patient": [
+            "0",
+            "0",
+            "177.5"
+          ],
+          "position_along_normal": 177.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_073",
+        "order": 72,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_073",
+          "path": "stress/study/high_instance_count_ct/slice-073.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 72,
+          "instance_number": "73",
+          "image_position_patient": [
+            "0",
+            "0",
+            "180"
+          ],
+          "position_along_normal": 180.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_074",
+        "order": 73,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_074",
+          "path": "stress/study/high_instance_count_ct/slice-074.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 73,
+          "instance_number": "74",
+          "image_position_patient": [
+            "0",
+            "0",
+            "182.5"
+          ],
+          "position_along_normal": 182.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_075",
+        "order": 74,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_075",
+          "path": "stress/study/high_instance_count_ct/slice-075.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 74,
+          "instance_number": "75",
+          "image_position_patient": [
+            "0",
+            "0",
+            "185"
+          ],
+          "position_along_normal": 185.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_076",
+        "order": 75,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_076",
+          "path": "stress/study/high_instance_count_ct/slice-076.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 75,
+          "instance_number": "76",
+          "image_position_patient": [
+            "0",
+            "0",
+            "187.5"
+          ],
+          "position_along_normal": 187.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_077",
+        "order": 76,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_077",
+          "path": "stress/study/high_instance_count_ct/slice-077.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 76,
+          "instance_number": "77",
+          "image_position_patient": [
+            "0",
+            "0",
+            "190"
+          ],
+          "position_along_normal": 190.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_078",
+        "order": 77,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_078",
+          "path": "stress/study/high_instance_count_ct/slice-078.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 77,
+          "instance_number": "78",
+          "image_position_patient": [
+            "0",
+            "0",
+            "192.5"
+          ],
+          "position_along_normal": 192.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_079",
+        "order": 78,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_079",
+          "path": "stress/study/high_instance_count_ct/slice-079.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 78,
+          "instance_number": "79",
+          "image_position_patient": [
+            "0",
+            "0",
+            "195"
+          ],
+          "position_along_normal": 195.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_080",
+        "order": 79,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_080",
+          "path": "stress/study/high_instance_count_ct/slice-080.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 79,
+          "instance_number": "80",
+          "image_position_patient": [
+            "0",
+            "0",
+            "197.5"
+          ],
+          "position_along_normal": 197.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_081",
+        "order": 80,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_081",
+          "path": "stress/study/high_instance_count_ct/slice-081.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 80,
+          "instance_number": "81",
+          "image_position_patient": [
+            "0",
+            "0",
+            "200"
+          ],
+          "position_along_normal": 200.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_082",
+        "order": 81,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_082",
+          "path": "stress/study/high_instance_count_ct/slice-082.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 81,
+          "instance_number": "82",
+          "image_position_patient": [
+            "0",
+            "0",
+            "202.5"
+          ],
+          "position_along_normal": 202.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_083",
+        "order": 82,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_083",
+          "path": "stress/study/high_instance_count_ct/slice-083.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 82,
+          "instance_number": "83",
+          "image_position_patient": [
+            "0",
+            "0",
+            "205"
+          ],
+          "position_along_normal": 205.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_084",
+        "order": 83,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_084",
+          "path": "stress/study/high_instance_count_ct/slice-084.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 83,
+          "instance_number": "84",
+          "image_position_patient": [
+            "0",
+            "0",
+            "207.5"
+          ],
+          "position_along_normal": 207.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_085",
+        "order": 84,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_085",
+          "path": "stress/study/high_instance_count_ct/slice-085.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 84,
+          "instance_number": "85",
+          "image_position_patient": [
+            "0",
+            "0",
+            "210"
+          ],
+          "position_along_normal": 210.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_086",
+        "order": 85,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_086",
+          "path": "stress/study/high_instance_count_ct/slice-086.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 85,
+          "instance_number": "86",
+          "image_position_patient": [
+            "0",
+            "0",
+            "212.5"
+          ],
+          "position_along_normal": 212.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_087",
+        "order": 86,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_087",
+          "path": "stress/study/high_instance_count_ct/slice-087.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 86,
+          "instance_number": "87",
+          "image_position_patient": [
+            "0",
+            "0",
+            "215"
+          ],
+          "position_along_normal": 215.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_088",
+        "order": 87,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_088",
+          "path": "stress/study/high_instance_count_ct/slice-088.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 87,
+          "instance_number": "88",
+          "image_position_patient": [
+            "0",
+            "0",
+            "217.5"
+          ],
+          "position_along_normal": 217.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_089",
+        "order": 88,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_089",
+          "path": "stress/study/high_instance_count_ct/slice-089.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 88,
+          "instance_number": "89",
+          "image_position_patient": [
+            "0",
+            "0",
+            "220"
+          ],
+          "position_along_normal": 220.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_090",
+        "order": 89,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_090",
+          "path": "stress/study/high_instance_count_ct/slice-090.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 89,
+          "instance_number": "90",
+          "image_position_patient": [
+            "0",
+            "0",
+            "222.5"
+          ],
+          "position_along_normal": 222.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_091",
+        "order": 90,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_091",
+          "path": "stress/study/high_instance_count_ct/slice-091.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 90,
+          "instance_number": "91",
+          "image_position_patient": [
+            "0",
+            "0",
+            "225"
+          ],
+          "position_along_normal": 225.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_092",
+        "order": 91,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_092",
+          "path": "stress/study/high_instance_count_ct/slice-092.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 91,
+          "instance_number": "92",
+          "image_position_patient": [
+            "0",
+            "0",
+            "227.5"
+          ],
+          "position_along_normal": 227.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_093",
+        "order": 92,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_093",
+          "path": "stress/study/high_instance_count_ct/slice-093.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 92,
+          "instance_number": "93",
+          "image_position_patient": [
+            "0",
+            "0",
+            "230"
+          ],
+          "position_along_normal": 230.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_094",
+        "order": 93,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_094",
+          "path": "stress/study/high_instance_count_ct/slice-094.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 93,
+          "instance_number": "94",
+          "image_position_patient": [
+            "0",
+            "0",
+            "232.5"
+          ],
+          "position_along_normal": 232.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_095",
+        "order": 94,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_095",
+          "path": "stress/study/high_instance_count_ct/slice-095.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 94,
+          "instance_number": "95",
+          "image_position_patient": [
+            "0",
+            "0",
+            "235"
+          ],
+          "position_along_normal": 235.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_096",
+        "order": 95,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_096",
+          "path": "stress/study/high_instance_count_ct/slice-096.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 95,
+          "instance_number": "96",
+          "image_position_patient": [
+            "0",
+            "0",
+            "237.5"
+          ],
+          "position_along_normal": 237.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_097",
+        "order": 96,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_097",
+          "path": "stress/study/high_instance_count_ct/slice-097.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 96,
+          "instance_number": "97",
+          "image_position_patient": [
+            "0",
+            "0",
+            "240"
+          ],
+          "position_along_normal": 240.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_098",
+        "order": 97,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_098",
+          "path": "stress/study/high_instance_count_ct/slice-098.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 97,
+          "instance_number": "98",
+          "image_position_patient": [
+            "0",
+            "0",
+            "242.5"
+          ],
+          "position_along_normal": 242.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_099",
+        "order": 98,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_099",
+          "path": "stress/study/high_instance_count_ct/slice-099.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 98,
+          "instance_number": "99",
+          "image_position_patient": [
+            "0",
+            "0",
+            "245"
+          ],
+          "position_along_normal": 245.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_100",
+        "order": 99,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_100",
+          "path": "stress/study/high_instance_count_ct/slice-100.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 99,
+          "instance_number": "100",
+          "image_position_patient": [
+            "0",
+            "0",
+            "247.5"
+          ],
+          "position_along_normal": 247.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_101",
+        "order": 100,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_101",
+          "path": "stress/study/high_instance_count_ct/slice-101.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 100,
+          "instance_number": "101",
+          "image_position_patient": [
+            "0",
+            "0",
+            "250"
+          ],
+          "position_along_normal": 250.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_102",
+        "order": 101,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_102",
+          "path": "stress/study/high_instance_count_ct/slice-102.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 101,
+          "instance_number": "102",
+          "image_position_patient": [
+            "0",
+            "0",
+            "252.5"
+          ],
+          "position_along_normal": 252.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_103",
+        "order": 102,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_103",
+          "path": "stress/study/high_instance_count_ct/slice-103.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 102,
+          "instance_number": "103",
+          "image_position_patient": [
+            "0",
+            "0",
+            "255"
+          ],
+          "position_along_normal": 255.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_104",
+        "order": 103,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_104",
+          "path": "stress/study/high_instance_count_ct/slice-104.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 103,
+          "instance_number": "104",
+          "image_position_patient": [
+            "0",
+            "0",
+            "257.5"
+          ],
+          "position_along_normal": 257.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_105",
+        "order": 104,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_105",
+          "path": "stress/study/high_instance_count_ct/slice-105.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 104,
+          "instance_number": "105",
+          "image_position_patient": [
+            "0",
+            "0",
+            "260"
+          ],
+          "position_along_normal": 260.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_106",
+        "order": 105,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_106",
+          "path": "stress/study/high_instance_count_ct/slice-106.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 105,
+          "instance_number": "106",
+          "image_position_patient": [
+            "0",
+            "0",
+            "262.5"
+          ],
+          "position_along_normal": 262.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_107",
+        "order": 106,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_107",
+          "path": "stress/study/high_instance_count_ct/slice-107.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 106,
+          "instance_number": "107",
+          "image_position_patient": [
+            "0",
+            "0",
+            "265"
+          ],
+          "position_along_normal": 265.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_108",
+        "order": 107,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_108",
+          "path": "stress/study/high_instance_count_ct/slice-108.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 107,
+          "instance_number": "108",
+          "image_position_patient": [
+            "0",
+            "0",
+            "267.5"
+          ],
+          "position_along_normal": 267.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_109",
+        "order": 108,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_109",
+          "path": "stress/study/high_instance_count_ct/slice-109.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 108,
+          "instance_number": "109",
+          "image_position_patient": [
+            "0",
+            "0",
+            "270"
+          ],
+          "position_along_normal": 270.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_110",
+        "order": 109,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_110",
+          "path": "stress/study/high_instance_count_ct/slice-110.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 109,
+          "instance_number": "110",
+          "image_position_patient": [
+            "0",
+            "0",
+            "272.5"
+          ],
+          "position_along_normal": 272.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_111",
+        "order": 110,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_111",
+          "path": "stress/study/high_instance_count_ct/slice-111.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 110,
+          "instance_number": "111",
+          "image_position_patient": [
+            "0",
+            "0",
+            "275"
+          ],
+          "position_along_normal": 275.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_112",
+        "order": 111,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_112",
+          "path": "stress/study/high_instance_count_ct/slice-112.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 111,
+          "instance_number": "112",
+          "image_position_patient": [
+            "0",
+            "0",
+            "277.5"
+          ],
+          "position_along_normal": 277.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_113",
+        "order": 112,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_113",
+          "path": "stress/study/high_instance_count_ct/slice-113.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 112,
+          "instance_number": "113",
+          "image_position_patient": [
+            "0",
+            "0",
+            "280"
+          ],
+          "position_along_normal": 280.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_114",
+        "order": 113,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_114",
+          "path": "stress/study/high_instance_count_ct/slice-114.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 113,
+          "instance_number": "114",
+          "image_position_patient": [
+            "0",
+            "0",
+            "282.5"
+          ],
+          "position_along_normal": 282.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_115",
+        "order": 114,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_115",
+          "path": "stress/study/high_instance_count_ct/slice-115.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 114,
+          "instance_number": "115",
+          "image_position_patient": [
+            "0",
+            "0",
+            "285"
+          ],
+          "position_along_normal": 285.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_116",
+        "order": 115,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_116",
+          "path": "stress/study/high_instance_count_ct/slice-116.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 115,
+          "instance_number": "116",
+          "image_position_patient": [
+            "0",
+            "0",
+            "287.5"
+          ],
+          "position_along_normal": 287.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_117",
+        "order": 116,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_117",
+          "path": "stress/study/high_instance_count_ct/slice-117.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 116,
+          "instance_number": "117",
+          "image_position_patient": [
+            "0",
+            "0",
+            "290"
+          ],
+          "position_along_normal": 290.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_118",
+        "order": 117,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_118",
+          "path": "stress/study/high_instance_count_ct/slice-118.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 117,
+          "instance_number": "118",
+          "image_position_patient": [
+            "0",
+            "0",
+            "292.5"
+          ],
+          "position_along_normal": 292.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_119",
+        "order": 118,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_119",
+          "path": "stress/study/high_instance_count_ct/slice-119.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 118,
+          "instance_number": "119",
+          "image_position_patient": [
+            "0",
+            "0",
+            "295"
+          ],
+          "position_along_normal": 295.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_120",
+        "order": 119,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_120",
+          "path": "stress/study/high_instance_count_ct/slice-120.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 119,
+          "instance_number": "120",
+          "image_position_patient": [
+            "0",
+            "0",
+            "297.5"
+          ],
+          "position_along_normal": 297.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_121",
+        "order": 120,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_121",
+          "path": "stress/study/high_instance_count_ct/slice-121.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 120,
+          "instance_number": "121",
+          "image_position_patient": [
+            "0",
+            "0",
+            "300"
+          ],
+          "position_along_normal": 300.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_122",
+        "order": 121,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_122",
+          "path": "stress/study/high_instance_count_ct/slice-122.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 121,
+          "instance_number": "122",
+          "image_position_patient": [
+            "0",
+            "0",
+            "302.5"
+          ],
+          "position_along_normal": 302.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_123",
+        "order": 122,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_123",
+          "path": "stress/study/high_instance_count_ct/slice-123.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 122,
+          "instance_number": "123",
+          "image_position_patient": [
+            "0",
+            "0",
+            "305"
+          ],
+          "position_along_normal": 305.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_124",
+        "order": 123,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_124",
+          "path": "stress/study/high_instance_count_ct/slice-124.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 123,
+          "instance_number": "124",
+          "image_position_patient": [
+            "0",
+            "0",
+            "307.5"
+          ],
+          "position_along_normal": 307.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_125",
+        "order": 124,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_125",
+          "path": "stress/study/high_instance_count_ct/slice-125.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 124,
+          "instance_number": "125",
+          "image_position_patient": [
+            "0",
+            "0",
+            "310"
+          ],
+          "position_along_normal": 310.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_126",
+        "order": 125,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_126",
+          "path": "stress/study/high_instance_count_ct/slice-126.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 125,
+          "instance_number": "126",
+          "image_position_patient": [
+            "0",
+            "0",
+            "312.5"
+          ],
+          "position_along_normal": 312.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_127",
+        "order": 126,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_127",
+          "path": "stress/study/high_instance_count_ct/slice-127.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 126,
+          "instance_number": "127",
+          "image_position_patient": [
+            "0",
+            "0",
+            "315"
+          ],
+          "position_along_normal": 315.0
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
+      },
+      {
+        "logical_id": "slice_128",
+        "order": 127,
+        "template": {
+          "template_id": "classic/ct",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "slice_128",
+          "path": "stress/study/high_instance_count_ct/slice-128.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 127,
+          "instance_number": "128",
+          "image_position_patient": [
+            "0",
+            "0",
+            "317.5"
+          ],
+          "position_along_normal": 317.5
+        },
+        "attribute_operations": [
+
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {
+          }
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "reduced_stress_scale",
+          "high_instance_count_study",
+          "128_ct_instances"
+        ],
+        "algorithm_provider_id": "algorithm.stress_ct"
       }
     ]
-  }
+  },
+  "planning_order": 1400
 }

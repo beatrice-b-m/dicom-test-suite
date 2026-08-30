@@ -58,21 +58,22 @@ use crate::recipes::{
     ClassicResolvedPlanInput, ContentProviderLimits, ENCAPSULATED_PAYLOAD_PLAN_PROVIDER_ID,
     EOT_ARITHMETIC_PLAN_PROVIDER_ID, EXCEPTIONAL_SC_PLAN_PROVIDER_ID, EncapsulatedPayload,
     EncapsulatedPayloadPlanProvider, EnhancedPlanProvider, ExceptionalScEncodingRequest,
-    ExceptionalScPlanInput, FUZZ_PLAN_PROVIDER_ID, LockedFullFileCodecRequest, MetadataScPlanInput,
-    OrderedSeriesProvider, PRESENTATION_ADVANCED_PROVIDER_ID, PresentationPlanProvider,
-    PresentationSourceInput, QUANTITATIVE_NATIVE_PROVIDER_ID, QualificationParameters,
-    QuantitativeArtifactContext, QuantitativePlanInput, QuantitativePlanOutput,
-    QuantitativePlanProvider, QuantitativeProviderLimits, QuantitativeSourceInput,
-    QuantitativeSourceRole, REGISTRATION_PLAN_PROVIDER_ID, RT_PLAN_PROVIDER_ID, RecipeCatalog,
-    RecipeReference, RegistrationPlanProvider, RegistrationSourceInput, RtPlanProvider,
-    SR_PLAN_PROVIDER_ID, STRESS_CT_PLAN_PROVIDER_ID, STRESS_SC_PLAN_PROVIDER_ID,
-    SecondaryCapturePlanInput, SemanticPlanContext, SemanticSource, SrPlanProvider,
-    TypedBulkPlanningContext, WAVEFORM_PLAN_PROVIDER_ID, WSI_ADVANCED_PROVIDER_ID,
-    WaveformPlanProvider, WsiAdvancedPlanProvider, encapsulated_payload_input_from_recipe,
-    encoding_plan_from_recipe, native_pixel_request_from_recipe, plan_exceptional_sc,
-    plan_stress_ct_recipe, plan_stress_sc_recipe, qualification_parameters,
-    resolved_classic_instance_plan, resolved_metadata_sc_plan, resolved_secondary_capture_plan,
-    rt_input_from_recipe, sr_input_from_recipe, waveform_input_from_recipe,
+    ExceptionalScPlanInput, FUZZ_PLAN_PROVIDER_ID, HIGH_DICOM_SR_IMPORT_PROVIDER_ID,
+    LockedFullFileCodecRequest, MetadataScPlanInput, OrderedSeriesProvider,
+    PRESENTATION_ADVANCED_PROVIDER_ID, PresentationPlanProvider, PresentationSourceInput,
+    QUANTITATIVE_NATIVE_PROVIDER_ID, QualificationParameters, QuantitativeArtifactContext,
+    QuantitativePlanInput, QuantitativePlanOutput, QuantitativePlanProvider,
+    QuantitativeProviderLimits, QuantitativeSourceInput, QuantitativeSourceRole,
+    REGISTRATION_PLAN_PROVIDER_ID, RT_PLAN_PROVIDER_ID, RecipeCatalog, RecipeReference,
+    RegistrationPlanProvider, RegistrationSourceInput, RtPlanProvider, SR_PLAN_PROVIDER_ID,
+    STRESS_CT_PLAN_PROVIDER_ID, STRESS_SC_PLAN_PROVIDER_ID, SecondaryCapturePlanInput,
+    SemanticPlanContext, SemanticSource, SrPlanProvider, TypedBulkPlanningContext,
+    WAVEFORM_PLAN_PROVIDER_ID, WSI_ADVANCED_PROVIDER_ID, WaveformPlanProvider,
+    WsiAdvancedPlanProvider, encapsulated_payload_input_from_recipe, encoding_plan_from_recipe,
+    native_pixel_request_from_recipe, plan_exceptional_sc, plan_stress_ct_recipe,
+    plan_stress_sc_recipe, qualification_parameters, resolved_classic_instance_plan,
+    resolved_metadata_sc_plan, resolved_secondary_capture_plan, rt_input_from_recipe,
+    sr_input_from_recipe, waveform_input_from_recipe,
 };
 use crate::runtime_capabilities::{
     CapabilityEvaluationRequest, CapabilityInventory, CapabilityKind as RuntimeCapabilityKind,
@@ -215,6 +216,12 @@ pub struct CuratedScCorpusPlan {
     pub capability_inventory: CapabilityInventory,
     #[serde(skip, default)]
     pub locked_full_file_requests: BTreeMap<String, LockedFullFileCodecRequest>,
+    #[serde(skip, default)]
+    pub external_provider_repository_root: PathBuf,
+    #[serde(skip, default)]
+    pub external_provider_standards_lock_path: PathBuf,
+    #[serde(skip, default)]
+    pub external_provider_standards_lock_sha256: String,
 }
 
 /// Immutable source metadata needed to project a curated artifact after
@@ -321,6 +328,8 @@ pub struct CuratedScCorpusPlanProvider {
     templates: TemplateCatalog,
     standards_lock_sha256: String,
     capability_inventory: CapabilityInventory,
+    repository_root: PathBuf,
+    standards_lock_path: PathBuf,
 }
 
 impl CuratedScCorpusPlanProvider {
@@ -340,12 +349,20 @@ impl CuratedScCorpusPlanProvider {
         let templates = TemplateCatalog::load(&paths.template_catalog_path)
             .map_err(|error| CuratedPlanError::Catalog(error.to_string()))?;
         let standards_lock_sha256 = sha256_hex(&read(&paths.standards_lock_path)?);
+        let repository_root = paths
+            .registry_path
+            .parent()
+            .and_then(Path::parent)
+            .unwrap_or_else(|| Path::new("."))
+            .to_path_buf();
         Ok(Self {
             registry,
             recipes,
             templates,
             standards_lock_sha256,
             capability_inventory: CapabilityInventory::compiled(),
+            repository_root,
+            standards_lock_path: paths.standards_lock_path,
         })
     }
 
@@ -437,11 +454,22 @@ impl CuratedScCorpusPlanProvider {
             .collect::<BTreeMap<_, _>>();
         let mut selected_registry_cases = self.registry.cases.iter().collect::<Vec<_>>();
         selected_registry_cases.sort_by_key(|registry_case| {
-            self.recipes
+            let recipe = self
+                .recipes
                 .binding_for_case(&registry_case.case_id)
-                .and_then(|identity| self.recipes.recipes().get(identity))
-                .and_then(|recipe| recipe.planning_order)
-                .unwrap_or(u32::MAX)
+                .and_then(|identity| self.recipes.recipes().get(identity));
+            (
+                if self.capability_inventory.external_providers.is_empty() {
+                    0
+                } else {
+                    recipe
+                        .map(|recipe| recipe_dependency_depth(recipe, &self.recipes))
+                        .unwrap_or(u32::MAX)
+                },
+                recipe
+                    .and_then(|recipe| recipe.planning_order)
+                    .unwrap_or(u32::MAX),
+            )
         });
 
         for registry_case in selected_registry_cases {
@@ -469,6 +497,35 @@ impl CuratedScCorpusPlanProvider {
                 // public corpus merely because dependency closure selected
                 // their owning recipes.
                 continue;
+            }
+            let external_provider = registry_case
+                .provider
+                .get("kind")
+                .and_then(Value::as_str)
+                .filter(|kind| *kind == "external_backend")
+                .and_then(|_| registry_case.provider.get("id"))
+                .and_then(Value::as_str)
+                .map(str::to_owned);
+            if let Some(provider_id) = external_provider.as_deref() {
+                if !self
+                    .capability_inventory
+                    .external_providers
+                    .contains(provider_id)
+                {
+                    record_unavailable_case(
+                        registry_case,
+                        recipe,
+                        CapabilityKind::ExternalBackend,
+                        "external_backend_unavailable",
+                        format!(
+                            "external plan provider {} ({provider_id}) is not caller-qualified",
+                            recipe.plan_provider_id
+                        ),
+                        &mut unavailable,
+                        &mut pending,
+                    );
+                    continue;
+                }
             }
             if !registry_case.requirements.is_feature_free() {
                 let runtime_requirements = RegistryRuntimeRequirements {
@@ -498,21 +555,6 @@ impl CuratedScCorpusPlanProvider {
                     );
                     continue;
                 }
-            }
-            if recipe.plan_provider_id.starts_with("external.") {
-                record_unavailable_case(
-                    registry_case,
-                    recipe,
-                    CapabilityKind::ExternalBackend,
-                    "external_backend_unavailable",
-                    format!(
-                        "external plan provider {} is unavailable in this execution environment",
-                        recipe.plan_provider_id
-                    ),
-                    &mut unavailable,
-                    &mut pending,
-                );
-                continue;
             }
             if recipe.plan_provider_id == FUZZ_PLAN_PROVIDER_ID {
                 let parameters = qualification_parameters(recipe).map_err(|error| {
@@ -1601,7 +1643,74 @@ impl CuratedScCorpusPlanProvider {
                 )?;
                 continue;
             }
-            if recipe.plan_provider_id == QUANTITATIVE_NATIVE_PROVIDER_ID {
+            if recipe.plan_provider_id == HIGH_DICOM_SR_IMPORT_PROVIDER_ID {
+                let artifact_recipe = recipe
+                    .dicom
+                    .as_ref()
+                    .and_then(|dicom| dicom.artifacts.first())
+                    .ok_or_else(|| CuratedPlanError::MissingDicom(recipe.recipe_id.clone()))?;
+                let target_id = artifact_id(recipe, &artifact_recipe.logical_id);
+                let declarations = semantic_source_declarations(recipe)?;
+                let sources = semantic_sources(&declarations, &source_artifacts, &target_id)?;
+                let mut context = semantic_context(
+                    recipe,
+                    artifact_recipe,
+                    &target_id,
+                    artifacts.len(),
+                    request.seed,
+                    &self.standards_lock_sha256,
+                    sources,
+                    &source_artifacts,
+                )?;
+                let scoped_id = context.logical_id.clone();
+                context.logical_id = artifact_recipe.logical_id.clone();
+                let mut input = sr_input_from_recipe(recipe, context)
+                    .map_err(|error| CuratedPlanError::AdvancedPlan {
+                        recipe_id: recipe.recipe_id.clone(),
+                        message: error.to_string(),
+                    })?
+                    .ok_or_else(|| CuratedPlanError::MissingAdvancedInput {
+                        case_id: registry_case.case_id.clone(),
+                        provider_id: recipe.plan_provider_id.clone(),
+                    })?;
+                input.context.logical_id = scoped_id;
+                let import = SrPlanProvider.external_import(&input).map_err(|error| {
+                    CuratedPlanError::AdvancedPlan {
+                        recipe_id: recipe.recipe_id.clone(),
+                        message: error.to_string(),
+                    }
+                })?;
+                let dependencies =
+                    semantic_dependencies(&target_id, &declarations, &source_artifacts)?;
+                let (artifact, execution_binding) = external_sr_artifact(
+                    recipe,
+                    artifact_recipe,
+                    &input,
+                    &import,
+                    request.seed,
+                    &self.standards_lock_sha256,
+                    &source_artifacts,
+                )?;
+                merge_imported_artifact(
+                    recipe,
+                    registry_case,
+                    registry_order[registry_case.case_id.as_str()],
+                    artifact_recipe,
+                    artifact,
+                    execution_binding,
+                    dependencies,
+                    &mut artifacts,
+                    &mut bindings,
+                    &mut projection_artifacts,
+                    &mut artifact_by_recipe_role,
+                    &mut advanced_dependencies,
+                )?;
+                continue;
+            }
+            if matches!(
+                recipe.plan_provider_id.as_str(),
+                QUANTITATIVE_NATIVE_PROVIDER_ID | crate::recipes::QUANTITATIVE_EXTERNAL_PROVIDER_ID
+            ) {
                 let artifact_recipe = recipe
                     .dicom
                     .as_ref()
@@ -1638,32 +1747,51 @@ impl CuratedScCorpusPlanProvider {
                         recipe_id: recipe.recipe_id.clone(),
                         message: error.to_string(),
                     })?;
-                let QuantitativePlanOutput::Native {
-                    artifact,
-                    bindings: execution_binding,
-                    dependencies,
-                } = output
-                else {
-                    return Err(CuratedPlanError::AdvancedPlan {
-                        recipe_id: recipe.recipe_id.clone(),
-                        message: "native quantitative provider returned an import boundary".into(),
-                    });
-                };
-                merge_typed_artifact(
-                    recipe,
-                    registry_case,
-                    registry_order[registry_case.case_id.as_str()],
-                    artifact_recipe,
-                    artifact,
-                    execution_binding,
-                    dependencies,
-                    &mut artifacts,
-                    &mut bindings,
-                    &mut projection_artifacts,
-                    &mut artifact_by_recipe_role,
-                    &mut source_artifacts,
-                    &mut advanced_dependencies,
-                )?;
+                match output {
+                    QuantitativePlanOutput::Native {
+                        artifact,
+                        bindings: execution_binding,
+                        dependencies,
+                    } => merge_typed_artifact(
+                        recipe,
+                        registry_case,
+                        registry_order[registry_case.case_id.as_str()],
+                        artifact_recipe,
+                        artifact,
+                        execution_binding,
+                        dependencies,
+                        &mut artifacts,
+                        &mut bindings,
+                        &mut projection_artifacts,
+                        &mut artifact_by_recipe_role,
+                        &mut source_artifacts,
+                        &mut advanced_dependencies,
+                    )?,
+                    external @ QuantitativePlanOutput::ExternalImport { .. } => {
+                        let (artifact, execution_binding, dependencies) =
+                            external_quantitative_artifact(
+                                recipe,
+                                artifact_recipe,
+                                external,
+                                request.seed,
+                                &self.standards_lock_sha256,
+                            )?;
+                        merge_imported_artifact(
+                            recipe,
+                            registry_case,
+                            registry_order[registry_case.case_id.as_str()],
+                            artifact_recipe,
+                            artifact,
+                            execution_binding,
+                            dependencies,
+                            &mut artifacts,
+                            &mut bindings,
+                            &mut projection_artifacts,
+                            &mut artifact_by_recipe_role,
+                            &mut advanced_dependencies,
+                        )?;
+                    }
+                }
                 continue;
             }
             if recipe.plan_provider_id == STRESS_SC_PLAN_PROVIDER_ID {
@@ -2144,6 +2272,9 @@ impl CuratedScCorpusPlanProvider {
             pending,
             capability_inventory: self.capability_inventory.clone(),
             locked_full_file_requests,
+            external_provider_repository_root: self.repository_root.clone(),
+            external_provider_standards_lock_path: self.standards_lock_path.clone(),
+            external_provider_standards_lock_sha256: self.standards_lock_sha256.clone(),
         })
     }
 }
@@ -2476,17 +2607,34 @@ fn semantic_context(
                 message: error.to_string(),
             }
         })?,
-        encoding: encoding_plan_from_recipe(
-            &artifact.encoding,
-            crate::corpus_plan::ImplementationIdentityPlan {
-                class_uid: implementation,
-                version_name: Some(crate::IMPLEMENTATION_VERSION_NAME.into()),
-            },
-        )
-        .map_err(|error| CuratedPlanError::Encoding {
-            artifact_id: target_id.into(),
-            message: error.to_string(),
-        })?,
+        encoding: if recipe.plan_provider_id == HIGH_DICOM_SR_IMPORT_PROVIDER_ID {
+            EncodingPlan {
+                transfer_syntax_uid: artifact.encoding.transfer_syntax_uid.clone(),
+                sequence_length: SequenceLengthPolicy::WriterDefault,
+                item_length: ItemLengthPolicy::WriterDefault,
+                fragmentation: FragmentationPolicy::Native,
+                offset_table: OffsetTablePolicy::NotApplicable,
+                preamble: PreamblePolicy::ZeroFilled,
+                file_meta: FileMetaPolicy::Standard,
+                implementation: crate::corpus_plan::ImplementationIdentityPlan {
+                    class_uid: implementation,
+                    version_name: Some(crate::IMPLEMENTATION_VERSION_NAME.into()),
+                },
+                backend_id: "external.highdicom_sr".into(),
+            }
+        } else {
+            encoding_plan_from_recipe(
+                &artifact.encoding,
+                crate::corpus_plan::ImplementationIdentityPlan {
+                    class_uid: implementation,
+                    version_name: Some(crate::IMPLEMENTATION_VERSION_NAME.into()),
+                },
+            )
+            .map_err(|error| CuratedPlanError::Encoding {
+                artifact_id: target_id.into(),
+                message: error.to_string(),
+            })?
+        },
         base_attributes: semantic_common_attributes(recipe)?,
         sources,
         resources: ArtifactResourceEstimate {
@@ -2697,7 +2845,9 @@ fn quantitative_context(
             }),
         ),
     ];
-    if recipe.provider_parameters.contains_key("segmentation") {
+    if recipe.provider_parameters.contains_key("segmentation")
+        || recipe.plan_provider_id == crate::recipes::QUANTITATIVE_EXTERNAL_PROVIDER_ID
+    {
         identities.push((
             CompositionUidRole::DimensionOrganization,
             0,
@@ -2709,7 +2859,9 @@ fn quantitative_context(
             ),
         ));
     }
-    if recipe.provider_parameters.contains_key("segmentation") {
+    if recipe.provider_parameters.contains_key("segmentation")
+        || recipe.plan_provider_id == crate::recipes::QUANTITATIVE_EXTERNAL_PROVIDER_ID
+    {
         if let Some(frame) = source_identity(CompositionUidRole::FrameOfReference) {
             identities.push((CompositionUidRole::FrameOfReference, 0, frame));
         }
@@ -3027,6 +3179,392 @@ fn merge_typed_artifact(
     all_dependencies.extend(dependencies);
     artifacts.push(PlannedArtifact::Dicom(artifact));
     Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn merge_imported_artifact(
+    recipe: &CaseRecipe,
+    registry_case: &RegistryCase,
+    registry_order: u64,
+    artifact_recipe: &crate::recipes::PlannedArtifactRecipe,
+    artifact: PlannedImportedDicomArtifact,
+    execution_binding: ArtifactExecutionBindings,
+    dependencies: Vec<ArtifactDependency>,
+    artifacts: &mut Vec<PlannedArtifact>,
+    bindings: &mut BTreeMap<String, ArtifactExecutionBindings>,
+    projection_artifacts: &mut Vec<CuratedArtifactProjectionContext>,
+    artifact_by_recipe_role: &mut BTreeMap<(RecipeIdentity, String), String>,
+    all_dependencies: &mut Vec<ArtifactDependency>,
+) -> Result<(), CuratedPlanError> {
+    let expected_id = artifact_id(recipe, &artifact_recipe.logical_id);
+    let expected_order =
+        u64::try_from(artifacts.len()).map_err(|_| CuratedPlanError::ResourceOverflow)?;
+    if artifact.logical_id != expected_id
+        || artifact.order != expected_order
+        || execution_binding.artifact_id != expected_id
+        || artifact.output.relative_path.as_str()
+            != artifact_recipe.output.path.as_deref().unwrap_or("")
+        || artifact.output.role != artifact_recipe.output.role
+    {
+        return Err(CuratedPlanError::AdvancedArtifactMismatch {
+            recipe_id: recipe.recipe_id.clone(),
+            artifact_id: artifact.logical_id,
+        });
+    }
+    projection_artifacts.push(CuratedArtifactProjectionContext {
+        artifact_id: expected_id.clone(),
+        plan_order: expected_order,
+        registry_order,
+        historical_recipe_order: recipe
+            .planning_order
+            .ok_or_else(|| CuratedPlanError::MissingProjectionOrder(recipe.recipe_id.clone()))?,
+        historical_artifact_order: artifact_recipe.order,
+        registry_case: registry_case.clone().into(),
+        case_recipe: recipe.clone(),
+        artifact_recipe: artifact_recipe.clone(),
+    });
+    artifact_by_recipe_role.insert(
+        (recipe.identity(), artifact_recipe.output.role.clone()),
+        expected_id.clone(),
+    );
+    bindings.insert(expected_id, execution_binding);
+    all_dependencies.extend(dependencies);
+    artifacts.push(PlannedArtifact::ImportedDicom(artifact));
+    Ok(())
+}
+
+fn required_identity(
+    identities: &IdentityPlan,
+    role: CompositionUidRole,
+    recipe_id: &str,
+) -> Result<String, CuratedPlanError> {
+    identities
+        .get(&role, 0)
+        .map(str::to_owned)
+        .ok_or_else(|| CuratedPlanError::AdvancedPlan {
+            recipe_id: recipe_id.into(),
+            message: format!("external import target lacks {}", role.as_str()),
+        })
+}
+
+fn external_quantitative_artifact(
+    recipe: &CaseRecipe,
+    artifact_recipe: &crate::recipes::PlannedArtifactRecipe,
+    output: QuantitativePlanOutput,
+    seed: u64,
+    standards_lock_sha256: &str,
+) -> Result<
+    (
+        PlannedImportedDicomArtifact,
+        ArtifactExecutionBindings,
+        Vec<ArtifactDependency>,
+    ),
+    CuratedPlanError,
+> {
+    let QuantitativePlanOutput::ExternalImport {
+        artifact,
+        import,
+        sources,
+        dependencies,
+        references,
+        ..
+    } = output
+    else {
+        return Err(CuratedPlanError::AdvancedPlan {
+            recipe_id: recipe.recipe_id.clone(),
+            message: "external quantitative route returned native output".into(),
+        });
+    };
+    let target_id = artifact.target_instance_id.clone();
+    let provider_sources = sources
+        .iter()
+        .enumerate()
+        .map(|(index, source)| {
+            let binding_role = if sources.len() == 1 {
+                "source_image".to_string()
+            } else {
+                format!("source_{}", index + 1)
+            };
+            let identities = &source.artifact.instance.identities;
+            Ok(serde_json::json!({
+                "binding_role": binding_role,
+                "case_id": source.artifact.case_binding.as_ref().map(|binding| binding.case_id.clone()).unwrap_or_else(|| source.artifact.logical_id.clone()),
+                "sop_class_uid": source.artifact.instance.sop_class_uid,
+                "sop_instance_uid": required_identity(identities, CompositionUidRole::SopInstance, &recipe.recipe_id)?,
+                "series_instance_uid": identities.get(&CompositionUidRole::SeriesInstance, 0),
+                "frame_numbers": source.referenced_frames,
+            }))
+        })
+        .collect::<Result<Vec<_>, CuratedPlanError>>()?;
+    let source_assets = sources
+        .iter()
+        .enumerate()
+        .map(|(index, source)| {
+            let role = if sources.len() == 1 {
+                "source_image".to_string()
+            } else {
+                format!("source_{}", index + 1)
+            };
+            (role, source.artifact.logical_id.clone())
+        })
+        .collect::<BTreeMap<_, _>>();
+    let input_assets = source_assets
+        .iter()
+        .map(|(role, artifact_id)| {
+            Ok((
+                role.clone(),
+                StagedAssetHandle::new(format!("output:{artifact_id}"))
+                    .map_err(|error| CuratedPlanError::Catalog(error.to_string()))?,
+            ))
+        })
+        .collect::<Result<BTreeMap<_, _>, CuratedPlanError>>()?;
+    let parameters = BTreeMap::from([
+        ("route".into(), Value::String("quantitative".into())),
+        ("seed".into(), Value::from(seed)),
+        (
+            "standards_lock_sha256".into(),
+            Value::String(standards_lock_sha256.into()),
+        ),
+        ("import".into(), serde_json::to_value(&import).unwrap()),
+        (
+            "artifact_parameters".into(),
+            Value::Object(artifact_recipe.parameters.clone()),
+        ),
+        ("sources".into(), Value::Array(provider_sources)),
+        (
+            "identities".into(),
+            serde_json::to_value(&artifact.identities).unwrap(),
+        ),
+    ]);
+    let provider = ImportedDicomProviderPlan {
+        request_id: format!("{}-{target_id}", import.request_id),
+        provider_id: import.dependency.executable_provider_id.clone(),
+        required_version: import.dependency.required_tool_version.clone(),
+        output_slot: "dicom".into(),
+        media_type: import.output_media_type.clone(),
+        maximum_size_bytes: import.maximum_output_bytes,
+        expected_sha256: None,
+        transfer_syntax_uid: import.semantic_evidence.transfer_syntax_uid.clone(),
+        parameters: parameters.clone(),
+        source_assets,
+    };
+    let template = artifact_recipe
+        .template
+        .as_ref()
+        .ok_or_else(|| CuratedPlanError::MissingTemplate(target_id.clone()))?;
+    let planned = PlannedImportedDicomArtifact {
+        logical_id: target_id.clone(),
+        order: artifact.order,
+        provenance: ArtifactProvenance::Requested,
+        case_binding: Some(CaseBinding {
+            case_id: recipe.binding.case_id.clone(),
+            recipe_id: recipe.recipe_id.clone(),
+            recipe_version: recipe.recipe_version.clone(),
+        }),
+        provider: provider.clone(),
+        declared_instance: ResolvedInstancePlan {
+            plan_schema_version: "0.1.0".into(),
+            instance_id: target_id.clone(),
+            template_id: TemplateId(template.template_id.clone()),
+            template_version: template.template_version.parse().map_err(|_| {
+                CuratedPlanError::InvalidTemplateVersion(template.template_version.clone())
+            })?,
+            sop_class_uid: import.semantic_evidence.sop_class_uid.clone(),
+            transfer_syntax_uid: import.semantic_evidence.transfer_syntax_uid.clone(),
+            identities: artifact.identities,
+            attributes: vec![],
+            content: vec![],
+            references,
+        },
+        output: artifact.output,
+        validation: validation_plan(recipe, artifact_recipe),
+        evidence: external_generation_evidence(&provider.provider_id),
+        resources: ArtifactResourceEstimate {
+            output_bytes: import.maximum_output_bytes,
+            peak_working_bytes: import.maximum_output_bytes,
+        },
+    };
+    let request = ProviderRequest {
+        request_id: provider.request_id.clone(),
+        artifact_id: target_id.clone(),
+        provider_id: provider.provider_id.clone(),
+        required_version: provider.required_version.clone(),
+        parameters,
+        input_assets,
+        expected_outputs: vec![ProviderOutputExpectation {
+            slot: provider.output_slot.clone(),
+            media_type: provider.media_type.clone(),
+            maximum_size_bytes: provider.maximum_size_bytes,
+            expected_sha256: None,
+        }],
+    };
+    Ok((
+        planned,
+        ArtifactExecutionBindings {
+            artifact_id: target_id,
+            slots: BTreeMap::from([(
+                provider.output_slot,
+                SlotExecutionBinding::ProviderRequest { request },
+            )]),
+        },
+        dependencies,
+    ))
+}
+
+fn external_sr_artifact(
+    recipe: &CaseRecipe,
+    artifact_recipe: &crate::recipes::PlannedArtifactRecipe,
+    input: &crate::recipes::SrPlanInput,
+    import: &crate::recipes::ExternalSrImportRequest,
+    seed: u64,
+    standards_lock_sha256: &str,
+    source_artifacts: &BTreeMap<(RecipeIdentity, String), CuratedSourceArtifact>,
+) -> Result<(PlannedImportedDicomArtifact, ArtifactExecutionBindings), CuratedPlanError> {
+    let target_id = input.context.logical_id.clone();
+    let mut source_assets = BTreeMap::new();
+    let mut input_assets = BTreeMap::new();
+    let mut provider_sources = Vec::new();
+    for (index, source) in input.context.sources.iter().enumerate() {
+        let source_case_id = source_artifacts
+            .get(&(
+                source.recipe.clone(),
+                source.recipe_artifact_logical_id.clone(),
+            ))
+            .and_then(|source| source.planned.case_binding.as_ref())
+            .map(|binding| binding.case_id.clone())
+            .ok_or_else(|| CuratedPlanError::MissingDependency {
+                recipe: recipe.identity(),
+                dependency: source.recipe.clone(),
+                role: source.role.clone(),
+            })?;
+        let binding_role = format!("source_{index}");
+        source_assets.insert(binding_role.clone(), source.artifact_id.clone());
+        input_assets.insert(
+            binding_role.clone(),
+            StagedAssetHandle::new(format!("output:{}", source.artifact_id))
+                .map_err(|error| CuratedPlanError::Catalog(error.to_string()))?,
+        );
+        provider_sources.push(serde_json::json!({
+            "binding_role": binding_role,
+            "backend_role": if index == 0 { "source_image" } else { "segmentation" },
+            "case_id": source_case_id,
+            "sop_class_uid": source.reference.referenced_sop_class_uid,
+            "sop_instance_uid": source.reference.referenced_sop_instance_uid,
+            "series_instance_uid": source.series_instance_uid,
+            "frame_numbers": source.reference.referenced_frames,
+        }));
+    }
+    let parameters = BTreeMap::from([
+        ("route".into(), Value::String("structured_report".into())),
+        ("seed".into(), Value::from(seed)),
+        (
+            "standards_lock_sha256".into(),
+            Value::String(standards_lock_sha256.into()),
+        ),
+        ("input".into(), serde_json::to_value(input).unwrap()),
+        ("sources".into(), Value::Array(provider_sources)),
+    ]);
+    let provider = ImportedDicomProviderPlan {
+        request_id: import.request_id.clone(),
+        provider_id: import.provider_id.clone(),
+        required_version: import.required_version.clone(),
+        output_slot: "dicom".into(),
+        media_type: import.output_media_type.clone(),
+        maximum_size_bytes: import.maximum_output_bytes,
+        expected_sha256: None,
+        transfer_syntax_uid: input.context.encoding.transfer_syntax_uid.clone(),
+        parameters: parameters.clone(),
+        source_assets,
+    };
+    let template = artifact_recipe
+        .template
+        .as_ref()
+        .ok_or_else(|| CuratedPlanError::MissingTemplate(target_id.clone()))?;
+    let planned = PlannedImportedDicomArtifact {
+        logical_id: target_id.clone(),
+        order: input.context.order,
+        provenance: ArtifactProvenance::Requested,
+        case_binding: Some(CaseBinding {
+            case_id: recipe.binding.case_id.clone(),
+            recipe_id: recipe.recipe_id.clone(),
+            recipe_version: recipe.recipe_version.clone(),
+        }),
+        provider: provider.clone(),
+        declared_instance: ResolvedInstancePlan {
+            plan_schema_version: "0.1.0".into(),
+            instance_id: target_id.clone(),
+            template_id: TemplateId(template.template_id.clone()),
+            template_version: template.template_version.parse().map_err(|_| {
+                CuratedPlanError::InvalidTemplateVersion(template.template_version.clone())
+            })?,
+            sop_class_uid: recipe
+                .binding
+                .case_id
+                .contains("tid1500")
+                .then_some("1.2.840.10008.5.1.4.1.1.88.34")
+                .unwrap_or("1.2.840.10008.5.1.4.1.1.88.33")
+                .into(),
+            transfer_syntax_uid: input.context.encoding.transfer_syntax_uid.clone(),
+            identities: input.context.identities.clone(),
+            attributes: vec![],
+            content: vec![],
+            references: input
+                .context
+                .sources
+                .iter()
+                .map(|source| source.reference.clone())
+                .collect(),
+        },
+        output: input.context.output.clone(),
+        validation: validation_plan(recipe, artifact_recipe),
+        evidence: external_generation_evidence(&provider.provider_id),
+        resources: input.context.resources.clone(),
+    };
+    let request = ProviderRequest {
+        request_id: provider.request_id.clone(),
+        artifact_id: target_id.clone(),
+        provider_id: provider.provider_id.clone(),
+        required_version: provider.required_version.clone(),
+        parameters,
+        input_assets,
+        expected_outputs: vec![ProviderOutputExpectation {
+            slot: provider.output_slot.clone(),
+            media_type: provider.media_type.clone(),
+            maximum_size_bytes: provider.maximum_size_bytes,
+            expected_sha256: None,
+        }],
+    };
+    Ok((
+        planned,
+        ArtifactExecutionBindings {
+            artifact_id: target_id,
+            slots: BTreeMap::from([(
+                provider.output_slot,
+                SlotExecutionBinding::ProviderRequest { request },
+            )]),
+        },
+    ))
+}
+
+fn external_generation_evidence(provider_id: &str) -> EvidencePlan {
+    EvidencePlan {
+        obligations: vec![
+            EvidenceObligation {
+                obligation_id: "curated_generation_validation".into(),
+                route_id: "shared_corpus_executor".into(),
+                independence: EvidenceIndependence::SameProject,
+                required: true,
+                parameters: BTreeMap::new(),
+            },
+            EvidenceObligation {
+                obligation_id: "external_import_provider".into(),
+                route_id: provider_id.into(),
+                independence: EvidenceIndependence::ExternalProvider,
+                required: true,
+                parameters: BTreeMap::new(),
+            },
+        ],
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -4439,6 +4977,28 @@ fn expand_recipe_dependency_closure(
             return Ok(());
         }
     }
+}
+
+fn recipe_dependency_depth(recipe: &CaseRecipe, catalog: &RecipeCatalog) -> u32 {
+    fn visit(
+        recipe: &CaseRecipe,
+        catalog: &RecipeCatalog,
+        visiting: &mut BTreeSet<RecipeIdentity>,
+    ) -> u32 {
+        if !visiting.insert(recipe.identity()) {
+            return 0;
+        }
+        let depth = recipe
+            .dependencies
+            .iter()
+            .filter_map(|dependency| catalog.recipes().get(&dependency.recipe.identity()))
+            .map(|dependency| visit(dependency, catalog, visiting).saturating_add(1))
+            .max()
+            .unwrap_or(0);
+        visiting.remove(&recipe.identity());
+        depth
+    }
+    visit(recipe, catalog, &mut BTreeSet::new())
 }
 
 fn matches_profile(profiles: &[String], requested: &str, include_stress: bool) -> bool {

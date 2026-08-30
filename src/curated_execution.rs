@@ -1,5 +1,8 @@
 //! Frontend-neutral execution services for curated Secondary Capture plans.
 
+#[path = "curated_execution/external_import.rs"]
+mod external_import;
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -31,7 +34,7 @@ use crate::executor::engine::{
 };
 use crate::executor::evidence::{
     EvidenceIndependence as ExecutionIndependence, MaterializedContentEvidence, ObligationResult,
-    ResultStatus,
+    ResultStatus, ToolEvidence,
 };
 use crate::executor::frame_codec::{
     ExternalFrameCodecCommands, FrameCodecLimits, RegisteredFrameCodecService,
@@ -342,6 +345,9 @@ pub struct CuratedExecutionServiceFactory {
     #[cfg(feature = "legacy_jpeg_dcmtk")]
     locked_full_file: Option<crate::executor::locked_full_file::DcmtkLockedFullFileService>,
     locked_requests: Arc<BTreeMap<String, crate::recipes::LockedFullFileCodecRequest>>,
+    external_provider_repository_root: PathBuf,
+    external_provider_standards_lock_path: PathBuf,
+    standards_lock_sha256: String,
 }
 
 impl CuratedExecutionServiceFactory {
@@ -452,6 +458,11 @@ impl CuratedExecutionServiceFactory {
             #[cfg(feature = "legacy_jpeg_dcmtk")]
             locked_full_file: None,
             locked_requests: Arc::new(bundle.locked_full_file_requests.clone()),
+            external_provider_repository_root: bundle.external_provider_repository_root.clone(),
+            external_provider_standards_lock_path: bundle
+                .external_provider_standards_lock_path
+                .clone(),
+            standards_lock_sha256: bundle.external_provider_standards_lock_sha256.clone(),
         }
     }
 }
@@ -478,14 +489,25 @@ impl ExecutionServiceFactory for CuratedExecutionServiceFactory {
             }
             if !self.locked_requests.contains_key(artifact_id) {
                 let mut immediate = binding.clone();
-                immediate
-                    .slots
-                    .retain(|_, slot| !matches!(slot, SlotExecutionBinding::StagedAsset { .. }));
+                immediate.slots.retain(|_, slot| {
+                    !matches!(
+                        slot,
+                        SlotExecutionBinding::StagedAsset { .. }
+                            | SlotExecutionBinding::ProviderRequest { .. }
+                    )
+                });
                 immediate
                     .validate(&empty_assets)
                     .map_err(|error| service_error("curated bindings", error))?;
                 for slot in binding.slots.values() {
-                    if let SlotExecutionBinding::StagedAsset { asset } = slot {
+                    let deferred_assets = match slot {
+                        SlotExecutionBinding::StagedAsset { asset } => vec![asset],
+                        SlotExecutionBinding::ProviderRequest { request } => {
+                            request.input_assets.values().collect()
+                        }
+                        _ => Vec::new(),
+                    };
+                    for asset in deferred_assets {
                         let dependency =
                             asset.as_str().strip_prefix("output:").ok_or_else(|| {
                                 ServiceInvocationError::new(
@@ -527,9 +549,15 @@ impl ExecutionServiceFactory for CuratedExecutionServiceFactory {
             #[cfg(feature = "legacy_jpeg_dcmtk")]
             locked_full_file: self.locked_full_file.clone(),
             locked_requests: self.locked_requests.clone(),
+            external_provider_repository_root: self.external_provider_repository_root.clone(),
+            external_provider_standards_lock_path: self
+                .external_provider_standards_lock_path
+                .clone(),
+            standards_lock_sha256: self.standards_lock_sha256.clone(),
             materialized: Mutex::new(BTreeMap::new()),
             decoded_codec_frames: Mutex::new(BTreeMap::new()),
             mutation_steps: Mutex::new(BTreeMap::new()),
+            external_provider_tools: Mutex::new(BTreeMap::new()),
         }))
     }
 }
@@ -544,9 +572,13 @@ struct CuratedBoundExecutionServices {
     #[cfg(feature = "legacy_jpeg_dcmtk")]
     locked_full_file: Option<crate::executor::locked_full_file::DcmtkLockedFullFileService>,
     locked_requests: Arc<BTreeMap<String, crate::recipes::LockedFullFileCodecRequest>>,
+    external_provider_repository_root: PathBuf,
+    external_provider_standards_lock_path: PathBuf,
+    standards_lock_sha256: String,
     materialized: Mutex<BTreeMap<String, MaterializedValidationState>>,
     decoded_codec_frames: Mutex<BTreeMap<String, Vec<String>>>,
     mutation_steps: Mutex<BTreeMap<String, Value>>,
+    external_provider_tools: Mutex<BTreeMap<String, ToolIdentity>>,
 }
 
 struct MaterializedValidationState {
@@ -593,6 +625,22 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
                 cancellation,
             )
             .map_err(|error| service_error("stress content provider", error));
+        }
+        if request.provider_id == "highdicom_pydicom" {
+            let result = external_import::invoke(
+                request,
+                assets,
+                &self.staging_root,
+                &self.external_provider_repository_root,
+                &self.external_provider_standards_lock_path,
+                &self.standards_lock_sha256,
+                cancellation,
+            )?;
+            self.external_provider_tools
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .insert(request.request_id.clone(), result.provider.clone());
+            return Ok(result);
         }
         Err(ServiceInvocationError::new(
             "provider",
@@ -1405,7 +1453,7 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
 
     fn evaluate_obligation(
         &self,
-        _: &PlannedArtifact,
+        artifact: &PlannedArtifact,
         obligation: &EvidenceObligation,
         _: &MaterializationResult,
         validation: &ValidationResult,
@@ -1420,6 +1468,32 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
         } else {
             ResultStatus::Failed
         };
+        let tool = if obligation.independence == EvidenceIndependence::ExternalProvider {
+            let PlannedArtifact::ImportedDicom(imported) = artifact else {
+                return Err(ServiceInvocationError::new(
+                    "obligation",
+                    "external provider evidence requires an imported artifact",
+                ));
+            };
+            let identity = self
+                .external_provider_tools
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .get(&imported.provider.request_id)
+                .cloned()
+                .ok_or_else(|| {
+                    ServiceInvocationError::new("obligation", "provider identity is missing")
+                })?;
+            Some(ToolEvidence {
+                tool_id: identity.backend_id,
+                version: identity.version,
+                executable_sha256: identity.executable_sha256.ok_or_else(|| {
+                    ServiceInvocationError::new("obligation", "provider fingerprint is missing")
+                })?,
+            })
+        } else {
+            None
+        };
         Ok(ObligationResult {
             obligation_id: obligation.obligation_id.clone(),
             route_id: obligation.route_id.clone(),
@@ -1431,7 +1505,7 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
             required: obligation.required,
             status,
             message: "curated execution obligation follows shared plan validation".into(),
-            tool: None,
+            tool,
         })
     }
 

@@ -7,7 +7,7 @@
   },
   "kind": "dicom",
   "plan_provider_id": "external.highdicom_sr_import_plan",
-  "planning_order": 1003,
+  "planning_order": 1003,"projection_order":112,
   "dependencies": [
     {
       "recipe": {

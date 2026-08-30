@@ -7,7 +7,7 @@
   },
   "kind": "dicom",
   "plan_provider_id": "external.highdicom_sr_import_plan",
-  "planning_order": 1004,
+  "planning_order": 1004,"projection_order":111,
   "dependencies": [
     {
       "recipe": {
@@ -99,7 +99,7 @@
           "recipe_id": "seg_binary_multiframe",
           "recipe_version": "0.1.0"
         },
-        "artifact_logical_id": "artifact_1",
+        "artifact_logical_id": "segmentation",
         "role": "source_segmentation",
         "referenced_frames": [
           1,

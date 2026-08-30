@@ -49,6 +49,19 @@ pub struct Tid1500GenerationInput {
     pub sources: Vec<ParametricMapSource>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Tid1500Parameters {
+    pub measurement_value_mm3: f64,
+}
+
+impl Default for Tid1500Parameters {
+    fn default() -> Self {
+        Self {
+            measurement_value_mm3: MEASUREMENT_VALUE,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Tid1500Generated {
     pub output_path: PathBuf,
@@ -74,7 +87,16 @@ pub fn generate_tid1500_cancellable(
     input: &Tid1500GenerationInput,
     cancelled: &dyn Fn() -> bool,
 ) -> Result<Tid1500Outcome, BackendContractError> {
+    generate_tid1500_with_parameters_cancellable(input, Tid1500Parameters::default(), cancelled)
+}
+
+pub fn generate_tid1500_with_parameters_cancellable(
+    input: &Tid1500GenerationInput,
+    parameters: Tid1500Parameters,
+    cancelled: &dyn Fn() -> bool,
+) -> Result<Tid1500Outcome, BackendContractError> {
     validate_input(input)?;
+    validate_parameters(parameters)?;
     let lock = load_backend_lock(&input.repository_root)?;
     let policy = backend_policy(&lock, BACKEND_ID)
         .ok_or_else(|| invalid(format!("{BACKEND_LOCK_FILE} has no {BACKEND_ID} policy")))?;
@@ -84,7 +106,7 @@ pub fn generate_tid1500_cancellable(
             return Ok(Tid1500Outcome::Unavailable { code, message });
         }
     };
-    let request = build_request(input)?;
+    let request = build_request(input, parameters)?;
     let invocation = BackendInvocation {
         executable: backend.executable.clone(),
         fixed_arguments: backend.fixed_arguments.clone(),
@@ -127,7 +149,7 @@ pub fn generate_tid1500_cancellable(
                 .expect("schema checked failure message")
         ))),
         "generated" => {
-            verify_response(&run.response, input)?;
+            verify_response(&run.response, input, parameters)?;
             let staged_path = run.staging_root.join("outputs").join(OUTPUT_FILE);
             let output_bytes =
                 fs::read(&staged_path).map_err(|source| BackendContractError::Read {
@@ -146,6 +168,17 @@ pub fn generate_tid1500_cancellable(
         }
         status => Err(invalid(format!("unexpected backend status {status}"))),
     }
+}
+
+fn validate_parameters(parameters: Tid1500Parameters) -> Result<(), BackendContractError> {
+    if !parameters.measurement_value_mm3.is_finite()
+        || !(0.0..=1_000_000_000_000.0).contains(&parameters.measurement_value_mm3)
+    {
+        return Err(invalid(
+            "TID 1500 measurement exceeds its bounded numeric domain",
+        ));
+    }
+    Ok(())
 }
 
 fn validate_input(input: &Tid1500GenerationInput) -> Result<(), BackendContractError> {
@@ -180,7 +213,10 @@ fn validate_input(input: &Tid1500GenerationInput) -> Result<(), BackendContractE
     Ok(())
 }
 
-fn build_request(input: &Tid1500GenerationInput) -> Result<Value, BackendContractError> {
+fn build_request(
+    input: &Tid1500GenerationInput,
+    parameters: Tid1500Parameters,
+) -> Result<Value, BackendContractError> {
     let sources = input
         .sources
         .iter()
@@ -238,7 +274,7 @@ fn build_request(input: &Tid1500GenerationInput) -> Result<Value, BackendContrac
         "sources": sources,
         "parameters": {
             "segment_number": 1,
-            "measurement_value": MEASUREMENT_VALUE,
+            "measurement_value": parameters.measurement_value_mm3,
             "tracking_identifier": TRACKING_IDENTIFIER,
             "tracking_uid": input.identities.tracking_uid,
             "observer_uid": input.identities.observer_uid,
@@ -257,6 +293,7 @@ fn build_request(input: &Tid1500GenerationInput) -> Result<Value, BackendContrac
 fn verify_response(
     response: &Value,
     input: &Tid1500GenerationInput,
+    parameters: Tid1500Parameters,
 ) -> Result<(), BackendContractError> {
     let outputs = response["outputs"]
         .as_array()
@@ -279,7 +316,7 @@ fn verify_response(
         || output.pointer("/expected_semantics/observer_uid")
             != Some(&json!(input.identities.observer_uid))
         || output.pointer("/expected_semantics/measurement/value")
-            != Some(&json!(MEASUREMENT_VALUE))
+            != Some(&json!(parameters.measurement_value_mm3))
         || output.pointer("/payload_expectations/pixel_data") != Some(&json!("absent"))
     {
         return Err(invalid(
@@ -345,5 +382,30 @@ fn invalid(message: impl Into<String>) -> BackendContractError {
     BackendContractError::Invalid {
         label: "TID 1500 backend contract".to_string(),
         problems: vec![message.into()],
+    }
+}
+
+#[cfg(test)]
+mod caller_parameter_tests {
+    use super::*;
+
+    #[test]
+    fn measurement_parameter_is_bounded() {
+        validate_parameters(Tid1500Parameters {
+            measurement_value_mm3: 125.0,
+        })
+        .expect("bounded measurement");
+        assert!(
+            validate_parameters(Tid1500Parameters {
+                measurement_value_mm3: f64::NAN,
+            })
+            .is_err()
+        );
+        assert!(
+            validate_parameters(Tid1500Parameters {
+                measurement_value_mm3: 1_000_000_000_000.1,
+            })
+            .is_err()
+        );
     }
 }

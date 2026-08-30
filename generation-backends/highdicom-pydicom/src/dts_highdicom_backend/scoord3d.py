@@ -76,13 +76,13 @@ def _validate_source(request: dict[str, Any]) -> tuple[dict[str, Any], Dataset]:
     return source, ct
 
 
-def _require_parameters(request: dict[str, Any]) -> tuple[str, str, str, str]:
+def _require_parameters(
+    request: dict[str, Any],
+) -> tuple[str, str, str, str, list[list[float]], float]:
     parameters = request["parameters"]
     expected = {
         "tracking_identifier": TRACKING_IDENTIFIER,
         "graphic_type": GRAPHIC_TYPE,
-        "graphic_data_patient_mm": GRAPHIC_DATA_PATIENT_MM,
-        "measurement_value_mm": MEASUREMENT_VALUE_MM,
     }
     for field, value in expected.items():
         if parameters.get(field) != value:
@@ -93,7 +93,29 @@ def _require_parameters(request: dict[str, Any]) -> tuple[str, str, str, str]:
     )
     if not all(isinstance(value, str) and value for value in values):
         raise ProtocolError("SCOORD3D tracking, observer, and fiducial identities are required")
-    return values  # type: ignore[return-value]
+    graphic_data = parameters.get("graphic_data_patient_mm")
+    if (
+        not isinstance(graphic_data, list)
+        or len(graphic_data) != 2
+        or any(not isinstance(point, list) or len(point) != 3 for point in graphic_data)
+    ):
+        raise ProtocolError("SCOORD3D graphic data must contain exactly two 3D points")
+    graphic_data = [[float(coordinate) for coordinate in point] for point in graphic_data]
+    measurement_value = float(parameters.get("measurement_value_mm"))
+    return (*values, graphic_data, measurement_value)  # type: ignore[return-value]
+
+
+def _preserve_numeric_value_lexical_form(dataset: Dataset, value: float) -> None:
+    matches = []
+    pending = list(dataset.ContentSequence)
+    while pending:
+        item = pending.pop(0)
+        if hasattr(item, "MeasuredValueSequence"):
+            matches.append(item.MeasuredValueSequence[0])
+        pending.extend(getattr(item, "ContentSequence", []))
+    if len(matches) != 1:
+        raise ProtocolError("SCOORD3D report must contain exactly one numeric measurement")
+    matches[0].NumericValue = format(value, ".15g")
 
 
 def generate(request: dict[str, Any], output_root: Path) -> dict[str, Any]:
@@ -106,19 +128,26 @@ def generate(request: dict[str, Any], output_root: Path) -> dict[str, Any]:
         raise ProtocolError("SCOORD3D recipe requires Explicit VR Little Endian")
 
     source, ct = _validate_source(request)
-    tracking_identifier, tracking_uid, observer_uid, fiducial_uid = _require_parameters(request)
+    (
+        tracking_identifier,
+        tracking_uid,
+        observer_uid,
+        fiducial_uid,
+        graphic_data,
+        measurement_value,
+    ) = _require_parameters(request)
     identities = request["identities"]
     controlled = request["controlled_metadata"]
 
     coordinates = hd.sr.CoordinatesForMeasurement3D(
         graphic_type=GRAPHIC_TYPE,
-        graphic_data=np.asarray(GRAPHIC_DATA_PATIENT_MM, dtype=np.float64),
+        graphic_data=np.asarray(graphic_data, dtype=np.float64),
         frame_of_reference_uid=str(ct.FrameOfReferenceUID),
         fiducial_uid=fiducial_uid,
     )
     measurement = hd.sr.Measurement(
         name=Code("121206", "DCM", "Distance"),
-        value=MEASUREMENT_VALUE_MM,
+        value=measurement_value,
         unit=Code("mm", "UCUM", "millimeter"),
         referenced_coordinates=[coordinates],
     )
@@ -167,6 +196,7 @@ def generate(request: dict[str, Any], output_root: Path) -> dict[str, Any]:
         manufacturer_model_name=controlled["model_name"],
         software_versions=controlled["software_versions"],
     )
+    _preserve_numeric_value_lexical_form(document, measurement_value)
     _normalize_metadata(document, request)
 
     output_root.mkdir(parents=True, exist_ok=True)
@@ -197,12 +227,12 @@ def generate(request: dict[str, Any], output_root: Path) -> dict[str, Any]:
             "observer_uid": observer_uid,
             "fiducial_uid": fiducial_uid,
             "graphic_type": GRAPHIC_TYPE,
-            "graphic_data_patient_mm": GRAPHIC_DATA_PATIENT_MM,
+            "graphic_data_patient_mm": graphic_data,
             "frame_of_reference_uid": identities["frame_of_reference_uid"],
             "source_frame_numbers": SOURCE_FRAMES,
             "measurement": {
                 "name": {"value": "121206", "scheme": "DCM", "meaning": "Distance"},
-                "value": MEASUREMENT_VALUE_MM,
+                "value": measurement_value,
                 "unit": {"value": "mm", "scheme": "UCUM", "meaning": "millimeter"},
             },
             "procedure_reported": {

@@ -173,13 +173,23 @@ class Scoord3dGenerationTest(unittest.TestCase):
                 list(source.ReferencedSOPSequence[0].ReferencedFrameNumber), [1, 2]
             )
 
-    def test_rejects_coordinate_not_derived_from_source_positions(self) -> None:
+    def test_accepts_bounded_caller_coordinates_and_measurement(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             request = _request(root)
-            request["parameters"]["graphic_data_patient_mm"][1][2] = 3.0
-            with self.assertRaisesRegex(ProtocolError, "differs from recipe"):
-                generate(request, root / "outputs")
+            request["parameters"]["graphic_data_patient_mm"][1][2] = 5.0
+            request["parameters"]["measurement_value_mm"] = 5.0
+            response = generate(request, root / "outputs")
+            document = pydicom.dcmread(root / "outputs" / OUTPUT_RELATIVE_PATH)
+            items = _content_items(document)
+            distance = next(item for item in items if item.ValueType == "NUM")
+            scoord = next(item for item in items if item.ValueType == "SCOORD3D")
+            self.assertEqual(distance.MeasuredValueSequence[0].NumericValue, "5")
+            self.assertEqual(list(scoord.GraphicData), [0.0, 0.0, 0.0, 0.0, 0.0, 5.0])
+            self.assertEqual(
+                response["expected_semantics"]["graphic_data_patient_mm"],
+                [[0.0, 0.0, 0.0], [0.0, 0.0, 5.0]],
+            )
 
 
 if __name__ == "__main__":

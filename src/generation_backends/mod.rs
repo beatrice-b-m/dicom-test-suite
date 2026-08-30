@@ -32,13 +32,17 @@ pub use staging::{
 };
 mod scoord3d;
 pub use scoord3d::{
-    Scoord3dGenerated, Scoord3dGenerationInput, Scoord3dIdentities, Scoord3dOutcome,
+    GRAPHIC_DATA_PATIENT_MM as SCOORD3D_GRAPHIC_DATA_PATIENT_MM,
+    MEASUREMENT_VALUE_MM as SCOORD3D_MEASUREMENT_VALUE_MM, Scoord3dGenerated,
+    Scoord3dGenerationInput, Scoord3dIdentities, Scoord3dOutcome, Scoord3dParameters,
     generate_scoord3d, generate_scoord3d_cancellable,
+    generate_scoord3d_with_parameters_cancellable,
 };
 mod tid1500;
 pub use tid1500::{
-    Tid1500Generated, Tid1500GenerationInput, Tid1500Identities, Tid1500Outcome, generate_tid1500,
-    generate_tid1500_cancellable,
+    MEASUREMENT_VALUE as TID1500_MEASUREMENT_VALUE, Tid1500Generated, Tid1500GenerationInput,
+    Tid1500Identities, Tid1500Outcome, Tid1500Parameters, generate_tid1500,
+    generate_tid1500_cancellable, generate_tid1500_with_parameters_cancellable,
 };
 mod wsi_tile_segmentation;
 pub use wsi_tile_segmentation::{

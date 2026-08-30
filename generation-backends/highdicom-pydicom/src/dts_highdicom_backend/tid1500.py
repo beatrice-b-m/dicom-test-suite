@@ -136,12 +136,11 @@ def _primary_sop_instance_uid(request: dict[str, Any]) -> str:
     return str(slots[0]["uid"])
 
 
-def _require_parameters(request: dict[str, Any]) -> tuple[str, str, str]:
+def _require_parameters(request: dict[str, Any]) -> tuple[str, str, str, float]:
     parameters = request["parameters"]
     if parameters.get("segment_number") != SEGMENT_NUMBER:
         raise ProtocolError("TID 1500 recipe requires segment_number 1")
-    if parameters.get("measurement_value") != MEASUREMENT_VALUE:
-        raise ProtocolError("TID 1500 recipe requires measurement_value 5.625")
+    measurement_value = float(parameters.get("measurement_value"))
     tracking_identifier = parameters.get("tracking_identifier")
     tracking_uid = parameters.get("tracking_uid")
     observer_uid = parameters.get("observer_uid")
@@ -156,7 +155,20 @@ def _require_parameters(request: dict[str, Any]) -> tuple[str, str, str]:
         raise ProtocolError(
             f"TID 1500 tracking_identifier must be {TRACKING_IDENTIFIER}"
         )
-    return tracking_identifier, tracking_uid, observer_uid
+    return tracking_identifier, tracking_uid, observer_uid, measurement_value
+
+
+def _preserve_numeric_value_lexical_form(dataset: Dataset, value: float) -> None:
+    matches = []
+    pending = list(dataset.ContentSequence)
+    while pending:
+        item = pending.pop(0)
+        if hasattr(item, "MeasuredValueSequence"):
+            matches.append(item.MeasuredValueSequence[0])
+        pending.extend(getattr(item, "ContentSequence", []))
+    if len(matches) != 1:
+        raise ProtocolError("TID 1500 report must contain exactly one numeric measurement")
+    matches[0].NumericValue = format(value, ".15g")
 
 
 def _normalize_metadata(dataset: Dataset, request: dict[str, Any]) -> None:
@@ -214,7 +226,7 @@ def generate(request: dict[str, Any], output_root: Path) -> dict[str, Any]:
         raise ProtocolError("TID 1500 proof requires Explicit VR Little Endian")
 
     ct_source, ct, seg_source, seg = _validate_sources(request)
-    tracking_identifier, tracking_uid, observer_uid = _require_parameters(request)
+    tracking_identifier, tracking_uid, observer_uid, measurement_value = _require_parameters(request)
     identities = request["identities"]
     controlled = request["controlled_metadata"]
 
@@ -232,7 +244,7 @@ def generate(request: dict[str, Any], output_root: Path) -> dict[str, Any]:
     )
     measurement = hd.sr.Measurement(
         name=Code("118565006", "SCT", "Volume"),
-        value=MEASUREMENT_VALUE,
+        value=measurement_value,
         unit=Code("mm3", "UCUM", "cubic millimeter"),
     )
     measurement_group = hd.sr.VolumetricROIMeasurementsAndQualitativeEvaluations(
@@ -281,6 +293,7 @@ def generate(request: dict[str, Any], output_root: Path) -> dict[str, Any]:
         manufacturer_model_name=controlled["model_name"],
         software_versions=controlled["software_versions"],
     )
+    _preserve_numeric_value_lexical_form(document, measurement_value)
     _normalize_source_image_meaning(document)
     _normalize_metadata(document, request)
 
@@ -324,7 +337,7 @@ def generate(request: dict[str, Any], output_root: Path) -> dict[str, Any]:
             "source_frame_numbers": SOURCE_FRAMES,
             "measurement": {
                 "name": {"value": "118565006", "scheme": "SCT", "meaning": "Volume"},
-                "value": MEASUREMENT_VALUE,
+                "value": measurement_value,
                 "unit": {"value": "mm3", "scheme": "UCUM", "meaning": "cubic millimeter"},
             },
             "procedure_reported": {

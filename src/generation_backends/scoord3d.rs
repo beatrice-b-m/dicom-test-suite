@@ -56,6 +56,21 @@ pub struct Scoord3dGenerationInput {
     pub sources: Vec<ParametricMapSource>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct Scoord3dParameters {
+    pub graphic_data_patient_mm: [[f64; 3]; 2],
+    pub measurement_value_mm: f64,
+}
+
+impl Default for Scoord3dParameters {
+    fn default() -> Self {
+        Self {
+            graphic_data_patient_mm: GRAPHIC_DATA_PATIENT_MM,
+            measurement_value_mm: MEASUREMENT_VALUE_MM,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Scoord3dGenerated {
     pub output_path: PathBuf,
@@ -81,7 +96,16 @@ pub fn generate_scoord3d_cancellable(
     input: &Scoord3dGenerationInput,
     cancelled: &dyn Fn() -> bool,
 ) -> Result<Scoord3dOutcome, BackendContractError> {
+    generate_scoord3d_with_parameters_cancellable(input, &Scoord3dParameters::default(), cancelled)
+}
+
+pub fn generate_scoord3d_with_parameters_cancellable(
+    input: &Scoord3dGenerationInput,
+    parameters: &Scoord3dParameters,
+    cancelled: &dyn Fn() -> bool,
+) -> Result<Scoord3dOutcome, BackendContractError> {
     validate_input(input)?;
+    validate_parameters(parameters)?;
     validate_source_geometry(input)?;
     let lock = load_backend_lock(&input.repository_root)?;
     let policy = backend_policy(&lock, BACKEND_ID)
@@ -92,7 +116,7 @@ pub fn generate_scoord3d_cancellable(
             return Ok(Scoord3dOutcome::Unavailable { code, message });
         }
     };
-    let request = build_request(input)?;
+    let request = build_request(input, parameters)?;
     let invocation = BackendInvocation {
         executable: backend.executable.clone(),
         fixed_arguments: backend.fixed_arguments.clone(),
@@ -135,7 +159,7 @@ pub fn generate_scoord3d_cancellable(
                 .expect("schema checked failure message")
         ))),
         "generated" => {
-            verify_response(&run.response, input)?;
+            verify_response(&run.response, input, parameters)?;
             let staged_path = run.staging_root.join("outputs").join(OUTPUT_FILE);
             let output_bytes =
                 fs::read(&staged_path).map_err(|source| BackendContractError::Read {
@@ -154,6 +178,22 @@ pub fn generate_scoord3d_cancellable(
         }
         status => Err(invalid(format!("unexpected backend status {status}"))),
     }
+}
+
+fn validate_parameters(parameters: &Scoord3dParameters) -> Result<(), BackendContractError> {
+    if parameters
+        .graphic_data_patient_mm
+        .iter()
+        .flatten()
+        .any(|value| !value.is_finite() || value.abs() > 1_000_000.0)
+        || !parameters.measurement_value_mm.is_finite()
+        || !(0.0..=1_000_000.0).contains(&parameters.measurement_value_mm)
+    {
+        return Err(invalid(
+            "SCOORD3D caller parameters exceed their bounded numeric domain",
+        ));
+    }
+    Ok(())
 }
 
 fn validate_input(input: &Scoord3dGenerationInput) -> Result<(), BackendContractError> {
@@ -322,7 +362,10 @@ fn float_values(object: &DatasetObject, tag: Tag) -> Result<Vec<f64>, BackendCon
         .map_err(|error| invalid(format!("decode source attribute {tag}: {error}")))
 }
 
-fn build_request(input: &Scoord3dGenerationInput) -> Result<Value, BackendContractError> {
+fn build_request(
+    input: &Scoord3dGenerationInput,
+    parameters: &Scoord3dParameters,
+) -> Result<Value, BackendContractError> {
     let source = &input.sources[0];
     let mut request = json!({
         "request_schema_version": PROTOCOL_VERSION,
@@ -378,8 +421,8 @@ fn build_request(input: &Scoord3dGenerationInput) -> Result<Value, BackendContra
             "observer_uid": input.identities.observer_uid,
             "fiducial_uid": input.identities.fiducial_uid,
             "graphic_type": GRAPHIC_TYPE,
-            "graphic_data_patient_mm": GRAPHIC_DATA_PATIENT_MM,
-            "measurement_value_mm": MEASUREMENT_VALUE_MM,
+            "graphic_data_patient_mm": parameters.graphic_data_patient_mm,
+            "measurement_value_mm": parameters.measurement_value_mm,
         },
         "requested_determinism": "semantic_stable",
     });
@@ -395,6 +438,7 @@ fn build_request(input: &Scoord3dGenerationInput) -> Result<Value, BackendContra
 fn verify_response(
     response: &Value,
     input: &Scoord3dGenerationInput,
+    parameters: &Scoord3dParameters,
 ) -> Result<(), BackendContractError> {
     let outputs = response["outputs"]
         .as_array()
@@ -422,12 +466,12 @@ fn verify_response(
             != Some(&json!(input.identities.fiducial_uid))
         || output.pointer("/expected_semantics/graphic_type") != Some(&json!(GRAPHIC_TYPE))
         || output.pointer("/expected_semantics/graphic_data_patient_mm")
-            != Some(&json!(GRAPHIC_DATA_PATIENT_MM))
+            != Some(&json!(parameters.graphic_data_patient_mm))
         || output.pointer("/expected_semantics/frame_of_reference_uid")
             != Some(&json!(input.identities.frame_of_reference_uid))
         || output.pointer("/expected_semantics/source_frame_numbers") != Some(&json!([1, 2]))
         || output.pointer("/expected_semantics/measurement/value")
-            != Some(&json!(MEASUREMENT_VALUE_MM))
+            != Some(&json!(parameters.measurement_value_mm))
         || output.pointer("/payload_expectations/pixel_data") != Some(&json!("absent"))
     {
         return Err(invalid(
@@ -555,7 +599,7 @@ mod tests {
     fn request_locks_source_frames_and_scoord3d_parameters() {
         let input = input();
         validate_input(&input).expect("valid source");
-        let request = build_request(&input).expect("request");
+        let request = build_request(&input, &Scoord3dParameters::default()).expect("request");
         assert_eq!(
             request.pointer("/sources/0/frame_numbers"),
             Some(&json!([1, 2]))
@@ -615,9 +659,29 @@ mod tests {
                 "payload_expectations": { "pixel_data": "absent" }
             }]
         });
-        verify_response(&response, &input).expect("matching response");
+        verify_response(&response, &input, &Scoord3dParameters::default())
+            .expect("matching response");
         response["outputs"][0]["expected_semantics"]["fiducial_uid"] = json!("2.25.99");
-        let error = verify_response(&response, &input).expect_err("drift must fail");
+        let error = verify_response(&response, &input, &Scoord3dParameters::default())
+            .expect_err("drift must fail");
         assert!(error.to_string().contains("semantics differ"));
+    }
+
+    #[test]
+    fn caller_parameters_are_bounded_and_hash_bound() {
+        let input = input();
+        let mut parameters = Scoord3dParameters::default();
+        let default = build_request(&input, &parameters).expect("default request");
+        parameters.graphic_data_patient_mm[1][2] = 5.0;
+        parameters.measurement_value_mm = 5.0;
+        validate_parameters(&parameters).expect("bounded caller parameters");
+        let caller = build_request(&input, &parameters).expect("caller request");
+        assert_eq!(
+            caller.pointer("/parameters/graphic_data_patient_mm"),
+            Some(&json!([[0.0, 0.0, 0.0], [0.0, 0.0, 5.0]]))
+        );
+        assert_ne!(caller["request_id"], default["request_id"]);
+        parameters.measurement_value_mm = f64::INFINITY;
+        assert!(validate_parameters(&parameters).is_err());
     }
 }

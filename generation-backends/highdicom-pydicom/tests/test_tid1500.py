@@ -260,6 +260,24 @@ class Tid1500GenerationTest(unittest.TestCase):
             with self.assertRaisesRegex(ProtocolError, "ordered as CT then SEG"):
                 generate(request, root / "outputs")
 
+    def test_accepts_caller_measurement_value(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            request = _request(root)
+            request["parameters"]["measurement_value"] = 125.0
+            response = generate(request, root / "outputs")
+            document = pydicom.dcmread(root / "outputs" / OUTPUT_RELATIVE_PATH)
+            volume = next(
+                item
+                for item in _content_items(document)
+                if item.ValueType == "NUM"
+                and item.ConceptNameCodeSequence[0].CodeValue == "118565006"
+            )
+            self.assertEqual(volume.MeasuredValueSequence[0].NumericValue, "125")
+            self.assertEqual(
+                response["expected_semantics"]["measurement"]["value"], 125.0
+            )
+
     def test_normalizes_highdicom_source_image_code_meaning(self) -> None:
         root = Dataset()
         item = Dataset()

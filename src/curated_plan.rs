@@ -200,6 +200,11 @@ pub struct CuratedScCorpusPlan {
     pub native_content_requests: Vec<NativeContentServiceRequest>,
     pub projection: CuratedScProjectionContext,
     pub pending: Vec<PendingCuratedCase>,
+    /// Exact caller-supplied capability assertions used to qualify this plan.
+    /// Execution adapters reconcile external command identities against this
+    /// immutable snapshot before invoking a backend.
+    #[serde(skip, default = "CapabilityInventory::compiled")]
+    pub capability_inventory: CapabilityInventory,
 }
 
 /// Immutable source metadata needed to project a curated artifact after
@@ -1484,6 +1489,7 @@ impl CuratedScCorpusPlanProvider {
             native_content_requests,
             projection,
             pending,
+            capability_inventory: self.capability_inventory.clone(),
         })
     }
 }

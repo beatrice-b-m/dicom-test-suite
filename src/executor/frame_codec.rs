@@ -35,6 +35,7 @@ use crate::recipes::{
     BackendBoundary, BackendDeterminism, CodecDispatchRequest, CodecEvidenceRequirement,
     CodecSourceRequest, TransferSyntaxBackendRegistry,
 };
+use crate::runtime_capabilities::{CapabilityInventory, QualifiedExecutableIdentity};
 use crate::sha256_hex;
 
 const EXPLICIT_VR_LITTLE_ENDIAN: &str = "1.2.840.10008.1.2.1";
@@ -68,6 +69,7 @@ pub struct ExternalFrameCodecCommands {
 pub struct RegisteredFrameCodecService {
     limits: FrameCodecLimits,
     external: ExternalFrameCodecCommands,
+    expected_external: BTreeMap<String, QualifiedExecutableIdentity>,
 }
 
 impl Default for RegisteredFrameCodecService {
@@ -92,7 +94,62 @@ impl RegisteredFrameCodecService {
         {
             return Err(service_error("all codec limits must be greater than zero"));
         }
-        Ok(Self { limits, external })
+        Ok(Self {
+            limits,
+            external,
+            expected_external: BTreeMap::new(),
+        })
+    }
+
+    /// Construct a service whose explicitly supplied external commands must
+    /// match the identities qualified during planning. Identity discovery is
+    /// performed here, before any codec request or source binding is consumed.
+    pub fn new_qualified(
+        limits: FrameCodecLimits,
+        external: ExternalFrameCodecCommands,
+        expected_external: BTreeMap<String, QualifiedExecutableIdentity>,
+    ) -> Result<Self, ServiceInvocationError> {
+        let service = Self::new(limits, external)?;
+        service.validate_external_identities(&expected_external)?;
+        Ok(Self {
+            expected_external,
+            ..service
+        })
+    }
+
+    /// Reconcile the command identities carried by this execution service
+    /// with the exact inventory snapshot used by planning.
+    pub fn validate_capability_inventory(
+        &self,
+        inventory: &CapabilityInventory,
+    ) -> Result<(), ServiceInvocationError> {
+        let configured = self.available_tools();
+        for executable in &configured {
+            if !inventory.available_executables.contains(executable) {
+                return Err(service_error(format!(
+                    "injected command {executable} was not available during planning"
+                )));
+            }
+            let planned = inventory
+                .executable_identities
+                .get(executable)
+                .ok_or_else(|| {
+                    service_error(format!(
+                        "injected command {executable} has no planning-qualified identity"
+                    ))
+                })?;
+            let bound = self.expected_external.get(executable).ok_or_else(|| {
+                service_error(format!(
+                    "injected command {executable} has no execution-bound identity"
+                ))
+            })?;
+            if planned != bound {
+                return Err(service_error(format!(
+                    "injected command {executable} identity differs from planning inventory"
+                )));
+            }
+        }
+        self.validate_external_identities(&self.expected_external)
     }
 
     pub fn encode(
@@ -101,6 +158,9 @@ impl RegisteredFrameCodecService {
         cancellation: &CancellationToken,
         resolve: impl Fn(&ByteBinding) -> Result<Vec<u8>, ServiceInvocationError>,
     ) -> Result<CodecServiceOutcome, ServiceInvocationError> {
+        // Recheck immediately before resolving any source bytes so a replaced
+        // executable cannot bypass the identity qualified at construction.
+        self.validate_external_identities(&self.expected_external)?;
         if request.source_transfer_syntax_uid != EXPLICIT_VR_LITTLE_ENDIAN {
             return Err(service_error(format!(
                 "encoded-frame service requires native Explicit VR Little Endian input, got {}",
@@ -241,6 +301,54 @@ impl RegisteredFrameCodecService {
             tools.insert("cjxl".into());
         }
         tools
+    }
+
+    fn validate_external_identities(
+        &self,
+        expected: &BTreeMap<String, QualifiedExecutableIdentity>,
+    ) -> Result<(), ServiceInvocationError> {
+        #[cfg(not(feature = "htj2k_openjph"))]
+        if self.external.openjph.is_some() {
+            return Err(service_error(
+                "OpenJPH command was injected but feature htj2k_openjph is disabled",
+            ));
+        }
+        #[cfg(feature = "htj2k_openjph")]
+        if let Some(command) = self.external.openjph.as_ref() {
+            let encoder = OpenJphHtj2kLosslessEncoder::with_command(command);
+            validate_qualified_identity(
+                "ojph_compress",
+                encoder
+                    .discover_backend_identity()
+                    .map_err(|error| service_error(error.to_string()))?,
+                expected,
+            )?;
+        }
+        #[cfg(not(feature = "jpegxl"))]
+        if self.external.cjxl.is_some() {
+            return Err(service_error(
+                "cjxl command was injected but feature jpegxl is disabled",
+            ));
+        }
+        #[cfg(feature = "jpegxl")]
+        if let Some(command) = self.external.cjxl.as_ref() {
+            let encoder = CjxlJpegXlLossyEncoder::with_command(command);
+            validate_qualified_identity(
+                "cjxl",
+                encoder
+                    .discover_backend_identity()
+                    .map_err(|error| service_error(error.to_string()))?,
+                expected,
+            )?;
+        }
+        for executable in expected.keys() {
+            if !self.available_tools().contains(executable) {
+                return Err(service_error(format!(
+                    "qualified executable {executable} has no injected command path"
+                )));
+            }
+        }
+        Ok(())
     }
 
     fn encode_with<E: FrameEncoder + FrameDecoder>(
@@ -501,6 +609,31 @@ fn external_identity<E: ExternalIdentity>(
         protocol_version: Some(identity.version_source.into()),
         executable_sha256: Some(identity.executable_sha256),
     })
+}
+
+#[cfg(any(feature = "htj2k_openjph", feature = "jpegxl"))]
+fn validate_qualified_identity(
+    executable_id: &str,
+    actual: crate::codecs::ExternalCommandBackendIdentity,
+    expected: &BTreeMap<String, QualifiedExecutableIdentity>,
+) -> Result<(), ServiceInvocationError> {
+    let expected = expected.get(executable_id).ok_or_else(|| {
+        service_error(format!(
+            "injected command {executable_id} has no planning-qualified identity"
+        ))
+    })?;
+    let actual_version = actual.version.ok_or_else(|| {
+        service_error(format!(
+            "injected command {executable_id} did not report a version"
+        ))
+    })?;
+    if actual.executable_sha256 != expected.executable_sha256 || actual_version != expected.version
+    {
+        return Err(service_error(format!(
+            "injected command {executable_id} identity differs from planning inventory"
+        )));
+    }
+    Ok(())
 }
 
 fn service_error(message: impl Into<String>) -> ServiceInvocationError {

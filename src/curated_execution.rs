@@ -14,7 +14,8 @@ use crate::composition::{
     ValidationCheck,
 };
 use crate::corpus_plan::{
-    EvidenceIndependence, EvidenceObligation, OffsetTablePolicy, PlannedArtifact,
+    EvidenceIndependence, EvidenceObligation, FragmentationPolicy, OffsetTablePolicy,
+    PlannedArtifact,
 };
 use crate::curated_plan::{CuratedArtifactProjectionContext, CuratedScCorpusPlan};
 use crate::curated_validation::{
@@ -31,6 +32,9 @@ use crate::executor::engine::{
 use crate::executor::evidence::{
     EvidenceIndependence as ExecutionIndependence, MaterializedContentEvidence, ObligationResult,
     ResultStatus,
+};
+use crate::executor::frame_codec::{
+    ExternalFrameCodecCommands, FrameCodecLimits, RegisteredFrameCodecService,
 };
 use crate::executor::materialization::{
     AuxiliaryMaterializationHandler, AuxiliaryPayload, MaterializationDispatcher,
@@ -332,10 +336,55 @@ pub struct CuratedExecutionServiceFactory {
     projection: Arc<BTreeMap<String, CuratedArtifactProjectionContext>>,
     planned_artifact_ids: Arc<BTreeSet<String>>,
     planned_artifacts: Arc<BTreeMap<String, crate::corpus_plan::PlannedDicomArtifact>>,
+    frame_codec: RegisteredFrameCodecService,
 }
 
 impl CuratedExecutionServiceFactory {
     pub fn new(bundle: &CuratedScCorpusPlan) -> Self {
+        Self::build(bundle, RegisteredFrameCodecService::default())
+    }
+
+    pub fn with_frame_codec_commands(
+        bundle: &CuratedScCorpusPlan,
+        commands: ExternalFrameCodecCommands,
+    ) -> Result<Self, ServiceInvocationError> {
+        let expected = commands
+            .openjph
+            .iter()
+            .map(|_| "ojph_compress")
+            .chain(commands.cjxl.iter().map(|_| "cjxl"))
+            .map(|id| {
+                bundle
+                    .capability_inventory
+                    .executable_identities
+                    .get(id)
+                    .cloned()
+                    .map(|identity| (id.to_owned(), identity))
+                    .ok_or_else(|| {
+                        ServiceInvocationError::new(
+                            "frame codec",
+                            format!("injected command {id} has no planning-qualified identity"),
+                        )
+                    })
+            })
+            .collect::<Result<BTreeMap<_, _>, _>>()?;
+        let service = RegisteredFrameCodecService::new_qualified(
+            FrameCodecLimits::default(),
+            commands,
+            expected,
+        )?;
+        Self::with_frame_codec_service(bundle, service)
+    }
+
+    pub fn with_frame_codec_service(
+        bundle: &CuratedScCorpusPlan,
+        frame_codec: RegisteredFrameCodecService,
+    ) -> Result<Self, ServiceInvocationError> {
+        frame_codec.validate_capability_inventory(&bundle.capability_inventory)?;
+        Ok(Self::build(bundle, frame_codec))
+    }
+
+    fn build(bundle: &CuratedScCorpusPlan, frame_codec: RegisteredFrameCodecService) -> Self {
         Self {
             bindings: Arc::new(bundle.bindings.clone()),
             projection: Arc::new(
@@ -371,6 +420,7 @@ impl CuratedExecutionServiceFactory {
                     })
                     .collect(),
             ),
+            frame_codec,
         }
     }
 }
@@ -410,6 +460,7 @@ impl ExecutionServiceFactory for CuratedExecutionServiceFactory {
             projection: self.projection.clone(),
             planned_artifacts: self.planned_artifacts.clone(),
             materializer,
+            frame_codec: self.frame_codec.clone(),
             materialized: Mutex::new(BTreeMap::new()),
             decoded_codec_frames: Mutex::new(BTreeMap::new()),
         }))
@@ -422,6 +473,7 @@ struct CuratedBoundExecutionServices {
     projection: Arc<BTreeMap<String, CuratedArtifactProjectionContext>>,
     planned_artifacts: Arc<BTreeMap<String, crate::corpus_plan::PlannedDicomArtifact>>,
     materializer: MaterializationDispatcher,
+    frame_codec: RegisteredFrameCodecService,
     materialized: Mutex<BTreeMap<String, MaterializedValidationState>>,
     decoded_codec_frames: Mutex<BTreeMap<String, Vec<String>>>,
 }
@@ -484,10 +536,9 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
         assets: &StagedAssetRegistry,
         cancellation: &CancellationToken,
     ) -> Result<CodecServiceOutcome, ServiceInvocationError> {
-        let outcome =
-            crate::executor::native_codec::execute_native_rle(request, cancellation, |binding| {
-                binding_bytes(&self.staging_root, binding, assets)
-            })?;
+        let outcome = self.frame_codec.encode(request, cancellation, |binding| {
+            binding_bytes(&self.staging_root, binding, assets)
+        })?;
         self.decoded_codec_frames
             .lock()
             .unwrap_or_else(|error| error.into_inner())
@@ -884,7 +935,7 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
             .iter()
             .find(|item| item.slot == "pixels")
             .ok_or_else(|| ServiceInvocationError::new("validation", "missing pixel evidence"))?;
-        let encapsulated = artifact.encoding.transfer_syntax_uid == "1.2.840.10008.1.2.5";
+        let encapsulated = !matches!(artifact.encoding.fragmentation, FragmentationPolicy::Native);
         let codec_decoded = self
             .decoded_codec_frames
             .lock()

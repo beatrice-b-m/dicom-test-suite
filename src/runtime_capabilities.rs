@@ -3,7 +3,7 @@
 //! Planning supplies an explicit inventory. This module never probes the file
 //! system, process environment, network, or executable search path.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
@@ -28,8 +28,18 @@ pub struct CapabilityInventory {
     pub compiled_features: BTreeSet<String>,
     pub executable_codec_backends: BTreeSet<String>,
     pub available_executables: BTreeSet<String>,
+    /// Caller-qualified executable identities. These are planning assertions,
+    /// not results of PATH or filesystem discovery.
+    pub executable_identities: BTreeMap<String, QualifiedExecutableIdentity>,
     pub external_validators: BTreeSet<String>,
     pub external_providers: BTreeSet<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct QualifiedExecutableIdentity {
+    pub version: String,
+    pub executable_sha256: String,
 }
 
 impl CapabilityInventory {

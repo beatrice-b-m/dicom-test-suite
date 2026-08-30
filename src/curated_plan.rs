@@ -75,6 +75,11 @@ use crate::recipes::{
     resolved_metadata_sc_plan, resolved_secondary_capture_plan, rt_input_from_recipe,
     sr_input_from_recipe, waveform_input_from_recipe,
 };
+
+/// Hard publication allowance for the curated manifest. The maximal reduced
+/// stress profile projects a large, schema-bounded fragment ledger, so the
+/// run envelope must budget the manifest in addition to DICOM artifacts.
+pub const MAX_CURATED_MANIFEST_BYTES: u64 = 64 * 1024 * 1024;
 use crate::runtime_capabilities::{
     CapabilityEvaluationRequest, CapabilityInventory, CapabilityKind as RuntimeCapabilityKind,
     RegistryRuntimeRequirements, RuntimeCapabilityEvaluator,
@@ -2239,6 +2244,9 @@ impl CuratedScCorpusPlanProvider {
         dependencies.extend(classic_dependencies);
         dependencies.extend(advanced_dependencies);
         let (total_output, peak_working) = aggregate_resources(&artifacts)?;
+        let total_publication = total_output
+            .checked_add(MAX_CURATED_MANIFEST_BYTES)
+            .ok_or(CuratedPlanError::ResourceOverflow)?;
         let plan = CorpusPlan {
             schema_version: CORPUS_PLAN_SCHEMA_VERSION.into(),
             seed: request.seed,
@@ -2255,7 +2263,7 @@ impl CuratedScCorpusPlanProvider {
                 max_artifacts: u64::try_from(bindings.len())
                     .map_err(|_| CuratedPlanError::ResourceOverflow)?
                     .max(1),
-                max_total_output_bytes: total_output.max(1),
+                max_total_output_bytes: total_publication.max(1),
                 max_peak_working_bytes: peak_working.max(1),
                 max_parallelism: request.max_parallelism,
             },

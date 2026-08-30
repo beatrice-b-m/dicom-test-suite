@@ -293,7 +293,10 @@ fn stress_advanced_selection_preserves_requested_provenance_and_bounded_resource
         .map(|artifact| artifact.resource_estimate().peak_working_bytes)
         .max()
         .unwrap();
-    assert_eq!(bundle.plan.resources.max_total_output_bytes, total);
+    assert_eq!(
+        bundle.plan.resources.max_total_output_bytes,
+        total + dicom_test_suite::curated_plan::MAX_CURATED_MANIFEST_BYTES
+    );
     assert_eq!(bundle.plan.resources.max_peak_working_bytes, peak);
     assert_eq!(bundle.plan.resources.max_parallelism, 3);
     let ids = bundle

@@ -58,6 +58,7 @@ pub mod curated_execution;
 pub mod curated_manifest;
 pub mod curated_plan;
 pub mod curated_validation;
+pub mod encoded_content;
 pub mod encapsulation;
 pub mod executor;
 pub mod fuzz;

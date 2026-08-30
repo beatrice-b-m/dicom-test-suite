@@ -22,11 +22,10 @@ use crate::corpus_plan::{
     PlannedMutationOperation, PlannedQualification, QualificationPayloadPolicy,
 };
 use crate::encapsulation::{
-    BasicOffsetTablePolicy, CheckedEotArithmeticQualificationService,
-    EOT_ARITHMETIC_QUALIFICATION_KIND, EncapsulatedPixelData, EotArithmeticQualificationRequest,
-    EotQualificationLimits, ExtendedOffsetTable, encapsulate_frames,
-    serialize_ov_words_little_endian,
+    CheckedEotArithmeticQualificationService, EOT_ARITHMETIC_QUALIFICATION_KIND,
+    EotArithmeticQualificationRequest, EotQualificationLimits,
 };
+use crate::encoded_content::{EncodedSlotInput, ResolvedEncodedSlot, resolve_encoded_content};
 use crate::executor::cancellation::CancellationToken;
 use crate::fuzz::{
     BoundedFuzzQualificationService, FuzzBudget, FuzzQualificationRequest, FuzzSourceAsset,
@@ -270,9 +269,43 @@ impl MaterializationDispatcher {
         cancellation: &CancellationToken,
     ) -> Result<MaterializationResult, MaterializationError> {
         validate_dicom_encoding_bindings(artifact, &request.bindings)?;
-        let mut instance = artifact.instance.clone();
+        let mut encoded_inputs = Vec::new();
+        for (slot, binding) in &request.bindings.slots {
+            let SlotExecutionBinding::EncodedFrames { frames } = binding else {
+                continue;
+            };
+            let mut ordered = frames.iter().collect::<Vec<_>>();
+            ordered.sort_by_key(|frame| frame.frame_number);
+            let mut payloads = Vec::with_capacity(ordered.len());
+            for (index, frame) in ordered.into_iter().enumerate() {
+                if frame.frame_number != index as u32 + 1 {
+                    return Err(MaterializationError::EncodedFrameOrder);
+                }
+                let bytes = self.read_binding(&frame.bytes, assets)?;
+                if bytes.len() as u64 != frame.encoded_size_bytes
+                    || sha256_hex(&bytes) != frame.encoded_sha256
+                {
+                    return Err(MaterializationError::EncodedFrameIdentity(
+                        frame.frame_number,
+                    ));
+                }
+                payloads.push(bytes);
+            }
+            encoded_inputs.push(EncodedSlotInput {
+                slot: slot.clone(),
+                ordered_frames: payloads,
+            });
+        }
+        let resolved_encoded =
+            resolve_encoded_content(&artifact.instance, &artifact.encoding, &encoded_inputs)
+                .map_err(MaterializationError::EncodingPolicy)?;
+        let mut instance = resolved_encoded.instance;
+        let encoded_slots = resolved_encoded
+            .slots
+            .into_iter()
+            .map(|slot| (slot.slot.clone(), slot))
+            .collect::<BTreeMap<String, ResolvedEncodedSlot>>();
         let mut materialized_content = Vec::new();
-        let mut extended_table_values = None;
         let mut native_value_fields = Vec::new();
         for content in &mut instance.content {
             if cancellation.is_cancelled() {
@@ -443,205 +476,41 @@ impl MaterializationDispatcher {
                     ContentMaterialization::Inline(bytes)
                 }
                 SlotExecutionBinding::EncodedFrames { frames } => {
-                    let mut ordered_frames = frames.iter().collect::<Vec<_>>();
-                    ordered_frames.sort_by_key(|frame| frame.frame_number);
-                    for (index, frame) in ordered_frames.iter().enumerate() {
-                        if frame.frame_number != index as u32 + 1 {
-                            return Err(MaterializationError::EncodedFrameOrder);
-                        }
-                    }
-                    let encoded_frames = ordered_frames
-                        .iter()
-                        .map(|frame| {
-                            let bytes = self.read_binding(&frame.bytes, assets)?;
-                            if bytes.len() as u64 != frame.encoded_size_bytes
-                                || sha256_hex(&bytes) != frame.encoded_sha256
-                            {
-                                return Err(MaterializationError::EncodedFrameIdentity(
-                                    frame.frame_number,
-                                ));
-                            }
-                            Ok(bytes)
-                        })
-                        .collect::<Result<Vec<_>, _>>()?;
-                    let policy = match artifact.encoding.offset_table {
-                        OffsetTablePolicy::PopulatedBasic => BasicOffsetTablePolicy::Populated,
-                        OffsetTablePolicy::EmptyBasic | OffsetTablePolicy::Extended => {
-                            BasicOffsetTablePolicy::Empty
-                        }
-                        OffsetTablePolicy::NotApplicable => unreachable!("prevalidated"),
-                    };
-                    let mut encapsulated = match artifact.encoding.fragmentation {
-                        FragmentationPolicy::OneFragmentPerFrame
-                        | FragmentationPolicy::PreserveEncodedFrames => {
-                            if artifact.encoding.offset_table == OffsetTablePolicy::Extended {
-                                EncapsulatedPixelData::one_fragment_per_frame_with_extended_offset_table(
-                                    &encoded_frames,
-                                )
-                            } else {
-                                EncapsulatedPixelData::one_fragment_per_frame(&encoded_frames, policy)
-                            }
-                        }
-                        FragmentationPolicy::FixedMaximumBytes { maximum_bytes } => {
-                            let maximum = usize::try_from(maximum_bytes)
-                                .map_err(|_| MaterializationError::FragmentMaximumRange)?;
-                            let even_maximum = maximum & !1;
-                            let fragments_per_frame = encoded_frames
-                                .iter()
-                                .map(|frame| {
-                                    if frame.len() <= maximum {
-                                        return Ok(1);
-                                    }
-                                    if even_maximum == 0 {
-                                        return Err(MaterializationError::FragmentMaximumTooSmall);
-                                    }
-                                    frame.len()
-                                        .checked_add(even_maximum - 1)
-                                        .map(|value| value / even_maximum)
-                                        .ok_or(MaterializationError::FragmentMaximumRange)
-                                })
-                                .collect::<Result<Vec<_>, _>>()?;
-                            encapsulate_frames(&encoded_frames, &fragments_per_frame, policy)
-                        }
-                        FragmentationPolicy::FixedFragmentsPerFrame {
-                            fragments_per_frame,
-                        } => {
-                            if fragments_per_frame == 0 {
-                                return Err(MaterializationError::FragmentMaximumTooSmall);
-                            }
-                            let count = usize::try_from(fragments_per_frame)
-                                .map_err(|_| MaterializationError::FragmentMaximumRange)?;
-                            encapsulate_frames(
-                                &encoded_frames,
-                                &vec![count; encoded_frames.len()],
-                                policy,
-                            )
-                        }
-                        FragmentationPolicy::Native => unreachable!("prevalidated"),
-                    }
-                    .map_err(MaterializationError::Encapsulation)?;
-                    if artifact.encoding.offset_table == OffsetTablePolicy::Extended
-                        && encapsulated.extended_offset_table.is_none()
-                    {
-                        let first_item_start = encapsulated
-                            .fragments
-                            .first()
-                            .ok_or(MaterializationError::FragmentMaximumRange)?
-                            .item_start_offset;
-                        let mut offsets =
-                            Vec::with_capacity(encapsulated.fragments_per_frame.len());
-                        let mut lengths =
-                            Vec::with_capacity(encapsulated.fragments_per_frame.len());
-                        let mut fragment_index = 0usize;
-                        for fragment_count in &encapsulated.fragments_per_frame {
-                            let first = encapsulated
-                                .fragments
-                                .get(fragment_index)
-                                .ok_or(MaterializationError::FragmentMaximumRange)?;
-                            offsets.push(u64::from(
-                                first
-                                    .item_start_offset
-                                    .checked_sub(first_item_start)
-                                    .ok_or(MaterializationError::FragmentMaximumRange)?,
-                            ));
-                            let mut frame_length = 0_u64;
-                            for _ in 0..*fragment_count {
-                                let fragment = encapsulated
-                                    .fragments
-                                    .get(fragment_index)
-                                    .ok_or(MaterializationError::FragmentMaximumRange)?;
-                                frame_length = frame_length
-                                    .checked_add(fragment.compressed_length as u64)
-                                    .ok_or(MaterializationError::FragmentMaximumRange)?;
-                                fragment_index += 1;
-                            }
-                            lengths.push(frame_length);
-                        }
-                        encapsulated.extended_offset_table = Some(ExtendedOffsetTable {
-                            offset_value_bytes: serialize_ov_words_little_endian(&offsets),
-                            length_value_bytes: serialize_ov_words_little_endian(&lengths),
-                            offsets,
-                            lengths,
-                        });
-                    }
-                    let basic_offset_table = encapsulated.basic_offset_table.offsets.clone();
-                    let compressed_frame_sha256 = encapsulated.compressed_frame_hashes.clone();
-                    let fragment_count = encapsulated.fragments.len() as u64;
-                    let compressed_lengths = encapsulated
-                        .fragments
-                        .iter()
-                        .map(|fragment| fragment.compressed_length as u64)
-                        .collect::<Vec<_>>();
-                    let padded_fragment_lengths = encapsulated
-                        .fragments
-                        .iter()
-                        .map(|fragment| fragment.padded_length as u64)
-                        .collect::<Vec<_>>();
-                    let fragments_per_frame = encapsulated
-                        .fragments_per_frame
-                        .iter()
-                        .map(|count| *count as u64)
-                        .collect::<Vec<_>>();
-                    let fragment_evidence = encapsulated
-                        .fragments
-                        .iter()
-                        .map(|fragment| {
-                            json!({
-                                "frame_index": fragment.frame_index as u64,
-                                "item_start_offset": fragment.item_start_offset as u64,
-                                "compressed_length": fragment.compressed_length as u64,
-                                "padded_length": fragment.padded_length as u64,
-                            })
-                        })
-                        .collect::<Vec<_>>();
-                    let (extended_offset_table, extended_offset_table_lengths) = encapsulated
-                        .extended_offset_table
-                        .as_ref()
-                        .map(|table| (table.offsets.clone(), table.lengths.clone()))
-                        .unwrap_or_default();
-                    if let Some(table) = &encapsulated.extended_offset_table {
-                        extended_table_values = Some((
-                            table.offset_value_bytes.clone(),
-                            table.length_value_bytes.clone(),
-                        ));
-                    }
-                    let mut fragments = encapsulated.fragment_payloads;
-                    for fragment in &mut fragments {
-                        if fragment.len() % 2 != 0 {
-                            fragment.push(0);
-                        }
-                    }
-                    let aggregate = fragments.concat();
-                    content.kind = "encapsulated_pixels".into();
-                    content.vr = crate::composition::DicomVr::OB;
-                    content.size_bytes = aggregate.len() as u64;
-                    content.sha256 = sha256_hex(&aggregate);
-                    content.properties.insert(
-                        "compressed_frame_sha256".into(),
-                        serde_json::to_string(&compressed_frame_sha256)
-                            .expect("frame hashes serialize"),
-                    );
+                    let _ = frames;
+                    let resolved = encoded_slots.get(&content.slot).ok_or_else(|| {
+                        MaterializationError::EncodingPolicy(format!(
+                            "encoded slot {} was not resolved",
+                            content.slot
+                        ))
+                    })?;
                     materialized_content.push(json!({
                         "slot": content.slot,
                         "kind": content.kind,
                         "vr": content.vr.to_string(),
                         "size_bytes": content.size_bytes,
                         "sha256": content.sha256,
-                        "basic_offset_table": basic_offset_table,
-                        "compressed_frame_sha256": compressed_frame_sha256,
-                        "fragment_count": fragment_count,
-                        "compressed_lengths": compressed_lengths,
-                        "padded_fragment_lengths": padded_fragment_lengths,
-                        "fragments_per_frame": fragments_per_frame,
-                        "fragments": fragment_evidence,
-                        "extended_offset_table": extended_offset_table,
-                        "extended_offset_table_lengths": extended_offset_table_lengths,
+                        "basic_offset_table": resolved.basic_offset_table,
+                        "compressed_frame_sha256": resolved.compressed_frame_sha256,
+                        "fragment_count": resolved.fragment_count,
+                        "compressed_lengths": resolved.compressed_lengths,
+                        "padded_fragment_lengths": resolved.padded_fragment_lengths,
+                        "fragments_per_frame": resolved.fragments_per_frame,
+                        "fragments": resolved.fragment_evidence.iter().map(|fragment| json!({
+                            "frame_index": fragment.frame_index,
+                            "item_start_offset": fragment.item_start_offset,
+                            "compressed_length": fragment.compressed_length,
+                            "padded_length": fragment.padded_length,
+                        })).collect::<Vec<_>>(),
+                        "extended_offset_table": resolved.extended_offset_table,
+                        "extended_offset_table_lengths": resolved.extended_offset_table_lengths,
                         "writer_materialization": null,
                     }));
-                    ContentMaterialization::Encapsulated {
-                        basic_offset_table,
-                        fragments,
-                    }
+                    content.materialization.clone().ok_or_else(|| {
+                        MaterializationError::EncodingPolicy(format!(
+                            "encoded slot {} has no resolved materialization",
+                            content.slot
+                        ))
+                    })?
                 }
                 SlotExecutionBinding::ProviderRequest { .. }
                 | SlotExecutionBinding::CodecRequest { .. }
@@ -652,20 +521,6 @@ impl MaterializationDispatcher {
                     });
                 }
             });
-        }
-        if let Some((offsets, lengths)) = extended_table_values {
-            upsert_binary_attribute(
-                &mut instance,
-                "7FE0,0001",
-                crate::composition::DicomVr::OV,
-                offsets,
-            )?;
-            upsert_binary_attribute(
-                &mut instance,
-                "7FE0,0002",
-                crate::composition::DicomVr::OV,
-                lengths,
-            )?;
         }
         let relative_path = artifact.output.relative_path.as_str();
         let path = self.output_path(relative_path)?;
@@ -2031,44 +1886,6 @@ fn validate_dicom_encoding_bindings(
                 slot: slot.clone(),
             });
         }
-    }
-    Ok(())
-}
-
-fn upsert_binary_attribute(
-    instance: &mut crate::composition::ResolvedInstancePlan,
-    tag: &str,
-    vr: crate::composition::DicomVr,
-    bytes: Vec<u8>,
-) -> Result<(), MaterializationError> {
-    let address = crate::composition::AttributeAddress::from_normalized_tag(tag)
-        .map_err(|error| MaterializationError::EncodingPolicy(error.to_string()))?;
-    if instance
-        .content
-        .iter()
-        .any(|content| content.address == address)
-    {
-        return Err(MaterializationError::EncodingPolicy(format!(
-            "encoding-owned attribute {tag} conflicts with canonical content"
-        )));
-    }
-    let attribute = crate::composition::ResolvedAttribute {
-        address: address.clone(),
-        vr,
-        value: Some(crate::composition::AttributeValue::Binary(bytes)),
-        origin: crate::composition::ValueOrigin::InstanceOverride,
-    };
-    if let Some(existing) = instance
-        .attributes
-        .iter_mut()
-        .find(|existing| existing.address == address)
-    {
-        *existing = attribute;
-    } else {
-        instance.attributes.push(attribute);
-        instance
-            .attributes
-            .sort_by(|left, right| left.address.cmp(&right.address));
     }
     Ok(())
 }

@@ -1,6 +1,7 @@
 //! Pure compatibility projection for plan-first curated generation.
 
 mod classic;
+mod negative;
 mod stress;
 
 use std::collections::BTreeSet;
@@ -788,6 +789,7 @@ pub fn project_curated_file_entries(
         })
         .collect::<Result<Vec<_>, _>>()?;
     project_wsi_pyramid_group(context, input, &mut entries)?;
+    entries.retain(|entry| !entry.is_null());
     Ok(entries)
 }
 
@@ -958,6 +960,14 @@ fn project_one(
     pair: &ManifestProjectionArtifact,
     input: &ManifestProjectionCompatibilityInput,
 ) -> Result<Value, CuratedManifestError> {
+    if let PlannedArtifact::Dicom(planned) = &pair.planned {
+        if !planned.output.publish {
+            return Ok(Value::Null);
+        }
+    }
+    if matches!(pair.planned, PlannedArtifact::Mutation(_)) {
+        return negative::project_file_entry(ctx, pair, input);
+    }
     let PlannedArtifact::Dicom(planned) = &pair.planned else {
         return fail("curated artifact is not DICOM");
     };

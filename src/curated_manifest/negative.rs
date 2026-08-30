@@ -173,7 +173,6 @@ pub(super) fn project_file_entry(
             "unacceptable_outcomes": ["timeout", "crash", "hang"],
         },
         "standards_evidence": context.registry_case.standards_evidence,
-        "references": [],
     }))
 }
 

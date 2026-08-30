@@ -220,11 +220,16 @@ fn all_negative_cases_execute_without_valid_dicom_validation_and_project_exactly
         .execute_into_staging(&bundle.plan, &root, 4, &CancellationToken::new())
         .unwrap();
     let actual = project_curated_file_entries(&bundle.projection, &staged.projection).unwrap();
-    let baseline: serde_json::Value = serde_json::from_slice(
+    let mut baseline: serde_json::Value = serde_json::from_slice(
         &std::fs::read("/tmp/dts-unified-baseline-20260829-52e1d20/negative/manifest.json")
             .unwrap(),
     )
     .unwrap();
+    for entry in baseline["files"].as_array_mut().unwrap() {
+        // Expected-invalid entries must not carry the valid-corpus reference
+        // field. The frozen migration oracle predates that schema correction.
+        entry.as_object_mut().unwrap().remove("references");
+    }
     assert_eq!(&actual, baseline["files"].as_array().unwrap());
     std::fs::remove_dir_all(root).unwrap();
 }

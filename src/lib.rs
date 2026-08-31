@@ -34762,6 +34762,128 @@ pub fn list_cases_from_registry_path(
     list_cases_from_registry_value(&registry, profile_filter, status_filter)
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct CaseListEntry {
+    pub case_id: String,
+    pub status: String,
+    pub profiles: Vec<String>,
+    pub sop_class_uid: Option<String>,
+    pub transfer_syntax_uid: Option<String>,
+    pub standards_evidence_covered: usize,
+    pub standards_evidence_total: usize,
+    pub artifact_kind: String,
+    pub provider: String,
+    pub object_family: String,
+    pub roadmap_priority: Option<String>,
+    pub blocker_codes: Vec<String>,
+}
+
+pub fn case_list_entries_from_registry_path(
+    registry_path: impl AsRef<Path>,
+    profile_filter: Option<&str>,
+    status_filter: Option<&str>,
+) -> Result<Vec<CaseListEntry>, CaseRegistryError> {
+    let registry_path = registry_path.as_ref();
+    let path_display = registry_path.display().to_string();
+    let contents = fs::read_to_string(registry_path).map_err(|source| CaseRegistryError::Read {
+        path: path_display.clone(),
+        source,
+    })?;
+    let registry: Value =
+        serde_json::from_str(&contents).map_err(|source| CaseRegistryError::Parse {
+            path: path_display,
+            source,
+        })?;
+    case_list_entries_from_registry_value(&registry, profile_filter, status_filter)
+}
+
+pub fn case_list_entries_from_registry_value(
+    registry: &Value,
+    profile_filter: Option<&str>,
+    status_filter: Option<&str>,
+) -> Result<Vec<CaseListEntry>, CaseRegistryError> {
+    if let Some(profile) = profile_filter {
+        if !SUPPORTED_PROFILES.contains(&profile) {
+            return Err(CaseRegistryError::InvalidProfile(profile.to_string()));
+        }
+    }
+    if let Some(status) = status_filter {
+        if !SUPPORTED_CASE_STATUSES.contains(&status) {
+            return Err(CaseRegistryError::InvalidStatus(status.to_string()));
+        }
+    }
+    validate_case_registry_semantics(registry).map_err(CaseRegistryError::Semantic)?;
+    registry["cases"]
+        .as_array()
+        .ok_or(CaseRegistryError::Shape("missing cases array"))?
+        .iter()
+        .filter_map(|case| {
+            let profiles = match string_array(case.get("profiles")) {
+                Ok(profiles) => profiles,
+                Err(error) => return Some(Err(error)),
+            };
+            if profile_filter
+                .is_some_and(|profile| !case_matches_profile(&profiles, profile, false))
+            {
+                return None;
+            }
+            let status = match required_str(case, "status") {
+                Ok(status) => status,
+                Err(error) => return Some(Err(error)),
+            };
+            if status_filter.is_some_and(|filter| filter != status) {
+                return None;
+            }
+            Some(case_list_entry(case, profiles, status))
+        })
+        .collect()
+}
+
+fn case_list_entry(
+    case: &Value,
+    profiles: Vec<String>,
+    status: &str,
+) -> Result<CaseListEntry, CaseRegistryError> {
+    let evidence = case["standards_evidence"]
+        .as_array()
+        .ok_or(CaseRegistryError::Shape("missing standards_evidence array"))?;
+    let blocker_codes = case["blockers"]
+        .as_array()
+        .ok_or(CaseRegistryError::Shape("missing blockers array"))?
+        .iter()
+        .map(|blocker| {
+            blocker["code"]
+                .as_str()
+                .map(ToOwned::to_owned)
+                .ok_or(CaseRegistryError::Shape("missing blocker code"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(CaseListEntry {
+        case_id: required_str(case, "case_id")?.to_string(),
+        status: status.to_string(),
+        profiles,
+        sop_class_uid: case["sop_class_uid"].as_str().map(ToOwned::to_owned),
+        transfer_syntax_uid: case["transfer_syntax_uid"].as_str().map(ToOwned::to_owned),
+        standards_evidence_covered: evidence
+            .iter()
+            .filter(|entry| entry["covered"].as_bool() == Some(true))
+            .count(),
+        standards_evidence_total: evidence.len(),
+        artifact_kind: required_str(case, "artifact_kind")?.to_string(),
+        provider: case
+            .pointer("/provider/id")
+            .and_then(Value::as_str)
+            .ok_or(CaseRegistryError::Shape("missing provider id"))?
+            .to_string(),
+        object_family: required_str(case, "object_family")?.to_string(),
+        roadmap_priority: case
+            .pointer("/roadmap/priority")
+            .and_then(Value::as_str)
+            .map(ToOwned::to_owned),
+        blocker_codes,
+    })
+}
+
 pub fn standards_gaps_from_registry_path(
     registry_path: impl AsRef<Path>,
     profile_filter: &str,

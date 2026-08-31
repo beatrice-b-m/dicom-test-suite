@@ -8,6 +8,7 @@ pub const COMPOSITION_RESULT_SCHEMA_VERSION: &str = "1.0.0";
 pub const TEMPLATES_RESULT_SCHEMA_VERSION: &str = "1.0.0";
 pub const VALIDATION_RESULT_SCHEMA_VERSION: &str = "1.0.0";
 pub const REPORT_RESULT_SCHEMA_VERSION: &str = "1.0.0";
+pub const CASE_LIST_RESULT_SCHEMA_VERSION: &str = "1.0.0";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SuccessEnvelope<T> {
@@ -124,6 +125,15 @@ impl<T> ReportResult<T> {
             report,
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CaseListResult {
+    pub case_list_result_schema_version: &'static str,
+    pub profile_filter: Option<String>,
+    pub status_filter: Option<String>,
+    pub case_count: usize,
+    pub cases: Vec<crate::CaseListEntry>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]

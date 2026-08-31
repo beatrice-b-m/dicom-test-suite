@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dicom-test-suite.local/schemas/case-list-result.schema.json",
+  "title": "DICOM Test Suite Case List Result",
+  "type": "object",
+  "required": ["case_list_result_schema_version", "profile_filter", "status_filter", "case_count", "cases"],
+  "properties": {
+    "case_list_result_schema_version": { "const": "1.0.0" },
+    "profile_filter": { "type": ["string", "null"] },
+    "status_filter": { "type": ["string", "null"] },
+    "case_count": { "type": "integer", "minimum": 0 },
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "case_id", "status", "profiles", "sop_class_uid", "transfer_syntax_uid",
+          "standards_evidence_covered", "standards_evidence_total", "artifact_kind",
+          "provider", "object_family", "roadmap_priority", "blocker_codes"
+        ],
+        "properties": {
+          "case_id": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["implemented", "planned", "blocked", "skipped", "deprecated"] },
+          "profiles": { "type": "array", "items": { "type": "string" }, "minItems": 1, "uniqueItems": true },
+          "sop_class_uid": { "type": ["string", "null"] },
+          "transfer_syntax_uid": { "type": ["string", "null"] },
+          "standards_evidence_covered": { "type": "integer", "minimum": 0 },
+          "standards_evidence_total": { "type": "integer", "minimum": 0 },
+          "artifact_kind": { "type": "string", "minLength": 1 },
+          "provider": { "type": "string", "minLength": 1 },
+          "object_family": { "type": "string", "minLength": 1 },
+          "roadmap_priority": { "type": ["string", "null"] },
+          "blocker_codes": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

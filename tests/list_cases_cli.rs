@@ -1,5 +1,45 @@
 use std::process::Command;
 
+use serde_json::Value;
+
+fn compile_schema(path: &str) -> jsonschema::Validator {
+    let schema: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+    jsonschema::options()
+        .with_draft(jsonschema::Draft::Draft202012)
+        .build(&schema)
+        .unwrap()
+}
+
+#[test]
+fn list_cases_machine_result_is_typed_and_filtered() {
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "list-cases",
+            "--profile",
+            "smoke",
+            "--status",
+            "implemented",
+            "--format",
+            "json",
+        ])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+    let envelope: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert!(compile_schema("schemas/cli-success-envelope.schema.json").is_valid(&envelope));
+    assert!(compile_schema("schemas/case-list-result.schema.json").is_valid(&envelope["result"]));
+    assert_eq!(envelope["command"], "list-cases");
+    assert_eq!(envelope["result"]["profile_filter"], "smoke");
+    assert!(
+        envelope["result"]["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|case| case["status"] == "implemented")
+    );
+}
+
 #[test]
 fn list_cases_command_shows_smoke_case_status_and_evidence() {
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))

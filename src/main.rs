@@ -717,6 +717,7 @@ fn run() -> Result<(), String> {
             let mut registry_path = resource_path("cases/registry.json");
             let mut profile_filter = None;
             let mut status_filter = None;
+            let mut format = None;
 
             while let Some(arg) = args.next() {
                 match arg.as_str() {
@@ -737,6 +738,7 @@ fn run() -> Result<(), String> {
                                 .ok_or_else(|| "--status requires a value".to_string())?,
                         );
                     }
+                    "--format" => format = Some(required_value(&mut args, "--format")?),
                     "--help" | "-h" => {
                         print_list_cases_usage();
                         return Ok(());
@@ -747,13 +749,37 @@ fn run() -> Result<(), String> {
                 }
             }
 
-            let output = dicom_test_suite::list_cases_from_registry_path(
-                registry_path,
-                profile_filter.as_deref(),
-                status_filter.as_deref(),
-            )
-            .map_err(|err| err.to_string())?;
-            print!("{output}");
+            match format.as_deref() {
+                None => {
+                    let output = dicom_test_suite::list_cases_from_registry_path(
+                        registry_path,
+                        profile_filter.as_deref(),
+                        status_filter.as_deref(),
+                    )
+                    .map_err(|err| err.to_string())?;
+                    print!("{output}");
+                }
+                Some("json") => {
+                    let cases = dicom_test_suite::case_list_entries_from_registry_path(
+                        registry_path,
+                        profile_filter.as_deref(),
+                        status_filter.as_deref(),
+                    )
+                    .map_err(|err| err.to_string())?;
+                    write_machine_success(
+                        "list-cases",
+                        dicom_test_suite::cli_protocol::CaseListResult {
+                            case_list_result_schema_version:
+                                dicom_test_suite::cli_protocol::CASE_LIST_RESULT_SCHEMA_VERSION,
+                            profile_filter,
+                            status_filter,
+                            case_count: cases.len(),
+                            cases,
+                        },
+                    )?;
+                }
+                Some(other) => return Err(format!("unsupported list-cases format: {other}")),
+            }
             Ok(())
         }
         "validate" => {
@@ -1222,7 +1248,7 @@ fn print_usage() {
         "  dicom-test-suite compose --spec PATH --out PATH [--seed SEED] [--dry-run] [--format json]"
     );
     println!(
-        "  dicom-test-suite list-cases [--profile PROFILE] [--status STATUS] [--registry PATH]"
+        "  dicom-test-suite list-cases [--profile PROFILE] [--status STATUS] [--registry PATH] [--format json]"
     );
     println!("  dicom-test-suite templates <list|describe|reference> ...");
     println!("  dicom-test-suite interoperate <media-dicomdir|protocol-baseline> ...");
@@ -1299,7 +1325,7 @@ fn print_compose_usage() {
 
 fn print_list_cases_usage() {
     println!(
-        "usage: dicom-test-suite list-cases [--profile PROFILE] [--status STATUS] [--registry PATH]"
+        "usage: dicom-test-suite list-cases [--profile PROFILE] [--status STATUS] [--registry PATH] [--format json]"
     );
 }
 

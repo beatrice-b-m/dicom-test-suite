@@ -7,6 +7,22 @@ use serde_json::Value;
 
 const SCHEMAS: &[(&str, &str)] = &[
     (
+        "schemas/version-result.schema.json",
+        "https://dicom-test-suite.local/schemas/version-result.schema.json",
+    ),
+    (
+        "schemas/capabilities-result.schema.json",
+        "https://dicom-test-suite.local/schemas/capabilities-result.schema.json",
+    ),
+    (
+        "schemas/generation-result.schema.json",
+        "https://dicom-test-suite.local/schemas/generation-result.schema.json",
+    ),
+    (
+        "schemas/composition-result.schema.json",
+        "https://dicom-test-suite.local/schemas/composition-result.schema.json",
+    ),
+    (
         "schemas/cli-success-envelope.schema.json",
         "https://dicom-test-suite.local/schemas/cli-success-envelope.schema.json",
     ),

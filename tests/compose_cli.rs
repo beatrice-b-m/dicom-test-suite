@@ -4,6 +4,7 @@ use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use dicom_object::open_file;
+use serde_json::Value;
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
@@ -17,6 +18,14 @@ fn output(label: &str) -> PathBuf {
         std::process::id(),
         NEXT.fetch_add(1, Ordering::Relaxed)
     ))
+}
+
+fn compile_schema(path: &str) -> jsonschema::Validator {
+    let schema: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+    jsonschema::options()
+        .with_draft(jsonschema::Draft::Draft202012)
+        .build(&schema)
+        .unwrap()
 }
 
 #[test]
@@ -69,6 +78,86 @@ fn compose_dry_run_prints_plans_without_creating_the_output_root() {
     let resolved: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
     assert_eq!(resolved["plans"].as_array().unwrap().len(), 1);
     assert!(!out.exists());
+}
+
+#[test]
+fn compose_machine_publish_and_dry_run_share_one_typed_outcome_shape() {
+    let published = output("machine-published");
+    let publish = Command::new(binary())
+        .args([
+            "compose",
+            "--spec",
+            "tests/fixtures/composition/valid/template-only.json",
+            "--out",
+            published.to_str().unwrap(),
+            "--seed",
+            "9",
+            "--format",
+            "json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        publish.status.success(),
+        "{}",
+        String::from_utf8_lossy(&publish.stderr)
+    );
+    assert!(publish.stderr.is_empty());
+    let publish: Value = serde_json::from_slice(&publish.stdout).unwrap();
+    assert!(compile_schema("schemas/cli-success-envelope.schema.json").is_valid(&publish));
+    let result_schema = compile_schema("schemas/composition-result.schema.json");
+    assert!(result_schema.is_valid(&publish["result"]));
+    assert_eq!(publish["command"], "compose");
+    assert_eq!(publish["result"]["published"], true);
+    assert!(publish["result"]["manifest_path"].is_string());
+    assert!(publish["result"]["plan_preview"].is_null());
+
+    let dry_root = output("machine-dry");
+    let dry = Command::new(binary())
+        .args([
+            "compose",
+            "--spec",
+            "tests/fixtures/composition/valid/template-only.json",
+            "--out",
+            dry_root.to_str().unwrap(),
+            "--seed",
+            "9",
+            "--dry-run",
+            "--format",
+            "json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        dry.status.success(),
+        "{}",
+        String::from_utf8_lossy(&dry.stderr)
+    );
+    assert!(dry.stderr.is_empty());
+    let dry: Value = serde_json::from_slice(&dry.stdout).unwrap();
+    assert!(result_schema.is_valid(&dry["result"]));
+    assert_eq!(dry["command"], "compose");
+    assert_eq!(dry["result"]["published"], false);
+    assert!(dry["result"]["manifest_path"].is_null());
+    assert_eq!(dry["result"]["plan_preview"]["artifact_count"], 1);
+    assert_eq!(
+        publish["result"]["corpus_plan_sha256"],
+        dry["result"]["corpus_plan_sha256"]
+    );
+    assert_eq!(
+        publish["result"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .collect::<Vec<_>>(),
+        dry["result"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .collect::<Vec<_>>()
+    );
+    assert!(!dry_root.exists());
+    fs::remove_dir_all(published).unwrap();
 }
 
 #[test]

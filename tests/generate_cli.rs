@@ -35,6 +35,14 @@ const TAG_PRESENTATION_PIXEL_ASPECT_RATIO: Tag = Tag(0x0070, 0x0102);
 const TAG_SOFTCOPY_VOI_LUT_SEQUENCE: Tag = Tag(0x0028, 0x3110);
 const TAG_PRESENTATION_LUT_SHAPE: Tag = Tag(0x2050, 0x0020);
 
+fn compile_schema(path: &str) -> jsonschema::Validator {
+    let schema: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+    jsonschema::options()
+        .with_draft(jsonschema::Draft::Draft202012)
+        .build(&schema)
+        .unwrap()
+}
+
 #[test]
 fn generate_command_writes_smoke_part10_files_and_manifest() {
     let out_dir = unique_temp_dir("generate-command");
@@ -253,6 +261,49 @@ fn generate_command_writes_smoke_part10_files_and_manifest() {
     );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
+fn generate_machine_result_is_clean_typed_and_manifest_bounded() {
+    let out_dir = unique_temp_dir("generate-machine");
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "generate",
+            "--profile",
+            "smoke",
+            "--out",
+            out_dir.to_str().unwrap(),
+            "--seed",
+            "7",
+            "--format",
+            "json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output.stderr.is_empty());
+    let envelope: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert!(compile_schema("schemas/cli-success-envelope.schema.json").is_valid(&envelope));
+    assert!(compile_schema("schemas/generation-result.schema.json").is_valid(&envelope["result"]));
+    assert_eq!(envelope["command"], "generate");
+    assert_eq!(envelope["result"]["published"], true);
+    assert_eq!(envelope["result"]["emitted_artifact_count"], 3);
+    assert_eq!(
+        envelope["result"]["manifest_path"],
+        out_dir.join("manifest.json").display().to_string()
+    );
+    assert_eq!(
+        envelope["result"]["unavailable_capability_count"],
+        envelope["result"]["unavailable_capabilities"]
+            .as_array()
+            .unwrap()
+            .len()
+    );
+    fs::remove_dir_all(out_dir).unwrap();
 }
 
 #[test]

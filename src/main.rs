@@ -271,6 +271,7 @@ fn run() -> Result<(), String> {
             let mut out_dir = None;
             let mut seed = 1;
             let mut include_stress = false;
+            let mut format = None;
 
             while let Some(arg) = args.next() {
                 match arg.as_str() {
@@ -295,6 +296,7 @@ fn run() -> Result<(), String> {
                     "--include-stress" => {
                         include_stress = true;
                     }
+                    "--format" => format = Some(required_value(&mut args, "--format")?),
                     "--help" | "-h" => {
                         print_generate_usage();
                         return Ok(());
@@ -319,13 +321,21 @@ fn run() -> Result<(), String> {
                 dicom_test_suite::write_generation_run_with_resources(&prepared, &resources)
                     .map_err(|err| err.to_string())?;
 
-            println!("profile\t{}", prepared.profile);
-            println!("seed\t{}", prepared.seed);
-            println!("include_stress\t{}", prepared.include_stress);
-            println!("out\t{}", prepared.out_dir.display());
-            println!("manifest\t{}", prepared.manifest_path.display());
-            println!("files_written\t{}", summary.files_written);
-            println!("manifest_written\t{}", summary.manifest_written);
+            match format.as_deref() {
+                None => {
+                    println!("profile\t{}", prepared.profile);
+                    println!("seed\t{}", prepared.seed);
+                    println!("include_stress\t{}", prepared.include_stress);
+                    println!("out\t{}", prepared.out_dir.display());
+                    println!("manifest\t{}", prepared.manifest_path.display());
+                    println!("files_written\t{}", summary.files_written);
+                    println!("manifest_written\t{}", summary.manifest_written);
+                }
+                Some("json") => {
+                    write_machine_success("generate", generation_result(&prepared, &summary)?)?
+                }
+                Some(other) => return Err(format!("unsupported generate format: {other}")),
+            }
             Ok(())
         }
         "interoperate" => {
@@ -497,6 +507,7 @@ fn run() -> Result<(), String> {
             let mut seed = 1_u64;
             let mut catalog_path = resource_path("templates/catalog.json");
             let mut dry_run = false;
+            let mut format = None;
             while let Some(argument) = args.next() {
                 match argument.as_str() {
                     "--spec" => spec_path = Some(required_value(&mut args, "--spec")?),
@@ -504,6 +515,7 @@ fn run() -> Result<(), String> {
                     "--seed" => seed = parse_seed(required_value(&mut args, "--seed")?)?,
                     "--catalog" => catalog_path = required_value(&mut args, "--catalog")?,
                     "--dry-run" => dry_run = true,
+                    "--format" => format = Some(required_value(&mut args, "--format")?),
                     "--help" | "-h" => {
                         print_compose_usage();
                         return Ok(());
@@ -524,18 +536,23 @@ fn run() -> Result<(), String> {
                 &resources,
             )
             .map_err(|error| error.to_string())?;
-            if dry_run {
-                println!(
+            match format.as_deref() {
+                Some("json") => {
+                    write_machine_success("compose", composition_result(&summary, &output, seed)?)?
+                }
+                Some(other) => return Err(format!("unsupported compose format: {other}")),
+                None if dry_run => println!(
                     "{}",
                     serde_json::to_string_pretty(&output).map_err(|error| error.to_string())?
-                );
-            } else {
-                println!("spec\t{spec_path}");
-                println!("seed\t{seed}");
-                println!("out\t{}", summary.out_dir.display());
-                println!("manifest\t{}", summary.manifest_path.display());
-                println!("instances_written\t{}", summary.instances_written);
-                println!("output_bytes\t{}", summary.output_bytes);
+                ),
+                None => {
+                    println!("spec\t{spec_path}");
+                    println!("seed\t{seed}");
+                    println!("out\t{}", summary.out_dir.display());
+                    println!("manifest\t{}", summary.manifest_path.display());
+                    println!("instances_written\t{}", summary.instances_written);
+                    println!("output_bytes\t{}", summary.output_bytes);
+                }
             }
             Ok(())
         }
@@ -953,15 +970,174 @@ fn run() -> Result<(), String> {
     }
 }
 
+fn write_machine_success<T: serde::Serialize>(
+    command: &'static str,
+    result: T,
+) -> Result<(), String> {
+    let envelope = dicom_test_suite::cli_protocol::SuccessEnvelope::new(command, result);
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&envelope).map_err(|error| error.to_string())?
+    );
+    Ok(())
+}
+
+fn generation_result(
+    prepared: &dicom_test_suite::PreparedGenerationRun,
+    summary: &dicom_test_suite::GenerationSummary,
+) -> Result<dicom_test_suite::cli_protocol::GenerationResult, String> {
+    let manifest_bytes = std::fs::read(&prepared.manifest_path)
+        .map_err(|error| format!("read {}: {error}", prepared.manifest_path.display()))?;
+    let manifest: serde_json::Value =
+        serde_json::from_slice(&manifest_bytes).map_err(|error| error.to_string())?;
+    let unavailable = unavailable_summaries(&manifest["skipped_cases"], "generation");
+    Ok(dicom_test_suite::cli_protocol::GenerationResult {
+        generation_result_schema_version:
+            dicom_test_suite::cli_protocol::GENERATION_RESULT_SCHEMA_VERSION,
+        outcome: dicom_test_suite::cli_protocol::FileProducingOutcome {
+            requested_output_root: prepared.out_dir.display().to_string(),
+            manifest_path: Some(prepared.manifest_path.display().to_string()),
+            run_kind: "curated_generation",
+            seed: prepared.seed,
+            request_schema_version: "1.0.0".to_string(),
+            manifest_schema_version: manifest["manifest_schema_version"]
+                .as_str()
+                .ok_or_else(|| "generation manifest has no schema version".to_string())?
+                .to_string(),
+            product_version: dicom_test_suite::PACKAGE_VERSION,
+            emitted_artifact_count: summary.files_written,
+            output_bytes: summary.output_bytes,
+            unavailable_capability_count: unavailable.len(),
+            unavailable_capabilities: unavailable,
+            corpus_plan_sha256: summary.corpus_plan_sha256.clone(),
+            published: true,
+            publication_status: "published",
+            validation_status: "passed",
+            plan_preview: None,
+        },
+    })
+}
+
+fn composition_result(
+    summary: &dicom_test_suite::composition::ComposeSummary,
+    output: &serde_json::Value,
+    seed: u64,
+) -> Result<dicom_test_suite::cli_protocol::CompositionResult, String> {
+    let request_schema_version = if summary.dry_run {
+        output["composition_spec_schema_version"].as_str()
+    } else {
+        output
+            .pointer("/run/composition_spec_schema_version")
+            .and_then(serde_json::Value::as_str)
+    }
+    .ok_or_else(|| "composition result has no request schema version".to_string())?;
+    let unavailable = if summary.dry_run {
+        Vec::new()
+    } else {
+        unavailable_summaries(
+            &output["composition"]["unavailable_capabilities"],
+            "composition",
+        )
+    };
+    let plan_preview = if summary.dry_run {
+        let artifact_ids = output["plans"]
+            .as_array()
+            .ok_or_else(|| "composition dry-run has no plan array".to_string())?
+            .iter()
+            .map(|plan| {
+                plan["instance_id"]
+                    .as_str()
+                    .map(ToOwned::to_owned)
+                    .ok_or_else(|| "composition dry-run plan has no instance ID".to_string())
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Some(dicom_test_suite::cli_protocol::CanonicalPlanPreview {
+            artifact_count: artifact_ids.len(),
+            artifact_ids,
+        })
+    } else {
+        None
+    };
+    Ok(dicom_test_suite::cli_protocol::CompositionResult {
+        composition_result_schema_version:
+            dicom_test_suite::cli_protocol::COMPOSITION_RESULT_SCHEMA_VERSION,
+        outcome: dicom_test_suite::cli_protocol::FileProducingOutcome {
+            requested_output_root: summary.out_dir.display().to_string(),
+            manifest_path: (!summary.dry_run).then(|| summary.manifest_path.display().to_string()),
+            run_kind: "qualified_composition",
+            seed,
+            request_schema_version: request_schema_version.to_string(),
+            manifest_schema_version: if summary.dry_run {
+                "0.5.0".to_string()
+            } else {
+                output["manifest_schema_version"]
+                    .as_str()
+                    .ok_or_else(|| "composition manifest has no schema version".to_string())?
+                    .to_string()
+            },
+            product_version: dicom_test_suite::PACKAGE_VERSION,
+            emitted_artifact_count: summary.instances_written,
+            output_bytes: summary.output_bytes,
+            unavailable_capability_count: unavailable.len(),
+            unavailable_capabilities: unavailable,
+            corpus_plan_sha256: summary.corpus_plan_sha256.clone(),
+            published: !summary.dry_run,
+            publication_status: if summary.dry_run {
+                "not_requested"
+            } else {
+                "published"
+            },
+            validation_status: if summary.dry_run { "not_run" } else { "passed" },
+            plan_preview,
+        },
+    })
+}
+
+fn unavailable_summaries(
+    value: &serde_json::Value,
+    namespace: &str,
+) -> Vec<dicom_test_suite::cli_protocol::UnavailableCapabilitySummary> {
+    let mut summaries = value
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|entry| {
+            let capability_id = entry
+                .get("capability_id")
+                .or_else(|| entry.get("case_id"))?
+                .as_str()?;
+            let reason = entry.get("reason_code")?.as_str()?;
+            let reason_code = if reason.contains('.') {
+                reason.to_string()
+            } else {
+                format!("{namespace}.{reason}")
+            };
+            Some(
+                dicom_test_suite::cli_protocol::UnavailableCapabilitySummary {
+                    capability_id: capability_id.to_string(),
+                    reason_code,
+                },
+            )
+        })
+        .collect::<Vec<_>>();
+    summaries.sort_by(|left, right| {
+        (&left.capability_id, &left.reason_code).cmp(&(&right.capability_id, &right.reason_code))
+    });
+    summaries.dedup();
+    summaries
+}
+
 fn print_usage() {
     println!("{}", dicom_test_suite::version_banner());
     println!("usage:");
     println!("  dicom-test-suite version [--format json]");
     println!("  dicom-test-suite capabilities --format json");
     println!(
-        "  dicom-test-suite generate --profile PROFILE --out PATH [--seed SEED] [--include-stress]"
+        "  dicom-test-suite generate --profile PROFILE --out PATH [--seed SEED] [--include-stress] [--format json]"
     );
-    println!("  dicom-test-suite compose --spec PATH --out PATH [--seed SEED] [--dry-run]");
+    println!(
+        "  dicom-test-suite compose --spec PATH --out PATH [--seed SEED] [--dry-run] [--format json]"
+    );
     println!(
         "  dicom-test-suite list-cases [--profile PROFILE] [--status STATUS] [--registry PATH]"
     );
@@ -1028,13 +1204,13 @@ fn print_media_qualification_markdown(
 
 fn print_generate_usage() {
     println!(
-        "usage: dicom-test-suite generate --profile PROFILE --out PATH [--seed SEED] [--include-stress]"
+        "usage: dicom-test-suite generate --profile PROFILE --out PATH [--seed SEED] [--include-stress] [--format json]"
     );
 }
 
 fn print_compose_usage() {
     println!(
-        "usage: dicom-test-suite compose --spec PATH --out PATH [--seed SEED] [--dry-run] [--catalog PATH]"
+        "usage: dicom-test-suite compose --spec PATH --out PATH [--seed SEED] [--dry-run] [--catalog PATH] [--format json]"
     );
 }
 

@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dicom-test-suite.local/schemas/composition-result.schema.json",
+  "title": "DICOM Test Suite Composition Result",
+  "type": "object",
+  "$ref": "#/$defs/result",
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "unavailable": {
+      "type": "object",
+      "required": ["capability_id", "reason_code"],
+      "properties": {
+        "capability_id": { "type": "string", "minLength": 1 },
+        "reason_code": { "type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$" }
+      },
+      "additionalProperties": false
+    },
+    "preview": {
+      "type": "object",
+      "required": ["artifact_count", "artifact_ids"],
+      "properties": {
+        "artifact_count": { "type": "integer", "minimum": 0 },
+        "artifact_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "required": [
+        "composition_result_schema_version", "requested_output_root", "manifest_path",
+        "run_kind", "seed", "request_schema_version", "manifest_schema_version",
+        "product_version", "emitted_artifact_count", "output_bytes",
+        "unavailable_capability_count", "unavailable_capabilities",
+        "corpus_plan_sha256", "published", "publication_status",
+        "validation_status", "plan_preview"
+      ],
+      "properties": {
+        "composition_result_schema_version": { "const": "1.0.0" },
+        "requested_output_root": { "type": "string", "minLength": 1 },
+        "manifest_path": { "type": ["string", "null"], "minLength": 1 },
+        "run_kind": { "const": "qualified_composition" },
+        "seed": { "type": "integer", "minimum": 0 },
+        "request_schema_version": { "const": "0.1.0" },
+        "manifest_schema_version": { "const": "0.5.0" },
+        "product_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$" },
+        "emitted_artifact_count": { "type": "integer", "minimum": 0 },
+        "output_bytes": { "type": "integer", "minimum": 0 },
+        "unavailable_capability_count": { "type": "integer", "minimum": 0 },
+        "unavailable_capabilities": { "type": "array", "items": { "$ref": "#/$defs/unavailable" } },
+        "corpus_plan_sha256": { "$ref": "#/$defs/sha256" },
+        "published": { "type": "boolean" },
+        "publication_status": { "enum": ["published", "not_requested"] },
+        "validation_status": { "enum": ["passed", "not_run"] },
+        "plan_preview": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/preview" }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "published": { "const": true } }, "required": ["published"] },
+          "then": {
+            "properties": {
+              "manifest_path": { "type": "string", "minLength": 1 },
+              "publication_status": { "const": "published" },
+              "validation_status": { "const": "passed" },
+              "plan_preview": { "type": "null" }
+            }
+          },
+          "else": {
+            "properties": {
+              "manifest_path": { "type": "null" },
+              "emitted_artifact_count": { "const": 0 },
+              "output_bytes": { "const": 0 },
+              "publication_status": { "const": "not_requested" },
+              "validation_status": { "const": "not_run" },
+              "plan_preview": { "$ref": "#/$defs/preview" }
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    }
+  }
+}

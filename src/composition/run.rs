@@ -78,6 +78,7 @@ pub struct ComposeSummary {
     pub manifest_path: PathBuf,
     pub instances_written: usize,
     pub output_bytes: u64,
+    pub corpus_plan_sha256: String,
     pub dry_run: bool,
 }
 
@@ -273,6 +274,11 @@ fn compose_loaded(
     if cancellation.is_cancelled() {
         return Err(ComposeError::Cancelled);
     }
+    let corpus_plan_sha256 = planned
+        .bundle
+        .plan
+        .canonical_sha256()
+        .map_err(ComposeError::CorpusPlan)?;
     if dry_run {
         return Ok((
             ComposeSummary {
@@ -280,6 +286,7 @@ fn compose_loaded(
                 manifest_path: out_dir.join("manifest.json"),
                 instances_written: 0,
                 output_bytes: 0,
+                corpus_plan_sha256,
                 dry_run: true,
             },
             planned.dry_run_output,
@@ -334,6 +341,7 @@ fn compose_loaded(
                     manifest_path: out_dir.join("manifest.json"),
                     instances_written: planned.bundle.plan.artifacts.len(),
                     output_bytes: execution.evidence.resources.actual_artifact_output_bytes,
+                    corpus_plan_sha256,
                     dry_run: false,
                 },
                 manifest,

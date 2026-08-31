@@ -158,6 +158,8 @@ pub struct PreparedGenerationRun {
 pub struct GenerationSummary {
     pub files_written: usize,
     pub manifest_written: bool,
+    pub output_bytes: u64,
+    pub corpus_plan_sha256: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -889,6 +891,8 @@ pub fn write_generation_run_with_resources(
     Ok(GenerationSummary {
         files_written,
         manifest_written: true,
+        output_bytes: result.evidence.resources.actual_artifact_output_bytes,
+        corpus_plan_sha256: result.evidence.corpus_plan_sha256,
     })
 }
 

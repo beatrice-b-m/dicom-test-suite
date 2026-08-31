@@ -3,6 +3,8 @@ use std::collections::BTreeMap;
 use serde::Serialize;
 
 pub const CLI_API_VERSION: &str = "1.0.0";
+pub const GENERATION_RESULT_SCHEMA_VERSION: &str = "1.0.0";
+pub const COMPOSITION_RESULT_SCHEMA_VERSION: &str = "1.0.0";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SuccessEnvelope<T> {
@@ -21,6 +23,52 @@ impl<T> SuccessEnvelope<T> {
             result,
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct UnavailableCapabilitySummary {
+    pub capability_id: String,
+    pub reason_code: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CanonicalPlanPreview {
+    pub artifact_count: usize,
+    pub artifact_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct FileProducingOutcome {
+    pub requested_output_root: String,
+    pub manifest_path: Option<String>,
+    pub run_kind: &'static str,
+    pub seed: u64,
+    pub request_schema_version: String,
+    pub manifest_schema_version: String,
+    pub product_version: &'static str,
+    pub emitted_artifact_count: usize,
+    pub output_bytes: u64,
+    pub unavailable_capability_count: usize,
+    pub unavailable_capabilities: Vec<UnavailableCapabilitySummary>,
+    pub corpus_plan_sha256: String,
+    pub published: bool,
+    pub publication_status: &'static str,
+    pub validation_status: &'static str,
+    pub plan_preview: Option<CanonicalPlanPreview>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct GenerationResult {
+    pub generation_result_schema_version: &'static str,
+    #[serde(flatten)]
+    pub outcome: FileProducingOutcome,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CompositionResult {
+    pub composition_result_schema_version: &'static str,
+    #[serde(flatten)]
+    pub outcome: FileProducingOutcome,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]

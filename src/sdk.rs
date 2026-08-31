@@ -162,6 +162,165 @@ impl DicomTestSuite {
                 .map_err(|error| SdkError::classify("report", error))?;
         ReportOutcome::from_value(request.output_root, &report)
     }
+
+    /// Execute a structural assembly request without claiming IOD conformance.
+    pub fn assemble(&self, request: AssembleRequest) -> Result<AssembleOutcome, SdkError> {
+        self.assemble_cancellable(request, &CancellationToken::new())
+    }
+
+    pub fn assemble_cancellable(
+        &self,
+        request: AssembleRequest,
+        cancellation: &CancellationToken,
+    ) -> Result<AssembleOutcome, SdkError> {
+        let request_bytes = match request.source {
+            AssembleSource::File(path) => std::fs::read(&path).map_err(|error| {
+                SdkError::classify(
+                    "assemble",
+                    format!("assembly input read failed at {}: {error}", path.display()),
+                )
+            })?,
+            AssembleSource::Bytes(bytes) => bytes,
+        };
+        let summary = crate::assembly::assemble(
+            &crate::assembly::AssembleOptions {
+                request_bytes,
+                caller_asset_root: request.caller_asset_root,
+                output_root: request.output_root,
+                seed: request.seed,
+                parallelism: request.parallelism,
+                dry_run: request.dry_run,
+            },
+            &cancellation.assembly,
+            &self.resources,
+        )
+        .map_err(|error| SdkError::classify("assemble", error))?;
+        let manifest = if summary.published {
+            Some(SchemaBoundManifest::load(
+                &summary.output_root,
+                &self.resources,
+                "assemble",
+            )?)
+        } else {
+            None
+        };
+        let plan_preview = (!summary.published).then(|| PlanPreview {
+            artifact_ids: summary.artifact_ids.clone(),
+        });
+        Ok(AssembleOutcome {
+            output_root: summary.output_root,
+            seed: request.seed,
+            published: summary.published,
+            artifacts_written: summary.artifacts_written,
+            output_bytes: summary.output_bytes,
+            corpus_plan_sha256: summary.corpus_plan_sha256,
+            manifest,
+            plan_preview,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+enum AssembleSource {
+    File(PathBuf),
+    Bytes(Vec<u8>),
+}
+
+/// Structural assembly input with an explicit caller-asset root.
+#[derive(Debug, Clone)]
+pub struct AssembleRequest {
+    source: AssembleSource,
+    caller_asset_root: PathBuf,
+    output_root: PathBuf,
+    seed: u64,
+    parallelism: u32,
+    dry_run: bool,
+}
+
+impl AssembleRequest {
+    pub fn from_file(request_path: impl AsRef<Path>, output_root: impl AsRef<Path>) -> Self {
+        let request_path = request_path.as_ref().to_path_buf();
+        let caller_asset_root = request_path
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .to_path_buf();
+        Self {
+            source: AssembleSource::File(request_path),
+            caller_asset_root,
+            output_root: output_root.as_ref().to_path_buf(),
+            seed: 1,
+            parallelism: 1,
+            dry_run: false,
+        }
+    }
+    pub fn from_json_bytes(
+        bytes: impl Into<Vec<u8>>,
+        caller_asset_root: impl AsRef<Path>,
+        output_root: impl AsRef<Path>,
+    ) -> Self {
+        Self {
+            source: AssembleSource::Bytes(bytes.into()),
+            caller_asset_root: caller_asset_root.as_ref().to_path_buf(),
+            output_root: output_root.as_ref().to_path_buf(),
+            seed: 1,
+            parallelism: 1,
+            dry_run: false,
+        }
+    }
+    pub fn with_caller_asset_root(mut self, root: impl AsRef<Path>) -> Self {
+        self.caller_asset_root = root.as_ref().to_path_buf();
+        self
+    }
+    pub fn with_seed(mut self, seed: u64) -> Self {
+        self.seed = seed;
+        self
+    }
+    pub fn with_parallelism(mut self, parallelism: u32) -> Self {
+        self.parallelism = parallelism.max(1);
+        self
+    }
+    pub fn dry_run(mut self, dry_run: bool) -> Self {
+        self.dry_run = dry_run;
+        self
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct AssembleOutcome {
+    output_root: PathBuf,
+    seed: u64,
+    published: bool,
+    artifacts_written: usize,
+    output_bytes: u64,
+    corpus_plan_sha256: String,
+    manifest: Option<SchemaBoundManifest>,
+    plan_preview: Option<PlanPreview>,
+}
+impl AssembleOutcome {
+    pub fn output_root(&self) -> &Path {
+        &self.output_root
+    }
+    pub fn seed(&self) -> u64 {
+        self.seed
+    }
+    pub fn published(&self) -> bool {
+        self.published
+    }
+    pub fn artifacts_written(&self) -> usize {
+        self.artifacts_written
+    }
+    pub fn output_bytes(&self) -> u64 {
+        self.output_bytes
+    }
+    pub fn corpus_plan_sha256(&self) -> &str {
+        &self.corpus_plan_sha256
+    }
+    pub fn manifest(&self) -> Option<&SchemaBoundManifest> {
+        self.manifest.as_ref()
+    }
+    pub fn plan_preview(&self) -> Option<&PlanPreview> {
+        self.plan_preview.as_ref()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -233,6 +392,7 @@ impl ComposeRequest {
 #[derive(Debug, Clone, Default)]
 pub struct CancellationToken {
     inner: crate::composition::ComposeCancellationToken,
+    assembly: crate::executor::cancellation::CancellationToken,
 }
 
 impl CancellationToken {
@@ -242,10 +402,11 @@ impl CancellationToken {
 
     pub fn cancel(&self) {
         self.inner.cancel();
+        self.assembly.cancel();
     }
 
     pub fn is_cancelled(&self) -> bool {
-        self.inner.is_cancelled()
+        self.inner.is_cancelled() || self.assembly.is_cancelled()
     }
 }
 

@@ -1,8 +1,8 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use dicom_test_suite::sdk::{
-    CancellationToken, ComposeRequest, DicomTestSuite, ManifestKind, ReportKind, ReportRequest,
-    SdkErrorKind, ValidateRequest,
+    AssembleRequest, CancellationToken, ComposeRequest, DicomTestSuite, ManifestKind, ReportKind,
+    ReportRequest, SdkErrorKind, ValidateRequest,
 };
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -191,4 +191,24 @@ fn sdk_precancelled_request_returns_typed_error_and_publishes_nothing() {
     assert_eq!(error.code(), "generation.execution.cancelled");
     assert!(error.retryable());
     assert!(!root.exists());
+}
+
+#[test]
+fn sdk_structural_assembly_returns_no_claim_typed_manifest() {
+    let product = DicomTestSuite::embedded().unwrap();
+    let root = output("structural");
+    let request = br#"{"assembly_request_schema_version":"1.0.0","instances":[{"instance_id":"primary","sop_class_uid":"1.2.840.10008.5.1.4.1.1.7","elements":[]}]}"#;
+    let outcome = product
+        .assemble(AssembleRequest::from_json_bytes(request.as_slice(), ".", &root).with_seed(4))
+        .unwrap();
+    assert!(outcome.published());
+    assert_eq!(outcome.artifacts_written(), 1);
+    let manifest = outcome.manifest().unwrap();
+    assert_eq!(manifest.kind(), ManifestKind::StructuralAssembly);
+    assert_eq!(manifest.schema_version(), "1.0.0");
+    let validation = product.validate(ValidateRequest::new(&root)).unwrap();
+    assert!(validation.is_valid());
+    let report = product.report(ReportRequest::new(&root)).unwrap();
+    assert_eq!(report.kind(), ReportKind::StructuralAssembly);
+    std::fs::remove_dir_all(root).unwrap();
 }

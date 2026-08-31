@@ -4,7 +4,7 @@
 
 **Contract:** `docs/standalone-productization-plan.md`
 
-**Release readiness:** not ready; S0 through S4 are complete and S5.1 is complete
+**Release readiness:** not ready; S0 through S4 and S5.1-S5.2 are complete
 
 ## Current gate state
 
@@ -15,7 +15,7 @@
 | S2 — automation protocol | Complete | CLI API `1.0.0` provides versioned discovery and command results, stable error codes and exit classes, typed file outcomes, explicit raw-report migration, warning-denied builds, and a schema-driven Python subprocess gate from outside the repository. |
 | S3 — Rust SDK | Complete | The supported `dicom_test_suite::sdk` facade provides integrity-checked resources, typed discovery/compose/validate/report outcomes, schema-bound manifests, explicit asset roots, cancellation, stable errors, compiled docs, and a packaged-crate side-project gate. |
 | S4 — structural assembly | Complete | The packaged CLI and SDK accept versioned bounded structural requests, use the neutral plan/executor/writer spine, validate exact values and bulk, publish no-IOD-claim manifests/reports, and pass positive, adversarial, transaction, determinism, and external-consumer gates. |
-| S5 — packaging and guides | In progress | S5.1 is complete: Cargo metadata, dual licenses, an explicit 765-file crate whitelist, clean package verification, and the complete extracted-crate test inventory are qualified. Release archives, installed-product guides/examples, and the maintainer release procedure remain open. |
+| S5 — packaging and guides | In progress | S5.1-S5.2 are complete: the verified source crate and a target-bound checksummed native archive contract are qualified. Installed-product guides/examples and the maintainer release procedure remain open; Linux x86_64 remains unclaimed until its own archive passes the same gate. |
 | S6 — release qualification | Not started | Existing source-tree qualification is strong, but no exact packaged release candidate has passed the black-box, relocation, SDK, assembly, or terminal security matrix. |
 | S7 — promotion | Not started | The README still leads with `cargo run`; standalone release gates and compatibility ownership are not promoted. |
 
@@ -70,6 +70,46 @@ closed unless the exact external interpreter is supplied.
 S5.2 through S5.5 remain open. This crate is source-package evidence, not the
 target-specific release archive or release candidate, and no terminal matrix
 row is promoted by S5.1.
+
+## S5.2 native archive gate
+
+S5.2 completed on 2026-08-31 at `0348549`. The release builder refuses dirty
+sources by default, builds a locked target-specific binary, verifies its
+reported target and feature set, and archives the executable with both project
+licenses, operating documentation, `Cargo.lock`, target-filtered dependency
+license notices, machine-readable version and capability results, and a
+schema-valid per-file resource manifest. A checksum is emitted beside the
+archive. Discovery advertises release-manifest schema `1.0.0`.
+
+The focused source qualification passed one archive relocation test, three
+capability tests, three quantitative tests, six resource tests, and 73 schema
+tests. The archive test verifies every payload size/hash, dependency notice
+coverage, the manifest schema, archive checksum, unrelated-CWD version and
+capability discovery, smoke generation, and strict validation.
+
+The first clean optimized artifact was then built and exercised directly:
+
+```text
+archive: dicom-test-suite-0.1.0-aarch64-apple-darwin.tar.gz
+archive SHA-256: 30fa8cda0114d660f92aaeebe51ab5febca80d9673242d843669617dda18a63a
+source revision: 0348549d2c38cbe60f918ad478f0acbc34d082f4
+source dirty: false
+target: aarch64-apple-darwin
+enabled features: []
+embedded resource-set SHA-256: 49031f830d6e4def84244b4deb24f72d59561dc97c46c4353d42766991ac13c7
+manifest payload files: 13
+target-filtered third-party packages: 107
+```
+
+From an unrelated extracted directory, the exact optimized binary passed
+`version --format json`, `capabilities --format json`, smoke generation with
+seed 1, strict validation with three files checked and zero failures, and JSON
+report execution. `shasum -a 256 -c` passed from the distribution directory.
+
+Only macOS arm64 is qualified by this evidence. Linux x86_64 is not available
+in this host environment and remains an explicit blocker to a general release;
+it is not inferred from the portable builder or source tests. S5.3-S5.5 and all
+terminal release-candidate rows remain open.
 
 ## Baseline audit evidence
 

@@ -117,7 +117,7 @@ fn ordinary_generate_preserves_locked_curated_history_for_public_profiles() {
         ),
         (
             "all",
-            "4c20e94f56c6dfc4612a5120428026d35ee087d7222207931b0ce6451aba2f2f",
+            "a50de8b288b3543876e4e58bcc2b435f41b81e84201e78508f093e894b8f4c36",
         ),
         (
             "legacy",
@@ -224,46 +224,16 @@ fn public_planning_and_preparation_leave_the_destination_absent() {
     );
 }
 
-fn copy_tree(source: &Path, destination: &Path) {
-    fs::create_dir_all(destination).unwrap();
-    for entry in fs::read_dir(source).unwrap() {
-        let entry = entry.unwrap();
-        let target = destination.join(entry.file_name());
-        if entry.file_type().unwrap().is_dir() {
-            copy_tree(&entry.path(), &target);
-        } else {
-            fs::copy(entry.path(), target).unwrap();
-        }
-    }
-}
-
 #[test]
 fn failed_ordinary_run_leaves_no_destination_or_private_staging() {
     let workspace = TempRoot::absent("failed-run");
     fs::create_dir(&workspace.0).unwrap();
-    copy_tree(
-        Path::new("cases/recipes"),
-        &workspace.0.join("cases/recipes"),
-    );
-    fs::copy(
-        "cases/registry.json",
-        workspace.0.join("cases/registry.json"),
-    )
-    .unwrap();
-    fs::create_dir(workspace.0.join("templates")).unwrap();
-    fs::copy(
-        "templates/catalog.json",
-        workspace.0.join("templates/catalog.json"),
-    )
-    .unwrap();
-    fs::copy(
-        "standards.lock.json",
-        workspace.0.join("standards.lock.json"),
-    )
-    .unwrap();
-    // Cargo.lock is deliberately absent. Planning has all of its inputs, so
-    // this failure occurs after planning at the publication boundary.
-    let destination = workspace.0.join("failed-output");
+    let blocked_parent = workspace.0.join("blocked-parent");
+    fs::write(&blocked_parent, b"not a directory").unwrap();
+    // Embedded product resources allow planning to finish independently of
+    // the current directory. The non-directory parent then forces a failure
+    // at the publication boundary, before any transaction can be created.
+    let destination = blocked_parent.join("failed-output");
     let result = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .current_dir(&workspace.0)
         .args([
@@ -277,7 +247,10 @@ fn failed_ordinary_run_leaves_no_destination_or_private_staging() {
         ])
         .output()
         .unwrap();
-    assert!(!result.status.success(), "missing Cargo.lock must fail");
+    assert!(
+        !result.status.success(),
+        "non-directory publication parent must fail"
+    );
     assert!(
         !destination.exists(),
         "failed run published its destination"

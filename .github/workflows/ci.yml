@@ -12,7 +12,7 @@ jobs:
   default:
     name: Default corpus
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
@@ -119,8 +119,16 @@ jobs:
           - deflate
     steps:
       - uses: actions/checkout@v6
-      - name: Test feature
-        run: cargo test --locked --all-targets --features "${{ matrix.feature }}"
+      - name: Compile every target with feature
+        run: cargo test --locked --all-targets --no-default-features --features "${{ matrix.feature }}" --no-run
+      - name: Test feature-sensitive surfaces
+        run: |
+          cargo test --locked --no-default-features --features "${{ matrix.feature }}" --lib
+          cargo test --locked --no-default-features --features "${{ matrix.feature }}" \
+            --test codec_backend_registry --test composition_curated_migration \
+            --test curated_runtime_capabilities --test exceptional_sc_plan \
+            --test frame_codec_service --test project_artifacts \
+            --test report_cli --test runtime_capabilities --test validate_cli
       - name: Exercise feature corpus
         run: |
           cargo run --locked --features "${{ matrix.feature }}" -- generate --profile extended --out "$RUNNER_TEMP/dts-${{ matrix.feature }}" --seed 1

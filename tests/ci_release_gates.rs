@@ -3,6 +3,20 @@ use std::fs;
 #[test]
 fn ci_makes_every_standalone_release_gate_mandatory_and_regression_backed() {
     let workflow = fs::read_to_string(".github/workflows/ci.yml").unwrap();
+    let default = workflow.split("  default:").nth(1).unwrap();
+    let codecs = workflow.split("  in-process-codecs:").nth(1).unwrap();
+    assert!(default.contains("timeout-minutes: 90"));
+    assert!(default.contains("cargo test --locked --all-targets --no-default-features"));
+    assert!(codecs.contains("--all-targets --no-default-features --features"));
+    assert!(codecs.contains("--no-run"));
+    assert!(codecs.contains("Test feature-sensitive surfaces"));
+    assert!(codecs.contains("frame_codec_service"));
+    assert!(codecs.contains("validate_cli"));
+    assert!(codecs.contains("Exercise feature corpus"));
+    assert!(
+        !codecs
+            .contains("cargo test --locked --all-targets --features \"${{ matrix.feature }}\"\n")
+    );
     let release = workflow.split("  standalone-release:").nth(1).unwrap();
     for required in [
         "needs: default",

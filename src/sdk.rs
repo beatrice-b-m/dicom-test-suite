@@ -4,7 +4,9 @@
 //! but only this facade is the supported Rust compatibility surface.
 
 use std::fmt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+use serde::de::DeserializeOwned;
 
 use crate::discovery::{CapabilitiesResult, VersionResult};
 use crate::product_resources::ProductResources;
@@ -46,6 +48,307 @@ impl DicomTestSuite {
     pub fn capabilities(&self) -> Result<CapabilitiesResult, SdkError> {
         crate::discovery::capabilities_result(&self.resources)
             .map_err(|error| SdkError::classify("capabilities", error))
+    }
+
+    /// Execute a qualified composition request through the shared product pipeline.
+    pub fn compose(&self, request: ComposeRequest) -> Result<ComposeOutcome, SdkError> {
+        self.compose_cancellable(request, &CancellationToken::new())
+    }
+
+    /// Execute a qualified composition request with cooperative cancellation.
+    pub fn compose_cancellable(
+        &self,
+        request: ComposeRequest,
+        cancellation: &CancellationToken,
+    ) -> Result<ComposeOutcome, SdkError> {
+        let spec_bytes = match request.source {
+            ComposeSource::File(path) => std::fs::read(&path).map_err(|error| {
+                SdkError::classify(
+                    "compose",
+                    format!(
+                        "composition input read failed at {}: {error}",
+                        path.display()
+                    ),
+                )
+            })?,
+            ComposeSource::Bytes(bytes) => bytes,
+        };
+        let options = crate::composition::ComposeBytesOptions {
+            spec_root: request.caller_asset_root,
+            out_dir: request.output_root,
+            seed: request.seed,
+            catalog_path: PathBuf::from("templates/catalog.json"),
+            dry_run: request.dry_run,
+        };
+        let (summary, document) =
+            crate::composition::compose_from_bytes_with_cancellation_and_resources(
+                &spec_bytes,
+                &options,
+                &cancellation.inner,
+                &self.resources,
+            )
+            .map_err(|error| SdkError::classify("compose", error))?;
+
+        let plan_preview = summary.dry_run.then(|| PlanPreview {
+            artifact_ids: document
+                .get("plans")
+                .and_then(serde_json::Value::as_array)
+                .into_iter()
+                .flatten()
+                .filter_map(|plan| plan.get("instance_id").and_then(serde_json::Value::as_str))
+                .map(str::to_owned)
+                .collect(),
+        });
+        let manifest = if summary.dry_run {
+            None
+        } else {
+            Some(SchemaBoundManifest::from_value(
+                summary.manifest_path.clone(),
+                &document,
+            )?)
+        };
+        Ok(ComposeOutcome {
+            output_root: summary.out_dir,
+            seed: request.seed,
+            published: !summary.dry_run,
+            instances_written: summary.instances_written,
+            output_bytes: summary.output_bytes,
+            corpus_plan_sha256: summary.corpus_plan_sha256,
+            manifest,
+            plan_preview,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+enum ComposeSource {
+    File(PathBuf),
+    Bytes(Vec<u8>),
+}
+
+/// A qualified-composition request with an explicit output and caller-asset root.
+#[derive(Debug, Clone)]
+pub struct ComposeRequest {
+    source: ComposeSource,
+    caller_asset_root: PathBuf,
+    output_root: PathBuf,
+    seed: u64,
+    dry_run: bool,
+}
+
+impl ComposeRequest {
+    /// Read a JSON request file; relative caller assets resolve below its parent.
+    pub fn from_file(spec_path: impl AsRef<Path>, output_root: impl AsRef<Path>) -> Self {
+        let spec_path = spec_path.as_ref().to_path_buf();
+        let caller_asset_root = spec_path
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .to_path_buf();
+        Self {
+            source: ComposeSource::File(spec_path),
+            caller_asset_root,
+            output_root: output_root.as_ref().to_path_buf(),
+            seed: 1,
+            dry_run: false,
+        }
+    }
+
+    /// Use JSON bytes and resolve relative caller assets below `caller_asset_root`.
+    pub fn from_json_bytes(
+        spec_bytes: impl Into<Vec<u8>>,
+        caller_asset_root: impl AsRef<Path>,
+        output_root: impl AsRef<Path>,
+    ) -> Self {
+        Self {
+            source: ComposeSource::Bytes(spec_bytes.into()),
+            caller_asset_root: caller_asset_root.as_ref().to_path_buf(),
+            output_root: output_root.as_ref().to_path_buf(),
+            seed: 1,
+            dry_run: false,
+        }
+    }
+
+    /// Override the root beneath which relative caller asset paths are resolved.
+    pub fn with_caller_asset_root(mut self, root: impl AsRef<Path>) -> Self {
+        self.caller_asset_root = root.as_ref().to_path_buf();
+        self
+    }
+
+    pub fn with_seed(mut self, seed: u64) -> Self {
+        self.seed = seed;
+        self
+    }
+
+    pub fn dry_run(mut self, dry_run: bool) -> Self {
+        self.dry_run = dry_run;
+        self
+    }
+}
+
+/// Cooperative cancellation handle for long-running SDK operations.
+#[derive(Debug, Clone, Default)]
+pub struct CancellationToken {
+    inner: crate::composition::ComposeCancellationToken,
+}
+
+impl CancellationToken {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn cancel(&self) {
+        self.inner.cancel();
+    }
+
+    pub fn is_cancelled(&self) -> bool {
+        self.inner.is_cancelled()
+    }
+}
+
+/// Typed dry-run plan summary. The full internal plan is intentionally private.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PlanPreview {
+    artifact_ids: Vec<String>,
+}
+
+impl PlanPreview {
+    pub fn artifact_count(&self) -> usize {
+        self.artifact_ids.len()
+    }
+
+    pub fn artifact_ids(&self) -> &[String] {
+        &self.artifact_ids
+    }
+}
+
+/// Typed qualified-composition outcome.
+#[derive(Debug, Clone)]
+pub struct ComposeOutcome {
+    output_root: PathBuf,
+    seed: u64,
+    published: bool,
+    instances_written: usize,
+    output_bytes: u64,
+    corpus_plan_sha256: String,
+    manifest: Option<SchemaBoundManifest>,
+    plan_preview: Option<PlanPreview>,
+}
+
+impl ComposeOutcome {
+    pub fn output_root(&self) -> &Path {
+        &self.output_root
+    }
+
+    pub fn seed(&self) -> u64 {
+        self.seed
+    }
+
+    pub fn published(&self) -> bool {
+        self.published
+    }
+
+    pub fn instances_written(&self) -> usize {
+        self.instances_written
+    }
+
+    pub fn output_bytes(&self) -> u64 {
+        self.output_bytes
+    }
+
+    pub fn corpus_plan_sha256(&self) -> &str {
+        &self.corpus_plan_sha256
+    }
+
+    pub fn manifest(&self) -> Option<&SchemaBoundManifest> {
+        self.manifest.as_ref()
+    }
+
+    pub fn plan_preview(&self) -> Option<&PlanPreview> {
+        self.plan_preview.as_ref()
+    }
+}
+
+/// Evidence class declared by a schema-validated manifest.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum ManifestKind {
+    CuratedGeneration,
+    QualifiedComposition,
+    StructuralAssembly,
+}
+
+/// A schema-bound manifest wrapper that does not expose untyped JSON as the outcome.
+#[derive(Debug, Clone)]
+pub struct SchemaBoundManifest {
+    path: PathBuf,
+    schema_version: String,
+    kind: ManifestKind,
+    seed: u64,
+    bytes: Vec<u8>,
+}
+
+impl SchemaBoundManifest {
+    fn from_value(path: PathBuf, value: &serde_json::Value) -> Result<Self, SdkError> {
+        let field = |pointer: &str| {
+            value
+                .pointer(pointer)
+                .ok_or_else(|| SdkError::classify("compose", "composition manifest shape invalid"))
+        };
+        let schema_version = field("/manifest_schema_version")?
+            .as_str()
+            .ok_or_else(|| SdkError::classify("compose", "composition manifest shape invalid"))?
+            .to_owned();
+        let run_kind = field("/run/kind")?
+            .as_str()
+            .ok_or_else(|| SdkError::classify("compose", "composition manifest shape invalid"))?;
+        let kind = match run_kind {
+            "composition" => ManifestKind::QualifiedComposition,
+            "structural_assembly" => ManifestKind::StructuralAssembly,
+            "curated_generation" => ManifestKind::CuratedGeneration,
+            _ => {
+                return Err(SdkError::classify(
+                    "compose",
+                    "composition manifest run kind invalid",
+                ));
+            }
+        };
+        let seed = field("/run/seed")?
+            .as_u64()
+            .ok_or_else(|| SdkError::classify("compose", "composition manifest shape invalid"))?;
+        let bytes =
+            serde_json::to_vec(value).map_err(|error| SdkError::classify("compose", error))?;
+        Ok(Self {
+            path,
+            schema_version,
+            kind,
+            seed,
+            bytes,
+        })
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    pub fn schema_version(&self) -> &str {
+        &self.schema_version
+    }
+
+    pub fn kind(&self) -> ManifestKind {
+        self.kind
+    }
+
+    pub fn seed(&self) -> u64 {
+        self.seed
+    }
+
+    pub fn json_bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    /// Deserialize the already schema-validated document into a consumer model.
+    pub fn deserialize<T: DeserializeOwned>(&self) -> Result<T, SdkError> {
+        serde_json::from_slice(&self.bytes).map_err(|error| SdkError::classify("compose", error))
     }
 }
 

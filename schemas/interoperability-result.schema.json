@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dicom-test-suite.local/schemas/interoperability-result.schema.json",
+  "title": "DICOM Test Suite Interoperability Result",
+  "type": "object",
+  "required": ["interoperability_result_schema_version", "operation", "evidence"],
+  "properties": {
+    "interoperability_result_schema_version": { "const": "1.0.0" },
+    "operation": { "enum": ["media_dicomdir", "protocol_baseline"] },
+    "evidence": { "type": "object" }
+  },
+  "additionalProperties": false
+}

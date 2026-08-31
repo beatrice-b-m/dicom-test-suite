@@ -463,11 +463,13 @@ fn run() -> Result<(), String> {
                     .map_err(|error| error.to_string())?;
                     let format = required_format(format)?;
                     match format.as_str() {
-                        "json" => println!(
-                            "{}",
-                            serde_json::to_string_pretty(&qualification)
-                                .map_err(|error| error.to_string())?
-                        ),
+                        "json" => write_machine_success(
+                            "interoperate media-dicomdir",
+                            dicom_test_suite::cli_protocol::InteroperabilityResult::new(
+                                "media_dicomdir",
+                                qualification,
+                            ),
+                        )?,
                         "markdown" => print_media_qualification_markdown(&qualification),
                         other => return Err(format!("unsupported interoperate format: {other}")),
                     }
@@ -540,11 +542,13 @@ fn run() -> Result<(), String> {
                         .map_err(|error| error.to_string())?;
                     let format = required_format(format)?;
                     match format.as_str() {
-                        "json" => println!(
-                            "{}",
-                            serde_json::to_string_pretty(&report)
-                                .map_err(|error| error.to_string())?
-                        ),
+                        "json" => write_machine_success(
+                            "interoperate protocol-baseline",
+                            dicom_test_suite::cli_protocol::InteroperabilityResult::new(
+                                "protocol_baseline",
+                                report,
+                            ),
+                        )?,
                         "markdown" => print!(
                             "{}",
                             dicom_test_suite::protocol_baseline::protocol_report_markdown(&report)

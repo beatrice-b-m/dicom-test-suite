@@ -7,6 +7,14 @@ use serde_json::{Value, json};
 
 static NONCE: AtomicU64 = AtomicU64::new(0);
 
+fn compile_schema(path: &str) -> jsonschema::Validator {
+    let schema: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+    jsonschema::options()
+        .with_draft(jsonschema::Draft::Draft202012)
+        .build(&schema)
+        .unwrap()
+}
+
 #[test]
 fn protocol_baseline_cli_emits_separate_explicit_unavailable_report() {
     let root = fixture_root();
@@ -32,7 +40,14 @@ fn protocol_baseline_cli_emits_separate_explicit_unavailable_report() {
         "stderr: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    let report: Value = serde_json::from_slice(&output.stdout).expect("report should parse");
+    assert!(output.stderr.is_empty());
+    let envelope: Value = serde_json::from_slice(&output.stdout).expect("report should parse");
+    assert!(compile_schema("schemas/cli-success-envelope.schema.json").is_valid(&envelope));
+    assert!(
+        compile_schema("schemas/interoperability-result.schema.json").is_valid(&envelope["result"])
+    );
+    assert_eq!(envelope["command"], "interoperate protocol-baseline");
+    let report = &envelope["result"]["evidence"];
     assert_eq!(
         report.pointer("/summary/total/unavailable"),
         Some(&json!(3))

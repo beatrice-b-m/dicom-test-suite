@@ -76,3 +76,28 @@ fn installed_examples_are_neutral_self_contained_and_documented() {
         );
     }
 }
+
+#[test]
+fn readme_leads_with_installed_product_and_isolates_contributor_commands() {
+    let readme = fs::read_to_string("README.md").unwrap();
+    let development = readme.find("## Development").unwrap();
+    let consumer = &readme[..development];
+    let contributor = &readme[development..];
+    for required in [
+        "shasum -a 256 -c",
+        "DTS=",
+        "\"$DTS\" version --format json",
+        "\"$DTS\" capabilities --format json",
+        "\"$DTS\" generate",
+        "\"$DTS\" compose",
+        "\"$DTS\" assemble",
+    ] {
+        assert!(
+            consumer.contains(required),
+            "consumer quick start omits {required}"
+        );
+    }
+    assert!(!consumer.contains("cargo run"));
+    assert!(contributor.contains("cargo run --locked"));
+    assert!(contributor.contains("cargo test --locked"));
+}

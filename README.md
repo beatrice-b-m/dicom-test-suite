@@ -18,22 +18,36 @@ committed; write them beneath an ignored path such as `generated/` or `out/`.
 
 ## Quick Start
 
-Rust 1.85.0 is selected by `rust-toolchain.toml`. A default build needs no
-external codec executable or Python environment.
+Download a target whose archive is qualified in the current
+[standalone product status](docs/standalone-product-status-2026-08-31.md), keep
+its adjacent `.sha256` file, and extract it. This example uses the qualified
+macOS arm64 artifact; do not infer support for another target from its name:
+
+```sh
+ARCHIVE=dicom-test-suite-0.1.0-aarch64-apple-darwin.tar.gz
+shasum -a 256 -c "$ARCHIVE.sha256"
+tar -xzf "$ARCHIVE"
+DTS="$PWD/${ARCHIVE%.tar.gz}/bin/dicom-test-suite"
+"$DTS" version --format json
+"$DTS" capabilities --format json
+```
+
+The default installed binary needs no external codec executable or Python
+environment for the smoke workflow:
 
 ```sh
 # Inspect the cases selected by a profile.
-cargo run --locked -- list-cases --profile smoke
+"$DTS" list-cases --profile smoke
 
 # Generate a small, byte-stable corpus into a new directory.
-cargo run --locked -- generate \
+"$DTS" generate \
   --profile smoke --out generated/smoke --seed 1
 
 # Verify the files against their manifest contracts.
-cargo run --locked -- validate generated/smoke
+"$DTS" validate generated/smoke
 
 # Summarize exactly what was generated and skipped.
-cargo run --locked -- report \
+"$DTS" report \
   generated/smoke --format markdown > generated/smoke/coverage.md
 ```
 
@@ -43,9 +57,9 @@ as a complete directory, and the result always includes `manifest.json`.
 For automation, discover the versioned contract and request JSON explicitly:
 
 ```sh
-cargo run --locked -- version --format json
-cargo run --locked -- capabilities --format json
-cargo run --locked -- generate \
+"$DTS" version --format json
+"$DTS" capabilities --format json
+"$DTS" generate \
   --profile smoke --out generated/smoke-machine --seed 1 --format json
 ```
 
@@ -77,12 +91,12 @@ currently implemented valid DICOM SOP Class through a template or deterministic
 bundle, with bounded typed content models:
 
 ```sh
-cargo run --locked -- templates list
-cargo run --locked -- templates reference --format markdown
-cargo run --locked -- compose \
-  --spec tests/fixtures/composition/valid/template-only.json \
+"$DTS" templates list
+"$DTS" templates reference --format markdown
+"$DTS" compose \
+  --spec "${ARCHIVE%.tar.gz}/examples/compose-raw-grayscale.json" \
   --out generated/composition-sc --seed 1
-cargo run --locked -- validate generated/composition-sc
+"$DTS" validate generated/composition-sc
 ```
 
 `compose` is standards-aware but does not project curated registry coverage.
@@ -102,9 +116,10 @@ supported standard, explicit-VR unknown, managed private, recursive Sequence,
 and typed bulk values:
 
 ```sh
-cargo run --locked -- assemble \
-  --request assembly.json --out generated/structural --seed 1
-cargo run --locked -- validate generated/structural
+"$DTS" assemble \
+  --request "${ARCHIVE%.tar.gz}/examples/assemble-structural.json" \
+  --out generated/structural --seed 1
+"$DTS" validate generated/structural
 ```
 
 Structural output always records `iod_conformance = "not_assessed"`; it cannot
@@ -146,10 +161,10 @@ The implemented registry covers these representative families:
 The authoritative inventory is `cases/registry.json`, not this summary:
 
 ```sh
-cargo run --locked -- list-cases
-cargo run --locked -- list-cases --profile all
-cargo run --locked -- list-cases --profile extended --status planned
-cargo run --locked -- report gaps --format markdown
+"$DTS" list-cases
+"$DTS" list-cases --profile all
+"$DTS" list-cases --profile extended --status planned
+"$DTS" report gaps --format markdown
 ```
 
 Planned and unavailable cases stay visible in manifests and reports. This is an
@@ -212,10 +227,10 @@ every retained instance, checks file/meta identities, pixel and encapsulation
 contracts, references, profile isolation, and specialized object semantics.
 
 ```sh
-cargo run --locked --all-features -- generate \
+"$DTS" generate \
   --profile all --out generated/all --seed 1
-cargo run --locked --all-features -- validate generated/all
-cargo run --locked --all-features -- report \
+"$DTS" validate generated/all
+"$DTS" report \
   generated/all --format json > generated/all/coverage.json
 ```
 
@@ -223,10 +238,10 @@ These are strong same-project checks, not independent DICOM certification.
 Independent conformance collection uses pinned external validators:
 
 ```sh
-cargo run --locked -- conformance check-tools
-cargo run --locked -- conformance run \
+"$DTS" conformance check-tools
+"$DTS" conformance run \
   generated/all --out reports/conformance/all
-cargo run --locked -- conformance verify reports/conformance/all
+"$DTS" conformance verify reports/conformance/all
 ```
 
 Tool installation, exact-case routing, accepted-finding policy, and evidence
@@ -249,7 +264,7 @@ interoperate      Qualify DICOMDIR media or report protocol availability.
 standards         Check the standards lock and registry evidence gaps.
 ```
 
-Run `cargo run --locked -- --help` and the relevant subcommand with `--help`
+Run `"$DTS" --help` and the relevant subcommand with `--help`
 for the exact syntax. The complete examples and output interpretation are in
 [docs/generation-guide.md](docs/generation-guide.md).
 
@@ -280,10 +295,13 @@ pyramid checkpoint and its promotion boundary.
 
 ## Development
 
-The main regression command is:
+Repository development uses the pinned Rust 1.85.0 toolchain. These commands
+are contributor workflows, not consumer installation instructions:
 
 ```sh
 cargo test --locked --all-targets --no-default-features
+cargo run --locked -- version --format json
+cargo run --locked -- generate --profile smoke --out generated/dev-smoke --seed 1
 ```
 
 Contributors and coding agents must follow [AGENTS.md](AGENTS.md), including its

@@ -61,6 +61,7 @@ fn migrated_paths(profile: &str) -> BTreeSet<String> {
 
 fn run_generate(profile: &str, output: &Path) -> Value {
     let result = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .env_remove("DTS_HIGHDICOM_PYTHON")
         .args([
             "generate",
             "--profile",
@@ -91,7 +92,14 @@ fn migrated_slice_digest(root: &Path, manifest: &Value, selected: &BTreeSet<Stri
             continue;
         }
         assert!(remaining.remove(path), "duplicate migrated output {path}");
-        let manifest_bytes = serde_json::to_vec(entry).unwrap();
+        let mut deterministic_entry = entry.clone();
+        if let Some(backend) = deterministic_entry
+            .get_mut("generation_backend")
+            .and_then(Value::as_object_mut)
+        {
+            backend.remove("invocation_elapsed_milliseconds");
+        }
+        let manifest_bytes = serde_json::to_vec(&deterministic_entry).unwrap();
         let payload_bytes = fs::read(root.join(path)).unwrap();
         qualified.extend_from_slice(&(manifest_bytes.len() as u64).to_le_bytes());
         qualified.extend_from_slice(&manifest_bytes);
@@ -108,7 +116,8 @@ fn migrated_slice_digest(root: &Path, manifest: &Value, selected: &BTreeSet<Stri
 #[test]
 fn ordinary_generate_preserves_locked_curated_history_for_public_profiles() {
     // These qualification hashes bind the promoted terminal projection: the
-    // full ordered migrated file-entry Values, plan provenance, and the exact
+    // full ordered migrated file-entry Values after removing the explicitly
+    // nondeterministic backend elapsed time, plan provenance, and the exact
     // bytes of every corresponding Part 10 payload.
     let expected = [
         (

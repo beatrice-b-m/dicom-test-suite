@@ -97,7 +97,7 @@ impl DicomTestSuite {
             spec_root: request.caller_asset_root,
             out_dir: request.output_root,
             seed: request.seed,
-            catalog_path: PathBuf::from("templates/catalog.json"),
+            catalog_path: PathBuf::from(crate::product_resources::TEMPLATE_CATALOG_RESOURCE),
             dry_run: request.dry_run,
         };
         let (summary, document) =

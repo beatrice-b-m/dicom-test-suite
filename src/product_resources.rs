@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 include!(concat!(env!("OUT_DIR"), "/embedded_product_resources.rs"));
 
 pub const PRODUCT_RESOURCE_SET_VERSION: &str = "1.0.0";
+pub const TEMPLATE_CATALOG_RESOURCE: &str = "templates/catalog.json";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

@@ -137,13 +137,14 @@ pub fn compose_with_cancellation_and_resources(
     let product_resource_identity = resources
         .verify_integrity()
         .map_err(|error| ComposeError::ProductResources(error.to_string()))?;
-    let catalog_path = if options.catalog_path == Path::new("templates/catalog.json") {
-        snapshot
-            .path("templates/catalog.json")
-            .map_err(|error| ComposeError::ProductResources(error.to_string()))?
-    } else {
-        options.catalog_path.clone()
-    };
+    let catalog_path =
+        if options.catalog_path == Path::new(crate::product_resources::TEMPLATE_CATALOG_RESOURCE) {
+            snapshot
+                .path(crate::product_resources::TEMPLATE_CATALOG_RESOURCE)
+                .map_err(|error| ComposeError::ProductResources(error.to_string()))?
+        } else {
+            options.catalog_path.clone()
+        };
     let spec_bytes = fs::read(&options.spec_path).map_err(|source| ComposeError::Io {
         path: options.spec_path.clone(),
         source,

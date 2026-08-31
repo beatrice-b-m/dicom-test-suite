@@ -4,7 +4,7 @@
 
 **Contract:** `docs/standalone-productization-plan.md`
 
-**Release readiness:** not ready; S0 through S3 are complete and S4 is next
+**Release readiness:** not ready; S0 through S4 are complete and S5 is next
 
 ## Current gate state
 
@@ -14,7 +14,7 @@
 | S1 — relocatable resources | Complete | Versioned embedded resources cover all first-party catalogs, recipes, schemas, locks, configs, and small assets. Production lookups are audited, explicit roots are integrity checked, manifests project resource identity, and the installed binary passed every resource-backed workflow from three unrelated directories. |
 | S2 — automation protocol | Complete | CLI API `1.0.0` provides versioned discovery and command results, stable error codes and exit classes, typed file outcomes, explicit raw-report migration, warning-denied builds, and a schema-driven Python subprocess gate from outside the repository. |
 | S3 — Rust SDK | Complete | The supported `dicom_test_suite::sdk` facade provides integrity-checked resources, typed discovery/compose/validate/report outcomes, schema-bound manifests, explicit asset roots, cancellation, stable errors, compiled docs, and a packaged-crate side-project gate. |
-| S4 — structural assembly | Not started | There is no `assemble` CLI/SDK workflow, assembly request schema, or structural-assembly manifest branch. |
+| S4 — structural assembly | Complete | The packaged CLI and SDK accept versioned bounded structural requests, use the neutral plan/executor/writer spine, validate exact values and bulk, publish no-IOD-claim manifests/reports, and pass positive, adversarial, transaction, determinism, and external-consumer gates. |
 | S5 — packaging and guides | Not started | Cargo metadata and public quick starts do not yet satisfy the release-archive and installed-product contract. |
 | S6 — release qualification | Not started | Existing source-tree qualification is strong, but no exact packaged release candidate has passed the black-box, relocation, SDK, assembly, or terminal security matrix. |
 | S7 — promotion | Not started | The README still leads with `cargo run`; standalone release gates and compatibility ownership are not promoted. |
@@ -59,10 +59,10 @@ test-only fixtures are not classified by this initial production audit.
 
 ## Remaining blockers
 
-S4 through S7 and every terminal acceptance row remain open. S3 qualifies the
-SDK surface through a temporary Cargo package, but does not establish the S5
-package metadata/archive contract, an exact release candidate, structural
-assembly, either release target, or the terminal external-consumer matrix.
+S5 through S7 and every terminal acceptance row remain open. S4 qualifies the
+structural CLI and SDK surfaces through a temporary Cargo package, but does not
+establish the S5 package metadata/archive contract, an exact release candidate,
+either release target, or the terminal external-consumer matrix.
 Linux x86_64 and macOS arm64 cannot be claimed as standalone release targets
 until the exact target archives pass the required external-consumer matrix.
 Optional runtimes are accepted only when discovered and fingerprint-qualified;
@@ -361,3 +361,86 @@ extraction directory was removed after qualification.
 **Gate conclusion:** an unrelated Rust project can depend on the packaged
 crate through the documented facade with typed results and stable errors,
 without importing internal modules. S4-S7 and every terminal row remain open.
+
+### S4 — structural assembly: complete
+
+**Completed:** 2026-08-31
+
+**Qualification source commit:** `50bcb44`
+
+**Commits:**
+
+- `b7c88cf`, `8958888`, `74c9893` — versioned typed request parsing,
+  deterministic neutral `CorpusPlan` resolution, and publication through the
+  sole shared Part 10 materializer and atomic executor;
+- `c692a22`, `f5042c8` — integer, float, double-float, waveform, PDF, mesh,
+  and general bulk placement with exact size/hash/shape/padding provenance,
+  deterministic private-block allocation, and worker-count-independent plan
+  identity;
+- `a2f7a0a`, `8b8539b`, `96d26de` — structural manifest/report projection,
+  exact reopened element/Sequence/private/bulk/reference validation, semantic
+  tamper detection, and resolved identity/provenance evidence;
+- `7618b49`, `8c5c6f4`, `75cbf80` — capability discovery, stable CLI result
+  and error surfaces, and typed SDK assembly requests/outcomes/cancellation;
+- `71170e8`, `133c841`, `82f7d29` — protected-field, malformed value, frame,
+  traversal, symlink, resource, cancellation, destination-conflict, cleanup,
+  and concurrent publication-race qualification;
+- `760ef87` — schema-only Python and unrelated Rust consumers covering
+  structural dry-run, publication, validation, report, and no-claim evidence;
+- `0b19a18` — refreshed the three Cargo-lock backend fingerprints after the
+  S4.1 dependency change, restoring fail-closed smoke generation; and
+- `50bcb44` — current CLI, SDK, generation, workflow-selection, and structural
+  assembly operating guides.
+
+Discovery now advertises only Implicit and Explicit VR Little Endian and the
+eleven qualified structural content categories. Structural output records
+`iod_conformance = "not_assessed"` at run, instance, and report levels; its
+schema forbids curated/template/profile claims, and reports cannot join the
+coverage matrix. Explicit caller UIDs and deterministic UIDs remain
+distinguishable per role. Caller asset paths are relative to an explicit root;
+every component is checked for symlinks and containment before reading.
+
+**Focused and phase-gate verification:**
+
+```sh
+cargo test --locked --no-default-features \
+  --test assembly_request --test assembly_plan --test assembly_run \
+  --test assembly_qualification --test assemble_cli \
+  --test capabilities_cli --test sdk_facade --test cli_contract_schema \
+  --test schema_artifacts --test generation_backend_contract \
+  --test generation_backend_artifacts
+cargo test --locked --no-default-features --doc
+RUSTFLAGS='-D warnings' cargo check --locked --all-targets --no-default-features
+cargo fmt --all -- --check
+git diff --check
+cargo package --locked --offline --no-verify
+cargo build --manifest-path <extracted-package>/Cargo.toml \
+  --locked --offline --no-default-features
+python3 <extracted-package>/tests/black_box_cli_consumer.py \
+  <extracted-package>/target/debug/dicom-test-suite <extracted-package>
+DTS_SDK_PACKAGE_ROOT=<extracted-package> \
+  cargo test --locked --no-default-features --test sdk_external_consumer
+```
+
+The focused phase bundle passed 116 tests: four CLI assembly, six request,
+six plan, six execution/transaction, two all-content materialization, three
+capability, seven SDK facade, four CLI contract, five backend-lock, and 73
+schema/artifact tests. The compiled SDK doctest passed. The warning-denied
+all-target check passed in 21.80 seconds. The source-tree Python and Rust side
+projects passed in 10.13 and 33.56 seconds respectively.
+
+The fresh offline package contained 767 files and was 2,340,853 bytes with
+SHA-256
+`7d82cf8d7d2b237572380c4b155605c108fa8e7ea9c522a3f6310567aec656e8`.
+Its extracted binary passed the Python CLI consumer, and its extracted crate
+passed the Rust side-project consumer in 35.09 seconds. The exact temporary
+extraction directory was removed after qualification. Cargo still warned that
+documentation, homepage, and repository metadata are missing, and the archive
+has not yet been reduced to the intentional S5 release set. Those remain S5
+blockers; this package is phase evidence, not a release candidate.
+
+**Gate conclusion:** a side project can request deterministic caller-owned
+elements and typed pixels without adding a repository recipe, through either
+the packaged CLI or supported SDK, while evidence consumers cannot mistake the
+result for qualified-template or curated coverage. S5-S7 and every terminal
+release-candidate row remain open.

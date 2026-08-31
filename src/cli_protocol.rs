@@ -260,6 +260,9 @@ impl CliFailure {
         } else if normalized.contains("resource limit")
             || normalized.contains("output limit")
             || normalized.contains("limit exceeded")
+            || command == "assemble"
+                && normalized.contains("resource")
+                && (normalized.contains("exceed") || normalized.contains("budget"))
         {
             ("resource.limit.exceeded", 4, false)
         } else if normalized.contains("transfer syntax unavailable") {

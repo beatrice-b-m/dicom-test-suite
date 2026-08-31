@@ -154,3 +154,54 @@ fn assemble_cli_adversarial_inputs_use_stable_exit_classes() {
     }
     fs::remove_dir_all(workspace).unwrap();
 }
+
+#[test]
+fn assemble_cli_destination_and_resource_failures_publish_nothing() {
+    let workspace = root("transaction");
+    fs::create_dir_all(&workspace).unwrap();
+    let request_path = workspace.join("request.json");
+    request(&request_path);
+    let existing = root("existing");
+    fs::create_dir_all(&existing).unwrap();
+    fs::write(existing.join("sentinel"), b"preserve").unwrap();
+    let existing_result = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["assemble", "--request"])
+        .arg(&request_path)
+        .arg("--out")
+        .arg(&existing)
+        .args(["--format", "json"])
+        .output()
+        .unwrap();
+    assert_eq!(existing_result.status.code(), Some(4));
+    let error: serde_json::Value = serde_json::from_slice(&existing_result.stderr).unwrap();
+    assert_eq!(error["error"]["code"], "output.destination.exists");
+    assert_eq!(fs::read(existing.join("sentinel")).unwrap(), b"preserve");
+
+    let limited_path = workspace.join("limited.json");
+    fs::write(
+        &limited_path,
+        br#"{"assembly_request_schema_version":"1.0.0","limits":{"max_output_bytes":1},"instances":[{"instance_id":"limited","sop_class_uid":"1.2.3","elements":[]}]}"#,
+    )
+    .unwrap();
+    let limited = root("limited");
+    let limited_result = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["assemble", "--request"])
+        .arg(&limited_path)
+        .arg("--out")
+        .arg(&limited)
+        .args(["--format", "json"])
+        .output()
+        .unwrap();
+    assert_eq!(
+        limited_result.status.code(),
+        Some(4),
+        "{}",
+        String::from_utf8_lossy(&limited_result.stderr)
+    );
+    let error: serde_json::Value = serde_json::from_slice(&limited_result.stderr).unwrap();
+    assert_eq!(error["error"]["code"], "resource.limit.exceeded");
+    assert!(!limited.exists());
+
+    fs::remove_dir_all(workspace).unwrap();
+    fs::remove_dir_all(existing).unwrap();
+}

@@ -48,8 +48,8 @@ dicom-test-suite = {{ path = "{}", default-features = false }}
     fs::write(
         root.join("src/main.rs"),
         r##"use dicom_test_suite::sdk::{
-    CancellationToken, ComposeRequest, DicomTestSuite, ManifestKind, ReportKind, ReportRequest,
-    SdkErrorKind, ValidateRequest,
+    AssembleRequest, CancellationToken, ComposeRequest, DicomTestSuite, ManifestKind, ReportKind,
+    ReportRequest, SdkErrorKind, ValidateRequest,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -74,6 +74,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     assert!(validation.is_valid());
     let report = product.report(ReportRequest::new(&output))?;
     assert_eq!(report.kind(), ReportKind::QualifiedComposition);
+
+    let structural_output = std::path::PathBuf::from(&output).with_extension("structural");
+    let assembly = br#"{
+      "assembly_request_schema_version":"1.0.0",
+      "instances":[{"instance_id":"structural","sop_class_uid":"1.2.840.10008.5.1.4.1.1.7","elements":[
+        {"address":{"keyword":"PatientName"},"value":{"kind":"string","value":"SYNTHETIC^SDK"}}
+      ],"bulk":[{"kind":"integer_pixel_data","source":{"kind":"inline_base64","base64":"AAECAw=="},"rows":2,"columns":2,"bits_allocated":8,"bits_stored":8}]}]
+    }"#;
+    let structural = product.assemble(
+        AssembleRequest::from_json_bytes(assembly.as_slice(), ".", &structural_output)
+            .with_seed(12),
+    )?;
+    assert!(structural.published());
+    assert_eq!(
+        structural.manifest().expect("structural manifest").kind(),
+        ManifestKind::StructuralAssembly
+    );
+    assert!(product.validate(ValidateRequest::new(&structural_output))?.is_valid());
+    assert_eq!(
+        product.report(ReportRequest::new(&structural_output))?.kind(),
+        ReportKind::StructuralAssembly
+    );
 
     let cancelled_output = std::path::PathBuf::from(&output).with_extension("cancelled");
     let cancellation = CancellationToken::new();

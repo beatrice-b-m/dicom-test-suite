@@ -87,6 +87,44 @@ def write_composition_spec(path):
     )
 
 
+def write_assembly_request(path):
+    path.write_text(
+        json.dumps(
+            {
+                "assembly_request_schema_version": "1.0.0",
+                "instances": [
+                    {
+                        "instance_id": "structural",
+                        "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+                        "elements": [
+                            {
+                                "address": {"keyword": "PatientName"},
+                                "value": {
+                                    "kind": "string",
+                                    "value": "SYNTHETIC^CONSUMER",
+                                },
+                            }
+                        ],
+                        "bulk": [
+                            {
+                                "kind": "integer_pixel_data",
+                                "source": {
+                                    "kind": "inline_base64",
+                                    "base64": "AAECAw==",
+                                },
+                                "rows": 2,
+                                "columns": 2,
+                                "bits_allocated": 8,
+                                "bits_stored": 8,
+                            }
+                        ],
+                    }
+                ],
+            }
+        )
+    )
+
+
 with tempfile.TemporaryDirectory(prefix="dts-python-consumer-") as temporary:
     WORK = pathlib.Path(temporary)
     spec = WORK / "request.json"
@@ -174,6 +212,61 @@ with tempfile.TemporaryDirectory(prefix="dts-python-consumer-") as temporary:
         "report-result.schema.json",
     )
     assert wrapped_report["result"]["report"] == raw_report
+
+    assembly_request = WORK / "assembly.json"
+    write_assembly_request(assembly_request)
+    assert capabilities["result"]["structural_assembly"]["availability"] == "available"
+    assembly_preview_root = WORK / "assembly-preview"
+    assembly_preview = success(
+        [
+            "assemble",
+            "--request",
+            str(assembly_request),
+            "--out",
+            str(assembly_preview_root),
+            "--dry-run",
+            "--format",
+            "json",
+        ],
+        "assembly-result.schema.json",
+    )
+    assert assembly_preview["result"]["published"] is False
+    assert not assembly_preview_root.exists()
+    assembly_root = WORK / "assembly"
+    assembly = success(
+        [
+            "assemble",
+            "--request",
+            str(assembly_request),
+            "--out",
+            str(assembly_root),
+            "--format",
+            "json",
+        ],
+        "assembly-result.schema.json",
+    )
+    assert assembly["result"]["published"] is True
+    assert set(assembly_preview["result"]) == set(assembly["result"])
+    structural_manifest = json.loads((assembly_root / "manifest.json").read_text())
+    assert structural_manifest["run"]["iod_conformance"] == "not_assessed"
+    assert "template_id" not in json.dumps(structural_manifest)
+    success(
+        ["validate", str(assembly_root), "--format", "json"],
+        "validation-result.schema.json",
+    )
+    structural_report = success(
+        [
+            "report",
+            str(assembly_root),
+            "--format",
+            "json",
+            "--cli-api",
+            "1.0.0",
+        ],
+        "report-result.schema.json",
+    )
+    assert structural_report["result"]["report_kind"] == "structural_assembly"
+    assert structural_report["result"]["report"]["iod_conformance"] == "not_assessed"
 
     generation_root = WORK / "generated"
     success(

@@ -6,7 +6,7 @@
   "required": ["report_result_schema_version", "report_kind", "report_schema_version", "report"],
   "properties": {
     "report_result_schema_version": { "const": "1.0.0" },
-    "report_kind": { "enum": ["coverage", "coverage_gaps", "composition"] },
+    "report_kind": { "enum": ["coverage", "coverage_gaps", "composition", "structural_assembly"] },
     "report_schema_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
     "report": { "type": "object" }
   },

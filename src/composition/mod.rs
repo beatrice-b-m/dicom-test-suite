@@ -91,7 +91,9 @@ pub use reference::{
 };
 pub use run::{
     ComposeBytesOptions, ComposeCancellationToken, ComposeError, ComposeOptions, ComposeSummary,
-    compose, compose_from_bytes, compose_from_bytes_with_cancellation, compose_with_cancellation,
+    compose, compose_from_bytes, compose_from_bytes_with_cancellation,
+    compose_from_bytes_with_cancellation_and_resources, compose_from_bytes_with_resources,
+    compose_with_cancellation, compose_with_cancellation_and_resources, compose_with_resources,
 };
 pub use spec::{
     AttributeScope, CompositionSpec, ContentAssignment, ContentSource, EncodedFrame,

@@ -18,7 +18,6 @@ const KNOWN_AMBIENT_SIGNATURES: &[&str] = &[
     "src/composition/advanced_defaults.rs|standards_lock_path: repository_root.join(\"standards.lock.json\"),",
     "src/composition/advanced_defaults.rs|standards_lock_path: repository_root.join(\"standards.lock.json\"),",
     "src/composition/advanced_semantic_defaults.rs|standards_lock_path: repository_root.join(\"standards.lock.json\"),",
-    "src/composition/run.rs|let repository_root = PathBuf::from(env!(\"CARGO_MANIFEST_DIR\"));",
     "src/conformance.rs|let run_schema = read_json(Path::new(\"schemas/conformance-run.schema.json\"))?;",
     "src/conformance.rs|pub const DEFAULT_ACCEPTED_FINDINGS: &str = \"conformance/accepted-findings.json\";",
     "src/conformance.rs|pub const DEFAULT_VALIDATOR_CONFIG: &str = \"conformance/validators.json\";",
@@ -84,7 +83,13 @@ fn production_has_no_uninventoried_ambient_resource_lookups() {
             .any(|form| trimmed.contains(form));
 
             let resolved_product_resource = trimmed.contains("resource_root.join(");
-            if compile_time_root || (resource_path && lookup_form && !resolved_product_resource) {
+            let resource_path_comparison = trimmed.contains("== Path::new(");
+            if compile_time_root
+                || (resource_path
+                    && lookup_form
+                    && !resolved_product_resource
+                    && !resource_path_comparison)
+            {
                 findings.push(format!("{}|{trimmed}", path.display()));
             }
         }

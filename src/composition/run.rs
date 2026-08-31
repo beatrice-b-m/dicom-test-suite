@@ -50,6 +50,7 @@ use crate::executor::services::{
     ProviderOutputExpectation, ProviderRequest as ExecutorProviderRequest, SlotExecutionBinding,
     StagedAssetHandle, StagedAssetRegistry, StagingRelativePath,
 };
+use crate::product_resources::ProductResources;
 use crate::recipes::{AdvancedProviderLimits, RecipeCatalog};
 use crate::{PACKAGE_NAME, PACKAGE_VERSION, RUSTC_VERSION, TARGET_TRIPLE, sha256_hex};
 
@@ -106,14 +107,39 @@ impl ComposeCancellationToken {
 }
 
 pub fn compose(options: &ComposeOptions) -> Result<(ComposeSummary, Value), ComposeError> {
-    compose_with_cancellation(options, &ComposeCancellationToken::new())
+    compose_with_resources(options, &ProductResources::embedded())
+}
+
+pub fn compose_with_resources(
+    options: &ComposeOptions,
+    resources: &ProductResources,
+) -> Result<(ComposeSummary, Value), ComposeError> {
+    compose_with_cancellation_and_resources(options, &ComposeCancellationToken::new(), resources)
 }
 
 pub fn compose_with_cancellation(
     options: &ComposeOptions,
     cancellation: &ComposeCancellationToken,
 ) -> Result<(ComposeSummary, Value), ComposeError> {
+    compose_with_cancellation_and_resources(options, cancellation, &ProductResources::embedded())
+}
+
+pub fn compose_with_cancellation_and_resources(
+    options: &ComposeOptions,
+    cancellation: &ComposeCancellationToken,
+    resources: &ProductResources,
+) -> Result<(ComposeSummary, Value), ComposeError> {
     check_cancelled(cancellation)?;
+    let snapshot = resources
+        .snapshot()
+        .map_err(|error| ComposeError::ProductResources(error.to_string()))?;
+    let catalog_path = if options.catalog_path == Path::new("templates/catalog.json") {
+        snapshot
+            .path("templates/catalog.json")
+            .map_err(|error| ComposeError::ProductResources(error.to_string()))?
+    } else {
+        options.catalog_path.clone()
+    };
     let spec_bytes = fs::read(&options.spec_path).map_err(|source| ComposeError::Io {
         path: options.spec_path.clone(),
         source,
@@ -124,7 +150,8 @@ pub fn compose_with_cancellation(
         spec_root,
         &options.out_dir,
         options.seed,
-        &options.catalog_path,
+        &catalog_path,
+        snapshot.root(),
         options.dry_run,
         cancellation,
     )
@@ -134,7 +161,20 @@ pub fn compose_from_bytes(
     spec_bytes: &[u8],
     options: &ComposeBytesOptions,
 ) -> Result<(ComposeSummary, Value), ComposeError> {
-    compose_from_bytes_with_cancellation(spec_bytes, options, &ComposeCancellationToken::new())
+    compose_from_bytes_with_resources(spec_bytes, options, &ProductResources::embedded())
+}
+
+pub fn compose_from_bytes_with_resources(
+    spec_bytes: &[u8],
+    options: &ComposeBytesOptions,
+    resources: &ProductResources,
+) -> Result<(ComposeSummary, Value), ComposeError> {
+    compose_from_bytes_with_cancellation_and_resources(
+        spec_bytes,
+        options,
+        &ComposeCancellationToken::new(),
+        resources,
+    )
 }
 
 pub fn compose_from_bytes_with_cancellation(
@@ -142,13 +182,38 @@ pub fn compose_from_bytes_with_cancellation(
     options: &ComposeBytesOptions,
     cancellation: &ComposeCancellationToken,
 ) -> Result<(ComposeSummary, Value), ComposeError> {
+    compose_from_bytes_with_cancellation_and_resources(
+        spec_bytes,
+        options,
+        cancellation,
+        &ProductResources::embedded(),
+    )
+}
+
+pub fn compose_from_bytes_with_cancellation_and_resources(
+    spec_bytes: &[u8],
+    options: &ComposeBytesOptions,
+    cancellation: &ComposeCancellationToken,
+    resources: &ProductResources,
+) -> Result<(ComposeSummary, Value), ComposeError> {
     check_cancelled(cancellation)?;
+    let snapshot = resources
+        .snapshot()
+        .map_err(|error| ComposeError::ProductResources(error.to_string()))?;
+    let catalog_path = if options.catalog_path == Path::new("templates/catalog.json") {
+        snapshot
+            .path("templates/catalog.json")
+            .map_err(|error| ComposeError::ProductResources(error.to_string()))?
+    } else {
+        options.catalog_path.clone()
+    };
     compose_loaded(
         spec_bytes,
         &options.spec_root,
         &options.out_dir,
         options.seed,
-        &options.catalog_path,
+        &catalog_path,
+        snapshot.root(),
         options.dry_run,
         cancellation,
     )
@@ -160,6 +225,7 @@ fn compose_loaded(
     out_dir: &Path,
     seed: u64,
     catalog_path: &Path,
+    resource_root: &Path,
     dry_run: bool,
     cancellation: &ComposeCancellationToken,
 ) -> Result<(ComposeSummary, Value), ComposeError> {
@@ -191,6 +257,7 @@ fn compose_loaded(
         &catalog_bytes,
         &std::env::temp_dir(),
         spec_root,
+        resource_root,
         cancellation,
     )?;
     if cancellation.is_cancelled() {
@@ -295,6 +362,7 @@ fn resolve_execution_bundle(
     catalog_bytes: &[u8],
     _scratch_parent: &Path,
     spec_root: &Path,
+    resource_root: &Path,
     cancellation: &ComposeCancellationToken,
 ) -> Result<PlannedCompositionExecution, ComposeError> {
     let bundle_resolution = BundleResolver.resolve(spec.clone(), catalog)?;
@@ -318,12 +386,12 @@ fn resolve_execution_bundle(
     let run_defaults = spec.defaults.typed_attributes()?;
     reject_structural_overrides("composition defaults", &run_defaults)?;
     let recipes = RecipeCatalog::load(
-        "cases/recipes",
-        "cases/registry.json",
+        resource_root.join("cases/recipes"),
+        resource_root.join("cases/registry.json"),
         &options.catalog_path,
     )
     .map_err(|error| ComposeError::AdvancedDefaults(error.to_string()))?;
-    let repository_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let repository_root = resource_root.to_path_buf();
     let advanced_limits = advanced_provider_limits(&spec)?;
     let mut plans_by_id = BTreeMap::new();
     let mut advanced_artifacts: BTreeMap<
@@ -2513,6 +2581,7 @@ pub enum ComposeError {
         size: u64,
         limit: u64,
     },
+    ProductResources(String),
 }
 
 macro_rules! from_error {
@@ -2618,6 +2687,7 @@ mod tests {
             &catalog_bytes,
             &root,
             &root,
+            Path::new("."),
             &ComposeCancellationToken::new(),
         )
         .unwrap();
@@ -2661,6 +2731,7 @@ mod tests {
             &catalog_bytes,
             Path::new("tests/fixtures/composition/valid"),
             Path::new("tests/fixtures/composition/valid"),
+            Path::new("."),
             &ComposeCancellationToken::new(),
         )
         .unwrap();

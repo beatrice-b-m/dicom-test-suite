@@ -27,6 +27,10 @@ const SCHEMAS: &[(&str, &str)] = &[
         "https://dicom-test-suite.local/schemas/templates-result.schema.json",
     ),
     (
+        "schemas/validation-result.schema.json",
+        "https://dicom-test-suite.local/schemas/validation-result.schema.json",
+    ),
+    (
         "schemas/cli-success-envelope.schema.json",
         "https://dicom-test-suite.local/schemas/cli-success-envelope.schema.json",
     ),

@@ -212,6 +212,22 @@ fn validate_and_report_dispatch_on_composition_manifests() {
         .unwrap();
     assert!(composed.status.success());
 
+    let machine_validation = Command::new(binary())
+        .args(["validate", out.to_str().unwrap(), "--format", "json"])
+        .output()
+        .unwrap();
+    assert!(machine_validation.status.success());
+    assert!(machine_validation.stderr.is_empty());
+    let machine_validation: Value = serde_json::from_slice(&machine_validation.stdout).unwrap();
+    assert!(
+        compile_schema("schemas/cli-success-envelope.schema.json").is_valid(&machine_validation)
+    );
+    assert!(
+        compile_schema("schemas/validation-result.schema.json")
+            .is_valid(&machine_validation["result"])
+    );
+    assert_eq!(machine_validation["command"], "validate");
+
     let validated = Command::new(binary())
         .args(["validate", out.to_str().unwrap()])
         .output()
@@ -241,5 +257,18 @@ fn validate_and_report_dispatch_on_composition_manifests() {
         .unwrap();
     assert!(!rejected.status.success());
     assert!(String::from_utf8_lossy(&rejected.stdout).contains("output SHA-256 differs"));
+
+    let machine_rejected = Command::new(binary())
+        .args(["validate", out.to_str().unwrap(), "--format", "json"])
+        .output()
+        .unwrap();
+    assert_eq!(machine_rejected.status.code(), Some(5));
+    assert!(machine_rejected.stdout.is_empty());
+    let machine_rejected: Value = serde_json::from_slice(&machine_rejected.stderr).unwrap();
+    assert!(compile_schema("schemas/cli-error-envelope.schema.json").is_valid(&machine_rejected));
+    assert_eq!(
+        machine_rejected["error"]["code"],
+        "validation.artifact.failed"
+    );
     fs::remove_dir_all(out).unwrap();
 }

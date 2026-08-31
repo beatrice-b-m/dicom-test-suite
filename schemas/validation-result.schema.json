@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dicom-test-suite.local/schemas/validation-result.schema.json",
+  "title": "DICOM Test Suite Validation Result",
+  "type": "object",
+  "required": [
+    "validation_result_schema_version", "generated_root", "manifest_path",
+    "files_checked", "valid", "failures"
+  ],
+  "properties": {
+    "validation_result_schema_version": { "const": "1.0.0" },
+    "generated_root": { "type": "string", "minLength": 1 },
+    "manifest_path": { "type": "string", "minLength": 1 },
+    "files_checked": { "type": "integer", "minimum": 0 },
+    "valid": { "const": true },
+    "failures": { "type": "array", "maxItems": 0 }
+  },
+  "additionalProperties": false
+}

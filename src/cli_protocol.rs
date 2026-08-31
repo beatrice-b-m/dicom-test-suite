@@ -6,6 +6,7 @@ pub const CLI_API_VERSION: &str = "1.0.0";
 pub const GENERATION_RESULT_SCHEMA_VERSION: &str = "1.0.0";
 pub const COMPOSITION_RESULT_SCHEMA_VERSION: &str = "1.0.0";
 pub const TEMPLATES_RESULT_SCHEMA_VERSION: &str = "1.0.0";
+pub const VALIDATION_RESULT_SCHEMA_VERSION: &str = "1.0.0";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SuccessEnvelope<T> {
@@ -89,6 +90,16 @@ impl<T> TemplatesResult<T> {
             templates,
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ValidationResult {
+    pub validation_result_schema_version: &'static str,
+    pub generated_root: String,
+    pub manifest_path: String,
+    pub files_checked: usize,
+    pub valid: bool,
+    pub failures: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]

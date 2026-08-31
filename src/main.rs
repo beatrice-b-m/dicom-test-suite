@@ -761,18 +761,40 @@ fn run() -> Result<(), String> {
                 print_validate_usage();
                 return Ok(());
             }
-            if let Some(extra) = args.next() {
-                return Err(format!("unknown validate argument: {extra}"));
+            let mut format = None;
+            while let Some(argument) = args.next() {
+                match argument.as_str() {
+                    "--format" => format = Some(required_value(&mut args, "--format")?),
+                    unknown => return Err(format!("unknown validate argument: {unknown}")),
+                }
             }
 
             let summary =
                 dicom_test_suite::validate_generated_root(&root).map_err(|err| err.to_string())?;
-            println!("generated_root\t{root}");
-            println!("manifest\t{}", summary.manifest_path.display());
-            println!("files_checked\t{}", summary.files_checked);
-            println!("validation_failures\t{}", summary.failures.len());
-            for failure in &summary.failures {
-                println!("failure\t{failure}");
+            match format.as_deref() {
+                None => {
+                    println!("generated_root\t{root}");
+                    println!("manifest\t{}", summary.manifest_path.display());
+                    println!("files_checked\t{}", summary.files_checked);
+                    println!("validation_failures\t{}", summary.failures.len());
+                    for failure in &summary.failures {
+                        println!("failure\t{failure}");
+                    }
+                }
+                Some("json") if summary.failures.is_empty() => write_machine_success(
+                    "validate",
+                    dicom_test_suite::cli_protocol::ValidationResult {
+                        validation_result_schema_version:
+                            dicom_test_suite::cli_protocol::VALIDATION_RESULT_SCHEMA_VERSION,
+                        generated_root: root.clone(),
+                        manifest_path: summary.manifest_path.display().to_string(),
+                        files_checked: summary.files_checked,
+                        valid: true,
+                        failures: Vec::new(),
+                    },
+                )?,
+                Some("json") => {}
+                Some(other) => return Err(format!("unsupported validate format: {other}")),
             }
             if summary.failures.is_empty() {
                 Ok(())
@@ -1156,7 +1178,7 @@ fn print_usage() {
     );
     println!("  dicom-test-suite templates <list|describe|reference> ...");
     println!("  dicom-test-suite interoperate <media-dicomdir|protocol-baseline> ...");
-    println!("  dicom-test-suite validate GENERATED_ROOT");
+    println!("  dicom-test-suite validate GENERATED_ROOT [--format json]");
     println!("  dicom-test-suite report GENERATED_ROOT --format json|markdown");
     println!("  dicom-test-suite standards check-lock [--lock PATH]");
     println!("  dicom-test-suite standards gaps --profile PROFILE [--registry PATH]");
@@ -1243,7 +1265,7 @@ fn print_templates_usage() {
 }
 
 fn print_validate_usage() {
-    println!("usage: dicom-test-suite validate GENERATED_ROOT");
+    println!("usage: dicom-test-suite validate GENERATED_ROOT [--format json]");
 }
 
 fn print_report_usage() {

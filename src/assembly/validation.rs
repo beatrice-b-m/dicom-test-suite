@@ -2,8 +2,16 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Component, Path};
 
+use dicom_core::header::HasLength;
 use dicom_object::open_file;
 use serde_json::{Value, json};
+
+use crate::composition::{
+    AttributeItem, AttributeOperation, AttributeValue, CanonicalContent, DicomVr, PrimitiveValue,
+    ResolvedAttribute,
+};
+
+type Dataset = dicom_object::InMemDicomObject<dicom_dictionary_std::StandardDataDictionary>;
 
 pub fn validate_assembly_root(root: &Path, manifest: &Value) -> (usize, Vec<String>) {
     let mut failures = Vec::new();
@@ -24,6 +32,7 @@ pub fn validate_assembly_root(root: &Path, manifest: &Value) -> (usize, Vec<Stri
     let Some(instances) = manifest.get("instances").and_then(Value::as_array) else {
         return (0, vec!["structural manifest is missing instances".into()]);
     };
+    validate_reference_closure(instances, &mut failures);
     let mut paths = BTreeSet::new();
     for instance in instances {
         let Some(relative) = instance.get("output_path").and_then(Value::as_str) else {
@@ -73,6 +82,34 @@ pub fn validate_assembly_root(root: &Path, manifest: &Value) -> (usize, Vec<Stri
                 {
                     failures.push(format!("structural Part 10 identity mismatch: {relative}"));
                 }
+                match serde_json::from_value::<Vec<ResolvedAttribute>>(
+                    instance.get("elements").cloned().unwrap_or_default(),
+                ) {
+                    Ok(elements) => validate_elements(
+                        &object,
+                        &elements,
+                        transfer != Some("1.2.840.10008.1.2"),
+                        relative,
+                        &mut failures,
+                    ),
+                    Err(error) => failures.push(format!(
+                        "structural element evidence is invalid for {relative}: {error}"
+                    )),
+                }
+                match serde_json::from_value::<Vec<CanonicalContent>>(
+                    instance.get("bulk").cloned().unwrap_or_default(),
+                ) {
+                    Ok(content) => validate_bulk(
+                        &object,
+                        &content,
+                        transfer != Some("1.2.840.10008.1.2"),
+                        relative,
+                        &mut failures,
+                    ),
+                    Err(error) => failures.push(format!(
+                        "structural bulk evidence is invalid for {relative}: {error}"
+                    )),
+                }
             }
             Err(error) => failures.push(format!(
                 "structural Part 10 reopen failed for {relative}: {error}"
@@ -88,6 +125,341 @@ pub fn validate_assembly_root(root: &Path, manifest: &Value) -> (usize, Vec<Stri
         }
     }
     (instances.len(), failures)
+}
+
+fn validate_reference_closure(instances: &[Value], failures: &mut Vec<String>) {
+    let identities = instances
+        .iter()
+        .filter_map(|instance| {
+            Some((
+                instance.get("instance_id")?.as_str()?,
+                instance.get("sop_class_uid")?.as_str()?,
+                instance.get("sop_instance_uid")?.as_str()?,
+            ))
+        })
+        .map(|(id, class, instance)| (id, (class, instance)))
+        .collect::<std::collections::BTreeMap<_, _>>();
+    for source in instances {
+        let source_id = source
+            .get("instance_id")
+            .and_then(Value::as_str)
+            .unwrap_or("<unknown>");
+        for reference in source
+            .get("references")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+        {
+            let target_id = reference.get("target_instance_id").and_then(Value::as_str);
+            let valid = target_id
+                .and_then(|target| identities.get(target).copied())
+                .is_some_and(|(class, instance)| {
+                    reference.get("source_instance_id").and_then(Value::as_str) == Some(source_id)
+                        && reference
+                            .get("referenced_sop_class_uid")
+                            .and_then(Value::as_str)
+                            == Some(class)
+                        && reference
+                            .get("referenced_sop_instance_uid")
+                            .and_then(Value::as_str)
+                            == Some(instance)
+                });
+            if !valid {
+                failures.push(format!(
+                    "structural reference closure mismatch from {source_id} to {}",
+                    target_id.unwrap_or("<missing>")
+                ));
+            }
+        }
+    }
+}
+
+fn validate_elements(
+    object: &Dataset,
+    elements: &[ResolvedAttribute],
+    enforce_vr: bool,
+    relative: &str,
+    failures: &mut Vec<String>,
+) {
+    for expected in elements {
+        validate_element(
+            object,
+            expected.address.tag(),
+            expected.vr,
+            expected.value.as_ref(),
+            enforce_vr,
+            relative,
+            failures,
+        );
+        if let Some(creator) = &expected.address.private_creator {
+            let creator_tag =
+                dicom_core::Tag(expected.address.group, expected.address.element >> 8);
+            let matches = object
+                .element(creator_tag)
+                .ok()
+                .and_then(|element| element.to_str().ok())
+                .is_some_and(|actual| actual.trim_end() == creator);
+            if !matches {
+                failures.push(format!(
+                    "structural private creator mismatch at {} in {relative}",
+                    expected.address.normalized_tag()
+                ));
+            }
+        }
+    }
+}
+
+fn validate_element(
+    object: &Dataset,
+    tag: dicom_core::Tag,
+    vr: DicomVr,
+    expected: Option<&AttributeValue>,
+    enforce_vr: bool,
+    relative: &str,
+    failures: &mut Vec<String>,
+) {
+    let Ok(element) = object.element(tag) else {
+        failures.push(format!(
+            "structural element {:04X},{:04X} is missing in {relative}",
+            tag.group(),
+            tag.element()
+        ));
+        return;
+    };
+    if enforce_vr && element.vr() != vr.as_dicom() {
+        failures.push(format!(
+            "structural element {:04X},{:04X} VR mismatch in {relative}",
+            tag.group(),
+            tag.element()
+        ));
+        return;
+    }
+    let matches = match expected {
+        None => element.value().is_empty(),
+        Some(AttributeValue::Primitive(value)) => primitive_matches(element, value),
+        Some(AttributeValue::Multi(values)) => multi_matches(element, values),
+        Some(AttributeValue::EncodedText(bytes)) | Some(AttributeValue::Binary(bytes)) => element
+            .to_bytes()
+            .is_ok_and(|actual| padded_bytes_match(actual.as_ref(), bytes)),
+        Some(AttributeValue::Sequence(items)) => element
+            .items()
+            .is_some_and(|actual| sequence_matches(actual, items, enforce_vr, relative, failures)),
+    };
+    if !matches {
+        failures.push(format!(
+            "structural element {:04X},{:04X} value mismatch in {relative}",
+            tag.group(),
+            tag.element()
+        ));
+    }
+}
+
+fn primitive_matches(
+    element: &dicom_core::DataElement<Dataset>,
+    expected: &PrimitiveValue,
+) -> bool {
+    match expected {
+        PrimitiveValue::String(value) => element
+            .to_str()
+            .is_ok_and(|actual| actual.as_ref() == value),
+        PrimitiveValue::Signed(value) => {
+            element.to_int::<i64>().is_ok_and(|actual| actual == *value)
+        }
+        PrimitiveValue::Unsigned(value) => {
+            element.to_int::<u64>().is_ok_and(|actual| actual == *value)
+        }
+        PrimitiveValue::Float32Bits(value) => element
+            .to_float32()
+            .is_ok_and(|actual| actual.to_bits() == *value),
+        PrimitiveValue::Float64Bits(value) => element
+            .to_float64()
+            .is_ok_and(|actual| actual.to_bits() == *value),
+        PrimitiveValue::Tag(value) => matches!(
+            element.value().primitive(),
+            Some(dicom_core::value::PrimitiveValue::Tags(actual))
+                if actual.as_ref() == [value.tag()]
+        ),
+    }
+}
+
+fn multi_matches(element: &dicom_core::DataElement<Dataset>, expected: &[PrimitiveValue]) -> bool {
+    if expected
+        .iter()
+        .all(|value| matches!(value, PrimitiveValue::String(_)))
+    {
+        let joined = expected
+            .iter()
+            .map(|value| match value {
+                PrimitiveValue::String(value) => value.as_str(),
+                _ => unreachable!(),
+            })
+            .collect::<Vec<_>>()
+            .join("\\");
+        return element.to_str().is_ok_and(|actual| actual == joined);
+    }
+    if expected
+        .iter()
+        .all(|value| matches!(value, PrimitiveValue::Signed(_)))
+    {
+        let expected = expected
+            .iter()
+            .map(|value| match value {
+                PrimitiveValue::Signed(value) => *value,
+                _ => unreachable!(),
+            })
+            .collect::<Vec<_>>();
+        return element
+            .to_multi_int::<i64>()
+            .is_ok_and(|actual| actual == expected);
+    }
+    if expected
+        .iter()
+        .all(|value| matches!(value, PrimitiveValue::Unsigned(_)))
+    {
+        let expected = expected
+            .iter()
+            .map(|value| match value {
+                PrimitiveValue::Unsigned(value) => *value,
+                _ => unreachable!(),
+            })
+            .collect::<Vec<_>>();
+        return element
+            .to_multi_int::<u64>()
+            .is_ok_and(|actual| actual == expected);
+    }
+    if expected
+        .iter()
+        .all(|value| matches!(value, PrimitiveValue::Float32Bits(_)))
+    {
+        let expected = expected
+            .iter()
+            .map(|value| match value {
+                PrimitiveValue::Float32Bits(value) => *value,
+                _ => unreachable!(),
+            })
+            .collect::<Vec<_>>();
+        return element
+            .to_multi_float32()
+            .is_ok_and(|actual| actual.iter().map(|value| value.to_bits()).eq(expected));
+    }
+    if expected
+        .iter()
+        .all(|value| matches!(value, PrimitiveValue::Float64Bits(_)))
+    {
+        let expected = expected
+            .iter()
+            .map(|value| match value {
+                PrimitiveValue::Float64Bits(value) => *value,
+                _ => unreachable!(),
+            })
+            .collect::<Vec<_>>();
+        return element
+            .to_multi_float64()
+            .is_ok_and(|actual| actual.iter().map(|value| value.to_bits()).eq(expected));
+    }
+    if expected
+        .iter()
+        .all(|value| matches!(value, PrimitiveValue::Tag(_)))
+    {
+        let expected = expected
+            .iter()
+            .map(|value| match value {
+                PrimitiveValue::Tag(value) => value.tag(),
+                _ => unreachable!(),
+            })
+            .collect::<Vec<_>>();
+        return matches!(
+            element.value().primitive(),
+            Some(dicom_core::value::PrimitiveValue::Tags(actual))
+                if actual.as_ref() == expected
+        );
+    }
+    false
+}
+
+fn sequence_matches(
+    actual: &[Dataset],
+    expected: &[AttributeItem],
+    enforce_vr: bool,
+    relative: &str,
+    failures: &mut Vec<String>,
+) -> bool {
+    if actual.len() != expected.len() {
+        return false;
+    }
+    let before = failures.len();
+    for (actual, expected) in actual.iter().zip(expected) {
+        for operation in &expected.attributes {
+            match operation {
+                AttributeOperation::Set { address, vr, value } => validate_element(
+                    actual,
+                    address.tag(),
+                    *vr,
+                    Some(value),
+                    enforce_vr,
+                    relative,
+                    failures,
+                ),
+                AttributeOperation::Empty { address } => match actual.element(address.tag()) {
+                    Ok(element) if element.value().is_empty() => {}
+                    _ => failures.push(format!(
+                        "structural nested empty element {} mismatch in {relative}",
+                        address.normalized_tag()
+                    )),
+                },
+                AttributeOperation::Remove { .. } => return false,
+            }
+        }
+    }
+    before == failures.len()
+}
+
+fn validate_bulk(
+    object: &Dataset,
+    content: &[CanonicalContent],
+    enforce_vr: bool,
+    relative: &str,
+    failures: &mut Vec<String>,
+) {
+    for expected in content {
+        let Ok(element) = object.element(expected.address.tag()) else {
+            failures.push(format!(
+                "structural bulk {} is missing in {relative}",
+                expected.slot
+            ));
+            continue;
+        };
+        if enforce_vr && element.vr() != expected.vr.as_dicom() {
+            failures.push(format!(
+                "structural bulk {} VR mismatch in {relative}",
+                expected.slot
+            ));
+            continue;
+        }
+        let valid = element.to_bytes().is_ok_and(|actual| {
+            let size = usize::try_from(expected.size_bytes).ok();
+            size.is_some_and(|size| {
+                actual.len() >= size
+                    && actual.len() <= size.saturating_add(1)
+                    && crate::sha256_hex(&actual[..size]) == expected.sha256
+                    && (actual.len() == size || actual[size] == 0)
+            })
+        });
+        if !valid {
+            failures.push(format!(
+                "structural bulk {} identity mismatch in {relative}",
+                expected.slot
+            ));
+        }
+    }
+}
+
+fn padded_bytes_match(actual: &[u8], expected: &[u8]) -> bool {
+    actual == expected
+        || (expected.len() % 2 == 1
+            && actual.len() == expected.len() + 1
+            && actual.starts_with(expected)
+            && actual[expected.len()] == 0)
 }
 
 pub fn assembly_report(manifest: &Value) -> Value {

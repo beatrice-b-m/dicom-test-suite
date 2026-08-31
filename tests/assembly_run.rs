@@ -2,6 +2,8 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use dicom_core::{DataElement, VR};
+use dicom_dictionary_std::tags;
 use dicom_object::open_file;
 use dicom_test_suite::assembly::{AssembleOptions, assemble};
 use dicom_test_suite::executor::cancellation::CancellationToken;
@@ -129,6 +131,58 @@ fn structural_validation_detects_post_publication_tampering() {
             .failures
             .iter()
             .any(|failure| failure.contains("identity mismatch"))
+    );
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn structural_validation_compares_manifest_element_evidence() {
+    let root = output("semantic-tamper");
+    assemble(
+        &AssembleOptions {
+            request_bytes: request(),
+            caller_asset_root: PathBuf::from("."),
+            output_root: root.clone(),
+            seed: 5,
+            parallelism: 1,
+            dry_run: false,
+        },
+        &CancellationToken::new(),
+        &ProductResources::embedded(),
+    )
+    .unwrap();
+    let path = root.join("instances/primary.dcm");
+    let mut object = open_file(&path).unwrap();
+    object.put(DataElement::new(
+        tags::PATIENT_NAME,
+        VR::PN,
+        "TAMPERED^VALUE",
+    ));
+    let replacement = root.join("replacement.dcm");
+    object.write_to_file(&replacement).unwrap();
+    fs::remove_file(&path).unwrap();
+    fs::rename(&replacement, &path).unwrap();
+
+    let bytes = fs::read(&path).unwrap();
+    let manifest_path = root.join("manifest.json");
+    let mut manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+    manifest["instances"][0]["size_bytes"] = serde_json::json!(bytes.len());
+    manifest["instances"][0]["sha256"] = serde_json::json!(dicom_test_suite::sha256_hex(&bytes));
+    fs::write(
+        &manifest_path,
+        serde_json::to_vec_pretty(&manifest).unwrap(),
+    )
+    .unwrap();
+
+    let validation = validate_generated_root(&root).unwrap();
+    assert!(
+        validation
+            .failures
+            .iter()
+            .any(|failure| failure.contains("0010,0010 value mismatch")),
+        "{:?}",
+        validation.failures
     );
     fs::remove_dir_all(root).unwrap();
 }

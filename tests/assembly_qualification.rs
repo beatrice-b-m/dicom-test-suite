@@ -8,6 +8,7 @@ use dicom_object::open_file;
 use dicom_test_suite::assembly::{AssembleOptions, assemble};
 use dicom_test_suite::executor::cancellation::CancellationToken;
 use dicom_test_suite::product_resources::ProductResources;
+use dicom_test_suite::validate_generated_root;
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
@@ -52,7 +53,8 @@ fn assembly_materializes_primitive_private_sequence_and_reference_contracts() {
           {"address":{"private_group":"0011","private_creator":"DTS_TWO","private_offset":"10"},"vr":"LO","value":{"kind":"string","value":"TWO"}},
           {"address":{"keyword":"ReferencedImageSequence"},"value":{"kind":"sequence","items":[{"elements":[
             {"address":{"keyword":"ReferencedSOPClassUID"},"value":{"kind":"string","value":"1.2.840.10008.5.1.4.1.1.7"}},
-            {"address":{"keyword":"ReferencedSOPInstanceUID"},"value":{"kind":"string","value":"1.2.3.4.5"}}
+            {"address":{"keyword":"ReferencedSOPInstanceUID"},"value":{"kind":"string","value":"1.2.3.4.5"}},
+            {"address":{"keyword":"PatientID"},"value":{"kind":"empty"}}
           ]}]}}
         ],"references":[{"relationship":"derived_from","target_instance_id":"target","target_role":"sop"}]},
         {"instance_id":"target","sop_class_uid":"1.2.840.10008.5.1.4.1.1.7","transfer_syntax_uid":"1.2.840.10008.1.2","elements":[]}
@@ -136,6 +138,14 @@ fn assembly_materializes_primitive_private_sequence_and_reference_contracts() {
             .unwrap(),
         "1.2.3.4.5"
     );
+    assert!(
+        sequence[0]
+            .element(tags::PATIENT_ID)
+            .unwrap()
+            .to_bytes()
+            .unwrap()
+            .is_empty()
+    );
 
     let manifest: serde_json::Value =
         serde_json::from_slice(&fs::read(root.join("manifest.json")).unwrap()).unwrap();
@@ -162,6 +172,12 @@ fn assembly_materializes_primitive_private_sequence_and_reference_contracts() {
         .collect::<std::collections::BTreeSet<_>>();
     assert_eq!(private_elements, [0x1010, 0x1110].into_iter().collect());
     assert!(open_file(root.join("instances/target.dcm")).is_ok());
+    let validation = validate_generated_root(&root).unwrap();
+    assert!(
+        validation.failures.is_empty(),
+        "qualified structural values and references must validate: {:?}",
+        validation.failures
+    );
     fs::remove_dir_all(root).unwrap();
 }
 
@@ -176,7 +192,7 @@ fn assembly_materializes_every_advertised_bulk_kind_deterministically() {
         {"instance_id":"waveform","sop_class_uid":"1.2.3.4","elements":[],"bulk":[{"kind":"waveform_data","source":{"kind":"inline_base64","base64":"AAAAAAAAAAA="},"channels":2,"samples":2,"bits_allocated":16}]},
         {"instance_id":"document","sop_class_uid":"1.2.3.5","elements":[],"bulk":[{"kind":"encapsulated_document","source":{"kind":"inline_base64","base64":"JVBERi0xLjQ="},"media_type":"application/pdf"}]},
         {"instance_id":"mesh","sop_class_uid":"1.2.3.6","elements":[],"bulk":[{"kind":"mesh","source":{"kind":"inline_base64","base64":"AAAAAAAAAAAAAAAA"}}]},
-        {"instance_id":"general","sop_class_uid":"1.2.3.7","elements":[],"bulk":[{"kind":"general","tag":"7776,1000","vr":"OB","source":{"kind":"inline_base64","base64":"AQIDBA=="}}]}
+        {"instance_id":"general","sop_class_uid":"1.2.3.7","transfer_syntax_uid":"1.2.840.10008.1.2","elements":[],"bulk":[{"kind":"general","tag":"7776,1000","vr":"OB","source":{"kind":"inline_base64","base64":"AQIDBA=="}}]}
       ]
     }"#;
     let serial = output("bulk-serial");
@@ -227,6 +243,18 @@ fn assembly_materializes_every_advertised_bulk_kind_deterministically() {
             "artifact and bulk hashes must remain distinct evidence"
         );
     }
+    assert!(
+        validate_generated_root(&serial)
+            .unwrap()
+            .failures
+            .is_empty()
+    );
+    assert!(
+        validate_generated_root(&parallel)
+            .unwrap()
+            .failures
+            .is_empty()
+    );
     fs::remove_dir_all(serial).unwrap();
     fs::remove_dir_all(parallel).unwrap();
 }

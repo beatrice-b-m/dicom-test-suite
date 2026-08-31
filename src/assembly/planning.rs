@@ -445,7 +445,11 @@ fn resolved_value(
                                 })?;
                                 Ok(match resolved_value(vr, &element.value)? {
                                     Some(value) => AttributeOperation::Set { address, vr, value },
-                                    None => AttributeOperation::Empty { address },
+                                    None => AttributeOperation::Set {
+                                        address,
+                                        vr,
+                                        value: AttributeValue::Binary(Vec::new()),
+                                    },
                                 })
                             })
                             .collect::<Result<Vec<_>, AssemblyError>>()?,

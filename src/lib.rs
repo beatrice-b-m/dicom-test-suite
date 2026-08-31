@@ -53,6 +53,7 @@ use dicom_transfer_syntax_registry::entries::{
     JPEG_LOSSLESS_NON_HIERARCHICAL, JPEG_LOSSLESS_NON_HIERARCHICAL_FIRST_ORDER_PREDICTION,
 };
 
+pub mod assembly;
 pub mod cli_protocol;
 pub mod codecs;
 pub mod composition;

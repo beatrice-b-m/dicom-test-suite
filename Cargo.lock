@@ -286,6 +286,7 @@ dependencies = [
 name = "dicom-test-suite"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "dicom-core",
  "dicom-dictionary-std",
  "dicom-encoding",

@@ -33,6 +33,7 @@ legacy_jpeg_dcmtk = [
 ]
 
 [dependencies]
+base64 = "=0.22.1"
 dicom-core = "=0.9.1"
 dicom-dictionary-std = { version = "=0.9.0", default-features = false }
 dicom-encoding = "=0.9.1"

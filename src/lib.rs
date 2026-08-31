@@ -91,6 +91,7 @@ pub mod recipes;
 pub(crate) mod rt_manifest;
 pub(crate) mod rt_radiation_manifest;
 pub mod runtime_capabilities;
+pub mod sdk;
 pub mod sr_rt_manifest;
 pub mod sr_rt_validation;
 pub mod stress;

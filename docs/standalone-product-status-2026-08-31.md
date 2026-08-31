@@ -4,7 +4,7 @@
 
 **Contract:** `docs/standalone-productization-plan.md`
 
-**Release readiness:** not ready; S0 through S4 and S5.1-S5.2 are complete
+**Release readiness:** not ready; S0 through S4 and S5.1-S5.3 are complete
 
 ## Current gate state
 
@@ -15,7 +15,7 @@
 | S2 — automation protocol | Complete | CLI API `1.0.0` provides versioned discovery and command results, stable error codes and exit classes, typed file outcomes, explicit raw-report migration, warning-denied builds, and a schema-driven Python subprocess gate from outside the repository. |
 | S3 — Rust SDK | Complete | The supported `dicom_test_suite::sdk` facade provides integrity-checked resources, typed discovery/compose/validate/report outcomes, schema-bound manifests, explicit asset roots, cancellation, stable errors, compiled docs, and a packaged-crate side-project gate. |
 | S4 — structural assembly | Complete | The packaged CLI and SDK accept versioned bounded structural requests, use the neutral plan/executor/writer spine, validate exact values and bulk, publish no-IOD-claim manifests/reports, and pass positive, adversarial, transaction, determinism, and external-consumer gates. |
-| S5 — packaging and guides | In progress | S5.1-S5.2 are complete: the verified source crate and a target-bound checksummed native archive contract are qualified. Installed-product guides/examples and the maintainer release procedure remain open; Linux x86_64 remains unclaimed until its own archive passes the same gate. |
+| S5 — packaging and guides | In progress | S5.1-S5.3 are complete: the verified source crate, target-bound native archive, and installed installation/automation operating model are qualified. Neutral example assets and the maintainer release procedure remain open; Linux x86_64 remains unclaimed until its own archive passes the same gate. |
 | S6 — release qualification | Not started | Existing source-tree qualification is strong, but no exact packaged release candidate has passed the black-box, relocation, SDK, assembly, or terminal security matrix. |
 | S7 — promotion | Not started | The README still leads with `cargo run`; standalone release gates and compatibility ownership are not promoted. |
 
@@ -110,6 +110,31 @@ Only macOS arm64 is qualified by this evidence. Linux x86_64 is not available
 in this host environment and remains an explicit blocker to a general release;
 it is not inferred from the portable builder or source tests. S5.3-S5.5 and all
 terminal release-candidate rows remain open.
+
+## S5.3 installed operating-guide gate
+
+S5.3 completed on 2026-08-31 at `e5eb854`. The release archive now carries
+dedicated installation/upgrade and automation/agent guides in addition to the
+generation, SDK, assembly, compatibility, and dated status documents. The
+guides distinguish installed-product usage from contributor builds and cover
+archive selection, checksum verification, relocation, discovery, workflow
+choice, stdout/stderr and exit contracts, manifest-driven artifact discovery,
+strict validation, reproducibility classes, optional-runtime trust, side-by-
+side upgrades, and explicit unavailable handling.
+
+Focused verification passed two documentation-contract tests and the current-
+target release archive test. The latter exercised the documented installed
+`version`, `capabilities`, `list-cases`, smoke `generate`, `validate`, and
+versioned JSON `report` commands from an unrelated directory, in addition to
+archive checksum, extraction, manifest, file-hash, license-notice, and resource
+identity checks. The harness caught and corrected an invalid global placement
+of `--cli-api`; the operating guide now reflects the executable source of truth:
+machine-only commands already emit the current envelope, while the historical
+raw-report boundary selects `--cli-api 1.0.0` on `report` itself.
+
+S5.4-S5.5 remain open. Existing composition and assembly guides are current,
+but the small neutral installed example files and their complete CI execution
+have not yet been added. No terminal acceptance row is promoted by S5.3.
 
 ## Baseline audit evidence
 

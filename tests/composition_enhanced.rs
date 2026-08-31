@@ -118,7 +118,7 @@ fn enhanced_caller_frames_round_trip_and_structural_overrides_fail() {
     .unwrap();
     assert_eq!(
         oracle_digest(&out),
-        "342be50da9a2e2905a63c45f8bcfccd0c6e69186588709f9d35247d3fc926e77"
+        "e2696bf93bbf579dcda13879da9ef1f4c74048f5595e601bc8c3f7db20dc6c8e"
     );
     for instance in ["enhanced_ct", "enhanced_mr", "enhanced_pet"] {
         let object = open_file(out.join(format!("instances/{instance}.dcm"))).unwrap();

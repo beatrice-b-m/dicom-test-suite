@@ -4,7 +4,7 @@
 
 **Contract:** `docs/standalone-productization-plan.md`
 
-**Release readiness:** not ready; S0 through S4 and S5.1-S5.4 are complete
+**Release readiness:** not ready; S0 through S5 are complete
 
 ## Current gate state
 
@@ -15,7 +15,7 @@
 | S2 — automation protocol | Complete | CLI API `1.0.0` provides versioned discovery and command results, stable error codes and exit classes, typed file outcomes, explicit raw-report migration, warning-denied builds, and a schema-driven Python subprocess gate from outside the repository. |
 | S3 — Rust SDK | Complete | The supported `dicom_test_suite::sdk` facade provides integrity-checked resources, typed discovery/compose/validate/report outcomes, schema-bound manifests, explicit asset roots, cancellation, stable errors, compiled docs, and a packaged-crate side-project gate. |
 | S4 — structural assembly | Complete | The packaged CLI and SDK accept versioned bounded structural requests, use the neutral plan/executor/writer spine, validate exact values and bulk, publish no-IOD-claim manifests/reports, and pass positive, adversarial, transaction, determinism, and external-consumer gates. |
-| S5 — packaging and guides | In progress | S5.1-S5.4 are complete: the verified source crate, target-bound native archive, installed operating model, and relocatable neutral example set are qualified. The maintainer release procedure remains open; Linux x86_64 remains unclaimed until its own archive passes the same gate. |
+| S5 — packaging and guides | Complete | The latest extracted crate and current-target archive pass package, relocation, example, changelog/migration, and independent checksum/inventory verification. A clean-clone maintainer procedure records exact release facts and preserves target/capability boundaries. |
 | S6 — release qualification | Not started | Existing source-tree qualification is strong, but no exact packaged release candidate has passed the black-box, relocation, SDK, assembly, or terminal security matrix. |
 | S7 — promotion | Not started | The README still leads with `cargo run`; standalone release gates and compatibility ownership are not promoted. |
 
@@ -177,6 +177,61 @@ replace the maintainer release procedure, an exact clean release candidate, or
 the target-specific terminal matrix. Linux x86_64 remains explicitly
 unclaimed, and no terminal acceptance row is promoted by S5.4.
 
+## S5.5 release procedure and S5 phase gate
+
+S5.5 completed on 2026-08-31 at `87bee62`; packaged-source provenance was
+completed by `a6f9146`, and the context-sensitive dirtiness assertion was
+corrected by `ea5eb49`. The repository now carries an Unreleased changelog
+with explicit standalone migration actions, a clean-clone maintainer procedure,
+and an independent archive verifier. The verifier checks the adjacent SHA-256,
+single safe extraction root, every release-manifest payload size/hash, required
+licenses/changelog/examples, executable discovery documents, target identity,
+and embedded resource identity. It emits the exact revision, target, and
+checksum facts required by release notes.
+
+The release builder continues to reject dirty public candidates. In a clean
+clone it derives the revision from local Git; in an extracted Cargo package it
+uses Cargo's `.cargo_vcs_info.json` rather than accidentally discovering a
+parent checkout. Release scripts are now part of the intentional crate so the
+packaged test contract is complete.
+
+The exact latest package gate passed:
+
+```text
+command: cargo package --locked --offline
+source revision: ea5eb49ab7d6f96c970b654e65033ae60fc3a879
+files: 783
+uncompressed: 13.6 MiB
+compressed: 2.2 MiB
+crate SHA-256: e66336ff51d3e5f1a28991ac4a923db75456f70af8065e58f545e0160cc30196
+Cargo verification: passed in 40.86 seconds
+```
+
+From that extracted crate, the focused latest-change bundle passed 17 tests:
+
+```sh
+cargo test --locked --offline --no-default-features \
+  --test release_process --test standalone_docs --test release_archive \
+  --test compose_cli --test composition_p2_e2e
+```
+
+This covered six composition CLI tests, four P2 pixel/determinism/adversarial
+tests, one 22.08-second archive build/verify/relocation/example test, three
+release-procedure tests, and three installed-guide tests. The earlier complete
+extracted-crate inventory remains the S5.1 baseline; the focused resumption
+tests every code, package-content, guide, example, and release-script surface
+changed since that multi-hour run without repeating unrelated heavyweight
+corpus slices.
+
+**S5 gate conclusion:** the package can be handed to a new maintainer and the
+native archive to a human or agent consumer with no repository-specific runtime
+knowledge. The artifact format, checksum, discovery, installed examples,
+migration notes, and fail-closed availability rules are explicit. S6 must now
+qualify one exact immutable release candidate through the full compatibility,
+determinism, template/assembly, curated regression, upgrade, and packaged
+security matrix. Linux x86_64 remains unclaimed; no terminal row is promoted by
+S5 alone.
+
 ## Baseline audit evidence
 
 The following read-only checks established the initial state on 2026-08-31:
@@ -212,10 +267,10 @@ test-only fixtures are not classified by this initial production audit.
 
 ## Remaining blockers
 
-S5.5, S6, S7, and every terminal acceptance row remain open. S5.1-S5.4
-establish package, archive, guide, and installed-example contracts, but not the
-maintainer release procedure, an exact release candidate, either general
-release target, or the terminal external-consumer matrix.
+S6, S7, and every terminal acceptance row remain open. S5 establishes package,
+archive, guide, installed-example, and maintainer release contracts, but not an
+exact release candidate, either general release target, or the terminal
+external-consumer matrix.
 Linux x86_64 and macOS arm64 cannot be claimed as standalone release targets
 until the exact target archives pass the required external-consumer matrix.
 Optional runtimes are accepted only when discovered and fingerprint-qualified;

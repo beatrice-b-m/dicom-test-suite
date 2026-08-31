@@ -192,7 +192,18 @@ fn current_target_archive_is_manifest_bound_and_relocatable() {
         .validate(&manifest)
         .unwrap();
     assert_eq!(manifest["target"], target);
-    assert_eq!(manifest["source"]["dirty"], true);
+    let expected_dirty = if Path::new(".git").exists() {
+        !Command::new("git")
+            .args(["status", "--porcelain"])
+            .output()
+            .unwrap()
+            .stdout
+            .is_empty()
+    } else {
+        false
+    };
+    assert_eq!(manifest["source"]["dirty"], expected_dirty);
+    assert_eq!(manifest["source"]["revision"].as_str().unwrap().len(), 40);
     assert_eq!(
         manifest["version_result"]["product"]["version"],
         product_version

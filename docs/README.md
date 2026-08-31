@@ -82,6 +82,9 @@ These are dated evidence records for implemented vertical slices:
 
 ## Planning And Decision Records
 
+- [Standalone product boundary ADR](adr/0002-standalone-product-boundary.md):
+  accepted CLI-primary, SDK-secondary, workflow/evidence, compatibility-surface,
+  distribution, and non-goal decisions for productization.
 - [Standalone productization plan](standalone-productization-plan.md): proposed
   execution contract for turning the qualified generation engine into a
   relocatable black-box CLI and narrow Rust SDK, with a separately bounded

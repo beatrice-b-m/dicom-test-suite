@@ -3,8 +3,45 @@ name = "dicom-test-suite"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
-description = "Synthetic DICOM corpus generator for viewer compatibility testing"
+description = "Deterministic synthetic non-PHI DICOM generation and assembly toolkit"
 license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/beatrice-b-m/dicom-test-suite"
+homepage = "https://github.com/beatrice-b-m/dicom-test-suite"
+documentation = "https://docs.rs/dicom-test-suite"
+keywords = ["dicom", "medical-imaging", "testing", "synthetic-data"]
+categories = ["command-line-utilities", "development-tools::testing"]
+include = [
+    ".github/workflows/ci.yml",
+    "Cargo.lock",
+    "LICENSE-APACHE",
+    "LICENSE-MIT",
+    "README.md",
+    "SYSTEM_SPEC.md",
+    "build.rs",
+    "cases/**",
+    "conformance/**",
+    "conformance-backends/**",
+    "docs/**",
+    "generation-backends.lock.json",
+    "generation-backends/**",
+    "product/**",
+    "schemas/**",
+    "security/**",
+    "src/**",
+    "standards.lock.json",
+    "standards/**",
+    "templates/**",
+    "tests/**",
+    "transfer-syntax/**",
+    "!**/.pytest_cache/**",
+    "!**/.ruff_cache/**",
+    "!**/.venv/**",
+    "!**/__pycache__/**",
+    "!**/*.egg-info/**",
+    "!**/*.pyc",
+    "!**/build/**",
+]
 
 [features]
 default = []

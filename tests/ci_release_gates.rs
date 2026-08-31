@@ -31,7 +31,10 @@ fn ci_makes_every_standalone_release_gate_mandatory_and_regression_backed() {
     }
 
     let regression_sources = [
-        ("tests/product_resource_lookup_audit.rs", "findings.is_empty"),
+        (
+            "tests/product_resource_lookup_audit.rs",
+            "findings.is_empty",
+        ),
         ("tests/schema_artifacts.rs", "reject"),
         ("tests/black_box_cli_consumer.py", "expected=0"),
         ("tests/release_archive.rs", "parallelism"),

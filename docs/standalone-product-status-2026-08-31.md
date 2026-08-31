@@ -4,7 +4,7 @@
 
 **Contract:** `docs/standalone-productization-plan.md`
 
-**Release readiness:** not ready; S0 through S4 and S5.1-S5.3 are complete
+**Release readiness:** not ready; S0 through S4 and S5.1-S5.4 are complete
 
 ## Current gate state
 
@@ -15,7 +15,7 @@
 | S2 — automation protocol | Complete | CLI API `1.0.0` provides versioned discovery and command results, stable error codes and exit classes, typed file outcomes, explicit raw-report migration, warning-denied builds, and a schema-driven Python subprocess gate from outside the repository. |
 | S3 — Rust SDK | Complete | The supported `dicom_test_suite::sdk` facade provides integrity-checked resources, typed discovery/compose/validate/report outcomes, schema-bound manifests, explicit asset roots, cancellation, stable errors, compiled docs, and a packaged-crate side-project gate. |
 | S4 — structural assembly | Complete | The packaged CLI and SDK accept versioned bounded structural requests, use the neutral plan/executor/writer spine, validate exact values and bulk, publish no-IOD-claim manifests/reports, and pass positive, adversarial, transaction, determinism, and external-consumer gates. |
-| S5 — packaging and guides | In progress | S5.1-S5.3 are complete: the verified source crate, target-bound native archive, and installed installation/automation operating model are qualified. Neutral example assets and the maintainer release procedure remain open; Linux x86_64 remains unclaimed until its own archive passes the same gate. |
+| S5 — packaging and guides | In progress | S5.1-S5.4 are complete: the verified source crate, target-bound native archive, installed operating model, and relocatable neutral example set are qualified. The maintainer release procedure remains open; Linux x86_64 remains unclaimed until its own archive passes the same gate. |
 | S6 — release qualification | Not started | Existing source-tree qualification is strong, but no exact packaged release candidate has passed the black-box, relocation, SDK, assembly, or terminal security matrix. |
 | S7 — promotion | Not started | The README still leads with `cargo run`; standalone release gates and compatibility ownership are not promoted. |
 
@@ -136,6 +136,47 @@ S5.4-S5.5 remain open. Existing composition and assembly guides are current,
 but the small neutral installed example files and their complete CI execution
 have not yet been added. No terminal acceptance row is promoted by S5.3.
 
+## S5.4 installed example gate
+
+S5.4 completed on 2026-08-31 at `4a56509`. Every release archive now contains
+five self-contained JSON examples: raw 2x2 grayscale and RGB composition,
+standard/private/Sequence metadata composition, a two-instance resolved
+reference, and structural assembly with standard/private/Sequence values and
+inline pixel data. All identifiers and bytes are synthetic and non-PHI; no
+example depends on the checkout, a network, an external provider, or a caller
+asset file. The installed examples guide supplies exact black-box commands and
+retains the qualified-template, same-project-validation, and structural
+no-IOD-claim boundaries.
+
+Initial execution exposed a strict-validation defect for materialized inline
+content. Commit `12e8cfc` corrected native composition manifests to hash the
+resolved plan after materialization evidence is projected, so the published
+content projection and `resolved_plan_sha256` are reconstructable. The
+regression passed all six composition CLI tests and four P2 end-to-end tests;
+the failure was repaired rather than excluding raw-pixel validation.
+
+Focused gate verification passed three installed-document contract tests and
+the current-target archive test:
+
+```sh
+cargo test --locked --no-default-features --test standalone_docs
+cargo test --locked --no-default-features --test release_archive
+git diff --check
+```
+
+The 21.57-second archive gate built and extracted the archive once, then ran
+each of the five examples twice with seed 1 through the extracted executable
+from an unrelated working directory. Every run used a fresh output root,
+passed strict `validate`, passed versioned JSON `report`, retained the same
+corpus-plan identity, and emitted byte-identical DICOM instances across the
+pair. Direct pre-archive execution of all five examples also passed compose or
+assemble, validate, and report.
+
+S5.5 remains open. The examples qualify the installed workflow but do not
+replace the maintainer release procedure, an exact clean release candidate, or
+the target-specific terminal matrix. Linux x86_64 remains explicitly
+unclaimed, and no terminal acceptance row is promoted by S5.4.
+
 ## Baseline audit evidence
 
 The following read-only checks established the initial state on 2026-08-31:
@@ -171,10 +212,10 @@ test-only fixtures are not classified by this initial production audit.
 
 ## Remaining blockers
 
-S5 through S7 and every terminal acceptance row remain open. S4 qualifies the
-structural CLI and SDK surfaces through a temporary Cargo package, but does not
-establish the S5 package metadata/archive contract, an exact release candidate,
-either release target, or the terminal external-consumer matrix.
+S5.5, S6, S7, and every terminal acceptance row remain open. S5.1-S5.4
+establish package, archive, guide, and installed-example contracts, but not the
+maintainer release procedure, an exact release candidate, either general
+release target, or the terminal external-consumer matrix.
 Linux x86_64 and macOS arm64 cannot be claimed as standalone release targets
 until the exact target archives pass the required external-consumer matrix.
 Optional runtimes are accepted only when discovered and fingerprint-qualified;

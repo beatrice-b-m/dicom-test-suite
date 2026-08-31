@@ -43,6 +43,9 @@ the registry or a fresh run report.
   request, protected-field, typed-bulk, identity/reference, validation,
   manifest, resource, and no-IOD-claim boundary for the future `assemble`
   workflow.
+- [Product resource lookup audit](product-resource-lookup-audit-2026-08-31.md):
+  dated classification of production filesystem access and the ambient
+  repository-relative findings that S1 must eliminate.
 - [Deterministic build policy](deterministic-build-policy.md): byte-stable and
   semantic-stable contracts, UID derivation, controlled metadata, and artifact
   handling.

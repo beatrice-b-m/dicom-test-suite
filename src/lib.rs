@@ -80,6 +80,7 @@ pub mod negative_plan;
 pub mod part10_locator;
 pub mod planning;
 pub mod planning_preview;
+pub mod product_resources;
 pub mod protocol;
 pub mod protocol_baseline;
 pub mod qualification_plan;

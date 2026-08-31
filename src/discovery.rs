@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
@@ -58,6 +58,7 @@ pub struct CapabilitiesResult {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SupportedVersions {
     pub cli_api: Vec<&'static str>,
+    pub result_schemas: BTreeMap<&'static str, Vec<&'static str>>,
     pub composition_request: Vec<&'static str>,
     pub assembly_request: Vec<&'static str>,
     pub curated_manifest: Vec<&'static str>,
@@ -343,6 +344,46 @@ pub fn capabilities_result(
         product_resources,
         supported_versions: SupportedVersions {
             cli_api: vec![crate::cli_protocol::CLI_API_VERSION],
+            result_schemas: BTreeMap::from([
+                ("capabilities", vec![CAPABILITIES_RESULT_SCHEMA_VERSION]),
+                (
+                    "case_list",
+                    vec![crate::cli_protocol::CASE_LIST_RESULT_SCHEMA_VERSION],
+                ),
+                (
+                    "composition",
+                    vec![crate::cli_protocol::COMPOSITION_RESULT_SCHEMA_VERSION],
+                ),
+                (
+                    "conformance",
+                    vec![crate::cli_protocol::CONFORMANCE_RESULT_SCHEMA_VERSION],
+                ),
+                (
+                    "generation",
+                    vec![crate::cli_protocol::GENERATION_RESULT_SCHEMA_VERSION],
+                ),
+                (
+                    "interoperability",
+                    vec![crate::cli_protocol::INTEROPERABILITY_RESULT_SCHEMA_VERSION],
+                ),
+                (
+                    "report",
+                    vec![crate::cli_protocol::REPORT_RESULT_SCHEMA_VERSION],
+                ),
+                (
+                    "standards",
+                    vec![crate::cli_protocol::STANDARDS_RESULT_SCHEMA_VERSION],
+                ),
+                (
+                    "templates",
+                    vec![crate::cli_protocol::TEMPLATES_RESULT_SCHEMA_VERSION],
+                ),
+                (
+                    "validation",
+                    vec![crate::cli_protocol::VALIDATION_RESULT_SCHEMA_VERSION],
+                ),
+                ("version", vec![VERSION_RESULT_SCHEMA_VERSION]),
+            ]),
             composition_request: vec!["0.1.0"],
             assembly_request: vec![],
             curated_manifest: vec!["0.2.0", "0.3.0"],

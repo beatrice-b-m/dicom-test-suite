@@ -88,6 +88,7 @@
       "type": "object",
       "required": [
         "cli_api",
+        "result_schemas",
         "composition_request",
         "assembly_request",
         "curated_manifest",
@@ -100,6 +101,12 @@
       ],
       "properties": {
         "cli_api": { "$ref": "#/$defs/version_array" },
+        "result_schemas": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
+          "additionalProperties": { "$ref": "#/$defs/version_array" }
+        },
         "composition_request": { "$ref": "#/$defs/version_array" },
         "assembly_request": { "$ref": "#/$defs/version_array" },
         "curated_manifest": { "$ref": "#/$defs/version_array" },

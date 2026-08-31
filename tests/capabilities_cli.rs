@@ -45,6 +45,14 @@ fn capabilities_json_is_live_schema_valid_and_conservative_outside_the_checkout(
     );
     assert_eq!(envelope["command"], "capabilities");
     assert_eq!(
+        envelope["result"]["supported_versions"]["result_schemas"]["composition"][0],
+        "1.0.0"
+    );
+    assert_eq!(
+        envelope["result"]["supported_versions"]["result_schemas"]["validation"][0],
+        "1.0.0"
+    );
+    assert_eq!(
         envelope["result"]["structural_assembly"]["availability"],
         "unavailable"
     );

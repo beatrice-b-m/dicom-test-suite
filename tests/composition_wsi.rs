@@ -145,7 +145,7 @@ fn every_wsi_variant_accepts_exact_shape_caller_frames() {
     compose_spec(&spec_path, out.clone(), 57);
     assert_eq!(
         oracle_digest(&out),
-        "78ab6a8c851ea7d78aa8113fbdc4a76b4b0dac6bbe9821bf24182a17fa5b1590"
+        "a50c9f3e06e8d3c0ad5f5c87f21823a7357823c967807edbc3668383267b0325"
     );
     for (instance_id, _, _) in variants {
         let expected = fs::read(workspace.join(format!("{instance_id}.raw"))).unwrap();

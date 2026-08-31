@@ -43,13 +43,16 @@ fn command_context(arguments: &[String]) -> String {
 }
 
 fn requests_machine_json(arguments: &[String]) -> bool {
-    if arguments
+    let json = arguments
         .windows(2)
-        .any(|pair| pair[0] == "--format" && pair[1] == "json")
-    {
+        .any(|pair| pair[0] == "--format" && pair[1] == "json");
+    let offset = usize::from(arguments.first().map(String::as_str) == Some("--resource-root")) * 2;
+    if arguments.get(offset).map(String::as_str) == Some("report") {
+        return json && arguments.iter().any(|argument| argument == "--cli-api");
+    }
+    if json {
         return true;
     }
-    let offset = usize::from(arguments.first().map(String::as_str) == Some("--resource-root")) * 2;
     arguments.get(offset).map(String::as_str) == Some("templates")
         && arguments.get(offset + 1).map(String::as_str) == Some("describe")
         && !arguments.iter().any(|argument| argument == "--format")
@@ -814,6 +817,7 @@ fn run() -> Result<(), String> {
             let mut format = None;
             let mut registry_path = resource_path("cases/registry.json");
             let mut standards_lock_path = resource_path("standards.lock.json");
+            let mut cli_api = None;
             while let Some(arg) = args.next() {
                 match arg.as_str() {
                     "--format" => {
@@ -832,22 +836,39 @@ fn run() -> Result<(), String> {
                             .next()
                             .ok_or_else(|| "--standards-lock requires a value".to_string())?;
                     }
+                    "--cli-api" => cli_api = Some(required_value(&mut args, "--cli-api")?),
                     unknown => {
                         return Err(format!("unknown report argument: {unknown}"));
                     }
                 }
             }
             let format = format.ok_or_else(|| "report requires --format".to_string())?;
+            if let Some(version) = cli_api.as_deref() {
+                if version != dicom_test_suite::cli_protocol::CLI_API_VERSION {
+                    return Err(format!("unsupported CLI API version: {version}"));
+                }
+                if format != "json" {
+                    return Err("--cli-api requires --format json".to_string());
+                }
+            }
             if gap_report {
                 let report =
                     dicom_test_suite::build_coverage_gap_report(registry_path, standards_lock_path)
                         .map_err(|err| err.to_string())?;
                 return match format.as_str() {
                     "json" => {
-                        println!(
-                            "{}",
-                            serde_json::to_string_pretty(&report).map_err(|err| err.to_string())?
-                        );
+                        if cli_api.is_some() {
+                            write_machine_success(
+                                "report gaps",
+                                report_result("coverage_gaps", &report)?,
+                            )?;
+                        } else {
+                            println!(
+                                "{}",
+                                serde_json::to_string_pretty(&report)
+                                    .map_err(|err| err.to_string())?
+                            );
+                        }
                         Ok(())
                     }
                     "markdown" => {
@@ -865,10 +886,14 @@ fn run() -> Result<(), String> {
                     let report =
                         dicom_test_suite::build_coverage_report_with_resources(&root, &resources)
                             .map_err(|err| err.to_string())?;
-                    println!(
-                        "{}",
-                        serde_json::to_string_pretty(&report).map_err(|err| err.to_string())?
-                    );
+                    if cli_api.is_some() {
+                        write_machine_success("report", report_result("coverage", &report)?)?;
+                    } else {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&report).map_err(|err| err.to_string())?
+                        );
+                    }
                     Ok(())
                 }
                 "markdown" => {
@@ -1162,6 +1187,29 @@ fn unavailable_summaries(
     summaries
 }
 
+fn report_result(
+    fallback_kind: &str,
+    report: &serde_json::Value,
+) -> Result<dicom_test_suite::cli_protocol::ReportResult<serde_json::Value>, String> {
+    let report_kind = report
+        .get("report_kind")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or(fallback_kind);
+    let report_schema_version = [
+        "coverage_report_schema_version",
+        "coverage_gap_report_schema_version",
+        "composition_report_schema_version",
+    ]
+    .into_iter()
+    .find_map(|field| report.get(field).and_then(serde_json::Value::as_str))
+    .ok_or_else(|| "report has no supported schema version".to_string())?;
+    Ok(dicom_test_suite::cli_protocol::ReportResult::new(
+        report_kind,
+        report_schema_version,
+        report.clone(),
+    ))
+}
+
 fn print_usage() {
     println!("{}", dicom_test_suite::version_banner());
     println!("usage:");
@@ -1179,7 +1227,7 @@ fn print_usage() {
     println!("  dicom-test-suite templates <list|describe|reference> ...");
     println!("  dicom-test-suite interoperate <media-dicomdir|protocol-baseline> ...");
     println!("  dicom-test-suite validate GENERATED_ROOT [--format json]");
-    println!("  dicom-test-suite report GENERATED_ROOT --format json|markdown");
+    println!("  dicom-test-suite report GENERATED_ROOT --format json|markdown [--cli-api 1.0.0]");
     println!("  dicom-test-suite standards check-lock [--lock PATH]");
     println!("  dicom-test-suite standards gaps --profile PROFILE [--registry PATH]");
     println!("  dicom-test-suite standards verify-kb --edition 2026b");
@@ -1270,9 +1318,9 @@ fn print_validate_usage() {
 
 fn print_report_usage() {
     println!("usage:");
-    println!("  dicom-test-suite report GENERATED_ROOT --format json|markdown");
+    println!("  dicom-test-suite report GENERATED_ROOT --format json|markdown [--cli-api 1.0.0]");
     println!(
-        "  dicom-test-suite report gaps --format json|markdown [--registry PATH] [--standards-lock PATH]"
+        "  dicom-test-suite report gaps --format json|markdown [--registry PATH] [--standards-lock PATH] [--cli-api 1.0.0]"
     );
 }
 

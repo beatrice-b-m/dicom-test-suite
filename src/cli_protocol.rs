@@ -7,6 +7,7 @@ pub const GENERATION_RESULT_SCHEMA_VERSION: &str = "1.0.0";
 pub const COMPOSITION_RESULT_SCHEMA_VERSION: &str = "1.0.0";
 pub const TEMPLATES_RESULT_SCHEMA_VERSION: &str = "1.0.0";
 pub const VALIDATION_RESULT_SCHEMA_VERSION: &str = "1.0.0";
+pub const REPORT_RESULT_SCHEMA_VERSION: &str = "1.0.0";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SuccessEnvelope<T> {
@@ -100,6 +101,29 @@ pub struct ValidationResult {
     pub files_checked: usize,
     pub valid: bool,
     pub failures: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ReportResult<T> {
+    pub report_result_schema_version: &'static str,
+    pub report_kind: String,
+    pub report_schema_version: String,
+    pub report: T,
+}
+
+impl<T> ReportResult<T> {
+    pub fn new(
+        report_kind: impl Into<String>,
+        report_schema_version: impl Into<String>,
+        report: T,
+    ) -> Self {
+        Self {
+            report_result_schema_version: REPORT_RESULT_SCHEMA_VERSION,
+            report_kind: report_kind.into(),
+            report_schema_version: report_schema_version.into(),
+            report,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]

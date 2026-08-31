@@ -250,6 +250,31 @@ fn validate_and_report_dispatch_on_composition_manifests() {
     assert!(!report.to_string().contains("case_id"));
     assert!(!report.to_string().contains("profile"));
 
+    let machine_report = Command::new(binary())
+        .args([
+            "report",
+            out.to_str().unwrap(),
+            "--format",
+            "json",
+            "--cli-api",
+            "1.0.0",
+        ])
+        .output()
+        .unwrap();
+    assert!(machine_report.status.success());
+    assert!(machine_report.stderr.is_empty());
+    let machine_report: Value = serde_json::from_slice(&machine_report.stdout).unwrap();
+    assert!(compile_schema("schemas/cli-success-envelope.schema.json").is_valid(&machine_report));
+    assert!(
+        compile_schema("schemas/report-result.schema.json").is_valid(&machine_report["result"])
+    );
+    assert_eq!(machine_report["command"], "report");
+    assert_eq!(machine_report["result"]["report_kind"], "composition");
+    assert_eq!(
+        machine_report["result"]["report"], report,
+        "versioned wrapping must not mutate the historical raw report"
+    );
+
     fs::write(out.join("instances/primary.dcm"), b"tampered").unwrap();
     let rejected = Command::new(binary())
         .args(["validate", out.to_str().unwrap()])

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dicom-test-suite.local/schemas/report-result.schema.json",
+  "title": "DICOM Test Suite Report Result",
+  "type": "object",
+  "required": ["report_result_schema_version", "report_kind", "report_schema_version", "report"],
+  "properties": {
+    "report_result_schema_version": { "const": "1.0.0" },
+    "report_kind": { "enum": ["coverage", "coverage_gaps", "composition"] },
+    "report_schema_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "report": { "type": "object" }
+  },
+  "additionalProperties": false
+}

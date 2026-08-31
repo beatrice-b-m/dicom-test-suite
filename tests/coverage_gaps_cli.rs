@@ -347,6 +347,25 @@ fn report_gaps_validates_against_the_committed_schema() {
     assert!(errors.is_empty(), "gap report schema errors: {errors:?}");
 }
 
+#[test]
+fn report_gaps_wraps_only_at_the_explicit_cli_api_boundary() {
+    let raw = run_gap_report("json");
+    assert!(raw.status.success());
+    let raw: Value = serde_json::from_slice(&raw.stdout).unwrap();
+    assert!(raw.get("cli_api_version").is_none());
+
+    let wrapped = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["report", "gaps", "--format", "json", "--cli-api", "1.0.0"])
+        .output()
+        .unwrap();
+    assert!(wrapped.status.success());
+    assert!(wrapped.stderr.is_empty());
+    let wrapped: Value = serde_json::from_slice(&wrapped.stdout).unwrap();
+    assert_eq!(wrapped["command"], "report gaps");
+    assert_eq!(wrapped["result"]["report_kind"], "coverage_gaps");
+    assert_eq!(wrapped["result"]["report"], raw);
+}
+
 fn run_gap_report(format: &str) -> std::process::Output {
     Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
         .args(["report", "gaps", "--format", format])

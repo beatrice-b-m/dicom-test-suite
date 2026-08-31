@@ -38,7 +38,8 @@ made per `case_id`, not inferred from a modality name alone.
 ### Unified plan-first execution
 
 Every retained DICOM artifact is declared before file creation. Registry
-selection and caller-authored composition are separate frontends, but both
+Registry selection, caller-authored qualified composition, and caller-authored
+structural assembly are separate frontends, but all three
 produce the same versioned `CorpusPlan` and use the same bounded DAG executor,
 content/codec services, `Part10Materializer`, validation evidence model,
 private staging, and atomic no-overwrite publication transaction. Native
@@ -87,7 +88,7 @@ unavailable capability, `4` for path or resource conflicts, `5` for generation
 or evidence failure, and `6` for unexpected product I/O/internal failure.
 Error codes are append-only and published in `product/cli-error-codes.json`.
 
-Generation, composition, and composition dry-run share typed file-producing
+Generation, qualified composition, structural assembly, and their dry-runs share typed file-producing
 fields for the requested root, optional manifest, run and schema versions,
 seed, product version, emitted count/bytes, unavailable summaries, corpus-plan
 hash, publication state, validation state, and plan preview. For example:
@@ -99,6 +100,12 @@ cargo run --locked -- compose --spec request.json --out generated/result \
   --format json
 cargo run --locked -- validate generated/result --format json
 ```
+
+Use `assemble --request assembly.json` when the requested data-element tree or
+typed bulk has no qualified template. Its manifest and report are intentionally
+separate from coverage and always state `iod_conformance = "not_assessed"`.
+The complete request, private/Sequence/pixel example, and asset security model
+are in the [structural assembly guide](assembly-guide.md).
 
 Historical report JSON is the compatibility exception: `--format json` alone
 returns the raw report. Add `--cli-api 1.0.0` to receive the common envelope;

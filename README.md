@@ -60,10 +60,11 @@ modules remain visible during migration but are not standalone compatibility
 surfaces, as recorded by the
 [dated Rust API audit](docs/rust-api-compatibility-audit-2026-08-31.md).
 
-Both public generation workflows now use one plan-first spine. `generate`
+All three public generation workflows use one plan-first spine. `generate`
 resolves registry-selected, versioned case recipes into an immutable
 `CorpusPlan`; `compose` resolves caller specifications and qualified templates
-into the same model. One bounded executor then schedules the dependency graph,
+into the same model; `assemble` resolves bounded caller-owned element trees and
+typed bulk without assigning IOD or coverage claims. One bounded executor then schedules the dependency graph,
 materializes Part 10 through the shared writer, validates, projects the
 frontend-specific manifest, cleans private assets, and atomically publishes.
 Curated case coverage and composition template evidence remain deliberately
@@ -95,6 +96,21 @@ limits, manifests, and evidence boundaries.
 External CLI, Rust API, cancellation, provider, bounded-memory, and
 reproducibility integration is documented in the
 [composition integration guide](docs/composition-integration-guide.md).
+
+When no qualified template matches, structural assembly can place arbitrary
+supported standard, explicit-VR unknown, managed private, recursive Sequence,
+and typed bulk values:
+
+```sh
+cargo run --locked -- assemble \
+  --request assembly.json --out generated/structural --seed 1
+cargo run --locked -- validate generated/structural
+```
+
+Structural output always records `iod_conformance = "not_assessed"`; it cannot
+be counted as curated case coverage or qualified-template evidence. See the
+[structural assembly guide](docs/assembly-guide.md) for the versioned request,
+dry-run, caller-asset, resource, manifest, CLI, and SDK contracts.
 
 For profile selection, optional codecs, negative/fuzz/stress workflows,
 manifest consumption, validation levels, and troubleshooting, read the
@@ -223,6 +239,7 @@ version           Report product, target, feature, and resource identity.
 capabilities      Discover supported versions and live availability.
 generate          Create one profile in a new output root.
 compose           Create caller-specified objects in a new output root.
+assemble          Create structurally checked, no-IOD-claim objects.
 templates         List or describe qualified composition templates.
 list-cases        Inspect registry selection, status, providers, and blockers.
 validate          Strictly check a generated root against its manifest.

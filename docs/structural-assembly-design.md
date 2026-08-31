@@ -1,7 +1,7 @@
 # Structural assembly request and manifest design
 
-**Status:** accepted design; implementation is unavailable until S4 is
-qualified
+**Status:** implemented and qualified for the capability set reported by
+`capabilities`; qualification evidence is dated 2026-08-31
 
 **Version baseline:** assembly request `1.0.0`, structural-assembly manifest
 `1.0.0`
@@ -310,5 +310,6 @@ overflow; cancellation; cleanup; races; dry-run; deterministic parallelism;
 manifest/report schemas; and explicit absence of IOD/template/curated claims.
 
 Those tests execute through the packaged public CLI and SDK in addition to
-focused in-crate contracts. Until all pass, discovery reports structural
-assembly as unavailable with a stable reason.
+focused in-crate contracts. Discovery reports only the content kinds and
+transfer syntaxes covered by that qualification; unavailable extensions remain
+explicit rather than inheriting capability from curated generation.

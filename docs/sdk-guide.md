@@ -59,6 +59,37 @@ Call `.dry_run(true)` to resolve the same canonical plan without publishing.
 The typed outcome then has `published() == false`, no manifest, and a
 `PlanPreview`; it retains the same corpus-plan hash as publication.
 
+## Assemble caller-owned structure
+
+`AssembleRequest` has the same file/byte, explicit asset-root, seed,
+parallelism, dry-run, cancellation, and typed-outcome conventions. Its
+manifest kind is `StructuralAssembly` and never represents qualified IOD or
+curated coverage evidence:
+
+```rust
+use dicom_test_suite::sdk::{AssembleRequest, DicomTestSuite, ManifestKind};
+
+let product = DicomTestSuite::embedded()?;
+let request = br#"{
+  "assembly_request_schema_version":"1.0.0",
+  "instances":[{"instance_id":"primary","sop_class_uid":"1.2.840.10008.5.1.4.1.1.7","elements":[]}]
+}"#;
+let outcome = product.assemble(AssembleRequest::from_json_bytes(
+    request.as_slice(),
+    "caller-assets",
+    "generated/structural",
+))?;
+assert_eq!(
+    outcome.manifest().expect("published manifest").kind(),
+    ManifestKind::StructuralAssembly
+);
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+See the [structural assembly guide](assembly-guide.md) before constructing a
+request; runtime `capabilities()` is authoritative for supported versions,
+content kinds, transfer syntaxes, and ceilings.
+
 ## Validate and report
 
 Published roots are consumed through typed requests and results:
@@ -85,7 +116,7 @@ operation returns `serde_json::Value` as its primary result.
 
 ## Cancellation and errors
 
-Long-running composition accepts a cooperative token:
+Long-running composition and structural assembly accept a cooperative token:
 
 ```rust
 # use dicom_test_suite::sdk::{CancellationToken, ComposeRequest, DicomTestSuite};
@@ -101,7 +132,7 @@ let result = product.compose_cancellable(request, &worker_token);
 Branch on `SdkError::code`, never `Display` or `diagnostic` text. Codes use the
 same append-only taxonomy as CLI API `1.0.0`; `kind` provides the stable broad
 request, unavailable, output, execution, or internal category. A cancelled
-composition returns `generation.execution.cancelled`, is retryable, removes
+operation returns `generation.execution.cancelled`, is retryable, removes
 private staging, and publishes no destination.
 
 The facade does not convert missing codecs, providers, validators, or peers

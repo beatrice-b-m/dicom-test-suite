@@ -36,15 +36,23 @@ sha256_file() {
     fi
 }
 
-source_revision=$(git rev-parse HEAD)
-if [ -n "$(git status --porcelain)" ]; then
-    release_dirty=true
-    if [ "$allow_dirty" != 1 ]; then
-        echo "release archives require a clean worktree" >&2
-        exit 4
+if [ -d .git ] || [ -f .git ]; then
+    source_revision=$(git rev-parse HEAD)
+    if [ -n "$(git status --porcelain)" ]; then
+        release_dirty=true
+        if [ "$allow_dirty" != 1 ]; then
+            echo "release archives require a clean worktree" >&2
+            exit 4
+        fi
+    else
+        release_dirty=false
     fi
-else
+elif [ -f .cargo_vcs_info.json ]; then
+    source_revision=$(jq -er '.git.sha1' .cargo_vcs_info.json)
     release_dirty=false
+else
+    echo "release source identity requires git or .cargo_vcs_info.json" >&2
+    exit 4
 fi
 
 if [ -n "$release_binary_override" ]; then

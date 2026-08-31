@@ -60,6 +60,7 @@ fn release_scripts_default_to_clean_locked_target_bound_artifacts() {
     for required in [
         "release archives require a clean worktree",
         "cargo build --release --locked --target",
+        ".cargo_vcs_info.json",
         "release-manifest.json",
         "CHANGELOG.md",
         "docs/release-process.md",

@@ -29,6 +29,7 @@ include = [
     "generation-backends/**",
     "product/**",
     "schemas/**",
+    "scripts/**",
     "security/**",
     "src/**",
     "standards.lock.json",

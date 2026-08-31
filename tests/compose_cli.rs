@@ -321,3 +321,62 @@ fn validate_and_report_dispatch_on_composition_manifests() {
     );
     fs::remove_dir_all(out).unwrap();
 }
+
+#[test]
+fn validate_accepts_manifest_projected_inline_pixel_evidence() {
+    let workspace = output("inline-pixel-validation");
+    fs::create_dir(&workspace).unwrap();
+    let spec = workspace.join("spec.json");
+    fs::write(
+        &spec,
+        br#"{
+          "composition_spec_schema_version":"0.1.0",
+          "instances":[{
+            "instance_id":"grayscale",
+            "template":{"id":"classic/secondary-capture/monochrome"},
+            "content":[{"slot":"pixels","source":{
+              "kind":"inline_small_fixture","base64":"MDEyMw==",
+              "sha256":"1be2e452b46d7a0d9656bbb1f768e8248eba1b75baed65f5d99eafa948899a6a",
+              "pixel":{"rows":2,"columns":2,"frames":1,"samples_per_pixel":1,
+                "photometric_interpretation":"MONOCHROME2","sample_type":"uint",
+                "bits_allocated":8,"bits_stored":8,"high_bit":7,"byte_order":"little"}
+            }}]
+          }]
+        }"#,
+    )
+    .unwrap();
+    let out = workspace.join("out");
+    let composed = Command::new(binary())
+        .args(["compose", "--spec"])
+        .arg(&spec)
+        .arg("--out")
+        .arg(&out)
+        .args(["--seed", "1", "--format", "json"])
+        .output()
+        .unwrap();
+    assert!(
+        composed.status.success(),
+        "{}",
+        String::from_utf8_lossy(&composed.stderr)
+    );
+
+    let validated = Command::new(binary())
+        .args(["validate", out.to_str().unwrap(), "--format", "json"])
+        .output()
+        .unwrap();
+    assert!(
+        validated.status.success(),
+        "{}",
+        String::from_utf8_lossy(&validated.stderr)
+    );
+    let manifest: Value =
+        serde_json::from_slice(&fs::read(out.join("manifest.json")).unwrap()).unwrap();
+    assert_eq!(
+        manifest["composition"]["entries"][0]["resolved_plan_sha256"]
+            .as_str()
+            .unwrap()
+            .len(),
+        64
+    );
+    fs::remove_dir_all(workspace).unwrap();
+}

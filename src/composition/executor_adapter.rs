@@ -639,7 +639,10 @@ impl ManifestProjector for CompositionExecutorManifestProjector {
                         plan: plans
                             .get(&planned.logical_id)
                             .expect("native plan was projected"),
-                        resolved_plan_sha256,
+                        resolved_plan_sha256: plans
+                            .get(&planned.logical_id)
+                            .expect("native plan was projected")
+                            .canonical_sha256(),
                         relative_path: output.relative_path.clone(),
                         size_bytes: output.size_bytes,
                         sha256: output.sha256.clone(),

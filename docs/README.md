@@ -35,6 +35,10 @@ the registry or a fresh run report.
 
 ## Operating And Policy Guides
 
+- [Standalone compatibility policy](compatibility-policy.md): independent
+  product, CLI, schema, manifest, template, report, provider, and resource
+  versions; additive/breaking classification; support windows; and upgrade
+  evidence.
 - [Deterministic build policy](deterministic-build-policy.md): byte-stable and
   semantic-stable contracts, UID derivation, controlled metadata, and artifact
   handling.

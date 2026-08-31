@@ -151,6 +151,7 @@ fn run() -> Result<(), String> {
                 "check-tools" => {
                     let mut config =
                         resource_path(dicom_test_suite::conformance::DEFAULT_VALIDATOR_CONFIG);
+                    let mut format = None;
                     while let Some(arg) = args.next() {
                         match arg.as_str() {
                             "--config" => {
@@ -158,9 +159,10 @@ fn run() -> Result<(), String> {
                                     .next()
                                     .ok_or_else(|| "--config requires a path".to_string())?;
                             }
+                            "--format" => format = Some(required_value(&mut args, "--format")?),
                             "--help" | "-h" => {
                                 println!(
-                                    "Usage: dicom-test-suite conformance check-tools [--config PATH]"
+                                    "Usage: dicom-test-suite conformance check-tools [--config PATH] [--format json]"
                                 );
                                 return Ok(());
                             }
@@ -172,10 +174,22 @@ fn run() -> Result<(), String> {
                         }
                     }
                     let report = dicom_test_suite::conformance::check_tools_path(config)?;
-                    println!(
-                        "{}",
-                        serde_json::to_string_pretty(&report).map_err(|err| err.to_string())?
-                    );
+                    match format.as_deref() {
+                        None => println!(
+                            "{}",
+                            serde_json::to_string_pretty(&report).map_err(|err| err.to_string())?
+                        ),
+                        Some("json") => write_machine_success(
+                            "conformance check-tools",
+                            dicom_test_suite::cli_protocol::ConformanceResult::new(
+                                "check_tools",
+                                report,
+                            ),
+                        )?,
+                        Some(other) => {
+                            return Err(format!("unsupported conformance format: {other}"));
+                        }
+                    }
                     Ok(())
                 }
                 "run" => {
@@ -185,6 +199,7 @@ fn run() -> Result<(), String> {
                     let mut out = None;
                     let mut config =
                         resource_path(dicom_test_suite::conformance::DEFAULT_VALIDATOR_CONFIG);
+                    let mut format = None;
                     while let Some(arg) = args.next() {
                         match arg.as_str() {
                             "--out" => {
@@ -198,9 +213,10 @@ fn run() -> Result<(), String> {
                                     .next()
                                     .ok_or_else(|| "--config requires a path".to_string())?;
                             }
+                            "--format" => format = Some(required_value(&mut args, "--format")?),
                             "--help" | "-h" => {
                                 println!(
-                                    "Usage: dicom-test-suite conformance run GENERATED_ROOT --out EVIDENCE_ROOT [--config PATH]"
+                                    "Usage: dicom-test-suite conformance run GENERATED_ROOT --out EVIDENCE_ROOT [--config PATH] [--format json]"
                                 );
                                 return Ok(());
                             }
@@ -215,12 +231,29 @@ fn run() -> Result<(), String> {
                         &out,
                         config,
                     )?;
-                    println!("evidence_root\t{out}");
-                    println!("run_id\t{}", evidence["run_id"].as_str().unwrap_or(""));
-                    println!(
-                        "instances\t{}",
-                        evidence["instances"].as_array().map(Vec::len).unwrap_or(0)
-                    );
+                    let outcome = serde_json::json!({
+                        "evidence_root": out,
+                        "run_id": evidence["run_id"],
+                        "instance_count": evidence["instances"].as_array().map(Vec::len).unwrap_or(0),
+                        "evidence_path": format!("{out}/conformance-run.json")
+                    });
+                    match format.as_deref() {
+                        None => {
+                            println!("evidence_root\t{out}");
+                            println!("run_id\t{}", evidence["run_id"].as_str().unwrap_or(""));
+                            println!(
+                                "instances\t{}",
+                                evidence["instances"].as_array().map(Vec::len).unwrap_or(0)
+                            );
+                        }
+                        Some("json") => write_machine_success(
+                            "conformance run",
+                            dicom_test_suite::cli_protocol::ConformanceResult::new("run", outcome),
+                        )?,
+                        Some(other) => {
+                            return Err(format!("unsupported conformance format: {other}"));
+                        }
+                    }
                     Ok(())
                 }
                 "verify" => {
@@ -229,6 +262,7 @@ fn run() -> Result<(), String> {
                     })?;
                     let mut allowlist =
                         resource_path(dicom_test_suite::conformance::DEFAULT_ACCEPTED_FINDINGS);
+                    let mut format = None;
                     while let Some(arg) = args.next() {
                         match arg.as_str() {
                             "--allowlist" => {
@@ -236,9 +270,10 @@ fn run() -> Result<(), String> {
                                     .next()
                                     .ok_or_else(|| "--allowlist requires a path".to_string())?;
                             }
+                            "--format" => format = Some(required_value(&mut args, "--format")?),
                             "--help" | "-h" => {
                                 println!(
-                                    "Usage: dicom-test-suite conformance verify EVIDENCE_ROOT [--allowlist PATH]"
+                                    "Usage: dicom-test-suite conformance verify EVIDENCE_ROOT [--allowlist PATH] [--format json]"
                                 );
                                 return Ok(());
                             }
@@ -254,14 +289,28 @@ fn run() -> Result<(), String> {
                         allowlist,
                         &resources,
                     )?;
-                    println!(
-                        "accepted_findings\t{}",
-                        result["accepted_findings"].as_u64().unwrap_or(0)
-                    );
                     let failures = result["failures"].as_array().cloned().unwrap_or_default();
-                    println!("verification_failures\t{}", failures.len());
-                    for failure in &failures {
-                        println!("failure\t{}", failure.as_str().unwrap_or("unknown"));
+                    match format.as_deref() {
+                        None => {
+                            println!(
+                                "accepted_findings\t{}",
+                                result["accepted_findings"].as_u64().unwrap_or(0)
+                            );
+                            println!("verification_failures\t{}", failures.len());
+                            for failure in &failures {
+                                println!("failure\t{}", failure.as_str().unwrap_or("unknown"));
+                            }
+                        }
+                        Some("json") if failures.is_empty() => write_machine_success(
+                            "conformance verify",
+                            dicom_test_suite::cli_protocol::ConformanceResult::new(
+                                "verify", result,
+                            ),
+                        )?,
+                        Some("json") => {}
+                        Some(other) => {
+                            return Err(format!("unsupported conformance format: {other}"));
+                        }
                     }
                     if failures.is_empty() {
                         Ok(())

@@ -8,6 +8,40 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::{Value, json};
 
+fn compile_schema(path: &str) -> jsonschema::Validator {
+    let schema: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+    jsonschema::options()
+        .with_draft(jsonschema::Draft::Draft202012)
+        .build(&schema)
+        .unwrap()
+}
+
+#[test]
+fn check_tools_machine_result_is_clean_and_schema_bound() {
+    let root = temp_dir("machine");
+    let available = fake_tool(&root, "available", "echo tool-1.2");
+    let config = config(
+        &root,
+        vec![adapter("available", available.to_str().unwrap(), 1)],
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["conformance", "check-tools", "--config"])
+        .arg(config)
+        .args(["--format", "json"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+    let envelope: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert!(compile_schema("schemas/cli-success-envelope.schema.json").is_valid(&envelope));
+    assert!(compile_schema("schemas/conformance-result.schema.json").is_valid(&envelope["result"]));
+    assert_eq!(envelope["command"], "conformance check-tools");
+    assert_eq!(
+        envelope["result"]["outcome"]["tools"][0]["status"],
+        "available"
+    );
+}
+
 #[test]
 fn check_tools_distinguishes_available_absent_and_misconfigured() {
     let root = temp_dir("states");

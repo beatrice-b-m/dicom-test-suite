@@ -10,6 +10,7 @@ pub const VALIDATION_RESULT_SCHEMA_VERSION: &str = "1.0.0";
 pub const REPORT_RESULT_SCHEMA_VERSION: &str = "1.0.0";
 pub const CASE_LIST_RESULT_SCHEMA_VERSION: &str = "1.0.0";
 pub const STANDARDS_RESULT_SCHEMA_VERSION: &str = "1.0.0";
+pub const CONFORMANCE_RESULT_SCHEMA_VERSION: &str = "1.0.0";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SuccessEnvelope<T> {
@@ -152,6 +153,23 @@ impl<T> StandardsResult<T> {
             operation,
             record_count: records.len(),
             records,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ConformanceResult<T> {
+    pub conformance_result_schema_version: &'static str,
+    pub operation: &'static str,
+    pub outcome: T,
+}
+
+impl<T> ConformanceResult<T> {
+    pub fn new(operation: &'static str, outcome: T) -> Self {
+        Self {
+            conformance_result_schema_version: CONFORMANCE_RESULT_SCHEMA_VERSION,
+            operation,
+            outcome,
         }
     }
 }

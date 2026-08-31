@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dicom-test-suite.local/schemas/conformance-result.schema.json",
+  "title": "DICOM Test Suite Conformance Result",
+  "type": "object",
+  "required": ["conformance_result_schema_version", "operation", "outcome"],
+  "properties": {
+    "conformance_result_schema_version": { "const": "1.0.0" },
+    "operation": { "enum": ["check_tools", "run", "verify"] },
+    "outcome": { "type": "object" }
+  },
+  "additionalProperties": false
+}

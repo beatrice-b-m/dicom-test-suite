@@ -1,3 +1,4 @@
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
@@ -16,7 +17,15 @@ fn output(label: &str) -> PathBuf {
 #[test]
 fn migrated_curated_recipes_record_shared_plan_materialization() {
     let root = output("classic-families");
-    let result = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let prepared_backend = PathBuf::from("generation-backends/highdicom-pydicom/.venv/bin/python");
+    let mut command = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"));
+    if prepared_backend.is_file() {
+        command.env(
+            "DTS_HIGHDICOM_PYTHON",
+            fs::canonicalize(&prepared_backend).unwrap(),
+        );
+    }
+    let result = command
         .args([
             "generate",
             "--profile",
@@ -134,11 +143,44 @@ fn migrated_curated_recipes_record_shared_plan_materialization() {
     }
     assert!(observed_classic > 0);
     assert!(observed_p5 > 0);
-    let expected_p6 = if cfg!(feature = "deflate") { 23 } else { 22 };
-    assert_eq!(
-        observed_p6, expected_p6,
-        "every runtime-available P6 curated recipe emitted by all must migrate"
-    );
+    assert!(observed_p6 > 0);
+    let emitted = entries
+        .iter()
+        .filter_map(|entry| entry["case_id"].as_str())
+        .collect::<BTreeSet<_>>();
+    let skipped = manifest["skipped_cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|entry| Some((entry["case_id"].as_str()?, entry["reason_code"].as_str()?)))
+        .collect::<BTreeMap<_, _>>();
+    let registry: serde_json::Value =
+        serde_json::from_slice(&fs::read("cases/registry.json").unwrap()).unwrap();
+    for case in registry["cases"].as_array().unwrap() {
+        let case_id = case["case_id"].as_str().unwrap();
+        let selected_by_all = case["profiles"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(serde_json::Value::as_str)
+            .any(|profile| matches!(profile, "smoke" | "core" | "extended"));
+        if case["status"] != "implemented" || !selected_by_all || !p6(case_id) {
+            continue;
+        }
+        if emitted.contains(case_id) {
+            continue;
+        }
+        let reason = skipped
+            .get(case_id)
+            .unwrap_or_else(|| panic!("implemented selected P6 case {case_id} is unaccounted"));
+        assert!(
+            matches!(
+                *reason,
+                "external_backend_unavailable" | "feature_gated_case_unavailable"
+            ),
+            "implemented selected P6 case {case_id} has unexpected unavailable reason {reason}"
+        );
+    }
     if !cfg!(feature = "deflate") {
         assert!(
             manifest["skipped_cases"]

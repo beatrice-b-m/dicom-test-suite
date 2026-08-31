@@ -44,5 +44,39 @@ fn generate_uses_embedded_resources_from_an_unrelated_working_directory() {
         assert!(output_root.join(entry["path"].as_str().unwrap()).is_file());
     }
 
+    for arguments in [
+        vec!["validate".to_string(), output_root.display().to_string()],
+        vec![
+            "report".to_string(),
+            output_root.display().to_string(),
+            "--format".to_string(),
+            "json".to_string(),
+        ],
+        vec![
+            "templates".to_string(),
+            "list".to_string(),
+            "--format".to_string(),
+            "json".to_string(),
+        ],
+        vec![
+            "list-cases".to_string(),
+            "--profile".to_string(),
+            "smoke".to_string(),
+        ],
+        vec!["standards".to_string(), "check-lock".to_string()],
+    ] {
+        let result = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+            .current_dir(&working)
+            .args(&arguments)
+            .output()
+            .unwrap();
+        assert!(
+            result.status.success(),
+            "{} failed outside the repository: {}",
+            arguments.join(" "),
+            String::from_utf8_lossy(&result.stderr)
+        );
+    }
+
     fs::remove_dir_all(base).unwrap();
 }

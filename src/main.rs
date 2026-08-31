@@ -11,10 +11,27 @@ fn main() -> ExitCode {
 }
 
 fn run() -> Result<(), String> {
-    let mut args = std::env::args().skip(1);
+    let mut args = std::env::args().skip(1).peekable();
+    let resources = if args.peek().map(String::as_str) == Some("--resource-root") {
+        args.next();
+        let root = args
+            .next()
+            .ok_or_else(|| "--resource-root requires a path".to_string())?;
+        dicom_test_suite::product_resources::ProductResources::explicit(root)
+    } else {
+        dicom_test_suite::product_resources::ProductResources::embedded()
+    };
     let Some(command) = args.next() else {
         println!("{}", dicom_test_suite::version_banner());
         return Ok(());
+    };
+    let resource_snapshot = resources.snapshot().map_err(|error| error.to_string())?;
+    let resource_path = |logical_path: &str| {
+        resource_snapshot
+            .root()
+            .join(logical_path)
+            .to_string_lossy()
+            .into_owned()
     };
 
     match command.as_str() {
@@ -25,7 +42,7 @@ fn run() -> Result<(), String> {
             match subcommand.as_str() {
                 "check-tools" => {
                     let mut config =
-                        String::from(dicom_test_suite::conformance::DEFAULT_VALIDATOR_CONFIG);
+                        resource_path(dicom_test_suite::conformance::DEFAULT_VALIDATOR_CONFIG);
                     while let Some(arg) = args.next() {
                         match arg.as_str() {
                             "--config" => {
@@ -59,7 +76,7 @@ fn run() -> Result<(), String> {
                     })?;
                     let mut out = None;
                     let mut config =
-                        String::from(dicom_test_suite::conformance::DEFAULT_VALIDATOR_CONFIG);
+                        resource_path(dicom_test_suite::conformance::DEFAULT_VALIDATOR_CONFIG);
                     while let Some(arg) = args.next() {
                         match arg.as_str() {
                             "--out" => {
@@ -103,7 +120,7 @@ fn run() -> Result<(), String> {
                         "conformance verify requires an evidence root path".to_string()
                     })?;
                     let mut allowlist =
-                        String::from(dicom_test_suite::conformance::DEFAULT_ACCEPTED_FINDINGS);
+                        resource_path(dicom_test_suite::conformance::DEFAULT_ACCEPTED_FINDINGS);
                     while let Some(arg) = args.next() {
                         match arg.as_str() {
                             "--allowlist" => {
@@ -124,9 +141,10 @@ fn run() -> Result<(), String> {
                             }
                         }
                     }
-                    let result = dicom_test_suite::conformance::verify_conformance(
+                    let result = dicom_test_suite::conformance::verify_conformance_with_resources(
                         evidence_root,
                         allowlist,
+                        &resources,
                     )?;
                     println!(
                         "accepted_findings\t{}",
@@ -200,7 +218,8 @@ fn run() -> Result<(), String> {
                 })
                 .map_err(|err| err.to_string())?;
             let summary =
-                dicom_test_suite::write_generation_run(&prepared).map_err(|err| err.to_string())?;
+                dicom_test_suite::write_generation_run_with_resources(&prepared, &resources)
+                    .map_err(|err| err.to_string())?;
 
             println!("profile\t{}", prepared.profile);
             println!("seed\t{}", prepared.seed);
@@ -293,7 +312,7 @@ fn run() -> Result<(), String> {
                     })?;
                     let mut format = None;
                     let mut seed = 1_u64;
-                    let mut fixtures = String::from("security/fixtures/fixtures.lock.json");
+                    let mut fixtures = resource_path("security/fixtures/fixtures.lock.json");
                     while let Some(argument) = args.next() {
                         match argument.as_str() {
                             "--format" => format = Some(required_value(&mut args, "--format")?),
@@ -378,7 +397,7 @@ fn run() -> Result<(), String> {
             let mut spec_path = None;
             let mut out_dir = None;
             let mut seed = 1_u64;
-            let mut catalog_path = String::from("templates/catalog.json");
+            let mut catalog_path = resource_path("templates/catalog.json");
             let mut dry_run = false;
             while let Some(argument) = args.next() {
                 match argument.as_str() {
@@ -396,7 +415,7 @@ fn run() -> Result<(), String> {
             }
             let spec_path = spec_path.ok_or_else(|| "compose requires --spec".to_string())?;
             let out_dir = out_dir.ok_or_else(|| "compose requires --out".to_string())?;
-            let (summary, output) = dicom_test_suite::composition::compose(
+            let (summary, output) = dicom_test_suite::composition::compose_with_resources(
                 &dicom_test_suite::composition::ComposeOptions {
                     spec_path: spec_path.clone().into(),
                     out_dir: out_dir.into(),
@@ -404,6 +423,7 @@ fn run() -> Result<(), String> {
                     catalog_path: catalog_path.into(),
                     dry_run,
                 },
+                &resources,
             )
             .map_err(|error| error.to_string())?;
             if dry_run {
@@ -425,7 +445,7 @@ fn run() -> Result<(), String> {
             let subcommand = args
                 .next()
                 .ok_or_else(|| "templates requires a subcommand".to_string())?;
-            let mut catalog_path = String::from("templates/catalog.json");
+            let mut catalog_path = resource_path("templates/catalog.json");
             match subcommand.as_str() {
                 "list" => {
                     let mut format = String::from("table");
@@ -563,7 +583,7 @@ fn run() -> Result<(), String> {
             }
         }
         "list-cases" => {
-            let mut registry_path = String::from("cases/registry.json");
+            let mut registry_path = resource_path("cases/registry.json");
             let mut profile_filter = None;
             let mut status_filter = None;
 
@@ -642,8 +662,8 @@ fn run() -> Result<(), String> {
             }
             let gap_report = root == "gaps";
             let mut format = None;
-            let mut registry_path = String::from("cases/registry.json");
-            let mut standards_lock_path = String::from("standards.lock.json");
+            let mut registry_path = resource_path("cases/registry.json");
+            let mut standards_lock_path = resource_path("standards.lock.json");
             while let Some(arg) = args.next() {
                 match arg.as_str() {
                     "--format" => {
@@ -692,8 +712,9 @@ fn run() -> Result<(), String> {
             }
             match format.as_str() {
                 "json" => {
-                    let report = dicom_test_suite::build_coverage_report(&root)
-                        .map_err(|err| err.to_string())?;
+                    let report =
+                        dicom_test_suite::build_coverage_report_with_resources(&root, &resources)
+                            .map_err(|err| err.to_string())?;
                     println!(
                         "{}",
                         serde_json::to_string_pretty(&report).map_err(|err| err.to_string())?
@@ -701,8 +722,9 @@ fn run() -> Result<(), String> {
                     Ok(())
                 }
                 "markdown" => {
-                    let report = dicom_test_suite::build_coverage_report(&root)
-                        .map_err(|err| err.to_string())?;
+                    let report =
+                        dicom_test_suite::build_coverage_report_with_resources(&root, &resources)
+                            .map_err(|err| err.to_string())?;
                     print!(
                         "{}",
                         dicom_test_suite::render_coverage_report_markdown(&report)
@@ -718,7 +740,7 @@ fn run() -> Result<(), String> {
                 .ok_or_else(|| "standards requires a subcommand".to_string())?;
             match subcommand.as_str() {
                 "check-lock" => {
-                    let mut lock_path = String::from("standards.lock.json");
+                    let mut lock_path = resource_path("standards.lock.json");
                     while let Some(arg) = args.next() {
                         match arg.as_str() {
                             "--lock" => {
@@ -746,7 +768,7 @@ fn run() -> Result<(), String> {
                     Ok(())
                 }
                 "gaps" => {
-                    let mut registry_path = String::from("cases/registry.json");
+                    let mut registry_path = resource_path("cases/registry.json");
                     let mut profile = None;
                     while let Some(arg) = args.next() {
                         match arg.as_str() {

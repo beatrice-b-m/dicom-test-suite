@@ -39,13 +39,33 @@ pub fn verify_conformance(
     evidence_root: impl AsRef<Path>,
     allowlist_path: impl AsRef<Path>,
 ) -> Result<Value, String> {
+    verify_conformance_with_resources(
+        evidence_root,
+        allowlist_path,
+        &crate::product_resources::ProductResources::embedded(),
+    )
+}
+
+pub fn verify_conformance_with_resources(
+    evidence_root: impl AsRef<Path>,
+    allowlist_path: impl AsRef<Path>,
+    resources: &crate::product_resources::ProductResources,
+) -> Result<Value, String> {
+    let snapshot = resources.snapshot().map_err(|error| error.to_string())?;
+    verify_conformance_with_schema_root(evidence_root, allowlist_path, snapshot.root())
+}
+
+fn verify_conformance_with_schema_root(
+    evidence_root: impl AsRef<Path>,
+    allowlist_path: impl AsRef<Path>,
+    resource_root: &Path,
+) -> Result<Value, String> {
     let evidence_root = evidence_root.as_ref();
     let evidence = read_json(&evidence_root.join("conformance-run.json"))?;
     let allowlist = read_json(allowlist_path.as_ref())?;
-    let run_schema = read_json(Path::new("schemas/conformance-run.schema.json"))?;
-    let allowlist_schema = read_json(Path::new(
-        "schemas/conformance-accepted-findings.schema.json",
-    ))?;
+    let run_schema = read_json(&resource_root.join("schemas/conformance-run.schema.json"))?;
+    let allowlist_schema =
+        read_json(&resource_root.join("schemas/conformance-accepted-findings.schema.json"))?;
     let mut failures = Vec::new();
     validate_schema(&run_schema, &evidence, "evidence", &mut failures)?;
     validate_schema(&allowlist_schema, &allowlist, "allowlist", &mut failures)?;

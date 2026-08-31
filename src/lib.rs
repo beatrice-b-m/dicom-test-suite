@@ -229,6 +229,7 @@ pub enum StandardsError {
 
 #[derive(Debug)]
 pub enum ReportError {
+    ProductResources(String),
     ReadMetadata {
         path: PathBuf,
         source: std::io::Error,
@@ -486,6 +487,7 @@ impl Error for ValidateError {
 impl fmt::Display for ReportError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::ProductResources(message) => write!(f, "invalid product resources: {message}"),
             Self::ReadMetadata { path, source } => {
                 write!(
                     f,
@@ -514,6 +516,7 @@ impl fmt::Display for ReportError {
 impl Error for ReportError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
+            Self::ProductResources(_) => None,
             Self::ReadMetadata { source, .. } => Some(source),
             Self::ParseMetadata { source, .. } => Some(source),
             Self::MetadataShape { .. } => None,
@@ -17738,13 +17741,29 @@ fn trim_uid(uid: &str) -> String {
 }
 
 pub fn build_coverage_report(root_dir: impl AsRef<Path>) -> Result<Value, ReportError> {
+    build_coverage_report_with_resources(root_dir, &product_resources::ProductResources::embedded())
+}
+
+pub fn build_coverage_report_with_resources(
+    root_dir: impl AsRef<Path>,
+    resources: &product_resources::ProductResources,
+) -> Result<Value, ReportError> {
+    let snapshot = resources
+        .snapshot()
+        .map_err(|error| ReportError::ProductResources(error.to_string()))?;
+    build_coverage_report_with_registry(root_dir, &snapshot.root().join("cases/registry.json"))
+}
+
+fn build_coverage_report_with_registry(
+    root_dir: impl AsRef<Path>,
+    registry_path: &Path,
+) -> Result<Value, ReportError> {
     let root_dir = root_dir.as_ref();
     let manifest_path = root_dir.join("manifest.json");
     let manifest = read_report_json(&manifest_path)?;
     if manifest.pointer("/run/kind").and_then(Value::as_str) == Some("composition") {
         return Ok(composition::composition_report(&manifest));
     }
-    let registry_path = Path::new("cases/registry.json");
     let registry = read_report_json(registry_path)?;
     let files =
         manifest

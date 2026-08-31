@@ -18,7 +18,6 @@ const KNOWN_AMBIENT_SIGNATURES: &[&str] = &[
     "src/composition/advanced_defaults.rs|standards_lock_path: repository_root.join(\"standards.lock.json\"),",
     "src/composition/advanced_defaults.rs|standards_lock_path: repository_root.join(\"standards.lock.json\"),",
     "src/composition/advanced_semantic_defaults.rs|standards_lock_path: repository_root.join(\"standards.lock.json\"),",
-    "src/conformance.rs|let run_schema = read_json(Path::new(\"schemas/conformance-run.schema.json\"))?;",
     "src/conformance.rs|pub const DEFAULT_ACCEPTED_FINDINGS: &str = \"conformance/accepted-findings.json\";",
     "src/conformance.rs|pub const DEFAULT_VALIDATOR_CONFIG: &str = \"conformance/validators.json\";",
     "src/conformance.rs|pub const DEFAULT_VALIDATOR_LOCK: &str = \"conformance/validator-lock.json\";",
@@ -27,7 +26,7 @@ const KNOWN_AMBIENT_SIGNATURES: &[&str] = &[
     "src/curated_plan.rs|standards_lock_path: root.join(\"standards.lock.json\"),",
     "src/curated_plan.rs|template_catalog_path: root.join(\"templates/catalog.json\"),",
     "src/generation_backends/mod.rs|pub const BACKEND_LOCK_FILE: &str = \"generation-backends.lock.json\";",
-    "src/lib.rs|let registry_path = Path::new(\"cases/registry.json\");",
+    "src/lib.rs|build_coverage_report_with_registry(root_dir, &snapshot.root().join(\"cases/registry.json\"))",
     "src/lib.rs|path: PathBuf::from(\"cases/registry.json\"),",
     "src/lib.rs|path: PathBuf::from(\"cases/registry.json\"),",
     "src/lib.rs|path: PathBuf::from(\"cases/registry.json\"),",
@@ -42,14 +41,6 @@ const KNOWN_AMBIENT_SIGNATURES: &[&str] = &[
     "src/lib.rs|path: PathBuf::from(\"cases/registry.json\"),",
     "src/lib.rs|path: PathBuf::from(\"cases/registry.json\"),",
     "src/lib.rs|path: PathBuf::from(\"cases/registry.json\"),",
-    "src/main.rs|let mut catalog_path = String::from(\"templates/catalog.json\");",
-    "src/main.rs|let mut catalog_path = String::from(\"templates/catalog.json\");",
-    "src/main.rs|let mut fixtures = String::from(\"security/fixtures/fixtures.lock.json\");",
-    "src/main.rs|let mut lock_path = String::from(\"standards.lock.json\");",
-    "src/main.rs|let mut registry_path = String::from(\"cases/registry.json\");",
-    "src/main.rs|let mut registry_path = String::from(\"cases/registry.json\");",
-    "src/main.rs|let mut registry_path = String::from(\"cases/registry.json\");",
-    "src/main.rs|let mut standards_lock_path = String::from(\"standards.lock.json\");",
 ];
 
 #[test]

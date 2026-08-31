@@ -39,10 +39,20 @@ fn generate_embedded_product_resources() {
     }
     for path in [
         "cases/registry.json",
+        "Cargo.lock",
         "standards.lock.json",
         "generation-backends.lock.json",
         "security/fixtures/fixtures.lock.json",
         "product/cli-error-codes.json",
+        "generation-backends/highdicom-pydicom/uv.lock",
+        "generation-backends/highdicom-pydicom/pyproject.toml",
+        "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/__init__.py",
+        "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/__main__.py",
+        "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/parametric_map.py",
+        "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/protocol.py",
+        "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/scoord3d.py",
+        "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/tid1500.py",
+        "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/wsi_tile_segmentation.py",
     ] {
         resources.push((path.to_string(), root.join(path)));
     }

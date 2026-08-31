@@ -590,6 +590,7 @@ const CURATED_EXECUTOR_PARALLELISM: u32 = 4;
 
 fn prepare_curated_sc_plan(
     run: &PreparedGenerationRun,
+    resource_root: &Path,
 ) -> Result<CuratedScCorpusPlan, GenerateError> {
     prepare_curated_plan_for_selection(
         CuratedScSelection::Profile {
@@ -597,34 +598,30 @@ fn prepare_curated_sc_plan(
             include_stress: run.include_stress,
         },
         run.seed,
+        resource_root,
     )
 }
 
 fn prepare_curated_plan_for_selection(
     selection: CuratedScSelection,
     seed: u64,
+    resource_root: &Path,
 ) -> Result<CuratedScCorpusPlan, GenerateError> {
-    let paths = curated_catalog_paths();
-    let repository_root = paths
-        .registry_path
-        .parent()
-        .and_then(Path::parent)
-        .unwrap_or_else(|| Path::new("."));
+    let paths = CuratedCatalogPaths::from_repository_root(resource_root);
     let mut inventory = CapabilityInventory::compiled();
-    let backend_lock =
-        generation_backends::load_backend_lock(repository_root).map_err(|error| {
-            GenerateError::PlanFirst {
-                stage: "external generation backend policy loading",
-                message: error.to_string(),
-            }
-        })?;
+    let backend_lock = generation_backends::load_backend_lock(resource_root).map_err(|error| {
+        GenerateError::PlanFirst {
+            stage: "external generation backend policy loading",
+            message: error.to_string(),
+        }
+    })?;
     let backend_policy = generation_backends::backend_policy(&backend_lock, "highdicom_pydicom")
         .ok_or_else(|| GenerateError::PlanFirst {
             stage: "external generation backend policy loading",
             message: "highdicom_pydicom has no committed backend policy".into(),
         })?;
     if matches!(
-        generation_backends::discover_prepared_backend(repository_root, backend_policy).map_err(
+        generation_backends::discover_prepared_backend(resource_root, backend_policy).map_err(
             |error| GenerateError::PlanFirst {
                 stage: "external generation backend qualification",
                 message: error.to_string(),
@@ -652,34 +649,6 @@ fn prepare_curated_plan_for_selection(
             stage: "curated SC planning",
             message: error.to_string(),
         })
-}
-
-fn curated_catalog_paths() -> CuratedCatalogPaths {
-    let working = CuratedCatalogPaths::from_repository_root(Path::new("."));
-    let repository =
-        CuratedCatalogPaths::from_repository_root(Path::new(env!("CARGO_MANIFEST_DIR")));
-    CuratedCatalogPaths {
-        recipes_root: if working.recipes_root.is_dir() {
-            working.recipes_root
-        } else {
-            repository.recipes_root
-        },
-        registry_path: if working.registry_path.is_file() {
-            working.registry_path
-        } else {
-            repository.registry_path
-        },
-        template_catalog_path: if working.template_catalog_path.is_file() {
-            working.template_catalog_path
-        } else {
-            repository.template_catalog_path
-        },
-        standards_lock_path: if working.standards_lock_path.is_file() {
-            working.standards_lock_path
-        } else {
-            repository.standards_lock_path
-        },
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -815,12 +784,26 @@ impl ManifestProjector for CuratedGenerationManifestProjector {
 pub fn write_generation_run(
     run: &PreparedGenerationRun,
 ) -> Result<GenerationSummary, GenerateError> {
+    write_generation_run_with_resources(run, &product_resources::ProductResources::embedded())
+}
+
+pub fn write_generation_run_with_resources(
+    run: &PreparedGenerationRun,
+    resources: &product_resources::ProductResources,
+) -> Result<GenerationSummary, GenerateError> {
     if fs::symlink_metadata(&run.out_dir).is_ok() {
         return Err(GenerateError::OutputPathExists(run.out_dir.clone()));
     }
+    let resource_snapshot = resources
+        .snapshot()
+        .map_err(|error| GenerateError::PlanFirst {
+            stage: "product resource materialization",
+            message: error.to_string(),
+        })?;
+    let resource_root = resource_snapshot.root();
     // Planning is deliberately complete before a publication transaction or
     // private staging directory exists.
-    let curated_sc_plan = prepare_curated_sc_plan(run)?;
+    let curated_sc_plan = prepare_curated_sc_plan(run, resource_root)?;
     let parent = run
         .out_dir
         .parent()
@@ -840,9 +823,9 @@ pub fn write_generation_run(
         .file_name()
         .map(|name| canonical_parent.join(name))
         .unwrap_or_else(|| run.out_dir.clone());
-    let standards_lock_path = Path::new("standards.lock.json");
-    let cargo_lock_path = Path::new("Cargo.lock");
-    let registry_path = Path::new("cases/registry.json");
+    let standards_lock_path = &resource_root.join("standards.lock.json");
+    let cargo_lock_path = &resource_root.join("Cargo.lock");
+    let registry_path = &resource_root.join("cases/registry.json");
 
     let standards_lock = read_json_metadata(standards_lock_path)?;
     let standards_lock_bytes = read_bytes_metadata(standards_lock_path)?;

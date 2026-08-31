@@ -95,3 +95,19 @@ fn resource_lookup_rejects_unsafe_and_unknown_paths() {
         Err(ProductResourceError::UnknownResource(_))
     ));
 }
+
+#[test]
+fn snapshot_materializes_and_cleans_the_complete_resource_tree() {
+    let resources = ProductResources::embedded();
+    let root = {
+        let snapshot = resources.snapshot().unwrap();
+        let root = snapshot.root().to_path_buf();
+        assert_eq!(
+            fs::read(snapshot.path("cases/registry.json").unwrap()).unwrap(),
+            resources.bytes("cases/registry.json").unwrap().as_ref()
+        );
+        assert!(snapshot.path("templates/catalog.json").unwrap().is_file());
+        root
+    };
+    assert!(!root.exists(), "snapshot must clean up on drop");
+}

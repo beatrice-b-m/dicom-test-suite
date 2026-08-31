@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::fmt;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde::{Deserialize, Serialize};
 
@@ -44,6 +45,11 @@ pub struct ProductResources {
 }
 
 #[derive(Debug)]
+pub struct ProductResourceSnapshot {
+    root: PathBuf,
+}
+
+#[derive(Debug)]
 #[non_exhaustive]
 pub enum ProductResourceError {
     UnsafeLogicalPath(String),
@@ -54,6 +60,15 @@ pub enum ProductResourceError {
         source: std::io::Error,
     },
     NonUtf8(String),
+    CreateSnapshot {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+    WriteSnapshot {
+        logical_path: String,
+        path: PathBuf,
+        source: std::io::Error,
+    },
 }
 
 impl fmt::Display for ProductResourceError {
@@ -73,6 +88,22 @@ impl fmt::Display for ProductResourceError {
                 path.display()
             ),
             Self::NonUtf8(path) => write!(formatter, "product resource is not UTF-8: {path}"),
+            Self::CreateSnapshot { path, source } => {
+                write!(
+                    formatter,
+                    "create product resource snapshot {}: {source}",
+                    path.display()
+                )
+            }
+            Self::WriteSnapshot {
+                logical_path,
+                path,
+                source,
+            } => write!(
+                formatter,
+                "write product resource {logical_path} to snapshot {}: {source}",
+                path.display()
+            ),
         }
     }
 }
@@ -172,6 +203,83 @@ impl ProductResources {
             resources: records,
         })
     }
+
+    pub fn snapshot(&self) -> Result<ProductResourceSnapshot, ProductResourceError> {
+        static NEXT_SNAPSHOT: AtomicU64 = AtomicU64::new(0);
+        let parent = std::env::temp_dir();
+        let root = (0..128)
+            .find_map(|_| {
+                let sequence = NEXT_SNAPSHOT.fetch_add(1, Ordering::Relaxed);
+                let candidate = parent.join(format!(
+                    "dicom-test-suite-resources-{}-{sequence}",
+                    std::process::id()
+                ));
+                match create_private_directory(&candidate) {
+                    Ok(()) => Some(Ok(candidate)),
+                    Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => None,
+                    Err(source) => Some(Err(ProductResourceError::CreateSnapshot {
+                        path: candidate,
+                        source,
+                    })),
+                }
+            })
+            .transpose()?
+            .ok_or_else(|| ProductResourceError::CreateSnapshot {
+                path: parent,
+                source: std::io::Error::new(
+                    std::io::ErrorKind::AlreadyExists,
+                    "could not allocate a unique resource snapshot",
+                ),
+            })?;
+
+        for logical_path in self.logical_paths() {
+            let path = root.join(logical_path);
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent).map_err(|source| {
+                    ProductResourceError::WriteSnapshot {
+                        logical_path: logical_path.to_string(),
+                        path: parent.to_path_buf(),
+                        source,
+                    }
+                })?;
+            }
+            let bytes = self.bytes(logical_path)?;
+            fs::write(&path, &bytes).map_err(|source| ProductResourceError::WriteSnapshot {
+                logical_path: logical_path.to_string(),
+                path,
+                source,
+            })?;
+        }
+        Ok(ProductResourceSnapshot { root })
+    }
+}
+
+impl ProductResourceSnapshot {
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
+    pub fn path(&self, logical_path: &str) -> Result<PathBuf, ProductResourceError> {
+        validate_logical_path(logical_path)?;
+        Ok(self.root.join(logical_path))
+    }
+}
+
+impl Drop for ProductResourceSnapshot {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.root);
+    }
+}
+
+#[cfg(unix)]
+fn create_private_directory(path: &Path) -> std::io::Result<()> {
+    use std::os::unix::fs::DirBuilderExt;
+    fs::DirBuilder::new().mode(0o700).create(path)
+}
+
+#[cfg(not(unix))]
+fn create_private_directory(path: &Path) -> std::io::Result<()> {
+    fs::create_dir(path)
 }
 
 fn validate_logical_path(path: &str) -> Result<(), ProductResourceError> {

@@ -28,10 +28,7 @@ const KNOWN_AMBIENT_SIGNATURES: &[&str] = &[
     "src/curated_plan.rs|standards_lock_path: root.join(\"standards.lock.json\"),",
     "src/curated_plan.rs|template_catalog_path: root.join(\"templates/catalog.json\"),",
     "src/generation_backends/mod.rs|pub const BACKEND_LOCK_FILE: &str = \"generation-backends.lock.json\";",
-    "src/lib.rs|CuratedCatalogPaths::from_repository_root(Path::new(env!(\"CARGO_MANIFEST_DIR\")));",
     "src/lib.rs|let registry_path = Path::new(\"cases/registry.json\");",
-    "src/lib.rs|let registry_path = Path::new(\"cases/registry.json\");",
-    "src/lib.rs|let standards_lock_path = Path::new(\"standards.lock.json\");",
     "src/lib.rs|path: PathBuf::from(\"cases/registry.json\"),",
     "src/lib.rs|path: PathBuf::from(\"cases/registry.json\"),",
     "src/lib.rs|path: PathBuf::from(\"cases/registry.json\"),",
@@ -86,7 +83,8 @@ fn production_has_no_uninventoried_ambient_resource_lookups() {
             .iter()
             .any(|form| trimmed.contains(form));
 
-            if compile_time_root || (resource_path && lookup_form) {
+            let resolved_product_resource = trimmed.contains("resource_root.join(");
+            if compile_time_root || (resource_path && lookup_form && !resolved_product_resource) {
                 findings.push(format!("{}|{trimmed}", path.display()));
             }
         }

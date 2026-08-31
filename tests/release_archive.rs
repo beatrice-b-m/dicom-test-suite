@@ -140,6 +140,16 @@ fn current_target_archive_is_manifest_bound_and_relocatable() {
         let document: Value = serde_json::from_slice(&output.stdout).unwrap();
         assert_eq!(document["status"], "success");
     }
+    let inventory = Command::new(&installed)
+        .current_dir(&unrelated)
+        .args(["list-cases", "--profile", "smoke", "--format", "json"])
+        .output()
+        .unwrap();
+    assert!(inventory.status.success());
+    assert_eq!(
+        serde_json::from_slice::<Value>(&inventory.stdout).unwrap()["status"],
+        "success"
+    );
     let generated = workspace.0.join("generated");
     let generation = Command::new(&installed)
         .current_dir(&unrelated)
@@ -160,4 +170,20 @@ fn current_target_archive_is_manifest_bound_and_relocatable() {
         .output()
         .unwrap();
     assert!(validation.status.success());
+    let report = Command::new(&installed)
+        .current_dir(&unrelated)
+        .arg("report")
+        .arg(&generated)
+        .args(["--format", "json", "--cli-api", "1.0.0"])
+        .output()
+        .unwrap();
+    assert!(
+        report.status.success(),
+        "relocated report failed: {}",
+        String::from_utf8_lossy(&report.stderr)
+    );
+    assert_eq!(
+        serde_json::from_slice::<Value>(&report.stdout).unwrap()["status"],
+        "success"
+    );
 }

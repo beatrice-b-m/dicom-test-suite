@@ -101,6 +101,8 @@ cp "$release_binary" "$archive_root/bin/dicom-test-suite"
 cp LICENSE-APACHE LICENSE-MIT README.md Cargo.lock "$archive_root/"
 for release_doc in \
     docs/generation-guide.md \
+    docs/installation-guide.md \
+    docs/automation-guide.md \
     docs/sdk-guide.md \
     docs/assembly-guide.md \
     docs/compatibility-policy.md \

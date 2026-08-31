@@ -35,6 +35,12 @@ the registry or a fresh run report.
 
 ## Operating And Policy Guides
 
+- [Installation and upgrade](installation-guide.md): verified native archive
+  selection, checksum/extraction, installed discovery, relocation, secondary
+  channel status, and side-by-side upgrade procedure.
+- [Automation and agent integration](automation-guide.md): workflow choice,
+  machine envelopes and exit classes, manifest-driven evidence, optional
+  capability boundaries, and the required agent sequence.
 - [Standalone compatibility policy](compatibility-policy.md): independent
   product, CLI, schema, manifest, template, report, provider, and resource
   versions; additive/breaking classification; support windows; and upgrade

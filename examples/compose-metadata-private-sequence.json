@@ -1,0 +1,43 @@
+{
+  "composition_spec_schema_version": "0.1.0",
+  "instances": [
+    {
+      "instance_id": "metadata",
+      "template": { "id": "classic/secondary-capture/monochrome" },
+      "attributes": [
+        {
+          "address": { "keyword": "PatientName" },
+          "operation": "set",
+          "vr": "PN",
+          "value": { "kind": "string", "value": "SYNTHETIC^EXAMPLE" }
+        },
+        {
+          "address": { "tag": "0011,1010", "private_creator": "DTS_EXAMPLE" },
+          "operation": "set",
+          "vr": "OB",
+          "value": { "kind": "binary", "base64": "AAECAw==" }
+        },
+        {
+          "address": { "keyword": "ReferencedSeriesSequence" },
+          "operation": "set",
+          "vr": "SQ",
+          "value": {
+            "kind": "sequence",
+            "items": [
+              {
+                "attributes": [
+                  {
+                    "address": { "keyword": "SeriesInstanceUID" },
+                    "operation": "set",
+                    "vr": "UI",
+                    "value": { "kind": "string", "value": "2.25.987654321" }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

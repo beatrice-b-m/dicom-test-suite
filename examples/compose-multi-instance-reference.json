@@ -1,0 +1,16 @@
+{
+  "composition_spec_schema_version": "0.1.0",
+  "instances": [
+    {
+      "instance_id": "presentation",
+      "template": { "id": "derived/presentation-state/color" },
+      "references": [
+        { "role": "source_image", "target_instance_id": "source" }
+      ]
+    },
+    {
+      "instance_id": "source",
+      "template": { "id": "classic/secondary-capture/rgb" }
+    }
+  ]
+}

@@ -41,6 +41,9 @@ the registry or a fresh run report.
 - [Automation and agent integration](automation-guide.md): workflow choice,
   machine envelopes and exit classes, manifest-driven evidence, optional
   capability boundaries, and the required agent sequence.
+- [Installed examples](examples-guide.md): relocatable raw grayscale/RGB,
+  metadata/private/Sequence, multi-instance reference, and structural assembly
+  requests with exact installed-binary commands.
 - [Standalone compatibility policy](compatibility-policy.md): independent
   product, CLI, schema, manifest, template, report, provider, and resource
   versions; additive/breaking classification; support windows; and upgrade

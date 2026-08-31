@@ -1,0 +1,32 @@
+{
+  "composition_spec_schema_version": "0.1.0",
+  "instances": [
+    {
+      "instance_id": "rgb",
+      "template": { "id": "classic/secondary-capture/rgb" },
+      "content": [
+        {
+          "slot": "pixels",
+          "source": {
+            "kind": "inline_small_fixture",
+            "base64": "YWJjZGVmZ2hpamts",
+            "sha256": "d682ed4ca4d989c134ec94f1551e1ec580dd6d5a6ecde9f3d35e6e4a717fbde4",
+            "pixel": {
+              "rows": 2,
+              "columns": 2,
+              "frames": 1,
+              "samples_per_pixel": 3,
+              "photometric_interpretation": "RGB",
+              "sample_type": "uint",
+              "bits_allocated": 8,
+              "bits_stored": 8,
+              "high_bit": 7,
+              "byte_order": "little",
+              "planar_configuration": 0
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

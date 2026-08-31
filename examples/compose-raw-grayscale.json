@@ -1,0 +1,31 @@
+{
+  "composition_spec_schema_version": "0.1.0",
+  "instances": [
+    {
+      "instance_id": "grayscale",
+      "template": { "id": "classic/secondary-capture/monochrome" },
+      "content": [
+        {
+          "slot": "pixels",
+          "source": {
+            "kind": "inline_small_fixture",
+            "base64": "MDEyMw==",
+            "sha256": "1be2e452b46d7a0d9656bbb1f768e8248eba1b75baed65f5d99eafa948899a6a",
+            "pixel": {
+              "rows": 2,
+              "columns": 2,
+              "frames": 1,
+              "samples_per_pixel": 1,
+              "photometric_interpretation": "MONOCHROME2",
+              "sample_type": "uint",
+              "bits_allocated": 8,
+              "bits_stored": 8,
+              "high_bit": 7,
+              "byte_order": "little"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

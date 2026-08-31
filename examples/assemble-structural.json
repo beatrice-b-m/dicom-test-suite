@@ -1,0 +1,53 @@
+{
+  "assembly_request_schema_version": "1.0.0",
+  "instances": [
+    {
+      "instance_id": "primary",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "elements": [
+        {
+          "address": { "keyword": "PatientName" },
+          "value": { "kind": "string", "value": "SYNTHETIC^ASSEMBLY" }
+        },
+        {
+          "address": {
+            "private_group": "0011",
+            "private_creator": "DTS_EXAMPLE",
+            "private_offset": "10"
+          },
+          "vr": "LO",
+          "value": { "kind": "string", "value": "STRUCTURAL" }
+        },
+        {
+          "address": { "keyword": "ReferencedImageSequence" },
+          "value": {
+            "kind": "sequence",
+            "items": [
+              {
+                "elements": [
+                  {
+                    "address": { "keyword": "ReferencedSOPClassUID" },
+                    "value": {
+                      "kind": "string",
+                      "value": "1.2.840.10008.5.1.4.1.1.7"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "bulk": [
+        {
+          "kind": "integer_pixel_data",
+          "source": { "kind": "inline_base64", "base64": "AAECAw==" },
+          "rows": 2,
+          "columns": 2,
+          "bits_allocated": 8,
+          "bits_stored": 8
+        }
+      ]
+    }
+  ]
+}

@@ -33,6 +33,95 @@ fn read_json(path: impl AsRef<Path>) -> Value {
     serde_json::from_slice(&fs::read(path).unwrap()).unwrap()
 }
 
+fn assert_installed_example(
+    installed: &Path,
+    unrelated: &Path,
+    request: &Path,
+    command: &str,
+    first_root: &Path,
+    second_root: &Path,
+) {
+    let input_flag = if command == "compose" {
+        "--spec"
+    } else {
+        "--request"
+    };
+    for output_root in [first_root, second_root] {
+        let output = Command::new(installed)
+            .current_dir(unrelated)
+            .arg(command)
+            .arg(input_flag)
+            .arg(request)
+            .arg("--out")
+            .arg(output_root)
+            .args(["--seed", "1", "--format", "json"])
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "installed {command} example {} failed: {}",
+            request.display(),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let result: Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(result["status"], "success");
+
+        let validation = Command::new(installed)
+            .current_dir(unrelated)
+            .arg("validate")
+            .arg(output_root)
+            .args(["--format", "json"])
+            .output()
+            .unwrap();
+        assert!(
+            validation.status.success(),
+            "installed example validation failed: {}",
+            String::from_utf8_lossy(&validation.stderr)
+        );
+        let report = Command::new(installed)
+            .current_dir(unrelated)
+            .arg("report")
+            .arg(output_root)
+            .args(["--format", "json", "--cli-api", "1.0.0"])
+            .output()
+            .unwrap();
+        assert!(
+            report.status.success(),
+            "installed example report failed: {}",
+            String::from_utf8_lossy(&report.stderr)
+        );
+    }
+
+    let first = read_json(first_root.join("manifest.json"));
+    let second = read_json(second_root.join("manifest.json"));
+    assert_eq!(
+        first["run"]["corpus_plan_sha256"],
+        second["run"]["corpus_plan_sha256"],
+        "{} changed its plan identity",
+        request.display()
+    );
+    let entries = if command == "compose" {
+        first["composition"]["entries"].as_array().unwrap()
+    } else {
+        first["instances"].as_array().unwrap()
+    };
+    for entry in entries {
+        let relative = entry[if command == "compose" {
+            "path"
+        } else {
+            "output_path"
+        }]
+        .as_str()
+        .unwrap();
+        assert_eq!(
+            fs::read(first_root.join(relative)).unwrap(),
+            fs::read(second_root.join(relative)).unwrap(),
+            "{} changed {relative} bytes",
+            request.display()
+        );
+    }
+}
+
 #[test]
 fn current_target_archive_is_manifest_bound_and_relocatable() {
     let binary = PathBuf::from(env!("CARGO_BIN_EXE_dicom-test-suite"));
@@ -185,5 +274,32 @@ fn current_target_archive_is_manifest_bound_and_relocatable() {
     assert_eq!(
         serde_json::from_slice::<Value>(&report.stdout).unwrap()["status"],
         "success"
+    );
+
+    for (index, example) in [
+        "compose-raw-grayscale.json",
+        "compose-raw-rgb.json",
+        "compose-metadata-private-sequence.json",
+        "compose-multi-instance-reference.json",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        assert_installed_example(
+            &installed,
+            &unrelated,
+            &root.join("examples").join(example),
+            "compose",
+            &workspace.0.join(format!("example-{index}-first")),
+            &workspace.0.join(format!("example-{index}-second")),
+        );
+    }
+    assert_installed_example(
+        &installed,
+        &unrelated,
+        &root.join("examples/assemble-structural.json"),
+        "assemble",
+        &workspace.0.join("assembly-example-first"),
+        &workspace.0.join("assembly-example-second"),
     );
 }

@@ -23,6 +23,7 @@ include = [
     "conformance/**",
     "conformance-backends/**",
     "docs/**",
+    "examples/**",
     "generation-backends.lock.json",
     "generation-backends/**",
     "product/**",

@@ -17,11 +17,11 @@ Every production filesystem lookup belongs to exactly one of these classes:
 
 Network fetching is not a fifth class. It remains prohibited for generation.
 
-## Ambient first-party lookups requiring S1 removal
+## Ambient first-party lookup migration
 
-The regression test `product_resource_lookup_audit` derives exact occurrences
-from production source before each file's `#[cfg(test)] mod tests` body. The
-initial inventory includes:
+The regression test `product_resource_lookup_audit` derives occurrences from
+production source before each file's `#[cfg(test)] mod tests` body. The initial
+inventory included:
 
 - `src/main.rs`: default template catalog, case registry, standards lock,
   coverage-gap inputs, conformance configuration/allowlist, and protocol
@@ -43,6 +43,12 @@ embedded, not ambient reads, but S1.2 must expose them through the same resource
 identity abstraction. Manifest dependency strings and source-note identifiers
 are provenance labels rather than filesystem opens and remain distinguishable
 from resource resolution.
+
+As of the S1 gate, all listed first-party lookups resolve from an immutable
+`ProductResources` snapshot. The audit allowlist is empty. Logical path
+constants, diagnostic path labels, and joins beneath an injected snapshot root
+are not filesystem lookup origins; direct reads from those logical identifiers
+remain prohibited.
 
 ## Explicit caller, tool, and output access
 
@@ -67,6 +73,5 @@ and destination-race contracts.
 
 `tests/product_resource_lookup_audit.rs` fails if a new ambient repository
 resource lookup or `CARGO_MANIFEST_DIR` dependency appears in production source.
-During S1.2-S1.3, known findings are removed from its explicit allowlist until
-the list is empty. New first-party resources must be added to
-`ProductResources` and its immutable inventory instead of this allowlist.
+There is no exception allowlist. New first-party resources must be added to
+`ProductResources` and its immutable inventory.

@@ -12,37 +12,6 @@ const RESOURCE_MARKERS: &[&str] = &[
     "transfer-syntax/",
 ];
 
-// S1.1 freezes the existing findings. S1.2-S1.3 remove these signatures as
-// their lookups move behind ProductResources; this list must only shrink.
-const KNOWN_AMBIENT_SIGNATURES: &[&str] = &[
-    "src/composition/advanced_defaults.rs|standards_lock_path: repository_root.join(\"standards.lock.json\"),",
-    "src/composition/advanced_defaults.rs|standards_lock_path: repository_root.join(\"standards.lock.json\"),",
-    "src/composition/advanced_semantic_defaults.rs|standards_lock_path: repository_root.join(\"standards.lock.json\"),",
-    "src/conformance.rs|pub const DEFAULT_ACCEPTED_FINDINGS: &str = \"conformance/accepted-findings.json\";",
-    "src/conformance.rs|pub const DEFAULT_VALIDATOR_CONFIG: &str = \"conformance/validators.json\";",
-    "src/conformance.rs|pub const DEFAULT_VALIDATOR_LOCK: &str = \"conformance/validator-lock.json\";",
-    "src/curated_plan.rs|recipes_root: root.join(\"cases/recipes\"),",
-    "src/curated_plan.rs|registry_path: root.join(\"cases/registry.json\"),",
-    "src/curated_plan.rs|standards_lock_path: root.join(\"standards.lock.json\"),",
-    "src/curated_plan.rs|template_catalog_path: root.join(\"templates/catalog.json\"),",
-    "src/generation_backends/mod.rs|pub const BACKEND_LOCK_FILE: &str = \"generation-backends.lock.json\";",
-    "src/lib.rs|build_coverage_report_with_registry(root_dir, &snapshot.root().join(\"cases/registry.json\"))",
-    "src/lib.rs|path: PathBuf::from(\"cases/registry.json\"),",
-    "src/lib.rs|path: PathBuf::from(\"cases/registry.json\"),",
-    "src/lib.rs|path: PathBuf::from(\"cases/registry.json\"),",
-    "src/lib.rs|path: PathBuf::from(\"cases/registry.json\"),",
-    "src/lib.rs|path: PathBuf::from(\"cases/registry.json\"),",
-    "src/lib.rs|path: PathBuf::from(\"cases/registry.json\"),",
-    "src/lib.rs|path: PathBuf::from(\"cases/registry.json\"),",
-    "src/lib.rs|path: PathBuf::from(\"cases/registry.json\"),",
-    "src/lib.rs|path: PathBuf::from(\"cases/registry.json\"),",
-    "src/lib.rs|path: PathBuf::from(\"cases/registry.json\"),",
-    "src/lib.rs|path: PathBuf::from(\"cases/registry.json\"),",
-    "src/lib.rs|path: PathBuf::from(\"cases/registry.json\"),",
-    "src/lib.rs|path: PathBuf::from(\"cases/registry.json\"),",
-    "src/lib.rs|path: PathBuf::from(\"cases/registry.json\"),",
-];
-
 #[test]
 fn production_has_no_uninventoried_ambient_resource_lookups() {
     let mut findings = Vec::new();
@@ -59,43 +28,31 @@ fn production_has_no_uninventoried_ambient_resource_lookups() {
             let resource_path = RESOURCE_MARKERS
                 .iter()
                 .any(|marker| trimmed.contains(marker));
-            let lookup_form = [
-                "Path::new(",
-                "PathBuf::from(",
-                "String::from(",
-                "fs::read",
-                "read_json(",
-                "TemplateCatalog::load(",
-                ".join(",
-                "DEFAULT_",
-                "BACKEND_LOCK_FILE",
+            let direct_ambient_read = [
+                "fs::read(\"",
+                "fs::read_to_string(\"",
+                "File::open(\"",
+                "read_json(\"",
+                "read_json(Path::new(\"",
+                "TemplateCatalog::load(\"",
             ]
             .iter()
             .any(|form| trimmed.contains(form));
-
-            let resolved_product_resource = trimmed.contains("resource_root.join(");
-            let resource_path_comparison = trimmed.contains("== Path::new(");
-            if compile_time_root
-                || (resource_path
-                    && lookup_form
-                    && !resolved_product_resource
-                    && !resource_path_comparison)
-            {
+            let ambient_default = ["Path::new(\"", "PathBuf::from(\"", "String::from(\""]
+                .iter()
+                .any(|form| trimmed.contains(form))
+                && !trimmed.starts_with("path: PathBuf::from(")
+                && !trimmed.contains("== Path::new(");
+            if compile_time_root || (resource_path && (direct_ambient_read || ambient_default)) {
                 findings.push(format!("{}|{trimmed}", path.display()));
             }
         }
     });
 
     findings.sort();
-    let mut known = KNOWN_AMBIENT_SIGNATURES
-        .iter()
-        .copied()
-        .map(str::to_owned)
-        .collect::<Vec<_>>();
-    known.sort();
-    assert_eq!(
-        findings, known,
-        "ambient first-party lookups must be inventoried and the allowlist may only shrink"
+    assert!(
+        findings.is_empty(),
+        "production first-party resources must resolve through ProductResources: {findings:#?}"
     );
 }
 

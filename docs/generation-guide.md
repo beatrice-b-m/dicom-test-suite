@@ -51,13 +51,15 @@ and semantic evidence.
 ## 2. Inspect Before Generating
 
 The registry is the authority for available and planned coverage. Its CLI view
-is tab-separated and is suitable for people or simple scripts:
+is tab-separated for people. Automation should use the versioned JSON result:
 
 ```sh
 cargo run --locked -- list-cases
 cargo run --locked -- list-cases --profile all
 cargo run --locked -- list-cases \
   --profile extended --status planned
+cargo run --locked -- list-cases \
+  --profile extended --status planned --format json
 cargo run --locked -- report gaps --format json > coverage-gaps.json
 cargo run --locked -- report gaps --format markdown
 ```
@@ -67,6 +69,40 @@ Class and transfer syntax, standards-evidence coverage, artifact kind, provider,
 object family, roadmap priority, and blocker codes. `implemented` means a recipe
 exists; it can still be unavailable in a particular run when its feature or
 external runtime is absent.
+
+### Machine CLI contract
+
+Discover the executable contract before selecting a request:
+
+```sh
+cargo run --locked -- version --format json
+cargo run --locked -- capabilities --format json
+```
+
+Every automation command uses `--format json`. Success writes one object to
+stdout and nothing to stderr; failure writes one error object to stderr and
+nothing to stdout. Both carry `cli_api_version = "1.0.0"`, a stable command
+name, and `status`. Exit classes are `2` for request/syntax errors, `3` for
+unavailable capability, `4` for path or resource conflicts, `5` for generation
+or evidence failure, and `6` for unexpected product I/O/internal failure.
+Error codes are append-only and published in `product/cli-error-codes.json`.
+
+Generation, composition, and composition dry-run share typed file-producing
+fields for the requested root, optional manifest, run and schema versions,
+seed, product version, emitted count/bytes, unavailable summaries, corpus-plan
+hash, publication state, validation state, and plan preview. For example:
+
+```sh
+cargo run --locked -- compose --spec request.json --out generated/preview \
+  --dry-run --format json
+cargo run --locked -- compose --spec request.json --out generated/result \
+  --format json
+cargo run --locked -- validate generated/result --format json
+```
+
+Historical report JSON is the compatibility exception: `--format json` alone
+returns the raw report. Add `--cli-api 1.0.0` to receive the common envelope;
+the unchanged raw object is then at `result.report`.
 
 ## 3. Select A Profile
 
@@ -192,6 +228,8 @@ cargo run --locked -- compose \
   --out generated/composition-sc --seed 1
 cargo run --locked -- validate generated/composition-sc
 cargo run --locked -- report generated/composition-sc --format json
+cargo run --locked -- report generated/composition-sc \
+  --format json --cli-api 1.0.0
 ```
 
 Composition roots use `run.kind = "composition"` and composition entries. Their

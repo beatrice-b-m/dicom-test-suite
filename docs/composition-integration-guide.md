@@ -22,6 +22,11 @@ cargo run --locked -- templates describe classic/xa --format json
 cargo run --locked -- templates reference --format markdown
 ```
 
+The JSON descriptor is in `result.templates[0]` inside CLI API `1.0.0`'s
+common success envelope. Use `capabilities --format json` to discover the live
+CLI, result-schema, request-schema, template, transfer-syntax, and runtime
+availability versions before submitting a request.
+
 The descriptor is authoritative for template version, defaults, protected and
 conditional attributes, content and reference slots, transfer syntaxes,
 requirements, limitations, determinism, and independent-validator routes. An

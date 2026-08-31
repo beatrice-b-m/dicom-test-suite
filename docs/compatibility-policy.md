@@ -14,7 +14,7 @@ necessarily change every other contract.
 | Domain | Current pre-release line | Identity and compatibility boundary |
 | --- | --- | --- |
 | Product and crate | `0.1.x` | Cargo package and release archive; follows Semantic Versioning, including the pre-1.0 rules below. |
-| CLI API | `1.0.0` when introduced | JSON envelopes, command result objects, error codes, exit classes, and stdout/stderr rules. Human output is excluded. |
+| CLI API | `1.0.0` | JSON envelopes, command result objects, error codes, exit classes, and stdout/stderr rules. Human output is excluded. |
 | Composition request | `0.1.0` | `composition_spec_schema_version` and its accepted document semantics. |
 | Structural-assembly request | `1.0.0` when introduced | `assembly_request_schema_version` and its accepted document semantics. |
 | Curated manifest | `0.3.0` (reader retains `0.2.0`) | `manifest_schema_version` for registry-led runs. Version `0.3.0` adds immutable product-resource identity. |
@@ -25,7 +25,7 @@ necessarily change every other contract.
 | Case registry | `0.2.0` | Registry document shape; case recipe identity and determinism change through `recipe_version`. |
 | Composition provider | `1.0.0` | Request/response protocol used by caller-selected content providers. |
 | Generation backend | `0.1.0` | Locked external generation-backend request/response protocol. |
-| Product resources | `1.0.0` when introduced | Immutable embedded or explicit resource-set inventory and hashes. |
+| Product resources | `1.0.0` | Immutable embedded or explicit resource-set inventory and hashes. |
 
 The version/capability discovery response is the machine authority for the
 versions supported by a particular executable. This table records the policy
@@ -132,7 +132,9 @@ the version boundary required by Section 2.
 Pre-standalone source-tree human output and public internal Rust modules do not
 gain a new support window merely because they remain callable during migration.
 Existing report JSON remains unchanged until a separately announced CLI API
-wrapper version; tests preserve its current documented form.
+wrapper version; CLI API `1.0.0` provides that wrapper only when report callers
+pass `--cli-api 1.0.0`. Omitting the selector preserves the raw report object,
+and migration tests compare the wrapped `result.report` to the raw object.
 
 ## 6. Upgrade evidence
 

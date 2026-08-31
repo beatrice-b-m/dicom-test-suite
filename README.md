@@ -40,6 +40,20 @@ cargo run --locked -- report \
 The output directory must not already exist. Generation is staged and promoted
 as a complete directory, and the result always includes `manifest.json`.
 
+For automation, discover the versioned contract and request JSON explicitly:
+
+```sh
+cargo run --locked -- version --format json
+cargo run --locked -- capabilities --format json
+cargo run --locked -- generate \
+  --profile smoke --out generated/smoke-machine --seed 1 --format json
+```
+
+Machine success uses one versioned envelope on stdout; failure uses one stable
+error envelope on stderr and exit class `2` through `6`. Human output is not an
+automation contract. Historical report JSON stays raw unless the caller adds
+`--cli-api 1.0.0`, which wraps the unchanged report at `result.report`.
+
 Both public generation workflows now use one plan-first spine. `generate`
 resolves registry-selected, versioned case recipes into an immutable
 `CorpusPlan`; `compose` resolves caller specifications and qualified templates
@@ -199,6 +213,8 @@ limitations are documented in [conformance/README.md](conformance/README.md).
 ## Command Map
 
 ```text
+version           Report product, target, feature, and resource identity.
+capabilities      Discover supported versions and live availability.
 generate          Create one profile in a new output root.
 compose           Create caller-specified objects in a new output root.
 templates         List or describe qualified composition templates.

@@ -87,6 +87,10 @@ cargo run --locked -- templates describe \
   classic/secondary-capture/monochrome --format json
 ```
 
+Machine template output uses CLI API `1.0.0`'s common envelope; descriptors are
+under `result.templates`. Human table, text, and Markdown forms remain
+command-specific and are not automation contracts.
+
 ## Default object
 
 Save this as `examples/composition/sc-default.json` (or use the committed

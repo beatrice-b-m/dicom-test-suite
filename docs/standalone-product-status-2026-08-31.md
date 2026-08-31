@@ -4,7 +4,7 @@
 
 **Contract:** `docs/standalone-productization-plan.md`
 
-**Release readiness:** not ready; S0 and S1 are complete and S2 automation is next
+**Release readiness:** not ready; S0 and S1 are complete and S2 automation is in progress
 
 ## Current gate state
 
@@ -12,7 +12,7 @@
 | --- | --- | --- |
 | S0 — product contract | Complete | ADR 0002 fixes CLI-primary/SDK-secondary integration and the three disjoint evidence workflows. The compatibility policy, CLI envelope/registry schemas and fixtures, current-command error mappings, structural-assembly design, and official-source foundation are committed and tested. |
 | S1 — relocatable resources | Complete | Versioned embedded resources cover all first-party catalogs, recipes, schemas, locks, configs, and small assets. Production lookups are audited, explicit roots are integrity checked, manifests project resource identity, and the installed binary passed every resource-backed workflow from three unrelated directories. |
-| S2 — automation protocol | Not started | The executable has no JSON `version` or `capabilities` discovery commands and returns human strings with a single generic failure exit. |
+| S2 — automation protocol | In progress | Versioned JSON `version` and conservative `capabilities` discovery are implemented. The common machine-error envelope and documented exit classes now cover representative syntax and resource-integrity failures; command-wide success envelopes, complete taxonomy coverage, typed publish/dry-run outcomes, and the S2 black-box gate remain open. |
 | S3 — Rust SDK | Not started | Public internal modules exist, but there is no supported `dicom_test_suite::sdk` facade or shared stable public error model. |
 | S4 — structural assembly | Not started | There is no `assemble` CLI/SDK workflow, assembly request schema, or structural-assembly manifest branch. |
 | S5 — packaging and guides | Not started | Cargo metadata and public quick starts do not yet satisfy the release-archive and installed-product contract. |
@@ -59,7 +59,9 @@ test-only fixtures are not classified by this initial production audit.
 
 ## Remaining blockers
 
-All S2 through S7 deliverables and every terminal acceptance row remain open.
+S2.2 through S7 and every terminal acceptance row remain open. S2.1 is
+complete; the initial shared-error foundation of S2.2/S2.3 is implemented but
+does not yet establish command-wide coverage or close either numbered item.
 Linux x86_64 and macOS arm64 cannot be claimed as standalone release targets
 until the exact target archives pass the required external-consumer matrix.
 Optional runtimes are accepted only when discovered and fingerprint-qualified;
@@ -227,3 +229,44 @@ the checkout or Cargo cache, works after relocation for every S1 workflow, and
 fails explicit resource drift closed. No release target or terminal matrix row
 is claimed yet; packaging, external-consumer, exact release-candidate, and
 platform qualification remain open.
+
+### S2 — automation protocol: in progress
+
+S2.1 is complete at `dcd4c6b`. Both machine discovery commands emit the common
+success envelope and validate against their
+versioned result schemas. Capability discovery is derived from the embedded
+template catalog, compiled feature set, transfer-syntax matrix, backend lock,
+validator configuration, and resource ceilings. Optional runtimes and
+structural assembly remain explicitly unavailable or require explicit
+configuration; discovery does not probe them into implied availability.
+
+Commit `390ad21` establishes the shared machine-error foundation without
+claiming S2.2 or S2.3 complete. Top-level failures requested in JSON mode emit
+one schema-valid error object on stderr, no stdout, and a documented exit
+class. Focused tests cover exit `2` for command syntax and exit `5` for embedded
+resource-evidence drift. Human version output and representative legacy
+generate/compose failures remain compatible.
+
+Exact verification evidence at the current commit:
+
+```sh
+cargo fmt --all -- --check
+cargo test --locked --no-default-features \
+  --test capabilities_cli \
+  --test version_cli \
+  --test cli_contract_schema
+cargo test --locked --no-default-features \
+  --test generate_cli generate_command_requires_output_path
+cargo test --locked --no-default-features \
+  --test compose_cli compose_rejects_protected_rows_before_promotion
+git diff --check
+```
+
+The discovery/contract bundle passed 10/10 tests; the two selected legacy
+smoke tests passed. The remaining S2 blockers are common success envelopes and
+`--format json` support for every consumer command, golden coverage of all six
+exit classes and every workflow family, typed shape-compatible publish/dry-run
+outcomes, report-JSON migration protection, non-Rust subprocess evidence, and
+the phase gate. The 38 existing compile-time dead-code warnings remain visible
+to Cargo developers but have not leaked into runtime machine stdout/stderr;
+warning cleanup remains part of S2.2 acceptance.

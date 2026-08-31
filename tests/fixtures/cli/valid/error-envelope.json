@@ -1,0 +1,14 @@
+{
+  "cli_api_version": "1.0.0",
+  "command": "compose",
+  "status": "error",
+  "error": {
+    "code": "request.schema.invalid",
+    "message": "composition request does not satisfy schema 0.1.0",
+    "context": {
+      "request_schema_version": "0.1.0",
+      "violations": ["/instances/0/template_id: required"]
+    },
+    "retryable": false
+  }
+}

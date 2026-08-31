@@ -1,0 +1,13 @@
+{
+  "cli_api_version": "1.0.0",
+  "command": "compose",
+  "status": "error",
+  "error": {
+    "code": "request.schema.invalid",
+    "message": "invalid",
+    "context": {
+      "private_staging": { "path": "/tmp/private-stage" }
+    },
+    "retryable": false
+  }
+}

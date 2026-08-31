@@ -1,0 +1,9 @@
+{
+  "cli_api_version": "1.0.0",
+  "command": "compose",
+  "status": "success",
+  "result": {
+    "published": false,
+    "manifest_path": null
+  }
+}

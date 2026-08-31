@@ -1,0 +1,144 @@
+{
+  "registry_schema_version": "1.0.0",
+  "cli_api_version": "1.0.0",
+  "exit_classes": [
+    { "exit": 0, "meaning": "command completed successfully" },
+    { "exit": 2, "meaning": "command syntax, request parsing, or schema error" },
+    { "exit": 3, "meaning": "requested capability or required runtime unavailable" },
+    { "exit": 4, "meaning": "output or path conflict, or caller-controlled resource limit" },
+    { "exit": 5, "meaning": "generation, validation, conformance, or evidence failure" },
+    { "exit": 6, "meaning": "unexpected I/O or internal product failure" }
+  ],
+  "errors": [
+    { "code": "command.syntax.invalid", "exit": 2, "meaning": "unknown command, subcommand, option, format, or malformed option value", "retryable_default": false },
+    { "code": "command.argument.missing", "exit": 2, "meaning": "a required command argument or option value is absent", "retryable_default": false },
+    { "code": "request.read.failed", "exit": 2, "meaning": "a caller request or explicit configuration file cannot be read", "retryable_default": false },
+    { "code": "request.json.invalid", "exit": 2, "meaning": "caller request JSON cannot be parsed", "retryable_default": false },
+    { "code": "request.schema.invalid", "exit": 2, "meaning": "caller request does not satisfy its declared JSON schema", "retryable_default": false },
+    { "code": "request.version.unsupported", "exit": 2, "meaning": "request or input document uses an unsupported schema major or version", "retryable_default": false },
+    { "code": "resource.document.invalid", "exit": 2, "meaning": "an explicit registry, catalog, lock, fixture, configuration, or resource document is malformed or inconsistent", "retryable_default": false },
+    { "code": "capability.feature.unavailable", "exit": 3, "meaning": "a required Cargo feature is not enabled", "retryable_default": false },
+    { "code": "capability.runtime.unavailable", "exit": 3, "meaning": "a required external executable or runtime is absent or unqualified", "retryable_default": false },
+    { "code": "capability.provider.unavailable", "exit": 3, "meaning": "a required generation or content provider is unavailable", "retryable_default": false },
+    { "code": "capability.validator.unavailable", "exit": 3, "meaning": "a required independent validator is unavailable", "retryable_default": false },
+    { "code": "capability.peer.unavailable", "exit": 3, "meaning": "a required interoperability peer is unavailable", "retryable_default": false },
+    { "code": "capability.template.unavailable", "exit": 3, "meaning": "the requested qualified template or version is unavailable", "retryable_default": false },
+    { "code": "capability.transfer_syntax.unavailable", "exit": 3, "meaning": "the requested transfer syntax is not available for the selected workflow", "retryable_default": false },
+    { "code": "output.destination.exists", "exit": 4, "meaning": "the requested output root already exists", "retryable_default": false },
+    { "code": "output.path.unsafe", "exit": 4, "meaning": "a caller-controlled path violates traversal, absolute-path, symlink, or containment policy", "retryable_default": false },
+    { "code": "output.publication.conflict", "exit": 4, "meaning": "atomic publication lost a destination race or encountered a conflicting target", "retryable_default": true },
+    { "code": "resource.limit.exceeded", "exit": 4, "meaning": "a caller-controlled input, expansion, file, byte, depth, frame, or working-set ceiling was exceeded", "retryable_default": false },
+    { "code": "generation.planning.failed", "exit": 5, "meaning": "a valid request could not be resolved into a consistent corpus plan", "retryable_default": false },
+    { "code": "generation.materialization.failed", "exit": 5, "meaning": "a planned DICOM or auxiliary artifact could not be materialized", "retryable_default": false },
+    { "code": "generation.provider.failed", "exit": 5, "meaning": "a qualified provider crashed, timed out, flooded output, or violated its response contract", "retryable_default": false },
+    { "code": "generation.execution.cancelled", "exit": 5, "meaning": "the caller cancelled execution and cleanup completed", "retryable_default": true },
+    { "code": "validation.manifest.invalid", "exit": 5, "meaning": "the generated manifest is invalid or inconsistent with retained artifacts", "retryable_default": false },
+    { "code": "validation.artifact.failed", "exit": 5, "meaning": "one or more retained artifacts failed declared structural, content, or workflow validation", "retryable_default": false },
+    { "code": "conformance.tools.failed", "exit": 5, "meaning": "configured conformance tool qualification failed", "retryable_default": false },
+    { "code": "conformance.run.failed", "exit": 5, "meaning": "independent conformance execution failed", "retryable_default": false },
+    { "code": "conformance.verification.failed", "exit": 5, "meaning": "independent evidence did not satisfy the accepted-finding policy", "retryable_default": false },
+    { "code": "interoperability.qualification.failed", "exit": 5, "meaning": "media or protocol qualification failed its declared evidence contract", "retryable_default": false },
+    { "code": "evidence.integrity.failed", "exit": 5, "meaning": "a standards, resource, executable, provider, or artifact identity does not match its locked evidence", "retryable_default": false },
+    { "code": "io.read.failed", "exit": 6, "meaning": "an unexpected read failed after input validation", "retryable_default": true },
+    { "code": "io.write.failed", "exit": 6, "meaning": "an unexpected staging, serialization, or metadata write failed", "retryable_default": true },
+    { "code": "io.cleanup.failed", "exit": 6, "meaning": "private staging or cancellation cleanup failed", "retryable_default": true },
+    { "code": "internal.serialization.failed", "exit": 6, "meaning": "the product could not serialize its own public result or error", "retryable_default": false },
+    { "code": "internal.invariant.failed", "exit": 6, "meaning": "an unexpected product invariant failed without a more specific public classification", "retryable_default": false }
+  ],
+  "current_failure_mappings": [
+    { "command": "generate", "failure_stages": [
+      { "stage": "arguments", "codes": ["command.syntax.invalid", "command.argument.missing"] },
+      { "stage": "resources", "codes": ["resource.document.invalid", "evidence.integrity.failed"] },
+      { "stage": "availability", "codes": ["capability.feature.unavailable", "capability.runtime.unavailable", "capability.provider.unavailable", "capability.transfer_syntax.unavailable"] },
+      { "stage": "execution", "codes": ["generation.planning.failed", "generation.materialization.failed", "generation.provider.failed", "validation.artifact.failed"] },
+      { "stage": "publication", "codes": ["output.destination.exists", "output.path.unsafe", "output.publication.conflict", "resource.limit.exceeded", "io.write.failed", "io.cleanup.failed"] }
+    ] },
+    { "command": "compose", "failure_stages": [
+      { "stage": "arguments", "codes": ["command.syntax.invalid", "command.argument.missing"] },
+      { "stage": "request", "codes": ["request.read.failed", "request.json.invalid", "request.schema.invalid", "request.version.unsupported"] },
+      { "stage": "resources", "codes": ["resource.document.invalid", "evidence.integrity.failed"] },
+      { "stage": "availability", "codes": ["capability.template.unavailable", "capability.feature.unavailable", "capability.runtime.unavailable", "capability.provider.unavailable", "capability.transfer_syntax.unavailable"] },
+      { "stage": "execution", "codes": ["generation.planning.failed", "generation.materialization.failed", "generation.provider.failed", "generation.execution.cancelled", "validation.artifact.failed"] },
+      { "stage": "publication", "codes": ["output.destination.exists", "output.path.unsafe", "output.publication.conflict", "resource.limit.exceeded", "io.write.failed", "io.cleanup.failed"] }
+    ] },
+    { "command": "templates list", "failure_stages": [
+      { "stage": "arguments", "codes": ["command.syntax.invalid", "command.argument.missing"] },
+      { "stage": "catalog", "codes": ["resource.document.invalid", "evidence.integrity.failed", "io.read.failed"] },
+      { "stage": "result", "codes": ["internal.serialization.failed"] }
+    ] },
+    { "command": "templates describe", "failure_stages": [
+      { "stage": "arguments", "codes": ["command.syntax.invalid", "command.argument.missing"] },
+      { "stage": "catalog", "codes": ["resource.document.invalid", "evidence.integrity.failed", "io.read.failed"] },
+      { "stage": "availability", "codes": ["capability.template.unavailable"] },
+      { "stage": "result", "codes": ["internal.serialization.failed"] }
+    ] },
+    { "command": "templates reference", "failure_stages": [
+      { "stage": "arguments", "codes": ["command.syntax.invalid", "command.argument.missing"] },
+      { "stage": "catalog", "codes": ["resource.document.invalid", "evidence.integrity.failed", "io.read.failed"] },
+      { "stage": "result", "codes": ["internal.serialization.failed"] }
+    ] },
+    { "command": "list-cases", "failure_stages": [
+      { "stage": "arguments", "codes": ["command.syntax.invalid", "command.argument.missing"] },
+      { "stage": "registry", "codes": ["resource.document.invalid", "io.read.failed"] }
+    ] },
+    { "command": "validate", "failure_stages": [
+      { "stage": "arguments", "codes": ["command.syntax.invalid", "command.argument.missing"] },
+      { "stage": "input", "codes": ["request.read.failed", "validation.manifest.invalid", "io.read.failed"] },
+      { "stage": "availability", "codes": ["capability.feature.unavailable", "capability.runtime.unavailable"] },
+      { "stage": "validation", "codes": ["validation.artifact.failed", "evidence.integrity.failed"] }
+    ] },
+    { "command": "report", "failure_stages": [
+      { "stage": "arguments", "codes": ["command.syntax.invalid", "command.argument.missing"] },
+      { "stage": "input", "codes": ["request.read.failed", "validation.manifest.invalid", "io.read.failed"] },
+      { "stage": "result", "codes": ["internal.serialization.failed", "internal.invariant.failed"] }
+    ] },
+    { "command": "report gaps", "failure_stages": [
+      { "stage": "arguments", "codes": ["command.syntax.invalid", "command.argument.missing"] },
+      { "stage": "resources", "codes": ["resource.document.invalid", "evidence.integrity.failed", "io.read.failed"] },
+      { "stage": "result", "codes": ["internal.serialization.failed"] }
+    ] },
+    { "command": "standards check-lock", "failure_stages": [
+      { "stage": "arguments", "codes": ["command.syntax.invalid", "command.argument.missing"] },
+      { "stage": "lock", "codes": ["resource.document.invalid", "evidence.integrity.failed", "io.read.failed"] }
+    ] },
+    { "command": "standards gaps", "failure_stages": [
+      { "stage": "arguments", "codes": ["command.syntax.invalid", "command.argument.missing"] },
+      { "stage": "registry", "codes": ["resource.document.invalid", "io.read.failed"] }
+    ] },
+    { "command": "standards verify-kb", "failure_stages": [
+      { "stage": "arguments", "codes": ["command.syntax.invalid", "command.argument.missing"] },
+      { "stage": "availability", "codes": ["capability.runtime.unavailable"] }
+    ] },
+    { "command": "conformance check-tools", "failure_stages": [
+      { "stage": "arguments", "codes": ["command.syntax.invalid", "command.argument.missing"] },
+      { "stage": "configuration", "codes": ["resource.document.invalid", "io.read.failed"] },
+      { "stage": "availability", "codes": ["capability.validator.unavailable", "capability.runtime.unavailable"] },
+      { "stage": "qualification", "codes": ["conformance.tools.failed", "evidence.integrity.failed"] }
+    ] },
+    { "command": "conformance run", "failure_stages": [
+      { "stage": "arguments", "codes": ["command.syntax.invalid", "command.argument.missing"] },
+      { "stage": "input", "codes": ["request.read.failed", "validation.manifest.invalid", "resource.document.invalid", "io.read.failed"] },
+      { "stage": "availability", "codes": ["capability.validator.unavailable", "capability.runtime.unavailable"] },
+      { "stage": "execution", "codes": ["conformance.run.failed", "resource.limit.exceeded", "io.write.failed", "io.cleanup.failed"] }
+    ] },
+    { "command": "conformance verify", "failure_stages": [
+      { "stage": "arguments", "codes": ["command.syntax.invalid", "command.argument.missing"] },
+      { "stage": "input", "codes": ["request.read.failed", "resource.document.invalid", "io.read.failed"] },
+      { "stage": "evidence", "codes": ["conformance.verification.failed", "evidence.integrity.failed"] }
+    ] },
+    { "command": "interoperate media-dicomdir", "failure_stages": [
+      { "stage": "arguments", "codes": ["command.syntax.invalid", "command.argument.missing"] },
+      { "stage": "input", "codes": ["request.read.failed", "validation.manifest.invalid", "io.read.failed"] },
+      { "stage": "availability", "codes": ["capability.runtime.unavailable", "capability.peer.unavailable"] },
+      { "stage": "qualification", "codes": ["interoperability.qualification.failed", "evidence.integrity.failed", "resource.limit.exceeded", "io.write.failed", "io.cleanup.failed"] },
+      { "stage": "result", "codes": ["internal.serialization.failed"] }
+    ] },
+    { "command": "interoperate protocol-baseline", "failure_stages": [
+      { "stage": "arguments", "codes": ["command.syntax.invalid", "command.argument.missing"] },
+      { "stage": "input", "codes": ["request.read.failed", "validation.manifest.invalid", "resource.document.invalid", "io.read.failed"] },
+      { "stage": "availability", "codes": ["capability.peer.unavailable"] },
+      { "stage": "qualification", "codes": ["interoperability.qualification.failed", "evidence.integrity.failed"] },
+      { "stage": "result", "codes": ["internal.serialization.failed"] }
+    ] }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dicom-test-suite.local/schemas/cli-error-envelope.schema.json",
+  "title": "DICOM Test Suite CLI Error Envelope",
+  "type": "object",
+  "required": ["cli_api_version", "command", "status", "error"],
+  "properties": {
+    "cli_api_version": { "const": "1.0.0" },
+    "command": { "$ref": "#/$defs/command" },
+    "status": { "const": "error" },
+    "error": {
+      "type": "object",
+      "required": ["code", "message", "context", "retryable"],
+      "properties": {
+        "code": { "$ref": "#/$defs/error_code" },
+        "message": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "context": {
+          "type": "object",
+          "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
+          "additionalProperties": { "$ref": "#/$defs/context_value" }
+        },
+        "retryable": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "command": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*( [a-z][a-z0-9-]*)?$",
+      "maxLength": 96
+    },
+    "error_code": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*){2,4}$",
+      "maxLength": 128
+    },
+    "context_scalar": {
+      "type": ["string", "integer", "number", "boolean", "null"]
+    },
+    "context_value": {
+      "oneOf": [
+        { "$ref": "#/$defs/context_scalar" },
+        {
+          "type": "array",
+          "maxItems": 256,
+          "items": { "$ref": "#/$defs/context_scalar" }
+        }
+      ]
+    }
+  }
+}

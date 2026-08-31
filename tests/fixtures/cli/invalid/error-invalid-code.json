@@ -1,0 +1,11 @@
+{
+  "cli_api_version": "1.0.0",
+  "command": "compose",
+  "status": "error",
+  "error": {
+    "code": "InvalidRequest",
+    "message": "invalid",
+    "context": {},
+    "retryable": false
+  }
+}

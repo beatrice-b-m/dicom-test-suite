@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dicom-test-suite.local/schemas/cli-error-code-registry.schema.json",
+  "title": "DICOM Test Suite CLI Error Code Registry",
+  "type": "object",
+  "required": ["registry_schema_version", "cli_api_version", "exit_classes", "errors", "current_failure_mappings"],
+  "properties": {
+    "registry_schema_version": { "const": "1.0.0" },
+    "cli_api_version": { "const": "1.0.0" },
+    "exit_classes": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "required": ["exit", "meaning"],
+        "properties": {
+          "exit": { "enum": [0, 2, 3, 4, 5, 6] },
+          "meaning": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "errors": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/error" }
+    },
+    "current_failure_mappings": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/command_mapping" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "code": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*){2,4}$",
+      "maxLength": 128
+    },
+    "command": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*( [a-z][a-z0-9-]*)?$",
+      "maxLength": 96
+    },
+    "error": {
+      "type": "object",
+      "required": ["code", "exit", "meaning", "retryable_default"],
+      "properties": {
+        "code": { "$ref": "#/$defs/code" },
+        "exit": { "enum": [2, 3, 4, 5, 6] },
+        "meaning": { "type": "string", "minLength": 1 },
+        "retryable_default": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "failure_stage": {
+      "type": "object",
+      "required": ["stage", "codes"],
+      "properties": {
+        "stage": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "codes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/code" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "command_mapping": {
+      "type": "object",
+      "required": ["command", "failure_stages"],
+      "properties": {
+        "command": { "$ref": "#/$defs/command" },
+        "failure_stages": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/failure_stage" }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

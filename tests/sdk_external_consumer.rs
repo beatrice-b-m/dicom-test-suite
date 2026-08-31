@@ -48,7 +48,8 @@ dicom-test-suite = {{ path = "{}", default-features = false }}
     fs::write(
         root.join("src/main.rs"),
         r##"use dicom_test_suite::sdk::{
-    CancellationToken, ComposeRequest, DicomTestSuite, ManifestKind, SdkErrorKind,
+    CancellationToken, ComposeRequest, DicomTestSuite, ManifestKind, ReportKind, ReportRequest,
+    SdkErrorKind, ValidateRequest,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -69,6 +70,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     assert!(outcome.published());
     assert_eq!(outcome.manifest().expect("manifest").kind(), ManifestKind::QualifiedComposition);
+    let validation = product.validate(ValidateRequest::new(&output))?;
+    assert!(validation.is_valid());
+    let report = product.report(ReportRequest::new(&output))?;
+    assert_eq!(report.kind(), ReportKind::QualifiedComposition);
 
     let cancelled_output = std::path::PathBuf::from(&output).with_extension("cancelled");
     let cancellation = CancellationToken::new();

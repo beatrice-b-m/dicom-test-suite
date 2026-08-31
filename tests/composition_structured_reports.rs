@@ -11,6 +11,9 @@ use dicom_test_suite::composition::{ComposeOptions, compose};
 use dicom_test_suite::sha256_hex;
 use serde_json::{Value, json};
 
+#[path = "support/prepared_backend.rs"]
+mod prepared_backend;
+
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
 fn root(label: &str) -> PathBuf {
@@ -22,6 +25,7 @@ fn root(label: &str) -> PathBuf {
 }
 
 fn run(spec: impl Into<PathBuf>, out: PathBuf, seed: u64) {
+    let _backend = prepared_backend::PreparedBackendOverride::acquire();
     compose(&ComposeOptions {
         spec_path: spec.into(),
         out_dir: out,

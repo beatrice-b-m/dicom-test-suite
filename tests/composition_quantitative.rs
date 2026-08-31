@@ -9,6 +9,9 @@ use dicom_object::{InMemDicomObject, open_file};
 use dicom_test_suite::composition::{ComposeOptions, compose};
 use serde_json::{Value, json};
 
+#[path = "support/prepared_backend.rs"]
+mod prepared_backend;
+
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
 fn root(label: &str) -> PathBuf {
@@ -20,6 +23,7 @@ fn root(label: &str) -> PathBuf {
 }
 
 fn run(spec: impl Into<PathBuf>, out: PathBuf, seed: u64) {
+    let _backend = prepared_backend::PreparedBackendOverride::acquire();
     compose(&ComposeOptions {
         spec_path: spec.into(),
         out_dir: out,
@@ -66,7 +70,7 @@ fn quantitative_default_bundles_are_closed_provenanced_and_reproducible() {
     let manifest_bytes = fs::read(first.join("manifest.json")).unwrap();
     assert_eq!(
         dicom_test_suite::sha256_hex(&manifest_bytes),
-        "3edd4a6c4d46741c9e37f4e6da8c9653bf5bcdd3ef5b6353baef9f677289de81"
+        "efecd3170fc161b35132547b7e718183cddb279bb638826f4075408ad3356adc"
     );
     let manifest: Value = serde_json::from_slice(&manifest_bytes).unwrap();
     for (instance_id, resolved_plan_sha256) in [

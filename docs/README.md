@@ -76,6 +76,9 @@ These are dated evidence records for implemented vertical slices:
 - [Unified generation spine completion](unified-generation-spine-completion-status-2026-08-30.md):
   terminal architecture, acceptance evidence, and verification outcomes for
   the shared plan-first executor migration.
+- [Standalone product status](standalone-product-status-2026-08-31.md): current
+  S0-S7 gate state, exact productization verification evidence, blockers, and
+  release readiness.
 
 ## Planning And Decision Records
 

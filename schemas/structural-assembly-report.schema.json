@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dicom-test-suite.local/schemas/structural-assembly-report.schema.json",
+  "type": "object",
+  "required": ["structural_assembly_report_schema_version","report_kind","iod_conformance","counts","bulk_kinds","instances","warnings"],
+  "properties": {
+    "structural_assembly_report_schema_version": { "const": "1.0.0" },
+    "report_kind": { "const": "structural_assembly" },
+    "iod_conformance": { "const": "not_assessed" },
+    "counts": { "type": "object", "required": ["instances","output_bytes"], "properties": { "instances": { "type": "integer", "minimum": 0 }, "output_bytes": { "type": "integer", "minimum": 0 } }, "additionalProperties": false },
+    "bulk_kinds": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 1 } },
+    "instances": { "type": "array", "items": { "type": "object", "required": ["instance_id","output_path","sop_class_uid","transfer_syntax_uid","iod_conformance"], "properties": { "instance_id": {}, "output_path": {}, "sop_class_uid": {}, "transfer_syntax_uid": {}, "iod_conformance": { "const": "not_assessed" } }, "additionalProperties": false } },
+    "warnings": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+  },
+  "additionalProperties": false
+}

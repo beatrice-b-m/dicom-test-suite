@@ -6,6 +6,7 @@ use dicom_object::open_file;
 use dicom_test_suite::assembly::{AssembleOptions, assemble};
 use dicom_test_suite::executor::cancellation::CancellationToken;
 use dicom_test_suite::product_resources::ProductResources;
+use dicom_test_suite::{build_coverage_report, validate_generated_root};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
@@ -79,6 +80,56 @@ fn structural_assembly_executes_through_shared_writer_and_manifest() {
             "forbidden claim {forbidden}"
         );
     }
+    let validation = validate_generated_root(&root).unwrap();
+    assert_eq!(validation.files_checked, 1);
+    assert!(validation.failures.is_empty(), "{:?}", validation.failures);
+    let report = build_coverage_report(&root).unwrap();
+    assert_eq!(report["report_kind"], "structural_assembly");
+    assert_eq!(report["iod_conformance"], "not_assessed");
+    assert!(report.get("coverage_matrix").is_none());
+    let report_schema: serde_json::Value = serde_json::from_slice(
+        &fs::read("schemas/structural-assembly-report.schema.json").unwrap(),
+    )
+    .unwrap();
+    assert!(
+        jsonschema::options()
+            .with_draft(jsonschema::Draft::Draft202012)
+            .build(&report_schema)
+            .unwrap()
+            .is_valid(&report)
+    );
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn structural_validation_detects_post_publication_tampering() {
+    let root = output("tampered");
+    assemble(
+        &AssembleOptions {
+            request_bytes: request(),
+            caller_asset_root: PathBuf::from("."),
+            output_root: root.clone(),
+            seed: 5,
+            parallelism: 1,
+            dry_run: false,
+        },
+        &CancellationToken::new(),
+        &ProductResources::embedded(),
+    )
+    .unwrap();
+    let path = root.join("instances/primary.dcm");
+    let mut bytes = fs::read(&path).unwrap();
+    let last = bytes.len() - 1;
+    bytes[last] ^= 0x01;
+    fs::write(&path, bytes).unwrap();
+    let validation = validate_generated_root(&root).unwrap();
+    assert!(!validation.failures.is_empty());
+    assert!(
+        validation
+            .failures
+            .iter()
+            .any(|failure| failure.contains("identity mismatch"))
+    );
     fs::remove_dir_all(root).unwrap();
 }
 

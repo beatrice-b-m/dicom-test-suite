@@ -922,6 +922,14 @@ pub fn validate_generated_root(
             failures,
         });
     }
+    if manifest.pointer("/run/kind").and_then(Value::as_str) == Some("structural_assembly") {
+        let (files_checked, failures) = assembly::validate_assembly_root(root_dir, &manifest);
+        return Ok(ValidationSummary {
+            manifest_path,
+            files_checked,
+            failures,
+        });
+    }
     let files =
         manifest
             .get("files")
@@ -17781,6 +17789,9 @@ fn build_coverage_report_with_registry(
     let manifest = read_report_json(&manifest_path)?;
     if manifest.pointer("/run/kind").and_then(Value::as_str) == Some("composition") {
         return Ok(composition::composition_report(&manifest));
+    }
+    if manifest.pointer("/run/kind").and_then(Value::as_str) == Some("structural_assembly") {
+        return Ok(assembly::assembly_report(&manifest));
     }
     let registry = read_report_json(registry_path)?;
     let files =

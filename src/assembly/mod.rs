@@ -3,6 +3,7 @@
 mod planning;
 mod request;
 mod run;
+mod validation;
 
 pub use planning::{AssemblyPlan, plan_assembly};
 
@@ -14,3 +15,4 @@ pub use request::{
 pub use run::{
     ASSEMBLY_MANIFEST_SCHEMA_VERSION, AssembleOptions, AssembleSummary, AssemblyRunError, assemble,
 };
+pub use validation::{assembly_report, validate_assembly_root};

@@ -38247,7 +38247,7 @@ mod tests {
             manifest
                 .get("manifest_schema_version")
                 .and_then(Value::as_str),
-            Some("0.2.0")
+            Some("0.3.0")
         );
         assert_eq!(
             manifest.pointer("/run/profile").and_then(Value::as_str),

@@ -47,6 +47,37 @@ fn compose_uses_embedded_catalogs_from_an_unrelated_working_directory() {
 
     let manifest: Value =
         serde_json::from_slice(&fs::read(output_root.join("manifest.json")).unwrap()).unwrap();
+    assert_eq!(manifest["manifest_schema_version"], "0.5.0");
+    assert_eq!(manifest["product_resources"]["origin"], "embedded");
+    assert_eq!(
+        manifest["product_resources"]["resource_set_version"],
+        "1.0.0"
+    );
+    assert_eq!(
+        manifest["product_resources"]["resource_count"],
+        manifest["product_resources"]["resources"]
+            .as_array()
+            .unwrap()
+            .len()
+    );
+    let schema: Value =
+        serde_json::from_slice(&fs::read("schemas/composition-manifest.schema.json").unwrap())
+            .unwrap();
+    let validator = jsonschema::validator_for(&schema).unwrap();
+    assert!(validator.is_valid(&manifest));
+    let mut prior_manifest = manifest.clone();
+    prior_manifest["manifest_schema_version"] = Value::String("0.4.0".into());
+    prior_manifest
+        .as_object_mut()
+        .unwrap()
+        .remove("product_resources");
+    assert!(validator.is_valid(&prior_manifest));
+    let mut missing_identity = manifest.clone();
+    missing_identity
+        .as_object_mut()
+        .unwrap()
+        .remove("product_resources");
+    assert!(!validator.is_valid(&missing_identity));
     assert_eq!(
         manifest.pointer("/run/kind").and_then(Value::as_str),
         Some("composition")

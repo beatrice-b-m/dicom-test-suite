@@ -50,7 +50,7 @@ use crate::executor::services::{
     ProviderOutputExpectation, ProviderRequest as ExecutorProviderRequest, SlotExecutionBinding,
     StagedAssetHandle, StagedAssetRegistry, StagingRelativePath,
 };
-use crate::product_resources::ProductResources;
+use crate::product_resources::{ProductResourceIdentity, ProductResources};
 use crate::recipes::{AdvancedProviderLimits, RecipeCatalog};
 use crate::{PACKAGE_NAME, PACKAGE_VERSION, RUSTC_VERSION, TARGET_TRIPLE, sha256_hex};
 
@@ -133,6 +133,9 @@ pub fn compose_with_cancellation_and_resources(
     let snapshot = resources
         .snapshot()
         .map_err(|error| ComposeError::ProductResources(error.to_string()))?;
+    let product_resource_identity = resources
+        .verify_integrity()
+        .map_err(|error| ComposeError::ProductResources(error.to_string()))?;
     let catalog_path = if options.catalog_path == Path::new("templates/catalog.json") {
         snapshot
             .path("templates/catalog.json")
@@ -152,6 +155,7 @@ pub fn compose_with_cancellation_and_resources(
         options.seed,
         &catalog_path,
         snapshot.root(),
+        &product_resource_identity,
         options.dry_run,
         cancellation,
     )
@@ -200,6 +204,9 @@ pub fn compose_from_bytes_with_cancellation_and_resources(
     let snapshot = resources
         .snapshot()
         .map_err(|error| ComposeError::ProductResources(error.to_string()))?;
+    let product_resource_identity = resources
+        .verify_integrity()
+        .map_err(|error| ComposeError::ProductResources(error.to_string()))?;
     let catalog_path = if options.catalog_path == Path::new("templates/catalog.json") {
         snapshot
             .path("templates/catalog.json")
@@ -214,6 +221,7 @@ pub fn compose_from_bytes_with_cancellation_and_resources(
         options.seed,
         &catalog_path,
         snapshot.root(),
+        &product_resource_identity,
         options.dry_run,
         cancellation,
     )
@@ -226,6 +234,7 @@ fn compose_loaded(
     seed: u64,
     catalog_path: &Path,
     resource_root: &Path,
+    product_resources: &ProductResourceIdentity,
     dry_run: bool,
     cancellation: &ComposeCancellationToken,
 ) -> Result<(ComposeSummary, Value), ComposeError> {
@@ -258,6 +267,7 @@ fn compose_loaded(
         &std::env::temp_dir(),
         spec_root,
         resource_root,
+        product_resources,
         cancellation,
     )?;
     if cancellation.is_cancelled() {
@@ -363,6 +373,7 @@ fn resolve_execution_bundle(
     _scratch_parent: &Path,
     spec_root: &Path,
     resource_root: &Path,
+    product_resources: &ProductResourceIdentity,
     cancellation: &ComposeCancellationToken,
 ) -> Result<PlannedCompositionExecution, ComposeError> {
     let bundle_resolution = BundleResolver.resolve(spec.clone(), catalog)?;
@@ -1191,6 +1202,7 @@ fn resolve_execution_bundle(
     let dry_run_output = json!({
         "composition_spec_schema_version": spec.composition_spec_schema_version,
         "seed": options.seed,
+        "product_resources": product_resources,
         "plans": plans
     });
     let used_parallelism = usize::try_from(spec.parallelism)
@@ -1211,6 +1223,7 @@ fn resolve_execution_bundle(
                 "standards_lock_sha256": catalog.standards_lock_sha256
             }),
             dependencies: json!({ "template_catalog": "templates/catalog.json" }),
+            product_resources: product_resources.clone(),
             seed: options.seed,
             composition_spec_schema_version: spec.composition_spec_schema_version.clone(),
             input_spec_sha256: sha256_hex(spec_bytes),
@@ -2688,6 +2701,7 @@ mod tests {
             &root,
             &root,
             Path::new("."),
+            &ProductResources::embedded().identity().unwrap(),
             &ComposeCancellationToken::new(),
         )
         .unwrap();
@@ -2732,6 +2746,7 @@ mod tests {
             Path::new("tests/fixtures/composition/valid"),
             Path::new("tests/fixtures/composition/valid"),
             Path::new("."),
+            &ProductResources::embedded().identity().unwrap(),
             &ComposeCancellationToken::new(),
         )
         .unwrap();

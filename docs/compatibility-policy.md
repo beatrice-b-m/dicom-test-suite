@@ -17,8 +17,8 @@ necessarily change every other contract.
 | CLI API | `1.0.0` when introduced | JSON envelopes, command result objects, error codes, exit classes, and stdout/stderr rules. Human output is excluded. |
 | Composition request | `0.1.0` | `composition_spec_schema_version` and its accepted document semantics. |
 | Structural-assembly request | `1.0.0` when introduced | `assembly_request_schema_version` and its accepted document semantics. |
-| Curated manifest | `0.2.0` | `manifest_schema_version` for registry-led runs. |
-| Composition manifest | `0.4.0` | `manifest_schema_version` plus `run.kind = "composition"`. |
+| Curated manifest | `0.3.0` (reader retains `0.2.0`) | `manifest_schema_version` for registry-led runs. Version `0.3.0` adds immutable product-resource identity. |
+| Composition manifest | `0.5.0` (reader retains `0.4.0`) | `manifest_schema_version` plus `run.kind = "composition"`. Version `0.5.0` adds immutable product-resource identity. |
 | Structural-assembly manifest | `1.0.0` when introduced | Discriminated structural-assembly branch and its no-IOD-claim semantics. |
 | Coverage report | `0.1.0` | `coverage_report_schema_version` and report field meanings. |
 | Template catalog | `0.1.0` | `template_catalog_schema_version`; each descriptor also has an independent template ID/version. |

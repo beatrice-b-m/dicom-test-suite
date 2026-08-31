@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use super::{CompositionUidRole, ResolvedInstancePlan};
+use crate::product_resources::ProductResourceIdentity;
 use crate::sha256_hex;
 
 const MANIFEST_SCHEMA: &str = include_str!("../../schemas/composition-manifest.schema.json");
@@ -19,6 +20,7 @@ pub struct CompositionManifestInputs {
     pub generator: Value,
     pub standards: Value,
     pub dependencies: Value,
+    pub product_resources: ProductResourceIdentity,
     pub seed: u64,
     pub composition_spec_schema_version: String,
     pub input_spec_sha256: String,
@@ -720,11 +722,12 @@ impl CompositionManifestAssembler {
             })
             .collect::<Vec<_>>();
         let manifest = json!({
-            "manifest_schema_version": "0.4.0",
+            "manifest_schema_version": "0.5.0",
             "generated_at": inputs.generated_at,
             "generator": inputs.generator,
             "standards": inputs.standards,
             "dependencies": inputs.dependencies,
+            "product_resources": inputs.product_resources,
             "run": {
                 "kind": "composition",
                 "seed": inputs.seed,
@@ -880,11 +883,12 @@ fn finish_manifest(
         })
         .collect::<Vec<_>>();
     let manifest = json!({
-        "manifest_schema_version": "0.4.0",
+        "manifest_schema_version": "0.5.0",
         "generated_at": inputs.generated_at,
         "generator": inputs.generator,
         "standards": inputs.standards,
         "dependencies": inputs.dependencies,
+        "product_resources": inputs.product_resources,
         "run": {
             "kind": "composition",
             "seed": inputs.seed,
@@ -1027,6 +1031,9 @@ mod tests {
             generator: json!({"name": "dicom-test-suite"}),
             standards: json!({"dicom_base_edition": "2026b"}),
             dependencies: json!({}),
+            product_resources: crate::product_resources::ProductResources::embedded()
+                .identity()
+                .unwrap(),
             seed: 7,
             composition_spec_schema_version: "0.1.0".into(),
             input_spec_sha256: HASH.into(),

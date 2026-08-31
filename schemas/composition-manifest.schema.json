@@ -5,17 +5,52 @@
   "type": "object",
   "required": ["manifest_schema_version", "generated_at", "generator", "standards", "dependencies", "run", "composition"],
   "properties": {
-    "manifest_schema_version": { "const": "0.4.0" },
+    "manifest_schema_version": { "enum": ["0.4.0", "0.5.0"] },
     "generated_at": { "type": "string", "minLength": 1 },
     "generator": { "type": "object" },
     "standards": { "type": "object" },
     "dependencies": { "type": "object" },
+    "product_resources": { "$ref": "#/$defs/product_resources" },
     "run": { "$ref": "#/$defs/run" },
     "composition": { "$ref": "#/$defs/composition" }
   },
   "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": { "manifest_schema_version": { "const": "0.5.0" } },
+        "required": ["manifest_schema_version"]
+      },
+      "then": { "required": ["product_resources"] }
+    }
+  ],
   "$defs": {
     "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "product_resources": {
+      "type": "object",
+      "required": ["resource_set_version", "origin", "resource_count", "resource_set_sha256", "resources"],
+      "properties": {
+        "resource_set_version": { "const": "1.0.0" },
+        "origin": { "enum": ["embedded", "explicit"] },
+        "resource_count": { "type": "integer", "minimum": 1 },
+        "resource_set_sha256": { "$ref": "#/$defs/sha256" },
+        "resources": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["logical_path", "size_bytes", "sha256"],
+            "properties": {
+              "logical_path": { "type": "string", "minLength": 1 },
+              "size_bytes": { "type": "integer", "minimum": 1 },
+              "sha256": { "$ref": "#/$defs/sha256" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
     "uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$", "maxLength": 64 },
     "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$" },
     "safe_path": {

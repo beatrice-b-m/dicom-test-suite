@@ -750,6 +750,7 @@ struct CuratedGenerationManifestProjector {
     standards_lock_bytes: Vec<u8>,
     cargo_lock: Vec<u8>,
     registry: Value,
+    product_resources: product_resources::ProductResourceIdentity,
 }
 
 impl ManifestProjector for CuratedGenerationManifestProjector {
@@ -771,6 +772,7 @@ impl ManifestProjector for CuratedGenerationManifestProjector {
             &self.standards_lock_bytes,
             &self.cargo_lock,
             &self.registry,
+            &self.product_resources,
             generated.files,
             generated.qualifications,
             &generated_case_ids,
@@ -797,6 +799,13 @@ pub fn write_generation_run_with_resources(
     if fs::symlink_metadata(&run.out_dir).is_ok() {
         return Err(GenerateError::OutputPathExists(run.out_dir.clone()));
     }
+    let product_resource_identity =
+        resources
+            .verify_integrity()
+            .map_err(|error| GenerateError::PlanFirst {
+                stage: "product resource integrity",
+                message: error.to_string(),
+            })?;
     let resource_snapshot = resources
         .snapshot()
         .map_err(|error| GenerateError::PlanFirst {
@@ -843,6 +852,7 @@ pub fn write_generation_run_with_resources(
         standards_lock_bytes,
         cargo_lock,
         registry,
+        product_resources: product_resource_identity,
     };
     let result = CorpusExecutor::new(
         CuratedExecutionServiceFactory::new(&curated_sc_plan),
@@ -34269,6 +34279,7 @@ fn build_generation_manifest(
     standards_lock_bytes: &[u8],
     cargo_lock: &[u8],
     registry: &Value,
+    product_resources: &product_resources::ProductResourceIdentity,
     generated_files: Vec<GeneratedFile>,
     qualifications: Vec<Value>,
     generated_case_ids: &[String],
@@ -34286,7 +34297,7 @@ fn build_generation_manifest(
         .collect();
 
     Ok(serde_json::json!({
-        "manifest_schema_version": "0.2.0",
+        "manifest_schema_version": "0.3.0",
         "generated_at": "19700101000000.000000+0000",
         "generator": {
             "name": PACKAGE_NAME,
@@ -34317,6 +34328,7 @@ fn build_generation_manifest(
             },
             "codec_versions": {}
         },
+        "product_resources": product_resources,
         "run": {
             "profile": run.profile,
             "seed": run.seed,

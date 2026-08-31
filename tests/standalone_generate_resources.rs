@@ -39,6 +39,43 @@ fn generate_uses_embedded_resources_from_an_unrelated_working_directory() {
 
     let manifest: Value =
         serde_json::from_slice(&fs::read(output_root.join("manifest.json")).unwrap()).unwrap();
+    assert_eq!(manifest["manifest_schema_version"], "0.3.0");
+    assert_eq!(manifest["product_resources"]["origin"], "embedded");
+    assert_eq!(
+        manifest["product_resources"]["resource_set_version"],
+        "1.0.0"
+    );
+    assert_eq!(
+        manifest["product_resources"]["resource_count"],
+        manifest["product_resources"]["resources"]
+            .as_array()
+            .unwrap()
+            .len()
+    );
+    assert_eq!(
+        manifest["product_resources"]["resource_set_sha256"]
+            .as_str()
+            .unwrap()
+            .len(),
+        64
+    );
+    let schema: Value =
+        serde_json::from_slice(&fs::read("schemas/manifest.schema.json").unwrap()).unwrap();
+    let validator = jsonschema::validator_for(&schema).unwrap();
+    assert!(validator.is_valid(&manifest));
+    let mut prior_manifest = manifest.clone();
+    prior_manifest["manifest_schema_version"] = Value::String("0.2.0".into());
+    prior_manifest
+        .as_object_mut()
+        .unwrap()
+        .remove("product_resources");
+    assert!(validator.is_valid(&prior_manifest));
+    let mut missing_identity = manifest.clone();
+    missing_identity
+        .as_object_mut()
+        .unwrap()
+        .remove("product_resources");
+    assert!(!validator.is_valid(&missing_identity));
     assert_eq!(manifest["files"].as_array().unwrap().len(), 3);
     for entry in manifest["files"].as_array().unwrap() {
         assert!(output_root.join(entry["path"].as_str().unwrap()).is_file());

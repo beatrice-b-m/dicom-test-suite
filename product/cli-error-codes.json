@@ -46,6 +46,16 @@
     { "code": "internal.invariant.failed", "exit": 6, "meaning": "an unexpected product invariant failed without a more specific public classification", "retryable_default": false }
   ],
   "current_failure_mappings": [
+    { "command": "version", "failure_stages": [
+      { "stage": "arguments", "codes": ["command.syntax.invalid", "command.argument.missing"] },
+      { "stage": "resources", "codes": ["evidence.integrity.failed", "io.read.failed"] },
+      { "stage": "result", "codes": ["internal.serialization.failed"] }
+    ] },
+    { "command": "capabilities", "failure_stages": [
+      { "stage": "arguments", "codes": ["command.syntax.invalid", "command.argument.missing"] },
+      { "stage": "resources", "codes": ["resource.document.invalid", "evidence.integrity.failed", "io.read.failed"] },
+      { "stage": "result", "codes": ["internal.serialization.failed", "internal.invariant.failed"] }
+    ] },
     { "command": "generate", "failure_stages": [
       { "stage": "arguments", "codes": ["command.syntax.invalid", "command.argument.missing"] },
       { "stage": "resources", "codes": ["resource.document.invalid", "evidence.integrity.failed"] },

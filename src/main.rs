@@ -64,6 +64,37 @@ fn run() -> Result<(), String> {
             }
             Ok(())
         }
+        "capabilities" => {
+            let mut format = None;
+            while let Some(argument) = args.next() {
+                match argument.as_str() {
+                    "--format" => format = Some(required_value(&mut args, "--format")?),
+                    "--help" | "-h" => {
+                        println!("Usage: dicom-test-suite capabilities --format json");
+                        return Ok(());
+                    }
+                    unknown => return Err(format!("unknown capabilities argument: {unknown}")),
+                }
+            }
+            match format.as_deref() {
+                Some("json") => {
+                    let result = dicom_test_suite::discovery::capabilities_result(&resources)
+                        .map_err(|error| error.to_string())?;
+                    let envelope = dicom_test_suite::cli_protocol::SuccessEnvelope::new(
+                        "capabilities",
+                        result,
+                    );
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&envelope)
+                            .map_err(|error| error.to_string())?
+                    );
+                    Ok(())
+                }
+                Some(other) => Err(format!("unsupported capabilities format: {other}")),
+                None => Err("capabilities requires --format json".to_string()),
+            }
+        }
         "conformance" => {
             let subcommand = args
                 .next()
@@ -888,6 +919,7 @@ fn print_usage() {
     println!("{}", dicom_test_suite::version_banner());
     println!("usage:");
     println!("  dicom-test-suite version [--format json]");
+    println!("  dicom-test-suite capabilities --format json");
     println!(
         "  dicom-test-suite generate --profile PROFILE --out PATH [--seed SEED] [--include-stress]"
     );

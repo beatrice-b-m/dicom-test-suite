@@ -4,6 +4,8 @@ use std::fs;
 use serde_json::Value;
 
 const CURRENT_COMMANDS: &[&str] = &[
+    "version",
+    "capabilities",
     "generate",
     "compose",
     "templates list",

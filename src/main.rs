@@ -619,6 +619,82 @@ fn run() -> Result<(), String> {
             }
             Ok(())
         }
+        "assemble" => {
+            let mut request_path = None;
+            let mut asset_root = None;
+            let mut out_dir = None;
+            let mut seed = 1_u64;
+            let mut parallelism = 1_u32;
+            let mut dry_run = false;
+            let mut format = None;
+            while let Some(argument) = args.next() {
+                match argument.as_str() {
+                    "--request" => request_path = Some(required_value(&mut args, "--request")?),
+                    "--asset-root" => asset_root = Some(required_value(&mut args, "--asset-root")?),
+                    "--out" => out_dir = Some(required_value(&mut args, "--out")?),
+                    "--seed" => seed = parse_seed(required_value(&mut args, "--seed")?)?,
+                    "--parallelism" => {
+                        parallelism = required_value(&mut args, "--parallelism")?
+                            .parse::<u32>()
+                            .map_err(|_| "--parallelism must be a positive integer".to_string())?;
+                        if parallelism == 0 {
+                            return Err("--parallelism must be a positive integer".into());
+                        }
+                    }
+                    "--dry-run" => dry_run = true,
+                    "--format" => format = Some(required_value(&mut args, "--format")?),
+                    "--help" | "-h" => {
+                        print_assemble_usage();
+                        return Ok(());
+                    }
+                    unknown => return Err(format!("unknown assemble argument: {unknown}")),
+                }
+            }
+            let request_path = std::path::PathBuf::from(
+                request_path.ok_or_else(|| "assemble requires --request".to_string())?,
+            );
+            let out_dir = std::path::PathBuf::from(
+                out_dir.ok_or_else(|| "assemble requires --out".to_string())?,
+            );
+            let request_bytes = std::fs::read(&request_path).map_err(|error| {
+                format!(
+                    "assembly input read failed at {}: {error}",
+                    request_path.display()
+                )
+            })?;
+            let caller_asset_root = asset_root.map(std::path::PathBuf::from).unwrap_or_else(|| {
+                request_path
+                    .parent()
+                    .unwrap_or_else(|| std::path::Path::new("."))
+                    .to_path_buf()
+            });
+            let summary = dicom_test_suite::assembly::assemble(
+                &dicom_test_suite::assembly::AssembleOptions {
+                    request_bytes,
+                    caller_asset_root,
+                    output_root: out_dir,
+                    seed,
+                    parallelism,
+                    dry_run,
+                },
+                &dicom_test_suite::executor::cancellation::CancellationToken::new(),
+                &resources,
+            )
+            .map_err(|error| error.to_string())?;
+            match format.as_deref() {
+                Some("json") => write_machine_success("assemble", assembly_result(&summary, seed))?,
+                Some(other) => return Err(format!("unsupported assemble format: {other}")),
+                None => {
+                    println!("request\t{}", request_path.display());
+                    println!("seed\t{seed}");
+                    println!("out\t{}", summary.output_root.display());
+                    println!("published\t{}", summary.published);
+                    println!("artifacts_written\t{}", summary.artifacts_written);
+                    println!("corpus_plan_sha256\t{}", summary.corpus_plan_sha256);
+                }
+            }
+            Ok(())
+        }
         "templates" => {
             let subcommand = args
                 .next()
@@ -1276,6 +1352,52 @@ fn composition_result(
     })
 }
 
+fn assembly_result(
+    summary: &dicom_test_suite::assembly::AssembleSummary,
+    seed: u64,
+) -> dicom_test_suite::cli_protocol::AssemblyResult {
+    dicom_test_suite::cli_protocol::AssemblyResult {
+        assembly_result_schema_version:
+            dicom_test_suite::cli_protocol::ASSEMBLY_RESULT_SCHEMA_VERSION,
+        outcome: dicom_test_suite::cli_protocol::FileProducingOutcome {
+            requested_output_root: summary.output_root.display().to_string(),
+            manifest_path: summary
+                .manifest_path
+                .as_ref()
+                .map(|path| path.display().to_string()),
+            run_kind: "structural_assembly",
+            seed,
+            request_schema_version: dicom_test_suite::assembly::ASSEMBLY_REQUEST_SCHEMA_VERSION
+                .into(),
+            manifest_schema_version: dicom_test_suite::assembly::ASSEMBLY_MANIFEST_SCHEMA_VERSION
+                .into(),
+            product_version: dicom_test_suite::PACKAGE_VERSION,
+            emitted_artifact_count: summary.artifacts_written,
+            output_bytes: summary.output_bytes,
+            unavailable_capability_count: 0,
+            unavailable_capabilities: vec![],
+            corpus_plan_sha256: summary.corpus_plan_sha256.clone(),
+            published: summary.published,
+            publication_status: if summary.published {
+                "published"
+            } else {
+                "not_requested"
+            },
+            validation_status: if summary.published {
+                "passed"
+            } else {
+                "not_run"
+            },
+            plan_preview: (!summary.published).then(|| {
+                dicom_test_suite::cli_protocol::CanonicalPlanPreview {
+                    artifact_count: summary.artifact_ids.len(),
+                    artifact_ids: summary.artifact_ids.clone(),
+                }
+            }),
+        },
+    }
+}
+
 fn unavailable_summaries(
     value: &serde_json::Value,
     namespace: &str,
@@ -1322,6 +1444,7 @@ fn report_result(
         "coverage_report_schema_version",
         "coverage_gap_report_schema_version",
         "composition_report_schema_version",
+        "structural_assembly_report_schema_version",
     ]
     .into_iter()
     .find_map(|field| report.get(field).and_then(serde_json::Value::as_str))
@@ -1343,6 +1466,9 @@ fn print_usage() {
     );
     println!(
         "  dicom-test-suite compose --spec PATH --out PATH [--seed SEED] [--dry-run] [--format json]"
+    );
+    println!(
+        "  dicom-test-suite assemble --request PATH --out PATH [--asset-root PATH] [--seed SEED] [--parallelism N] [--dry-run] [--format json]"
     );
     println!(
         "  dicom-test-suite list-cases [--profile PROFILE] [--status STATUS] [--registry PATH] [--format json]"
@@ -1419,6 +1545,12 @@ fn print_generate_usage() {
 fn print_compose_usage() {
     println!(
         "usage: dicom-test-suite compose --spec PATH --out PATH [--seed SEED] [--dry-run] [--catalog PATH] [--format json]"
+    );
+}
+
+fn print_assemble_usage() {
+    println!(
+        "usage: dicom-test-suite assemble --request PATH --out PATH [--asset-root PATH] [--seed SEED] [--parallelism N] [--dry-run] [--format json]"
     );
 }
 

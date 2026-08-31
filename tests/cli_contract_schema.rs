@@ -8,6 +8,7 @@ const CURRENT_COMMANDS: &[&str] = &[
     "capabilities",
     "generate",
     "compose",
+    "assemble",
     "templates list",
     "templates describe",
     "templates reference",

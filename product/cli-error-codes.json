@@ -71,6 +71,14 @@
       { "stage": "execution", "codes": ["generation.planning.failed", "generation.materialization.failed", "generation.provider.failed", "generation.execution.cancelled", "validation.artifact.failed"] },
       { "stage": "publication", "codes": ["output.destination.exists", "output.path.unsafe", "output.publication.conflict", "resource.limit.exceeded", "io.write.failed", "io.cleanup.failed"] }
     ] },
+    { "command": "assemble", "failure_stages": [
+      { "stage": "arguments", "codes": ["command.syntax.invalid", "command.argument.missing"] },
+      { "stage": "request", "codes": ["request.read.failed", "request.json.invalid", "request.schema.invalid", "request.version.unsupported"] },
+      { "stage": "resources", "codes": ["resource.document.invalid", "evidence.integrity.failed"] },
+      { "stage": "availability", "codes": ["capability.feature.unavailable", "capability.transfer_syntax.unavailable"] },
+      { "stage": "execution", "codes": ["generation.planning.failed", "generation.materialization.failed", "generation.execution.cancelled", "validation.artifact.failed"] },
+      { "stage": "publication", "codes": ["output.destination.exists", "output.path.unsafe", "output.publication.conflict", "resource.limit.exceeded", "io.write.failed", "io.cleanup.failed"] }
+    ] },
     { "command": "templates list", "failure_stages": [
       { "stage": "arguments", "codes": ["command.syntax.invalid", "command.argument.missing"] },
       { "stage": "catalog", "codes": ["resource.document.invalid", "evidence.integrity.failed", "io.read.failed"] },

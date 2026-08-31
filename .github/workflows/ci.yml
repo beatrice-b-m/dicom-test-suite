@@ -15,6 +15,12 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - name: Prepare locked generation backend
+        run: |
+          uv python install 3.12.12
+          uv sync --project generation-backends/highdicom-pydicom --locked --no-editable --python 3.12.12
+          echo "DTS_HIGHDICOM_PYTHON=$PWD/generation-backends/highdicom-pydicom/.venv/bin/python" >> "$GITHUB_ENV"
       - name: Show toolchain
         run: rustc --version && cargo --version
       - name: Check formatting and JSON artifacts
@@ -40,6 +46,63 @@ jobs:
           cargo run --locked --no-default-features -- generate --profile smoke --out "$RUNNER_TEMP/dts-repro-a" --seed 1
           cargo run --locked --no-default-features -- generate --profile smoke --out "$RUNNER_TEMP/dts-repro-b" --seed 1
           diff -r "$RUNNER_TEMP/dts-repro-a" "$RUNNER_TEMP/dts-repro-b"
+
+  standalone-release:
+    name: Standalone release contract
+    needs: default
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - name: Prepare locked generation backend
+        run: |
+          uv python install 3.12.12
+          uv sync --project generation-backends/highdicom-pydicom --locked --no-editable --python 3.12.12
+          echo "DTS_HIGHDICOM_PYTHON=$PWD/generation-backends/highdicom-pydicom/.venv/bin/python" >> "$GITHUB_ENV"
+      - name: Verify mandatory contract gates
+        run: |
+          cargo fmt --all -- --check
+          git diff --check
+          RUSTFLAGS='-D warnings' cargo check --locked --all-targets --no-default-features
+          cargo test --locked --no-default-features \
+            --test product_resource_lookup_audit --test schema_artifacts \
+            --test compatibility_ownership --test standalone_docs \
+            --test non_rust_cli_consumer --test caller_content_consumer \
+            --test qualified_catalog_consumer --test structural_catalog_consumer \
+            --test upgrade_consumer --test release_process --test ci_release_gates
+      - name: Verify packaged crate and SDK consumer
+        run: |
+          cargo package --locked
+          PACKAGE_ROOT="$RUNNER_TEMP/package"
+          mkdir -p "$PACKAGE_ROOT"
+          tar -xzf target/package/dicom-test-suite-0.1.0.crate -C "$PACKAGE_ROOT"
+          DTS_SDK_PACKAGE_ROOT="$PACKAGE_ROOT/dicom-test-suite-0.1.0" \
+            cargo test --locked --no-default-features --test sdk_external_consumer
+      - name: Build and qualify installed archive
+        run: |
+          TARGET=$(rustc -vV | sed -n 's/^host: //p')
+          DIST="$RUNNER_TEMP/dist"
+          scripts/build-release-archive.sh "$TARGET" "$DIST"
+          ARCHIVE=$(find "$DIST" -maxdepth 1 -name '*.tar.gz' -type f -print -quit)
+          scripts/verify-release-archive.sh "$ARCHIVE"
+          EXTRACTED="$RUNNER_TEMP/extracted"
+          mkdir -p "$EXTRACTED"
+          tar -xzf "$ARCHIVE" -C "$EXTRACTED"
+          BINARY=$(find "$EXTRACTED" -path '*/bin/dicom-test-suite' -type f -print -quit)
+          ROOT=$(dirname "$(dirname "$BINARY")")
+          python3 tests/black_box_cli_consumer.py "$BINARY" "$ROOT"
+          python3 tests/caller_content_consumer.py "$BINARY"
+          python3 tests/qualified_catalog_consumer.py "$BINARY"
+          python3 tests/structural_catalog_consumer.py "$BINARY"
+          python3 tests/upgrade_consumer.py "$BINARY"
+      - name: Verify archive harness and adversarial checksum fixture
+        run: cargo test --locked --no-default-features --test release_archive
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dicom-test-suite-${{ runner.os }}-${{ runner.arch }}
+          path: ${{ runner.temp }}/dist/*
+          archive: false
 
   in-process-codecs:
     name: Codec (${{ matrix.feature }})

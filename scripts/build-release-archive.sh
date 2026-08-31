@@ -107,6 +107,7 @@ mkdir -p "$archive_root/bin" "$archive_root/docs" "$archive_root/examples" "$arc
 
 cp "$release_binary" "$archive_root/bin/dicom-test-suite"
 cp CHANGELOG.md LICENSE-APACHE LICENSE-MIT README.md Cargo.lock "$archive_root/"
+cp product/compatibility-owners.json "$archive_root/"
 for release_doc in \
     docs/generation-guide.md \
     docs/installation-guide.md \

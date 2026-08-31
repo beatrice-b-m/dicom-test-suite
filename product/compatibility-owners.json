@@ -1,0 +1,79 @@
+{
+  "compatibility_ownership_schema_version": "1.0.0",
+  "contracts": [
+    {
+      "contract_id": "cli-machine-protocol",
+      "owner": "cli_protocol_maintainers",
+      "support_window": "current CLI API major and immediately preceding major for at least one product minor after replacement",
+      "apis": ["cli_json_envelopes", "cli_exit_classes", "cli_error_codes"],
+      "schemas": [
+        "capabilities-result.schema.json", "case-list-result.schema.json",
+        "cli-error-code-registry.schema.json", "cli-error-envelope.schema.json",
+        "cli-success-envelope.schema.json", "generation-result.schema.json",
+        "report-result.schema.json", "standards-result.schema.json",
+        "validation-result.schema.json", "version-result.schema.json"
+      ]
+    },
+    {
+      "contract_id": "curated-generation",
+      "owner": "curated_generation_maintainers",
+      "support_window": "every curated request, manifest, registry, recipe, and report version advertised by the exact product",
+      "apis": ["generate", "list_cases", "coverage_report"],
+      "schemas": [
+        "case-recipe.schema.json", "case-registry.schema.json",
+        "coverage-gap-report.schema.json", "coverage-report.schema.json",
+        "manifest.schema.json"
+      ]
+    },
+    {
+      "contract_id": "qualified-composition",
+      "owner": "qualified_composition_maintainers",
+      "support_window": "every composition request, manifest, provider, template, and catalog version advertised by the exact product",
+      "apis": ["compose", "templates"],
+      "schemas": [
+        "composition-manifest.schema.json", "composition-provider-request.schema.json",
+        "composition-provider-response.schema.json", "composition-result.schema.json",
+        "composition-spec.schema.json", "template-catalog.schema.json",
+        "templates-result.schema.json"
+      ]
+    },
+    {
+      "contract_id": "structural-assembly",
+      "owner": "structural_assembly_maintainers",
+      "support_window": "every assembly request, result, manifest, and report version advertised by the exact product",
+      "apis": ["assemble"],
+      "schemas": [
+        "assembly-request.schema.json", "assembly-result.schema.json",
+        "structural-assembly-manifest.schema.json",
+        "structural-assembly-report.schema.json"
+      ]
+    },
+    {
+      "contract_id": "external-evidence",
+      "owner": "conformance_and_interoperability_maintainers",
+      "support_window": "every external adapter protocol and evidence document version advertised or required by a live route",
+      "apis": ["conformance", "interoperate", "generation_backend_protocol"],
+      "schemas": [
+        "conformance-accepted-findings.schema.json", "conformance-result.schema.json",
+        "conformance-run.schema.json", "generation-backend-lock.schema.json",
+        "generation-backend-request.schema.json", "generation-backend-response.schema.json",
+        "interoperability-result.schema.json", "media-report.schema.json",
+        "transaction-report.schema.json", "viewer-report.schema.json"
+      ]
+    },
+    {
+      "contract_id": "rust-sdk",
+      "owner": "sdk_maintainers",
+      "support_window": "supported sdk facade for the product semantic-version line that introduced it",
+      "apis": ["dicom_test_suite::sdk"],
+      "schemas": []
+    },
+    {
+      "contract_id": "native-release",
+      "owner": "release_maintainers",
+      "support_window": "every published target artifact for its announced product support window",
+      "apis": ["native_archive", "archive_checksum", "release_manifest"],
+      "schemas": ["release-manifest.schema.json"]
+    }
+  ]
+}

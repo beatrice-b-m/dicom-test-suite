@@ -179,3 +179,18 @@ Unavailable capability may become available only with the required
 qualification evidence and a discovery-visible identity. A missing runtime is
 not a pass, and a release claim cannot be recovered by narrowing documentation
 after a gate fails.
+
+## 9. Ownership and review
+
+`product/compatibility-owners.json` assigns one accountable maintainer role and
+an explicit support window to every public JSON schema and supported API
+surface. Its coverage test fails when a schema is unowned, multiply owned, or
+when the CLI, SDK, workflow, external-evidence, or native-release surface loses
+an owner. Role owners review compatibility classification, fixtures, migration
+notes, deprecation timing, and release evidence for their contract; approval
+does not permit shortening the support windows in Section 5.
+
+Human CLI formatting and legacy internal Rust modules remain outside the
+standalone compatibility surface as defined above. Their exclusion is explicit
+and must not be used to exclude a machine schema or supported `sdk` facade item
+from the ownership registry.

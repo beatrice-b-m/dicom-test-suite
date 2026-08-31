@@ -78,6 +78,7 @@ done < "$inventory"
 
 for required in \
     CHANGELOG.md LICENSE-APACHE LICENSE-MIT THIRD_PARTY_LICENSES.json \
+    compatibility-owners.json \
     examples/compose-raw-grayscale.json examples/compose-raw-rgb.json \
     examples/compose-metadata-private-sequence.json \
     examples/compose-multi-instance-reference.json \

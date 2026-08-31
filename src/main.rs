@@ -1,13 +1,51 @@
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
+    let raw_arguments = std::env::args().skip(1).collect::<Vec<_>>();
+    let command = command_context(&raw_arguments);
+    let machine = requests_machine_json(&raw_arguments);
     match run() {
         Ok(()) => ExitCode::SUCCESS,
         Err(message) => {
-            eprintln!("{message}");
-            ExitCode::FAILURE
+            let failure = dicom_test_suite::cli_protocol::CliFailure::classify(command, message);
+            if machine {
+                match serde_json::to_string(&failure.envelope()) {
+                    Ok(envelope) => eprintln!("{envelope}"),
+                    Err(_) => eprintln!(
+                        "{{\"cli_api_version\":\"1.0.0\",\"command\":\"internal\",\"status\":\"error\",\"error\":{{\"code\":\"internal.serialization.failed\",\"message\":\"serialize CLI error envelope\",\"context\":{{}},\"retryable\":false}}}}"
+                    ),
+                }
+            } else {
+                eprintln!("{}", failure.error.message);
+            }
+            ExitCode::from(failure.exit)
         }
     }
+}
+
+fn command_context(arguments: &[String]) -> String {
+    let mut index = 0;
+    if arguments.first().map(String::as_str) == Some("--resource-root") {
+        index = 2;
+    }
+    let Some(command) = arguments.get(index) else {
+        return "command".to_string();
+    };
+    if matches!(
+        command.as_str(),
+        "templates" | "report" | "standards" | "conformance" | "interoperate"
+    ) {
+        if let Some(subcommand) = arguments.get(index + 1) {
+            return format!("{command} {subcommand}");
+        }
+    }
+    command.clone()
+}
+
+fn requests_machine_json(arguments: &[String]) -> bool {
+    arguments
+        .windows(2)
+        .any(|pair| pair[0] == "--format" && pair[1] == "json")
 }
 
 fn run() -> Result<(), String> {

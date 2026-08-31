@@ -96,4 +96,20 @@ fn capabilities_requires_an_explicit_machine_format() {
         String::from_utf8(output.stderr).unwrap(),
         "capabilities requires --format json\n"
     );
+    assert_eq!(output.status.code(), Some(2));
+}
+
+#[test]
+fn capabilities_machine_syntax_failure_is_one_schema_valid_stderr_envelope() {
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["capabilities", "--format", "json", "--unknown"])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(2));
+    assert!(output.stdout.is_empty());
+    let error: Value = serde_json::from_slice(&output.stderr).unwrap();
+    assert!(compile_schema("schemas/cli-error-envelope.schema.json").is_valid(&error));
+    assert_eq!(error["command"], "capabilities");
+    assert_eq!(error["error"]["code"], "command.syntax.invalid");
+    assert_eq!(error["error"]["retryable"], false);
 }

@@ -74,3 +74,31 @@ fn version_human_output_preserves_the_existing_banner() {
         format!("dicom-test-suite {}\n", env!("CARGO_PKG_VERSION"))
     );
 }
+
+#[test]
+fn version_machine_resource_drift_is_a_stable_integrity_error() {
+    let snapshot = dicom_test_suite::product_resources::ProductResources::embedded()
+        .snapshot()
+        .unwrap();
+    let registry = snapshot.root().join("cases/registry.json");
+    let mut bytes = fs::read(&registry).unwrap();
+    bytes.push(b'\n');
+    fs::write(registry, bytes).unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "--resource-root",
+            snapshot.root().to_str().unwrap(),
+            "version",
+            "--format",
+            "json",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(5));
+    assert!(output.stdout.is_empty());
+    let error: Value = serde_json::from_slice(&output.stderr).unwrap();
+    assert!(compile_schema("schemas/cli-error-envelope.schema.json").is_valid(&error));
+    assert_eq!(error["command"], "version");
+    assert_eq!(error["error"]["code"], "evidence.integrity.failed");
+    assert_eq!(error["error"]["retryable"], false);
+}

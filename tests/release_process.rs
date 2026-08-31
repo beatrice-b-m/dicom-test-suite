@@ -64,6 +64,7 @@ fn release_scripts_default_to_clean_locked_target_bound_artifacts() {
         "release-manifest.json",
         "CHANGELOG.md",
         "docs/release-process.md",
+        "cp schemas/*.json",
     ] {
         assert!(builder.contains(required), "builder omits {required}");
     }

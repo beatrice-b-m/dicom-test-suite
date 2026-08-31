@@ -81,7 +81,8 @@ for required in \
     examples/compose-raw-grayscale.json examples/compose-raw-rgb.json \
     examples/compose-metadata-private-sequence.json \
     examples/compose-multi-instance-reference.json \
-    examples/assemble-structural.json
+    examples/assemble-structural.json schemas/cli-success-envelope.schema.json \
+    schemas/cli-error-envelope.schema.json
 do
     [ -f "$archive_root/$required" ] || {
         echo "required release payload is missing: $required" >&2

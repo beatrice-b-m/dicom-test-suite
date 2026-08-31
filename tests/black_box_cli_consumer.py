@@ -9,8 +9,8 @@ import tempfile
 
 
 BINARY = pathlib.Path(sys.argv[1]).resolve()
-REPOSITORY = pathlib.Path(sys.argv[2]).resolve()
-SCHEMAS = REPOSITORY / "schemas"
+CONTRACT_ROOT = pathlib.Path(sys.argv[2]).resolve()
+SCHEMAS = CONTRACT_ROOT / "schemas"
 
 
 def load_schema(name):

@@ -298,6 +298,24 @@ fn current_target_archive_is_manifest_bound_and_relocatable() {
         "success"
     );
 
+    let black_box = Command::new("python3")
+        .arg("tests/black_box_cli_consumer.py")
+        .arg(&installed)
+        .arg(&root)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .unwrap();
+    assert!(
+        black_box.status.success(),
+        "installed black-box consumer failed:\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&black_box.stdout),
+        String::from_utf8_lossy(&black_box.stderr)
+    );
+    assert_eq!(
+        String::from_utf8(black_box.stdout).unwrap(),
+        "black-box CLI API 1.0.0 consumer passed\n"
+    );
+
     for (index, example) in [
         "compose-raw-grayscale.json",
         "compose-raw-rgb.json",

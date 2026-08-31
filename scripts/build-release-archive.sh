@@ -103,7 +103,7 @@ cleanup() {
 }
 trap cleanup EXIT HUP INT TERM
 archive_root="$staging_parent/$archive_name"
-mkdir -p "$archive_root/bin" "$archive_root/docs" "$archive_root/examples"
+mkdir -p "$archive_root/bin" "$archive_root/docs" "$archive_root/examples" "$archive_root/schemas"
 
 cp "$release_binary" "$archive_root/bin/dicom-test-suite"
 cp CHANGELOG.md LICENSE-APACHE LICENSE-MIT README.md Cargo.lock "$archive_root/"
@@ -121,6 +121,7 @@ do
     cp "$release_doc" "$archive_root/docs/"
 done
 cp examples/*.json "$archive_root/examples/"
+cp schemas/*.json "$archive_root/schemas/"
 
 printf '%s\n' "$version_document" | jq -S . > "$archive_root/version.json"
 printf '%s\n' "$capabilities_document" | jq -S . > "$archive_root/capabilities.json"

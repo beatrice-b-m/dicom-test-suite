@@ -4,7 +4,7 @@
 
 **Contract:** `docs/standalone-productization-plan.md`
 
-**Release readiness:** not ready; S0 and S1 are complete and S2 automation is in progress
+**Release readiness:** not ready; S0 through S2 are complete and S3 is next
 
 ## Current gate state
 
@@ -12,7 +12,7 @@
 | --- | --- | --- |
 | S0 — product contract | Complete | ADR 0002 fixes CLI-primary/SDK-secondary integration and the three disjoint evidence workflows. The compatibility policy, CLI envelope/registry schemas and fixtures, current-command error mappings, structural-assembly design, and official-source foundation are committed and tested. |
 | S1 — relocatable resources | Complete | Versioned embedded resources cover all first-party catalogs, recipes, schemas, locks, configs, and small assets. Production lookups are audited, explicit roots are integrity checked, manifests project resource identity, and the installed binary passed every resource-backed workflow from three unrelated directories. |
-| S2 — automation protocol | In progress | Versioned JSON `version` and conservative `capabilities` discovery are implemented. The common machine-error envelope and documented exit classes now cover representative syntax and resource-integrity failures; command-wide success envelopes, complete taxonomy coverage, typed publish/dry-run outcomes, and the S2 black-box gate remain open. |
+| S2 — automation protocol | Complete | CLI API `1.0.0` provides versioned discovery and command results, stable error codes and exit classes, typed file outcomes, explicit raw-report migration, warning-denied builds, and a schema-driven Python subprocess gate from outside the repository. |
 | S3 — Rust SDK | Not started | Public internal modules exist, but there is no supported `dicom_test_suite::sdk` facade or shared stable public error model. |
 | S4 — structural assembly | Not started | There is no `assemble` CLI/SDK workflow, assembly request schema, or structural-assembly manifest branch. |
 | S5 — packaging and guides | Not started | Cargo metadata and public quick starts do not yet satisfy the release-archive and installed-product contract. |
@@ -59,9 +59,10 @@ test-only fixtures are not classified by this initial production audit.
 
 ## Remaining blockers
 
-S2.2 through S7 and every terminal acceptance row remain open. S2.1 is
-complete; the initial shared-error foundation of S2.2/S2.3 is implemented but
-does not yet establish command-wide coverage or close either numbered item.
+S3 through S7 and every terminal acceptance row remain open. S2 establishes
+the source-build automation contract but does not qualify a packaged release
+candidate, the Rust SDK, structural assembly, either release target, or the
+terminal external-consumer matrix.
 Linux x86_64 and macOS arm64 cannot be claimed as standalone release targets
 until the exact target archives pass the required external-consumer matrix.
 Optional runtimes are accepted only when discovered and fingerprint-qualified;
@@ -230,43 +231,67 @@ fails explicit resource drift closed. No release target or terminal matrix row
 is claimed yet; packaging, external-consumer, exact release-candidate, and
 platform qualification remain open.
 
-### S2 — automation protocol: in progress
+### S2 — automation protocol: complete
 
-S2.1 is complete at `dcd4c6b`. Both machine discovery commands emit the common
-success envelope and validate against their
-versioned result schemas. Capability discovery is derived from the embedded
-template catalog, compiled feature set, transfer-syntax matrix, backend lock,
-validator configuration, and resource ceilings. Optional runtimes and
-structural assembly remain explicitly unavailable or require explicit
-configuration; discovery does not probe them into implied availability.
+**Completed:** 2026-08-31
 
-Commit `390ad21` establishes the shared machine-error foundation without
-claiming S2.2 or S2.3 complete. Top-level failures requested in JSON mode emit
-one schema-valid error object on stderr, no stdout, and a documented exit
-class. Focused tests cover exit `2` for command syntax and exit `5` for embedded
-resource-evidence drift. Human version output and representative legacy
-generate/compose failures remain compatible.
+**Commits:**
 
-Exact verification evidence at the current commit:
+- `064b570`, `dcd4c6b`, `f07df3b` — version, conservative capability
+  discovery, and advertised result-schema versions;
+- `390ad21`, `8bd6177` — shared machine failures, stable workflow taxonomy,
+  the exact `0/2/3/4/5/6` exit classes, and human-detail separation;
+- `4daec6c`, `5ee2397`, `7b78302`, `784fa0a`, `811d731`, `fe30992`,
+  `bbace41`, `580775d` — versioned typed success results across generation,
+  composition, templates, validation, reporting, inventory, standards,
+  conformance, and interoperability;
+- `c5b0270` — warning-denied all-target build hygiene;
+- `2d6116a` — public automation, stream, exit, result-location, and raw-report
+  migration documentation; and
+- `9c306ee` — schema-driven Python subprocess consumer and stable machine-error
+  regression assertions.
+
+Both discovery responses derive live data from embedded resources, compiled
+features, configured external tools, transfer-syntax availability, schemas,
+and resource ceilings. An unavailable runtime or the not-yet-implemented
+assembly workflow remains explicitly unavailable. File-producing publish and
+dry-run results share one typed shape and distinguish state through fields.
+Historical report JSON remains byte-for-byte the raw result unless callers
+explicitly select `--cli-api 1.0.0`, which wraps it at `result.report`.
+
+**Phase-gate verification:**
 
 ```sh
+cargo test --locked --no-default-features \
+  --test capabilities_cli --test version_cli --test cli_contract_schema \
+  --test cli_error_golden --test compose_cli --test templates_cli \
+  --test list_cases_cli --test standards_cli --test conformance_check_tools \
+  --test interoperate_cli --test coverage_gaps_cli --test schema_artifacts \
+  --test non_rust_cli_consumer
+cargo test --locked --no-default-features --test generate_cli \
+  generate_machine_result_is_clean_typed_and_manifest_bounded
+cargo test --locked --no-default-features --test generate_cli \
+  generate_command_writes_smoke_part10_files_and_manifest
+RUSTFLAGS='-D warnings' cargo check --locked --all-targets --no-default-features
 cargo fmt --all -- --check
-cargo test --locked --no-default-features \
-  --test capabilities_cli \
-  --test version_cli \
-  --test cli_contract_schema
-cargo test --locked --no-default-features \
-  --test generate_cli generate_command_requires_output_path
-cargo test --locked --no-default-features \
-  --test compose_cli compose_rejects_protected_rows_before_promotion
 git diff --check
 ```
 
-The discovery/contract bundle passed 10/10 tests; the two selected legacy
-smoke tests passed. The remaining S2 blockers are common success envelopes and
-`--format json` support for every consumer command, golden coverage of all six
-exit classes and every workflow family, typed shape-compatible publish/dry-run
-outcomes, report-JSON migration protection, non-Rust subprocess evidence, and
-the phase gate. The 38 existing compile-time dead-code warnings remain visible
-to Cargo developers but have not leaked into runtime machine stdout/stderr;
-warning cleanup remains part of S2.2 acceptance.
+The phase bundle passed 128 tests, including the black-box Python consumer,
+from an unrelated temporary working directory in 23.82 seconds. The consumer
+uses committed schemas and typed fields for discovery, inventory, templates,
+standards, conformance-tool discovery, compose dry-run and publication,
+validation, raw/wrapped report equality, real smoke generation, and exits
+`2` through `6`; it does not parse diagnostic prose. The two named generation
+tests passed in 1.85 and 1.72 seconds. The warning-denied all-target check
+passed in 20.75 seconds, followed by formatting and diff hygiene.
+
+The phase gate initially caught two legacy tests that scraped detailed machine
+error prose for interoperability and template failures. Their product behavior
+was already correct; the tests now assert the registered error code and exit
+class, preserving prose as a human-output concern.
+
+**Gate conclusion:** a non-Rust subprocess consumer can select and execute the
+current workflows using schemas, exit classes, and error codes alone. This is
+source-build evidence, not packaged release-candidate evidence. All S3-S7 and
+terminal acceptance gates remain open.

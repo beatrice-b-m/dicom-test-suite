@@ -370,13 +370,22 @@ impl CliFailure {
             ("internal.invariant.failed", 6, false)
         };
         let public_message = public_error_message(code).to_string();
+        let mut context = BTreeMap::new();
+        if code == "request.version.unsupported" {
+            context.insert(
+                "migration_action".into(),
+                ErrorContextValue::String(
+                    "select a version advertised by capabilities.result.supported_versions".into(),
+                ),
+            );
+        }
         Self {
             command,
             exit,
             error: PublicError {
                 code,
                 message: public_message,
-                context: BTreeMap::new(),
+                context,
                 retryable,
             },
             human_message: message,

@@ -151,6 +151,12 @@ fn assemble_cli_adversarial_inputs_use_stable_exit_classes() {
         assert!(output.stdout.is_empty(), "{label}");
         let error: serde_json::Value = serde_json::from_slice(&output.stderr).unwrap();
         assert_eq!(error["error"]["code"], code, "{label}: {error}");
+        if code == "request.version.unsupported" {
+            assert_eq!(
+                error["error"]["context"]["migration_action"],
+                "select a version advertised by capabilities.result.supported_versions"
+            );
+        }
     }
     fs::remove_dir_all(workspace).unwrap();
 }

@@ -351,6 +351,13 @@ impl CompositionSpec {
             });
         }
         let value: Value = serde_json::from_slice(bytes).map_err(SpecError::Parse)?;
+        if let Some(version) = value
+            .get("composition_spec_schema_version")
+            .and_then(Value::as_str)
+            .filter(|version| *version != "0.1.0")
+        {
+            return Err(SpecError::UnsupportedVersion(version.to_string()));
+        }
         let schema: Value = serde_json::from_str(COMPOSITION_SPEC_SCHEMA)
             .expect("embedded composition schema parses");
         let validator = jsonschema::validator_for(&schema).expect("composition schema compiles");
@@ -760,6 +767,7 @@ pub enum SpecError {
     },
     Parse(serde_json::Error),
     Schema(Vec<String>),
+    UnsupportedVersion(String),
     Attribute(super::AttributeError),
     DuplicateInstance(String),
     InstanceLimit {

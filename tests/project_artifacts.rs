@@ -2200,9 +2200,11 @@ fn readme_documents_supported_commands_and_codec_features() {
     let readme = fs::read_to_string("README.md").expect("README must be readable");
 
     for required in [
+        "\"$DTS\" generate",
+        "\"$DTS\" validate",
+        "\"$DTS\" report",
+        "## Development",
         "cargo run --locked -- generate",
-        "cargo run --locked -- validate",
-        "cargo run --locked -- report",
         "`smoke`",
         "`core`",
         "`extended`",

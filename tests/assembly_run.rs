@@ -243,6 +243,55 @@ fn structural_cancellation_publishes_nothing() {
     assert!(!root.exists());
 }
 
+#[test]
+fn structural_destination_race_preserves_one_valid_winner_and_cleans_staging() {
+    let parent = output("race-parent");
+    fs::create_dir_all(&parent).unwrap();
+    let destination = parent.join("winner");
+    let barrier = std::sync::Arc::new(std::sync::Barrier::new(2));
+    let workers = (0..2)
+        .map(|_| {
+            let destination = destination.clone();
+            let barrier = barrier.clone();
+            std::thread::spawn(move || {
+                barrier.wait();
+                assemble(
+                    &AssembleOptions {
+                        request_bytes: request(),
+                        caller_asset_root: PathBuf::from("."),
+                        output_root: destination,
+                        seed: 5,
+                        parallelism: 2,
+                        dry_run: false,
+                    },
+                    &CancellationToken::new(),
+                    &ProductResources::embedded(),
+                )
+            })
+        })
+        .collect::<Vec<_>>();
+    let results = workers
+        .into_iter()
+        .map(|worker| worker.join().unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(results.iter().filter(|result| result.is_ok()).count(), 1);
+    assert_eq!(results.iter().filter(|result| result.is_err()).count(), 1);
+    assert!(
+        validate_generated_root(&destination)
+            .unwrap()
+            .failures
+            .is_empty()
+    );
+    assert!(fs::read_dir(&parent).unwrap().all(|entry| {
+        !entry
+            .unwrap()
+            .file_name()
+            .to_string_lossy()
+            .starts_with(".dicom-test-suite-staging-")
+    }));
+    fs::remove_dir_all(parent).unwrap();
+}
+
 fn contains_key(value: &serde_json::Value, key: &str) -> bool {
     match value {
         serde_json::Value::Object(object) => {

@@ -14,6 +14,7 @@ pub const PROTOCOL_QUALIFICATION_VERSION: &str = "0.1.0";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
+#[allow(dead_code)] // Path-included baseline tests intentionally exercise only independence.
 pub enum ProviderRelationship {
     Independent,
     SameProvider,
@@ -54,6 +55,7 @@ pub struct PkiFixtureFingerprint {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
+#[allow(dead_code)] // Baseline-only builds retain the complete qualified outcome vocabulary.
 pub enum StepOutcome {
     Passed,
     Rejected {
@@ -195,6 +197,7 @@ impl ProtocolQualification {
         })
     }
 
+    #[allow(dead_code)] // Kept for consumers even when path-included tests render Markdown only.
     pub fn to_json(&self) -> Result<Value, serde_json::Error> {
         serde_json::to_value(self)
     }

@@ -228,6 +228,7 @@ pub(crate) struct BlendingPresentationStateExpectations<'a> {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)] // Frozen validation model retained for waveform recipe compatibility.
 pub(crate) struct TwelveLeadEcgExpectations<'a> {
     pub sop_instance_uid: &'a str,
     pub implementation_class_uid: &'a str,
@@ -237,6 +238,7 @@ pub(crate) struct TwelveLeadEcgExpectations<'a> {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)] // Frozen validation model retained for waveform recipe compatibility.
 pub(crate) struct GeneralEcgExpectations<'a> {
     pub sop_instance_uid: &'a str,
     pub implementation_class_uid: &'a str,
@@ -579,6 +581,7 @@ pub(crate) struct RtRadiationSetExpectations<'a> {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // Frozen validation model retained for encapsulated-document qualification.
 pub(crate) struct EncapsulatedPdfExpectations<'a> {
     pub sop_class_uid: &'a str,
     pub sop_instance_uid: &'a str,
@@ -599,6 +602,7 @@ pub(crate) struct EncapsulatedPdfExpectations<'a> {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)] // All formulas remain part of the shared validation vocabulary.
 pub(crate) enum PixelDataLengthFormula {
     ContiguousSamples,
     YbrFull422,
@@ -7873,6 +7877,7 @@ pub(crate) fn validate_advanced_blending_presentation_state_file(
 }
 
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)] // Retained until waveform generation is routed through this shared validator.
 struct WaveformEcgValidationRecipe<'a> {
     finding_prefix: &'a str,
     series_number: &'a str,
@@ -7886,6 +7891,7 @@ struct WaveformEcgValidationRecipe<'a> {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)] // Retained until waveform generation is routed through this shared validator.
 struct WaveformEcgValidationExpectations<'a> {
     sop_instance_uid: &'a str,
     implementation_class_uid: &'a str,
@@ -7894,6 +7900,7 @@ struct WaveformEcgValidationExpectations<'a> {
     waveform: ExpectedWaveform<'a>,
 }
 
+#[allow(dead_code)] // Compatibility entry point retained for the waveform migration boundary.
 pub(crate) fn validate_twelve_lead_ecg_file(
     path: &Path,
     expected: &TwelveLeadEcgExpectations<'_>,
@@ -7923,6 +7930,7 @@ pub(crate) fn validate_twelve_lead_ecg_file(
     )
 }
 
+#[allow(dead_code)] // Compatibility entry point retained for the waveform migration boundary.
 pub(crate) fn validate_general_ecg_file(
     path: &Path,
     expected: &GeneralEcgExpectations<'_>,
@@ -7954,6 +7962,7 @@ pub(crate) fn validate_general_ecg_file(
     )
 }
 
+#[allow(dead_code)] // Shared implementation retained with the compatibility entry points above.
 fn validate_waveform_ecg_file(
     path: &Path,
     expected: WaveformEcgValidationExpectations<'_>,
@@ -8677,6 +8686,7 @@ fn validate_waveform_ecg_file(
     })
 }
 
+#[allow(dead_code)] // Shared implementation retained with the compatibility entry points above.
 fn validate_waveform_code(
     results: &mut Vec<Value>,
     path: &Path,
@@ -16646,6 +16656,7 @@ pub(crate) fn validate_rt_dose_file(
     })
 }
 
+#[allow(dead_code)] // Compatibility entry point retained for encapsulated-document migration.
 pub(crate) fn validate_encapsulated_pdf_file(
     path: &Path,
     expected: &EncapsulatedPdfExpectations<'_>,

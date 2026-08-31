@@ -107,6 +107,7 @@ use crate::{
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "family", rename_all = "snake_case", deny_unknown_fields)]
+#[allow(dead_code)] // Retained recipe fields are part of the deserialization contract.
 pub(crate) enum AdvancedCompatibilityProvider {
     Ct {
         common: AdvancedCompatibilityCommon,
@@ -152,6 +153,7 @@ pub(crate) enum AdvancedCompatibilityProvider {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[allow(dead_code)] // Identity fields remain schema-checked even when a lane does not read them.
 pub(crate) struct AdvancedCompatibilityCommon {
     pub modality: String,
     pub study_id: String,
@@ -257,6 +259,7 @@ impl AdvancedCompatibilityPixels {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[allow(dead_code)] // Ordering metadata is retained for manifest compatibility checks.
 pub(crate) struct WsiCompatibilityArtifact {
     pub kind: crate::recipes::WholeSlideArtifactKind,
     pub level: u32,

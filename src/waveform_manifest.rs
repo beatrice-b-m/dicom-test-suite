@@ -1,3 +1,7 @@
+#![allow(dead_code)]
+// Frozen waveform expectations remain an internal compatibility catalog while
+// their generators complete migration to the shared execution path.
+
 use serde::Serialize;
 
 pub(crate) const TWELVE_LEAD_ECG_PAYLOAD_SHA256: &str =

@@ -54,6 +54,12 @@ error envelope on stderr and exit class `2` through `6`. Human output is not an
 automation contract. Historical report JSON stays raw unless the caller adds
 `--cli-api 1.0.0`, which wraps the unchanged report at `result.report`.
 
+Rust consumers should use the narrow supported `dicom_test_suite::sdk` facade;
+see the [Rust SDK guide](docs/sdk-guide.md). Existing public implementation
+modules remain visible during migration but are not standalone compatibility
+surfaces, as recorded by the
+[dated Rust API audit](docs/rust-api-compatibility-audit-2026-08-31.md).
+
 Both public generation workflows now use one plan-first spine. `generate`
 resolves registry-selected, versioned case recipes into an immutable
 `CorpusPlan`; `compose` resolves caller specifications and qualified templates

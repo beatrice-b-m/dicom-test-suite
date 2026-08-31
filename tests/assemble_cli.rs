@@ -105,3 +105,52 @@ fn assemble_cli_schema_failure_uses_stable_machine_error() {
     assert_eq!(error["error"]["code"], "request.schema.invalid");
     fs::remove_dir_all(workspace).unwrap();
 }
+
+#[test]
+fn assemble_cli_adversarial_inputs_use_stable_exit_classes() {
+    let fixtures = [
+        (
+            "protected",
+            br#"{"assembly_request_schema_version":"1.0.0","instances":[{"instance_id":"bad","sop_class_uid":"1.2.3","elements":[{"address":{"keyword":"SOPInstanceUID"},"value":{"kind":"string","value":"1.2.3.4"}}]}]}"#.as_slice(),
+            2,
+            "request.schema.invalid",
+        ),
+        (
+            "unsafe",
+            br#"{"assembly_request_schema_version":"1.0.0","instances":[{"instance_id":"bad","sop_class_uid":"1.2.3","output_path":"../escape.dcm","elements":[]}]}"#.as_slice(),
+            4,
+            "output.path.unsafe",
+        ),
+        (
+            "transfer",
+            br#"{"assembly_request_schema_version":"1.0.0","instances":[{"instance_id":"bad","sop_class_uid":"1.2.3","transfer_syntax_uid":"1.2.840.10008.1.2.4.50","elements":[]}]}"#.as_slice(),
+            3,
+            "capability.transfer_syntax.unavailable",
+        ),
+        (
+            "version",
+            br#"{"assembly_request_schema_version":"2.0.0","instances":[{"instance_id":"bad","sop_class_uid":"1.2.3","elements":[]}]}"#.as_slice(),
+            2,
+            "request.version.unsupported",
+        ),
+    ];
+    let workspace = root("adversarial");
+    fs::create_dir_all(&workspace).unwrap();
+    for (label, request, exit, code) in fixtures {
+        let request_path = workspace.join(format!("{label}.json"));
+        fs::write(&request_path, request).unwrap();
+        let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+            .args(["assemble", "--request"])
+            .arg(&request_path)
+            .arg("--out")
+            .arg(root(label))
+            .args(["--format", "json"])
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(exit), "{label}");
+        assert!(output.stdout.is_empty(), "{label}");
+        let error: serde_json::Value = serde_json::from_slice(&output.stderr).unwrap();
+        assert_eq!(error["error"]["code"], code, "{label}: {error}");
+    }
+    fs::remove_dir_all(workspace).unwrap();
+}

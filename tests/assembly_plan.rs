@@ -1,10 +1,21 @@
+use std::fs;
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use dicom_test_suite::assembly::plan_assembly;
 use dicom_test_suite::composition::CompositionUidRole;
 use dicom_test_suite::corpus_plan::PlannedArtifact;
 
 const RESOURCE_HASH: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+static NEXT: AtomicU64 = AtomicU64::new(0);
+
+fn temp_root(label: &str) -> std::path::PathBuf {
+    std::env::temp_dir().join(format!(
+        "dicom-test-suite-assembly-plan-{label}-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    ))
+}
 
 fn request() -> &'static [u8] {
     br#"{
@@ -121,4 +132,44 @@ fn assembly_rejects_typed_bulk_shape_mismatch_before_publication() {
     }"#;
     let error = plan_assembly(request, Path::new("."), 1, 1, RESOURCE_HASH).unwrap_err();
     assert!(error.to_string().contains("bulk length mismatch"));
+}
+
+#[test]
+fn assembly_rejects_invalid_document_signatures_before_publication() {
+    let request = br#"{
+      "assembly_request_schema_version":"1.0.0",
+      "instances":[{"instance_id":"bad","sop_class_uid":"1.2.3","elements":[],"bulk":[{
+        "kind":"encapsulated_document","source":{"kind":"inline_base64","base64":"bm90IGEgcGRm"},
+        "media_type":"application/pdf"
+      }]}]
+    }"#;
+    let error = plan_assembly(request, Path::new("."), 1, 1, RESOURCE_HASH).unwrap_err();
+    assert!(error.to_string().contains("invalid signature"));
+}
+
+#[cfg(unix)]
+#[test]
+fn assembly_rejects_symlinks_in_any_caller_asset_path_component() {
+    use std::os::unix::fs::symlink;
+
+    let root = temp_root("symlink");
+    let outside = temp_root("outside");
+    fs::create_dir_all(&root).unwrap();
+    fs::create_dir_all(&outside).unwrap();
+    fs::write(outside.join("payload.bin"), [0_u8, 1, 2, 3]).unwrap();
+    symlink(&outside, root.join("linked")).unwrap();
+    let request = br#"{
+      "assembly_request_schema_version":"1.0.0",
+      "instances":[{"instance_id":"bad","sop_class_uid":"1.2.3","elements":[],"bulk":[{
+        "kind":"general","tag":"7776,1000","vr":"OB",
+        "source":{"kind":"file","path":"linked/payload.bin","sha256":"054edec1d0211f624fed0cbca9d4f9400b0e491c43742af2c5b0abebf0c990d8"}
+      }]}]
+    }"#;
+    let error = plan_assembly(&request[..], &root, 1, 1, RESOURCE_HASH).unwrap_err();
+    assert!(matches!(
+        error,
+        dicom_test_suite::assembly::AssemblyError::UnsafePath(_)
+    ));
+    fs::remove_dir_all(root).unwrap();
+    fs::remove_dir_all(outside).unwrap();
 }

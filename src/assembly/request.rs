@@ -193,6 +193,7 @@ impl AssemblyRequest {
     pub fn from_slice(bytes: &[u8]) -> Result<Self, AssemblyError> {
         let raw: serde_json::Value = serde_json::from_slice(bytes)
             .map_err(|error| AssemblyError::Json(error.to_string()))?;
+        preflight_raw_request(&raw)?;
         let schema: serde_json::Value = serde_json::from_str(REQUEST_SCHEMA)
             .map_err(|error| AssemblyError::Schema(error.to_string()))?;
         let validator = jsonschema::options()
@@ -244,8 +245,10 @@ impl AssemblyRequest {
                     instance.transfer_syntax_uid.clone(),
                 ));
             }
-            validate_elements(&instance.elements, 0, &self.limits)?;
+            let mut element_count = 0_usize;
+            validate_elements(&instance.elements, 0, &self.limits, &mut element_count)?;
             validate_bulk(instance, &self.limits)?;
+            validate_bulk_ownership(instance)?;
         }
         for instance in &self.instances {
             for reference in &instance.references {
@@ -254,22 +257,90 @@ impl AssemblyRequest {
                         reference.target_instance_id.clone(),
                     ));
                 }
+                if let Some(frames) = &reference.frames {
+                    let target = self
+                        .instances
+                        .iter()
+                        .find(|candidate| candidate.instance_id == reference.target_instance_id)
+                        .expect("target existence checked above");
+                    let target_frames =
+                        target.bulk.iter().find_map(|bulk| bulk.frames).unwrap_or(1);
+                    if frames.iter().any(|frame| *frame > target_frames) {
+                        return Err(AssemblyError::Value(format!(
+                            "referenced frame exceeds target frame count {target_frames}"
+                        )));
+                    }
+                }
             }
         }
         Ok(())
     }
 }
 
+fn preflight_raw_request(raw: &serde_json::Value) -> Result<(), AssemblyError> {
+    if let Some(version) = raw
+        .get("assembly_request_schema_version")
+        .and_then(serde_json::Value::as_str)
+    {
+        if version != ASSEMBLY_REQUEST_SCHEMA_VERSION {
+            return Err(AssemblyError::UnsupportedVersion(version.to_owned()));
+        }
+    }
+    let Some(instances) = raw.get("instances").and_then(serde_json::Value::as_array) else {
+        return Ok(());
+    };
+    for instance in instances {
+        if let Some(path) = instance
+            .get("output_path")
+            .and_then(serde_json::Value::as_str)
+        {
+            validate_relative_path(path)?;
+        }
+        if let Some(transfer_syntax) = instance
+            .get("transfer_syntax_uid")
+            .and_then(serde_json::Value::as_str)
+        {
+            if !matches!(transfer_syntax, "1.2.840.10008.1.2" | "1.2.840.10008.1.2.1") {
+                return Err(AssemblyError::TransferSyntax(transfer_syntax.to_owned()));
+            }
+        }
+        if let Some(bulk) = instance.get("bulk").and_then(serde_json::Value::as_array) {
+            for declaration in bulk {
+                if declaration
+                    .pointer("/source/kind")
+                    .and_then(serde_json::Value::as_str)
+                    == Some("file")
+                {
+                    if let Some(path) = declaration
+                        .pointer("/source/path")
+                        .and_then(serde_json::Value::as_str)
+                    {
+                        validate_relative_path(path)?;
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 fn validate_elements(
     elements: &[AssemblyElement],
     depth: usize,
     limits: &AssemblyLimits,
+    element_count: &mut usize,
 ) -> Result<(), AssemblyError> {
     if depth > limits.max_sequence_depth {
         return Err(AssemblyError::Limit("Sequence depth"));
     }
     let mut addresses = BTreeSet::new();
     for element in elements {
+        *element_count = element_count
+            .checked_add(1)
+            .ok_or(AssemblyError::Limit("element count"))?;
+        if *element_count > limits.max_elements_per_instance {
+            return Err(AssemblyError::Limit("element count"));
+        }
         let (address, inferred_vr) = resolve_address(&element.address)?;
         let normalized = address.normalized_tag();
         if !addresses.insert((normalized.clone(), address.private_creator.clone())) {
@@ -287,7 +358,7 @@ fn validate_elements(
             .vr
             .or(inferred_vr)
             .ok_or_else(|| AssemblyError::VrRequired(normalized.clone()))?;
-        validate_value(vr, &element.value, depth, limits)?;
+        validate_value(vr, &element.value, depth, limits, element_count)?;
     }
     Ok(())
 }
@@ -351,24 +422,28 @@ fn validate_value(
     value: &AssemblyValue,
     depth: usize,
     limits: &AssemblyLimits,
+    element_count: &mut usize,
 ) -> Result<(), AssemblyError> {
     let compatible = match value {
         AssemblyValue::Empty => true,
         AssemblyValue::String { value } => {
             string_vr(vr) && value.len() as u64 <= limits.max_value_bytes
         }
-        AssemblyValue::Strings { values } => string_vr(vr) && !values.is_empty(),
-        AssemblyValue::Integer { .. } | AssemblyValue::Integers { .. } => matches!(
-            vr,
-            DicomVr::SS | DicomVr::SL | DicomVr::SV | DicomVr::US | DicomVr::UL | DicomVr::UV
-        ),
-        AssemblyValue::Float { value } => {
-            matches!(vr, DicomVr::FL | DicomVr::FD) && value.is_finite()
-        }
-        AssemblyValue::Floats { values } => {
-            matches!(vr, DicomVr::FL | DicomVr::FD)
+        AssemblyValue::Strings { values } => {
+            string_vr(vr)
                 && !values.is_empty()
-                && values.iter().all(|v| v.is_finite())
+                && values
+                    .iter()
+                    .try_fold(0_u64, |total, value| total.checked_add(value.len() as u64))
+                    .is_some_and(|total| total <= limits.max_value_bytes)
+        }
+        AssemblyValue::Integer { value } => integer_fits(vr, *value),
+        AssemblyValue::Integers { values } => {
+            !values.is_empty() && values.iter().all(|value| integer_fits(vr, *value))
+        }
+        AssemblyValue::Float { value } => float_fits(vr, *value),
+        AssemblyValue::Floats { values } => {
+            !values.is_empty() && values.iter().all(|value| float_fits(vr, *value))
         }
         AssemblyValue::Tag { value } => {
             vr == DicomVr::AT && AttributeAddress::from_normalized_tag(value).is_ok()
@@ -391,7 +466,7 @@ fn validate_value(
                 false
             } else {
                 for item in items {
-                    validate_elements(&item.elements, depth + 1, limits)?;
+                    validate_elements(&item.elements, depth + 1, limits, element_count)?;
                 }
                 true
             }
@@ -404,6 +479,27 @@ fn validate_value(
             "value incompatible with VR {vr}"
         )))
     }
+}
+
+fn integer_fits(vr: DicomVr, value: i64) -> bool {
+    match vr {
+        DicomVr::SS => i16::try_from(value).is_ok(),
+        DicomVr::SL => i32::try_from(value).is_ok(),
+        DicomVr::SV => true,
+        DicomVr::US => u16::try_from(value).is_ok(),
+        DicomVr::UL => u32::try_from(value).is_ok(),
+        DicomVr::UV => u64::try_from(value).is_ok(),
+        _ => false,
+    }
+}
+
+fn float_fits(vr: DicomVr, value: f64) -> bool {
+    value.is_finite()
+        && match vr {
+            DicomVr::FL => value.abs() <= f64::from(f32::MAX),
+            DicomVr::FD => true,
+            _ => false,
+        }
 }
 
 fn string_vr(vr: DicomVr) -> bool {
@@ -490,8 +586,102 @@ fn validate_bulk(
                 "general bulk requires tag and VR".into(),
             ));
         }
+        if bulk.kind == "general" && !bulk.vr.is_some_and(binary_vr) {
+            return Err(AssemblyError::Value(
+                "general bulk requires a binary VR".into(),
+            ));
+        }
+        if bulk.kind == "integer_pixel_data"
+            && bulk
+                .bits_stored
+                .zip(bulk.bits_allocated)
+                .is_some_and(|(stored, allocated)| stored > allocated)
+        {
+            return Err(AssemblyError::Value(
+                "integer pixel bits_stored exceeds bits_allocated".into(),
+            ));
+        }
     }
     Ok(())
+}
+
+fn validate_bulk_ownership(instance: &AssemblyInstance) -> Result<(), AssemblyError> {
+    let mut occupied = BTreeSet::new();
+    for element in &instance.elements {
+        let (address, _) = resolve_address(&element.address)?;
+        occupied.insert((address.group, address.element));
+    }
+    for bulk in &instance.bulk {
+        for tag in bulk_owned_tags(bulk)? {
+            if !occupied.insert(tag) {
+                return Err(AssemblyError::ProtectedElement(format!(
+                    "{:04X},{:04X}",
+                    tag.0, tag.1
+                )));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn bulk_owned_tags(bulk: &AssemblyBulk) -> Result<Vec<(u16, u16)>, AssemblyError> {
+    let tags = match bulk.kind.as_str() {
+        "integer_pixel_data" => vec![
+            "0028,0002",
+            "0028,0004",
+            "0028,0008",
+            "0028,0010",
+            "0028,0011",
+            "0028,0100",
+            "0028,0101",
+            "0028,0102",
+            "0028,0103",
+            "7FE0,0010",
+        ],
+        "float_pixel_data" => vec![
+            "0028,0002",
+            "0028,0004",
+            "0028,0008",
+            "0028,0010",
+            "0028,0011",
+            "0028,0100",
+            "7FE0,0008",
+        ],
+        "double_float_pixel_data" => vec![
+            "0028,0002",
+            "0028,0004",
+            "0028,0008",
+            "0028,0010",
+            "0028,0011",
+            "0028,0100",
+            "7FE0,0009",
+        ],
+        "waveform_data" => vec!["003A,0005", "003A,0010", "5400,1004", "5400,1010"],
+        "encapsulated_document" => vec!["0042,0011", "0042,0012"],
+        "mesh" => vec!["0066,0023"],
+        "general" => vec![
+            bulk.tag
+                .as_deref()
+                .ok_or_else(|| AssemblyError::Value("general bulk tag missing".into()))?,
+        ],
+        _ => return Err(AssemblyError::Value("bulk kind unsupported".into())),
+    };
+    tags.into_iter()
+        .map(|tag| {
+            let address = AttributeAddress::from_normalized_tag(tag)
+                .map_err(|error| AssemblyError::Address(error.to_string()))?;
+            if address.group == 0x0002
+                || address.group & 1 == 1
+                || matches!(
+                    (address.group, address.element),
+                    (0x0008, 0x0016 | 0x0018) | (0x0020, 0x000D | 0x000E | 0x0052)
+                )
+            {
+                return Err(AssemblyError::ProtectedElement(address.normalized_tag()));
+            }
+            Ok((address.group, address.element))
+        })
+        .collect()
 }
 
 fn validate_relative_path(value: &str) -> Result<(), AssemblyError> {

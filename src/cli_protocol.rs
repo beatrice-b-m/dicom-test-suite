@@ -294,6 +294,15 @@ impl CliFailure {
             && normalized.contains("request schema invalid")
         {
             ("request.schema.invalid", 2, false)
+        } else if command == "assemble"
+            && (normalized.contains("assembly request protected element")
+                || normalized.contains("assembly element")
+                || normalized.contains("duplicate assembly")
+                || normalized.contains("assembly reference target missing")
+                || normalized.contains("caller asset sha-256 mismatch")
+                || normalized.contains("referenced frame exceeds"))
+        {
+            ("request.schema.invalid", 2, false)
         } else if command == "compose" && normalized.contains("request invalid") {
             if normalized.contains("json") || normalized.contains("expected value") {
                 ("request.json.invalid", 2, false)

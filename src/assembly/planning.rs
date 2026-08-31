@@ -459,7 +459,7 @@ fn resolve_bulk(
     if source.bytes.len() as u64 > limits.max_value_bytes {
         return Err(AssemblyError::Limit("bulk bytes"));
     }
-    validate_bulk_shape(bulk, source.bytes.len() as u64)?;
+    validate_bulk_shape(bulk, &source.bytes)?;
     let (tag, vr) = bulk_tag_vr(bulk)?;
     if matches!(
         bulk.kind.as_str(),
@@ -632,12 +632,22 @@ fn source_bytes(source: &BulkSource, root: &Path) -> Result<ResolvedBulkSource, 
             let canonical_root = fs::canonicalize(root)
                 .map_err(|e| AssemblyError::Value(format!("caller asset root read failed: {e}")))?;
             let candidate = root.join(path);
-            if fs::symlink_metadata(&candidate)
+            let mut inspected = root.to_path_buf();
+            for component in Path::new(path).components() {
+                inspected.push(component);
+                let metadata = fs::symlink_metadata(&inspected)
+                    .map_err(|e| AssemblyError::Value(format!("caller asset read failed: {e}")))?;
+                if metadata.file_type().is_symlink() {
+                    return Err(AssemblyError::UnsafePath(path.clone()));
+                }
+            }
+            if !fs::metadata(&candidate)
                 .map_err(|e| AssemblyError::Value(format!("caller asset read failed: {e}")))?
-                .file_type()
-                .is_symlink()
+                .is_file()
             {
-                return Err(AssemblyError::UnsafePath(path.clone()));
+                return Err(AssemblyError::Value(
+                    "caller asset is not a regular file".into(),
+                ));
             }
             let canonical = fs::canonicalize(&candidate)
                 .map_err(|e| AssemblyError::Value(format!("caller asset read failed: {e}")))?;
@@ -665,7 +675,8 @@ fn source_bytes(source: &BulkSource, root: &Path) -> Result<ResolvedBulkSource, 
     })
 }
 
-fn validate_bulk_shape(bulk: &AssemblyBulk, actual: u64) -> Result<(), AssemblyError> {
+fn validate_bulk_shape(bulk: &AssemblyBulk, bytes: &[u8]) -> Result<(), AssemblyError> {
+    let actual = bytes.len() as u64;
     let multiply = |values: &[u64]| {
         values
             .iter()
@@ -709,9 +720,12 @@ fn validate_bulk_shape(bulk: &AssemblyBulk, actual: u64) -> Result<(), AssemblyE
                 "mesh bulk length must contain complete float32 values".into(),
             ));
         }
-        "encapsulated_document"
-            if bulk.media_type.as_deref() == Some("application/pdf") && !actual.eq(&0) =>
-        {
+        "encapsulated_document" if bulk.media_type.as_deref() == Some("application/pdf") => {
+            if !bytes.starts_with(b"%PDF-") {
+                return Err(AssemblyError::Value(
+                    "PDF document bulk has an invalid signature".into(),
+                ));
+            }
             None
         }
         _ => None,

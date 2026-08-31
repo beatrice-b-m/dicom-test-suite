@@ -39,6 +39,10 @@ the registry or a fresh run report.
   product, CLI, schema, manifest, template, report, provider, and resource
   versions; additive/breaking classification; support windows; and upgrade
   evidence.
+- [Structural assembly design](structural-assembly-design.md): accepted expert
+  request, protected-field, typed-bulk, identity/reference, validation,
+  manifest, resource, and no-IOD-claim boundary for the future `assemble`
+  workflow.
 - [Deterministic build policy](deterministic-build-policy.md): byte-stable and
   semantic-stable contracts, UID derivation, controlled metadata, and artifact
   handling.

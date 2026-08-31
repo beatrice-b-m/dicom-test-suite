@@ -53,6 +53,7 @@ use dicom_transfer_syntax_registry::entries::{
     JPEG_LOSSLESS_NON_HIERARCHICAL, JPEG_LOSSLESS_NON_HIERARCHICAL_FIRST_ORDER_PREDICTION,
 };
 
+pub mod cli_protocol;
 pub mod codecs;
 pub mod composition;
 pub mod conformance;
@@ -62,6 +63,7 @@ pub mod curated_execution;
 pub mod curated_manifest;
 pub mod curated_plan;
 pub mod curated_validation;
+pub mod discovery;
 pub mod encapsulation;
 pub mod encoded_content;
 pub mod executor;

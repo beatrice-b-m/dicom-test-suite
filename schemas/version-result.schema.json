@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dicom-test-suite.local/schemas/version-result.schema.json",
+  "title": "DICOM Test Suite Version Result",
+  "type": "object",
+  "required": [
+    "version_result_schema_version",
+    "product",
+    "cli_api_version",
+    "target",
+    "rust_toolchain",
+    "enabled_features",
+    "product_resources"
+  ],
+  "properties": {
+    "version_result_schema_version": { "const": "1.0.0" },
+    "product": {
+      "type": "object",
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "const": "dicom-test-suite" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$" }
+      },
+      "additionalProperties": false
+    },
+    "cli_api_version": { "const": "1.0.0" },
+    "target": { "type": "string", "minLength": 1 },
+    "rust_toolchain": { "type": "string", "pattern": "^rustc " },
+    "enabled_features": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "product_resources": { "$ref": "#/$defs/product_resources" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "product_resources": {
+      "type": "object",
+      "required": ["resource_set_version", "origin", "resource_count", "resource_set_sha256", "resources"],
+      "properties": {
+        "resource_set_version": { "const": "1.0.0" },
+        "origin": { "enum": ["embedded", "explicit"] },
+        "resource_count": { "type": "integer", "minimum": 1 },
+        "resource_set_sha256": { "$ref": "#/$defs/sha256" },
+        "resources": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["logical_path", "size_bytes", "sha256"],
+            "properties": {
+              "logical_path": { "type": "string", "minLength": 1 },
+              "size_bytes": { "type": "integer", "minimum": 1 },
+              "sha256": { "$ref": "#/$defs/sha256" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

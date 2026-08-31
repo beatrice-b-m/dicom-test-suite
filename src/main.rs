@@ -35,6 +35,35 @@ fn run() -> Result<(), String> {
     };
 
     match command.as_str() {
+        "version" => {
+            let mut format = None;
+            while let Some(argument) = args.next() {
+                match argument.as_str() {
+                    "--format" => format = Some(required_value(&mut args, "--format")?),
+                    "--help" | "-h" => {
+                        println!("Usage: dicom-test-suite version [--format json]");
+                        return Ok(());
+                    }
+                    unknown => return Err(format!("unknown version argument: {unknown}")),
+                }
+            }
+            match format.as_deref() {
+                None => println!("{}", dicom_test_suite::version_banner()),
+                Some("json") => {
+                    let result = dicom_test_suite::discovery::version_result(&resources)
+                        .map_err(|error| error.to_string())?;
+                    let envelope =
+                        dicom_test_suite::cli_protocol::SuccessEnvelope::new("version", result);
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&envelope)
+                            .map_err(|error| error.to_string())?
+                    );
+                }
+                Some(other) => return Err(format!("unsupported version format: {other}")),
+            }
+            Ok(())
+        }
         "conformance" => {
             let subcommand = args
                 .next()
@@ -858,6 +887,7 @@ fn run() -> Result<(), String> {
 fn print_usage() {
     println!("{}", dicom_test_suite::version_banner());
     println!("usage:");
+    println!("  dicom-test-suite version [--format json]");
     println!(
         "  dicom-test-suite generate --profile PROFILE --out PATH [--seed SEED] [--include-stress]"
     );

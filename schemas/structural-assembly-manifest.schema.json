@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dicom-test-suite.local/schemas/structural-assembly-manifest.schema.json",
+  "title": "DICOM Test Suite Structural Assembly Manifest",
+  "type": "object",
+  "required": ["manifest_schema_version","generated_at","generator","product_resources","run","instances","unavailable_capabilities","resources","publication","warnings"],
+  "properties": {
+    "manifest_schema_version": { "const": "1.0.0" },
+    "generated_at": { "const": "2000-01-01T00:00:00Z" },
+    "generator": {
+      "type": "object", "required": ["name","version","target","rustc"],
+      "properties": { "name": { "const": "dicom-test-suite" }, "version": { "type": "string" }, "target": { "type": "string" }, "rustc": { "type": "string" } },
+      "additionalProperties": false
+    },
+    "product_resources": { "type": "object" },
+    "run": {
+      "type": "object",
+      "required": ["kind","assembly_request_schema_version","request_sha256","seed","corpus_plan_sha256","iod_conformance"],
+      "properties": {
+        "kind": { "const": "structural_assembly" },
+        "assembly_request_schema_version": { "const": "1.0.0" },
+        "request_sha256": { "$ref": "#/$defs/sha256" },
+        "seed": { "type": "integer", "minimum": 0 },
+        "corpus_plan_sha256": { "$ref": "#/$defs/sha256" },
+        "iod_conformance": { "const": "not_assessed" }
+      },
+      "additionalProperties": false
+    },
+    "instances": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/instance" } },
+    "unavailable_capabilities": { "type": "array", "items": { "type": "object" } },
+    "resources": { "type": "object" },
+    "publication": { "type": "object" },
+    "warnings": { "type": "array", "items": { "type": "string" }, "contains": { "const": "IOD conformance was not assessed" } }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "uid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$", "maxLength": 64 },
+    "instance": {
+      "type": "object",
+      "required": ["instance_id","output_path","size_bytes","sha256","resolved_plan_sha256","sop_class_uid","sop_instance_uid","transfer_syntax_uid","iod_conformance","elements","bulk","references","validation"],
+      "properties": {
+        "instance_id": { "type": "string" }, "output_path": { "type": "string" }, "size_bytes": { "type": "integer", "minimum": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" }, "resolved_plan_sha256": { "$ref": "#/$defs/sha256" },
+        "sop_class_uid": { "$ref": "#/$defs/uid" }, "sop_instance_uid": { "$ref": "#/$defs/uid" }, "transfer_syntax_uid": { "$ref": "#/$defs/uid" },
+        "iod_conformance": { "const": "not_assessed" },
+        "elements": { "type": "array", "items": { "type": "object" } }, "bulk": { "type": "array", "items": { "type": "object" } },
+        "references": { "type": "array", "items": { "type": "object" } }, "validation": { "type": "array", "minItems": 1, "items": { "type": "object" } }
+      },
+      "additionalProperties": false
+    }
+  }
+}

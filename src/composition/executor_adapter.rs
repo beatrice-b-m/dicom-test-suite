@@ -107,6 +107,19 @@ impl CompositionExecutionServiceFactory {
             auxiliary,
         }
     }
+
+    pub(crate) fn native_only(
+        bindings: BTreeMap<String, ArtifactExecutionBindings>,
+        auxiliary: Arc<dyn AuxiliaryMaterializationHandler>,
+    ) -> Self {
+        Self {
+            bindings: Arc::new(bindings),
+            sources: Arc::new(Vec::new()),
+            providers: Arc::new(BTreeMap::new()),
+            external_dicom_providers: Arc::new(BTreeMap::new()),
+            auxiliary,
+        }
+    }
 }
 
 impl ExecutionServiceFactory for CompositionExecutionServiceFactory {

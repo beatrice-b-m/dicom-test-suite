@@ -117,6 +117,7 @@ pub fn assemble(
         request_sha256: plan.request_sha256,
         seed: options.seed,
         product_resources: resource_identity,
+        identity_evidence: plan.identity_evidence.clone(),
     };
     let execution = CorpusExecutor::new(services, projector)
         .execute(&plan.corpus, destination, options.parallelism, cancellation)
@@ -154,6 +155,7 @@ struct AssemblyManifestProjector {
     request_sha256: String,
     seed: u64,
     product_resources: ProductResourceIdentity,
+    identity_evidence: BTreeMap<String, serde_json::Value>,
 }
 
 impl ManifestProjector for AssemblyManifestProjector {
@@ -177,6 +179,12 @@ impl ManifestProjector for AssemblyManifestProjector {
                     .ok_or_else(|| {
                         ManifestProjectionError("structural SOP identity missing".into())
                     })?;
+                let identity =
+                    self.identity_evidence
+                        .get(&planned.logical_id)
+                        .ok_or_else(|| {
+                            ManifestProjectionError("structural identity evidence missing".into())
+                        })?;
                 Ok(json!({
                     "instance_id": planned.logical_id,
                     "output_path": output.relative_path,
@@ -185,6 +193,7 @@ impl ManifestProjector for AssemblyManifestProjector {
                     "resolved_plan_sha256": planned.instance.canonical_sha256(),
                     "sop_class_uid": planned.instance.sop_class_uid,
                     "sop_instance_uid": sop_instance_uid,
+                    "identity": identity,
                     "transfer_syntax_uid": planned.instance.transfer_syntax_uid,
                     "iod_conformance": "not_assessed",
                     "elements": planned.instance.attributes,
@@ -199,7 +208,7 @@ impl ManifestProjector for AssemblyManifestProjector {
             "generated_at": "2000-01-01T00:00:00Z",
             "generator": { "name": crate::PACKAGE_NAME, "version": crate::PACKAGE_VERSION, "target": crate::TARGET_TRIPLE, "rustc": crate::RUSTC_VERSION },
             "product_resources": self.product_resources,
-            "run": { "kind": "structural_assembly", "assembly_request_schema_version": ASSEMBLY_REQUEST_SCHEMA_VERSION, "request_sha256": self.request_sha256, "seed": self.seed, "corpus_plan_sha256": input.corpus_plan_sha256, "iod_conformance": "not_assessed" },
+            "run": { "kind": "structural_assembly", "assembly_request_schema_version": ASSEMBLY_REQUEST_SCHEMA_VERSION, "request_sha256": self.request_sha256, "seed": self.seed, "corpus_plan_sha256": input.corpus_plan_sha256, "caller_asset_root_policy": "explicit_bounded_relative_paths", "iod_conformance": "not_assessed" },
             "instances": instances,
             "unavailable_capabilities": input.unavailable,
             "resources": input.resources,

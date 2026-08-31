@@ -30,6 +30,7 @@ pub struct AssemblyPlan {
     pub request_sha256: String,
     pub corpus: CorpusPlan,
     pub instances: BTreeMap<String, ResolvedInstancePlan>,
+    pub(crate) identity_evidence: BTreeMap<String, serde_json::Value>,
 }
 
 pub fn plan_assembly(
@@ -117,8 +118,24 @@ pub fn plan_assembly(
     }
 
     let mut resolved = BTreeMap::new();
+    let mut identity_evidence = BTreeMap::new();
     for instance in &request.instances {
         let ids = &identities[&instance.instance_id];
+        identity_evidence.insert(
+            instance.instance_id.clone(),
+            serde_json::json!({
+                "study_instance_uid": ids.study,
+                "series_instance_uid": ids.series,
+                "sop_instance_uid": ids.sop,
+                "frame_of_reference_uid": ids.frame,
+                "provenance": {
+                    "study": if instance.identity.study_instance_uid.is_some() { "explicit" } else { "deterministic" },
+                    "series": if instance.identity.series_instance_uid.is_some() { "explicit" } else { "deterministic" },
+                    "sop": if instance.identity.sop_instance_uid.is_some() { "explicit" } else { "deterministic" },
+                    "frame_of_reference": if instance.identity.frame_of_reference_uid.is_some() { "explicit" } else { "deterministic" }
+                }
+            }),
+        );
         let mut attributes = resolved_elements(&instance.elements)?;
         push_string(&mut attributes, "0020,000D", DicomVr::UI, &ids.study)?;
         push_string(&mut attributes, "0020,000E", DicomVr::UI, &ids.series)?;
@@ -299,6 +316,7 @@ pub fn plan_assembly(
         request_sha256,
         corpus,
         instances: resolved,
+        identity_evidence,
     })
 }
 

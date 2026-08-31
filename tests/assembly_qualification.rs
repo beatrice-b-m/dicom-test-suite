@@ -57,7 +57,7 @@ fn assembly_materializes_primitive_private_sequence_and_reference_contracts() {
             {"address":{"keyword":"PatientID"},"value":{"kind":"empty"}}
           ]}]}}
         ],"references":[{"relationship":"derived_from","target_instance_id":"target","target_role":"sop"}]},
-        {"instance_id":"target","sop_class_uid":"1.2.840.10008.5.1.4.1.1.7","transfer_syntax_uid":"1.2.840.10008.1.2","elements":[]}
+        {"instance_id":"target","sop_class_uid":"1.2.840.10008.5.1.4.1.1.7","transfer_syntax_uid":"1.2.840.10008.1.2","identity":{"study_instance_uid":"1.2.3.10","series_instance_uid":"1.2.3.11","sop_instance_uid":"1.2.3.12","frame_of_reference_uid":"1.2.3.13"},"elements":[]}
       ]
     }"#;
     let root = output("elements");
@@ -152,6 +152,18 @@ fn assembly_materializes_primitive_private_sequence_and_reference_contracts() {
     assert_eq!(
         manifest["instances"][0]["references"][0]["target_instance_id"],
         "target"
+    );
+    assert_eq!(
+        manifest["instances"][0]["references"][0]["referenced_sop_instance_uid"],
+        "1.2.3.12"
+    );
+    assert_eq!(
+        manifest["instances"][0]["identity"]["provenance"]["sop"],
+        "deterministic"
+    );
+    assert_eq!(
+        manifest["instances"][1]["identity"]["provenance"]["sop"],
+        "explicit"
     );
     let private_creators = manifest["instances"][0]["elements"]
         .as_array()

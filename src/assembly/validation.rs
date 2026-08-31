@@ -82,6 +82,37 @@ pub fn validate_assembly_root(root: &Path, manifest: &Value) -> (usize, Vec<Stri
                 {
                     failures.push(format!("structural Part 10 identity mismatch: {relative}"));
                 }
+                for (field, tag) in [
+                    (
+                        "study_instance_uid",
+                        dicom_dictionary_std::tags::STUDY_INSTANCE_UID,
+                    ),
+                    (
+                        "series_instance_uid",
+                        dicom_dictionary_std::tags::SERIES_INSTANCE_UID,
+                    ),
+                    (
+                        "sop_instance_uid",
+                        dicom_dictionary_std::tags::SOP_INSTANCE_UID,
+                    ),
+                    (
+                        "frame_of_reference_uid",
+                        dicom_dictionary_std::tags::FRAME_OF_REFERENCE_UID,
+                    ),
+                ] {
+                    let expected = instance
+                        .pointer(&format!("/identity/{field}"))
+                        .and_then(Value::as_str);
+                    let actual = object
+                        .element(tag)
+                        .ok()
+                        .and_then(|element| element.to_str().ok());
+                    if actual.as_deref() != expected {
+                        failures.push(format!(
+                            "structural {field} identity mismatch in {relative}"
+                        ));
+                    }
+                }
                 match serde_json::from_value::<Vec<ResolvedAttribute>>(
                     instance.get("elements").cloned().unwrap_or_default(),
                 ) {

@@ -4,13 +4,13 @@
 
 **Contract:** `docs/standalone-productization-plan.md`
 
-**Release readiness:** not ready; execution is in the initial contract audit
+**Release readiness:** not ready; S0 is complete and S1 relocation is next
 
 ## Current gate state
 
 | Gate | State | Current evidence or blocker |
 | --- | --- | --- |
-| S0 — product contract | In progress | The approved composition ADR defines curated and qualified-composition boundaries, but no standalone-product ADR, compatibility policy, machine-envelope schemas, stable error registry, or structural-assembly specification has been promoted. |
+| S0 — product contract | Complete | ADR 0002 fixes CLI-primary/SDK-secondary integration and the three disjoint evidence workflows. The compatibility policy, CLI envelope/registry schemas and fixtures, current-command error mappings, structural-assembly design, and official-source foundation are committed and tested. |
 | S1 — relocatable resources | Not started | Production defaults still open repository-relative registry, template, schema, lock, and recipe paths. `src/composition/run.rs` also derives a production repository root from `CARGO_MANIFEST_DIR`. |
 | S2 — automation protocol | Not started | The executable has no JSON `version` or `capabilities` discovery commands and returns human strings with a single generic failure exit. |
 | S3 — Rust SDK | Not started | Public internal modules exist, but there is no supported `dicom_test_suite::sdk` facade or shared stable public error model. |
@@ -59,7 +59,7 @@ test-only fixtures are not classified by this initial production audit.
 
 ## Remaining blockers
 
-All S0 through S7 deliverables and every terminal acceptance row remain open.
+All S1 through S7 deliverables and every terminal acceptance row remain open.
 Linux x86_64 and macOS arm64 cannot be claimed as standalone release targets
 until the exact target archives pass the required external-consumer matrix.
 Optional runtimes are accepted only when discovered and fingerprint-qualified;
@@ -71,3 +71,47 @@ This record is updated at each phase gate with the exact commit, commands,
 artifact identities, results, unsupported targets, and remaining blockers. A
 gate is marked complete only after its acceptance criteria pass without
 narrowing the product contract.
+
+## Gate evidence
+
+### S0 — product contract: complete
+
+**Completed:** 2026-08-31
+
+**Commits:**
+
+- `2ec2791` — accepted standalone product ADR with the supported compatibility
+  surface, non-goals, and change-classification test;
+- `6bf6da3` — independent version domains, additive/breaking examples, support
+  windows, negotiation, deprecation, and upgrade evidence policy;
+- `47d16d9` — CLI success/error/registry schemas, append-only code meanings,
+  six exit classes, every current public command's failure-stage mapping, and
+  positive/adversarial fixtures; and
+- `3ae4002` — structural request/manifest design plus the locked DICOM
+  standards foundation, including protected fields, typed bulk, validation
+  ceiling, and permanent `iod_conformance = "not_assessed"` semantics.
+
+**Verification:**
+
+```sh
+cargo fmt --check
+cargo test --locked --no-default-features \
+  --test cli_contract_schema --test schema_artifacts
+git diff --check
+```
+
+The focused run passed 4 CLI contract tests and 73 schema artifact tests.
+Envelope adversarial fixtures rejected wrong API versions, unknown top-level
+fields, non-namespaced codes, and nested context objects that could expose
+private staging details. The error-registry test proved unique registered codes,
+the exact `0/2/3/4/5/6` exit set, referentially valid failure mappings, and
+coverage for all 17 current public command/subcommand forms. Existing library
+dead-code warnings were present during the Rust test build; they are not
+machine-command stdout, and eliminating compiler/debug leakage remains an S2
+acceptance item.
+
+**Gate conclusion:** a proposed change can be classified as public compatible,
+versioned-breaking, internal, curated, qualified composition, or structural
+assembly by the accepted ADR and normative policy examples. No undocumented
+judgment or IOD inference is needed. This gate does not claim that any S1-S7 or
+terminal release-candidate criterion has passed.

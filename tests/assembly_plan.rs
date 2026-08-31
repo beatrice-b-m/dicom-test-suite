@@ -87,6 +87,10 @@ fn assembly_plan_identity_and_hash_are_parallelism_independent() {
         serial_artifact.canonical_sha256(),
         parallel_artifact.canonical_sha256()
     );
+    assert_eq!(
+        serial.corpus.canonical_sha256().unwrap(),
+        parallel.corpus.canonical_sha256().unwrap()
+    );
 }
 
 #[test]

@@ -40,6 +40,9 @@ pub fn plan_assembly(
     resource_identity_sha256: &str,
 ) -> Result<AssemblyPlan, AssemblyError> {
     let request = AssemblyRequest::from_slice(request_bytes)?;
+    if parallelism == 0 || parallelism > request.limits.max_parallelism {
+        return Err(AssemblyError::Limit("parallelism"));
+    }
     let request_sha256 = sha256_hex(request_bytes);
     let implementation_uid = uid(
         resource_identity_sha256,
@@ -286,7 +289,7 @@ pub fn plan_assembly(
             max_artifacts: request.limits.max_instances as u64,
             max_total_output_bytes: request.limits.max_output_bytes,
             max_peak_working_bytes: request.limits.max_output_bytes,
-            max_parallelism: parallelism.max(1),
+            max_parallelism: request.limits.max_parallelism,
         },
     };
     corpus
@@ -323,10 +326,13 @@ fn uid(resource_hash: &str, key: &str, seed: u64, index: u32, role: UidRole) -> 
 fn resolved_elements(
     elements: &[AssemblyElement],
 ) -> Result<Vec<ResolvedAttribute>, AssemblyError> {
+    let mut private_blocks = BTreeMap::new();
+    let mut used_private_blocks = BTreeSet::new();
     elements
         .iter()
         .map(|element| {
-            let (address, inferred) = resolve_address(&element.address)?;
+            let (mut address, inferred) = resolve_address(&element.address)?;
+            allocate_private_address(&mut address, &mut private_blocks, &mut used_private_blocks)?;
             let vr = element
                 .vr
                 .or(inferred)
@@ -339,6 +345,29 @@ fn resolved_elements(
             })
         })
         .collect()
+}
+
+fn allocate_private_address(
+    address: &mut AttributeAddress,
+    private_blocks: &mut BTreeMap<(u16, String), u16>,
+    used_private_blocks: &mut BTreeSet<(u16, u16)>,
+) -> Result<(), AssemblyError> {
+    let Some(creator) = address.private_creator.clone() else {
+        return Ok(());
+    };
+    let key = (address.group, creator);
+    let block = if let Some(block) = private_blocks.get(&key) {
+        *block
+    } else {
+        let block = (0x10_u16..=0xFF)
+            .find(|block| !used_private_blocks.contains(&(address.group, *block)))
+            .ok_or_else(|| AssemblyError::Limit("private creator blocks"))?;
+        private_blocks.insert(key, block);
+        used_private_blocks.insert((address.group, block));
+        block
+    };
+    address.element = (block << 8) | (address.element & 0x00FF);
+    Ok(())
 }
 
 fn resolved_value(
@@ -398,12 +427,19 @@ fn resolved_value(
             items
                 .iter()
                 .map(|item| {
+                    let mut private_blocks = BTreeMap::new();
+                    let mut used_private_blocks = BTreeSet::new();
                     Ok(AttributeItem {
                         attributes: item
                             .elements
                             .iter()
                             .map(|element| {
-                                let (address, inferred) = resolve_address(&element.address)?;
+                                let (mut address, inferred) = resolve_address(&element.address)?;
+                                allocate_private_address(
+                                    &mut address,
+                                    &mut private_blocks,
+                                    &mut used_private_blocks,
+                                )?;
                                 let vr = element.vr.or(inferred).ok_or_else(|| {
                                     AssemblyError::VrRequired(address.normalized_tag())
                                 })?;

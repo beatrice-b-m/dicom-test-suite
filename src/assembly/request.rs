@@ -30,6 +30,8 @@ pub struct AssemblyLimits {
     pub max_elements_per_instance: usize,
     #[serde(default = "default_max_depth")]
     pub max_sequence_depth: usize,
+    #[serde(default = "default_max_parallelism")]
+    pub max_parallelism: u32,
     #[serde(default = "default_max_value_bytes")]
     pub max_value_bytes: u64,
     #[serde(default = "default_max_output_bytes")]
@@ -45,6 +47,9 @@ const fn default_max_elements() -> usize {
 const fn default_max_depth() -> usize {
     16
 }
+const fn default_max_parallelism() -> u32 {
+    256
+}
 const fn default_max_value_bytes() -> u64 {
     268_435_456
 }
@@ -58,6 +63,7 @@ impl Default for AssemblyLimits {
             max_instances: default_max_instances(),
             max_elements_per_instance: default_max_elements(),
             max_sequence_depth: default_max_depth(),
+            max_parallelism: default_max_parallelism(),
             max_value_bytes: default_max_value_bytes(),
             max_output_bytes: default_max_output_bytes(),
         }

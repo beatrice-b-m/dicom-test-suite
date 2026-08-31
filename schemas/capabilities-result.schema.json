@@ -194,7 +194,7 @@
     },
     "assembly_resource_ceilings": {
       "type": "object",
-      "required": ["max_instances","max_elements_per_instance","max_sequence_depth","max_value_bytes","max_output_bytes"],
+      "required": ["max_instances","max_elements_per_instance","max_sequence_depth","max_parallelism","max_value_bytes","max_output_bytes"],
       "additionalProperties": { "type": "integer", "minimum": 1 }
     },
     "workflow": {

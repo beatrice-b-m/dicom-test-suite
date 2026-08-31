@@ -69,6 +69,10 @@ fn capabilities_json_is_live_schema_valid_and_conservative_outside_the_checkout(
         envelope["result"]["supported_versions"]["result_schemas"]["assembly"][0],
         "1.0.0"
     );
+    assert_eq!(
+        envelope["result"]["assembly_resource_ceilings"]["max_parallelism"],
+        256
+    );
     assert!(
         envelope["result"]["qualified_templates"]
             .as_array()

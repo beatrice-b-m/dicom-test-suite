@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet};
+use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -11,6 +12,35 @@ use dicom_test_suite::sha256_hex;
 use serde_json::{Value, json};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
+
+struct BackendOverride {
+    previous: Option<OsString>,
+}
+
+impl BackendOverride {
+    fn prepared() -> Self {
+        let relative = Path::new("generation-backends/highdicom-pydicom/.venv/bin/python");
+        assert!(
+            relative.is_file(),
+            "P8 full-catalog qualification requires the prepared locked backend"
+        );
+        let executable = std::env::current_dir().unwrap().join(relative);
+        let previous = std::env::var_os("DTS_HIGHDICOM_PYTHON");
+        // This integration-test binary runs one test, so no other thread can
+        // observe the temporary explicit runtime selection.
+        unsafe { std::env::set_var("DTS_HIGHDICOM_PYTHON", executable) };
+        Self { previous }
+    }
+}
+
+impl Drop for BackendOverride {
+    fn drop(&mut self) {
+        match self.previous.take() {
+            Some(value) => unsafe { std::env::set_var("DTS_HIGHDICOM_PYTHON", value) },
+            None => unsafe { std::env::remove_var("DTS_HIGHDICOM_PYTHON") },
+        }
+    }
+}
 
 fn workspace(label: &str) -> PathBuf {
     std::env::temp_dir().join(format!(
@@ -113,6 +143,7 @@ fn assert_independent_routes_are_accounted(catalog: &TemplateCatalog) {
 
 #[test]
 fn every_qualified_default_and_bundle_passes_p8_reproducibility_validation_and_report() {
+    let _backend_override = BackendOverride::prepared();
     let root = workspace("full-catalog");
     fs::create_dir(&root).unwrap();
     let catalog = TemplateCatalog::load("templates/catalog.json").unwrap();

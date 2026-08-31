@@ -22,7 +22,7 @@ fn migrated_curated_recipes_record_shared_plan_materialization() {
     if prepared_backend.is_file() {
         command.env(
             "DTS_HIGHDICOM_PYTHON",
-            fs::canonicalize(&prepared_backend).unwrap(),
+            std::env::current_dir().unwrap().join(&prepared_backend),
         );
     }
     let result = command

@@ -66,6 +66,10 @@ fn capabilities_json_is_live_schema_valid_and_conservative_outside_the_checkout(
         "1.0.0"
     );
     assert_eq!(
+        envelope["result"]["supported_versions"]["release_manifest"][0],
+        "1.0.0"
+    );
+    assert_eq!(
         envelope["result"]["supported_versions"]["result_schemas"]["assembly"][0],
         "1.0.0"
     );

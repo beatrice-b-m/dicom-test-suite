@@ -70,7 +70,7 @@ fn quantitative_default_bundles_are_closed_provenanced_and_reproducible() {
     let manifest_bytes = fs::read(first.join("manifest.json")).unwrap();
     assert_eq!(
         dicom_test_suite::sha256_hex(&manifest_bytes),
-        "564d46f713085ef6471bfa5b37e5da19c42e13fe44e4f54a1729f0a96fa27f64"
+        "91e6b9e78ce63abb4a382f430778df31b5c5f67d2869c7fda0d056c38a24defe"
     );
     let manifest: Value = serde_json::from_slice(&manifest_bytes).unwrap();
     for (instance_id, resolved_plan_sha256) in [

@@ -60,6 +60,10 @@ pub enum ProductResourceError {
         source: std::io::Error,
     },
     NonUtf8(String),
+    Integrity {
+        expected_resource_set_sha256: String,
+        actual_resource_set_sha256: String,
+    },
     CreateSnapshot {
         path: PathBuf,
         source: std::io::Error,
@@ -88,6 +92,13 @@ impl fmt::Display for ProductResourceError {
                 path.display()
             ),
             Self::NonUtf8(path) => write!(formatter, "product resource is not UTF-8: {path}"),
+            Self::Integrity {
+                expected_resource_set_sha256,
+                actual_resource_set_sha256,
+            } => write!(
+                formatter,
+                "product resource integrity failed: expected set {expected_resource_set_sha256}, got {actual_resource_set_sha256}"
+            ),
             Self::CreateSnapshot { path, source } => {
                 write!(
                     formatter,
@@ -204,7 +215,23 @@ impl ProductResources {
         })
     }
 
+    pub fn verify_integrity(&self) -> Result<ProductResourceIdentity, ProductResourceError> {
+        let actual = self.identity()?;
+        if self.origin() == ProductResourceOrigin::Embedded {
+            return Ok(actual);
+        }
+        let expected = Self::embedded().identity()?;
+        if actual.resource_set_sha256 != expected.resource_set_sha256 {
+            return Err(ProductResourceError::Integrity {
+                expected_resource_set_sha256: expected.resource_set_sha256,
+                actual_resource_set_sha256: actual.resource_set_sha256,
+            });
+        }
+        Ok(actual)
+    }
+
     pub fn snapshot(&self) -> Result<ProductResourceSnapshot, ProductResourceError> {
+        self.verify_integrity()?;
         static NEXT_SNAPSHOT: AtomicU64 = AtomicU64::new(0);
         let parent = std::env::temp_dir();
         let root = (0..128)
@@ -251,6 +278,19 @@ impl ProductResources {
             })?;
         }
         Ok(ProductResourceSnapshot { root })
+    }
+}
+
+impl ProductResourceError {
+    pub fn code(&self) -> &'static str {
+        match self {
+            Self::UnsafeLogicalPath(_) | Self::UnknownResource(_) | Self::NonUtf8(_) => {
+                "resource.document.invalid"
+            }
+            Self::Integrity { .. } => "evidence.integrity.failed",
+            Self::Read { .. } => "io.read.failed",
+            Self::CreateSnapshot { .. } | Self::WriteSnapshot { .. } => "io.write.failed",
+        }
     }
 }
 

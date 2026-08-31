@@ -49,7 +49,9 @@ fn embedded_and_explicit_repository_resources_have_identical_identity() {
     }
 
     let embedded = resources.identity().unwrap();
-    let explicit = ProductResources::explicit(&root).identity().unwrap();
+    let explicit = ProductResources::explicit(&root)
+        .verify_integrity()
+        .unwrap();
     assert_eq!(embedded.resource_set_version, PRODUCT_RESOURCE_SET_VERSION);
     assert_eq!(embedded.origin, ProductResourceOrigin::Embedded);
     assert_eq!(explicit.origin, ProductResourceOrigin::Explicit);
@@ -57,6 +59,21 @@ fn embedded_and_explicit_repository_resources_have_identical_identity() {
     assert_eq!(embedded.resource_set_sha256, explicit.resource_set_sha256);
     assert_eq!(embedded.resources, explicit.resources);
     fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn tampered_explicit_resources_fail_before_materialization_with_a_stable_code() {
+    let embedded = ProductResources::embedded();
+    let snapshot = embedded.snapshot().unwrap();
+    let registry_path = snapshot.root().join("cases/registry.json");
+    let mut registry = fs::read(&registry_path).unwrap();
+    registry.push(b'\n');
+    fs::write(&registry_path, registry).unwrap();
+
+    let explicit = ProductResources::explicit(snapshot.root());
+    let error = explicit.snapshot().unwrap_err();
+    assert!(matches!(error, ProductResourceError::Integrity { .. }));
+    assert_eq!(error.code(), "evidence.integrity.failed");
 }
 
 #[test]

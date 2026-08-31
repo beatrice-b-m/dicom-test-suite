@@ -4,7 +4,7 @@
 
 **Contract:** `docs/standalone-productization-plan.md`
 
-**Release readiness:** not ready; S0 through S4 are complete and S5 is next
+**Release readiness:** not ready; S0 through S4 are complete and S5.1 is complete
 
 ## Current gate state
 
@@ -15,7 +15,7 @@
 | S2 — automation protocol | Complete | CLI API `1.0.0` provides versioned discovery and command results, stable error codes and exit classes, typed file outcomes, explicit raw-report migration, warning-denied builds, and a schema-driven Python subprocess gate from outside the repository. |
 | S3 — Rust SDK | Complete | The supported `dicom_test_suite::sdk` facade provides integrity-checked resources, typed discovery/compose/validate/report outcomes, schema-bound manifests, explicit asset roots, cancellation, stable errors, compiled docs, and a packaged-crate side-project gate. |
 | S4 — structural assembly | Complete | The packaged CLI and SDK accept versioned bounded structural requests, use the neutral plan/executor/writer spine, validate exact values and bulk, publish no-IOD-claim manifests/reports, and pass positive, adversarial, transaction, determinism, and external-consumer gates. |
-| S5 — packaging and guides | Not started | Cargo metadata and public quick starts do not yet satisfy the release-archive and installed-product contract. |
+| S5 — packaging and guides | In progress | S5.1 is complete: Cargo metadata, dual licenses, an explicit 765-file crate whitelist, clean package verification, and the complete extracted-crate test inventory are qualified. Release archives, installed-product guides/examples, and the maintainer release procedure remain open. |
 | S6 — release qualification | Not started | Existing source-tree qualification is strong, but no exact packaged release candidate has passed the black-box, relocation, SDK, assembly, or terminal security matrix. |
 | S7 — promotion | Not started | The README still leads with `cargo run`; standalone release gates and compatibility ownership are not promoted. |
 
@@ -23,6 +23,53 @@ No terminal acceptance gate has passed against a standalone release candidate.
 Existing curated and qualified-composition evidence remains valid only within
 its recorded scope and is not being reinterpreted as standalone-product
 evidence.
+
+## S5.1 Cargo package gate
+
+S5.1 completed on 2026-08-31 at `c190b86`. The crate now declares its public
+repository, homepage, documentation, README, categories, keywords, standalone
+description, and `MIT OR Apache-2.0` license texts. Its explicit include set
+contains the source, first-party resources, qualification evidence, tests, and
+CI contract required to verify an extracted crate. It excludes virtual
+environments, Python bytecode, caches, egg-info, and generated backend build
+trees.
+
+The exact clean package command passed without metadata warnings:
+
+```sh
+cargo package --locked --offline
+```
+
+It produced 765 files, 13.5 MiB uncompressed and 2.2 MiB compressed. The crate
+SHA-256 is
+`603783bc6f3877accf0f6d552696f6f37ba2f3d30b9192ab5aef7b1ea5f0643e`.
+Cargo verification completed in 46.17 seconds.
+
+The extracted crate's complete `--all-targets --no-default-features` test
+inventory was exercised with fail-fast resumption, so already-passed
+heavyweight prefixes were not repeated after a localized repair. The initial
+run passed 472 library tests with two intentional ignored process fixtures and
+all integration binaries through the first failure. Each failure was repaired
+and rerun from the exact extracted crate; the final package-sensitive bundle
+passed 96 tests covering P8 composition, quantitative generation, curated
+capability isolation, product-resource lookup and integrity, project
+artifacts, the SDK facade, and public composition. Every remaining integration
+binary then passed. The expensive measured slices were 681.37 seconds for
+curated byte parity, 679.23 seconds for stress projection, 684.65 seconds for
+streamed stress execution, 691.71 seconds for all-profile generation, 689.55
+seconds for direct WSI parity, and 746.14 seconds for WSI pyramid generation.
+
+Qualification exposed and closed three boundaries rather than weakening them:
+prepared-backend tests now accept an explicit locked interpreter; the curated
+unavailable-capability baseline removes ambient backend configuration from its
+child process and excludes elapsed-time observations from its deterministic
+digest; and the SDK names its default catalog through `ProductResources`
+instead of an ambient path literal. Missing prepared capability still fails
+closed unless the exact external interpreter is supplied.
+
+S5.2 through S5.5 remain open. This crate is source-package evidence, not the
+target-specific release archive or release candidate, and no terminal matrix
+row is promoted by S5.1.
 
 ## Baseline audit evidence
 

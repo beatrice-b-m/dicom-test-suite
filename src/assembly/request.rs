@@ -457,11 +457,32 @@ fn validate_bulk(
                 }
             }
         }
-        if bulk.kind == "integer_pixel_data"
-            && (bulk.rows.is_none() || bulk.columns.is_none() || bulk.bits_allocated.is_none())
+        if matches!(
+            bulk.kind.as_str(),
+            "integer_pixel_data" | "float_pixel_data" | "double_float_pixel_data"
+        ) && (bulk.rows.is_none() || bulk.columns.is_none() || bulk.bits_allocated.is_none())
+        {
+            if bulk.kind == "integer_pixel_data" {
+                return Err(AssemblyError::Value(
+                    "integer pixel bulk requires rows, columns, and bits_allocated".into(),
+                ));
+            }
+            if bulk.rows.is_none() || bulk.columns.is_none() {
+                return Err(AssemblyError::Value(
+                    "floating pixel bulk requires rows and columns".into(),
+                ));
+            }
+        }
+        if bulk.kind == "waveform_data"
+            && (bulk.channels.is_none() || bulk.samples.is_none() || bulk.bits_allocated.is_none())
         {
             return Err(AssemblyError::Value(
-                "integer pixel bulk requires rows, columns, and bits_allocated".into(),
+                "waveform bulk requires channels, samples, and bits_allocated".into(),
+            ));
+        }
+        if bulk.kind == "encapsulated_document" && bulk.media_type.is_none() {
+            return Err(AssemblyError::Value(
+                "encapsulated document bulk requires media_type".into(),
             ));
         }
         if bulk.kind == "general" && (bulk.tag.is_none() || bulk.vr.is_none()) {

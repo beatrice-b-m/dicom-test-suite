@@ -455,12 +455,16 @@ fn resolve_bulk(
     limits: &super::AssemblyLimits,
     attributes: &mut Vec<ResolvedAttribute>,
 ) -> Result<CanonicalContent, AssemblyError> {
-    let bytes = source_bytes(&bulk.source, root)?;
-    if bytes.len() as u64 > limits.max_value_bytes {
+    let source = source_bytes(&bulk.source, root)?;
+    if source.bytes.len() as u64 > limits.max_value_bytes {
         return Err(AssemblyError::Limit("bulk bytes"));
     }
+    validate_bulk_shape(bulk, source.bytes.len() as u64)?;
     let (tag, vr) = bulk_tag_vr(bulk)?;
-    if bulk.kind == "integer_pixel_data" {
+    if matches!(
+        bulk.kind.as_str(),
+        "integer_pixel_data" | "float_pixel_data" | "double_float_pixel_data"
+    ) {
         push_number(attributes, "0028,0010", bulk.rows.unwrap_or(1) as u64)?;
         push_number(attributes, "0028,0011", bulk.columns.unwrap_or(1) as u64)?;
         push_number(attributes, "0028,0008", bulk.frames.unwrap_or(1) as u64)?;
@@ -472,25 +476,31 @@ fn resolve_bulk(
         push_number(
             attributes,
             "0028,0100",
-            bulk.bits_allocated.unwrap_or(8) as u64,
+            match bulk.kind.as_str() {
+                "float_pixel_data" => 32,
+                "double_float_pixel_data" => 64,
+                _ => bulk.bits_allocated.unwrap_or(8) as u64,
+            },
         )?;
-        push_number(
-            attributes,
-            "0028,0101",
-            bulk.bits_stored.unwrap_or(bulk.bits_allocated.unwrap_or(8)) as u64,
-        )?;
-        push_number(
-            attributes,
-            "0028,0102",
-            bulk.bits_stored
-                .unwrap_or(bulk.bits_allocated.unwrap_or(8))
-                .saturating_sub(1) as u64,
-        )?;
-        push_number(
-            attributes,
-            "0028,0103",
-            u64::from(bulk.signed.unwrap_or(false)),
-        )?;
+        if bulk.kind == "integer_pixel_data" {
+            push_number(
+                attributes,
+                "0028,0101",
+                bulk.bits_stored.unwrap_or(bulk.bits_allocated.unwrap_or(8)) as u64,
+            )?;
+            push_number(
+                attributes,
+                "0028,0102",
+                bulk.bits_stored
+                    .unwrap_or(bulk.bits_allocated.unwrap_or(8))
+                    .saturating_sub(1) as u64,
+            )?;
+            push_number(
+                attributes,
+                "0028,0103",
+                u64::from(bulk.signed.unwrap_or(false)),
+            )?;
+        }
         push_string(
             attributes,
             "0028,0004",
@@ -499,17 +509,66 @@ fn resolve_bulk(
                 .as_deref()
                 .unwrap_or("MONOCHROME2"),
         )?;
+    } else if bulk.kind == "waveform_data" {
+        push_number(attributes, "003A,0005", bulk.channels.unwrap_or(1) as u64)?;
+        push_number(attributes, "003A,0010", bulk.samples.unwrap_or(1) as u64)?;
+        push_number(
+            attributes,
+            "5400,1004",
+            bulk.bits_allocated.unwrap_or(16) as u64,
+        )?;
+    } else if bulk.kind == "encapsulated_document" {
+        push_string(
+            attributes,
+            "0042,0012",
+            DicomVr::LO,
+            bulk.media_type
+                .as_deref()
+                .unwrap_or("application/octet-stream"),
+        )?;
+    }
+    let resolved_sha256 = sha256_hex(&source.bytes);
+    let mut properties = BTreeMap::from([
+        ("iod_conformance".into(), "not_assessed".into()),
+        ("source_kind".into(), source.kind),
+        ("source_sha256".into(), source.sha256),
+        ("resolved_sha256".into(), resolved_sha256.clone()),
+        (
+            "padding".into(),
+            if source.bytes.len() % 2 == 0 {
+                "none"
+            } else {
+                "dicom_even_length"
+            }
+            .into(),
+        ),
+    ]);
+    if let Some(path) = source.path {
+        properties.insert("source_path".into(), path);
+    }
+    for (name, value) in [
+        ("rows", bulk.rows.map(u64::from)),
+        ("columns", bulk.columns.map(u64::from)),
+        ("frames", bulk.frames.map(u64::from)),
+        ("samples_per_pixel", bulk.samples_per_pixel.map(u64::from)),
+        ("bits_allocated", bulk.bits_allocated.map(u64::from)),
+        ("channels", bulk.channels.map(u64::from)),
+        ("samples", bulk.samples.map(u64::from)),
+    ] {
+        if let Some(value) = value {
+            properties.insert(name.into(), value.to_string());
+        }
     }
     Ok(CanonicalContent {
         slot: format!("bulk_{index}"),
         kind: bulk.kind.clone(),
         address: tag,
         vr,
-        size_bytes: bytes.len() as u64,
-        sha256: sha256_hex(&bytes),
-        properties: BTreeMap::from([("iod_conformance".into(), "not_assessed".into())]),
+        size_bytes: source.bytes.len() as u64,
+        sha256: resolved_sha256,
+        properties,
         placement: ContentPlacement::TopLevel,
-        materialization: Some(ContentMaterialization::Inline(bytes)),
+        materialization: Some(ContentMaterialization::Inline(source.bytes)),
     })
 }
 
@@ -552,13 +611,22 @@ fn bulk_tag_vr(bulk: &AssemblyBulk) -> Result<(AttributeAddress, DicomVr), Assem
     ))
 }
 
-fn source_bytes(source: &BulkSource, root: &Path) -> Result<Vec<u8>, AssemblyError> {
-    let (bytes, expected) = match source {
+struct ResolvedBulkSource {
+    bytes: Vec<u8>,
+    kind: String,
+    path: Option<String>,
+    sha256: String,
+}
+
+fn source_bytes(source: &BulkSource, root: &Path) -> Result<ResolvedBulkSource, AssemblyError> {
+    let (bytes, expected, kind, source_path) = match source {
         BulkSource::InlineBase64 { base64, sha256 } => (
             base64::engine::general_purpose::STANDARD
                 .decode(base64)
                 .map_err(|_| AssemblyError::Value("bulk base64 invalid".into()))?,
             sha256.as_deref(),
+            "inline_base64".to_string(),
+            None,
         ),
         BulkSource::File { path, sha256 } => {
             let canonical_root = fs::canonicalize(root)
@@ -580,11 +648,80 @@ fn source_bytes(source: &BulkSource, root: &Path) -> Result<Vec<u8>, AssemblyErr
                 fs::read(canonical)
                     .map_err(|e| AssemblyError::Value(format!("caller asset read failed: {e}")))?,
                 Some(sha256.as_str()),
+                "file".to_string(),
+                Some(path.clone()),
             )
         }
     };
-    if expected.is_some_and(|hash| hash != sha256_hex(&bytes)) {
+    let observed = sha256_hex(&bytes);
+    if expected.is_some_and(|hash| hash != observed) {
         return Err(AssemblyError::Value("caller asset SHA-256 mismatch".into()));
     }
-    Ok(bytes)
+    Ok(ResolvedBulkSource {
+        bytes,
+        kind,
+        path: source_path,
+        sha256: observed,
+    })
+}
+
+fn validate_bulk_shape(bulk: &AssemblyBulk, actual: u64) -> Result<(), AssemblyError> {
+    let multiply = |values: &[u64]| {
+        values
+            .iter()
+            .try_fold(1_u64, |total, value| total.checked_mul(*value))
+            .ok_or(AssemblyError::Limit("bulk shape overflow"))
+    };
+    let expected = match bulk.kind.as_str() {
+        "integer_pixel_data" => {
+            let samples = multiply(&[
+                bulk.rows.unwrap_or(1) as u64,
+                bulk.columns.unwrap_or(1) as u64,
+                bulk.frames.unwrap_or(1) as u64,
+                bulk.samples_per_pixel.unwrap_or(1) as u64,
+            ])?;
+            let bits = samples
+                .checked_mul(bulk.bits_allocated.unwrap_or(8) as u64)
+                .ok_or(AssemblyError::Limit("bulk shape overflow"))?;
+            Some(bits.div_ceil(8))
+        }
+        "float_pixel_data" => Some(multiply(&[
+            bulk.rows.unwrap_or(1) as u64,
+            bulk.columns.unwrap_or(1) as u64,
+            bulk.frames.unwrap_or(1) as u64,
+            bulk.samples_per_pixel.unwrap_or(1) as u64,
+            4,
+        ])?),
+        "double_float_pixel_data" => Some(multiply(&[
+            bulk.rows.unwrap_or(1) as u64,
+            bulk.columns.unwrap_or(1) as u64,
+            bulk.frames.unwrap_or(1) as u64,
+            bulk.samples_per_pixel.unwrap_or(1) as u64,
+            8,
+        ])?),
+        "waveform_data" => Some(multiply(&[
+            bulk.channels.unwrap_or(1) as u64,
+            bulk.samples.unwrap_or(1) as u64,
+            (bulk.bits_allocated.unwrap_or(16) as u64).div_ceil(8),
+        ])?),
+        "mesh" if actual % 4 != 0 => {
+            return Err(AssemblyError::Value(
+                "mesh bulk length must contain complete float32 values".into(),
+            ));
+        }
+        "encapsulated_document"
+            if bulk.media_type.as_deref() == Some("application/pdf") && !actual.eq(&0) =>
+        {
+            None
+        }
+        _ => None,
+    };
+    if let Some(expected) = expected {
+        if expected != actual {
+            return Err(AssemblyError::Value(format!(
+                "bulk length mismatch: expected {expected}, got {actual}"
+            )));
+        }
+    }
+    Ok(())
 }

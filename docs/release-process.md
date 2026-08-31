@@ -1,0 +1,106 @@
+# Maintainer release and migration procedure
+
+This procedure creates one target-specific release candidate from a clean
+clone, verifies its package and native archive, and supplies the exact facts
+required for release notes. Repeat target qualification independently; a
+successful build on one host is not evidence for another target.
+
+## Prerequisites
+
+Install the pinned Rust toolchain implied by `Cargo.lock`/`rust-version` plus
+`git`, `jq`, `tar`, and either `shasum` or `sha256sum`. Fetch dependencies before
+entering an offline build environment. Optional codec/provider tools are
+qualified separately and must never be inferred from their presence on the
+maintainer machine.
+
+## Prepare a clean source identity
+
+Use a new clone and an explicit signed/tagged revision. The example target is
+macOS arm64; substitute only a target that will run the complete target gate:
+
+```sh
+git clone https://github.com/beatrice-b-m/dicom-test-suite.git dts-release
+cd dts-release
+git checkout --detach RELEASE_REVISION
+test -z "$(git status --porcelain)"
+rustc --version
+cargo --version
+TARGET=aarch64-apple-darwin
+DIST="$PWD/dist"
+```
+
+Before building, move the `[Unreleased]` changelog entries under the candidate
+version/date, add a fresh `[Unreleased]` section, and describe migration for
+every changed compatibility domain. Commit that change; never build a public
+artifact from a dirty tree.
+
+## Verify source and package once
+
+Use focused tests while developing. Run the heavyweight source/package gates
+once for the exact candidate revision, not after every small edit:
+
+```sh
+cargo fmt --all -- --check
+git diff --check
+RUSTFLAGS='-D warnings' cargo check --locked --all-targets --no-default-features
+cargo test --locked --all-targets --no-default-features
+cargo package --locked --offline
+```
+
+If a failure requires a localized repair, rerun the named affected test and
+its subsystem bundle first. Then resume the failed candidate gate without
+repeating already-passed heavyweight slices; the final artifact itself still
+must complete every S6 and terminal-matrix row required for its target.
+
+## Build and independently verify the archive
+
+The builder refuses a dirty source tree, builds the locked target with no
+default features, confirms the binary's reported target/features, and writes a
+`.tar.gz` plus `.sha256` without overwriting an existing artifact:
+
+```sh
+scripts/build-release-archive.sh "$TARGET" "$DIST"
+ARCHIVE="$DIST/dicom-test-suite-$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')-$TARGET.tar.gz"
+scripts/verify-release-archive.sh "$ARCHIVE"
+```
+
+Do not set `DTS_RELEASE_ALLOW_DIRTY` or `DTS_RELEASE_BINARY` for a public
+candidate; those hooks exist only for isolated qualification tests. Select
+`DTS_RELEASE_FEATURES` only when the target's exact feature matrix will be
+qualified and published.
+
+The verifier checks the adjacent checksum, safe single-root extraction,
+release-manifest inventory hashes/sizes, executable discovery identity,
+embedded resource identity, and required license/changelog/example payloads.
+It does not replace S6 black-box, determinism, template/assembly, regression,
+upgrade, or security qualification.
+
+## Describe and record the release
+
+Copy facts; do not infer them. Release notes and the dated standalone status
+must record:
+
+- product version, source revision, source-dirty flag, target, feature set, and
+  archive SHA-256 from `release-manifest.json` and the checksum file;
+- embedded resource-set SHA-256 and supported CLI/request/result/manifest/
+  report/catalog/provider versions from discovery;
+- target-filtered third-party notices and both project licenses;
+- exact verification commands/results, unavailable optional capabilities, and
+  every unqualified target;
+- changelog additions and a migration action for each changed compatibility
+  domain; and
+- terminal-matrix outcomes for the exact immutable archive.
+
+Publish the archive, checksum, changelog/migration notes, and dated matrix
+together. Never promote a general standalone release until Linux x86_64 and
+macOS arm64 each pass the plan's complete external-consumer contract. Never
+represent a missing optional runtime, peer, codec, or target as a pass.
+
+## Consumer upgrade rehearsal
+
+Install the candidate beside the prior version, verify both discovery results,
+and execute every still-supported request/manifest/report/CLI fixture. Compare
+byte-stable or semantic-stable outputs according to the manifest. Unsupported
+versions must return the documented stable version error and migration action.
+Keep rollback possible until the target's release-candidate evidence is
+complete.

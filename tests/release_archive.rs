@@ -162,6 +162,17 @@ fn current_target_archive_is_manifest_bound_and_relocatable() {
             .unwrap(),
         dicom_test_suite::sha256_hex(&fs::read(&archive).unwrap())
     );
+    let verified = Command::new("sh")
+        .arg("scripts/verify-release-archive.sh")
+        .arg(&archive)
+        .output()
+        .unwrap();
+    assert!(
+        verified.status.success(),
+        "independent archive verification failed: {}",
+        String::from_utf8_lossy(&verified.stderr)
+    );
+    assert!(String::from_utf8_lossy(&verified.stdout).contains("verification=passed"));
 
     let extracted = workspace.0.join("extracted");
     fs::create_dir(&extracted).unwrap();

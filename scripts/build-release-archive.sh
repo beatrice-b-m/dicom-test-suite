@@ -98,10 +98,11 @@ archive_root="$staging_parent/$archive_name"
 mkdir -p "$archive_root/bin" "$archive_root/docs" "$archive_root/examples"
 
 cp "$release_binary" "$archive_root/bin/dicom-test-suite"
-cp LICENSE-APACHE LICENSE-MIT README.md Cargo.lock "$archive_root/"
+cp CHANGELOG.md LICENSE-APACHE LICENSE-MIT README.md Cargo.lock "$archive_root/"
 for release_doc in \
     docs/generation-guide.md \
     docs/installation-guide.md \
+    docs/release-process.md \
     docs/automation-guide.md \
     docs/examples-guide.md \
     docs/sdk-guide.md \

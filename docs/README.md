@@ -44,6 +44,9 @@ the registry or a fresh run report.
 - [Installed examples](examples-guide.md): relocatable raw grayscale/RGB,
   metadata/private/Sequence, multi-instance reference, and structural assembly
   requests with exact installed-binary commands.
+- [Maintainer release procedure](release-process.md): clean-clone package and
+  archive construction, independent checksum/inventory verification, exact
+  release-note evidence, migration rehearsal, and promotion boundaries.
 - [Standalone compatibility policy](compatibility-policy.md): independent
   product, CLI, schema, manifest, template, report, provider, and resource
   versions; additive/breaking classification; support windows; and upgrade

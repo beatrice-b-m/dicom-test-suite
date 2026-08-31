@@ -292,7 +292,7 @@ fn validate_elements(
     Ok(())
 }
 
-fn resolve_address(
+pub(super) fn resolve_address(
     address: &AssemblyAddress,
 ) -> Result<(AttributeAddress, Option<DicomVr>), AssemblyError> {
     match address {

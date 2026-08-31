@@ -225,6 +225,7 @@ pub struct CliFailure {
     pub command: String,
     pub exit: u8,
     pub error: PublicError,
+    pub human_message: String,
 }
 
 impl CliFailure {
@@ -234,14 +235,35 @@ impl CliFailure {
         let normalized = message.to_ascii_lowercase();
         let (code, exit, retryable) = if normalized.contains("product resource integrity failed") {
             ("evidence.integrity.failed", 5, false)
-        } else if normalized.contains("destination") && normalized.contains("exist") {
+        } else if command == "templates describe"
+            && (normalized.contains("unknown template")
+                || normalized.contains("not qualified")
+                || normalized.contains("template unavailable"))
+        {
+            ("capability.template.unavailable", 3, false)
+        } else if normalized.contains("output path") && normalized.contains("already exists")
+            || normalized.contains("destination") && normalized.contains("exist")
+        {
             ("output.destination.exists", 4, false)
         } else if normalized.contains("unsafe")
             && (normalized.contains("path") || normalized.contains("traversal"))
         {
             ("output.path.unsafe", 4, false)
+        } else if normalized.contains("resource limit")
+            || normalized.contains("output limit")
+            || normalized.contains("limit exceeded")
+        {
+            ("resource.limit.exceeded", 4, false)
+        } else if normalized.contains("transfer syntax unavailable") {
+            ("capability.transfer_syntax.unavailable", 3, false)
+        } else if normalized.contains("template unavailable") {
+            ("capability.template.unavailable", 3, false)
         } else if normalized.contains("unavailable") {
             ("capability.runtime.unavailable", 3, false)
+        } else if normalized.contains("unsupported")
+            && (normalized.contains("schema") || normalized.contains("version"))
+        {
+            ("request.version.unsupported", 2, false)
         } else if normalized.starts_with("unknown ")
             || normalized.starts_with("unsupported ")
             || normalized.contains("must be non-zero")
@@ -252,25 +274,76 @@ impl CliFailure {
             || normalized.ends_with(" is required")
         {
             ("command.argument.missing", 2, false)
-        } else if normalized.contains("validation failed")
-            || normalized.contains("verification failed")
-            || normalized.contains("conformance failed")
+        } else if command == "compose" && normalized.contains("input read failed") {
+            ("request.read.failed", 2, false)
+        } else if command == "compose" && normalized.contains("request invalid") {
+            if normalized.contains("json") || normalized.contains("expected value") {
+                ("request.json.invalid", 2, false)
+            } else {
+                ("request.schema.invalid", 2, false)
+            }
+        } else if command == "compose" && normalized.contains("provider failed") {
+            ("generation.provider.failed", 5, false)
+        } else if command == "compose" && normalized.contains("materialization failed") {
+            ("generation.materialization.failed", 5, false)
+        } else if command == "compose" && normalized.contains("cancelled") {
+            ("generation.execution.cancelled", 5, true)
+        } else if command == "compose" {
+            ("generation.planning.failed", 5, false)
+        } else if command == "generate" && normalized.contains("plan-first generation failed") {
+            if normalized.contains("provider") {
+                ("generation.provider.failed", 5, false)
+            } else if normalized.contains("materialization") {
+                ("generation.materialization.failed", 5, false)
+            } else {
+                ("generation.planning.failed", 5, false)
+            }
+        } else if normalized.contains("invalid standards lock")
+            || normalized.contains("invalid case registry")
+            || normalized.contains("invalid metadata shape")
+            || normalized.contains("invalid validator")
         {
+            ("resource.document.invalid", 2, false)
+        } else if normalized.contains("validation failed") {
             ("validation.artifact.failed", 5, false)
+        } else if normalized.contains("conformance verification failed") {
+            ("conformance.verification.failed", 5, false)
+        } else if normalized.contains("conformance") && normalized.contains("failed") {
+            ("conformance.run.failed", 5, false)
+        } else if normalized.contains("interoperability") && normalized.contains("failed") {
+            ("interoperability.qualification.failed", 5, false)
+        } else if normalized.contains("failed to read") || normalized.contains(" read failed") {
+            if matches!(
+                command.as_str(),
+                "validate"
+                    | "report"
+                    | "conformance run"
+                    | "conformance verify"
+                    | "interoperate media-dicomdir"
+                    | "interoperate protocol-baseline"
+            ) {
+                ("request.read.failed", 2, false)
+            } else {
+                ("io.read.failed", 6, true)
+            }
+        } else if normalized.contains("failed to write") || normalized.contains("write failed") {
+            ("io.write.failed", 6, true)
         } else if normalized.contains("read ") || normalized.contains("write ") {
             ("io.read.failed", 6, true)
         } else {
             ("internal.invariant.failed", 6, false)
         };
+        let public_message = public_error_message(code).to_string();
         Self {
             command,
             exit,
             error: PublicError {
                 code,
-                message,
+                message: public_message,
                 context: BTreeMap::new(),
                 retryable,
             },
+            human_message: message,
         }
     }
 
@@ -281,5 +354,35 @@ impl CliFailure {
             status: "error",
             error: self.error.clone(),
         }
+    }
+}
+
+fn public_error_message(code: &str) -> &'static str {
+    match code {
+        "command.syntax.invalid" => "command syntax is invalid",
+        "command.argument.missing" => "a required command argument is missing",
+        "request.read.failed" => "the caller request could not be read",
+        "request.json.invalid" => "the caller request is not valid JSON",
+        "request.schema.invalid" => "the caller request does not satisfy its schema",
+        "request.version.unsupported" => "the requested schema or API version is unsupported",
+        "resource.document.invalid" => "a product resource document is invalid",
+        "capability.runtime.unavailable" => "the required runtime capability is unavailable",
+        "capability.template.unavailable" => "the requested qualified template is unavailable",
+        "capability.transfer_syntax.unavailable" => "the requested transfer syntax is unavailable",
+        "output.destination.exists" => "the requested output destination already exists",
+        "output.path.unsafe" => "the requested output path is unsafe",
+        "resource.limit.exceeded" => "a caller-controlled resource limit was exceeded",
+        "generation.planning.failed" => "generation planning failed",
+        "generation.materialization.failed" => "generation materialization failed",
+        "generation.provider.failed" => "a generation provider failed",
+        "generation.execution.cancelled" => "generation was cancelled",
+        "validation.artifact.failed" => "artifact validation failed",
+        "conformance.run.failed" => "conformance execution failed",
+        "conformance.verification.failed" => "conformance evidence verification failed",
+        "interoperability.qualification.failed" => "interoperability qualification failed",
+        "evidence.integrity.failed" => "locked evidence integrity verification failed",
+        "io.read.failed" => "an unexpected product read failed",
+        "io.write.failed" => "an unexpected product write failed",
+        _ => "an internal product invariant failed",
     }
 }

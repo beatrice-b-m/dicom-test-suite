@@ -192,7 +192,31 @@ fn compose_rejects_protected_rows_before_promotion() {
         .output()
         .unwrap();
     assert!(!result.status.success());
-    assert!(String::from_utf8_lossy(&result.stderr).contains("ProtectedCollision"));
+    let stderr = String::from_utf8_lossy(&result.stderr);
+    assert!(
+        stderr.contains("composition default planning failed"),
+        "{stderr}"
+    );
+    assert!(!out.exists());
+
+    let machine = Command::new(binary())
+        .args([
+            "compose",
+            "--spec",
+            spec.to_str().unwrap(),
+            "--out",
+            out.to_str().unwrap(),
+            "--format",
+            "json",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(machine.status.code(), Some(5));
+    assert!(machine.stdout.is_empty());
+    let machine: Value = serde_json::from_slice(&machine.stderr).unwrap();
+    assert_eq!(machine["error"]["code"], "generation.planning.failed");
+    assert_eq!(machine["error"]["message"], "generation planning failed");
+    assert!(!machine.to_string().contains("ProtectedCollision"));
     assert!(!out.exists());
     fs::remove_dir_all(root).unwrap();
 }

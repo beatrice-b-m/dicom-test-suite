@@ -2634,7 +2634,199 @@ from_error!(crate::corpus_plan::CorpusPlanError, CorpusPlan);
 
 impl fmt::Display for ComposeError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(formatter, "{self:?}")
+        match self {
+            Self::OutputExists(path) => write!(
+                formatter,
+                "composition output destination {} already exists",
+                path.display()
+            ),
+            Self::Io { path, source } => {
+                write!(
+                    formatter,
+                    "composition input read failed for {}: {source}",
+                    path.display()
+                )
+            }
+            Self::Spec(error) => write!(formatter, "composition request invalid: {error}"),
+            Self::Template(error) => write!(formatter, "composition template unavailable: {error}"),
+            Self::Identity(error) => {
+                write!(formatter, "composition identity planning failed: {error}")
+            }
+            Self::Content(error) => {
+                write!(formatter, "composition content planning failed: {error}")
+            }
+            Self::RawContent(error) => {
+                write!(formatter, "composition raw content invalid: {error}")
+            }
+            Self::Pixel(error) => write!(formatter, "composition pixel planning failed: {error}"),
+            Self::Defaults(error) => {
+                write!(formatter, "composition default planning failed: {error}")
+            }
+            Self::Materialize(error) => {
+                write!(formatter, "composition materialization failed: {error}")
+            }
+            Self::Manifest(error) => write!(formatter, "composition manifest invalid: {error}"),
+            Self::Family(error) => write!(formatter, "composition family planning failed: {error}"),
+            Self::AdvancedFamily(error) => {
+                write!(
+                    formatter,
+                    "composition advanced family planning failed: {error}"
+                )
+            }
+            Self::Bundle(error) => write!(formatter, "composition bundle planning failed: {error}"),
+            Self::Reference(error) => {
+                write!(formatter, "composition reference planning failed: {error}")
+            }
+            Self::Codec(error) => write!(formatter, "composition codec failed: {error}"),
+            Self::Encapsulation(error) => {
+                write!(formatter, "composition encapsulation failed: {error}")
+            }
+            Self::Provider(error) => write!(formatter, "composition provider failed: {error}"),
+            Self::CorpusPlan(error) => write!(formatter, "composition planning failed: {error}"),
+            Self::AdvancedDefaults(message) => {
+                write!(formatter, "composition advanced defaults failed: {message}")
+            }
+            Self::ExecutionBinding(message) => {
+                write!(formatter, "composition execution binding failed: {message}")
+            }
+            Self::Executor(message) => write!(formatter, "composition execution failed: {message}"),
+            Self::ExecutorManifest(message) => {
+                write!(
+                    formatter,
+                    "composition manifest projection failed: {message}"
+                )
+            }
+            Self::Cancelled => formatter.write_str("composition execution cancelled"),
+            Self::ResourceRange => {
+                formatter.write_str("composition resource limit is out of range")
+            }
+            Self::UnsupportedTemplate(template) => {
+                write!(formatter, "composition template unavailable: {template}")
+            }
+            Self::UnsupportedP2Content(instance) => {
+                write!(
+                    formatter,
+                    "composition content planning failed for {instance}"
+                )
+            }
+            Self::UnsupportedFamilyContent(instance) => {
+                write!(
+                    formatter,
+                    "composition family content planning failed for {instance}"
+                )
+            }
+            Self::UnsupportedScReference(instance) => {
+                write!(
+                    formatter,
+                    "composition reference planning failed for {instance}"
+                )
+            }
+            Self::UnknownReferenceRole { instance_id, role } => write!(
+                formatter,
+                "composition reference planning failed for {instance_id}: unknown role {role}"
+            ),
+            Self::InvalidResolvedFrameCount { instance_id } => write!(
+                formatter,
+                "composition planning failed for {instance_id}: invalid resolved frame count"
+            ),
+            Self::UnsupportedTransferSyntax { instance_id, uid } => write!(
+                formatter,
+                "composition transfer syntax unavailable for {instance_id}: {uid}"
+            ),
+            Self::UnsupportedPatientIdentity => formatter
+                .write_str("composition identity planning failed: unsupported patient identity"),
+            Self::UnknownIdentity(identity) => {
+                write!(
+                    formatter,
+                    "composition identity planning failed: unknown identity {identity}"
+                )
+            }
+            Self::InvalidAutoIdentity(identity) => write!(
+                formatter,
+                "composition identity planning failed: invalid automatic identity {identity}"
+            ),
+            Self::UnknownSharedIdentity {
+                instance_id,
+                share_with,
+                identity,
+            } => write!(
+                formatter,
+                "composition identity planning failed for {instance_id}: {identity} cannot be shared with {share_with}"
+            ),
+            Self::ContentCardinality(instance) => write!(
+                formatter,
+                "composition content planning failed for {instance}: invalid cardinality"
+            ),
+            Self::UnknownContentSlot(slot) => {
+                write!(
+                    formatter,
+                    "composition content planning failed: unknown slot {slot}"
+                )
+            }
+            Self::MissingPixelDeclaration(instance) => write!(
+                formatter,
+                "composition request invalid for {instance}: missing pixel declaration"
+            ),
+            Self::PixelContract(message) => {
+                write!(formatter, "composition pixel planning failed: {message}")
+            }
+            Self::ProtectedContentOverride { instance_id, tag } => write!(
+                formatter,
+                "composition request invalid for {instance_id}: protected content tag {tag}"
+            ),
+            Self::ProtectedSyntheticDataOverride { instance_id } => write!(
+                formatter,
+                "composition request invalid for {instance_id}: protected synthetic-data tag"
+            ),
+            Self::ParameterSchema {
+                instance_id,
+                message,
+            } => write!(
+                formatter,
+                "composition request invalid for {instance_id}: {message}"
+            ),
+            Self::OutputSizeOverflow => {
+                formatter.write_str("composition resource limit exceeded: output size overflow")
+            }
+            Self::MissingPixelMaterialization => {
+                formatter.write_str("composition materialization failed: missing pixel output")
+            }
+            Self::CodecPixelAlignment => {
+                formatter.write_str("composition codec failed: decoded pixel alignment mismatch")
+            }
+            Self::CodecRead { frame, source } => {
+                write!(
+                    formatter,
+                    "composition codec failed reading frame {frame}: {source}"
+                )
+            }
+            Self::EncodedTransferSyntaxMismatch { source, output } => write!(
+                formatter,
+                "composition transfer syntax mismatch: source {source}, output {output}"
+            ),
+            Self::EncodedFrameCount { expected, actual } => write!(
+                formatter,
+                "composition materialization failed: expected {expected} encoded frames, received {actual}"
+            ),
+            Self::EncodedDecodedLength {
+                frame,
+                expected,
+                actual,
+            } => write!(
+                formatter,
+                "composition materialization failed for frame {frame}: expected {expected} decoded bytes, received {actual}"
+            ),
+            Self::OutputLimit { size, limit } => write!(
+                formatter,
+                "composition resource limit exceeded: planned {size} output bytes exceeds {limit}"
+            ),
+            Self::ProductResources(message) => {
+                write!(
+                    formatter,
+                    "composition product resource integrity failed: {message}"
+                )
+            }
+        }
     }
 }
 

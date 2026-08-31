@@ -16,7 +16,7 @@ fn main() -> ExitCode {
                     ),
                 }
             } else {
-                eprintln!("{}", failure.error.message);
+                eprintln!("{}", failure.human_message);
             }
             ExitCode::from(failure.exit)
         }

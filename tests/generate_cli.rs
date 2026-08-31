@@ -8648,14 +8648,16 @@ fn assert_manifest_matches_committed_schema(manifest: &Value) {
     let schema = read_json("schemas/manifest.schema.json");
     assert_required_fields(manifest, &schema, "/required", "manifest");
     assert_allowed_properties(manifest, &schema, "/properties", "manifest");
-    assert_eq!(
-        manifest
-            .get("manifest_schema_version")
-            .and_then(Value::as_str),
+    let manifest_version = manifest
+        .get("manifest_schema_version")
+        .and_then(Value::as_str)
+        .expect("manifest schema version should be a string");
+    assert!(
         schema
-            .pointer("/properties/manifest_schema_version/const")
-            .and_then(Value::as_str),
-        "manifest schema version must match committed schema"
+            .pointer("/properties/manifest_schema_version/enum")
+            .and_then(Value::as_array)
+            .is_some_and(|versions| versions.iter().any(|version| version == manifest_version)),
+        "manifest schema version must be supported by the committed schema"
     );
 
     assert_required_fields(

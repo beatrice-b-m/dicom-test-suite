@@ -5,6 +5,7 @@ use serde::Serialize;
 pub const CLI_API_VERSION: &str = "1.0.0";
 pub const GENERATION_RESULT_SCHEMA_VERSION: &str = "1.0.0";
 pub const COMPOSITION_RESULT_SCHEMA_VERSION: &str = "1.0.0";
+pub const TEMPLATES_RESULT_SCHEMA_VERSION: &str = "1.0.0";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SuccessEnvelope<T> {
@@ -69,6 +70,25 @@ pub struct CompositionResult {
     pub composition_result_schema_version: &'static str,
     #[serde(flatten)]
     pub outcome: FileProducingOutcome,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct TemplatesResult<T> {
+    pub templates_result_schema_version: &'static str,
+    pub view: &'static str,
+    pub template_count: usize,
+    pub templates: Vec<T>,
+}
+
+impl<T> TemplatesResult<T> {
+    pub fn new(view: &'static str, templates: Vec<T>) -> Self {
+        Self {
+            templates_result_schema_version: TEMPLATES_RESULT_SCHEMA_VERSION,
+            view,
+            template_count: templates.len(),
+            templates,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]

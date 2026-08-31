@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dicom-test-suite.local/schemas/templates-result.schema.json",
+  "title": "DICOM Test Suite Templates Result",
+  "type": "object",
+  "required": ["templates_result_schema_version", "view", "template_count", "templates"],
+  "properties": {
+    "templates_result_schema_version": { "const": "1.0.0" },
+    "view": { "enum": ["list", "describe", "reference"] },
+    "template_count": { "type": "integer", "minimum": 0 },
+    "templates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "template_id", "template_version", "status", "artifact_kind",
+          "iod_name", "sop_class_uid", "transfer_syntaxes", "determinism",
+          "content_slots", "standards_evidence"
+        ],
+        "properties": {
+          "template_id": { "type": "string", "minLength": 1 },
+          "template_version": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["qualified", "unavailable"] },
+          "artifact_kind": { "type": "string", "minLength": 1 },
+          "iod_name": { "type": "string", "minLength": 1 },
+          "sop_class_uid": { "type": "string", "pattern": "^[0-9]+(?:\\.[0-9]+)+$" },
+          "transfer_syntaxes": { "type": "array", "minItems": 1 },
+          "determinism": { "type": "string", "minLength": 1 },
+          "content_slots": { "type": "array" },
+          "standards_evidence": { "type": "array", "minItems": 1 }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": false
+}

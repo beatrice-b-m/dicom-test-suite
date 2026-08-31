@@ -4,6 +4,14 @@ fn binary() -> &'static str {
     env!("CARGO_BIN_EXE_dicom-test-suite")
 }
 
+fn compile_schema(path: &str) -> jsonschema::Validator {
+    let schema = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+    jsonschema::options()
+        .with_draft(jsonschema::Draft::Draft202012)
+        .build(&schema)
+        .unwrap()
+}
+
 #[test]
 fn templates_list_has_human_and_machine_readable_output() {
     let table = Command::new(binary())
@@ -20,10 +28,17 @@ fn templates_list_has_human_and_machine_readable_output() {
         .output()
         .unwrap();
     assert!(json.status.success());
+    assert!(json.stderr.is_empty());
     let value: serde_json::Value = serde_json::from_slice(&json.stdout).unwrap();
+    assert!(compile_schema("schemas/cli-success-envelope.schema.json").is_valid(&value));
+    assert!(compile_schema("schemas/templates-result.schema.json").is_valid(&value["result"]));
+    assert_eq!(value["command"], "templates list");
     let catalog =
         dicom_test_suite::composition::TemplateCatalog::load("templates/catalog.json").unwrap();
-    assert_eq!(value.as_array().unwrap().len(), catalog.templates.len());
+    assert_eq!(
+        value["result"]["templates"].as_array().unwrap().len(),
+        catalog.templates.len()
+    );
 }
 
 #[test]
@@ -44,10 +59,17 @@ fn templates_reference_renders_catalog_markdown_and_json() {
         .unwrap();
     assert!(json.status.success());
     let descriptors: serde_json::Value = serde_json::from_slice(&json.stdout).unwrap();
-    assert!(descriptors.as_array().unwrap().iter().any(|descriptor| {
-        descriptor["template_id"] == "classic/xa"
-            && descriptor["transfer_syntaxes"].as_array().unwrap().len() > 1
-    }));
+    assert_eq!(descriptors["command"], "templates reference");
+    assert!(
+        descriptors["result"]["templates"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|descriptor| {
+                descriptor["template_id"] == "classic/xa"
+                    && descriptor["transfer_syntaxes"].as_array().unwrap().len() > 1
+            })
+    );
 }
 
 #[test]
@@ -70,6 +92,8 @@ fn templates_describe_returns_the_complete_versioned_descriptor() {
         String::from_utf8_lossy(&output.stderr)
     );
     let descriptor: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(descriptor["command"], "templates describe");
+    let descriptor = &descriptor["result"]["templates"][0];
     assert_eq!(descriptor["status"], "qualified");
     assert_eq!(descriptor["content_slots"][0]["slot"], "pixels");
     assert!(descriptor["standards_evidence"].as_array().unwrap().len() >= 2);

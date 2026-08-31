@@ -43,9 +43,16 @@ fn command_context(arguments: &[String]) -> String {
 }
 
 fn requests_machine_json(arguments: &[String]) -> bool {
-    arguments
+    if arguments
         .windows(2)
         .any(|pair| pair[0] == "--format" && pair[1] == "json")
+    {
+        return true;
+    }
+    let offset = usize::from(arguments.first().map(String::as_str) == Some("--resource-root")) * 2;
+    arguments.get(offset).map(String::as_str) == Some("templates")
+        && arguments.get(offset + 1).map(String::as_str) == Some("describe")
+        && !arguments.iter().any(|argument| argument == "--format")
 }
 
 fn run() -> Result<(), String> {
@@ -581,11 +588,13 @@ fn run() -> Result<(), String> {
                         dicom_test_suite::composition::TemplateCatalog::load(catalog_path)
                             .map_err(|error| error.to_string())?;
                     match format.as_str() {
-                        "json" => println!(
-                            "{}",
-                            serde_json::to_string_pretty(&catalog.templates)
-                                .map_err(|error| error.to_string())?
-                        ),
+                        "json" => write_machine_success(
+                            "templates list",
+                            dicom_test_suite::cli_protocol::TemplatesResult::new(
+                                "list",
+                                catalog.templates,
+                            ),
+                        )?,
                         "table" => {
                             println!("template_id\tversion\tstatus\tsop_class_uid\tdeterminism");
                             for template in &catalog.templates {
@@ -639,11 +648,13 @@ fn run() -> Result<(), String> {
                         .resolve_qualified(&dicom_test_suite::composition::TemplateId(id), version)
                         .map_err(|error| error.to_string())?;
                     match format.as_str() {
-                        "json" => println!(
-                            "{}",
-                            serde_json::to_string_pretty(descriptor)
-                                .map_err(|error| error.to_string())?
-                        ),
+                        "json" => write_machine_success(
+                            "templates describe",
+                            dicom_test_suite::cli_protocol::TemplatesResult::new(
+                                "describe",
+                                vec![descriptor.clone()],
+                            ),
+                        )?,
                         "text" => {
                             println!(
                                 "template\t{}@{}",
@@ -679,11 +690,13 @@ fn run() -> Result<(), String> {
                             .map_err(|error| error.to_string())?;
                     match format.as_str() {
                         "markdown" => print!("{}", catalog.render_reference_markdown()),
-                        "json" => println!(
-                            "{}",
-                            serde_json::to_string_pretty(&catalog.templates)
-                                .map_err(|error| error.to_string())?
-                        ),
+                        "json" => write_machine_success(
+                            "templates reference",
+                            dicom_test_suite::cli_protocol::TemplatesResult::new(
+                                "reference",
+                                catalog.templates,
+                            ),
+                        )?,
                         other => {
                             return Err(format!("unsupported templates reference format: {other}"));
                         }

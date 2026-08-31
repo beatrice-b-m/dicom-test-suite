@@ -102,9 +102,10 @@ impl DicomTestSuite {
         let manifest = if summary.dry_run {
             None
         } else {
-            Some(SchemaBoundManifest::from_value(
-                summary.manifest_path.clone(),
-                &document,
+            Some(SchemaBoundManifest::load(
+                &summary.out_dir,
+                &self.resources,
+                "compose",
             )?)
         };
         Ok(ComposeOutcome {
@@ -117,6 +118,29 @@ impl DicomTestSuite {
             manifest,
             plan_preview,
         })
+    }
+
+    /// Validate a published product output root and return typed findings.
+    pub fn validate(&self, request: ValidateRequest) -> Result<ValidationOutcome, SdkError> {
+        let summary = crate::validate_generated_root(&request.output_root)
+            .map_err(|error| SdkError::classify("validate", error))?;
+        let manifest =
+            SchemaBoundManifest::load(&request.output_root, &self.resources, "validate")?;
+        Ok(ValidationOutcome {
+            output_root: request.output_root,
+            files_checked: summary.files_checked,
+            valid: summary.failures.is_empty(),
+            failures: summary.failures,
+            manifest,
+        })
+    }
+
+    /// Build a typed schema-versioned report wrapper for a published output root.
+    pub fn report(&self, request: ReportRequest) -> Result<ReportOutcome, SdkError> {
+        let report =
+            crate::build_coverage_report_with_resources(&request.output_root, &self.resources)
+                .map_err(|error| SdkError::classify("report", error))?;
+        ReportOutcome::from_value(request.output_root, &report)
     }
 }
 
@@ -288,35 +312,61 @@ pub struct SchemaBoundManifest {
 }
 
 impl SchemaBoundManifest {
-    fn from_value(path: PathBuf, value: &serde_json::Value) -> Result<Self, SdkError> {
+    fn load(
+        output_root: &Path,
+        resources: &ProductResources,
+        command: &str,
+    ) -> Result<Self, SdkError> {
+        let path = output_root.join("manifest.json");
+        let bytes = std::fs::read(&path).map_err(|error| {
+            SdkError::classify(command, format!("manifest read failed: {error}"))
+        })?;
+        let value: serde_json::Value = serde_json::from_slice(&bytes).map_err(|error| {
+            SdkError::classify(command, format!("manifest JSON invalid: {error}"))
+        })?;
         let field = |pointer: &str| {
             value
                 .pointer(pointer)
-                .ok_or_else(|| SdkError::classify("compose", "composition manifest shape invalid"))
+                .ok_or_else(|| SdkError::classify(command, "manifest schema invalid"))
         };
         let schema_version = field("/manifest_schema_version")?
             .as_str()
-            .ok_or_else(|| SdkError::classify("compose", "composition manifest shape invalid"))?
+            .ok_or_else(|| SdkError::classify(command, "manifest schema invalid"))?
             .to_owned();
-        let run_kind = field("/run/kind")?
-            .as_str()
-            .ok_or_else(|| SdkError::classify("compose", "composition manifest shape invalid"))?;
-        let kind = match run_kind {
-            "composition" => ManifestKind::QualifiedComposition,
-            "structural_assembly" => ManifestKind::StructuralAssembly,
-            "curated_generation" => ManifestKind::CuratedGeneration,
-            _ => {
-                return Err(SdkError::classify(
-                    "compose",
-                    "composition manifest run kind invalid",
-                ));
-            }
+        let (kind, schema_path) = match value.pointer("/run/kind").and_then(|kind| kind.as_str()) {
+            Some("composition") => (
+                ManifestKind::QualifiedComposition,
+                "schemas/composition-manifest.schema.json",
+            ),
+            Some("structural_assembly") => (
+                ManifestKind::StructuralAssembly,
+                "schemas/structural-assembly-manifest.schema.json",
+            ),
+            None | Some("curated_generation") => (
+                ManifestKind::CuratedGeneration,
+                "schemas/manifest.schema.json",
+            ),
+            Some(_) => return Err(SdkError::classify(command, "manifest run kind invalid")),
         };
         let seed = field("/run/seed")?
             .as_u64()
-            .ok_or_else(|| SdkError::classify("compose", "composition manifest shape invalid"))?;
-        let bytes =
-            serde_json::to_vec(value).map_err(|error| SdkError::classify("compose", error))?;
+            .ok_or_else(|| SdkError::classify(command, "manifest schema invalid"))?;
+        let schema: serde_json::Value = serde_json::from_slice(
+            &resources
+                .bytes(schema_path)
+                .map_err(|error| SdkError::classify(command, error))?,
+        )
+        .map_err(|error| SdkError::classify(command, error))?;
+        let validator = jsonschema::options()
+            .with_draft(jsonschema::Draft::Draft202012)
+            .build(&schema)
+            .map_err(|error| SdkError::classify(command, error))?;
+        if let Err(error) = validator.validate(&value) {
+            return Err(SdkError::classify(
+                command,
+                format!("manifest schema invalid: {error}"),
+            ));
+        }
         Ok(Self {
             path,
             schema_version,
@@ -349,6 +399,137 @@ impl SchemaBoundManifest {
     /// Deserialize the already schema-validated document into a consumer model.
     pub fn deserialize<T: DeserializeOwned>(&self) -> Result<T, SdkError> {
         serde_json::from_slice(&self.bytes).map_err(|error| SdkError::classify("compose", error))
+    }
+}
+
+/// Request validation of a published product output root.
+#[derive(Debug, Clone)]
+pub struct ValidateRequest {
+    output_root: PathBuf,
+}
+
+impl ValidateRequest {
+    pub fn new(output_root: impl AsRef<Path>) -> Self {
+        Self {
+            output_root: output_root.as_ref().to_path_buf(),
+        }
+    }
+}
+
+/// Typed validation result with the schema-bound manifest used as authority.
+#[derive(Debug, Clone)]
+pub struct ValidationOutcome {
+    output_root: PathBuf,
+    files_checked: usize,
+    valid: bool,
+    failures: Vec<String>,
+    manifest: SchemaBoundManifest,
+}
+
+impl ValidationOutcome {
+    pub fn output_root(&self) -> &Path {
+        &self.output_root
+    }
+
+    pub fn files_checked(&self) -> usize {
+        self.files_checked
+    }
+
+    pub fn is_valid(&self) -> bool {
+        self.valid
+    }
+
+    pub fn failures(&self) -> &[String] {
+        &self.failures
+    }
+
+    pub fn manifest(&self) -> &SchemaBoundManifest {
+        &self.manifest
+    }
+}
+
+/// Request a report for a published product output root.
+#[derive(Debug, Clone)]
+pub struct ReportRequest {
+    output_root: PathBuf,
+}
+
+impl ReportRequest {
+    pub fn new(output_root: impl AsRef<Path>) -> Self {
+        Self {
+            output_root: output_root.as_ref().to_path_buf(),
+        }
+    }
+}
+
+/// Evidence class represented by a report document.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum ReportKind {
+    CuratedCoverage,
+    QualifiedComposition,
+    StructuralAssembly,
+}
+
+/// Typed, schema-versioned report wrapper.
+#[derive(Debug, Clone)]
+pub struct ReportOutcome {
+    output_root: PathBuf,
+    kind: ReportKind,
+    schema_version: String,
+    bytes: Vec<u8>,
+}
+
+impl ReportOutcome {
+    fn from_value(output_root: PathBuf, value: &serde_json::Value) -> Result<Self, SdkError> {
+        let (kind, version_field) = match value.get("report_kind").and_then(|kind| kind.as_str()) {
+            Some("composition") => (
+                ReportKind::QualifiedComposition,
+                "composition_report_schema_version",
+            ),
+            Some("structural_assembly") => (
+                ReportKind::StructuralAssembly,
+                "structural_assembly_report_schema_version",
+            ),
+            None => (
+                ReportKind::CuratedCoverage,
+                "coverage_report_schema_version",
+            ),
+            Some(_) => return Err(SdkError::classify("report", "report kind invalid")),
+        };
+        let schema_version = value
+            .get(version_field)
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| SdkError::classify("report", "report schema version missing"))?
+            .to_owned();
+        let bytes =
+            serde_json::to_vec(value).map_err(|error| SdkError::classify("report", error))?;
+        Ok(Self {
+            output_root,
+            kind,
+            schema_version,
+            bytes,
+        })
+    }
+
+    pub fn output_root(&self) -> &Path {
+        &self.output_root
+    }
+
+    pub fn kind(&self) -> ReportKind {
+        self.kind
+    }
+
+    pub fn schema_version(&self) -> &str {
+        &self.schema_version
+    }
+
+    pub fn json_bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    pub fn deserialize<T: DeserializeOwned>(&self) -> Result<T, SdkError> {
+        serde_json::from_slice(&self.bytes).map_err(|error| SdkError::classify("report", error))
     }
 }
 

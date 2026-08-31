@@ -1,6 +1,9 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use dicom_test_suite::sdk::{ComposeRequest, DicomTestSuite, ManifestKind, SdkErrorKind};
+use dicom_test_suite::sdk::{
+    ComposeRequest, DicomTestSuite, ManifestKind, ReportKind, ReportRequest, SdkErrorKind,
+    ValidateRequest,
+};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
@@ -80,4 +83,32 @@ fn sdk_compose_bytes_returns_typed_publish_and_dry_run_outcomes() {
     assert!(!dry_root.exists());
 
     std::fs::remove_dir_all(published_root).unwrap();
+}
+
+#[test]
+fn sdk_validation_and_report_return_typed_schema_bound_results() {
+    let product = DicomTestSuite::embedded().unwrap();
+    let root = output("validate-report");
+    product
+        .compose(ComposeRequest::from_json_bytes(
+            include_bytes!("fixtures/composition/valid/template-only.json").as_slice(),
+            ".",
+            &root,
+        ))
+        .unwrap();
+
+    let validation = product.validate(ValidateRequest::new(&root)).unwrap();
+    assert!(validation.is_valid());
+    assert_eq!(validation.files_checked(), 1);
+    assert_eq!(
+        validation.manifest().kind(),
+        ManifestKind::QualifiedComposition
+    );
+
+    let report = product.report(ReportRequest::new(&root)).unwrap();
+    assert_eq!(report.kind(), ReportKind::QualifiedComposition);
+    assert_eq!(report.schema_version(), "0.1.0");
+    assert!(!report.json_bytes().is_empty());
+
+    std::fs::remove_dir_all(root).unwrap();
 }

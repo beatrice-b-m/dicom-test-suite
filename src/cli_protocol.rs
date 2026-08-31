@@ -9,6 +9,7 @@ pub const TEMPLATES_RESULT_SCHEMA_VERSION: &str = "1.0.0";
 pub const VALIDATION_RESULT_SCHEMA_VERSION: &str = "1.0.0";
 pub const REPORT_RESULT_SCHEMA_VERSION: &str = "1.0.0";
 pub const CASE_LIST_RESULT_SCHEMA_VERSION: &str = "1.0.0";
+pub const STANDARDS_RESULT_SCHEMA_VERSION: &str = "1.0.0";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SuccessEnvelope<T> {
@@ -134,6 +135,25 @@ pub struct CaseListResult {
     pub status_filter: Option<String>,
     pub case_count: usize,
     pub cases: Vec<crate::CaseListEntry>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct StandardsResult<T> {
+    pub standards_result_schema_version: &'static str,
+    pub operation: &'static str,
+    pub record_count: usize,
+    pub records: Vec<T>,
+}
+
+impl<T> StandardsResult<T> {
+    pub fn new(operation: &'static str, records: Vec<T>) -> Self {
+        Self {
+            standards_result_schema_version: STANDARDS_RESULT_SCHEMA_VERSION,
+            operation,
+            record_count: records.len(),
+            records,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]

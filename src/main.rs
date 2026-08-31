@@ -942,6 +942,7 @@ fn run() -> Result<(), String> {
             match subcommand.as_str() {
                 "check-lock" => {
                     let mut lock_path = resource_path("standards.lock.json");
+                    let mut format = None;
                     while let Some(arg) = args.next() {
                         match arg.as_str() {
                             "--lock" => {
@@ -949,6 +950,7 @@ fn run() -> Result<(), String> {
                                     .next()
                                     .ok_or_else(|| "--lock requires a path".to_string())?;
                             }
+                            "--format" => format = Some(required_value(&mut args, "--format")?),
                             "--help" | "-h" => {
                                 print_standards_check_lock_usage();
                                 return Ok(());
@@ -962,15 +964,28 @@ fn run() -> Result<(), String> {
                     }
                     let summary = dicom_test_suite::check_standards_lock_path(&lock_path)
                         .map_err(|err| err.to_string())?;
-                    print!(
-                        "{}",
-                        dicom_test_suite::format_standards_lock_summary(&summary)
-                    );
+                    match format.as_deref() {
+                        None => print!(
+                            "{}",
+                            dicom_test_suite::format_standards_lock_summary(&summary)
+                        ),
+                        Some("json") => write_machine_success(
+                            "standards check-lock",
+                            dicom_test_suite::cli_protocol::StandardsResult::new(
+                                "check_lock",
+                                vec![summary],
+                            ),
+                        )?,
+                        Some(other) => {
+                            return Err(format!("unsupported standards format: {other}"));
+                        }
+                    }
                     Ok(())
                 }
                 "gaps" => {
                     let mut registry_path = resource_path("cases/registry.json");
                     let mut profile = None;
+                    let mut format = None;
                     while let Some(arg) = args.next() {
                         match arg.as_str() {
                             "--profile" => {
@@ -984,6 +999,7 @@ fn run() -> Result<(), String> {
                                     .next()
                                     .ok_or_else(|| "--registry requires a path".to_string())?;
                             }
+                            "--format" => format = Some(required_value(&mut args, "--format")?),
                             "--help" | "-h" => {
                                 print_standards_gaps_usage();
                                 return Ok(());
@@ -995,16 +1011,35 @@ fn run() -> Result<(), String> {
                     }
                     let profile =
                         profile.ok_or_else(|| "standards gaps requires --profile".to_string())?;
-                    let output = dicom_test_suite::standards_gaps_from_registry_path(
-                        &registry_path,
-                        &profile,
-                    )
-                    .map_err(|err| err.to_string())?;
-                    print!("{output}");
+                    match format.as_deref() {
+                        None => {
+                            let output = dicom_test_suite::standards_gaps_from_registry_path(
+                                &registry_path,
+                                &profile,
+                            )
+                            .map_err(|err| err.to_string())?;
+                            print!("{output}");
+                        }
+                        Some("json") => {
+                            let gaps = dicom_test_suite::standards_gap_entries_from_registry_path(
+                                &registry_path,
+                                &profile,
+                            )
+                            .map_err(|err| err.to_string())?;
+                            write_machine_success(
+                                "standards gaps",
+                                dicom_test_suite::cli_protocol::StandardsResult::new("gaps", gaps),
+                            )?;
+                        }
+                        Some(other) => {
+                            return Err(format!("unsupported standards format: {other}"));
+                        }
+                    }
                     Ok(())
                 }
                 "verify-kb" => {
                     let mut edition = None;
+                    let mut format = None;
                     while let Some(arg) = args.next() {
                         match arg.as_str() {
                             "--edition" => {
@@ -1013,6 +1048,7 @@ fn run() -> Result<(), String> {
                                         .ok_or_else(|| "--edition requires a value".to_string())?,
                                 );
                             }
+                            "--format" => format = Some(required_value(&mut args, "--format")?),
                             "--help" | "-h" => {
                                 print_standards_verify_kb_usage();
                                 return Ok(());
@@ -1029,6 +1065,14 @@ fn run() -> Result<(), String> {
                     if edition != "2026b" {
                         return Err(format!(
                             "unsupported standards edition {edition}; expected 2026b"
+                        ));
+                    }
+                    if let Some(value) = format.as_deref() {
+                        if value != "json" {
+                            return Err(format!("unsupported standards format: {value}"));
+                        }
+                        return Err(format!(
+                            "standards knowledge base unavailable for edition {edition}"
                         ));
                     }
                     println!("status\tunavailable");
@@ -1254,9 +1298,11 @@ fn print_usage() {
     println!("  dicom-test-suite interoperate <media-dicomdir|protocol-baseline> ...");
     println!("  dicom-test-suite validate GENERATED_ROOT [--format json]");
     println!("  dicom-test-suite report GENERATED_ROOT --format json|markdown [--cli-api 1.0.0]");
-    println!("  dicom-test-suite standards check-lock [--lock PATH]");
-    println!("  dicom-test-suite standards gaps --profile PROFILE [--registry PATH]");
-    println!("  dicom-test-suite standards verify-kb --edition 2026b");
+    println!("  dicom-test-suite standards check-lock [--lock PATH] [--format json]");
+    println!(
+        "  dicom-test-suite standards gaps --profile PROFILE [--registry PATH] [--format json]"
+    );
+    println!("  dicom-test-suite standards verify-kb --edition 2026b [--format json]");
 }
 
 fn print_interoperate_usage() {
@@ -1358,15 +1404,17 @@ fn print_standards_usage() {
 }
 
 fn print_standards_check_lock_usage() {
-    println!("usage: dicom-test-suite standards check-lock [--lock PATH]");
+    println!("usage: dicom-test-suite standards check-lock [--lock PATH] [--format json]");
 }
 
 fn print_standards_gaps_usage() {
-    println!("usage: dicom-test-suite standards gaps --profile PROFILE [--registry PATH]");
+    println!(
+        "usage: dicom-test-suite standards gaps --profile PROFILE [--registry PATH] [--format json]"
+    );
 }
 
 fn print_standards_verify_kb_usage() {
-    println!("usage: dicom-test-suite standards verify-kb --edition 2026b");
+    println!("usage: dicom-test-suite standards verify-kb --edition 2026b [--format json]");
 }
 
 fn parse_seed(seed: String) -> Result<u64, String> {

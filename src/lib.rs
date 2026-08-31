@@ -201,7 +201,7 @@ const TAG_REFERENCED_STRUCTURE_SET_SEQUENCE: dicom_core::Tag = dicom_core::Tag(0
 const TAG_EXTENDED_OFFSET_TABLE: dicom_core::Tag = dicom_core::Tag(0x7FE0, 0x0001);
 const TAG_EXTENDED_OFFSET_TABLE_LENGTHS: dicom_core::Tag = dicom_core::Tag(0x7FE0, 0x0002);
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct StandardsLockSummary {
     pub path: PathBuf,
     pub schema_version: String,
@@ -34907,6 +34907,60 @@ pub fn standards_gaps_from_registry_path(
         })?;
 
     standards_gaps_from_registry_value(&registry, profile_filter)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct StandardsGapEntry {
+    pub case_id: String,
+    pub status: String,
+    pub profiles: Vec<String>,
+    pub gap_kind: String,
+    pub reason: String,
+}
+
+pub fn standards_gap_entries_from_registry_path(
+    registry_path: impl AsRef<Path>,
+    profile_filter: &str,
+) -> Result<Vec<StandardsGapEntry>, CaseRegistryError> {
+    if !SUPPORTED_PROFILES.contains(&profile_filter) {
+        return Err(CaseRegistryError::InvalidProfile(
+            profile_filter.to_string(),
+        ));
+    }
+    let registry_path = registry_path.as_ref();
+    let path_display = registry_path.display().to_string();
+    let contents = fs::read_to_string(registry_path).map_err(|source| CaseRegistryError::Read {
+        path: path_display.clone(),
+        source,
+    })?;
+    let registry: Value =
+        serde_json::from_str(&contents).map_err(|source| CaseRegistryError::Parse {
+            path: path_display,
+            source,
+        })?;
+    validate_case_registry_semantics(&registry).map_err(CaseRegistryError::Semantic)?;
+    let cases = registry["cases"]
+        .as_array()
+        .ok_or(CaseRegistryError::Shape("missing cases array"))?;
+    let mut entries = Vec::new();
+    for case in cases {
+        let profiles = string_array(case.get("profiles"))?;
+        if !case_matches_profile(&profiles, profile_filter, false) {
+            continue;
+        }
+        let case_id = required_str(case, "case_id")?;
+        let status = required_str(case, "status")?;
+        for gap in standards_gaps_for_case(case, status)? {
+            entries.push(StandardsGapEntry {
+                case_id: case_id.to_string(),
+                status: status.to_string(),
+                profiles: profiles.clone(),
+                gap_kind: gap.kind,
+                reason: gap.reason,
+            });
+        }
+    }
+    Ok(entries)
 }
 
 pub fn list_cases_from_registry_value(

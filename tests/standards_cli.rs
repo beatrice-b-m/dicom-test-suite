@@ -4,6 +4,54 @@ use std::process::Command;
 
 use serde_json::{Value, json};
 
+fn compile_schema(path: &str) -> jsonschema::Validator {
+    let schema: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+    jsonschema::options()
+        .with_draft(jsonschema::Draft::Draft202012)
+        .build(&schema)
+        .unwrap()
+}
+
+#[test]
+fn standards_machine_results_and_unavailable_exit_are_stable() {
+    for arguments in [
+        vec!["standards", "check-lock", "--format", "json"],
+        vec!["standards", "gaps", "--profile", "core", "--format", "json"],
+    ] {
+        let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+            .args(arguments)
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        assert!(output.stderr.is_empty());
+        let envelope: Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert!(compile_schema("schemas/cli-success-envelope.schema.json").is_valid(&envelope));
+        assert!(
+            compile_schema("schemas/standards-result.schema.json").is_valid(&envelope["result"])
+        );
+    }
+
+    let unavailable = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args([
+            "standards",
+            "verify-kb",
+            "--edition",
+            "2026b",
+            "--format",
+            "json",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(unavailable.status.code(), Some(3));
+    assert!(unavailable.stdout.is_empty());
+    let unavailable: Value = serde_json::from_slice(&unavailable.stderr).unwrap();
+    assert_eq!(unavailable["command"], "standards verify-kb");
+    assert_eq!(
+        unavailable["error"]["code"],
+        "capability.runtime.unavailable"
+    );
+}
+
 #[test]
 fn standards_check_lock_accepts_committed_lock_with_documented_warnings() {
     let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))

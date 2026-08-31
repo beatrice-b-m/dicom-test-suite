@@ -52,6 +52,7 @@ pub struct CapabilitiesResult {
     pub transfer_syntaxes: Vec<TransferSyntaxCapability>,
     pub optional_runtimes: Vec<OptionalRuntimeCapability>,
     pub resource_ceilings: crate::composition::ResourceLimits,
+    pub assembly_resource_ceilings: crate::assembly::AssemblyLimits,
     pub structural_assembly: WorkflowCapability,
 }
 
@@ -61,6 +62,7 @@ pub struct SupportedVersions {
     pub result_schemas: BTreeMap<&'static str, Vec<&'static str>>,
     pub composition_request: Vec<&'static str>,
     pub assembly_request: Vec<&'static str>,
+    pub assembly_manifest: Vec<&'static str>,
     pub curated_manifest: Vec<&'static str>,
     pub composition_manifest: Vec<&'static str>,
     pub coverage_report: Vec<&'static str>,
@@ -113,7 +115,7 @@ pub struct OptionalRuntimeCapability {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct WorkflowCapability {
     pub availability: &'static str,
-    pub reason_code: &'static str,
+    pub reason_code: Option<&'static str>,
     pub supported_content_kinds: Vec<&'static str>,
     pub supported_transfer_syntax_uids: Vec<&'static str>,
 }
@@ -345,6 +347,10 @@ pub fn capabilities_result(
         supported_versions: SupportedVersions {
             cli_api: vec![crate::cli_protocol::CLI_API_VERSION],
             result_schemas: BTreeMap::from([
+                (
+                    "assembly",
+                    vec![crate::cli_protocol::ASSEMBLY_RESULT_SCHEMA_VERSION],
+                ),
                 ("capabilities", vec![CAPABILITIES_RESULT_SCHEMA_VERSION]),
                 (
                     "case_list",
@@ -385,7 +391,8 @@ pub fn capabilities_result(
                 ("version", vec![VERSION_RESULT_SCHEMA_VERSION]),
             ]),
             composition_request: vec!["0.1.0"],
-            assembly_request: vec![],
+            assembly_request: vec![crate::assembly::ASSEMBLY_REQUEST_SCHEMA_VERSION],
+            assembly_manifest: vec![crate::assembly::ASSEMBLY_MANIFEST_SCHEMA_VERSION],
             curated_manifest: vec!["0.2.0", "0.3.0"],
             composition_manifest: vec!["0.4.0", "0.5.0"],
             coverage_report: vec!["0.1.0"],
@@ -398,11 +405,24 @@ pub fn capabilities_result(
         transfer_syntaxes,
         optional_runtimes,
         resource_ceilings: crate::composition::ResourceLimits::default(),
+        assembly_resource_ceilings: crate::assembly::AssemblyLimits::default(),
         structural_assembly: WorkflowCapability {
-            availability: "unavailable",
-            reason_code: "capability.feature.unavailable",
-            supported_content_kinds: vec![],
-            supported_transfer_syntax_uids: vec![],
+            availability: "available",
+            reason_code: None,
+            supported_content_kinds: vec![
+                "standard_elements",
+                "unknown_explicit_vr_elements",
+                "managed_private_elements",
+                "recursive_sequences",
+                "integer_pixel_data",
+                "float_pixel_data",
+                "double_float_pixel_data",
+                "waveform_data",
+                "encapsulated_document",
+                "mesh",
+                "general_bulk",
+            ],
+            supported_transfer_syntax_uids: vec!["1.2.840.10008.1.2", "1.2.840.10008.1.2.1"],
         },
     })
 }

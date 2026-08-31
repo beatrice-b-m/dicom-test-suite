@@ -5,6 +5,7 @@ use serde::Serialize;
 pub const CLI_API_VERSION: &str = "1.0.0";
 pub const GENERATION_RESULT_SCHEMA_VERSION: &str = "1.0.0";
 pub const COMPOSITION_RESULT_SCHEMA_VERSION: &str = "1.0.0";
+pub const ASSEMBLY_RESULT_SCHEMA_VERSION: &str = "1.0.0";
 pub const TEMPLATES_RESULT_SCHEMA_VERSION: &str = "1.0.0";
 pub const VALIDATION_RESULT_SCHEMA_VERSION: &str = "1.0.0";
 pub const REPORT_RESULT_SCHEMA_VERSION: &str = "1.0.0";
@@ -74,6 +75,13 @@ pub struct GenerationResult {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct CompositionResult {
     pub composition_result_schema_version: &'static str,
+    #[serde(flatten)]
+    pub outcome: FileProducingOutcome,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct AssemblyResult {
+    pub assembly_result_schema_version: &'static str,
     #[serde(flatten)]
     pub outcome: FileProducingOutcome,
 }
@@ -274,8 +282,18 @@ impl CliFailure {
             || normalized.ends_with(" is required")
         {
             ("command.argument.missing", 2, false)
-        } else if command == "compose" && normalized.contains("input read failed") {
+        } else if matches!(command.as_str(), "compose" | "assemble")
+            && normalized.contains("input read failed")
+        {
             ("request.read.failed", 2, false)
+        } else if matches!(command.as_str(), "compose" | "assemble")
+            && normalized.contains("request json invalid")
+        {
+            ("request.json.invalid", 2, false)
+        } else if matches!(command.as_str(), "compose" | "assemble")
+            && normalized.contains("request schema invalid")
+        {
+            ("request.schema.invalid", 2, false)
         } else if command == "compose" && normalized.contains("request invalid") {
             if normalized.contains("json") || normalized.contains("expected value") {
                 ("request.json.invalid", 2, false)
@@ -288,6 +306,12 @@ impl CliFailure {
             ("generation.materialization.failed", 5, false)
         } else if command == "compose" && normalized.contains("cancelled") {
             ("generation.execution.cancelled", 5, true)
+        } else if command == "assemble" && normalized.contains("cancel") {
+            ("generation.execution.cancelled", 5, true)
+        } else if command == "assemble" && normalized.contains("material") {
+            ("generation.materialization.failed", 5, false)
+        } else if command == "assemble" {
+            ("generation.planning.failed", 5, false)
         } else if command == "compose" {
             ("generation.planning.failed", 5, false)
         } else if command == "generate" && normalized.contains("plan-first generation failed") {

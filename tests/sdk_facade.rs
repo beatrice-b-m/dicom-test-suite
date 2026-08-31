@@ -27,7 +27,7 @@ fn sdk_embedded_discovery_is_typed_and_conservative() {
         version.product_resources.resource_set_sha256,
         capabilities.product_resources.resource_set_sha256
     );
-    assert_eq!(capabilities.structural_assembly.availability, "unavailable");
+    assert_eq!(capabilities.structural_assembly.availability, "available");
 }
 
 #[test]

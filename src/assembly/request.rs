@@ -22,7 +22,7 @@ pub struct AssemblyRequest {
     pub limits: AssemblyLimits,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AssemblyLimits {
     #[serde(default = "default_max_instances")]
     pub max_instances: usize,

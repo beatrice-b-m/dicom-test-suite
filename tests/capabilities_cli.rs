@@ -54,11 +54,20 @@ fn capabilities_json_is_live_schema_valid_and_conservative_outside_the_checkout(
     );
     assert_eq!(
         envelope["result"]["structural_assembly"]["availability"],
-        "unavailable"
+        "available"
+    );
+    assert!(envelope["result"]["structural_assembly"]["reason_code"].is_null());
+    assert_eq!(
+        envelope["result"]["supported_versions"]["assembly_request"][0],
+        "1.0.0"
     );
     assert_eq!(
-        envelope["result"]["structural_assembly"]["reason_code"],
-        "capability.feature.unavailable"
+        envelope["result"]["supported_versions"]["assembly_manifest"][0],
+        "1.0.0"
+    );
+    assert_eq!(
+        envelope["result"]["supported_versions"]["result_schemas"]["assembly"][0],
+        "1.0.0"
     );
     assert!(
         envelope["result"]["qualified_templates"]

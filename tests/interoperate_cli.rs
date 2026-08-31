@@ -78,8 +78,11 @@ fn media_cli_requires_explicit_optional_tool_paths() {
         ])
         .output()
         .expect("media command should run");
-    assert!(!output.status.success());
-    assert!(String::from_utf8_lossy(&output.stderr).contains("requires --dcmmkdir"));
+    assert_eq!(output.status.code(), Some(2));
+    assert!(output.stdout.is_empty());
+    let error: Value = serde_json::from_slice(&output.stderr).unwrap();
+    assert_eq!(error["command"], "interoperate media-dicomdir");
+    assert_eq!(error["error"]["code"], "command.argument.missing");
     fs::remove_dir_all(root).expect("remove fixture");
 }
 

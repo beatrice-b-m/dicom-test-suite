@@ -105,6 +105,9 @@ fn templates_describe_rejects_unknown_or_unqualified_identity() {
         .args(["templates", "describe", "classic/unknown"])
         .output()
         .unwrap();
-    assert!(!output.status.success());
-    assert!(String::from_utf8_lossy(&output.stderr).contains("unknown template"));
+    assert_eq!(output.status.code(), Some(3));
+    assert!(output.stdout.is_empty());
+    let error: serde_json::Value = serde_json::from_slice(&output.stderr).unwrap();
+    assert_eq!(error["command"], "templates describe");
+    assert_eq!(error["error"]["code"], "capability.template.unavailable");
 }

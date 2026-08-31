@@ -4,7 +4,7 @@
 
 **Contract:** `docs/standalone-productization-plan.md`
 
-**Release readiness:** not ready; S0 through S2 are complete and S3 is next
+**Release readiness:** not ready; S0 through S3 are complete and S4 is next
 
 ## Current gate state
 
@@ -13,7 +13,7 @@
 | S0 — product contract | Complete | ADR 0002 fixes CLI-primary/SDK-secondary integration and the three disjoint evidence workflows. The compatibility policy, CLI envelope/registry schemas and fixtures, current-command error mappings, structural-assembly design, and official-source foundation are committed and tested. |
 | S1 — relocatable resources | Complete | Versioned embedded resources cover all first-party catalogs, recipes, schemas, locks, configs, and small assets. Production lookups are audited, explicit roots are integrity checked, manifests project resource identity, and the installed binary passed every resource-backed workflow from three unrelated directories. |
 | S2 — automation protocol | Complete | CLI API `1.0.0` provides versioned discovery and command results, stable error codes and exit classes, typed file outcomes, explicit raw-report migration, warning-denied builds, and a schema-driven Python subprocess gate from outside the repository. |
-| S3 — Rust SDK | Not started | Public internal modules exist, but there is no supported `dicom_test_suite::sdk` facade or shared stable public error model. |
+| S3 — Rust SDK | Complete | The supported `dicom_test_suite::sdk` facade provides integrity-checked resources, typed discovery/compose/validate/report outcomes, schema-bound manifests, explicit asset roots, cancellation, stable errors, compiled docs, and a packaged-crate side-project gate. |
 | S4 — structural assembly | Not started | There is no `assemble` CLI/SDK workflow, assembly request schema, or structural-assembly manifest branch. |
 | S5 — packaging and guides | Not started | Cargo metadata and public quick starts do not yet satisfy the release-archive and installed-product contract. |
 | S6 — release qualification | Not started | Existing source-tree qualification is strong, but no exact packaged release candidate has passed the black-box, relocation, SDK, assembly, or terminal security matrix. |
@@ -59,10 +59,10 @@ test-only fixtures are not classified by this initial production audit.
 
 ## Remaining blockers
 
-S3 through S7 and every terminal acceptance row remain open. S2 establishes
-the source-build automation contract but does not qualify a packaged release
-candidate, the Rust SDK, structural assembly, either release target, or the
-terminal external-consumer matrix.
+S4 through S7 and every terminal acceptance row remain open. S3 qualifies the
+SDK surface through a temporary Cargo package, but does not establish the S5
+package metadata/archive contract, an exact release candidate, structural
+assembly, either release target, or the terminal external-consumer matrix.
 Linux x86_64 and macOS arm64 cannot be claimed as standalone release targets
 until the exact target archives pass the required external-consumer matrix.
 Optional runtimes are accepted only when discovered and fingerprint-qualified;
@@ -295,3 +295,69 @@ class, preserving prose as a human-output concern.
 current workflows using schemas, exit classes, and error codes alone. This is
 source-build evidence, not packaged release-candidate evidence. All S3-S7 and
 terminal acceptance gates remain open.
+
+### S3 — supported Rust SDK: complete
+
+**Completed:** 2026-08-31
+
+**Qualification source commit:** `e897a69`
+
+**Commits:**
+
+- `bad24ab` — supported facade, integrity-checked resource constructors,
+  typed discovery, and non-exhaustive stable public errors;
+- `d8481cd` — file/byte qualified composition, typed publish/dry-run outcomes,
+  cancellation token, and schema-bound manifest wrapper;
+- `58686e9` — persisted-manifest schema validation plus typed validation and
+  report requests/outcomes;
+- `df693df` — deterministic file/byte equivalence, explicit caller-asset-root,
+  cancellation error, and no-publication tests;
+- `71811e9`, `e897a69` — an isolated external Cargo consumer importing only
+  `dicom_test_suite::sdk` across discovery, compose, validate, report, typed
+  manifest access, and cancellation;
+- `dc1fb17` — compiled Rustdoc and the public SDK operating guide; and
+- `dd3a704` — legacy public-module inventory and deliberate semver retention
+  plan before any visibility reduction.
+
+File and byte requests enter the same byte-based composition pipeline and use
+an explicit caller-asset root. Published manifests are re-read from disk and
+validated against the immutable embedded schema before the SDK returns their
+typed wrapper. Public primary outcomes contain no `serde_json::Value`.
+Cancellation shares the underlying executor token; both an immediate SDK
+cancellation and an in-flight provider cancellation publish no destination.
+
+**Focused and phase-gate verification:**
+
+```sh
+cargo test --locked --no-default-features --test sdk_facade
+cargo test --locked --no-default-features --test composition_resources \
+  cancellation_terminates_a_provider_and_publishes_nothing
+cargo test --locked --no-default-features --doc
+RUSTDOCFLAGS='-D warnings' cargo doc --locked --no-default-features --no-deps
+RUSTFLAGS='-D warnings' cargo check --locked --all-targets --no-default-features
+cargo fmt --all -- --check
+git diff --check
+cargo package --locked --offline --no-verify
+DTS_SDK_PACKAGE_ROOT=<extracted-package-root> \
+  cargo test --locked --no-default-features --test sdk_external_consumer
+```
+
+The six facade tests passed in 1.23 seconds. The existing in-flight provider
+cancellation test passed in 0.90 seconds. The compiled Rustdoc example passed,
+warning-denied documentation passed, and the warning-denied all-target check
+passed in 19.73 seconds. The isolated side project passed against the extracted
+package in 32.22 seconds with clean runtime stdout/stderr.
+
+The temporary qualification package contained 752 files and was 2,307,672
+bytes with SHA-256
+`6f81dc0e12f1bb266ddc6a6c5e2137c426161d03d58a5b80c78414af318f0fd1`.
+It was built offline with `--no-verify` solely to prove packaged-crate SDK
+consumption. Cargo warned that documentation/homepage/repository metadata is
+missing, and the package is broader than the intentional release set. Those
+are explicit S5 blockers; this artifact is not a release candidate and no
+packaging or target-platform terminal row has passed. The exact temporary
+extraction directory was removed after qualification.
+
+**Gate conclusion:** an unrelated Rust project can depend on the packaged
+crate through the documented facade with typed results and stable errors,
+without importing internal modules. S4-S7 and every terminal row remain open.

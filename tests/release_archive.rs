@@ -33,6 +33,30 @@ fn read_json(path: impl AsRef<Path>) -> Value {
     serde_json::from_slice(&fs::read(path).unwrap()).unwrap()
 }
 
+fn normalized_outcome(bytes: &[u8]) -> Value {
+    let mut value: Value = serde_json::from_slice(bytes).unwrap();
+    let result = value["result"].as_object_mut().unwrap();
+    result.remove("requested_output_root");
+    result.remove("manifest_path");
+    value
+}
+
+fn assert_instance_bytes_match(
+    first_root: &Path,
+    second_root: &Path,
+    entries: &[Value],
+    path_key: &str,
+) {
+    for entry in entries {
+        let relative = entry[path_key].as_str().unwrap();
+        assert_eq!(
+            fs::read(first_root.join(relative)).unwrap(),
+            fs::read(second_root.join(relative)).unwrap(),
+            "parallelism or working directory changed {relative} bytes"
+        );
+    }
+}
+
 fn assert_installed_example(
     installed: &Path,
     unrelated: &Path,
@@ -341,5 +365,125 @@ fn current_target_archive_is_manifest_bound_and_relocatable() {
         "assemble",
         &workspace.0.join("assembly-example-first"),
         &workspace.0.join("assembly-example-second"),
+    );
+
+    let cwd_a = workspace.0.join("determinism-cwd-a/nested");
+    let cwd_b = workspace.0.join("determinism-cwd-b/other");
+    fs::create_dir_all(&cwd_a).unwrap();
+    fs::create_dir_all(&cwd_b).unwrap();
+    let instances = (0..12)
+        .map(|index| {
+            serde_json::json!({
+                "instance_id": format!("instance-{index:02}"),
+                "template": {"id":"classic/secondary-capture/monochrome"}
+            })
+        })
+        .collect::<Vec<_>>();
+    let sequential_spec = cwd_a.join("composition.json");
+    let parallel_spec = cwd_b.join("composition.json");
+    fs::write(
+        &sequential_spec,
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "composition_spec_schema_version":"0.1.0",
+            "parallelism":1,
+            "instances":instances
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    fs::write(
+        &parallel_spec,
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "composition_spec_schema_version":"0.1.0",
+            "parallelism":8,
+            "instances":instances
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    let composition_a = workspace.0.join("determinism-composition-a");
+    let composition_b = workspace.0.join("determinism-composition-b");
+    let run_composition = |cwd: &Path, spec: &Path, output_root: &Path| {
+        Command::new(&installed)
+            .current_dir(cwd)
+            .args(["compose", "--spec"])
+            .arg(spec)
+            .arg("--out")
+            .arg(output_root)
+            .args(["--seed", "91", "--format", "json"])
+            .output()
+            .unwrap()
+    };
+    let composition_outcome_a = run_composition(&cwd_a, &sequential_spec, &composition_a);
+    let composition_outcome_b = run_composition(&cwd_b, &parallel_spec, &composition_b);
+    assert!(composition_outcome_a.status.success());
+    assert!(composition_outcome_b.status.success());
+    assert_eq!(
+        normalized_outcome(&composition_outcome_a.stdout),
+        normalized_outcome(&composition_outcome_b.stdout)
+    );
+    let composition_manifest_a = read_json(composition_a.join("manifest.json"));
+    let composition_manifest_b = read_json(composition_b.join("manifest.json"));
+    assert_eq!(
+        composition_manifest_a["composition"],
+        composition_manifest_b["composition"]
+    );
+    assert_eq!(
+        composition_manifest_a["run"]["corpus_plan_sha256"],
+        composition_manifest_b["run"]["corpus_plan_sha256"]
+    );
+    assert_instance_bytes_match(
+        &composition_a,
+        &composition_b,
+        composition_manifest_a["composition"]["entries"]
+            .as_array()
+            .unwrap(),
+        "path",
+    );
+
+    let assembly_a = workspace.0.join("determinism-assembly-a");
+    let assembly_b = workspace.0.join("determinism-assembly-b");
+    let assembly_request = root.join("examples/assemble-structural.json");
+    let run_assembly = |cwd: &Path, output_root: &Path, parallelism: &str| {
+        Command::new(&installed)
+            .current_dir(cwd)
+            .args(["assemble", "--request"])
+            .arg(&assembly_request)
+            .arg("--out")
+            .arg(output_root)
+            .args([
+                "--seed",
+                "92",
+                "--parallelism",
+                parallelism,
+                "--format",
+                "json",
+            ])
+            .output()
+            .unwrap()
+    };
+    let assembly_outcome_a = run_assembly(&cwd_a, &assembly_a, "1");
+    let assembly_outcome_b = run_assembly(&cwd_b, &assembly_b, "8");
+    assert!(assembly_outcome_a.status.success());
+    assert!(assembly_outcome_b.status.success());
+    assert_eq!(
+        normalized_outcome(&assembly_outcome_a.stdout),
+        normalized_outcome(&assembly_outcome_b.stdout)
+    );
+    let assembly_manifest_a = read_json(assembly_a.join("manifest.json"));
+    let assembly_manifest_b = read_json(assembly_b.join("manifest.json"));
+    assert_eq!(
+        assembly_manifest_a["instances"],
+        assembly_manifest_b["instances"]
+    );
+    assert_eq!(
+        assembly_manifest_a["run"]["corpus_plan_sha256"],
+        assembly_manifest_b["run"]["corpus_plan_sha256"]
+    );
+    assert_instance_bytes_match(
+        &assembly_a,
+        &assembly_b,
+        assembly_manifest_a["instances"].as_array().unwrap(),
+        "output_path",
     );
 }

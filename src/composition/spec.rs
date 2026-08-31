@@ -271,6 +271,8 @@ pub struct ResourceLimits {
     pub max_parameter_depth: u64,
 }
 
+pub(crate) const MAX_COMPOSITION_PARALLELISM: u32 = 64;
+
 impl Default for ResourceLimits {
     fn default() -> Self {
         Self {

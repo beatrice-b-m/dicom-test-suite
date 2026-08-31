@@ -53,7 +53,7 @@ pub(crate) fn resolved_composition_corpus_plan_with_advanced(
     plans: &[ResolvedInstancePlan],
     members: &BTreeMap<String, BundleMemberProvenance>,
     limits: &ResourceLimits,
-    parallelism: u32,
+    _parallelism: u32,
     advanced: &BTreeMap<String, AdvancedCompositionArtifact>,
     advanced_dependencies: &[ArtifactDependency],
 ) -> Result<CorpusPlan, CorpusPlanError> {
@@ -146,7 +146,10 @@ pub(crate) fn resolved_composition_corpus_plan_with_advanced(
             max_artifacts: limits.max_instances,
             max_total_output_bytes: limits.max_total_output_bytes,
             max_peak_working_bytes: limits.max_total_output_bytes,
-            max_parallelism: parallelism.max(1),
+            // Worker count is an execution choice, not part of the logical
+            // corpus identity. Keep the plan at the product ceiling and pass
+            // the requested count separately to the executor.
+            max_parallelism: super::spec::MAX_COMPOSITION_PARALLELISM,
         },
     };
     corpus_plan.validate()?;
@@ -347,6 +350,20 @@ mod tests {
         assert_eq!(
             first.canonical_sha256().unwrap(),
             second.canonical_sha256().unwrap()
+        );
+        let serial = resolved_composition_corpus_plan_with_advanced(
+            41,
+            &plans,
+            &members,
+            &ResourceLimits::default(),
+            1,
+            &BTreeMap::new(),
+            &[],
+        )
+        .unwrap();
+        assert_eq!(
+            first.canonical_sha256().unwrap(),
+            serial.canonical_sha256().unwrap()
         );
     }
 

@@ -1323,7 +1323,7 @@ fn advanced_provider_limits(
             .max(spec.resource_limits.max_instances),
         max_total_output_bytes: spec.resource_limits.max_total_output_bytes,
         max_peak_working_bytes: spec.resource_limits.max_total_output_bytes,
-        max_parallelism: spec.parallelism.max(1),
+        max_parallelism: super::spec::MAX_COMPOSITION_PARALLELISM,
     })
 }
 

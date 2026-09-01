@@ -3,6 +3,13 @@ use std::fs;
 #[test]
 fn ci_makes_every_standalone_release_gate_mandatory_and_regression_backed() {
     let workflow = fs::read_to_string(".github/workflows/ci.yml").unwrap();
+    let provider = workflow
+        .split("  native-provider-contract:")
+        .nth(1)
+        .unwrap()
+        .split("  default:")
+        .next()
+        .unwrap();
     let default = workflow.split("  default:").nth(1).unwrap();
     let codecs = workflow
         .split("  in-process-codecs:")
@@ -11,6 +18,12 @@ fn ci_makes_every_standalone_release_gate_mandatory_and_regression_backed() {
         .split("  external-codec-compile:")
         .next()
         .unwrap();
+    assert!(provider.contains("Native provider contract"));
+    assert!(provider.contains("fake_backend_cancellation_"));
+    assert!(provider.contains("composition_curated_migration"));
+    assert!(provider.contains("composition_quantitative"));
+    assert!(provider.contains("RUST_TEST_THREADS: \"1\""));
+    assert!(default.contains("needs: native-provider-contract"));
     assert!(default.contains("timeout-minutes: 120"));
     assert!(default.contains("RUST_TEST_THREADS: \"1\""));
     assert!(default.contains("cargo test --locked --all-targets --no-default-features"));

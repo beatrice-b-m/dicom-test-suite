@@ -9,8 +9,32 @@ permissions:
   contents: read
 
 jobs:
+  native-provider-contract:
+    name: Native provider contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - name: Prepare locked generation backend
+        run: |
+          uv python install 3.12.12
+          uv sync --project generation-backends/highdicom-pydicom --locked --no-editable --python 3.12.12
+          echo "DTS_HIGHDICOM_PYTHON=$PWD/generation-backends/highdicom-pydicom/.venv/bin/python" >> "$GITHUB_ENV"
+      - name: Verify cancellation and strict provider contracts
+        env:
+          RUST_TEST_THREADS: "1"
+        run: |
+          cargo test --locked --no-default-features --lib \
+            generation_backends::process::tests::fake_backend_cancellation_
+          cargo test --locked --no-default-features --test composition_curated_migration \
+            migrated_curated_recipes_record_shared_plan_materialization -- --exact
+          cargo test --locked --no-default-features --test composition_quantitative \
+            quantitative_default_bundles_are_closed_provenanced_and_reproducible -- --exact
+
   default:
     name: Default corpus
+    needs: native-provider-contract
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:

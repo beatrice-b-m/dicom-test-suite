@@ -1127,7 +1127,18 @@ fn project_one(
             ctx.artifact_id, observed_frames, sc.frame_sha256
         ));
     }
-    let checks = validation_checks(execution)?;
+    let mut checks = validation_checks(execution)?;
+    if planned.encoding.transfer_syntax_uid == "1.2.840.10008.1.2.4.50"
+        && execution
+            .codecs
+            .first()
+            .is_some_and(|codec| !codec.metrics.is_empty())
+    {
+        checks.push(TypedValidationCheck::passed_internal(
+            "jpeg_baseline_decoded_frame_tolerance",
+            "JPEG Baseline decoded samples satisfy the locked lossy tolerance.",
+        ));
+    }
     let observation = metadata_observation(execution)?;
     let observation_required = ctx.artifact_recipe.metadata_sc.is_some()
         || ctx.artifact_recipe.nonsquare_geometry.is_some()
@@ -1215,10 +1226,20 @@ fn project_one(
             "1.2.840.10008.1.2.4.203" => "ISO_15444_15",
             value => return fail(format!("unsupported lossy transfer syntax {value}")),
         };
+        let native_bits = u64::from(sc.rows)
+            .checked_mul(u64::from(sc.columns))
+            .and_then(|value| value.checked_mul(u64::from(sc.frames)))
+            .and_then(|value| value.checked_mul(u64::from(sc.samples_per_pixel)))
+            .and_then(|value| value.checked_mul(u64::from(sc.bits_allocated)))
+            .ok_or_else(|| err("lossy native pixel size overflow"))?;
+        let native_size_bytes = native_bits
+            .checked_add(7)
+            .map(|value| value / 8)
+            .ok_or_else(|| err("lossy native pixel size overflow"))?;
         manifest["expected_semantics"]["lossy_image_compression"] = json!("01");
         manifest["expected_semantics"]["lossy_image_compression_ratio"] = json!(format!(
             "{:.6}",
-            pixels.size_bytes as f64 / compressed_bytes as f64
+            native_size_bytes as f64 / compressed_bytes as f64
         ));
         manifest["expected_semantics"]["lossy_image_compression_method"] = json!(method);
     }

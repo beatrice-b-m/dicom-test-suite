@@ -10,6 +10,7 @@ fn ci_makes_every_standalone_release_gate_mandatory_and_regression_backed() {
     assert!(codecs.contains("--all-targets --no-default-features --features"));
     assert!(codecs.contains("--no-run"));
     assert!(codecs.contains("Test feature-sensitive surfaces"));
+    assert!(codecs.contains("curated_exceptional_execution"));
     assert!(codecs.contains("frame_codec_service"));
     assert!(codecs.contains("validate_cli"));
     assert!(codecs.contains("Exercise feature corpus"));

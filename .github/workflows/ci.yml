@@ -19,7 +19,7 @@ jobs:
       - name: Prepare locked generation backend
         run: |
           uv python install 3.12.12
-          uv sync --project generation-backends/highdicom-pydicom --locked --no-editable --python 3.12.12
+          uv sync --project generation-backends/highdicom-pydicom --locked --no-editable --compile-bytecode --python 3.12.12
           echo "DTS_HIGHDICOM_PYTHON=$PWD/generation-backends/highdicom-pydicom/.venv/bin/python" >> "$GITHUB_ENV"
       - name: Verify cancellation and strict provider contracts
         env:
@@ -43,7 +43,7 @@ jobs:
       - name: Prepare locked generation backend
         run: |
           uv python install 3.12.12
-          uv sync --project generation-backends/highdicom-pydicom --locked --no-editable --python 3.12.12
+          uv sync --project generation-backends/highdicom-pydicom --locked --no-editable --compile-bytecode --python 3.12.12
           echo "DTS_HIGHDICOM_PYTHON=$PWD/generation-backends/highdicom-pydicom/.venv/bin/python" >> "$GITHUB_ENV"
       - name: Show toolchain
         run: rustc --version && cargo --version
@@ -86,7 +86,7 @@ jobs:
       - name: Prepare locked generation backend
         run: |
           uv python install 3.12.12
-          uv sync --project generation-backends/highdicom-pydicom --locked --no-editable --python 3.12.12
+          uv sync --project generation-backends/highdicom-pydicom --locked --no-editable --compile-bytecode --python 3.12.12
           echo "DTS_HIGHDICOM_PYTHON=$PWD/generation-backends/highdicom-pydicom/.venv/bin/python" >> "$GITHUB_ENV"
       - name: Verify mandatory contract gates
         run: |
@@ -150,7 +150,7 @@ jobs:
       - name: Prepare locked generation backend
         run: |
           uv python install 3.12.12
-          uv sync --project generation-backends/highdicom-pydicom --locked --no-editable --python 3.12.12
+          uv sync --project generation-backends/highdicom-pydicom --locked --no-editable --compile-bytecode --python 3.12.12
           echo "DTS_HIGHDICOM_PYTHON=$PWD/generation-backends/highdicom-pydicom/.venv/bin/python" >> "$GITHUB_ENV"
       - name: Compile every target with feature
         run: cargo test --locked --all-targets --no-default-features --features "${{ matrix.feature }}" --no-run

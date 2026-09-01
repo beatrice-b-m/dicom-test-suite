@@ -329,6 +329,20 @@ class WsiTileSegmentationTest(unittest.TestCase):
             with self.assertRaisesRegex(ProtocolError, "source frames mismatch"):
                 generate(request, root / "outputs")
 
+    def test_rejects_truncated_native_source_pixel_data(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            request = _request(root)
+            source_path = root / "source.dcm"
+            source = pydicom.dcmread(source_path)
+            source.PixelData = bytes(source.PixelData)[:-12]
+            source.save_as(source_path, enforce_file_format=True)
+            request["sources"][0]["sha256"] = hashlib.sha256(
+                source_path.read_bytes()
+            ).hexdigest()
+            with self.assertRaisesRegex(ProtocolError, "source Pixel Data length mismatch"):
+                generate(request, root / "outputs")
+
 
 if __name__ == "__main__":
     unittest.main()

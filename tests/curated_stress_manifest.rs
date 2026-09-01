@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -15,7 +14,7 @@ use dicom_test_suite::executor::cancellation::CancellationToken;
 use dicom_test_suite::executor::engine::{
     CorpusExecutor, ManifestProjectionError, ManifestProjector,
 };
-use serde_json::Value;
+use dicom_test_suite::sha256_hex;
 
 const CASES: [&str; 5] = [
     "stress/study/high_instance_count_ct",
@@ -24,7 +23,10 @@ const CASES: [&str; 5] = [
     "stress/sc/long_value_metadata",
     "stress/sc/large_encapsulated_multifragment",
 ];
-const BASELINE: &str = "/tmp/dts-unified-baseline-20260829-52e1d20/stress/manifest.json";
+const FROZEN_FILES_SHA256: &str =
+    "9df2977fb44d3f6f7d66ce0d4de90a1cdcf32a7b8f24d340fa201ff90b1f3a67";
+const FROZEN_QUALIFICATIONS_SHA256: &str =
+    "4089d14a723b2fe329a37849b90a5263d5bc043f5dcba69e512bb7f0dc107c1a";
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
 struct Temp(PathBuf);
@@ -89,18 +91,9 @@ fn execute(
 fn typed_stress_projection_matches_frozen_file_values_and_resources() {
     let selected = &CASES;
     let (bundle, execution) = execute(selected, 4);
-    let projected = project_curated_file_entries(&bundle.projection, &execution).unwrap();
-    let baseline: Value = serde_json::from_slice(&fs::read(BASELINE).unwrap()).unwrap();
-    let expected = baseline["files"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .filter(|file| selected.contains(&file["case_id"].as_str().unwrap()))
-        .map(|file| (file["path"].as_str().unwrap().to_owned(), file.clone()))
-        .collect::<BTreeMap<_, _>>();
-    assert_eq!(projected.len(), expected.len());
+    let mut projected = project_curated_file_entries(&bundle.projection, &execution).unwrap();
     let plan_sha256 = bundle.plan.canonical_sha256().unwrap();
-    for actual in &projected {
+    for actual in &mut projected {
         let path = actual["path"].as_str().unwrap();
         assert_eq!(actual["corpus_plan_sha256"], plan_sha256);
         let instance_plan_sha256 = execution
@@ -115,107 +108,36 @@ fn typed_stress_projection_matches_frozen_file_values_and_resources() {
             .and_then(|artifact| artifact.execution.instance_plan_sha256.as_deref())
             .expect("published stress DICOM has canonical instance plan evidence");
         assert_eq!(actual["resolved_plan_sha256"], instance_plan_sha256);
-        let mut actual_without_provenance = actual.clone();
-        let actual_object = actual_without_provenance.as_object_mut().unwrap();
+        let actual_object = actual.as_object_mut().unwrap();
         actual_object.remove("corpus_plan_sha256");
         actual_object.remove("resolved_plan_sha256");
-        if actual_without_provenance != expected[path] {
-            let expected_names = expected[path]["validation"]["internal"]
-                .as_array()
-                .into_iter()
-                .flatten()
-                .filter_map(|check| check["name"].as_str())
-                .collect::<std::collections::BTreeSet<_>>();
-            let actual_names = actual["validation"]["internal"]
-                .as_array()
-                .into_iter()
-                .flatten()
-                .filter_map(|check| check["name"].as_str())
-                .collect::<std::collections::BTreeSet<_>>();
-            panic!(
-                "stress file mismatch at {path}: {}; added={:?}; missing={:?}",
-                first_difference(&expected[path], &actual_without_provenance, "$").unwrap(),
-                actual_names.difference(&expected_names).collect::<Vec<_>>(),
-                expected_names.difference(&actual_names).collect::<Vec<_>>()
-            );
-        }
     }
+    assert_eq!(
+        sha256_hex(&serde_json::to_vec(&projected).unwrap()),
+        FROZEN_FILES_SHA256,
+        "frozen stress file projection changed"
+    );
 
-    let qualifications = project_curated_stress_qualifications(&bundle.projection, &execution)
+    let mut qualifications = project_curated_stress_qualifications(&bundle.projection, &execution)
         .expect("typed stress qualifications");
     assert_eq!(qualifications.len(), selected.len());
-    let expected_qualifications = baseline["qualifications"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .filter(|qualification| selected.contains(&qualification["case_id"].as_str().unwrap()))
-        .map(|qualification| {
-            (
-                qualification["case_id"].as_str().unwrap().to_owned(),
-                qualification.clone(),
-            )
-        })
-        .collect::<BTreeMap<_, _>>();
-    for qualification in qualifications {
+    for qualification in &mut qualifications {
         assert_eq!(qualification["scale"], "reduced");
         assert_eq!(qualification["status"], "passed");
         assert_eq!(qualification["outcome"], "completed");
         assert_eq!(qualification["unavailable_scales"][0]["scale"], "full");
-        let case_id = qualification["case_id"].as_str().unwrap();
-        let mut expected = expected_qualifications[case_id].clone();
         // Runtime duration is observational rather than byte-stable. Every
         // other public qualification field is frozen compatibility surface.
-        expected["observation"]["elapsed_milliseconds"] =
-            qualification["observation"]["elapsed_milliseconds"].clone();
-        assert_eq!(
-            qualification, expected,
-            "qualification mismatch for {case_id}"
-        );
+        qualification["observation"]
+            .as_object_mut()
+            .unwrap()
+            .remove("elapsed_milliseconds");
     }
-}
-
-fn first_difference(expected: &Value, actual: &Value, path: &str) -> Option<String> {
-    match (expected, actual) {
-        (Value::Object(expected), Value::Object(actual)) => {
-            for key in expected.keys().chain(actual.keys()) {
-                if expected.get(key) != actual.get(key) {
-                    return match (expected.get(key), actual.get(key)) {
-                        (Some(expected), Some(actual)) => {
-                            first_difference(expected, actual, &format!("{path}.{key}"))
-                        }
-                        _ => Some(format!(
-                            "{path}.{key}: expected {:?}, actual {:?}",
-                            expected.get(key),
-                            actual.get(key)
-                        )),
-                    };
-                }
-            }
-            None
-        }
-        (Value::Array(expected), Value::Array(actual)) => {
-            if expected.len() != actual.len() {
-                return Some(format!(
-                    "{path}: expected array length {}, actual {}",
-                    expected.len(),
-                    actual.len()
-                ));
-            }
-            expected
-                .iter()
-                .zip(actual)
-                .enumerate()
-                .find_map(|(index, (expected, actual))| {
-                    (expected != actual).then(|| {
-                        first_difference(expected, actual, &format!("{path}[{index}]")).unwrap()
-                    })
-                })
-        }
-        _ if expected != actual => {
-            Some(format!("{path}: expected {expected:?}, actual {actual:?}"))
-        }
-        _ => None,
-    }
+    assert_eq!(
+        sha256_hex(&serde_json::to_vec(&qualifications).unwrap()),
+        FROZEN_QUALIFICATIONS_SHA256,
+        "frozen stress qualification projection changed"
+    );
 }
 
 #[test]

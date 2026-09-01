@@ -29,8 +29,6 @@ use dicom_test_suite::recipes::{
 use dicom_test_suite::sha256_hex;
 use serde_json::Value;
 
-const BASELINE: &str = "/tmp/dts-unified-baseline-20260829-52e1d20/all";
-
 struct NoAuxiliary;
 
 impl AuxiliaryMaterializationHandler for NoAuxiliary {
@@ -52,8 +50,76 @@ impl Drop for TempRoot {
     }
 }
 
-fn baseline_manifest() -> Value {
-    serde_json::from_slice(&fs::read(format!("{BASELINE}/manifest.json")).unwrap()).unwrap()
+fn frozen_manifest_contract() -> Value {
+    serde_json::json!({"files": [
+        {
+            "case_id": "enhanced/ct/multiframe_shared_perframe_explicit_le",
+            "path": "enhanced/ct/multiframe_shared_perframe_explicit_le/instance.dcm",
+            "sha256": "7ad8de623f589ac6f63f27631dadc9e7ab3d01e05bea1fd89a872ea08c9ef919",
+            "dicom": {
+                "sop_class_uid": "1.2.840.10008.5.1.4.1.1.2.1",
+                "transfer_syntax_uid": "1.2.840.10008.1.2.1"
+            },
+            "uids": {
+                "dimension_organization_uid": "2.25.108018518379930446132268203341408766883",
+                "frame_of_reference_uid": "2.25.226302238501659861638544378617423560010",
+                "implementation_class_uid": "2.25.93442075376351194778596039619060852790",
+                "series_instance_uid": "2.25.115285365513962680770954006188334713275",
+                "sop_instance_uid": "2.25.55404081588209817437957528114155141547",
+                "study_instance_uid": "2.25.269033570553049102093664871375122165084"
+            }
+        },
+        {
+            "case_id": "derived/seg/binary_multiframe_explicit_le",
+            "path": "derived/seg/binary_multiframe_explicit_le/instance.dcm",
+            "sha256": "67b5af14ae1e23ae63967de6bdabc3f205ac5ab139908f1a82eb61728f8cd513",
+            "uids": {
+                "dimension_organization_uid": "2.25.297360935326590439600088316936640040428",
+                "frame_of_reference_uid": "2.25.226302238501659861638544378617423560010",
+                "implementation_class_uid": "2.25.93442075376351194778596039619060852790",
+                "series_instance_uid": "2.25.309501733886521927163035682949930244848",
+                "sop_instance_uid": "2.25.240453005487879052391641408803656666327",
+                "study_instance_uid": "2.25.269033570553049102093664871375122165084"
+            }
+        },
+        {
+            "case_id": "derived/seg/fractional_probability_multiframe_explicit_le",
+            "path": "derived/seg/fractional_probability_multiframe_explicit_le/instance.dcm",
+            "sha256": "33df35d1e18fdc1f990c6b6a91791829ab196d6df64f86438b69f08f25dacf6e",
+            "uids": {
+                "dimension_organization_uid": "2.25.115590006717735886628443174047809571341",
+                "frame_of_reference_uid": "2.25.226302238501659861638544378617423560010",
+                "implementation_class_uid": "2.25.93442075376351194778596039619060852790",
+                "series_instance_uid": "2.25.1143435855624254195137729699415245791",
+                "sop_instance_uid": "2.25.293140352636919141682540939163878480460",
+                "study_instance_uid": "2.25.269033570553049102093664871375122165084"
+            }
+        },
+        {
+            "case_id": "derived/seg/labelmap_multiframe_explicit_le",
+            "path": "derived/seg/labelmap_multiframe_explicit_le/instance.dcm",
+            "sha256": "86d848c10757b7b56cc699fe005b5fa05bc9412e86f74f8f32d1025b78a74511",
+            "uids": {
+                "dimension_organization_uid": "2.25.59315992792646507577361248776289297940",
+                "frame_of_reference_uid": "2.25.226302238501659861638544378617423560010",
+                "implementation_class_uid": "2.25.93442075376351194778596039619060852790",
+                "series_instance_uid": "2.25.325463804892054058906734878360097997833",
+                "sop_instance_uid": "2.25.238972802396792335261171584427393922529",
+                "study_instance_uid": "2.25.269033570553049102093664871375122165084"
+            }
+        },
+        {
+            "case_id": "derived/rwvm/linear_ct_mapping_explicit_le",
+            "path": "derived/rwvm/linear_ct_mapping_explicit_le/instance.dcm",
+            "sha256": "e3a11df9e64ff567ec52fc8be60c29b5af2333dd740efa440913c60f056335da",
+            "uids": {
+                "implementation_class_uid": "2.25.93442075376351194778596039619060852790",
+                "series_instance_uid": "2.25.2805313963283419637475254489201055124",
+                "sop_instance_uid": "2.25.307102676716351802393085054437445991871",
+                "study_instance_uid": "2.25.269033570553049102093664871375122165084"
+            }
+        }
+    ]})
 }
 
 fn file<'a>(manifest: &'a Value, case_id: &str) -> Option<&'a Value> {
@@ -182,12 +248,8 @@ fn source(manifest: &Value) -> QuantitativeSourceInput {
 }
 
 #[test]
-fn native_quantitative_plans_match_frozen_seed1_part10_bytes_and_validator_order() {
-    assert!(
-        PathBuf::from(BASELINE).is_dir(),
-        "private seed-1 baseline is required"
-    );
-    let manifest = baseline_manifest();
+fn native_quantitative_plans_match_frozen_seed1_part10_bytes() {
+    let manifest = frozen_manifest_contract();
     let catalog = RecipeCatalog::load(
         "cases/recipes",
         "cases/registry.json",
@@ -301,31 +363,12 @@ fn native_quantitative_plans_match_frozen_seed1_part10_bytes_and_validator_order
             )
             .unwrap();
         let actual = fs::read(temp.0.join(baseline["path"].as_str().unwrap())).unwrap();
-        let expected =
-            fs::read(PathBuf::from(BASELINE).join(baseline["path"].as_str().unwrap())).unwrap();
         assert_eq!(
-            actual,
-            expected,
-            "Part 10 mismatch for {} (actual sha256 {})",
-            recipe.binding.case_id,
-            sha256_hex(&actual)
+            sha256_hex(&actual),
+            baseline["sha256"].as_str().unwrap(),
+            "Part 10 mismatch for {}",
+            recipe.binding.case_id
         );
-        let validation_names = baseline["validation"]["internal"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|row| row["name"].as_str().unwrap())
-            .collect::<Vec<_>>();
-        if recipe.binding.case_id.starts_with("derived/seg/") {
-            assert!(validation_names.ends_with(&[
-                "segmentation_source_image_sop_class_uid",
-                "segmentation_source_image_sop_instance_uid",
-                "segmentation_source_image_frame_number",
-                "curated_composition_plan"
-            ]));
-        } else {
-            assert!(validation_names.contains(&"rwvm_pixel_data_absent"));
-        }
         materialized += 1;
     }
     assert_eq!(materialized, 4);

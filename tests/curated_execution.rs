@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -163,7 +164,45 @@ fn native_sr_and_rt_execute_with_typed_evidence_and_frozen_bytes() {
     )
     .execute(&bundle.plan, &destination.0, 3, &CancellationToken::new())
     .unwrap();
-    let baseline = PathBuf::from("/tmp/dts-unified-baseline-20260829-52e1d20/all");
+    let expected_sha256 = BTreeMap::from([
+        (
+            "derived/sr/basic_text_observation_explicit_le",
+            "749b928d40046d61e0b622a608958ffbcde268c486a34cf6a21dc541e1f5ae37",
+        ),
+        (
+            "derived/sr/comprehensive_measurement_explicit_le",
+            "986f31ceac305c139322f80146f40c98fd90b07229d6aee957e013cf127cdf44",
+        ),
+        (
+            "derived/sr/key_object_selection_explicit_le",
+            "467c68dd509ac4b3ec2647e95e8411d27079288b660cbe0d91daff2538979152",
+        ),
+        (
+            "non-image/rt/carm_photon_electron_radiation_minimal",
+            "a069690163f7431666747fdcf999c8c730816610a09c9b4c856349ca99d1e7d2",
+        ),
+        (
+            "non-image/rt/dose_grid_u16_explicit_le",
+            "e40f6edc023c849e86b283079c0ff2441a65d7d63fb6ff9c85b0022c6c746e5b",
+        ),
+        (
+            "non-image/rt/image_linked",
+            "b4749a25627818472628a869fbc919853db85a8c26d58644969badcbd8095ab1",
+        ),
+        (
+            "non-image/rt/plan_linked",
+            "ab75cdd40ae447cef8ea550e41ddf7db789065c0b602b17eb52a04dffdc45538",
+        ),
+        (
+            "non-image/rt/radiation_set_minimal",
+            "c06f86bdc9f371d8287c06940af890063e4947604c58d3610d02f376f4d1d044",
+        ),
+        (
+            "non-image/rt/structure_set_single_roi_explicit_le",
+            "4a60296c5d63b95ade0e0f7ca343595f7431dd90f6721db9116460ecf1877f6e",
+        ),
+    ]);
+    assert_eq!(native_cases.len(), expected_sha256.len());
     for artifact in &result.evidence.artifacts {
         let planned = bundle
             .plan
@@ -194,8 +233,8 @@ fn native_sr_and_rt_execute_with_typed_evidence_and_frozen_bytes() {
         let relative = planned.output.relative_path.as_str();
         open_file(destination.0.join(relative)).unwrap();
         assert_eq!(
-            fs::read(destination.0.join(relative)).unwrap(),
-            fs::read(baseline.join(relative)).unwrap(),
+            artifact.output.as_ref().unwrap().sha256,
+            expected_sha256[binding.case_id.as_str()],
             "Part 10 drift for {}",
             binding.case_id
         );

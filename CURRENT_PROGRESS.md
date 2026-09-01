@@ -4,7 +4,7 @@
 **Active goal:** standalone productization release qualification
 **Current phase:** S0-S6 are complete for macOS arm64 and S7 deliverables are
 implemented; general release and plan closure remain blocked on executable
-Linux x86_64 external-consumer evidence
+Linux x86_64 external-consumer acceptance
 **Repo state source:** reconstructed from `cases/registry.json`, phase status
 notes, git history, and current verification runs.
 
@@ -42,6 +42,31 @@ notes, git history, and current verification runs.
   selection is Enhanced CT plus binary SEG plus General ECG; the clean local
   qualification reports zero provider warnings and keeps protocol/media results
   separate from ordinary file coverage.
+
+## 2026-08-31 Linux x86_64 release qualification attempt
+
+- Provisioned an Ubuntu 26.04 QEMU x86_64 guest with Rust 1.85.0, the exact
+  locked Python 3.12.12 backend, eight vCPUs, and 12 GiB configured memory.
+- Built and independently verified the clean `39009f3` Linux archive. Its
+  SHA-256 is
+  `123adcb86a8e06436d697e405f77a92c8b87d0563edec161650fbee83c7834a0`;
+  it reports target `x86_64-unknown-linux-gnu`, no enabled features, 240
+  embedded resources, and resource-set SHA-256
+  `ce8c3725756f53b0552377349dcc1ba7b0137ec7c03fe5580d16ed4e9af45bec`.
+- The installed black-box CLI and caller-content consumers passed. The
+  qualified-catalog consumer failed honestly because the independent
+  highdicom WSI provider took 5.598 and 5.632 seconds in captured runs against
+  its locked five-second ceiling. No unavailable or over-ceiling result was
+  reclassified as a pass.
+- A lazy-import experiment passed 19 focused backend tests but did not improve
+  the WSI timing. Commits `2f63c62` and `607a65f` preserve the experiment and
+  restore the exact qualified backend/resource tree; the restored 18-test
+  backend suite passed.
+- Public native Ubuntu CI run `33464522287` at remote `f45224e` failed its
+  default job and skipped standalone release. Public annotations expose only
+  exit code 101. The configured GitHub token is invalid and SSH authentication
+  fails, so native logs and a rerun require restored authentication or an
+  equivalent native Linux x86_64 host.
 
 ## 2026-08-31 external codec release verification
 

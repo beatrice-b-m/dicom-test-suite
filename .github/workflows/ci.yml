@@ -12,7 +12,7 @@ jobs:
   default:
     name: Default corpus
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
@@ -28,6 +28,10 @@ jobs:
           cargo fmt -- --check
           jq empty cases/registry.json schemas/*.json transfer-syntax/*.json standards.lock.json
       - name: Run default test suite
+        env:
+          # Corpus tests exercise product parallelism internally. Keep strict
+          # wall-clock provider contracts free from unrelated harness load.
+          RUST_TEST_THREADS: "1"
         run: cargo test --locked --all-targets --no-default-features
       - name: Check standards lock
         run: cargo run --locked --no-default-features -- standards check-lock

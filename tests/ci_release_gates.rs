@@ -16,6 +16,8 @@ fn ci_makes_every_standalone_release_gate_mandatory_and_regression_backed() {
     assert!(default.contains("cargo test --locked --all-targets --no-default-features"));
     assert!(codecs.contains("--all-targets --no-default-features --features"));
     assert!(codecs.contains("--no-run"));
+    assert!(codecs.contains("Prepare locked generation backend"));
+    assert!(codecs.contains("DTS_HIGHDICOM_PYTHON="));
     assert!(codecs.contains("Test feature-sensitive surfaces"));
     assert!(codecs.contains("--lib codecs::tests::"));
     assert!(!codecs.contains("\"${{ matrix.feature }}\" --lib\n"));

@@ -2,15 +2,39 @@
 
 **Last updated:** 2026-09-01
 **Active goal:** standalone productization release qualification
-**Current phase:** S0-S6 are complete for macOS arm64 at exact revision
-`6c7b7ca`. Native Linux passed the complete product and installed-consumer
-contract at `b543497`; its final upload configuration failed after all product
-gates. Exact `6c7b7ca` recovery run `33485529531` is repeating the native gate
-before artifact delivery. S7 and plan closure remain pending that upload.
+**Current phase:** S0-S6 are complete for macOS arm64 at exact release-candidate
+revision `69d3e5f8`. Native Linux run `33491521696` is executing the same
+candidate's one-time default gate before standalone packaging and delivery.
+S7 and plan closure remain pending the Linux artifact and its independent
+download verification.
 **Repo state source:** reconstructed from `cases/registry.json`, phase status
 notes, git history, and current verification runs.
 
 ## 2026-09-01 exact native recovery
+
+- Exact macOS arm64 revision `69d3e5f8` passed the full no-feature all-target
+  suite, warning-denied check, standards lock, package/SDK, archive verification,
+  all five installed consumers, strict no-checkout relocation, 49 packaged
+  security/resource tests, fresh 3/49/115-file profile workflows, and smoke
+  reproducibility. The archive SHA-256 is
+  `5f8d96bc445f5acbb189b672b0287b35359401c76ff63d7c509152b87fcd1b58`;
+  its 240-resource set SHA-256 is
+  `3b2f84098c7a9ccdcea58758b21f1b11b5d989b4c9f391dbef771524b95ea46a`.
+- Recovery run `33485529531` failed honestly when the WSI provider took
+  5.179349 seconds. Direct native Pixel Data hashing removed unnecessary decode
+  work; a target-bound digest preflight then caught the resulting Linux
+  provenance change before the default job ran.
+- Run `33489631585` passed that preflight and every codec job, but its default
+  job still measured a 5.035941-second cold WSI invocation. Locked backend
+  provisioning now precompiles all Python bytecode without changing the
+  five-second ceiling. Exact run `33491521696` passes the provider preflight;
+  its default job remains active.
+- One JPEG 2000 job in that run repeated the feature-independent curated corpus
+  and measured the unrelated WSI provider at 5.132244 seconds. Commit `f1d1727`
+  removes that duplicate from future codec jobs while retaining codec-specific
+  unit, integration, rejection, capability, and fresh-corpus coverage. The
+  exact candidate's failed job remains pending isolated retry after the workflow
+  finishes; it is not represented as a codec or provider pass.
 
 - Native Linux run `33476386352` passed the full no-feature suite, standards
   lock, fresh profiles, reproducibility, package/SDK, archive verification, all
@@ -23,9 +47,9 @@ notes, git history, and current verification runs.
   installed consumers, strict relocation, archive verification, and packaged
   security/resource gates. Its SHA-256 is
   `4e5303496d431cdc8d296047a5dab3bf45821aa8a084702248dde9e238463f46`.
-- Recovery run `33485529531` has all eight fast jobs green and is running the
-  one-time native default gate. Linux artifact identity and S7 remain open
-  until upload and independent download verification succeed.
+- Linux artifact identity and S7 remain open until run `33491521696` completes
+  default and standalone gates, uploads both release files, and the downloaded
+  bytes pass independent archive verification.
 
 ## Phase Status
 

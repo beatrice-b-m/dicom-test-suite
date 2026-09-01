@@ -211,7 +211,7 @@ the network:
 ```sh
 uv python install 3.12.12
 uv sync --project generation-backends/highdicom-pydicom \
-  --locked --no-editable --python 3.12.12
+  --locked --no-editable --compile-bytecode --python 3.12.12
 ```
 
 See the [backend README](generation-backends/highdicom-pydicom/README.md) and

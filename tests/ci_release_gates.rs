@@ -18,6 +18,11 @@ fn ci_makes_every_standalone_release_gate_mandatory_and_regression_backed() {
         .split("  external-codec-compile:")
         .next()
         .unwrap();
+    assert_eq!(
+        workflow.matches("--compile-bytecode").count(),
+        4,
+        "every CI backend environment must precompile the locked runtime"
+    );
     assert!(provider.contains("Native provider contract"));
     assert!(provider.contains("fake_backend_cancellation_"));
     assert!(provider.contains("composition_curated_migration"));

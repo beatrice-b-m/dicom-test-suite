@@ -17,6 +17,7 @@ uv sync \
   --project generation-backends/highdicom-pydicom \
   --locked \
   --no-editable \
+  --compile-bytecode \
   --python 3.12.12
 ```
 

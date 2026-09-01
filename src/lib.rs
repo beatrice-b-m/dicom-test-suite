@@ -22,8 +22,15 @@ use crate::executor::cancellation::CancellationToken;
 use crate::executor::engine::{
     CorpusExecutor, CorpusExecutorError, ManifestProjectionError, ManifestProjector,
 };
+use crate::executor::frame_codec::ExternalFrameCodecCommands;
 use crate::executor::transaction::TransactionError;
 use crate::runtime_capabilities::CapabilityInventory;
+#[cfg(any(
+    feature = "htj2k_openjph",
+    feature = "jpegxl",
+    feature = "legacy_jpeg_dcmtk"
+))]
+use crate::runtime_capabilities::QualifiedExecutableIdentity;
 
 use crate::codecs::{
     DEFLATED_IMAGE_FRAME_TRANSFER_SYNTAX_UID, FrameDecodeInput, FrameDecoder,
@@ -34,18 +41,20 @@ use crate::codecs::{
     RLE_LOSSLESS_TRANSFER_SYNTAX_UID,
 };
 
+#[cfg(feature = "legacy_jpeg_dcmtk")]
+use crate::codecs::DcmtkDcmcjpegLosslessSv1Encoder;
 #[cfg(feature = "deflate")]
 use crate::codecs::DicomRsDeflatedImageFrameEncoder;
 #[cfg(feature = "jpeg")]
 use crate::codecs::DicomRsJpegBaselineEncoder;
 #[cfg(feature = "charls")]
 use crate::codecs::DicomRsJpegLsLosslessEncoder;
-#[cfg(feature = "jpegxl")]
-use crate::codecs::DicomRsJpegXlLosslessEncoder;
 #[cfg(feature = "jpeg2000")]
 use crate::codecs::OpenJp2Jpeg2000LosslessEncoder;
 #[cfg(feature = "htj2k_openjph")]
 use crate::codecs::OpenJphHtj2kLosslessEncoder;
+#[cfg(feature = "jpegxl")]
+use crate::codecs::{CjxlJpegXlLossyEncoder, DicomRsJpegXlLosslessEncoder};
 #[cfg(feature = "legacy_jpeg_dcmtk")]
 use dicom_encoding::{Codec, adapters::PixelDataReader};
 #[cfg(feature = "legacy_jpeg_dcmtk")]
@@ -618,6 +627,7 @@ fn prepare_curated_plan_for_selection(
 ) -> Result<CuratedScCorpusPlan, GenerateError> {
     let paths = CuratedCatalogPaths::from_repository_root(resource_root);
     let mut inventory = CapabilityInventory::compiled();
+    qualify_runtime_external_codecs(&mut inventory);
     let backend_lock = generation_backends::load_backend_lock(resource_root).map_err(|error| {
         GenerateError::PlanFirst {
             stage: "external generation backend policy loading",
@@ -660,6 +670,124 @@ fn prepare_curated_plan_for_selection(
         })
 }
 
+#[allow(unused_variables)]
+fn qualify_runtime_external_codecs(inventory: &mut CapabilityInventory) {
+    #[cfg(feature = "htj2k_openjph")]
+    {
+        inventory
+            .external_validators
+            .insert("OpenJPEG via dicom-transfer-syntax-registry 0.9.1".into());
+        if let Ok(identity) = OpenJphHtj2kLosslessEncoder::new().discover_backend_identity() {
+            inventory.executable_codec_backends.extend(
+                [
+                    "openjph_htj2k_lossless_command_writer",
+                    "openjph_htj2k_lossy_command_writer",
+                ]
+                .map(str::to_string),
+            );
+            inventory
+                .available_executables
+                .insert("ojph_compress".into());
+            inventory.executable_identities.insert(
+                "ojph_compress".into(),
+                QualifiedExecutableIdentity {
+                    version: format!("sha256:{}", identity.executable_sha256),
+                    executable_sha256: identity.executable_sha256,
+                },
+            );
+        }
+    }
+
+    #[cfg(feature = "jpegxl")]
+    {
+        inventory
+            .external_validators
+            .insert("jxl-oxide 0.10.2 via dicom-transfer-syntax-registry 0.9.1".into());
+        if let Ok(identity) = CjxlJpegXlLossyEncoder::new().discover_backend_identity() {
+            if let Some(version) = identity.version {
+                inventory
+                    .executable_codec_backends
+                    .insert("cjxl_jpegxl_lossy_command_writer".into());
+                inventory.available_executables.insert("cjxl".into());
+                inventory.executable_identities.insert(
+                    "cjxl".into(),
+                    QualifiedExecutableIdentity {
+                        version,
+                        executable_sha256: identity.executable_sha256,
+                    },
+                );
+            }
+        }
+    }
+
+    #[cfg(feature = "legacy_jpeg_dcmtk")]
+    if let Ok(identity) = DcmtkDcmcjpegLosslessSv1Encoder::new().discover_backend_identity() {
+        if let Some(version) = identity.version {
+            inventory.executable_codec_backends.extend(
+                [
+                    "dcmtk_dcmcjpeg_jpeg_lossless_process_14_command_writer",
+                    "dcmtk_dcmcjpeg_jpeg_lossless_sv1_command_writer",
+                ]
+                .map(str::to_string),
+            );
+            inventory.available_executables.insert("dcmcjpeg".into());
+            inventory.executable_identities.insert(
+                "dcmcjpeg".into(),
+                QualifiedExecutableIdentity {
+                    version,
+                    executable_sha256: identity.executable_sha256,
+                },
+            );
+        }
+    }
+}
+
+fn curated_execution_service_factory(
+    bundle: &CuratedScCorpusPlan,
+) -> Result<CuratedExecutionServiceFactory, GenerateError> {
+    let mut factory = CuratedExecutionServiceFactory::new(bundle);
+    let commands = ExternalFrameCodecCommands {
+        #[cfg(feature = "htj2k_openjph")]
+        openjph: bundle
+            .capability_inventory
+            .executable_identities
+            .contains_key("ojph_compress")
+            .then(|| PathBuf::from("ojph_compress")),
+        #[cfg(not(feature = "htj2k_openjph"))]
+        openjph: None,
+        #[cfg(feature = "jpegxl")]
+        cjxl: bundle
+            .capability_inventory
+            .executable_identities
+            .contains_key("cjxl")
+            .then(|| PathBuf::from("cjxl")),
+        #[cfg(not(feature = "jpegxl"))]
+        cjxl: None,
+    };
+    if commands.openjph.is_some() || commands.cjxl.is_some() {
+        factory = factory
+            .with_qualified_frame_codec_commands(bundle, commands)
+            .map_err(|error| GenerateError::PlanFirst {
+                stage: "external frame codec qualification",
+                message: error.to_string(),
+            })?;
+    }
+    #[cfg(feature = "legacy_jpeg_dcmtk")]
+    if bundle
+        .capability_inventory
+        .executable_identities
+        .contains_key("dcmcjpeg")
+    {
+        factory = factory
+            .with_qualified_dcmtk_command(bundle, PathBuf::from("dcmcjpeg"))
+            .map_err(|error| GenerateError::PlanFirst {
+                stage: "external full-file codec qualification",
+                message: error.to_string(),
+            })?;
+    }
+    Ok(factory)
+}
+
 #[derive(Debug, Clone)]
 struct GeneratedFile {
     case_id: String,
@@ -678,20 +806,47 @@ fn unavailable_curated_cases(bundle: &CuratedScCorpusPlan) -> Vec<Value> {
     bundle
         .pending
         .iter()
-        .filter(|pending| pending.reason_code == "external_backend_unavailable")
-        .map(|pending| {
-            serde_json::json!({
+        .filter_map(|pending| {
+            let runtime_prefix = format!("case_{}_runtime_", pending.case_id.replace('/', "_"));
+            let runtime_capabilities = bundle
+                .plan
+                .unavailable
+                .iter()
+                .filter(|capability| capability.capability_id.starts_with(&runtime_prefix))
+                .collect::<Vec<_>>();
+            let feature_disabled = runtime_capabilities
+                .iter()
+                .any(|capability| capability.reason_code == "feature_disabled");
+            let runtime = if feature_disabled {
+                None
+            } else {
+                runtime_capabilities
+                    .iter()
+                    .find(|capability| capability.reason_code == "codec_executable_unavailable")
+                    .copied()
+                    .or_else(|| runtime_capabilities.first().copied())
+            };
+            if pending.reason_code != "external_backend_unavailable" && runtime.is_none() {
+                return None;
+            }
+            let reason_code = runtime
+                .map(|capability| capability.reason_code.as_str())
+                .unwrap_or(pending.reason_code.as_str());
+            let message = runtime
+                .map(|capability| capability.message.as_str())
+                .unwrap_or(pending.message.as_str());
+            Some(serde_json::json!({
                 "case_id": pending.case_id,
                 "status": "unavailable",
-                "reason_code": pending.reason_code,
-                "message": pending.message,
+                "reason_code": reason_code,
+                "message": message,
                 "recheck_phase": match pending.case_id.as_str() {
                     "derived/seg/wsi_tile_reference" => "phase-4",
                     "derived/sr/tid1500_ct_measurement_report" | "derived/sr/comprehensive3d_scoord3d" => "phase-3",
                     _ => "phase-1",
                 },
                 "standards_evidence": pending.standards_evidence,
-            })
+            }))
         })
         .collect()
 }
@@ -861,7 +1016,7 @@ pub fn write_generation_run_with_resources(
         product_resources: product_resource_identity,
     };
     let result = CorpusExecutor::new(
-        CuratedExecutionServiceFactory::new(&curated_sc_plan),
+        curated_execution_service_factory(&curated_sc_plan)?,
         projector,
     )
     .execute(

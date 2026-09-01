@@ -363,6 +363,15 @@ impl CuratedExecutionServiceFactory {
         bundle: &CuratedScCorpusPlan,
         command: PathBuf,
     ) -> Result<Self, ServiceInvocationError> {
+        Self::new(bundle).with_qualified_dcmtk_command(bundle, command)
+    }
+
+    #[cfg(feature = "legacy_jpeg_dcmtk")]
+    pub fn with_qualified_dcmtk_command(
+        mut self,
+        bundle: &CuratedScCorpusPlan,
+        command: PathBuf,
+    ) -> Result<Self, ServiceInvocationError> {
         let expected = bundle
             .capability_inventory
             .executable_identities
@@ -374,14 +383,21 @@ impl CuratedExecutionServiceFactory {
                     "planning inventory has no qualified dcmcjpeg identity",
                 )
             })?;
-        let mut factory = Self::new(bundle);
-        factory.locked_full_file = Some(
+        self.locked_full_file = Some(
             crate::executor::locked_full_file::DcmtkLockedFullFileService::new(command, expected)?,
         );
-        Ok(factory)
+        Ok(self)
     }
 
     pub fn with_frame_codec_commands(
+        bundle: &CuratedScCorpusPlan,
+        commands: ExternalFrameCodecCommands,
+    ) -> Result<Self, ServiceInvocationError> {
+        Self::new(bundle).with_qualified_frame_codec_commands(bundle, commands)
+    }
+
+    pub fn with_qualified_frame_codec_commands(
+        mut self,
         bundle: &CuratedScCorpusPlan,
         commands: ExternalFrameCodecCommands,
     ) -> Result<Self, ServiceInvocationError> {
@@ -410,7 +426,9 @@ impl CuratedExecutionServiceFactory {
             commands,
             expected,
         )?;
-        Self::with_frame_codec_service(bundle, service)
+        service.validate_capability_inventory(&bundle.capability_inventory)?;
+        self.frame_codec = service;
+        Ok(self)
     }
 
     pub fn with_frame_codec_service(

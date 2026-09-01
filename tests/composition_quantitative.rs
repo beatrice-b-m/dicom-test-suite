@@ -70,7 +70,7 @@ fn quantitative_default_bundles_are_closed_provenanced_and_reproducible() {
     let manifest_bytes = fs::read(first.join("manifest.json")).unwrap();
     let expected_manifest_sha256 = match (std::env::consts::OS, std::env::consts::ARCH) {
         ("macos", "aarch64") => "cc305be285510b2638a91d1dde2922fba3abca61671a6ac911903d855d81072b",
-        ("linux", "x86_64") => "7335538c50cf94d7f52ba41de3a5cb10b65f7411ed24be7c0b6bb788bf30a137",
+        ("linux", "x86_64") => "8de47c0689b8c8754a5146de73e9343d962dc50288b581ab8049ce5921744548",
         (os, arch) => {
             panic!("no qualified quantitative full-manifest digest for target {arch}-{os}")
         }

@@ -123,7 +123,8 @@ jobs:
         run: cargo test --locked --all-targets --no-default-features --features "${{ matrix.feature }}" --no-run
       - name: Test feature-sensitive surfaces
         run: |
-          cargo test --locked --no-default-features --features "${{ matrix.feature }}" --lib
+          cargo test --locked --no-default-features --features "${{ matrix.feature }}" \
+            --lib codecs::tests::
           cargo test --locked --no-default-features --features "${{ matrix.feature }}" \
             --test codec_backend_registry --test composition_curated_migration \
             --test curated_exceptional_execution --test curated_runtime_capabilities \

@@ -56,6 +56,26 @@ fn production_has_no_uninventoried_ambient_resource_lookups() {
     );
 }
 
+#[test]
+fn regression_tests_have_no_host_private_frozen_fixture_dependencies() {
+    let mut findings = Vec::new();
+    visit_rust_sources(Path::new("tests"), &mut |path, source| {
+        for marker in [
+            ["dts-unified-", "baseline"].concat(),
+            ["/Users", "/"].concat(),
+        ] {
+            if source.contains(&marker) {
+                findings.push(format!("{}|{marker}", path.display()));
+            }
+        }
+    });
+    findings.sort();
+    assert!(
+        findings.is_empty(),
+        "regression oracles must be repository-owned constants or fixtures: {findings:#?}"
+    );
+}
+
 fn visit_rust_sources(root: &Path, visitor: &mut impl FnMut(&Path, &str)) {
     for entry in fs::read_dir(root).expect("read source directory") {
         let entry = entry.expect("source entry");

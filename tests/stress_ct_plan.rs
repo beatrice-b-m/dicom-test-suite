@@ -1,6 +1,9 @@
 use std::collections::BTreeSet;
 use std::fs;
 
+use dicom_test_suite::curated_plan::{
+    CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
+};
 use dicom_test_suite::recipes::{
     OrderedSeriesProvider, RecipeCatalog, StressCtPlanError, plan_stress_ct_recipe,
 };
@@ -138,15 +141,24 @@ fn stress_ct_registry_preserves_frozen_public_standards_evidence() {
         .iter()
         .find(|case| case["case_id"] == "stress/study/high_instance_count_ct")
         .unwrap();
-    let baseline: Value = serde_json::from_slice(
-        &fs::read("/tmp/dts-unified-baseline-20260829-52e1d20/stress/manifest.json").unwrap(),
-    )
-    .unwrap();
-    let file = baseline["files"]
-        .as_array()
+    let bundle = CuratedScCorpusPlanProvider::load(CuratedCatalogPaths::from_repository_root("."))
         .unwrap()
-        .iter()
-        .find(|file| file["case_id"] == case["case_id"])
+        .plan(&CuratedScPlanRequest {
+            selection: CuratedScSelection::CaseIds(vec![
+                case["case_id"].as_str().unwrap().to_owned(),
+            ]),
+            seed: 1,
+            max_parallelism: 1,
+        })
         .unwrap();
-    assert_eq!(case["standards_evidence"], file["standards_evidence"]);
+    let projected = bundle
+        .projection
+        .artifacts
+        .iter()
+        .find(|artifact| artifact.registry_case.case_id == case["case_id"].as_str().unwrap())
+        .unwrap();
+    assert_eq!(
+        case["standards_evidence"],
+        Value::Array(projected.registry_case.standards_evidence.clone())
+    );
 }

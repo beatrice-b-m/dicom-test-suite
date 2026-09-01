@@ -13,6 +13,10 @@ use dicom_test_suite::executor::engine::{
     CorpusExecutor, ManifestProjectionError, ManifestProjector,
 };
 use dicom_test_suite::negative_plan::NEGATIVE_PARSER_RULE_ID;
+use dicom_test_suite::sha256_hex;
+
+const FROZEN_NEGATIVE_FILES_SHA256: &str =
+    "b3919444a5e9509df4049b04afb47f799e0d5791142520c75e490aefd6824dd2";
 
 fn provider() -> CuratedScCorpusPlanProvider {
     CuratedScCorpusPlanProvider::load(CuratedCatalogPaths::from_repository_root(".")).unwrap()
@@ -222,17 +226,11 @@ fn all_negative_cases_execute_without_valid_dicom_validation_and_project_exactly
         assert_eq!(entry["corpus_plan_sha256"], plan_sha256);
         entry.as_object_mut().unwrap().remove("corpus_plan_sha256");
     }
-    let mut baseline: serde_json::Value = serde_json::from_slice(
-        &std::fs::read("/tmp/dts-unified-baseline-20260829-52e1d20/negative/manifest.json")
-            .unwrap(),
-    )
-    .unwrap();
-    for entry in baseline["files"].as_array_mut().unwrap() {
-        // Expected-invalid entries must not carry the valid-corpus reference
-        // field. The frozen migration oracle predates that schema correction.
-        entry.as_object_mut().unwrap().remove("references");
-    }
-    assert_eq!(&actual, baseline["files"].as_array().unwrap());
+    assert_eq!(
+        sha256_hex(&serde_json::to_vec(&actual).unwrap()),
+        FROZEN_NEGATIVE_FILES_SHA256,
+        "frozen expected-invalid file projection changed"
+    );
     std::fs::remove_dir_all(root).unwrap();
 }
 

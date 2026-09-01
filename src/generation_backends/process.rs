@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 
 use serde_json::Value;
 
-use crate::sha256_hex;
+use crate::{hashing::StreamingSha256, sha256_hex};
 
 use super::{
     BackendContractError, OutputLimits, stage_declared_sources, validate_request,
@@ -92,7 +92,8 @@ pub fn invoke_backend_cancellable(
             canonical_executable.display()
         )));
     }
-    let executable_fingerprint = executable_fingerprint(&canonical_executable)?;
+    let executable_fingerprint =
+        executable_fingerprint_cancellable(&canonical_executable, cancelled)?;
 
     let mut command = Command::new(&invocation.executable);
     command
@@ -293,11 +294,38 @@ pub(super) fn terminate_process_tree(child: &mut Child, process_group_id: u32) {
 }
 
 pub fn executable_fingerprint(executable: &Path) -> Result<String, BackendContractError> {
-    let bytes = fs::read(executable).map_err(|source| BackendContractError::Read {
+    executable_fingerprint_cancellable(executable, &|| false)
+}
+
+fn executable_fingerprint_cancellable(
+    executable: &Path,
+    cancelled: &dyn Fn() -> bool,
+) -> Result<String, BackendContractError> {
+    let mut file = File::open(executable).map_err(|source| BackendContractError::Read {
         path: executable.to_path_buf(),
         source,
     })?;
-    Ok(sha256_hex(&bytes))
+    let mut hasher = StreamingSha256::new();
+    let mut buffer = [0_u8; 64 * 1024];
+    loop {
+        if cancelled() {
+            return Err(invalid("backend invocation cancelled".into()));
+        }
+        let count = file
+            .read(&mut buffer)
+            .map_err(|source| BackendContractError::Read {
+                path: executable.to_path_buf(),
+                source,
+            })?;
+        if count == 0 {
+            break;
+        }
+        hasher.update(&buffer[..count]);
+    }
+    if cancelled() {
+        return Err(invalid("backend invocation cancelled".into()));
+    }
+    Ok(hasher.finish_hex())
 }
 
 pub fn environment_fingerprint(fixed_arguments: &[String]) -> String {
@@ -474,7 +502,7 @@ mod tests {
     }
 
     #[test]
-    fn fake_backend_cancellation_kills_and_reaps_the_child_promptly() {
+    fn fake_backend_cancellation_interrupts_fingerprinting_promptly() {
         let staging = unique_staging("grandchild-cancelled");
         let started = Instant::now();
         let error = invoke_backend_cancellable(
@@ -489,6 +517,45 @@ mod tests {
         assert!(
             started.elapsed() < Duration::from_secs(15),
             "cancellation must not wait for the backend timeout"
+        );
+        fs::remove_dir_all(staging).expect("remove fake staging");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn fake_backend_cancellation_kills_and_reaps_a_spawned_process_tree_promptly() {
+        let staging = unique_staging("spawned-tree-cancelled");
+        let started_marker = staging.join("backend-started");
+        let process_ids = staging.join("backend-pids");
+        let started = Instant::now();
+        let error = invoke_backend_cancellable(
+            &fake_spawned_tree_invocation(Duration::from_secs(30)),
+            &request(),
+            Path::new("."),
+            &staging,
+            &|| started_marker.exists(),
+        )
+        .expect_err("started backend tree must be terminated");
+        assert!(error.to_string().contains("cancelled"));
+        assert!(
+            started.elapsed() < Duration::from_secs(15),
+            "cancellation must not wait for the backend timeout"
+        );
+
+        let process_group_id = fs::read_to_string(&process_ids)
+            .expect("fake backend records its process group")
+            .split_whitespace()
+            .next()
+            .expect("fake backend process group id")
+            .parse::<i32>()
+            .expect("numeric fake backend process group id");
+        let reap_deadline = Instant::now() + Duration::from_secs(2);
+        while unix_process_group_exists(process_group_id) && Instant::now() < reap_deadline {
+            thread::sleep(Duration::from_millis(10));
+        }
+        assert!(
+            !unix_process_group_exists(process_group_id),
+            "cancelled backend process group must not survive"
         );
         fs::remove_dir_all(staging).expect("remove fake staging");
     }
@@ -685,6 +752,36 @@ mod tests {
             dependency_lock_sha256: "d".repeat(64),
             environment_fingerprint,
         }
+    }
+
+    #[cfg(unix)]
+    fn fake_spawned_tree_invocation(timeout: Duration) -> BackendInvocation {
+        let fixed_arguments = vec![
+            "-c".to_string(),
+            "/bin/sleep 10 & child=$!; echo \"$$ $child\" > backend-pids; : > backend-started; wait"
+                .to_string(),
+        ];
+        let environment_fingerprint = environment_fingerprint(&fixed_arguments);
+        BackendInvocation {
+            executable: PathBuf::from("/bin/sh"),
+            fixed_arguments,
+            timeout,
+            max_response_bytes: 4096,
+            max_stdout_bytes: 4096,
+            max_stderr_bytes: 4096,
+            output_limits: OutputLimits {
+                max_output_files: 8,
+                max_file_bytes: 1024 * 1024,
+                max_total_output_bytes: 4 * 1024 * 1024,
+            },
+            dependency_lock_sha256: "d".repeat(64),
+            environment_fingerprint,
+        }
+    }
+
+    #[cfg(unix)]
+    fn unix_process_group_exists(process_group_id: i32) -> bool {
+        unsafe { libc::kill(-process_group_id, 0) == 0 }
     }
 
     fn request() -> Value {

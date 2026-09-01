@@ -5,7 +5,8 @@
 **Contract:** `docs/standalone-productization-plan.md`
 
 **Release readiness:** macOS arm64 release candidate qualified; general release
-blocked because Linux x86_64 has not run the external-consumer contract
+blocked because the Linux x86_64 external-consumer contract fails its strict
+WSI provider timing ceiling under the available emulated runtime
 
 ## Current gate state
 
@@ -17,8 +18,8 @@ blocked because Linux x86_64 has not run the external-consumer contract
 | S3 — Rust SDK | Complete | The supported `dicom_test_suite::sdk` facade provides integrity-checked resources, typed discovery/compose/validate/report outcomes, schema-bound manifests, explicit asset roots, cancellation, stable errors, compiled docs, and a packaged-crate side-project gate. |
 | S4 — structural assembly | Complete | The packaged CLI and SDK accept versioned bounded structural requests, use the neutral plan/executor/writer spine, validate exact values and bulk, publish no-IOD-claim manifests/reports, and pass positive, adversarial, transaction, determinism, and external-consumer gates. |
 | S5 — packaging and guides | Complete | The latest extracted crate and current-target archive pass package, relocation, example, changelog/migration, and independent checksum/inventory verification. A clean-clone maintainer procedure records exact release facts and preserves target/capability boundaries. |
-| S6 — release qualification | Complete for macOS arm64 | The immutable `39009f3` archive passed all five installed consumers, strict no-checkout/no-cache relocation, packaged SDK consumption, packaged security/resource tests, applicable codec/backend matrices, and the complete modular default regression inventory. Linux x86_64 remains unqualified. |
-| S7 — promotion | Partially complete | S7.1-S7.4 deliverables are implemented: this record is current, installed usage leads the README, mandatory CI gates have deliberate regression fixtures, and compatibility ownership is complete. The S7 phase gate and plan completion remain blocked because the minimum Linux x86_64 target has no executable artifact evidence. |
+| S6 — release qualification | Complete for macOS arm64 | The immutable `39009f3` archive passed all five installed consumers, strict no-checkout/no-cache relocation, packaged SDK consumption, packaged security/resource tests, applicable codec/backend matrices, and the complete modular default regression inventory. The matching Linux x86_64 archive verifies, but its installed qualified-catalog consumer correctly rejects an over-ceiling WSI provider invocation. |
+| S7 — promotion | Partially complete | S7.1-S7.4 deliverables are implemented: this record is current, installed usage leads the README, mandatory CI gates have deliberate regression fixtures, and compatibility ownership is complete. The S7 phase gate and plan completion remain blocked because Linux x86_64 has not passed the complete external-consumer contract. |
 
 Every terminal acceptance row passed for the exact macOS arm64 candidate.
 Those results qualify only that target. Existing curated and qualified-
@@ -108,10 +109,10 @@ From an unrelated extracted directory, the exact optimized binary passed
 seed 1, strict validation with three files checked and zero failures, and JSON
 report execution. `shasum -a 256 -c` passed from the distribution directory.
 
-Only macOS arm64 is qualified by this evidence. Linux x86_64 is not available
-in this host environment and remains an explicit blocker to a general release;
-it is not inferred from the portable builder or source tests. S5.3-S5.5 and all
-terminal release-candidate rows remain open.
+Only macOS arm64 is qualified by this S5.2 evidence. Linux x86_64 had not yet
+been provisioned at that gate and remained an explicit blocker to a general
+release; it was not inferred from the portable builder or source tests.
+S5.3-S5.5 and all terminal release-candidate rows remained open.
 
 ## S5.3 installed operating-guide gate
 
@@ -389,6 +390,81 @@ drift and invalid-output tests passed. `dciodvfy`, `dcmdump`, and `dcm2img` were
 not available during this qualification, so their independent-evidence rows
 remain explicit unavailable and are not represented as passes.
 
+### Linux x86_64 qualification attempt
+
+A dedicated Ubuntu 26.04 QEMU guest was provisioned on 2026-08-31 with an
+`x86_64` kernel, Rust 1.85.0 for `x86_64-unknown-linux-gnu`, eight vCPUs,
+12 GiB configured memory, and the exact locked Python 3.12.12 backend
+environment. The private source clone was clean and detached at the same
+artifact revision as macOS, `39009f3e24240e6cfa1b20d71c4884f1359b255c`.
+
+The native Linux archive build and independent verifier passed:
+
+```text
+archive: dicom-test-suite-0.1.0-x86_64-unknown-linux-gnu.tar.gz
+archive SHA-256: 123adcb86a8e06436d697e405f77a92c8b87d0563edec161650fbee83c7834a0
+source revision: 39009f3e24240e6cfa1b20d71c4884f1359b255c
+source dirty: false
+target: x86_64-unknown-linux-gnu
+enabled features: []
+embedded resources: 240
+resource-set SHA-256: ce8c3725756f53b0552377349dcc1ba7b0137ec7c03fe5580d16ed4e9af45bec
+archive verification: passed
+```
+
+The installed black-box CLI and caller-content consumers passed against the
+extracted Linux binary. The qualified-catalog consumer then failed on its
+parallel pass at `template-031`: the independent highdicom WSI tile
+segmentation invocation took 5.598 seconds in the first captured run and
+5.632 seconds in a reduced serial/parallel reproduction, exceeding the locked
+five-second ceiling. The executable returned a nonzero planning/execution
+class as required; the unavailable performance capability was not converted
+to a pass. Resizing the guest from four vCPUs/8 GiB to eight vCPUs/12 GiB did
+not change the outcome.
+
+A focused lazy-import experiment passed all 19 backend tests but did not reduce
+the WSI invocation below the ceiling. Commits `2f63c62` and `607a65f` record
+the experiment and its complete restoration; the current backend/resource tree
+matches the qualified `f45224e` tree. The restored 18-test backend suite passed.
+
+Public GitHub Actions confirms that remote `main` at `f45224e` ran on native
+Ubuntu in CI run `33464522287`, but its default job failed and the dependent
+standalone-release job was skipped. GitHub job logs obtained through the
+configured repository connector identify two failures in the 472-test default
+library run: the external WSI provider took 7.347426 seconds against its locked
+five-second ceiling, and
+`fake_backend_cancellation_kills_and_reaps_the_child_promptly` exceeded its
+15-second cancellation ceiling. Every one of the five in-process codec jobs
+also failed on that same feature-independent cancellation test after passing
+472-476 other library tests. Those repeated runs add no codec-specific evidence.
+
+The cancellation test passed alone on macOS in 2.76 seconds. Run alone in the
+existing emulated Linux x86_64 guest at source `2f63c62` (whose process code is
+unchanged in the restored tree), it still failed after 80.37 test seconds.
+Emulation is not native target acceptance, but this isolation result and the
+six native-job failures prohibit dismissing the result as broad-suite
+contention. The strict ceiling remains unchanged and the Linux cancellation
+behavior requires repair. The native WSI result likewise remains a failure,
+not an unavailable capability or a pass.
+
+### Test-efficiency assessment
+
+The existing dependency-aware development tiers remain valid. The six measured
+heavyweight default slices consume about 68 minutes in total and are required
+only when generation, execution, projection, manifest, embedded-resource,
+stress, or WSI dependencies change and once for the exact release candidate.
+Small repairs use the named failing test, then its owning subsystem bundle, then
+the next applicable phase/artifact boundary. Successful heavyweight prefixes
+are resumed rather than repeated after a localized test-only repair.
+
+CI has one material duplication to remove before its next run: each codec job
+currently compiles all targets and then reruns the complete feature-independent
+library suite. The compile check, focused codec targets, exact rejection test,
+and generated feature corpus are distinct evidence; the complete library rerun
+is not. The maintainer procedure now makes that ownership explicit while
+retaining the exact no-feature all-target command and every terminal row for the
+release candidate.
+
 ### Terminal acceptance matrix
 
 | Gate | macOS arm64 result | Exact evidence |
@@ -415,12 +491,12 @@ public compatibility domain has an owner and supported-version window.
 
 The S7 phase gate, the plan-complete marker, and a general standalone release
 remain blocked. The plan requires Linux x86_64 and macOS arm64 before a general
-claim. This host has Rust Linux targets installed but no Linux runtime,
-container/VM engine, QEMU runner, or authenticated/reachable GitHub CI. The
-local branch is 107 commits ahead of the last known `origin/main`, so no CI run
-or Linux artifact exists for this revision. Cross-compilation alone cannot
-satisfy extraction, relocation, and external-consumer execution. Linux x86_64
-therefore remains **not qualified**, not passed or waived.
+claim. A matching Linux archive now builds, verifies, extracts, and starts its
+consumer matrix under x86_64 emulation, but the independent WSI provider exceeds
+its strict timing ceiling there. Native Ubuntu CI independently exceeds both
+the WSI invocation and backend-cancellation ceilings before its
+standalone-release job. Linux x86_64 therefore remains **not qualified**, not
+passed or waived.
 
 ## Baseline audit evidence
 
@@ -458,13 +534,16 @@ test-only fixtures are not classified by this initial production audit.
 ## Remaining blockers
 
 The macOS arm64 release candidate has no remaining S6 or terminal-matrix
-blocker. Linux x86_64 has no runnable archive evidence for this revision and is
-the sole blocker to the minimum two-target general release, S7 phase closure,
-and marking the standalone productization plan complete. The required next
-action is to push the exact candidate lineage to authenticated CI (or use an
-equivalent Linux x86_64 host), retain the generated archive/checksum, and run
-the complete standalone-release consumer contract there. Cross-compilation is
-insufficient.
+blocker. Linux x86_64 has a verified runnable archive, but its emulated
+qualified-catalog consumer fails the locked WSI timing ceiling. Native CI logs
+also show the WSI ceiling failure and a Linux backend-cancellation failure.
+These are the blockers to the minimum two-target general release, S7 phase
+closure, and marking the standalone productization plan complete. The required
+next action is a focused Linux process-cancellation repair and WSI performance
+diagnosis, followed by their owning subsystem tests and one native Ubuntu CI
+rerun. Only after those pass should the exact Linux archive/checksum and
+complete standalone-release consumer contract be rerun. Emulated over-ceiling
+execution and cross-compilation are insufficient.
 
 Independent validators or optional runtimes not installed for a target remain
 explicit unavailable unless their exact pinned executable is discovered and

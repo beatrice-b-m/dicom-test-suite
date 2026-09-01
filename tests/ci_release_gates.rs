@@ -11,11 +11,14 @@ fn ci_makes_every_standalone_release_gate_mandatory_and_regression_backed() {
         .split("  external-codec-compile:")
         .next()
         .unwrap();
-    assert!(default.contains("timeout-minutes: 90"));
+    assert!(default.contains("timeout-minutes: 120"));
+    assert!(default.contains("RUST_TEST_THREADS: \"1\""));
     assert!(default.contains("cargo test --locked --all-targets --no-default-features"));
     assert!(codecs.contains("--all-targets --no-default-features --features"));
     assert!(codecs.contains("--no-run"));
     assert!(codecs.contains("Test feature-sensitive surfaces"));
+    assert!(codecs.contains("--lib codecs::tests::"));
+    assert!(!codecs.contains("\"${{ matrix.feature }}\" --lib\n"));
     assert!(codecs.contains("curated_exceptional_execution"));
     assert!(codecs.contains("frame_codec_service"));
     assert!(codecs.contains("validate_cli"));

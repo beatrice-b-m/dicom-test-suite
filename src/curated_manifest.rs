@@ -26,8 +26,9 @@ use crate::executor::evidence::{
     ArtifactExecutionEvidence, MaterializedContentEvidence, ResultStatus,
 };
 use crate::quantitative_evidence::{
-    NativeRwvmManifestProjection, NativeSegManifestProjection, QuantitativeCheck,
-    QuantitativeValidationReport, SegPixelDataProjection, project_native_rwvm_manifest_fields,
+    CodecManifestProjection, FragmentManifestProjection, NativeRwvmManifestProjection,
+    NativeSegManifestProjection, QuantitativeCheck, QuantitativeValidationReport,
+    SegPixelDataProjection, project_native_rwvm_manifest_fields,
     project_native_seg_manifest_fields,
 };
 use crate::recipes::{
@@ -1330,13 +1331,6 @@ fn project_native_quantitative_file_entry(
             .iter()
             .find(|content| content.slot == "pixels")
             .ok_or_else(|| err("SEG has no materialized pixel evidence"))?;
-        if pixels.vr != "OB" || !pixels.compressed_frame_sha256.is_empty() {
-            return fail(format!(
-                "SEG pixel evidence differs from feature-free native contract: vr={}, compressed={}",
-                pixels.vr,
-                pixels.compressed_frame_sha256.len(),
-            ));
-        }
         let bits = match parameters.segmentation.kind {
             SegmentationKind::Binary => 1,
             SegmentationKind::FractionalProbability | SegmentationKind::Labelmap => 8,
@@ -1364,21 +1358,117 @@ fn project_native_quantitative_file_entry(
             .max()
             .ok_or_else(|| err("SEG stored values are empty"))?;
         let (encoded, frame_sha256) = quantitative_seg_pixel_facts(&parameters.segmentation)?;
-        let value_length = pixels
-            .native_value_field_size_bytes
-            .ok_or_else(|| err("SEG native Value Field size evidence is absent"))?;
-        if value_length != encoded.len() as u64
-            || pixels.size_bytes != encoded.len() as u64
-            || pixels.sha256 != crate::sha256_hex(&encoded)
-            || (!pixels.native_frame_sha256.is_empty()
-                && pixels.native_frame_sha256 != [pixels.sha256.clone()])
-            || (!pixels.decoded_frame_sha256.is_empty()
-                && pixels.decoded_frame_sha256 != [pixels.sha256.clone()])
-        {
-            return fail(
-                "SEG aggregate native bytes differ from typed recipe and execution evidence",
-            );
-        }
+        let pixel_data = if execution.codecs.is_empty() {
+            let value_length = pixels
+                .native_value_field_size_bytes
+                .ok_or_else(|| err("SEG native Value Field size evidence is absent"))?;
+            if pixels.vr != "OB"
+                || !pixels.compressed_frame_sha256.is_empty()
+                || value_length != encoded.len() as u64
+                || pixels.size_bytes != encoded.len() as u64
+                || pixels.sha256 != crate::sha256_hex(&encoded)
+                || (!pixels.native_frame_sha256.is_empty()
+                    && pixels.native_frame_sha256 != [pixels.sha256.clone()])
+                || (!pixels.decoded_frame_sha256.is_empty()
+                    && pixels.decoded_frame_sha256 != [pixels.sha256.clone()])
+            {
+                return fail(
+                    "SEG aggregate native bytes differ from typed recipe and execution evidence",
+                );
+            }
+            SegPixelDataProjection::Native {
+                value_length,
+                frame_sha256: frame_sha256.clone(),
+            }
+        } else {
+            let codec = only(&execution.codecs, "SEG codec evidence")?;
+            let expected_decoded_frame_sha256 =
+                quantitative_seg_encoded_frame_hashes(&parameters.segmentation)?;
+            if pixels.vr != "OB"
+                || codec.status != ResultStatus::Passed
+                || codec.slot != "pixels"
+                || codec.transfer_syntax_uid != planned.encoding.transfer_syntax_uid
+                || codec.encoded_frame_sha256 != pixels.compressed_frame_sha256
+                || codec.decoded_frame_sha256 != expected_decoded_frame_sha256
+                || (!pixels.decoded_frame_sha256.is_empty()
+                    && pixels.decoded_frame_sha256 != expected_decoded_frame_sha256)
+                || pixels.fragment_count != pixels.fragments.len() as u64
+                || pixels.fragment_count != pixels.compressed_lengths.len() as u64
+                || pixels.fragment_count != pixels.padded_fragment_lengths.len() as u64
+                || pixels.fragments_per_frame.iter().sum::<u64>() != pixels.fragment_count
+                || !pixels.fragments_per_frame.iter().all(|count| *count == 1)
+                || planned.encoding.fragmentation != FragmentationPolicy::OneFragmentPerFrame
+                || planned.encoding.offset_table != OffsetTablePolicy::EmptyBasic
+                || !pixels.basic_offset_table.is_empty()
+                || !pixels.extended_offset_table.is_empty()
+                || !pixels.extended_offset_table_lengths.is_empty()
+            {
+                return fail(format!(
+                    "encapsulated SEG evidence differs from codec plan: vr={}, status={:?}, slot={}, ts={}, encoded_match={}, codec_decoded_match={}, materialized_decoded_match={}, fragments={}, fragment_rows={}, compressed_lengths={}, padded_lengths={}, per_frame={:?}, bot={}, eot={}, eot_lengths={}",
+                    pixels.vr,
+                    codec.status,
+                    codec.slot,
+                    codec.transfer_syntax_uid,
+                    codec.encoded_frame_sha256 == pixels.compressed_frame_sha256,
+                    codec.decoded_frame_sha256 == expected_decoded_frame_sha256,
+                    pixels.decoded_frame_sha256.is_empty()
+                        || pixels.decoded_frame_sha256 == expected_decoded_frame_sha256,
+                    pixels.fragment_count,
+                    pixels.fragments.len(),
+                    pixels.compressed_lengths.len(),
+                    pixels.padded_fragment_lengths.len(),
+                    pixels.fragments_per_frame,
+                    pixels.basic_offset_table.len(),
+                    pixels.extended_offset_table.len(),
+                    pixels.extended_offset_table_lengths.len(),
+                ));
+            }
+            let first_item_start = pixels
+                .fragments
+                .first()
+                .map(|fragment| fragment.item_start_offset)
+                .ok_or_else(|| err("encapsulated SEG has no fragments"))?;
+            let fragments = pixels
+                .fragments
+                .iter()
+                .map(|fragment| {
+                    Ok(FragmentManifestProjection {
+                        frame_index: usize::try_from(fragment.frame_index)
+                            .map_err(|_| err("SEG fragment frame index overflow"))?,
+                        item_start_offset: fragment
+                            .item_start_offset
+                            .checked_sub(first_item_start)
+                            .ok_or_else(|| err("SEG fragment offset precedes first item"))?,
+                        compressed_length: usize::try_from(fragment.compressed_length)
+                            .map_err(|_| err("SEG compressed fragment length overflow"))?,
+                        padded_length: usize::try_from(fragment.padded_length)
+                            .map_err(|_| err("SEG padded fragment length overflow"))?,
+                    })
+                })
+                .collect::<Result<Vec<_>, CuratedManifestError>>()?;
+            SegPixelDataProjection::Encapsulated {
+                frame_sha256: expected_decoded_frame_sha256,
+                codec: CodecManifestProjection {
+                    backend_id: codec.backend_id.clone(),
+                    backend_kind: codec.backend_kind.clone(),
+                    display_name: codec.display_name.clone(),
+                    version: codec.backend_version.clone(),
+                    transfer_syntax_uid: codec.transfer_syntax_uid.clone(),
+                    feature_gate: codec.feature_gate.clone(),
+                    determinism: codec.determinism.clone(),
+                },
+                basic_offset_table_offsets: pixels.basic_offset_table.clone(),
+                fragments_per_frame: pixels
+                    .fragments_per_frame
+                    .iter()
+                    .map(|count| {
+                        usize::try_from(*count).map_err(|_| err("SEG fragments-per-frame overflow"))
+                    })
+                    .collect::<Result<Vec<_>, CuratedManifestError>>()?,
+                fragments,
+                compressed_frame_hashes: pixels.compressed_frame_sha256.clone(),
+            }
+        };
         let dimension = uid(planned, CompositionUidRole::DimensionOrganization)?;
         project_native_seg_manifest_fields(
             &NativeSegManifestProjection {
@@ -1404,10 +1494,7 @@ fn project_native_quantitative_file_entry(
                 dimension_organization_uid: dimension.into(),
                 pixel_min: u16::from(pixel_min),
                 pixel_max: u16::from(pixel_max),
-                pixel_data: SegPixelDataProjection::Native {
-                    value_length,
-                    frame_sha256,
-                },
+                pixel_data,
                 visual_pattern: parameters.segmentation.visual_pattern,
                 stressors: ctx.artifact_recipe.stressors.clone(),
             },
@@ -1548,6 +1635,38 @@ fn quantitative_seg_pixel_facts(
         bytes
     };
     Ok((encoded, frame_sha256))
+}
+
+fn quantitative_seg_encoded_frame_hashes(
+    segmentation: &SegmentationInput,
+) -> Result<Vec<String>, CuratedManifestError> {
+    let frame_size = usize::from(segmentation.rows)
+        .checked_mul(usize::from(segmentation.columns))
+        .ok_or_else(|| err("SEG frame size overflow"))?;
+    if segmentation.stored_values.len()
+        != frame_size
+            .checked_mul(usize::from(segmentation.frames))
+            .ok_or_else(|| err("SEG value count overflow"))?
+    {
+        return fail("SEG stored-value cardinality differs from dimensions");
+    }
+    segmentation
+        .stored_values
+        .chunks_exact(frame_size)
+        .map(|frame| {
+            if segmentation.kind != SegmentationKind::Binary {
+                return Ok(crate::sha256_hex(frame));
+            }
+            let mut packed = vec![0_u8; frame.len().div_ceil(8)];
+            for (index, value) in frame.iter().enumerate() {
+                if *value > 1 {
+                    return fail("binary SEG stored value exceeds one");
+                }
+                packed[index / 8] |= *value << (index % 8);
+            }
+            Ok(crate::sha256_hex(&packed))
+        })
+        .collect()
 }
 
 fn quantitative_validation_report(

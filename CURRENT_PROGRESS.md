@@ -1,11 +1,10 @@
 # Current Progress
 
-**Last updated:** 2026-08-28
-**Active goal:** coverage-expansion implementation complete at the approved
-capability and independent-validation boundaries
-**Current phase:** Phases 0–8 have complete implementation substrates,
-vertical slices, validation, reports, tests, and status documentation; remaining
-rows are deliberately explicit unavailable coverage
+**Last updated:** 2026-08-31
+**Active goal:** standalone productization release qualification
+**Current phase:** S0-S6 are complete for macOS arm64 and S7 deliverables are
+implemented; general release and plan closure remain blocked on executable
+Linux x86_64 external-consumer evidence
 **Repo state source:** reconstructed from `cases/registry.json`, phase status
 notes, git history, and current verification runs.
 
@@ -43,6 +42,46 @@ notes, git history, and current verification runs.
   selection is Enhanced CT plus binary SEG plus General ECG; the clean local
   qualification reports zero provider warnings and keeps protocol/media results
   separate from ordinary file coverage.
+
+## 2026-08-31 external codec release verification
+
+Release requalification ran on macOS 26.5 arm64 (Darwin 25.5.0) with Rust
+1.85.0. Feature jobs compiled every target once, then ran the shared library and
+feature-sensitive codec services, the exact feature rejection/tamper tests, and
+one real extended corpus. This modular execution replaces duplicate full-corpus
+CLI suites in every feature job; it does not replace the single complete
+no-feature release gate.
+
+- `jpeg`, `charls`, `jpegxl`, and `jpeg2000` each generated 116 files;
+  `deflate` generated 117. Every corpus validated with zero failures and
+  reported zero blocked rows. JPEG used two fragments per frame, while deflate
+  passed the exact encapsulated SEG fragment/decoded-frame and tamper contracts.
+- `/opt/homebrew/bin/ojph_compress` had SHA-256
+  `d21a8ea98ffce347928c34a2c51c61e424a068ca4eb746a6867a29d6c30b1627`.
+  The binary exposes no usable version banner, so the policy identity is
+  `sha256:<digest>`. Normal CLI discovery generated HTJ2K lossless and lossy in
+  a 118-file extended corpus; validation had zero failures, the report had zero
+  blocked rows, both manifest entries carried the exact fingerprint, and
+  fingerprint/path-drift tests passed.
+- `/opt/homebrew/bin/cjxl` reported
+  `cjxl v0.11.2 0.11.2 [NEON_BF16,NEON]` and had SHA-256
+  `5b7b6cdc09a1bdaef39e30d3660e29861a405fffc1bc1136f3bb91cfe6db658e`.
+  Normal CLI discovery generated JPEG XL lossless and lossy in a 117-file
+  extended corpus; validation had zero failures, the report had zero blocked
+  rows, and the version/fingerprint guard passed.
+- `/opt/homebrew/bin/dcmcjpeg` reported
+  `dcmcjpeg v3.7.0 2025-12-15` on `arm64-Darwin` and had SHA-256
+  `28707b3dd7dcbd0b2f710ae691602c07c460bf9917d9b944da7cfa052095b120`.
+  Normal CLI discovery generated JPEG Lossless Process 14 and SV1 in a
+  118-file extended corpus; validation had zero failures, the report had zero
+  blocked rows, both manifest entries carried the exact runtime identity, and
+  fingerprint, invalid-output, cancellation, and tamper tests passed.
+
+The exact commands and acceptance projections are recorded in
+`docs/standalone-product-status-2026-08-31.md`. `dciodvfy`, `dcmdump`, and
+`dcm2img` were unavailable in this release environment; their independent-tool
+evidence remains explicit unavailable rather than passed. The transfer-syntax
+capability matrix `last_verified_at` date is now 2026-08-31.
 
 ## Historical Status Notes
 

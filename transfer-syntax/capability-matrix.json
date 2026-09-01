@@ -3,7 +3,7 @@
   "standards_edition": "2026b",
   "source_manifest_sha256": "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728",
   "dicom_rs_version": "0.9.1",
-  "last_verified_at": "2026-08-26",
+  "last_verified_at": "2026-08-31",
   "entries": [
     {
       "uid": "1.2.840.10008.1.2",

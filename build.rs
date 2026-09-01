@@ -77,6 +77,7 @@ fn generate_embedded_product_resources() {
 
 fn collect_json_files(root: &Path, relative: &Path, resources: &mut Vec<(String, PathBuf)>) {
     let directory = root.join(relative);
+    println!("cargo:rerun-if-changed={}", directory.display());
     let mut entries = fs::read_dir(&directory)
         .unwrap_or_else(|error| panic!("read {}: {error}", directory.display()))
         .map(|entry| entry.expect("resource directory entry").path())

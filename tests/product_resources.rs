@@ -10,6 +10,7 @@ fn embedded_resources_cover_all_first_party_product_families() {
     for path in [
         "cases/registry.json",
         "cases/recipes/classic/sc/sc_mono2_u8.json",
+        "cases/recipes/classic/sc/classic_sc_mono2_u16_htj2k_lossy.json",
         "templates/catalog.json",
         "templates/inventory.json",
         "templates/qualification-evidence.json",
@@ -28,6 +29,13 @@ fn embedded_resources_cover_all_first_party_product_families() {
             "empty resource {path}"
         );
     }
+}
+
+#[test]
+fn resource_build_tracks_directory_additions() {
+    let build = fs::read_to_string("build.rs").unwrap();
+    assert!(build.contains("cargo:rerun-if-changed={}"));
+    assert!(build.contains("directory.display()"));
 }
 
 #[test]

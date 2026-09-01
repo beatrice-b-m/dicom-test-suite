@@ -4,7 +4,8 @@
 
 **Contract:** `docs/standalone-productization-plan.md`
 
-**Release readiness:** not ready; S0 through S5 are complete
+**Release readiness:** macOS arm64 release candidate qualified; general release
+blocked because Linux x86_64 has not run the external-consumer contract
 
 ## Current gate state
 
@@ -16,13 +17,14 @@
 | S3 — Rust SDK | Complete | The supported `dicom_test_suite::sdk` facade provides integrity-checked resources, typed discovery/compose/validate/report outcomes, schema-bound manifests, explicit asset roots, cancellation, stable errors, compiled docs, and a packaged-crate side-project gate. |
 | S4 — structural assembly | Complete | The packaged CLI and SDK accept versioned bounded structural requests, use the neutral plan/executor/writer spine, validate exact values and bulk, publish no-IOD-claim manifests/reports, and pass positive, adversarial, transaction, determinism, and external-consumer gates. |
 | S5 — packaging and guides | Complete | The latest extracted crate and current-target archive pass package, relocation, example, changelog/migration, and independent checksum/inventory verification. A clean-clone maintainer procedure records exact release facts and preserves target/capability boundaries. |
-| S6 — release qualification | Not started | Existing source-tree qualification is strong, but no exact packaged release candidate has passed the black-box, relocation, SDK, assembly, or terminal security matrix. |
-| S7 — promotion | Not started | The README still leads with `cargo run`; standalone release gates and compatibility ownership are not promoted. |
+| S6 — release qualification | Complete for macOS arm64 | The immutable `d34af96` archive passed all five installed consumers, strict no-checkout/no-cache relocation, packaged SDK consumption, packaged security/resource tests, applicable codec/backend matrices, and the complete modular default regression inventory. Linux x86_64 remains unqualified. |
+| S7 — promotion | Partially complete | S7.1-S7.4 deliverables are implemented: this record is current, installed usage leads the README, mandatory CI gates have deliberate regression fixtures, and compatibility ownership is complete. The S7 phase gate and plan completion remain blocked because the minimum Linux x86_64 target has no executable artifact evidence. |
 
-No terminal acceptance gate has passed against a standalone release candidate.
-Existing curated and qualified-composition evidence remains valid only within
-its recorded scope and is not being reinterpreted as standalone-product
-evidence.
+Every terminal acceptance row passed for the exact macOS arm64 candidate.
+Those results qualify only that target. Existing curated and qualified-
+composition evidence remains within its recorded scope, unavailable optional
+capabilities remain explicit, and no macOS result is being reinterpreted as
+Linux x86_64 or general-release evidence.
 
 ## S5.1 Cargo package gate
 
@@ -232,6 +234,177 @@ determinism, template/assembly, curated regression, upgrade, and packaged
 security matrix. Linux x86_64 remains unclaimed; no terminal row is promoted by
 S5 alone.
 
+## S6 release qualification and S7 promotion evidence
+
+### Exact macOS arm64 candidate
+
+The exact installed artifact qualified on 2026-08-31 is:
+
+```text
+archive: dicom-test-suite-0.1.0-aarch64-apple-darwin.tar.gz
+archive SHA-256: 0ea3ffeda93cf70e40c7330fbe7cab7798dba84ce2d21d7dc1bcd8552e1f979b
+source revision: d34af962ec93db44c382b8e75788aab61928d7b0
+source dirty: false
+target: aarch64-apple-darwin
+enabled features: []
+release-manifest schema: 1.0.0
+manifest payload files: 61
+embedded resources: 240
+resource-set SHA-256: c808c418e65aa7277f96e95dba1b6e0a368f5482541afca641cc2d04206603c9
+```
+
+`scripts/verify-release-archive.sh` independently verified the adjacent
+checksum, the single extraction root, every declared file size and SHA-256,
+the required licenses/notices/examples/schemas, executable permissions, target
+identity, discovery documents, source identity, and embedded resource identity.
+The archive is retained outside the repository under the private qualification
+root; it is not a tracked generated artifact.
+
+The exact extracted binary passed these five independent consumers:
+
+```sh
+python3 tests/black_box_cli_consumer.py "$BINARY" "$ROOT"
+python3 tests/caller_content_consumer.py "$BINARY"
+DTS_HIGHDICOM_PYTHON=<locked-venv-python> \
+  python3 tests/qualified_catalog_consumer.py "$BINARY"
+python3 tests/structural_catalog_consumer.py "$BINARY"
+python3 tests/upgrade_consumer.py "$BINARY"
+```
+
+They exercised schema-only automation and all exit classes; external raw
+monochrome/RGB content plus standard, private, binary, multi-valued, empty, and
+recursive Sequence attributes; every live qualified template/bundle; every
+advertised structural content kind; every still-supported upgrade domain; and
+serial/parallel reproducibility from unrelated working directories. Qualified
+catalog generation produced explicit unavailable accounting instead of
+converting missing runtimes into passes.
+
+Strict relocation then ran `version`, `capabilities`, `templates list`,
+`compose`, smoke `generate`, `validate`, and `report` from an unrelated working
+directory under an environment with an absent `CARGO_HOME`, absent
+`CARGO_MANIFEST_DIR`, isolated `HOME`/`TMPDIR`, and `PATH=/usr/bin:/bin`. Every
+command passed using only embedded resources and the installed archive.
+
+### Packaged SDK and security/resource gate
+
+`cargo package --locked --offline` passed at the candidate surface and produced
+794 files, 13.7 MiB uncompressed and 2.2 MiB compressed. The extracted crate
+passed the external `sdk` side project with only the supported facade: file and
+byte qualified composition, explicit asset root, validation, reporting,
+structural assembly, typed manifests/results/errors, pre-cancellation, and
+no-publication cleanup all passed.
+
+The following focused tests were run from the extracted package rather than the
+checkout:
+
+```sh
+cargo test --locked --offline --no-default-features \
+  --test product_resources --test product_resource_lookup_audit \
+  --test composition_provider --test composition_resources \
+  --test assembly_plan --test assembly_run --test executor_engine \
+  --test frame_codec_service --test planning_preview \
+  --test curated_locked_full_file_execution
+```
+
+That packaged-source bundle passed 48 applicable tests. It covered unsafe and
+unknown paths, parent traversal, symlinks at every path component, source and
+resource hash drift, instance/file/output/working-set limits, undeclared and
+malformed provider output, executable substitution, provider crash/hang/flood,
+pre- and in-flight cancellation, worker panic, cleanup error preservation,
+private staging cleanup, prompt blocking-service cancellation, and destination
+races. The locked full-file command target correctly contained zero tests with
+its feature disabled; its feature-enabled command and cancellation contracts
+were qualified separately and are not counted as a default-feature pass.
+
+### Existing behavior and codec/backend matrix
+
+The mandatory default command was run once at `d34af96`:
+
+```sh
+cargo test --locked --all-targets --no-default-features
+```
+
+It passed 472 library tests with two intentional ignored process fixtures and
+every integration target through `composition_public_api`, including the first
+722.30-second parity slice. It then found one stale full-manifest digest in
+`composition_quantitative`: newly tracked HTJ2K recipe resources changed the
+embedded resource identity while the two generated manifests remained
+byte-identical and all resolved plan, reference, value, and validation checks
+still passed. Commit `5887b81` changed only that frozen expected digest. The
+complete quantitative target then passed 3/3, and every untouched Cargo test
+target after it passed in one metadata-derived suffix run. This is the
+fail-fast resumption procedure required by `docs/release-process.md`; it tests
+the complete inventory without rerunning successful heavyweight prefixes after
+a localized test-only repair.
+
+The six heavyweight default slices passed in 722.30, 732.99, 747.37, 754.35,
+724.44, and 699.13 seconds. They cover frozen data-first bytes, stress
+projection, private streamed stress execution, all-profile generation, direct
+WSI parity, and WSI pyramid generation. The exact smoke/core/extended fresh-root
+workflows emitted 3/49/115 valid files respectively with zero strict-validation
+failures. Negative, fuzz, and opt-in reduced stress retained their isolated
+selection/evidence boundaries.
+
+Applicable in-process feature qualification compiled every target and passed
+focused shared-library, codec service, exact rejection, generation, validation,
+and report gates for `jpeg`, `charls`, `jpegxl`, `jpeg2000`, and `deflate`.
+Generated extended corpora contained 116 files for JPEG, JPEG-LS, JPEG XL, and
+JPEG 2000 and 117 for deflate, with zero validation failures and zero blocked
+report rows. Deflate additionally passed the exact encapsulated SEG fragment,
+decoded-frame, and tamper-rejection contract.
+
+Installed external encoders were fingerprint-qualified rather than inferred
+from feature flags:
+
+- OpenJPH `ojph_compress` SHA-256
+  `d21a8ea98ffce347928c34a2c51c61e424a068ca4eb746a6867a29d6c30b1627`
+  generated both HTJ2K lossless and lossy cases in a 118-file clean corpus;
+- JPEG XL `cjxl v0.11.2 0.11.2 [NEON_BF16,NEON]`, SHA-256
+  `5b7b6cdc09a1bdaef39e30d3660e29861a405fffc1bc1136f3bb91cfe6db658e`,
+  generated both lossless and lossy cases in a 117-file clean corpus; and
+- DCMTK `dcmcjpeg v3.7.0 2025-12-15`, SHA-256
+  `28707b3dd7dcbd0b2f710ae691602c07c460bf9917d9b944da7cfa052095b120`,
+  generated both locked legacy cases in a 118-file clean corpus.
+
+Every corpus validated with zero failures and reported zero blocked rows; each
+manifest recorded the exact executable identity. Fingerprint/path/version
+drift and invalid-output tests passed. `dciodvfy`, `dcmdump`, and `dcm2img` were
+not available during this qualification, so their independent-evidence rows
+remain explicit unavailable and are not represented as passes.
+
+### Terminal acceptance matrix
+
+| Gate | macOS arm64 result | Exact evidence |
+| --- | --- | --- |
+| Relocation | Pass | Extracted `d34af96` archive; absent checkout/cache; unrelated CWD; full resource-backed command chain passed. |
+| Qualified composition | Pass | Installed live-catalog consumer generated, validated, reported, and reproduced every qualified template/bundle with explicit unavailable accounting. |
+| Caller pixels and attributes | Pass | Installed caller-content consumer covered raw mono/RGB, standard/private/binary/multi/empty/recursive values and resolved provenance. |
+| Structural assembly | Pass | Installed structural consumer covered every advertised content kind, references, native/float/double/bulk values, validation, report, and permanent no-IOD claim. |
+| Automation | Pass | Installed Python consumer validated success/error/result schemas, streams, dry-run shape, error codes, and exits `0/2/3/4/5/6`. |
+| Rust SDK | Pass | External Cargo project depended on the extracted packaged crate and imported only `sdk`; file/byte/assets/cancellation/typed outcomes passed. |
+| Determinism | Pass | Installed qualified and structural consumers compared unrelated CWDs at parallelism 1/8; default reproducibility covered smoke/core/extended fresh roots. |
+| Existing behavior | Pass | Complete no-feature test inventory passed via documented fail-fast resumption; fresh profiles, applicable feature/external backend matrices, and explicit unavailable evidence passed. |
+| Packaging | Pass | Locked offline Cargo package, archive checksum/inventory/licenses/metadata verification, extraction, and target smoke passed. |
+| Security/resources | Pass | 48 packaged-source adversarial tests plus strict relocation covered the complete S6.6 threat list. |
+| Documentation | Pass | Installed README/guides/examples contract tests and extracted archive example/consumer execution passed; contributor-only `cargo run` guidance is isolated. |
+| Hygiene | Pass | Formatting, diff whitespace, JSON/schema tests, generated-artifact audit, and clean release worktree checks passed at qualification closure. |
+
+### S6 and S7 conclusions
+
+S6.1-S6.6 are complete for macOS arm64. S7.1-S7.4 deliverables are implemented:
+this dated record contains exact evidence, the README leads with installed
+usage, CI requires every standalone gate with deliberate fixtures, and every
+public compatibility domain has an owner and supported-version window.
+
+The S7 phase gate, the plan-complete marker, and a general standalone release
+remain blocked. The plan requires Linux x86_64 and macOS arm64 before a general
+claim. This host has Rust Linux targets installed but no Linux runtime,
+container/VM engine, QEMU runner, or authenticated/reachable GitHub CI. The
+local branch is 107 commits ahead of the last known `origin/main`, so no CI run
+or Linux artifact exists for this revision. Cross-compilation alone cannot
+satisfy extraction, relocation, and external-consumer execution. Linux x86_64
+therefore remains **not qualified**, not passed or waived.
+
 ## Baseline audit evidence
 
 The following read-only checks established the initial state on 2026-08-31:
@@ -267,14 +440,18 @@ test-only fixtures are not classified by this initial production audit.
 
 ## Remaining blockers
 
-S6, S7, and every terminal acceptance row remain open. S5 establishes package,
-archive, guide, installed-example, and maintainer release contracts, but not an
-exact release candidate, either general release target, or the terminal
-external-consumer matrix.
-Linux x86_64 and macOS arm64 cannot be claimed as standalone release targets
-until the exact target archives pass the required external-consumer matrix.
-Optional runtimes are accepted only when discovered and fingerprint-qualified;
-their absence will remain an unavailable result rather than a waived gate.
+The macOS arm64 release candidate has no remaining S6 or terminal-matrix
+blocker. Linux x86_64 has no runnable archive evidence for this revision and is
+the sole blocker to the minimum two-target general release, S7 phase closure,
+and marking the standalone productization plan complete. The required next
+action is to push the exact candidate lineage to authenticated CI (or use an
+equivalent Linux x86_64 host), retain the generated archive/checksum, and run
+the complete standalone-release consumer contract there. Cross-compilation is
+insufficient.
+
+Independent validators or optional runtimes not installed for a target remain
+explicit unavailable unless their exact pinned executable is discovered and
+fingerprint-qualified. Their absence is not a waived gate or implied pass.
 
 ## Update rule
 

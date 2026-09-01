@@ -137,8 +137,21 @@ def _load_source(request: dict[str, Any]) -> tuple[dict[str, Any], Dataset]:
     measures = dataset.SharedFunctionalGroupsSequence[0].PixelMeasuresSequence[0]
     _require_equal([float(value) for value in measures.PixelSpacing], [0.5, 0.5], "source pixel spacing")
 
-    pixels = np.asarray(dataset.pixel_array, dtype=np.uint8)
-    selected_hashes = tuple(_sha256(pixels[index - 1].tobytes()) for index in SOURCE_FRAME_NUMBERS)
+    # The locked source is uncompressed interleaved 8-bit RGB. Validate the
+    # selected frames directly from Pixel Data instead of invoking pydicom's
+    # general decoder, which is unnecessary for this exact contract and adds
+    # material cold-start latency to the bounded external provider.
+    frame_bytes = int(dataset.Rows) * int(dataset.Columns) * int(dataset.SamplesPerPixel)
+    pixel_data = bytes(dataset.PixelData)
+    _require_equal(
+        len(pixel_data),
+        frame_bytes * int(dataset.NumberOfFrames),
+        "source Pixel Data length",
+    )
+    selected_hashes = tuple(
+        _sha256(pixel_data[(index - 1) * frame_bytes : index * frame_bytes])
+        for index in SOURCE_FRAME_NUMBERS
+    )
     _require_equal(selected_hashes, _SOURCE_FRAME_SHA256, "selected source frame hashes")
     return source, dataset
 

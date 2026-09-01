@@ -2,11 +2,16 @@
 
 **Recorded:** 2026-08-31
 
+**Updated:** 2026-09-01
+
 **Contract:** `docs/standalone-productization-plan.md`
 
-**Release readiness:** macOS arm64 release candidate qualified; general release
-blocked because the Linux x86_64 external-consumer contract fails its strict
-WSI provider timing ceiling under the available emulated runtime
+**Release readiness:** macOS arm64 is qualified at exact recovery revision
+`6c7b7ca`; Linux x86_64 passed its complete native product and
+external-consumer contract at `b543497`, but artifact delivery failed after all
+product gates because CI attempted a non-container upload of two files. The
+delivery fix is committed and the exact `6c7b7ca` native recovery run is in
+progress. General release and S7 closure remain pending that artifact upload.
 
 ## Current gate state
 
@@ -18,14 +23,59 @@ WSI provider timing ceiling under the available emulated runtime
 | S3 — Rust SDK | Complete | The supported `dicom_test_suite::sdk` facade provides integrity-checked resources, typed discovery/compose/validate/report outcomes, schema-bound manifests, explicit asset roots, cancellation, stable errors, compiled docs, and a packaged-crate side-project gate. |
 | S4 — structural assembly | Complete | The packaged CLI and SDK accept versioned bounded structural requests, use the neutral plan/executor/writer spine, validate exact values and bulk, publish no-IOD-claim manifests/reports, and pass positive, adversarial, transaction, determinism, and external-consumer gates. |
 | S5 — packaging and guides | Complete | The latest extracted crate and current-target archive pass package, relocation, example, changelog/migration, and independent checksum/inventory verification. A clean-clone maintainer procedure records exact release facts and preserves target/capability boundaries. |
-| S6 — release qualification | Complete for macOS arm64 | The immutable `39009f3` archive passed all five installed consumers, strict no-checkout/no-cache relocation, packaged SDK consumption, packaged security/resource tests, applicable codec/backend matrices, and the complete modular default regression inventory. The matching Linux x86_64 archive verifies, but its installed qualified-catalog consumer correctly rejects an over-ceiling WSI provider invocation. |
-| S7 — promotion | Partially complete | S7.1-S7.4 deliverables are implemented: this record is current, installed usage leads the README, mandatory CI gates have deliberate regression fixtures, and compatibility ownership is complete. The S7 phase gate and plan completion remain blocked because Linux x86_64 has not passed the complete external-consumer contract. |
+| S6 — release qualification | Complete for macOS arm64; Linux delivery pending | Exact macOS `6c7b7ca` package/archive/installed-consumer/security/relocation evidence passes. Native Linux run `33476386352` passed the complete default and installed-product contract at `b543497`; its only failure was the final multi-file artifact upload. Exact recovery run `33485529531` at `6c7b7ca` has all eight fast jobs green and is repeating the default gate before archive delivery. |
+| S7 — promotion | Partially complete | S7.1-S7.4 deliverables are implemented, and the multi-file delivery regression now has an explicit CI guard. The S7 phase gate and plan completion remain pending successful Linux artifact upload and exact identity recording. |
 
-Every terminal acceptance row passed for the exact macOS arm64 candidate.
-Those results qualify only that target. Existing curated and qualified-
-composition evidence remains within its recorded scope, unavailable optional
-capabilities remain explicit, and no macOS result is being reinterpreted as
-Linux x86_64 or general-release evidence.
+Every terminal acceptance row passes for the exact macOS arm64 `6c7b7ca`
+candidate. Every Linux product row passed at `b543497`; artifact delivery did
+not, so Linux remains pending rather than passed. Existing curated and
+qualified-composition evidence remains within its recorded scope, unavailable
+optional capabilities remain explicit, and no macOS result is being
+reinterpreted as Linux x86_64 or general-release evidence.
+
+## 2026-09-01 native recovery evidence
+
+Native Linux run `33476386352` closed the prior emulation-only blocker without
+weakening either timing ceiling. Its default job `99757064600` passed the exact
+no-feature all-target command, standards lock, fresh smoke/core/extended
+generation and validation, and smoke reproducibility. Direct WSI parity passed
+in 649.83 seconds and WSI pyramid generation in 630.51 seconds. The profile
+workflows emitted 3, 49, and 115 files with zero validation failures.
+
+Standalone job `99780706907` then passed mandatory contract gates, the locked
+Cargo package and external SDK consumer, release archive build and independent
+verification, all five installed consumers, and the adversarial checksum
+harness. The final upload failed only because `actions/upload-artifact@v7`
+received two files with `archive: false`; it explicitly reported both files
+were present before rejecting that configuration. No product failure or
+unavailable capability was converted into a pass.
+
+Commit `aa2ced7` removes that incompatible option and adds a regression guard
+requiring container upload for the archive/checksum pair. Its equivalent remote
+revision is `6c7b7ca9c3fb29de0a9d77adb15a71fd2b1437fb`. Exact macOS arm64
+qualification at that revision passed the focused CI guard, locked offline
+package (793 files, 13.7 MiB uncompressed and 2.2 MiB compressed), packaged SDK
+consumer, archive verification, five installed consumers, strict isolated
+relocation, adversarial archive harness, and 49 packaged-source
+security/resource tests. The archive is:
+
+```text
+file: dicom-test-suite-0.1.0-aarch64-apple-darwin.tar.gz
+source revision: 6c7b7ca9c3fb29de0a9d77adb15a71fd2b1437fb
+target: aarch64-apple-darwin
+enabled features: []
+resource count: 240
+resource-set SHA-256: d68cd0a55a31694a1613effde59bb2f0c0b1219f817ed260701cb8e9b327b6e8
+archive SHA-256: 4e5303496d431cdc8d296047a5dab3bf45821aa8a084702248dde9e238463f46
+crate SHA-256: 61dcb442597661e9059b1f1302f0e7e8f418f43fffe3ac4b3ace21cb59deb783
+```
+
+Recovery run `33485529531` is the exact native Linux `6c7b7ca` run. Its native
+provider preflight, five in-process codec jobs, and two external-codec compile
+jobs pass; the one-time complete default gate is currently running. Linux
+archive identity, S6 closure, the terminal two-target matrix, and release
+readiness remain open until its dependent standalone job uploads and the
+downloaded bytes are independently verified.
 
 ## S5.1 Cargo package gate
 

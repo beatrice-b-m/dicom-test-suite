@@ -1,12 +1,31 @@
 # Current Progress
 
-**Last updated:** 2026-08-31
+**Last updated:** 2026-09-01
 **Active goal:** standalone productization release qualification
-**Current phase:** S0-S6 are complete for macOS arm64 and S7 deliverables are
-implemented; general release and plan closure remain blocked on executable
-Linux x86_64 external-consumer acceptance
+**Current phase:** S0-S6 are complete for macOS arm64 at exact revision
+`6c7b7ca`. Native Linux passed the complete product and installed-consumer
+contract at `b543497`; its final upload configuration failed after all product
+gates. Exact `6c7b7ca` recovery run `33485529531` is repeating the native gate
+before artifact delivery. S7 and plan closure remain pending that upload.
 **Repo state source:** reconstructed from `cases/registry.json`, phase status
 notes, git history, and current verification runs.
+
+## 2026-09-01 exact native recovery
+
+- Native Linux run `33476386352` passed the full no-feature suite, standards
+  lock, fresh profiles, reproducibility, package/SDK, archive verification, all
+  five installed consumers, and the adversarial archive harness. WSI direct
+  parity passed in 649.83 seconds and WSI pyramid generation in 630.51 seconds.
+- Delivery alone failed because `upload-artifact@v7` was configured with
+  `archive: false` for the `.tar.gz` plus `.sha256` pair. Commit `aa2ced7`
+  removes that invalid combination and adds a regression guard.
+- The exact `6c7b7ca` macOS arm64 replacement archive passed package/SDK, all
+  installed consumers, strict relocation, archive verification, and packaged
+  security/resource gates. Its SHA-256 is
+  `4e5303496d431cdc8d296047a5dab3bf45821aa8a084702248dde9e238463f46`.
+- Recovery run `33485529531` has all eight fast jobs green and is running the
+  one-time native default gate. Linux artifact identity and S7 remain open
+  until upload and independent download verification succeed.
 
 ## Phase Status
 

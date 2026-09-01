@@ -76,6 +76,11 @@ fn ci_makes_every_standalone_release_gate_mandatory_and_regression_backed() {
             "mandatory CI gate omitted: {required}"
         );
     }
+    assert!(release.contains("path: ${{ runner.temp }}/dist/*"));
+    assert!(
+        !release.contains("archive: false"),
+        "multiple release files must use upload-artifact's archive container"
+    );
 
     let regression_sources = [
         (

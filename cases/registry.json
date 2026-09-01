@@ -7383,7 +7383,7 @@
         "extended"
       ],
       "recipe_id": "sc_rgb_planar0_jpeg_baseline_8bit",
-      "recipe_version": "0.1.0",
+      "recipe_version": "0.2.0",
       "iod_name": "Secondary Capture Image",
       "sop_class_name": "Secondary Capture Image Storage",
       "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",

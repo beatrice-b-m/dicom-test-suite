@@ -53,6 +53,8 @@ pub struct EncodingPolicy {
     pub offset_table_policy: String,
     pub fragmentation_policy: String,
     #[serde(default)]
+    pub fragments_per_frame: Option<u32>,
+    #[serde(default)]
     pub preamble_policy: Option<String>,
     #[serde(default)]
     pub file_meta_policy: Option<String>,

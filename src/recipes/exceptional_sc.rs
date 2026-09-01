@@ -158,11 +158,13 @@ pub fn plan_exceptional_sc(
             })
         }
         BackendBoundary::EncodedFrames => {
-            if input.artifact.encoding.fragmentation_policy != "one_per_frame"
-                || input.artifact.encoding.offset_table_policy != "populated_basic"
+            if !matches!(
+                input.artifact.encoding.fragmentation_policy.as_str(),
+                "one_per_frame" | "fixed_per_frame"
+            ) || input.artifact.encoding.offset_table_policy != "populated_basic"
             {
                 return Err(ExceptionalScPlanError::Policy(
-                    "encoded-frame SC requires one fragment per frame and a populated basic offset table"
+                    "encoded-frame SC requires explicit per-frame fragmentation and a populated basic offset table"
                         .into(),
                 ));
             }

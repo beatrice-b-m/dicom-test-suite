@@ -20,6 +20,7 @@ fn policy() -> EncodingPolicy {
         item_length_policy: "default".into(),
         offset_table_policy: "none".into(),
         fragmentation_policy: "native".into(),
+        fragments_per_frame: None,
         preamble_policy: Some("zero_filled".into()),
         file_meta_policy: Some("standard".into()),
         non_template_encoding_provider_id: None,
@@ -58,6 +59,21 @@ fn adapter_maps_each_concrete_recipe_policy_to_distinct_typed_fields() {
             expected
         );
     }
+
+    let mut input = policy();
+    input.transfer_syntax_uid = "1.2.840.10008.1.2.4.50".into();
+    input.offset_table_policy = "populated_basic".into();
+    input.fragmentation_policy = "fixed_per_frame".into();
+    input.fragments_per_frame = Some(2);
+    input.non_template_encoding_provider_id = Some("encoding.dicom_rs.jpeg_baseline".into());
+    assert_eq!(
+        encoding_plan_from_recipe(&input, implementation())
+            .unwrap()
+            .fragmentation,
+        FragmentationPolicy::FixedFragmentsPerFrame {
+            fragments_per_frame: 2
+        }
+    );
 }
 
 #[test]

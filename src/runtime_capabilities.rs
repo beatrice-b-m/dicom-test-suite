@@ -50,25 +50,57 @@ pub fn qualified_executable_version_id(identity: &QualifiedExecutableIdentity) -
 }
 
 impl CapabilityInventory {
-    /// Compile-time feature inventory only. Runtime capabilities remain empty
-    /// until the caller injects its already-qualified inventory.
+    /// Compile-time features and their linked in-process codec backends.
+    /// External commands, validators, and providers remain empty until the
+    /// caller injects an already-qualified runtime inventory.
     pub fn compiled() -> Self {
         let mut compiled_features = BTreeSet::new();
-        for (name, enabled) in [
-            ("charls", cfg!(feature = "charls")),
-            ("deflate", cfg!(feature = "deflate")),
-            ("jpeg", cfg!(feature = "jpeg")),
-            ("jpegxl", cfg!(feature = "jpegxl")),
-            ("jpeg2000", cfg!(feature = "jpeg2000")),
-            ("htj2k_openjph", cfg!(feature = "htj2k_openjph")),
-            ("legacy_jpeg_dcmtk", cfg!(feature = "legacy_jpeg_dcmtk")),
+        let mut executable_codec_backends = BTreeSet::new();
+        for (name, enabled, linked_backends) in [
+            (
+                "charls",
+                cfg!(feature = "charls"),
+                &["dicom_rs_charls_jpeg_ls_lossless_writer"][..],
+            ),
+            (
+                "deflate",
+                cfg!(feature = "deflate"),
+                &[
+                    "dicom_rs_deflated_dataset_writer",
+                    "dicom_rs_deflated_image_frame_writer",
+                ][..],
+            ),
+            (
+                "jpeg",
+                cfg!(feature = "jpeg"),
+                &["dicom_rs_jpeg_baseline_writer"][..],
+            ),
+            (
+                "jpegxl",
+                cfg!(feature = "jpegxl"),
+                &["dicom_rs_jpegxl_lossless_writer"][..],
+            ),
+            (
+                "jpeg2000",
+                cfg!(feature = "jpeg2000"),
+                &["project_openjp2_jpeg2000_lossless_writer"][..],
+            ),
+            ("htj2k_openjph", cfg!(feature = "htj2k_openjph"), &[][..]),
+            (
+                "legacy_jpeg_dcmtk",
+                cfg!(feature = "legacy_jpeg_dcmtk"),
+                &[][..],
+            ),
         ] {
             if enabled {
                 compiled_features.insert(name.into());
+                executable_codec_backends
+                    .extend(linked_backends.iter().map(|backend| (*backend).to_string()));
             }
         }
         Self {
             compiled_features,
+            executable_codec_backends,
             ..Self::default()
         }
     }

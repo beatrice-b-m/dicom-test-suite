@@ -58,9 +58,17 @@ pub fn encoding_plan_from_recipe(
     let fragmentation = match policy.fragmentation_policy.as_str() {
         "native" => FragmentationPolicy::Native,
         "one_per_frame" => FragmentationPolicy::OneFragmentPerFrame,
+        "fixed_per_frame" => FragmentationPolicy::FixedFragmentsPerFrame {
+            fragments_per_frame: policy
+                .fragments_per_frame
+                .ok_or(RecipeEncodingError::MissingFragmentsPerFrame)?,
+        },
         "bounded_fragments" => return Err(RecipeEncodingError::MissingFragmentMaximum),
         value => return Err(unknown("fragmentation_policy", value)),
     };
+    if policy.fragmentation_policy != "fixed_per_frame" && policy.fragments_per_frame.is_some() {
+        return Err(RecipeEncodingError::UnexpectedFragmentsPerFrame);
+    }
     let preamble = match required("preamble_policy", policy.preamble_policy.as_deref())? {
         "zero_filled" => PreamblePolicy::ZeroFilled,
         "deterministic_nonzero" => PreamblePolicy::DeterministicNonZero,
@@ -145,6 +153,8 @@ pub enum RecipeEncodingError {
         value: String,
     },
     MissingFragmentMaximum,
+    MissingFragmentsPerFrame,
+    UnexpectedFragmentsPerFrame,
     BackendMismatch {
         transfer_syntax_uid: String,
         expected: String,
@@ -167,6 +177,11 @@ impl fmt::Display for RecipeEncodingError {
             Self::MissingFragmentMaximum => formatter.write_str(
                 "bounded_fragments requires a numeric maximum before CorpusPlan construction",
             ),
+            Self::MissingFragmentsPerFrame => {
+                formatter.write_str("fixed_per_frame requires a positive fragments_per_frame value")
+            }
+            Self::UnexpectedFragmentsPerFrame => formatter
+                .write_str("fragments_per_frame is valid only with fixed_per_frame fragmentation"),
             Self::BackendMismatch {
                 transfer_syntax_uid,
                 expected,

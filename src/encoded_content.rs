@@ -6,8 +6,8 @@
 //! exactly one transform.
 
 use crate::composition::{
-    AttributeAddress, AttributeValue, ContentMaterialization, DicomVr, ResolvedAttribute,
-    ResolvedInstancePlan, ValueOrigin,
+    AttributeAddress, AttributeValue, ContentMaterialization, DicomVr, PrimitiveValue,
+    ResolvedAttribute, ResolvedInstancePlan, ValueOrigin,
 };
 use crate::corpus_plan::{EncodingPlan, FragmentationPolicy, OffsetTablePolicy};
 use crate::encapsulation::{
@@ -59,13 +59,35 @@ pub fn resolve_encoded_content(
     let mut instance = instance.clone();
     let mut slots = Vec::with_capacity(inputs.len());
     let mut extended_values = None;
+    let mut lossy_values = None;
     for input in inputs {
         let content = instance
             .content
             .iter_mut()
             .find(|content| content.slot == input.slot)
             .ok_or_else(|| format!("encoded slot {} is absent", input.slot))?;
+        let native_size_bytes = content.size_bytes;
         let encapsulated = resolve_frames(encoding, &input.ordered_frames)?;
+        if let Some(method) = lossy_compression_method(&encoding.transfer_syntax_uid) {
+            if lossy_values.is_some() {
+                return Err("multiple lossy encoded slots are unsupported".into());
+            }
+            let compressed_size_bytes = input
+                .ordered_frames
+                .iter()
+                .try_fold(0_u64, |total, frame| total.checked_add(frame.len() as u64))
+                .ok_or("lossy compressed byte count overflow")?;
+            if native_size_bytes == 0 || compressed_size_bytes == 0 {
+                return Err("lossy compression ratio requires non-empty frames".into());
+            }
+            lossy_values = Some((
+                format!(
+                    "{:.6}",
+                    native_size_bytes as f64 / compressed_size_bytes as f64
+                ),
+                method,
+            ));
+        }
         if let Some(table) = &encapsulated.extended_offset_table {
             if extended_values.is_some() {
                 return Err("multiple extended-offset-table slots are unsupported".into());
@@ -142,7 +164,21 @@ pub fn resolve_encoded_content(
         upsert_binary_attribute(&mut instance, "7FE0,0001", DicomVr::OV, offsets)?;
         upsert_binary_attribute(&mut instance, "7FE0,0002", DicomVr::OV, lengths)?;
     }
+    if let Some((ratio, method)) = lossy_values {
+        upsert_string_attribute(&mut instance, "0028,2110", DicomVr::CS, "01")?;
+        upsert_string_attribute(&mut instance, "0028,2112", DicomVr::DS, &ratio)?;
+        upsert_string_attribute(&mut instance, "0028,2114", DicomVr::CS, method)?;
+    }
     Ok(ResolvedEncodedContent { instance, slots })
+}
+
+fn lossy_compression_method(transfer_syntax_uid: &str) -> Option<&'static str> {
+    match transfer_syntax_uid {
+        "1.2.840.10008.1.2.4.50" => Some("ISO_10918_1"),
+        "1.2.840.10008.1.2.4.112" => Some("ISO_18181_1"),
+        "1.2.840.10008.1.2.4.203" => Some("ISO_15444_15"),
+        _ => None,
+    }
 }
 
 fn resolve_frames(
@@ -271,6 +307,36 @@ fn upsert_binary_attribute(
         vr,
         value: Some(AttributeValue::Binary(bytes)),
         origin: ValueOrigin::InstanceOverride,
+    };
+    if let Some(existing) = instance
+        .attributes
+        .iter_mut()
+        .find(|existing| existing.address == address)
+    {
+        *existing = attribute;
+    } else {
+        instance.attributes.push(attribute);
+        instance
+            .attributes
+            .sort_by(|left, right| left.address.cmp(&right.address));
+    }
+    Ok(())
+}
+
+fn upsert_string_attribute(
+    instance: &mut ResolvedInstancePlan,
+    tag: &str,
+    vr: DicomVr,
+    value: &str,
+) -> Result<(), String> {
+    let address = AttributeAddress::from_normalized_tag(tag).map_err(|error| error.to_string())?;
+    let attribute = ResolvedAttribute {
+        address: address.clone(),
+        vr,
+        value: Some(AttributeValue::Primitive(PrimitiveValue::String(
+            value.to_string(),
+        ))),
+        origin: ValueOrigin::DerivedStructural,
     };
     if let Some(existing) = instance
         .attributes

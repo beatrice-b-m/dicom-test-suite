@@ -180,3 +180,15 @@ fn cfg_enabled_default_inventory_still_does_not_discover_cjxl() {
             && item.reason_code == "codec_executable_unavailable"
     }));
 }
+
+#[cfg(feature = "jpeg")]
+#[test]
+fn cfg_enabled_default_inventory_executes_the_linked_jpeg_backend() {
+    let bundle = CuratedScCorpusPlanProvider::load(CuratedCatalogPaths::from_repository_root("."))
+        .unwrap()
+        .plan(&request("classic/sc/rgb_planar0_jpeg_baseline_8bit"))
+        .unwrap();
+    assert!(bundle.pending.is_empty());
+    assert_eq!(bundle.plan.artifacts.len(), 1);
+    assert!(bundle.plan.unavailable.is_empty());
+}

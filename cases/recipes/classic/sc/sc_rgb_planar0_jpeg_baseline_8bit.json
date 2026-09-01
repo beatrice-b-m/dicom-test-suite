@@ -1,7 +1,7 @@
 {
   "case_recipe_schema_version": "0.1.0",
   "recipe_id": "sc_rgb_planar0_jpeg_baseline_8bit",
-  "recipe_version": "0.1.0",
+  "recipe_version": "0.2.0",
   "binding": {
     "case_id": "classic/sc/rgb_planar0_jpeg_baseline_8bit"
   },
@@ -34,7 +34,8 @@
           "sequence_length_policy": "default",
           "item_length_policy": "default",
           "offset_table_policy": "populated_basic",
-          "fragmentation_policy": "one_per_frame",
+          "fragmentation_policy": "fixed_per_frame",
+          "fragments_per_frame": 2,
           "preamble_policy": "zero_filled",
           "file_meta_policy": "standard",
           "non_template_encoding_provider_id": "encoding.dicom_rs.jpeg_baseline"

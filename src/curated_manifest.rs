@@ -12,7 +12,9 @@ use std::fmt;
 use serde_json::{Value, json};
 
 use crate::composition::CompositionUidRole;
-use crate::corpus_plan::{OffsetTablePolicy, PlannedArtifact, PlannedDicomArtifact};
+use crate::corpus_plan::{
+    FragmentationPolicy, OffsetTablePolicy, PlannedArtifact, PlannedDicomArtifact,
+};
 use crate::curated_execution::{
     AdvancedCompatibilityProvider, advanced_artifact_parameters, advanced_provider_parameters,
     wsi_artifact_parameters,
@@ -1113,7 +1115,12 @@ fn project_one(
     } else {
         pixels.decoded_frame_sha256.as_slice()
     };
-    if observed_frames.len() != frame_count || observed_frames != sc.frame_sha256 {
+    let lossy_codec = execution
+        .codecs
+        .first()
+        .is_some_and(|codec| !codec.metrics.is_empty());
+    if observed_frames.len() != frame_count || (!lossy_codec && observed_frames != sc.frame_sha256)
+    {
         return fail(format!(
             "decoded frame evidence differs from recipe for {}: {:?} != {:?}",
             ctx.artifact_id, observed_frames, sc.frame_sha256
@@ -1188,6 +1195,32 @@ fn project_one(
         "standards_evidence":standards(ctx, sc, &planned.encoding.transfer_syntax_uid),
         "references":[]
     });
+    if execution
+        .codecs
+        .first()
+        .is_some_and(|codec| !codec.metrics.is_empty())
+    {
+        let compressed_bytes = pixels
+            .compressed_lengths
+            .iter()
+            .try_fold(0_u64, |total, length| total.checked_add(*length))
+            .ok_or_else(|| err("compressed byte count overflow"))?;
+        if compressed_bytes == 0 {
+            return fail("lossy codec produced no compressed bytes");
+        }
+        let method = match planned.encoding.transfer_syntax_uid.as_str() {
+            "1.2.840.10008.1.2.4.50" => "ISO_10918_1",
+            "1.2.840.10008.1.2.4.112" => "ISO_18181_1",
+            "1.2.840.10008.1.2.4.203" => "ISO_15444_15",
+            value => return fail(format!("unsupported lossy transfer syntax {value}")),
+        };
+        manifest["expected_semantics"]["lossy_image_compression"] = json!("01");
+        manifest["expected_semantics"]["lossy_image_compression_ratio"] = json!(format!(
+            "{:.6}",
+            pixels.size_bytes as f64 / compressed_bytes as f64
+        ));
+        manifest["expected_semantics"]["lossy_image_compression_method"] = json!(method);
+    }
     add_special(&mut manifest, ctx, planned, pixels, observation.as_ref())?;
     Ok(manifest)
 }
@@ -2994,8 +3027,8 @@ pub(super) fn pixel_data(
     sc: &crate::recipes::SecondaryCaptureParameters,
 ) -> Result<Value, CuratedManifestError> {
     let vr = sc.pixel_data_vr.as_str();
-    if planned.encoding.transfer_syntax_uid != RLE {
-        if !execution.codecs.is_empty() || pixels.fragment_count != 0 {
+    if execution.codecs.is_empty() {
+        if pixels.fragment_count != 0 {
             return fail("native artifact has codec/fragment evidence");
         }
         let expected_value_length = pixels
@@ -3019,7 +3052,7 @@ pub(super) fn pixel_data(
     }
     let codec = only(&execution.codecs, "codec evidence")?;
     if codec.status != ResultStatus::Passed
-        || codec.transfer_syntax_uid != RLE
+        || codec.transfer_syntax_uid != planned.encoding.transfer_syntax_uid
         || codec.slot != "pixels"
         || codec.encoded_frame_sha256 != pixels.compressed_frame_sha256
         || (!pixels.decoded_frame_sha256.is_empty()
@@ -3037,9 +3070,28 @@ pub(super) fn pixel_data(
         || pixels.fragment_count != pixels.padded_fragment_lengths.len() as u64
         || pixels.fragments_per_frame.iter().sum::<u64>() != pixels.fragment_count
         || pixels.fragments_per_frame.len() != codec.decoded_frame_sha256.len()
-        || pixels.fragments_per_frame.iter().any(|count| *count != 1)
     {
         return fail("fragment evidence cardinality differs from curated encoding policy");
+    }
+    let fragmentation_matches = match planned.encoding.fragmentation {
+        FragmentationPolicy::Native => false,
+        FragmentationPolicy::OneFragmentPerFrame => {
+            pixels.fragments_per_frame.iter().all(|count| *count == 1)
+        }
+        FragmentationPolicy::FixedFragmentsPerFrame {
+            fragments_per_frame,
+        } => pixels
+            .fragments_per_frame
+            .iter()
+            .all(|count| *count == u64::from(fragments_per_frame)),
+        FragmentationPolicy::FixedMaximumBytes { maximum_bytes } => pixels
+            .fragments
+            .iter()
+            .all(|fragment| fragment.compressed_length <= maximum_bytes),
+        FragmentationPolicy::PreserveEncodedFrames => true,
+    };
+    if !fragmentation_matches {
+        return fail("fragment evidence differs from curated encoding policy");
     }
     if expect_bot != !pixels.basic_offset_table.is_empty()
         || expect_eot != !pixels.extended_offset_table.is_empty()
@@ -3408,7 +3460,30 @@ fn capabilities(
             render,
         ]
     } else {
-        vec!["open_file", "read_metadata", "render_native_pixels"]
+        let decoder = match ts {
+            "1.2.840.10008.1.2.4.50" => Some(("decode_jpeg_baseline_pixels", "render_color")),
+            "1.2.840.10008.1.2.4.80" => {
+                Some(("decode_jpeg_ls_lossless_pixels", "render_grayscale"))
+            }
+            "1.2.840.10008.1.2.4.90" => {
+                Some(("decode_jpeg_2000_lossless_pixels", "render_grayscale"))
+            }
+            "1.2.840.10008.1.2.4.110" => Some(("decode_jpeg_xl_lossless_pixels", "render_color")),
+            "1.2.840.10008.1.2.4.112" => Some(("decode_jpeg_xl_lossy_pixels", "render_color")),
+            "1.2.840.10008.1.2.4.201" => Some(("decode_htj2k_lossless_pixels", "render_grayscale")),
+            "1.2.840.10008.1.2.4.203" => Some(("decode_htj2k_lossy_pixels", "render_grayscale")),
+            "1.2.840.10008.1.2.4.57" => {
+                Some(("decode_jpeg_lossless_process_14_pixels", "render_grayscale"))
+            }
+            "1.2.840.10008.1.2.4.70" => {
+                Some(("decode_jpeg_lossless_sv1_pixels", "render_grayscale"))
+            }
+            _ => None,
+        };
+        decoder.map_or_else(
+            || vec!["open_file", "read_metadata", "render_native_pixels"],
+            |(decode, render)| vec!["open_file", "read_metadata", decode, render],
+        )
     }
 }
 
@@ -3613,6 +3688,17 @@ pub(super) fn transfer_syntax_name(uid: &str) -> Result<&'static str, CuratedMan
         "1.2.840.10008.1.2.1" => Ok("Explicit VR Little Endian"),
         "1.2.840.10008.1.2.2" => Ok("Explicit VR Big Endian"),
         RLE => Ok("RLE Lossless"),
+        "1.2.840.10008.1.2.1.99" => Ok("Deflated Explicit VR Little Endian"),
+        "1.2.840.10008.1.2.4.50" => Ok("JPEG Baseline (Process 1)"),
+        "1.2.840.10008.1.2.4.80" => Ok("JPEG-LS Lossless"),
+        "1.2.840.10008.1.2.4.90" => Ok("JPEG 2000 Lossless"),
+        "1.2.840.10008.1.2.4.110" => Ok("JPEG XL Lossless"),
+        "1.2.840.10008.1.2.4.112" => Ok("JPEG XL"),
+        "1.2.840.10008.1.2.4.201" => Ok("HTJ2K Lossless"),
+        "1.2.840.10008.1.2.4.203" => Ok("HTJ2K"),
+        "1.2.840.10008.1.2.4.57" => Ok("JPEG Lossless Process 14"),
+        "1.2.840.10008.1.2.4.70" => Ok("JPEG Lossless SV1"),
+        "1.2.840.10008.1.2.8.1" => Ok("Deflated Image Frame Compression"),
         _ => fail(format!("unsupported curated transfer syntax {uid}")),
     }
 }

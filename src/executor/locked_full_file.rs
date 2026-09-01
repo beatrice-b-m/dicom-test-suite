@@ -4,6 +4,8 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use dicom_core::value::Value as DicomValue;
+use dicom_dictionary_std::tags;
 use dicom_encoding::{Codec, adapters::PixelDataReader};
 use dicom_object::open_file;
 use dicom_transfer_syntax_registry::entries::{
@@ -13,6 +15,7 @@ use serde_json::json;
 
 use crate::codecs::{DcmtkDcmcjpegLosslessProcess, DcmtkDcmcjpegLosslessSv1Encoder};
 use crate::composition::ContentMaterialization;
+use crate::encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData};
 use crate::executor::cancellation::CancellationToken;
 use crate::executor::engine::ServiceInvocationError;
 use crate::executor::services::{
@@ -102,7 +105,7 @@ impl DcmtkLockedFullFileService {
             encoded.backend_identity.version.as_deref(),
             &encoded.backend_identity.executable_sha256,
         )?;
-        validate_output(&output_path, process, locked)?;
+        let encapsulated = validate_output(&output_path, process, locked)?;
         let sha256 = sha256_hex(&encoded.output_bytes);
         let size_bytes = encoded.output_bytes.len() as u64;
         let identity = ToolIdentity {
@@ -141,6 +144,54 @@ impl DcmtkLockedFullFileService {
                     (
                         "decoded_native_sha256".into(),
                         json!(expected_native_sha256(locked)?),
+                    ),
+                    (
+                        "locked_codec".into(),
+                        json!({
+                            "backend_id": process.backend_id(),
+                            "backend_kind": "external_command",
+                            "display_name": process.display_name(),
+                            "version": request.required_version,
+                            "transfer_syntax_uid": process.transfer_syntax_uid(),
+                            "feature_gate": "legacy_jpeg_dcmtk",
+                            "determinism": "semantic_stable",
+                            "runtime_identity": {
+                                "command": encoded.backend_identity.command,
+                                "executable_path": encoded.backend_identity.executable_path,
+                                "executable_sha256": encoded.backend_identity.executable_sha256,
+                                "version": encoded.backend_identity.version,
+                                "version_source": encoded.backend_identity.version_source,
+                                "encoder_options": {
+                                    "mode": process.mode_label(),
+                                    "true_lossless": true,
+                                    "fragment_per_frame": true,
+                                    "offset_table": "create",
+                                    "uid_policy": "never"
+                                }
+                            },
+                            "encapsulated_pixel_data": {
+                                "basic_offset_table": {
+                                    "present": true,
+                                    "populated": encapsulated.basic_offset_table.is_populated(),
+                                    "offset_count": encapsulated.basic_offset_table.offsets.len(),
+                                    "offsets": encapsulated.basic_offset_table.offsets
+                                },
+                                "fragments_per_frame": encapsulated.fragments_per_frame,
+                                "fragments": encapsulated.fragments.iter().map(|fragment| json!({
+                                    "frame_index": fragment.frame_index,
+                                    "item_start_offset": fragment.item_start_offset,
+                                    "compressed_length": fragment.compressed_length,
+                                    "padded_length": fragment.padded_length
+                                })).collect::<Vec<_>>(),
+                                "extended_offset_table": {
+                                    "present": false,
+                                    "lengths_present": false,
+                                    "offset_count": 0,
+                                    "length_count": 0
+                                },
+                                "compressed_frame_hashes": encapsulated.compressed_frame_hashes
+                            }
+                        }),
                     ),
                 ]),
             }],
@@ -187,11 +238,26 @@ fn validate_output(
     path: &Path,
     process: DcmtkDcmcjpegLosslessProcess,
     locked: &LockedFullFileCodecRequest,
-) -> Result<(), ServiceInvocationError> {
+) -> Result<EncapsulatedPixelData, ServiceInvocationError> {
     let object = open_file(path).map_err(|source| error(source.to_string()))?;
     if object.meta().transfer_syntax() != locked.target_transfer_syntax_uid {
         return Err(error("dcmcjpeg output transfer syntax differs from plan"));
     }
+    let pixel_data = object
+        .element(tags::PIXEL_DATA)
+        .map_err(|source| error(source.to_string()))?;
+    let DicomValue::PixelSequence(sequence) = pixel_data.value() else {
+        return Err(error(
+            "dcmcjpeg output does not use encapsulated Pixel Data",
+        ));
+    };
+    let policy = if sequence.offset_table().is_empty() {
+        BasicOffsetTablePolicy::Empty
+    } else {
+        BasicOffsetTablePolicy::Populated
+    };
+    let encapsulated = EncapsulatedPixelData::one_fragment_per_frame(sequence.fragments(), policy)
+        .map_err(|source| error(source.to_string()))?;
     let codec = match process {
         DcmtkDcmcjpegLosslessProcess::Process14 => JPEG_LOSSLESS_NON_HIERARCHICAL.codec(),
         DcmtkDcmcjpegLosslessProcess::Sv1 => {
@@ -210,7 +276,7 @@ fn validate_output(
             "decoded legacy JPEG frame differs from neutral source",
         ));
     }
-    Ok(())
+    Ok(encapsulated)
 }
 
 fn error(message: impl Into<String>) -> ServiceInvocationError {

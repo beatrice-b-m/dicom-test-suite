@@ -22,12 +22,20 @@ pub(super) fn project_file_entry(
     let output = pair.execution.output.as_ref().unwrap();
     let materialization = pair.execution.materialization.as_ref().unwrap();
     let observation = materialization.imported_dicom.as_ref().unwrap();
+    if let Some(codec) = pair.execution.providers[0].claims.get("locked_codec") {
+        return project_locked_codec_entry(ctx, pair, planned, observation, codec);
+    }
     let response = pair
         .execution
         .providers
         .first()
         .and_then(|provider| provider.claims.get("response"))
-        .ok_or_else(|| err("external provider response evidence is missing"))?;
+        .ok_or_else(|| {
+            err(format!(
+                "external provider response evidence is missing for {}",
+                ctx.artifact_id
+            ))
+        })?;
     let response_output = response
         .get("outputs")
         .and_then(Value::as_array)
@@ -86,6 +94,91 @@ pub(super) fn project_file_entry(
         other => return fail(format!("unsupported external projection kind {other}")),
     }
     Ok(entry)
+}
+
+fn project_locked_codec_entry(
+    ctx: &CuratedArtifactProjectionContext,
+    pair: &ManifestProjectionArtifact,
+    planned: &PlannedImportedDicomArtifact,
+    observation: &ImportedDicomObservation,
+    codec: &Value,
+) -> Result<Value, CuratedManifestError> {
+    let output = pair.execution.output.as_ref().unwrap();
+    let sc = ctx
+        .artifact_recipe
+        .secondary_capture
+        .as_ref()
+        .ok_or_else(|| err("locked codec recipe has no Secondary Capture contract"))?;
+    if codec["backend_id"] != planned.provider.provider_id
+        || codec["transfer_syntax_uid"] != observation.transfer_syntax_uid
+        || codec["runtime_identity"]["executable_sha256"]
+            != pair.execution.providers[0]
+                .executable_sha256
+                .as_deref()
+                .map(Value::from)
+                .unwrap_or(Value::Null)
+    {
+        return fail("locked codec evidence differs from provider execution identity");
+    }
+    let mut internal = pair
+        .execution
+        .validation
+        .iter()
+        .map(|result| json!({"name":result.rule_id,"status":"passed","message":result.message}))
+        .collect::<Vec<_>>();
+    let decoded_check = match observation.transfer_syntax_uid.as_str() {
+        "1.2.840.10008.1.2.4.57" => "jpeg_lossless_process_14_decoded_frame_hashes",
+        "1.2.840.10008.1.2.4.70" => "jpeg_lossless_sv1_decoded_frame_hashes",
+        value => return fail(format!("unsupported locked codec transfer syntax {value}")),
+    };
+    internal.push(json!({"name":decoded_check,"status":"passed",
+        "message":"Decoded legacy JPEG frame matches the locked native frame hash."}));
+    let validation = json!({
+        "status":"passed",
+        "internal":internal,
+        "standards":[],
+        "external":[]
+    });
+    let mut codec = codec.clone();
+    let encapsulated = codec
+        .as_object_mut()
+        .and_then(|object| object.remove("encapsulated_pixel_data"))
+        .ok_or_else(|| err("locked codec encapsulation evidence is missing"))?;
+    Ok(json!({
+        "case_id":ctx.registry_case.case_id,
+        "profile_membership":ctx.artifact_recipe.public_profile_membership.as_ref().unwrap_or(&ctx.registry_case.profiles),
+        "path":output.relative_path,"sha256":output.sha256,"size_bytes":output.size_bytes,
+        "determinism":ctx.registry_case.determinism,
+        "recipe":{"recipe_id":ctx.case_recipe.recipe_id,"recipe_version":ctx.case_recipe.recipe_version,
+            "recipe_parameters":{"rows":sc.rows,"columns":sc.columns,"samples_per_pixel":sc.samples_per_pixel,
+                "photometric_interpretation":sc.photometric_interpretation,"bits_allocated":sc.bits_allocated,
+                "bits_stored":sc.bits_stored,"planar_configuration":sc.color.as_ref().map(|color|color.planar_configuration),
+                "pixel_values":sc.stored_values,"palette":Value::Null,"pixel_padding":Value::Null}},
+        "dicom":{"sop_class_uid":required(&ctx.registry_case.sop_class_uid,"registry SOP Class UID")?,
+            "sop_class_name":required(&ctx.registry_case.sop_class_name,"registry SOP Class name")?,
+            "iod_name":required(&ctx.registry_case.iod_name,"registry IOD name")?,
+            "modality":required(&ctx.registry_case.modality,"registry modality")?,
+            "transfer_syntax_uid":observation.transfer_syntax_uid,
+            "transfer_syntax_name":super::transfer_syntax_name(&observation.transfer_syntax_uid)?},
+        "uids":{"study_instance_uid":observation.study_instance_uid,"series_instance_uid":observation.series_instance_uid,
+            "sop_instance_uid":observation.sop_instance_uid,"frame_of_reference_uid":observation.frame_of_reference_uid,
+            "implementation_class_uid":observation.implementation_class_uid,
+            "implementation_version_name":observation.implementation_version_name},
+        "image":{"rows":sc.rows,"columns":sc.columns,"frames":sc.frames,"samples_per_pixel":sc.samples_per_pixel,
+            "photometric_interpretation":sc.photometric_interpretation,"bits_allocated":sc.bits_allocated,
+            "bits_stored":sc.bits_stored,"high_bit":sc.high_bit,"pixel_representation":sc.pixel_representation,
+            "planar_configuration":sc.color.as_ref().map(|color|color.planar_configuration)},
+        "pixel_data":{"vr":sc.pixel_data_vr,"native_or_encapsulated":"encapsulated","value_length":Value::Null,
+            "frame_count":sc.frames,"frame_hashes":sc.frame_sha256,"codec":codec,
+            "encapsulated_pixel_data":encapsulated},
+        "expected_capabilities":super::capabilities(sc,&observation.transfer_syntax_uid,false),
+        "expected_semantics":{"synthetic_data":"YES","conversion_type":"SYN","pixel_min":sc.pixel_min,
+            "pixel_max":sc.pixel_max,"pixel_padding":Value::Null,"lossy_image_compression":"00",
+            "photometric_semantics":sc.semantic_note},
+        "expected_visual_checks":{"pattern":sc.visual_pattern},
+        "validation":validation,"known_stressors":ctx.artifact_recipe.stressors,
+        "standards_evidence":ctx.registry_case.standards_evidence,"references":[]
+    }))
 }
 
 fn validate_contract(

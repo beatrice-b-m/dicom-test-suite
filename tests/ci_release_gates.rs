@@ -40,6 +40,10 @@ fn ci_makes_every_standalone_release_gate_mandatory_and_regression_backed() {
     assert!(codecs.contains("--lib codecs::tests::"));
     assert!(!codecs.contains("\"${{ matrix.feature }}\" --lib\n"));
     assert!(codecs.contains("curated_exceptional_execution"));
+    assert!(
+        !codecs.contains("composition_curated_migration"),
+        "codec jobs must not repeat the feature-independent curated corpus"
+    );
     assert!(codecs.contains("frame_codec_service"));
     assert!(codecs.contains("validate_cli"));
     assert!(

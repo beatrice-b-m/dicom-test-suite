@@ -17,7 +17,7 @@ blocked because Linux x86_64 has not run the external-consumer contract
 | S3 — Rust SDK | Complete | The supported `dicom_test_suite::sdk` facade provides integrity-checked resources, typed discovery/compose/validate/report outcomes, schema-bound manifests, explicit asset roots, cancellation, stable errors, compiled docs, and a packaged-crate side-project gate. |
 | S4 — structural assembly | Complete | The packaged CLI and SDK accept versioned bounded structural requests, use the neutral plan/executor/writer spine, validate exact values and bulk, publish no-IOD-claim manifests/reports, and pass positive, adversarial, transaction, determinism, and external-consumer gates. |
 | S5 — packaging and guides | Complete | The latest extracted crate and current-target archive pass package, relocation, example, changelog/migration, and independent checksum/inventory verification. A clean-clone maintainer procedure records exact release facts and preserves target/capability boundaries. |
-| S6 — release qualification | Complete for macOS arm64 | The immutable `d34af96` archive passed all five installed consumers, strict no-checkout/no-cache relocation, packaged SDK consumption, packaged security/resource tests, applicable codec/backend matrices, and the complete modular default regression inventory. Linux x86_64 remains unqualified. |
+| S6 — release qualification | Complete for macOS arm64 | The immutable `39009f3` archive passed all five installed consumers, strict no-checkout/no-cache relocation, packaged SDK consumption, packaged security/resource tests, applicable codec/backend matrices, and the complete modular default regression inventory. Linux x86_64 remains unqualified. |
 | S7 — promotion | Partially complete | S7.1-S7.4 deliverables are implemented: this record is current, installed usage leads the README, mandatory CI gates have deliberate regression fixtures, and compatibility ownership is complete. The S7 phase gate and plan completion remain blocked because the minimum Linux x86_64 target has no executable artifact evidence. |
 
 Every terminal acceptance row passed for the exact macOS arm64 candidate.
@@ -242,15 +242,15 @@ The exact installed artifact qualified on 2026-08-31 is:
 
 ```text
 archive: dicom-test-suite-0.1.0-aarch64-apple-darwin.tar.gz
-archive SHA-256: 0ea3ffeda93cf70e40c7330fbe7cab7798dba84ce2d21d7dc1bcd8552e1f979b
-source revision: d34af962ec93db44c382b8e75788aab61928d7b0
+archive SHA-256: e4cc34925e3cf77e37bb162c1750744cc2416ab3e72922736ca6f30d8651fb23
+source revision: 39009f3e24240e6cfa1b20d71c4884f1359b255c
 source dirty: false
 target: aarch64-apple-darwin
 enabled features: []
 release-manifest schema: 1.0.0
 manifest payload files: 61
 embedded resources: 240
-resource-set SHA-256: c808c418e65aa7277f96e95dba1b6e0a368f5482541afca641cc2d04206603c9
+resource-set SHA-256: ce8c3725756f53b0552377349dcc1ba7b0137ec7c03fe5580d16ed4e9af45bec
 ```
 
 `scripts/verify-release-archive.sh` independently verified the adjacent
@@ -259,6 +259,12 @@ the required licenses/notices/examples/schemas, executable permissions, target
 identity, discovery documents, source identity, and embedded resource identity.
 The archive is retained outside the repository under the private qualification
 root; it is not a tracked generated artifact.
+
+This dated file is the post-build release record published beside the archive.
+An outer archive checksum cannot be embedded in the bytes it hashes. The status
+snapshot carried inside the archive therefore records the preceding qualified
+lineage, while this repository record and the adjacent `.sha256` file bind the
+exact `39009f3` artifact above.
 
 The exact extracted binary passed these five independent consumers:
 
@@ -287,9 +293,12 @@ command passed using only embedded resources and the installed archive.
 
 ### Packaged SDK and security/resource gate
 
-`cargo package --locked --offline` passed at the candidate surface and produced
-794 files, 13.7 MiB uncompressed and 2.2 MiB compressed. The extracted crate
-passed the external `sdk` side project with only the supported facade: file and
+`cargo package --locked --offline` passed at the final candidate surface and
+produced 794 files, 13.7 MiB uncompressed and 2.2 MiB compressed, with crate
+SHA-256
+`bc104dec6834c1a42e8f2aa31dcbc85e77908775bb1a82d1e7a7e98f0cbf5b25`.
+The extracted crate passed the external `sdk` side project with only the
+supported facade: file and
 byte qualified composition, explicit asset root, validation, reporting,
 structural assembly, typed manifests/results/errors, pre-cancellation, and
 no-publication cleanup all passed.
@@ -337,6 +346,14 @@ fail-fast resumption procedure required by `docs/release-process.md`; it tests
 the complete inventory without rerunning successful heavyweight prefixes after
 a localized test-only repair.
 
+The policy-required capability verification date was then advanced in
+`39009f3`, changing only the embedded matrix evidence identity. The affected
+quantitative full-manifest oracle and focused resource, capability, artifact,
+and matrix tests all passed. The final `39009f3` archive was rebuilt and
+independently verified; all five installed consumers, strict relocation, Cargo
+package verification, and the packaged SDK side project passed again. No
+heavyweight slice was repeated for that evidence-only resource change.
+
 The six heavyweight default slices passed in 722.30, 732.99, 747.37, 754.35,
 724.44, and 699.13 seconds. They cover frozen data-first bytes, stress
 projection, private streamed stress execution, all-profile generation, direct
@@ -376,7 +393,7 @@ remain explicit unavailable and are not represented as passes.
 
 | Gate | macOS arm64 result | Exact evidence |
 | --- | --- | --- |
-| Relocation | Pass | Extracted `d34af96` archive; absent checkout/cache; unrelated CWD; full resource-backed command chain passed. |
+| Relocation | Pass | Extracted `39009f3` archive; absent checkout/cache; unrelated CWD; full resource-backed command chain passed. |
 | Qualified composition | Pass | Installed live-catalog consumer generated, validated, reported, and reproduced every qualified template/bundle with explicit unavailable accounting. |
 | Caller pixels and attributes | Pass | Installed caller-content consumer covered raw mono/RGB, standard/private/binary/multi/empty/recursive values and resolved provenance. |
 | Structural assembly | Pass | Installed structural consumer covered every advertised content kind, references, native/float/double/bulk values, validation, report, and permanent no-IOD claim. |

@@ -47,6 +47,33 @@ cargo test --locked --all-targets --no-default-features
 cargo package --locked --offline
 ```
 
+Use these verification tiers in order, stopping at the narrowest tier that
+matches the change until a phase or release boundary is reached:
+
+1. For each commit, run formatting/diff checks plus the named affected test or
+   smallest target that owns the changed contract.
+2. At a numbered plan item or subsystem boundary, run the owning target bundle
+   and any public CLI, schema, resource, or packaged-consumer boundary it can
+   affect.
+3. At a phase gate, run that phase's black-box or packaged-artifact contract.
+4. For an exact release candidate, run the complete default command, applicable
+   feature/backend matrices, package/archive qualification, and every terminal
+   acceptance row exactly once per claimed target.
+
+Invalidate previously passed evidence only when a later change intersects its
+dependency surface. Changes to generation bytes, execution, manifest/report
+projection, embedded resources, stress, or WSI invalidate their corresponding
+heavyweight slices. Documentation-only, CI-only, or isolated SDK/CLI changes do
+not. The exact release-candidate matrix remains mandatory even when every
+development tier passed.
+
+Wall-clock, cancellation, and resource-ceiling tests are product contracts.
+Run a failing timing test alone before diagnosing contention, but never skip,
+relax, or represent it as unavailable because a broad concurrent run failed.
+Feature jobs should execute feature-sensitive unit/integration and corpus
+surfaces; feature-independent library tests belong to the default gate and are
+not multiplied across the feature matrix.
+
 If a failure requires a localized repair, rerun the named affected test and
 its subsystem bundle first. Then resume the failed candidate gate without
 repeating already-passed heavyweight slices; the final artifact itself still

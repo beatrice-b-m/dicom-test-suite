@@ -429,10 +429,41 @@ matches the qualified `f45224e` tree. The restored 18-test backend suite passed.
 
 Public GitHub Actions confirms that remote `main` at `f45224e` ran on native
 Ubuntu in CI run `33464522287`, but its default job failed and the dependent
-standalone-release job was skipped. The public annotation exposes only exit
-code 101; authenticated logs and workflow triggering are unavailable locally
-because both the configured GitHub token and SSH key are invalid. That run is
-failure evidence, not Linux acceptance evidence.
+standalone-release job was skipped. GitHub job logs obtained through the
+configured repository connector identify two failures in the 472-test default
+library run: the external WSI provider took 7.347426 seconds against its locked
+five-second ceiling, and
+`fake_backend_cancellation_kills_and_reaps_the_child_promptly` exceeded its
+15-second cancellation ceiling. Every one of the five in-process codec jobs
+also failed on that same feature-independent cancellation test after passing
+472-476 other library tests. Those repeated runs add no codec-specific evidence.
+
+The cancellation test passed alone on macOS in 2.76 seconds. Run alone in the
+existing emulated Linux x86_64 guest at source `2f63c62` (whose process code is
+unchanged in the restored tree), it still failed after 80.37 test seconds.
+Emulation is not native target acceptance, but this isolation result and the
+six native-job failures prohibit dismissing the result as broad-suite
+contention. The strict ceiling remains unchanged and the Linux cancellation
+behavior requires repair. The native WSI result likewise remains a failure,
+not an unavailable capability or a pass.
+
+### Test-efficiency assessment
+
+The existing dependency-aware development tiers remain valid. The six measured
+heavyweight default slices consume about 68 minutes in total and are required
+only when generation, execution, projection, manifest, embedded-resource,
+stress, or WSI dependencies change and once for the exact release candidate.
+Small repairs use the named failing test, then its owning subsystem bundle, then
+the next applicable phase/artifact boundary. Successful heavyweight prefixes
+are resumed rather than repeated after a localized test-only repair.
+
+CI has one material duplication to remove before its next run: each codec job
+currently compiles all targets and then reruns the complete feature-independent
+library suite. The compile check, focused codec targets, exact rejection test,
+and generated feature corpus are distinct evidence; the complete library rerun
+is not. The maintainer procedure now makes that ownership explicit while
+retaining the exact no-feature all-target command and every terminal row for the
+release candidate.
 
 ### Terminal acceptance matrix
 
@@ -462,10 +493,10 @@ The S7 phase gate, the plan-complete marker, and a general standalone release
 remain blocked. The plan requires Linux x86_64 and macOS arm64 before a general
 claim. A matching Linux archive now builds, verifies, extracts, and starts its
 consumer matrix under x86_64 emulation, but the independent WSI provider exceeds
-its strict timing ceiling there. Public native Ubuntu CI failed before its
-standalone-release job, and authenticated logs or reruns are not available from
-this host. Linux x86_64 therefore remains **not qualified**, not passed or
-waived.
+its strict timing ceiling there. Native Ubuntu CI independently exceeds both
+the WSI invocation and backend-cancellation ceilings before its
+standalone-release job. Linux x86_64 therefore remains **not qualified**, not
+passed or waived.
 
 ## Baseline audit evidence
 
@@ -504,13 +535,15 @@ test-only fixtures are not classified by this initial production audit.
 
 The macOS arm64 release candidate has no remaining S6 or terminal-matrix
 blocker. Linux x86_64 has a verified runnable archive, but its emulated
-qualified-catalog consumer fails the locked WSI timing ceiling. This is the
-sole blocker to the minimum two-target general release, S7 phase closure, and
-marking the standalone productization plan complete. The required next action
-is to restore authenticated GitHub access and inspect/rerun native Ubuntu CI,
-or use an equivalent native Linux x86_64 host, then retain the generated
-archive/checksum and run the complete standalone-release consumer contract.
-Emulated over-ceiling execution and cross-compilation are insufficient.
+qualified-catalog consumer fails the locked WSI timing ceiling. Native CI logs
+also show the WSI ceiling failure and a Linux backend-cancellation failure.
+These are the blockers to the minimum two-target general release, S7 phase
+closure, and marking the standalone productization plan complete. The required
+next action is a focused Linux process-cancellation repair and WSI performance
+diagnosis, followed by their owning subsystem tests and one native Ubuntu CI
+rerun. Only after those pass should the exact Linux archive/checksum and
+complete standalone-release consumer contract be rerun. Emulated over-ceiling
+execution and cross-compilation are insufficient.
 
 Independent validators or optional runtimes not installed for a target remain
 explicit unavailable unless their exact pinned executable is discovered and

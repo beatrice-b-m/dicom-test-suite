@@ -1,7 +1,7 @@
 {
   "case_recipe_schema_version": "0.1.0",
   "recipe_id": "sc_rgb_planar0_jpeg_baseline_8bit",
-  "recipe_version": "0.2.0",
+  "recipe_version": "0.3.0",
   "binding": {
     "case_id": "classic/sc/rgb_planar0_jpeg_baseline_8bit"
   },
@@ -80,7 +80,8 @@
         "stressors": [
           "minimal_secondary_capture",
           "encapsulated_pixel_data",
-          "jpeg_baseline_8bit_transfer_syntax"
+          "jpeg_baseline_8bit_transfer_syntax",
+          "multi_fragment_frame"
         ],
         "template": {
           "template_id": "classic/secondary-capture/rgb",

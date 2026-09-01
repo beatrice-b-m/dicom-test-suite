@@ -68,9 +68,16 @@ fn quantitative_default_bundles_are_closed_provenanced_and_reproducible() {
         fs::read(second.join("manifest.json")).unwrap()
     );
     let manifest_bytes = fs::read(first.join("manifest.json")).unwrap();
+    let expected_manifest_sha256 = match (std::env::consts::OS, std::env::consts::ARCH) {
+        ("macos", "aarch64") => "33958b1e90c0f93acc8af06ffb12845a720d6a83371ba99edca6b1b9fe0056f9",
+        ("linux", "x86_64") => "a5cb2573caacf627462f9bc005850d251234d16e1130c8b1ce24ea129b20a37b",
+        (os, arch) => {
+            panic!("no qualified quantitative full-manifest digest for target {arch}-{os}")
+        }
+    };
     assert_eq!(
         dicom_test_suite::sha256_hex(&manifest_bytes),
-        "33958b1e90c0f93acc8af06ffb12845a720d6a83371ba99edca6b1b9fe0056f9"
+        expected_manifest_sha256
     );
     let manifest: Value = serde_json::from_slice(&manifest_bytes).unwrap();
     for (instance_id, resolved_plan_sha256) in [

@@ -128,14 +128,41 @@ jobs:
             --test codec_backend_registry --test composition_curated_migration \
             --test curated_exceptional_execution --test curated_runtime_capabilities \
             --test exceptional_sc_plan \
-            --test frame_codec_service --test project_artifacts \
-            --test report_cli --test runtime_capabilities --test validate_cli
+            --test frame_codec_service --test project_artifacts --test runtime_capabilities
+      - name: Test feature-specific rejection boundary
+        run: |
+          case "${{ matrix.feature }}" in
+            charls) regression=validate_command_reports_jpeg_ls_lossless_decoded_frame_hash_mismatch ;;
+            jpegxl) regression=validate_command_reports_jpeg_xl_lossless_decoded_frame_hash_mismatch ;;
+            jpeg2000) regression=validate_command_reports_jpeg_2000_lossless_decoded_frame_hash_mismatch ;;
+            deflate) regression=validate_command_reports_deflated_image_frame_decoded_frame_hash_mismatch ;;
+            jpeg) regression= ;;
+          esac
+          if [ -n "$regression" ]; then
+            cargo test --locked --no-default-features --features "${{ matrix.feature }}" \
+              --test validate_cli "$regression" -- --exact
+          fi
       - name: Exercise feature corpus
         run: |
-          cargo run --locked --features "${{ matrix.feature }}" -- generate --profile extended --out "$RUNNER_TEMP/dts-${{ matrix.feature }}" --seed 1
-          cargo run --locked --features "${{ matrix.feature }}" -- validate "$RUNNER_TEMP/dts-${{ matrix.feature }}"
-          cargo run --locked --features "${{ matrix.feature }}" -- report "$RUNNER_TEMP/dts-${{ matrix.feature }}" --format json > "$RUNNER_TEMP/dts-${{ matrix.feature }}-report.json"
-          jq -e '.counts.generated > 75 and .counts.blocked == 0' "$RUNNER_TEMP/dts-${{ matrix.feature }}-report.json"
+          root="$RUNNER_TEMP/dts-${{ matrix.feature }}"
+          cargo run --locked --no-default-features --features "${{ matrix.feature }}" -- generate --profile extended --out "$root" --seed 1
+          cargo run --locked --no-default-features --features "${{ matrix.feature }}" -- validate "$root"
+          cargo run --locked --no-default-features --features "${{ matrix.feature }}" -- report "$root" --format json > "$root-report.json"
+          jq -e '.counts.generated > 115 and .counts.blocked == 0' "$root-report.json"
+          case "${{ matrix.feature }}" in
+            jpeg) expected_ts=1.2.840.10008.1.2.4.50 ;;
+            charls) expected_ts=1.2.840.10008.1.2.4.80 ;;
+            jpegxl) expected_ts=1.2.840.10008.1.2.4.110 ;;
+            jpeg2000) expected_ts=1.2.840.10008.1.2.4.90 ;;
+            deflate) expected_ts=1.2.840.10008.1.2.8.1 ;;
+          esac
+          jq --arg ts "$expected_ts" -e '[.files[].dicom.transfer_syntax_uid] | index($ts) != null' "$root/manifest.json"
+          if [ "${{ matrix.feature }}" = jpeg ]; then
+            jq -e '.files[] | select(.case_id == "classic/sc/rgb_planar0_jpeg_baseline_8bit") | .pixel_data.encapsulated_pixel_data.fragments_per_frame == [2]' "$root/manifest.json"
+          fi
+          if [ "${{ matrix.feature }}" = deflate ]; then
+            jq -e '.files[] | select(.case_id == "derived/seg/binary_multiframe_deflated_image_frame") | .pixel_data.native_or_encapsulated == "encapsulated" and .pixel_data.codec.backend_id == "dicom_rs_deflated_image_frame_writer" and .pixel_data.encapsulated_pixel_data.fragments_per_frame == [1,1]' "$root/manifest.json"
+          fi
 
   external-codec-compile:
     name: External codec compile (${{ matrix.feature }})

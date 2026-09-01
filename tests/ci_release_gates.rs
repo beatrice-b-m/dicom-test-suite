@@ -4,7 +4,13 @@ use std::fs;
 fn ci_makes_every_standalone_release_gate_mandatory_and_regression_backed() {
     let workflow = fs::read_to_string(".github/workflows/ci.yml").unwrap();
     let default = workflow.split("  default:").nth(1).unwrap();
-    let codecs = workflow.split("  in-process-codecs:").nth(1).unwrap();
+    let codecs = workflow
+        .split("  in-process-codecs:")
+        .nth(1)
+        .unwrap()
+        .split("  external-codec-compile:")
+        .next()
+        .unwrap();
     assert!(default.contains("timeout-minutes: 90"));
     assert!(default.contains("cargo test --locked --all-targets --no-default-features"));
     assert!(codecs.contains("--all-targets --no-default-features --features"));
@@ -13,7 +19,15 @@ fn ci_makes_every_standalone_release_gate_mandatory_and_regression_backed() {
     assert!(codecs.contains("curated_exceptional_execution"));
     assert!(codecs.contains("frame_codec_service"));
     assert!(codecs.contains("validate_cli"));
+    assert!(
+        codecs
+            .contains("validate_command_reports_deflated_image_frame_decoded_frame_hash_mismatch")
+    );
+    assert!(!codecs.contains("--test report_cli"));
+    assert!(!codecs.contains("--test validate_cli --test"));
     assert!(codecs.contains("Exercise feature corpus"));
+    assert!(codecs.contains(".counts.generated > 115 and .counts.blocked == 0"));
+    assert!(codecs.contains("fragments_per_frame == [1,1]"));
     assert!(
         !codecs
             .contains("cargo test --locked --all-targets --features \"${{ matrix.feature }}\"\n")

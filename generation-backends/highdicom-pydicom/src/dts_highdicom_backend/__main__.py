@@ -8,40 +8,18 @@ from pathlib import Path
 from typing import Any
 
 from . import __version__
+from .parametric_map import (
+    FLOAT32_CASE_ID,
+    FLOAT64_CASE_ID,
+    generate as generate_parametric_map,
+)
 from .protocol import base_response, read_request, runtime_identity, write_response
-
-
-FLOAT32_CASE_ID = "derived/parametric-map/float32_ct_derived_explicit_le"
-FLOAT64_CASE_ID = "derived/parametric-map/float64_ct_derived_explicit_le"
-SCOORD3D_CASE_ID = "derived/sr/comprehensive3d_scoord3d"
-TID1500_CASE_ID = "derived/sr/tid1500_ct_measurement_report"
-WSI_TILE_SEGMENTATION_CASE_ID = "derived/seg/wsi_tile_reference"
-
-
-def generate_parametric_map(request: dict[str, Any], output_root: Path) -> dict[str, Any]:
-    from .parametric_map import generate
-
-    return generate(request, output_root)
-
-
-def generate_scoord3d(request: dict[str, Any], output_root: Path) -> dict[str, Any]:
-    from .scoord3d import generate
-
-    return generate(request, output_root)
-
-
-def generate_tid1500(request: dict[str, Any], output_root: Path) -> dict[str, Any]:
-    from .tid1500 import generate
-
-    return generate(request, output_root)
-
-
-def generate_wsi_tile_segmentation(
-    request: dict[str, Any], output_root: Path
-) -> dict[str, Any]:
-    from .wsi_tile_segmentation import generate
-
-    return generate(request, output_root)
+from .scoord3d import CASE_ID as SCOORD3D_CASE_ID
+from .scoord3d import generate as generate_scoord3d
+from .tid1500 import CASE_ID as TID1500_CASE_ID
+from .tid1500 import generate as generate_tid1500
+from .wsi_tile_segmentation import CASE_ID as WSI_TILE_SEGMENTATION_CASE_ID
+from .wsi_tile_segmentation import generate as generate_wsi_tile_segmentation
 
 
 def _generate(request: dict[str, Any], output_root: Path) -> dict[str, Any]:

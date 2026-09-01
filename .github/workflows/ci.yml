@@ -130,7 +130,6 @@ jobs:
         with:
           name: dicom-test-suite-${{ runner.os }}-${{ runner.arch }}
           path: ${{ runner.temp }}/dist/*
-          archive: false
 
   in-process-codecs:
     name: Codec (${{ matrix.feature }})

@@ -6,11 +6,12 @@
 
 **Contract:** `docs/standalone-productization-plan.md`
 
-**Release readiness:** macOS arm64 is qualified at exact release-candidate
-revision `69d3e5f8`. Native Linux run `33491521696` is executing the same
-candidate's one-time default gate before standalone packaging and artifact
-delivery. General release and S7 closure remain pending the exact Linux archive
-and independent verification of its downloaded bytes.
+**Release readiness:** macOS arm64 and Linux x86_64 are qualified at exact
+release-candidate revision `69d3e5f8`. Native Linux run `33491521696` passed
+the default and standalone product gates, and the downloaded release files
+passed independent checksum and manifest verification. Isolated JPEG 2000
+retry job `99837991003` passed. S0-S7 and the two-target terminal acceptance
+matrix are complete.
 
 ## Current gate state
 
@@ -22,15 +23,13 @@ and independent verification of its downloaded bytes.
 | S3 — Rust SDK | Complete | The supported `dicom_test_suite::sdk` facade provides integrity-checked resources, typed discovery/compose/validate/report outcomes, schema-bound manifests, explicit asset roots, cancellation, stable errors, compiled docs, and a packaged-crate side-project gate. |
 | S4 — structural assembly | Complete | The packaged CLI and SDK accept versioned bounded structural requests, use the neutral plan/executor/writer spine, validate exact values and bulk, publish no-IOD-claim manifests/reports, and pass positive, adversarial, transaction, determinism, and external-consumer gates. |
 | S5 — packaging and guides | Complete | The latest extracted crate and current-target archive pass package, relocation, example, changelog/migration, and independent checksum/inventory verification. A clean-clone maintainer procedure records exact release facts and preserves target/capability boundaries. |
-| S6 — release qualification | Complete for macOS arm64; Linux qualification active | Exact macOS `69d3e5f8` full baseline, package/archive, installed-consumer, security/resource, profile, reproducibility, and relocation evidence passes. Native Linux run `33491521696` passes the strict provider preflight and is running its one-time default gate before dependent standalone qualification and delivery. |
-| S7 — promotion | Partially complete | S7.1-S7.4 deliverables are implemented, and the multi-file delivery regression now has an explicit CI guard. The S7 phase gate and plan completion remain pending successful Linux artifact upload and exact identity recording. |
+| S6 — release qualification | Complete for macOS arm64 and Linux x86_64 | Exact `69d3e5f8` full baselines, package/archive, installed-consumer, security/resource, profile, reproducibility, and relocation evidence pass on both claimed targets. The Linux artifact was downloaded and independently bound to its checksum, target, source, and resource identity. |
+| S7 — promotion | Complete | S7.1-S7.4 deliverables are implemented, both target artifacts are qualified, multi-file delivery is regression guarded, and exact-candidate retry job `99837991003` passed. |
 
-Every terminal acceptance row passes for the exact macOS arm64 `69d3e5f8`
-candidate. Every Linux product row passed at `b543497`; artifact delivery did
-not, so Linux remains pending rather than passed. Existing curated and
-qualified-composition evidence remains within its recorded scope, unavailable
-optional capabilities remain explicit, and no macOS result is being
-reinterpreted as Linux x86_64 or general-release evidence.
+Every terminal acceptance row passes for the exact macOS arm64 and Linux x86_64
+`69d3e5f8` candidate. Existing curated and qualified-composition evidence
+remains within its recorded scope, unavailable optional capabilities remain
+explicit, and each target is supported by its own native artifact evidence.
 
 ## 2026-09-01 native recovery evidence
 
@@ -58,11 +57,37 @@ The strict provider ceiling was never weakened. Run `33485529531` failed at
 direct locked native-frame hashing, run `33489631585` still measured 5.035941
 seconds in the cold default job. Candidate `69d3e5f8` therefore precompiles the
 locked Python runtime during provisioning; run `33491521696` passes its native
-provider preflight and is executing the default gate. A JPEG 2000 job repeated
+provider preflight and complete default gate. A JPEG 2000 job repeated
 the feature-independent curated migration corpus and observed 5.132244 seconds
-for the unrelated WSI provider. That failure remains visible and pending an
-isolated retry; `f1d1727` removes this duplicate work from future codec jobs
-without removing any codec-sensitive surface.
+for the unrelated WSI provider. That failure remains visible; isolated retry
+job `99837991003` passed. Commit `f1d1727` removes this duplicate work from
+future codec jobs without removing any codec-sensitive surface.
+
+Default job `99804726638` passed the exact no-feature all-target command,
+standards lock, fresh smoke/core/extended generation and validation, and smoke
+reproducibility. Standalone job `99835382224` passed the mandatory contract
+tests, locked Cargo package and external SDK consumer, archive build and native
+verification, all five installed consumers, and the adversarial archive
+harness. It uploaded artifact `9798112659`, whose downloaded bytes verify as:
+
+```text
+file: dicom-test-suite-0.1.0-x86_64-unknown-linux-gnu.tar.gz
+source revision: 69d3e5f8e045752b6e183781a7e13190a61430ff
+source dirty: false
+target: x86_64-unknown-linux-gnu
+enabled features: []
+release-manifest schema: 1.0.0
+resource count: 240
+resource-set SHA-256: 3b2f84098c7a9ccdcea58758b21f1b11b5d989b4c9f391dbef771524b95ea46a
+archive SHA-256: 7d573e6f213884c660e1c025be4d42816303640f9576b7ea57334f7d0d0afe0e
+artifact ZIP SHA-256: 69013d604e481099ec1678b57ac8b40f3477951a577d14ef6315e7128187a258
+```
+
+The adjacent checksum validated after downloading the artifact independently
+from the runner. The release manifest binds the clean revision, target,
+feature set, binary inventory, and embedded resource identity. Full executable
+and relocation verification remains native-job evidence because a Linux binary
+cannot execute on the independent macOS download host.
 
 Native Linux run `33476386352` closed the prior emulation-only blocker without
 weakening either timing ceiling. Its default job `99757064600` passed the exact
@@ -536,46 +561,41 @@ Small repairs use the named failing test, then its owning subsystem bundle, then
 the next applicable phase/artifact boundary. Successful heavyweight prefixes
 are resumed rather than repeated after a localized test-only repair.
 
-CI has one material duplication to remove before its next run: each codec job
-currently compiles all targets and then reruns the complete feature-independent
-library suite. The compile check, focused codec targets, exact rejection test,
-and generated feature corpus are distinct evidence; the complete library rerun
-is not. The maintainer procedure now makes that ownership explicit while
-retaining the exact no-feature all-target command and every terminal row for the
-release candidate.
+CI no longer repeats the feature-independent library or curated migration
+corpus in every codec job. Feature jobs retain their all-target compile check,
+focused codec targets, exact rejection tests, and fresh feature corpus. The
+default job owns the complete no-feature suite and curated migration evidence.
+This removes repeated multi-hour work while retaining the one exact default
+gate and every terminal row for the immutable release candidate.
 
 ### Terminal acceptance matrix
 
-| Gate | macOS arm64 result | Exact evidence |
-| --- | --- | --- |
-| Relocation | Pass | Extracted `39009f3` archive; absent checkout/cache; unrelated CWD; full resource-backed command chain passed. |
-| Qualified composition | Pass | Installed live-catalog consumer generated, validated, reported, and reproduced every qualified template/bundle with explicit unavailable accounting. |
-| Caller pixels and attributes | Pass | Installed caller-content consumer covered raw mono/RGB, standard/private/binary/multi/empty/recursive values and resolved provenance. |
-| Structural assembly | Pass | Installed structural consumer covered every advertised content kind, references, native/float/double/bulk values, validation, report, and permanent no-IOD claim. |
-| Automation | Pass | Installed Python consumer validated success/error/result schemas, streams, dry-run shape, error codes, and exits `0/2/3/4/5/6`. |
-| Rust SDK | Pass | External Cargo project depended on the extracted packaged crate and imported only `sdk`; file/byte/assets/cancellation/typed outcomes passed. |
-| Determinism | Pass | Installed qualified and structural consumers compared unrelated CWDs at parallelism 1/8; default reproducibility covered smoke/core/extended fresh roots. |
-| Existing behavior | Pass | Complete no-feature test inventory passed via documented fail-fast resumption; fresh profiles, applicable feature/external backend matrices, and explicit unavailable evidence passed. |
-| Packaging | Pass | Locked offline Cargo package, archive checksum/inventory/licenses/metadata verification, extraction, and target smoke passed. |
-| Security/resources | Pass | 48 packaged-source adversarial tests plus strict relocation covered the complete S6.6 threat list. |
-| Documentation | Pass | Installed README/guides/examples contract tests and extracted archive example/consumer execution passed; contributor-only `cargo run` guidance is isolated. |
-| Hygiene | Pass | Formatting, diff whitespace, JSON/schema tests, generated-artifact audit, and clean release worktree checks passed at qualification closure. |
+| Gate | macOS arm64 | Linux x86_64 | Exact evidence |
+| --- | --- | --- | --- |
+| Relocation | Pass | Pass | Exact `69d3e5f8` extracted archives ran the full resource-backed command chain outside the checkout; Linux evidence is native job `99835382224`. |
+| Qualified composition | Pass | Pass | Installed live-catalog consumers generated, validated, reported, and reproduced every qualified template/bundle with explicit unavailable accounting. |
+| Caller pixels and attributes | Pass | Pass | Installed caller-content consumers covered raw mono/RGB, standard/private/binary/multi/empty/recursive values and resolved provenance. |
+| Structural assembly | Pass | Pass | Installed structural consumers covered every advertised content kind, references, native/float/double/bulk values, validation, report, and permanent no-IOD claim. |
+| Automation | Pass | Pass | Installed Python consumers validated success/error/result schemas, streams, dry-run shape, error codes, and exits `0/2/3/4/5/6`. |
+| Rust SDK | Pass | Pass | External Cargo projects depended on the extracted packaged crate and imported only `sdk`; file/byte/assets/cancellation/typed outcomes passed. |
+| Determinism | Pass | Pass | Installed consumers compared unrelated CWDs and supported parallelism; default reproducibility covered fresh profile roots. |
+| Existing behavior | Pass | Pass | Exact no-feature inventories, fresh profiles, applicable feature/backend matrices, and explicit unavailable evidence passed; Linux run `33491521696` completed after retry. |
+| Packaging | Pass | Pass | Locked packages, archive checksums/inventories/licenses/metadata, extraction, and native target smoke passed; downloaded Linux archive SHA-256 is recorded above. |
+| Security/resources | Pass | Pass | 49 packaged-source adversarial tests plus strict relocation covered the complete S6.6 threat list. |
+| Documentation | Pass | Pass | Installed README/guides/examples contract tests and extracted archive example/consumer execution passed; contributor-only `cargo run` guidance is isolated. |
+| Hygiene | Pass | Pass | Formatting, diff whitespace, JSON/schema tests, generated-artifact audit, and clean release worktree checks passed at qualification closure. |
 
 ### S6 and S7 conclusions
 
-S6.1-S6.6 are complete for macOS arm64. S7.1-S7.4 deliverables are implemented:
+S6.1-S6.6 are complete for macOS arm64 and Linux x86_64. S7.1-S7.4 are complete:
 this dated record contains exact evidence, the README leads with installed
 usage, CI requires every standalone gate with deliberate fixtures, and every
 public compatibility domain has an owner and supported-version window.
 
-The S7 phase gate, the plan-complete marker, and a general standalone release
-remain blocked. The plan requires Linux x86_64 and macOS arm64 before a general
-claim. A matching Linux archive now builds, verifies, extracts, and starts its
-consumer matrix under x86_64 emulation, but the independent WSI provider exceeds
-its strict timing ceiling there. Native Ubuntu CI independently exceeds both
-the WSI invocation and backend-cancellation ceilings before its
-standalone-release job. Linux x86_64 therefore remains **not qualified**, not
-passed or waived.
+The S7 phase gate and plan-complete marker pass. Exact native evidence and
+independently identified archive bytes qualify both minimum release targets.
+Earlier over-ceiling and delivery failures remain recorded above; they were
+repaired and rerun, not waived or converted into unavailable outcomes.
 
 ## Baseline audit evidence
 
@@ -612,17 +632,9 @@ test-only fixtures are not classified by this initial production audit.
 
 ## Remaining blockers
 
-The macOS arm64 release candidate has no remaining S6 or terminal-matrix
-blocker. Linux x86_64 has a verified runnable archive, but its emulated
-qualified-catalog consumer fails the locked WSI timing ceiling. Native CI logs
-also show the WSI ceiling failure and a Linux backend-cancellation failure.
-These are the blockers to the minimum two-target general release, S7 phase
-closure, and marking the standalone productization plan complete. The required
-next action is a focused Linux process-cancellation repair and WSI performance
-diagnosis, followed by their owning subsystem tests and one native Ubuntu CI
-rerun. Only after those pass should the exact Linux archive/checksum and
-complete standalone-release consumer contract be rerun. Emulated over-ceiling
-execution and cross-compilation are insufficient.
+There is no remaining S0-S7 or terminal-matrix blocker for the claimed macOS
+arm64 and Linux x86_64 targets at exact revision `69d3e5f8`. Publication or
+tagging is a separate maintainer action and was not performed by this work.
 
 Independent validators or optional runtimes not installed for a target remain
 explicit unavailable unless their exact pinned executable is discovered and

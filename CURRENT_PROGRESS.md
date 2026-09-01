@@ -2,11 +2,12 @@
 
 **Last updated:** 2026-09-01
 **Active goal:** standalone productization release qualification
-**Current phase:** S0-S6 are complete for macOS arm64 at exact release-candidate
-revision `69d3e5f8`. Native Linux run `33491521696` is executing the same
-candidate's one-time default gate before standalone packaging and delivery.
-S7 and plan closure remain pending the Linux artifact and its independent
-download verification.
+**Current phase:** S0-S7 are complete for macOS arm64 and Linux x86_64 at exact
+release-candidate revision `69d3e5f8`. Native Linux run `33491521696` passed
+the one-time default and standalone gates, delivered both release files, and
+the downloaded bytes passed independent checksum and manifest verification.
+Isolated JPEG 2000 retry job `99837991003` also passed; the standalone
+productization plan's two-target terminal contract is complete.
 **Repo state source:** reconstructed from `cases/registry.json`, phase status
 notes, git history, and current verification runs.
 
@@ -33,8 +34,22 @@ notes, git history, and current verification runs.
   and measured the unrelated WSI provider at 5.132244 seconds. Commit `f1d1727`
   removes that duplicate from future codec jobs while retaining codec-specific
   unit, integration, rejection, capability, and fresh-corpus coverage. The
-  exact candidate's failed job remains pending isolated retry after the workflow
-  finishes; it is not represented as a codec or provider pass.
+  exact candidate's isolated retry job `99837991003` passed. The first attempt
+  remains recorded as a test-ownership failure rather than being erased or
+  reclassified.
+- The same run's default job `99804726638` passed the exact no-feature
+  all-target suite, standards lock, fresh smoke/core/extended workflows, and
+  smoke reproducibility. Standalone job `99835382224` passed every mandatory
+  product gate, locked package/external SDK checks, archive verification, all
+  five installed consumers, and the adversarial archive harness.
+- Artifact `9798112659` contains the Linux archive plus adjacent checksum. The
+  downloaded ZIP SHA-256 is
+  `69013d604e481099ec1678b57ac8b40f3477951a577d14ef6315e7128187a258`;
+  its adjacent checksum independently verifies archive SHA-256
+  `7d573e6f213884c660e1c025be4d42816303640f9576b7ea57334f7d0d0afe0e`.
+  The release manifest records clean source revision `69d3e5f8`, target
+  `x86_64-unknown-linux-gnu`, no enabled features, and the same 240-resource
+  identity as macOS.
 
 - Native Linux run `33476386352` passed the full no-feature suite, standards
   lock, fresh profiles, reproducibility, package/SDK, archive verification, all
@@ -47,9 +62,9 @@ notes, git history, and current verification runs.
   installed consumers, strict relocation, archive verification, and packaged
   security/resource gates. Its SHA-256 is
   `4e5303496d431cdc8d296047a5dab3bf45821aa8a084702248dde9e238463f46`.
-- Linux artifact identity and S7 remain open until run `33491521696` completes
-  default and standalone gates, uploads both release files, and the downloaded
-  bytes pass independent archive verification.
+- Linux product and artifact qualification and S7 promotion are complete. The
+  original unrelated WSI timing failure remains recorded rather than waived;
+  the isolated retry passed at the exact candidate.
 
 ## Phase Status
 

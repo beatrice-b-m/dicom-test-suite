@@ -1,9 +1,11 @@
 # Standalone DICOM Generation Productization Plan
 
-**Status:** proposed execution plan; current repository behavior remains the
-source of truth until each gate is implemented and promoted
+**Status:** complete; S0-S7 and the terminal acceptance matrix passed for exact
+release-candidate revision `69d3e5f8` on Linux x86_64 and macOS arm64
 
 **Prepared:** 2026-08-31
+
+**Completed:** 2026-09-01
 
 **Goal:** make `dicom-test-suite` a versioned, relocatable, automation-safe DICOM
 generation product that side projects can consume as a black-box executable or

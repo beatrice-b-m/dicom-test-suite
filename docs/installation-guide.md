@@ -11,8 +11,8 @@ working directory are not runtime dependencies.
 Use only an archive whose target has a dated qualification row in the current
 [standalone product status](standalone-product-status-2026-08-31.md). A builder
 existing for another target is not evidence that its artifact works. At the
-current gate, macOS arm64 is qualified; Linux x86_64 remains unclaimed until its
-own extracted artifact passes the same matrix.
+current gate, macOS arm64 and Linux x86_64 are independently qualified against
+the same exact release candidate.
 
 Set the downloaded filenames, verify the published checksum from the directory
 containing both files, and extract the archive:

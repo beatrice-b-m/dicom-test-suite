@@ -20,7 +20,8 @@ committed; write them beneath an ignored path such as `generated/` or `out/`.
 
 Download a target whose archive is qualified in the current
 [standalone product status](docs/standalone-product-status-2026-08-31.md), keep
-its adjacent `.sha256` file, and extract it. This example uses the qualified
+its adjacent `.sha256` file, and extract it. Linux x86_64 and macOS arm64 are
+qualified at the current release-candidate revision. This example uses the
 macOS arm64 artifact; do not infer support for another target from its name:
 
 ```sh

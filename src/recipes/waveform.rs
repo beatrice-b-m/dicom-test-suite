@@ -20,7 +20,7 @@ use crate::executor::services::{
     ArtifactExecutionBindings, ByteBinding, NativeFrameBinding, SlotExecutionBinding,
 };
 use crate::sha256_hex;
-use crate::{IMPLEMENTATION_VERSION_NAME, PACKAGE_VERSION};
+use crate::{BYTE_STABLE_OUTPUT_VERSION, IMPLEMENTATION_VERSION_NAME};
 
 use super::typed_bulk::{TypedBulkPlanProviderOutput, TypedBulkPlanningContext};
 use super::{
@@ -465,7 +465,7 @@ fn common_attributes(
             DicomVr::LO,
             input.device_serial_number.as_str(),
         ),
-        ("SoftwareVersions", DicomVr::LO, PACKAGE_VERSION),
+        ("SoftwareVersions", DicomVr::LO, BYTE_STABLE_OUTPUT_VERSION),
         ("InstanceNumber", DicomVr::IS, "1"),
         ("ContentDate", DicomVr::DA, "20260101"),
         ("ContentTime", DicomVr::TM, "000000"),

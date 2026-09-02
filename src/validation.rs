@@ -8092,7 +8092,7 @@ fn validate_waveform_ecg_file(
         (
             "software_versions",
             tags::SOFTWARE_VERSIONS,
-            crate::PACKAGE_VERSION,
+            crate::BYTE_STABLE_OUTPUT_VERSION,
         ),
         ("instance_number", tags::INSTANCE_NUMBER, "1"),
         ("content_date", tags::CONTENT_DATE, "20260101"),

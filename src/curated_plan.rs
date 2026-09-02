@@ -3027,7 +3027,7 @@ fn typed_bulk_context(
             0,
             uid(
                 "dicom-test-suite/implementation",
-                crate::PACKAGE_VERSION,
+                crate::BYTE_STABLE_OUTPUT_VERSION,
                 0,
                 UidRole::ImplementationClass,
             ),

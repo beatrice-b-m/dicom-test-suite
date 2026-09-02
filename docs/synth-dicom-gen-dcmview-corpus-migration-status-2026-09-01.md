@@ -37,7 +37,7 @@ artifact.
 | R1 — contain CI and local build cost | Complete | R1.1, R1.2, R1.3, R1.4, R1.5, R1.6 | A disposable draft-PR probe proved superseded-run cancellation and single-event ownership. Replacement Fast run `33581809536` passed in 123 seconds of job time with only the declared Fast work, a 739,602,432-byte target, four smoke artifacts occupying 122,880 allocated bytes, and the 4-GiB ceiling enforced. The broad matrix remains separately scheduled/manually invocable. The R1 gate passes. |
 | R2 — reduce Rust test-linking amplification | Complete | R2.1, R2.2, R2.3, R2.4 | The fail-closed inventory maps 186 integration sources and all 879 integration entries into exactly 20 explicit harnesses. Six R0-measured heavy bodies have exact ignored qualification entry points, while deterministic change routing now selects bounded Fast/subsystem evidence and reports every deferred class without executing it. The aggregate R2 target-count, cost, heavy-isolation, and routing gates pass. |
 | R3 — rename reusable product | Complete | R3.1, R3.2, R3.3, R3.4 | Product, package, crate, library, sole binary, archives, discovery, package metadata, current operating guides, product-controlled environment, and production scratch paths use `synth-dicom-gen` / `synth_dicom_gen` at the breaking pre-1.0 product boundary `0.2.0`. Immutable dated evidence retains its exact old candidate identity, and 12 qualified-adapter variables retain provenance-bound spellings pending external requalification. The external-consumer audit found no supported `0.1.0` product consumer requiring an alias. A clean side project compiled and exercised only `synth_dicom_gen::sdk` from the extracted, verified `synth-dicom-gen-0.2.0.crate`, without the old repository path. The aggregate R3 gate passes. |
-| R4 — split immutable resources and corpus definitions | In progress | R4.1, R4.2, R4.3, R4.4 | `EngineResources` v2 owns a 74-member immutable engine-resource identity containing every current schema while excluding `cases/**` and `Cargo.lock`; the exact 240-member v1 identity remains reconstructable for compatibility. `CorpusDefinitionBundle` 1.0.0 and the split manifest/discovery identities remain unchanged. Reusable materialization in R4.5 and the supported SDK/CLI generation route in R5 remain open. |
+| R4 — split immutable resources and corpus definitions | Complete | R4.1, R4.2, R4.3, R4.4, R4.5 | `EngineResources` v2 owns a 74-member immutable engine-resource identity containing every current schema while excluding `cases/**` and `Cargo.lock`; the exact 240-member v1 identity remains reconstructable for compatibility. `CorpusDefinitionBundle` 1.0.0 and the split manifest/discovery identities remain unchanged. A private handle-local lazy lease now materializes the 254-file transitional physical closure once per shared resource context. The supported SDK/CLI external-corpus generation route remains R5 work. |
 | R5 — add supported external corpus API | Not started | None | Requires the R4 resource and identity boundary. |
 | R6 — establish smoke corpus repository | Not started | None | No external repository has been created; authority and destination are still required before out-of-workspace mutation. |
 | R7 — migrate complete dcmview corpus | Not started | None | Requires R6 smoke parity and supported contracts. |
@@ -2807,6 +2807,67 @@ provider, remote, release, R4.5, or R5 body ran. `cases/**` and `Cargo.lock`
 remain packaged deliberately even though they are no longer members of the
 authoritative engine digest; their physical/default-reader removal belongs to
 later ordered phases.
+
+### R4.5 — reusable lazy resource materialization
+
+R4.5 commits:
+
+- `4296013` — `feat(resources): cache private materialization leases`
+- `b542247` — `refactor(resources): reuse leases across engine operations`
+- `c2d930a` — `fix(resources): coordinate retryable cache construction`
+- `cb5e6ca` — `fix(cli): materialize default resources only when needed`
+- `c317470` — `chore(tests): route resource cache evidence`
+- `f943049` — `test(resources): prove batch lease reuse and byte parity`
+
+The public `EngineResources::snapshot()` contract remains a fresh, caller-owned
+tree: a path returned to external code is never reused internally, avoiding a
+same-user mutation race. Generation, validation, reporting, discovery,
+conformance, and composition instead use a crate-private lease shared by clones
+of one `EngineResources` handle. The cache has explicit empty/building/ready
+states guarded by a mutex and condition variable. Integrity is checked before
+first construction; waiters observe only a fully written, recaptured tree; an
+RAII pending-directory guard removes partial output; failed construction resets
+to empty and wakes waiters; and cached acquisition revalidates every physical
+byte before returning. Separate embedded or explicit handles never share a
+cache. The materialized root survives while either a resource handle or lease
+owns it and is removed when the final owner drops, so there is no process-global
+temporary-directory leak.
+
+The pre-change bounded warm measurement at `779362a` acquired three sequential
+snapshots from one handle. Each snapshot contained the full transitional 254
+files / 2,664,374 logical bytes. The three runs therefore created three roots,
+wrote 762 files / 7,993,122 bytes, and took 401,844, 388,472, and 390,135
+microseconds (median 390,135). The equivalent post-change private-lease runs
+created one root, wrote 254 files / 2,664,374 bytes, and took 182,545, 183,330,
+and 183,717 microseconds (median 183,330). This is a 66.67% reduction in files
+and bytes written and a 53.01% reduction in median wall time for this bounded
+three-acquisition workload. Revalidation deliberately still reads the complete
+tree on reuse; the measurement does not claim elimination of integrity I/O.
+
+Seven focused cache tests prove zero materialization for identity/direct-byte
+access, one copy across sequential and concurrent clone acquisition, isolated
+independent handles, last-owner cleanup, retry after injected write failure,
+fail-closed mutation detection, and one shared tree across a three-case smoke
+generation followed by validation, report construction, and composition. That
+batch test retains the exact R0 payload hashes
+`76dc5208b139899fcb87bbf7ec9edf1a323000a91c4015de9ef8bde7bd344ecc`,
+`fce766bcbb4b4aa79cfb3fa0c3b5e4ef888b11c0708fad713b9cde8d41ec6a15`,
+and `33de9448509431fda27005cbf83c79977f1c3ebadb669ae1dedf1a225742f3c5`.
+The seven existing public resource integrity/relocation tests also pass.
+
+The CLI no longer creates an unconditional snapshot before dispatch: commands
+using engine-owned internal paths use the private lease, while commands that
+must expose a path lazily create one fresh public snapshot. The same refactor
+surfaced and corrected a pre-existing discrepancy where CLI `validate` checked
+an explicit resource root at startup but then validated with embedded schemas;
+it now uses the existing resources-aware SDK validation path. All 29 validate
+CLI tests pass, including valid explicit-root and tampered-root boundaries.
+
+Routing selects the seven-entry private cache suite plus schema/resources for
+`src/engine_resources.rs`. The 1,431-entry ownership inventory and 22 routing
+tests pass. `cargo check --locked --no-default-features`, formatting, spelling,
+and range diff checks pass. Heavy, Nightly, release-candidate, provider,
+external, R5, and later-phase bodies did not run.
 
 ## Measurements
 

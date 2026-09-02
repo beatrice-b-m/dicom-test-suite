@@ -2666,8 +2666,11 @@ Release manifest producer `2.0.0` copies the exact installed
 capabilities result whose projection, product version, target, or feature set
 does not agree. The verifier retains the frozen `1.0.0` reader and adds a
 fail-closed `2.0.0` reader. Current v2 verification requires strict nested
-schemas, exact three-way domain equality, unique runtime IDs, and bound
-inventory paths, sizes, and hashes. Cargo, jq, and tar are release-process
+schemas, exact three-way domain equality, valid source revision/dirty
+provenance, unique runtime IDs, and bound inventory paths, sizes, and hashes.
+The deferred RC harness dispatches v1 and v2 schemas by version and registers
+the v2 version/capabilities references; its target was compile-checked without
+running the archive body. Cargo, jq, and tar are release-process
 evidence, not invocation runtimes, so the current producer emits `[]`.
 
 Optional `legacy_product_resources` is emitted only while both discovery
@@ -2689,10 +2692,16 @@ is deterministic synthetic validation evidence, not historical or RC
 evidence. The immutable v1 schema bytes are the genuine preserved public
 contract. Retrieving or constructing an archive was excluded from this slice.
 
-Bounded ordinary evidence: release Fast reader matrix 2 passed in 1.69
-seconds; capabilities 4 passed in 1.27 seconds; schema/resources 86 passed in
-6.56 seconds; identity oracle 1 passed in 0.59 seconds; routing 22 passed in
-2.26 seconds; ownership passed for 22 targets, 266 groups, and 1,421 entries;
+The Fast adversarial matrix rejects product, target, feature, source,
+top-level domain, nested-domain, duplicate-runtime, legacy presence/value,
+and inventory drift. Positive cases prove all three legacy fields may be
+absent and one unique actual runtime may be present while retaining exact
+three-way identity equality.
+
+Bounded ordinary evidence: release Fast suite 14 passed in 1.94 seconds;
+schema/resources 86 passed in 6.44 seconds; deferred RC harness compile-check
+passed in 0.32 seconds; routing 22 passed in 2.20 seconds; ownership passed for
+22 targets, 266 groups, and 1,422 entries;
 spelling passed for 944 occurrences at
 `8c59a643a5719e4690c9150cdfd632014e7996c6b8e2ad4b639d0e0cf4c88618`.
 Actual archive construction, Cargo packaging, installed-consumer relocation,

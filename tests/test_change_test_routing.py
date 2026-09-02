@@ -499,6 +499,21 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
             ["release_candidate"],
         )
 
+    def test_release_manifest_contract_routes_schema_and_reader_evidence(self):
+        for path in [
+            "schemas/release-manifest-v2.schema.json",
+            "scripts/validate-release-manifest.sh",
+            "tests/fixtures/release/release-manifest-v1.json",
+        ]:
+            selected = self.select(path)
+            self.assertIn("release_manifest", selected["bundle_ids"])
+            self.assertIn("release_ci__fast", selected["covered_by_unconditional_fast"])
+            self.assertIn("schema_resources__fast", selected["covered_by_unconditional_fast"])
+            self.assertIn(
+                "release_candidate",
+                {item["id"] for item in selected["deferred_evidence"]},
+            )
+
     def test_embedded_corpus_route_defers_and_cannot_run_r23_heavy_entry(self):
         result = self.select("cases/registry.json")
         deferred = {item["id"] for item in result["deferred_evidence"]}

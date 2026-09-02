@@ -90,7 +90,7 @@
       "owner": "release_maintainers",
       "support_window": "every published target artifact for its announced product support window",
       "apis": ["native_archive", "archive_checksum", "release_manifest"],
-      "schemas": ["release-manifest.schema.json"]
+      "schemas": ["release-manifest.schema.json", "release-manifest-v2.schema.json"]
     }
   ]
 }

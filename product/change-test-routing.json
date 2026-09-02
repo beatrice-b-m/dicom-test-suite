@@ -90,6 +90,14 @@
       "commands": [],
       "covered_by_fast": ["release_ci__fast"]
     },
+    "release_manifest": {
+      "commands": [
+        {"target": "release_ci__fast", "module": "ci_release_gates"},
+        {"target": "schema_resources__subsystem"}
+      ],
+      "covered_by_fast": ["release_ci__fast", "schema_resources__fast"],
+      "deferred": ["release_candidate"]
+    },
     "schema": {
       "commands": [{"target": "schema_resources__subsystem"}],
       "covered_by_fast": ["schema_resources__fast"]
@@ -299,10 +307,22 @@
       "exact": [
         ".github/workflows/qualification.yml", "scripts/build-release-archive.sh",
         "scripts/report-ci-cost.sh", "scripts/run-heavy-qualification.sh",
-        "scripts/verify-release-archive.sh"
+        "scripts/validate-release-manifest.sh", "scripts/verify-release-archive.sh"
       ],
       "bundles": ["routing_contract"],
       "deferred": ["explicit_heavy", "release_candidate"]
+    },
+    {
+      "id": "release-manifest-contract",
+      "exact": [
+        "schemas/release-manifest.schema.json",
+        "schemas/release-manifest-v2.schema.json",
+        "scripts/build-release-archive.sh",
+        "scripts/validate-release-manifest.sh",
+        "scripts/verify-release-archive.sh"
+      ],
+      "prefixes": ["tests/fixtures/release/"],
+      "bundles": ["release_manifest"]
     },
     {
       "id": "product-data",

@@ -4,9 +4,9 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 266,
-    "rust_test_entries": 1419,
+    "rust_test_entries": 1421,
     "integration_source_groups": 187,
-    "integration_test_entries": 897,
+    "integration_test_entries": 899,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
   },
   "enums": {
@@ -400,7 +400,7 @@
         "capabilities_requires_an_explicit_machine_format",
         "capabilities_machine_syntax_failure_is_one_schema_valid_stderr_envelope"
       ],
-      "entry_digest": "75ce5b8d4fe42387c05f27b9167c686f1ec428bcb845130b981de312b430ff51"
+      "entry_digest": "c21736dfc2a839966ad43805ba9c0b7e04a32ec23b9a2f9b3af523e700f2e278"
     },
     {
       "source": "tests/case_recipe_catalog.rs",
@@ -435,8 +435,10 @@
       "domain": "release_ci",
       "verification_class": "fast",
       "cost_tier": "ordinary",
-      "entry_count": 6,
+      "entry_count": 8,
       "entries": [
+        "release_manifest_reader_accepts_v1_and_current_v2",
+        "release_manifest_v2_reader_rejects_identity_and_version_tampering",
         "fast_pr_cancels_superseded_runs_without_duplicate_pr_branch_ownership",
         "fast_pr_is_bounded_to_light_contracts_and_tiny_smoke",
         "heavy_workflow_retains_nightly_matrix_and_immutable_release_gate",
@@ -444,7 +446,7 @@
         "ci_build_storage_controls_cover_every_job_and_preserve_heavy_evidence",
         "ci_cost_reporter_handles_missing_and_spaced_paths_and_fails_closed"
       ],
-      "entry_digest": "6cbebb443df5d2e1ae94e8707dc16c3f67e5f6b9b6db62a88b8c7e0439e87563",
+      "entry_digest": "307e01d2e5c87da42f351982ed0dff82c3d81205043ab23c7ae11df42d58a659",
       "fast_cost_exemption": "Static workflow and script inspection; no heavyweight command is executed."
     },
     {
@@ -4062,7 +4064,7 @@
         "verified_corpus_perturbation_changes_only_corpus_identity",
         "external_runtime_identity_requires_successful_typed_execution_evidence"
       ],
-      "entry_digest": "15dfc94a0177a9437ad893b0e06c43385479fb55bafca8fd26bd376bfef7d73a"
+      "entry_digest": "b0caa64005461ca8e22d79011728065498654c788b36ca8d3b9e12fa4917f5c5"
     },
     {
       "source": "src/lib.rs",

@@ -37,7 +37,7 @@ artifact.
 | R1 — contain CI and local build cost | Complete | R1.1, R1.2, R1.3, R1.4, R1.5, R1.6 | A disposable draft-PR probe proved superseded-run cancellation and single-event ownership. Replacement Fast run `33581809536` passed in 123 seconds of job time with only the declared Fast work, a 739,602,432-byte target, four smoke artifacts occupying 122,880 allocated bytes, and the 4-GiB ceiling enforced. The broad matrix remains separately scheduled/manually invocable. The R1 gate passes. |
 | R2 — reduce Rust test-linking amplification | Complete | R2.1, R2.2, R2.3, R2.4 | The fail-closed inventory maps 186 integration sources and all 879 integration entries into exactly 20 explicit harnesses. Six R0-measured heavy bodies have exact ignored qualification entry points, while deterministic change routing now selects bounded Fast/subsystem evidence and reports every deferred class without executing it. The aggregate R2 target-count, cost, heavy-isolation, and routing gates pass. |
 | R3 — rename reusable product | Complete | R3.1, R3.2, R3.3, R3.4 | Product, package, crate, library, sole binary, archives, discovery, package metadata, current operating guides, product-controlled environment, and production scratch paths use `synth-dicom-gen` / `synth_dicom_gen` at the breaking pre-1.0 product boundary `0.2.0`. Immutable dated evidence retains its exact old candidate identity, and 12 qualified-adapter variables retain provenance-bound spellings pending external requalification. The external-consumer audit found no supported `0.1.0` product consumer requiring an alias. A clean side project compiled and exercised only `synth_dicom_gen::sdk` from the extracted, verified `synth-dicom-gen-0.2.0.crate`, without the old repository path. The aggregate R3 gate passes. |
-| R4 — split immutable resources and corpus definitions | In progress | R4.1, R4.2; discovery, curated-generation, composition, and assembly R4.3 slices | `EngineResources` owns the immutable product-resource boundary, `CorpusDefinitionBundle` 1.0.0 inspects integrity-checked caller corpus data, and version/capabilities plus curated-generation, composition, and structural-assembly contracts now project independent identity domains. Coverage/release R4.3 slices, corpus/Cargo digest removal, reusable materialization, and the supported SDK/CLI generation route remain open. |
+| R4 — split immutable resources and corpus definitions | In progress | R4.1, R4.2; discovery, curated-generation, composition, assembly, and report R4.3 slices | `EngineResources` owns the immutable product-resource boundary, `CorpusDefinitionBundle` 1.0.0 inspects integrity-checked caller corpus data, and version/capabilities plus current generation, composition, assembly, and derived report contracts now project independent identity domains. Release R4.3 projection, corpus/Cargo digest removal, reusable materialization, and the supported SDK/CLI generation route remain open. |
 | R5 — add supported external corpus API | Not started | None | Requires the R4 resource and identity boundary. |
 | R6 — establish smoke corpus repository | Not started | None | No external repository has been created; authority and destination are still required before out-of-workspace mutation. |
 | R7 — migrate complete dcmview corpus | Not started | None | Requires R6 smoke parity and supported contracts. |
@@ -2589,6 +2589,67 @@ Bounded ordinary verification after the slice:
 No provider, codec-feature, external-corpus, Heavy, Nightly,
 release-candidate, coverage/release projection, R4.4, R4.5, or R5 body ran.
 
+### R4.3 — bounded report identity-preservation slice
+
+**State:** report projection complete on 2026-09-02; release projection and
+aggregate R4.3 remain in progress.
+
+Commits `1bc204f` through `e7bf0e6` freeze genuine legacy report bytes, add
+strict current report contracts, branch only on the already validated source
+manifest version, and copy the source `identity_projection` exactly. Curated
+manifest `1.0.0` now derives coverage report `1.0.0`; composition manifest
+`1.0.0` derives composition report `1.0.0`; and structural-assembly manifest
+`2.0.0` derives structural report `2.0.0`. Curated `0.2.0`/`0.3.0`, composition
+`0.4.0`/`0.5.0`, and assembly `1.0.0` readers retain report `0.1.0`, `0.1.0`,
+and `1.0.0` respectively and never synthesize identity from
+`product_resources`. The generic report-result envelope and coverage-gap
+report remain unchanged.
+
+The frozen raw JSON identities are: smoke seed-1 coverage report 93,929 bytes /
+`c18f4bbd8807eb9d108c07a59035f97ff75771aa3fe962f395153fd81d1a8b0a`,
+composition report 920 bytes /
+`974b39b687907e73b4b8a147f21364c21cd8517490704295fc2056505ab23415`,
+and structural-assembly report 635 bytes /
+`9dcac66e9a6ab1f0d5a4f7f5940f6d94c8a56510dbc8e26bc5878d7867416203`.
+Current-to-legacy parity removes only `identity_projection` and resets the
+report version; the smoke comparison reproduces the exact R0 report bytes.
+
+All three current schemas reject unknown versions, missing identity,
+malformed digests, and duplicate runtime IDs with different fingerprints.
+The dedicated composition report legacy/current schemas establish the
+previously absent public contract and have exactly one compatibility owner.
+Capabilities advertise current producers separately from report validation
+windows: coverage and composition `0.1.0`/`1.0.0`, assembly
+`1.0.0`/`2.0.0`. Additive fields remain optional for frozen capabilities-v2
+documents. The direct schema-set identity is now 50 files / 848,317 bytes /
+`be3665f9a7a70182fde9c70bda7bdcada660a3d3c19545be1102a0a88a8ca98b`;
+the transitional oracle remains exactly 240 members /
+`dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410`.
+
+Bounded ordinary verification after the slice:
+
+- report-contract unit route: 3 passed in 0.58 seconds;
+- report CLI route: 47 passed in 16.29 seconds;
+- SDK facade route: 12 passed in 3.18 seconds;
+- composition subsystem: 84 passed and 5 explicitly ignored provider bodies
+  in 14.29 seconds;
+- assembly subsystem: 25 passed in 3.11 seconds (20.31 seconds wall including
+  final rebuild);
+- schema/resources route: 86 passed in 6.51 seconds;
+- capabilities route: 4 passed in 1.30 seconds;
+- identity-domain route: 3 passed in 0.78 seconds;
+- compatibility ownership: 1 passed;
+- test ownership: 22 targets, 266 groups, and 1,418 entries passed;
+- spelling inventory: 944 retained occurrences, SHA-256
+  `8c59a643a5719e4690c9150cdfd632014e7996c6b8e2ad4b639d0e0cf4c88618`.
+
+The first full assembly run exposed one stale test binding to the frozen v1
+report schema (24 passed, 1 failed); commit `7db4f29` migrated that assertion
+to the strict v2 schema and the exact focused body passed. The final full
+assembly rerun above passed. No ignored provider body, codec feature,
+external corpus, Heavy, Nightly, release-candidate, release projection, R4.4,
+R4.5, or R5 body ran.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |
@@ -2633,7 +2694,7 @@ baseline alone is not proof that those budgets have passed.
 | Repository boundary | Not run | Must prove no generator dependency on dcmview and no corpus use of unsupported modules or sibling paths. |
 | Naming and compatibility | Passed | R3.1-R3.4 prove package `synth-dicom-gen` `0.2.0`, library `synth_dicom_gen`, the sole binary and version-derived archive/discovery identities, clean no-alias product environment, renamed production scratch paths, dual readers only at the four approved compatibility boundaries, current operating guides under the new identity, immutable historical evidence under the old identity, and 12 explicitly evidence-bound retained adapter environments. The exact 2,500,992-byte packaged crate (`9bc4cdaa357ce6f87a8dcce61d2f554d45f7a795a5c5f09fbb93017e65f79fe6`) passed Cargo verification and a clean extracted-package SDK consumer without an old repository path. A qualified `0.2.0` release remains correctly separate in the packaging-and-release row. |
 | External corpus contract | In progress | R4.2 proves the versioned, bounded, integrity-checked definition schema and typed inspection loader. R5 must still expose supported CLI/SDK selection and generation without internal imports or sibling paths before this row can pass. |
-| Identity separation | In progress | R4.3 now independently projects engine, toolchain, template, provider, schema, standards, execution, verified loaded-corpus, and invocation runtime identities in v2 discovery; curated-generation manifest 1.0/result 2.0; composition manifest 1.0/result 2.0; and structural-assembly manifest 2.0/result 2.0. Embedded generation, composition, and assembly record an explicit null unverified corpus identity; curated 0.2/0.3, composition 0.4/0.5, and assembly 1.0 manifest readers plus each result-v1 schema remain proven. Coverage/release projections remain sequential R4.3 work, and R4.4 still owns removal of the transitional monolithic inventory. |
+| Identity separation | In progress | R4.3 now independently projects engine, toolchain, template, provider, schema, standards, execution, verified loaded-corpus, and invocation runtime identities in v2 discovery; curated-generation manifest 1.0/result 2.0; composition manifest 1.0/result 2.0; structural-assembly manifest 2.0/result 2.0; and their current coverage, composition, and structural reports. Embedded generation, composition, and assembly record an explicit null unverified corpus identity; every frozen legacy manifest/result/report reader remains proven without inferred split identities. Release projection remains sequential R4.3 work, and R4.4 still owns removal of the transitional monolithic inventory. |
 | Smoke migration | In progress | The R0 parity baseline passes for the current embedded smoke slice; R6 repository generation and comparison have not run. |
 | Complete migration | Not run | The current repository still owns the complete embedded corpus. |
 | Fast development | In progress | R1-R2 record the representative 123-second generator Fast PR, 739,602,432-byte target, bounded smoke artifacts, 20 integration harnesses, 84.28% comparable clean-tree size reduction, 91.19% bounded Fast-route reduction, and warm-invalidation evidence while preserving separately invocable heavy coverage. Representative corpus and viewer PR measurements remain absent, and R9.6 still owns terminal verification-class cost measurements, so this terminal row does not yet pass. |

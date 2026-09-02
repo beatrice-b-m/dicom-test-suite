@@ -75,7 +75,13 @@ pub struct CapabilitiesResult {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SupportedVersions {
     pub cli_api: Vec<&'static str>,
+    /// Versions emitted by the current producer for each result family.
     pub result_schemas: BTreeMap<&'static str, Vec<&'static str>>,
+    /// Versions covered by immutable JSON Schema consumer fixtures.
+    ///
+    /// This is validation compatibility, not a producer selector or a claim
+    /// that a typed Rust reader normalizes legacy documents.
+    pub result_schema_validation: BTreeMap<&'static str, Vec<&'static str>>,
     pub composition_request: Vec<&'static str>,
     pub assembly_request: Vec<&'static str>,
     pub assembly_manifest: Vec<&'static str>,
@@ -385,10 +391,7 @@ pub fn capabilities_result_with_context(
                     "assembly",
                     vec![crate::cli_protocol::ASSEMBLY_RESULT_SCHEMA_VERSION],
                 ),
-                (
-                    "capabilities",
-                    SUPPORTED_CAPABILITIES_RESULT_SCHEMA_VERSIONS.to_vec(),
-                ),
+                ("capabilities", vec![CAPABILITIES_RESULT_SCHEMA_VERSION]),
                 (
                     "case_list",
                     vec![crate::cli_protocol::CASE_LIST_RESULT_SCHEMA_VERSION],
@@ -424,6 +427,13 @@ pub fn capabilities_result_with_context(
                 (
                     "validation",
                     vec![crate::cli_protocol::VALIDATION_RESULT_SCHEMA_VERSION],
+                ),
+                ("version", vec![VERSION_RESULT_SCHEMA_VERSION]),
+            ]),
+            result_schema_validation: BTreeMap::from([
+                (
+                    "capabilities",
+                    SUPPORTED_CAPABILITIES_RESULT_SCHEMA_VERSIONS.to_vec(),
                 ),
                 ("version", SUPPORTED_VERSION_RESULT_SCHEMA_VERSIONS.to_vec()),
             ]),

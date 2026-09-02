@@ -8,7 +8,6 @@
     "product_version",
     "cli_api_version",
     "enabled_features",
-    "product_resources",
     "identity_domains",
     "supported_versions",
     "qualified_templates",
@@ -89,7 +88,7 @@
     },
     "supported_versions": {
       "type": "object",
-      "required": ["cli_api", "result_schemas", "composition_request", "assembly_request", "assembly_manifest", "release_manifest", "curated_manifest", "composition_manifest", "coverage_report", "template_catalog", "case_registry", "composition_provider_protocol", "generation_backend_protocol"],
+      "required": ["cli_api", "result_schemas", "result_schema_validation", "composition_request", "assembly_request", "assembly_manifest", "release_manifest", "curated_manifest", "composition_manifest", "coverage_report", "template_catalog", "case_registry", "composition_provider_protocol", "generation_backend_protocol"],
       "properties": {
         "cli_api": { "$ref": "#/$defs/version_array" },
         "result_schemas": {
@@ -97,6 +96,15 @@
           "minProperties": 1,
           "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
           "additionalProperties": { "$ref": "#/$defs/version_array" }
+        },
+        "result_schema_validation": {
+          "type": "object",
+          "required": ["capabilities", "version"],
+          "properties": {
+            "capabilities": { "const": ["1.0.0", "2.0.0"] },
+            "version": { "const": ["1.0.0", "2.0.0"] }
+          },
+          "additionalProperties": false
         },
         "composition_request": { "$ref": "#/$defs/version_array" },
         "assembly_request": { "$ref": "#/$defs/version_array" },

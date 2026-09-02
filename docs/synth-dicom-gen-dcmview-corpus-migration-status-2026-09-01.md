@@ -598,7 +598,10 @@ or release qualification.
 The committed development and test profiles disable incremental compilation
 and set debug information to zero. Every Fast or heavy workflow job also sets
 `CARGO_INCREMENTAL=0`, the development/test debug controls, and a unique
-absolute `CARGO_TARGET_DIR` under `runner.temp`; the release-candidate job
+absolute `CARGO_TARGET_DIR` under the runner-provided `RUNNER_TEMP`; each job
+exports that path through `GITHUB_ENV` before Cargo work because the `runner`
+expression context is unavailable while GitHub evaluates a job-level `env`
+map. The release-candidate job
 additionally sets release debug information to zero. Package extraction and
 native archive construction consume that exact target root instead of an
 implicit repository `target/` path.
@@ -654,6 +657,29 @@ conformance, interoperability, or remote qualification ran.
 Live remote cancellation and Fast/storage measurements remain open. Therefore
 neither the R1 gate nor terminal Fast-development or heavy-qualification
 acceptance is claimed.
+
+**Remote workflow-evaluation regression (2026-09-01):** the first authorized
+live probe at immutable revision
+`6af35c1ed0f96389a7387dab3c867571efaec9ff` exposed a workflow-definition
+defect before any runner was allocated. Push runs
+[`33581314881`](https://github.com/beatrice-b-m/dicom-test-suite/actions/runs/33581314881)
+(`CI`) and
+[`33581315565`](https://github.com/beatrice-b-m/dicom-test-suite/actions/runs/33581315565)
+(`.github/workflows/qualification.yml`) both completed with conclusion
+`failure` and an empty `jobs` array. The invalid definitions used
+`${{ runner.temp }}` in job-level `env`; GitHub permits the `runner` context
+only after a job is running. The repair moves every unique target assignment
+into the job's initial shell step via `$RUNNER_TEMP` and `$GITHUB_ENV`, and the
+static gate now rejects `runner` expressions outside step scope and requires
+each exact target export before Cargo work. A fresh local Fast-equivalent run
+with the repaired export contract passed in 57 build-work seconds: its exact
+target occupied 870,436,864 allocated bytes, and its four-file smoke output
+occupied 98,304 allocated bytes with zero validation failures. The focused six
+workflow/storage tests, workflow YAML parsing, formatting, and diff checks also
+passed. The local temporary root was removed after measurement. These failed
+remote runs are diagnostic evidence only: a corrected live
+Fast/cancellation/storage probe is still required, and no remote R1.5 pass is
+claimed here.
 
 ### R1.6 — release build and archive reuse
 

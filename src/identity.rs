@@ -9,8 +9,10 @@ use std::fmt;
 
 use serde::Serialize;
 
-use crate::corpus_definition::CorpusDefinitionIdentity;
-use crate::engine_resources::{EngineResourceError, EngineResourceIdentity, EngineResources};
+use crate::corpus_definition::{CorpusDefinitionBundle, CorpusDefinitionIdentity};
+use crate::engine_resources::{
+    EngineResourceError, EngineResourceIdentity, EngineResourceOrigin, EngineResources,
+};
 
 pub const IDENTITY_DOMAINS_SCHEMA_VERSION: &str = "1.0.0";
 pub const IDENTITY_DOMAIN_VERSION: &str = "1.0.0";
@@ -90,6 +92,7 @@ pub struct ExternalRuntimeIdentity {
 pub struct IdentityMigrationContext {
     pub source: &'static str,
     pub legacy_resource_set_version: String,
+    pub legacy_resource_origin: EngineResourceOrigin,
     pub legacy_resource_count: usize,
     pub legacy_resource_set_sha256: String,
     pub corpus_identity_status: &'static str,
@@ -114,8 +117,7 @@ pub struct InstalledIdentityDomains {
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct IdentityInspectionContext<'a> {
-    pub corpus_definition: Option<&'a CorpusDefinitionIdentity>,
-    pub external_runtime: &'a [ExternalRuntimeIdentity],
+    pub corpus_definition: Option<&'a CorpusDefinitionBundle>,
 }
 
 #[derive(Debug)]
@@ -169,10 +171,20 @@ struct Member {
     bytes: Vec<u8>,
 }
 
-const DIRECT_SCHEMA_MEMBERS: &[(&str, &[u8])] = &[(
-    "schemas/corpus-definition-bundle.schema.json",
-    include_bytes!("../schemas/corpus-definition-bundle.schema.json"),
-)];
+const DIRECT_SCHEMA_MEMBERS: &[(&str, &[u8])] = &[
+    (
+        "schemas/capabilities-result-v2.schema.json",
+        include_bytes!("../schemas/capabilities-result-v2.schema.json"),
+    ),
+    (
+        "schemas/corpus-definition-bundle.schema.json",
+        include_bytes!("../schemas/corpus-definition-bundle.schema.json"),
+    ),
+    (
+        "schemas/version-result-v2.schema.json",
+        include_bytes!("../schemas/version-result-v2.schema.json"),
+    ),
+];
 
 pub fn project_installed_identities(
     resources: &EngineResources,
@@ -296,7 +308,9 @@ fn project_members(
             member_count: providers.member_count,
             total_size_bytes: providers.total_size_bytes,
         },
-        corpus_definition: context.corpus_definition.cloned(),
+        corpus_definition: context
+            .corpus_definition
+            .map(|bundle| bundle.identity().clone()),
         toolchain: ToolchainIdentity {
             identity_version: IDENTITY_DOMAIN_VERSION,
             rust_toolchain: crate::RUSTC_VERSION,
@@ -305,7 +319,7 @@ fn project_members(
             cargo_lock_sha256: crate::sha256_hex(&cargo_lock.bytes),
             toolchain_sha256,
         },
-        external_runtime: context.external_runtime.to_vec(),
+        external_runtime: Vec::new(),
         standards: StandardsIdentity {
             identity_version: IDENTITY_DOMAIN_VERSION,
             standards_lock_sha256: crate::sha256_hex(&standards_lock.bytes),
@@ -322,6 +336,7 @@ fn project_members(
         migration: IdentityMigrationContext {
             source: "transitional_monolithic_resource_set_v1",
             legacy_resource_set_version: legacy.resource_set_version,
+            legacy_resource_origin: legacy.origin,
             legacy_resource_count: legacy.resource_count,
             legacy_resource_set_sha256: legacy.resource_set_sha256,
             corpus_identity_status: if context.corpus_definition.is_some() {

@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json",
+  "title": "Synth DICOM Gen Version Result v2",
+  "type": "object",
+  "required": [
+    "version_result_schema_version",
+    "product",
+    "cli_api_version",
+    "target",
+    "rust_toolchain",
+    "enabled_features",
+    "product_resources",
+    "identity_domains"
+  ],
+  "properties": {
+    "version_result_schema_version": { "const": "2.0.0" },
+    "product": {
+      "type": "object",
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "const": "synth-dicom-gen" },
+        "version": { "$ref": "#/$defs/semver" }
+      },
+      "additionalProperties": false
+    },
+    "cli_api_version": { "const": "1.0.0" },
+    "target": { "type": "string", "minLength": 1 },
+    "rust_toolchain": { "type": "string", "pattern": "^rustc " },
+    "enabled_features": { "$ref": "#/$defs/string_set" },
+    "product_resources": { "$ref": "#/$defs/product_resources" },
+    "identity_domains": { "$ref": "#/$defs/identity_domains" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$"
+    },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "string_set": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "product_resources": {
+      "type": "object",
+      "required": ["resource_set_version", "origin", "resource_count", "resource_set_sha256", "resources"],
+      "properties": {
+        "resource_set_version": { "const": "1.0.0" },
+        "origin": { "enum": ["embedded", "explicit"] },
+        "resource_count": { "const": 240 },
+        "resource_set_sha256": { "const": "dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410" },
+        "resources": {
+          "type": "array",
+          "minItems": 240,
+          "maxItems": 240,
+          "items": {
+            "type": "object",
+            "required": ["logical_path", "size_bytes", "sha256"],
+            "properties": {
+              "logical_path": { "type": "string", "minLength": 1 },
+              "size_bytes": { "type": "integer", "minimum": 1 },
+              "sha256": { "$ref": "#/$defs/sha256" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "content_domain": {
+      "type": "object",
+      "required": ["identity_version", "member_count", "total_size_bytes"],
+      "properties": {
+        "identity_version": { "const": "1.0.0" },
+        "member_count": { "type": "integer", "minimum": 1 },
+        "total_size_bytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "engine_identity": {
+      "allOf": [
+        { "$ref": "#/$defs/content_domain" },
+        {
+          "type": "object",
+          "required": ["engine_sha256"],
+          "properties": { "engine_sha256": { "$ref": "#/$defs/sha256" } },
+          "unevaluatedProperties": false
+        }
+      ]
+    },
+    "schema_set_identity": {
+      "allOf": [
+        { "$ref": "#/$defs/content_domain" },
+        {
+          "type": "object",
+          "required": ["schema_set_sha256"],
+          "properties": { "schema_set_sha256": { "$ref": "#/$defs/sha256" } },
+          "unevaluatedProperties": false
+        }
+      ]
+    },
+    "template_catalog_identity": {
+      "allOf": [
+        { "$ref": "#/$defs/content_domain" },
+        {
+          "type": "object",
+          "required": ["template_catalog_sha256"],
+          "properties": { "template_catalog_sha256": { "$ref": "#/$defs/sha256" } },
+          "unevaluatedProperties": false
+        }
+      ]
+    },
+    "provider_catalog_identity": {
+      "allOf": [
+        { "$ref": "#/$defs/content_domain" },
+        {
+          "type": "object",
+          "required": ["provider_catalog_sha256"],
+          "properties": { "provider_catalog_sha256": { "$ref": "#/$defs/sha256" } },
+          "unevaluatedProperties": false
+        }
+      ]
+    },
+    "corpus_definition_identity": {
+      "type": "object",
+      "required": ["schema_version", "definition_id", "definition_version", "manifest_sha256", "corpus_definition_sha256", "file_count", "total_size_bytes"],
+      "properties": {
+        "schema_version": { "const": "1.0.0" },
+        "definition_id": { "type": "string", "minLength": 1 },
+        "definition_version": { "$ref": "#/$defs/semver" },
+        "manifest_sha256": { "$ref": "#/$defs/sha256" },
+        "corpus_definition_sha256": { "$ref": "#/$defs/sha256" },
+        "file_count": { "type": "integer", "minimum": 1 },
+        "total_size_bytes": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "toolchain_identity": {
+      "type": "object",
+      "required": ["identity_version", "rust_toolchain", "target", "enabled_features", "cargo_lock_sha256", "toolchain_sha256"],
+      "properties": {
+        "identity_version": { "const": "1.0.0" },
+        "rust_toolchain": { "type": "string", "pattern": "^rustc " },
+        "target": { "type": "string", "minLength": 1 },
+        "enabled_features": { "$ref": "#/$defs/string_set" },
+        "cargo_lock_sha256": { "$ref": "#/$defs/sha256" },
+        "toolchain_sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    },
+    "external_runtime_identity": {
+      "type": "object",
+      "required": ["runtime_id", "runtime_kind", "executable_sha256", "version", "invocation_sha256"],
+      "properties": {
+        "runtime_id": { "type": "string", "minLength": 1 },
+        "runtime_kind": { "type": "string", "minLength": 1 },
+        "executable_sha256": { "$ref": "#/$defs/sha256" },
+        "version": { "type": "string", "minLength": 1 },
+        "invocation_sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    },
+    "standards_identity": {
+      "type": "object",
+      "required": ["identity_version", "standards_lock_sha256"],
+      "properties": {
+        "identity_version": { "const": "1.0.0" },
+        "standards_lock_sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    },
+    "execution_identity": {
+      "type": "object",
+      "required": ["identity_version", "product_name", "product_version", "cli_api_version", "target", "enabled_features", "execution_sha256"],
+      "properties": {
+        "identity_version": { "const": "1.0.0" },
+        "product_name": { "const": "synth-dicom-gen" },
+        "product_version": { "$ref": "#/$defs/semver" },
+        "cli_api_version": { "const": "1.0.0" },
+        "target": { "type": "string", "minLength": 1 },
+        "enabled_features": { "$ref": "#/$defs/string_set" },
+        "execution_sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    },
+    "migration": {
+      "type": "object",
+      "required": ["source", "legacy_resource_set_version", "legacy_resource_origin", "legacy_resource_count", "legacy_resource_set_sha256", "corpus_identity_status", "manifest_projection_status", "removal_phase"],
+      "properties": {
+        "source": { "const": "transitional_monolithic_resource_set_v1" },
+        "legacy_resource_set_version": { "const": "1.0.0" },
+        "legacy_resource_origin": { "enum": ["embedded", "explicit"] },
+        "legacy_resource_count": { "const": 240 },
+        "legacy_resource_set_sha256": { "const": "dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410" },
+        "corpus_identity_status": { "enum": ["absent_without_verified_bundle", "verified_bundle_loaded"] },
+        "manifest_projection_status": { "const": "deferred_to_sequential_r4_3_slices" },
+        "removal_phase": { "const": "R4.4" }
+      },
+      "additionalProperties": false
+    },
+    "identity_domains": {
+      "type": "object",
+      "required": ["identity_domains_schema_version", "engine", "schema_set", "template_catalog", "provider_catalog", "corpus_definition", "toolchain", "external_runtime", "standards", "execution", "migration"],
+      "properties": {
+        "identity_domains_schema_version": { "const": "1.0.0" },
+        "engine": { "$ref": "#/$defs/engine_identity" },
+        "schema_set": { "$ref": "#/$defs/schema_set_identity" },
+        "template_catalog": { "$ref": "#/$defs/template_catalog_identity" },
+        "provider_catalog": { "$ref": "#/$defs/provider_catalog_identity" },
+        "corpus_definition": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/corpus_definition_identity" }] },
+        "toolchain": { "$ref": "#/$defs/toolchain_identity" },
+        "external_runtime": { "type": "array", "items": { "$ref": "#/$defs/external_runtime_identity" } },
+        "standards": { "$ref": "#/$defs/standards_identity" },
+        "execution": { "$ref": "#/$defs/execution_identity" },
+        "migration": { "$ref": "#/$defs/migration" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -73,6 +73,15 @@ fn resource_build_tracks_directory_additions() {
             "schemas/corpus-definition-bundle.schema.json"
         )
     );
+    for schema in [
+        "schemas/version-result-v2.schema.json",
+        "schemas/capabilities-result-v2.schema.json",
+    ] {
+        assert!(
+            !engine_resource_build_script::is_transitional_engine_resource(schema),
+            "new identity-domain schema must remain outside the v1 oracle: {schema}"
+        );
+    }
     assert!(
         engine_resource_build_script::is_transitional_engine_resource(
             "schemas/case-recipe.schema.json"

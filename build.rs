@@ -114,11 +114,16 @@ fn collect_json_files(root: &Path, relative: &Path, resources: &mut Vec<(String,
     }
 }
 
-/// Corpus-definition schemas have an independent identity domain. R4.2 reads
-/// this schema directly without perturbing the locked transitional v1 engine
-/// inventory before the R4.3/R4.4 identity split.
+/// Newly versioned identity-domain schemas are embedded directly by their
+/// owning modules without perturbing the locked transitional v1 engine
+/// inventory before R4.4 removes that compatibility oracle.
 pub(crate) fn is_transitional_engine_resource(logical_path: &str) -> bool {
-    logical_path != "schemas/corpus-definition-bundle.schema.json"
+    !matches!(
+        logical_path,
+        "schemas/corpus-definition-bundle.schema.json"
+            | "schemas/version-result-v2.schema.json"
+            | "schemas/capabilities-result-v2.schema.json"
+    )
 }
 
 fn require_regular_engine_resource(path: &Path) {

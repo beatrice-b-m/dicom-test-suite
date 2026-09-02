@@ -4,9 +4,15 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::engine_resources::{EngineResourceError, EngineResourceIdentity, EngineResources};
+use crate::identity::{
+    IdentityInspectionContext, IdentityProjectionError, InstalledIdentityDomains,
+    project_installed_identities,
+};
 
-pub const VERSION_RESULT_SCHEMA_VERSION: &str = "1.0.0";
-pub const CAPABILITIES_RESULT_SCHEMA_VERSION: &str = "1.0.0";
+pub const VERSION_RESULT_SCHEMA_VERSION: &str = "2.0.0";
+pub const CAPABILITIES_RESULT_SCHEMA_VERSION: &str = "2.0.0";
+pub const SUPPORTED_VERSION_RESULT_SCHEMA_VERSIONS: &[&str] = &["1.0.0", "2.0.0"];
+pub const SUPPORTED_CAPABILITIES_RESULT_SCHEMA_VERSIONS: &[&str] = &["1.0.0", "2.0.0"];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ProductIdentity {
@@ -23,9 +29,17 @@ pub struct VersionResult {
     pub rust_toolchain: &'static str,
     pub enabled_features: Vec<&'static str>,
     pub product_resources: EngineResourceIdentity,
+    pub identity_domains: InstalledIdentityDomains,
 }
 
-pub fn version_result(resources: &EngineResources) -> Result<VersionResult, EngineResourceError> {
+pub fn version_result(resources: &EngineResources) -> Result<VersionResult, DiscoveryError> {
+    version_result_with_context(resources, IdentityInspectionContext::default())
+}
+
+pub fn version_result_with_context(
+    resources: &EngineResources,
+    context: IdentityInspectionContext<'_>,
+) -> Result<VersionResult, DiscoveryError> {
     Ok(VersionResult {
         version_result_schema_version: VERSION_RESULT_SCHEMA_VERSION,
         product: ProductIdentity {
@@ -37,6 +51,7 @@ pub fn version_result(resources: &EngineResources) -> Result<VersionResult, Engi
         rust_toolchain: crate::RUSTC_VERSION,
         enabled_features: crate::ACTIVE_FEATURE_FLAGS.to_vec(),
         product_resources: resources.verify_integrity()?,
+        identity_domains: project_installed_identities(resources, context)?,
     })
 }
 
@@ -47,6 +62,7 @@ pub struct CapabilitiesResult {
     pub cli_api_version: &'static str,
     pub enabled_features: Vec<&'static str>,
     pub product_resources: EngineResourceIdentity,
+    pub identity_domains: InstalledIdentityDomains,
     pub supported_versions: SupportedVersions,
     pub qualified_templates: Vec<QualifiedTemplateCapability>,
     pub transfer_syntaxes: Vec<TransferSyntaxCapability>,
@@ -124,6 +140,7 @@ pub struct WorkflowCapability {
 #[derive(Debug)]
 pub enum DiscoveryError {
     Resources(EngineResourceError),
+    Identity(IdentityProjectionError),
     TemplateCatalog(String),
     ResourceDocument {
         logical_path: &'static str,
@@ -135,6 +152,7 @@ impl fmt::Display for DiscoveryError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Resources(error) => write!(formatter, "product resources: {error}"),
+            Self::Identity(error) => write!(formatter, "identity projection: {error}"),
             Self::TemplateCatalog(message) => write!(formatter, "template catalog: {message}"),
             Self::ResourceDocument {
                 logical_path,
@@ -152,6 +170,12 @@ impl std::error::Error for DiscoveryError {}
 impl From<EngineResourceError> for DiscoveryError {
     fn from(value: EngineResourceError) -> Self {
         Self::Resources(value)
+    }
+}
+
+impl From<IdentityProjectionError> for DiscoveryError {
+    fn from(value: IdentityProjectionError) -> Self {
+        Self::Identity(value)
     }
 }
 
@@ -220,7 +244,15 @@ fn parse_resource<T: for<'de> Deserialize<'de>>(
 pub fn capabilities_result(
     resources: &EngineResources,
 ) -> Result<CapabilitiesResult, DiscoveryError> {
+    capabilities_result_with_context(resources, IdentityInspectionContext::default())
+}
+
+pub fn capabilities_result_with_context(
+    resources: &EngineResources,
+    context: IdentityInspectionContext<'_>,
+) -> Result<CapabilitiesResult, DiscoveryError> {
     let product_resources = resources.verify_integrity()?;
+    let identity_domains = project_installed_identities(resources, context)?;
     let snapshot = resources.snapshot()?;
     let catalog =
         crate::composition::TemplateCatalog::load(snapshot.root().join("templates/catalog.json"))
@@ -345,6 +377,7 @@ pub fn capabilities_result(
         cli_api_version: crate::cli_protocol::CLI_API_VERSION,
         enabled_features: enabled.into_iter().collect(),
         product_resources,
+        identity_domains,
         supported_versions: SupportedVersions {
             cli_api: vec![crate::cli_protocol::CLI_API_VERSION],
             result_schemas: BTreeMap::from([
@@ -352,7 +385,10 @@ pub fn capabilities_result(
                     "assembly",
                     vec![crate::cli_protocol::ASSEMBLY_RESULT_SCHEMA_VERSION],
                 ),
-                ("capabilities", vec![CAPABILITIES_RESULT_SCHEMA_VERSION]),
+                (
+                    "capabilities",
+                    SUPPORTED_CAPABILITIES_RESULT_SCHEMA_VERSIONS.to_vec(),
+                ),
                 (
                     "case_list",
                     vec![crate::cli_protocol::CASE_LIST_RESULT_SCHEMA_VERSION],
@@ -389,7 +425,7 @@ pub fn capabilities_result(
                     "validation",
                     vec![crate::cli_protocol::VALIDATION_RESULT_SCHEMA_VERSION],
                 ),
-                ("version", vec![VERSION_RESULT_SCHEMA_VERSION]),
+                ("version", SUPPORTED_VERSION_RESULT_SCHEMA_VERSIONS.to_vec()),
             ]),
             composition_request: vec!["0.1.0"],
             assembly_request: vec![crate::assembly::ASSEMBLY_REQUEST_SCHEMA_VERSION],

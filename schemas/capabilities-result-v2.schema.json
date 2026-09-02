@@ -1,0 +1,194 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://synth-dicom-gen.local/schemas/capabilities-result-v2.schema.json",
+  "title": "Synth DICOM Gen Capabilities Result v2",
+  "type": "object",
+  "required": [
+    "capabilities_result_schema_version",
+    "product_version",
+    "cli_api_version",
+    "enabled_features",
+    "product_resources",
+    "identity_domains",
+    "supported_versions",
+    "qualified_templates",
+    "transfer_syntaxes",
+    "optional_runtimes",
+    "resource_ceilings",
+    "assembly_resource_ceilings",
+    "structural_assembly"
+  ],
+  "properties": {
+    "capabilities_result_schema_version": { "const": "2.0.0" },
+    "product_version": { "$ref": "#/$defs/semver" },
+    "cli_api_version": { "const": "1.0.0" },
+    "enabled_features": { "$ref": "#/$defs/string_set" },
+    "product_resources": { "$ref": "#/$defs/product_resources" },
+    "identity_domains": { "$ref": "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json#/$defs/identity_domains" },
+    "supported_versions": { "$ref": "#/$defs/supported_versions" },
+    "qualified_templates": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/qualified_template" }
+    },
+    "transfer_syntaxes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/transfer_syntax" }
+    },
+    "optional_runtimes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/optional_runtime" }
+    },
+    "resource_ceilings": { "$ref": "#/$defs/resource_ceilings" },
+    "assembly_resource_ceilings": { "$ref": "#/$defs/assembly_resource_ceilings" },
+    "structural_assembly": { "$ref": "#/$defs/workflow" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$"
+    },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "string_set": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "product_resources": {
+      "type": "object",
+      "required": ["resource_set_version", "origin", "resource_count", "resource_set_sha256", "resources"],
+      "properties": {
+        "resource_set_version": { "const": "1.0.0" },
+        "origin": { "enum": ["embedded", "explicit"] },
+        "resource_count": { "const": 240 },
+        "resource_set_sha256": { "const": "dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410" },
+        "resources": {
+          "type": "array",
+          "minItems": 240,
+          "maxItems": 240,
+          "items": {
+            "type": "object",
+            "required": ["logical_path", "size_bytes", "sha256"],
+            "properties": {
+              "logical_path": { "type": "string", "minLength": 1 },
+              "size_bytes": { "type": "integer", "minimum": 1 },
+              "sha256": { "$ref": "#/$defs/sha256" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "version_array": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/semver" },
+      "uniqueItems": true
+    },
+    "supported_versions": {
+      "type": "object",
+      "required": ["cli_api", "result_schemas", "composition_request", "assembly_request", "assembly_manifest", "release_manifest", "curated_manifest", "composition_manifest", "coverage_report", "template_catalog", "case_registry", "composition_provider_protocol", "generation_backend_protocol"],
+      "properties": {
+        "cli_api": { "$ref": "#/$defs/version_array" },
+        "result_schemas": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
+          "additionalProperties": { "$ref": "#/$defs/version_array" }
+        },
+        "composition_request": { "$ref": "#/$defs/version_array" },
+        "assembly_request": { "$ref": "#/$defs/version_array" },
+        "assembly_manifest": { "$ref": "#/$defs/version_array" },
+        "release_manifest": { "$ref": "#/$defs/version_array" },
+        "curated_manifest": { "$ref": "#/$defs/version_array" },
+        "composition_manifest": { "$ref": "#/$defs/version_array" },
+        "coverage_report": { "$ref": "#/$defs/version_array" },
+        "template_catalog": { "$ref": "#/$defs/version_array" },
+        "case_registry": { "$ref": "#/$defs/version_array" },
+        "composition_provider_protocol": { "$ref": "#/$defs/version_array" },
+        "generation_backend_protocol": { "$ref": "#/$defs/version_array" }
+      },
+      "additionalProperties": false
+    },
+    "qualified_template": {
+      "type": "object",
+      "required": ["template_id", "template_version", "qualification_status", "artifact_kind", "transfer_syntax_uids"],
+      "properties": {
+        "template_id": { "type": "string", "minLength": 1 },
+        "template_version": { "$ref": "#/$defs/semver" },
+        "qualification_status": { "const": "qualified" },
+        "artifact_kind": { "type": "string", "minLength": 1 },
+        "transfer_syntax_uids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "pattern": "^[0-9]+(?:\\.[0-9]+)+$" },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "unavailable_reason": {
+      "type": "object",
+      "required": ["code", "capability_id"],
+      "properties": {
+        "code": { "enum": ["capability.feature.unavailable", "capability.transfer_syntax.unavailable"] },
+        "capability_id": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "transfer_syntax": {
+      "type": "object",
+      "required": ["uid", "keyword", "name", "determinism", "write_dataset", "encode_pixel", "declared_status", "availability", "required_features", "unavailable_reasons"],
+      "properties": {
+        "uid": { "type": "string", "pattern": "^[0-9]+(?:\\.[0-9]+)+$" },
+        "keyword": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "determinism": { "enum": ["byte_stable", "semantic_stable", "unstable"] },
+        "write_dataset": { "type": "boolean" },
+        "encode_pixel": { "type": "boolean" },
+        "declared_status": { "enum": ["available", "feature_gated", "unavailable"] },
+        "availability": { "enum": ["available", "unavailable"] },
+        "required_features": { "$ref": "#/$defs/string_set" },
+        "unavailable_reasons": { "type": "array", "items": { "$ref": "#/$defs/unavailable_reason" } }
+      },
+      "additionalProperties": false
+    },
+    "optional_runtime": {
+      "type": "object",
+      "required": ["runtime_id", "kind", "executable", "environment_override", "required_by_default", "availability", "reason_code"],
+      "properties": {
+        "runtime_id": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["generation_backend", "validator"] },
+        "executable": { "type": ["string", "null"] },
+        "environment_override": { "type": ["string", "null"] },
+        "required_by_default": { "type": "boolean" },
+        "availability": { "enum": ["requires_explicit_configuration", "unavailable"] },
+        "reason_code": { "enum": ["capability.runtime.unavailable", "capability.validator.unavailable", null] }
+      },
+      "additionalProperties": false
+    },
+    "resource_ceilings": {
+      "type": "object",
+      "required": ["max_spec_bytes", "max_instances", "max_input_files", "max_file_bytes", "max_total_input_bytes", "max_total_output_bytes", "max_attributes_per_instance", "max_sequence_items", "max_value_multiplicity", "max_content_assignments_per_instance", "max_references_per_instance", "max_parameter_nodes", "max_parameter_depth"],
+      "additionalProperties": { "type": "integer", "minimum": 1 }
+    },
+    "assembly_resource_ceilings": {
+      "type": "object",
+      "required": ["max_instances", "max_elements_per_instance", "max_sequence_depth", "max_parallelism", "max_value_bytes", "max_output_bytes"],
+      "additionalProperties": { "type": "integer", "minimum": 1 }
+    },
+    "workflow": {
+      "type": "object",
+      "required": ["availability", "reason_code", "supported_content_kinds", "supported_transfer_syntax_uids"],
+      "properties": {
+        "availability": { "const": "available" },
+        "reason_code": { "type": "null" },
+        "supported_content_kinds": { "type": "array", "minItems": 1, "uniqueItems": true },
+        "supported_transfer_syntax_uids": { "type": "array", "minItems": 1, "uniqueItems": true }
+      },
+      "additionalProperties": false
+    }
+  }
+}

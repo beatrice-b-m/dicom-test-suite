@@ -59,7 +59,7 @@
     },
     "identity": {
       "commands": [
-        {"kind": "lib", "module": "identity::identity_domain_tests", "source": "src/identity.rs", "list_count": 2},
+        {"kind": "lib", "module": "identity::identity_domain_tests", "source": "src/identity.rs", "list_count": 3},
         {"target": "cli_sdk__nonfast", "module": "version_cli"},
         {"target": "cli_sdk__nonfast", "module": "capabilities_cli"},
         {"target": "schema_resources__subsystem", "module": "cli_contract_schema"}
@@ -160,6 +160,8 @@
       "id": "identity-discovery",
       "exact": [
         "schemas/capabilities-result-v2.schema.json",
+        "schemas/generation-result-v2.schema.json",
+        "schemas/manifest-v1.schema.json",
         "schemas/version-result-v2.schema.json",
         "src/discovery.rs",
         "src/identity.rs"

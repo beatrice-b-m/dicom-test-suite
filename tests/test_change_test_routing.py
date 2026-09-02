@@ -130,6 +130,8 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
         ]
         for schema in [
             "schemas/capabilities-result-v2.schema.json",
+            "schemas/generation-result-v2.schema.json",
+            "schemas/manifest-v1.schema.json",
             "schemas/version-result-v2.schema.json",
         ]:
             with self.subTest(schema=schema):

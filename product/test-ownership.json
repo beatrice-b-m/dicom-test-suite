@@ -4,7 +4,7 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 264,
-    "rust_test_entries": 1396,
+    "rust_test_entries": 1397,
     "integration_source_groups": 186,
     "integration_test_entries": 879,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
@@ -396,7 +396,7 @@
         "capabilities_requires_an_explicit_machine_format",
         "capabilities_machine_syntax_failure_is_one_schema_valid_stderr_envelope"
       ],
-      "entry_digest": "13f91c29b1e588413e6769effd99639ffacb690d868fbee6369a5c3bbae078aa"
+      "entry_digest": "878344940525257370f14be0e717f460df2a1fd2238f2e533266be08ffc9a125"
     },
     {
       "source": "tests/case_recipe_catalog.rs",
@@ -1640,7 +1640,7 @@
         "resource_lookup_rejects_unsafe_and_unknown_paths",
         "snapshot_materializes_and_cleans_the_complete_resource_tree"
       ],
-      "entry_digest": "1b53fd7cb7b3af8e324384ccb353ce9d33ad122330abef16e5bb4cfad440b782"
+      "entry_digest": "ae793c852058731395d70e756e48d30347060946b186586a2873786183e08ff8"
     },
     {
       "source": "tests/enhanced_mr_temporal.rs",
@@ -1814,7 +1814,7 @@
         "generate_command_writes_legacy_explicit_big_endian_secondary_capture_case",
         "generate_command_requires_output_path"
       ],
-      "entry_digest": "bbb7448d01b40c217afb782581da40ba430118e7c1ece2039a76ef81330a135f",
+      "entry_digest": "174936d1059c733786970eb0b50f619bf396b37e36514544ff15e5694e417ae7",
       "heavy_entries": [
         "generate_command_writes_all_profile_union_and_skips_planned_cases"
       ]
@@ -2701,7 +2701,7 @@
         "manifest_schema_types_exact_rt_radiation_set_expectations",
         "manifest_schema_scopes_second_generation_rt_expectations_to_their_cases"
       ],
-      "entry_digest": "d3f74f60f39e057ee609e03afb17df0432df8e18e4f6c47fed069310b7e12158",
+      "entry_digest": "66aa15c4340d3ad3cc869fdb05c52b10a47803c303bc44c97558eb1bf86dad8d",
       "fast_cost_exemption": "Static JSON Schema validation; WSI names do not generate a corpus."
     },
     {
@@ -2828,7 +2828,7 @@
       "entries": [
         "generate_uses_embedded_resources_from_an_unrelated_working_directory"
       ],
-      "entry_digest": "9058a17ad083aa524eef0f6759fdda49e2112331cead563f444bb5f7d2529c54"
+      "entry_digest": "950ce923c89ae5f0f88a6319bfeaa46b9936e4037ffe70dfcd923efb2463679c"
     },
     {
       "source": "tests/standards_cli.rs",
@@ -4028,12 +4028,13 @@
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 2,
+      "entry_count": 3,
       "entries": [
         "installed_membership_is_exhaustive_and_relocation_stable",
-        "verified_corpus_perturbation_changes_only_corpus_identity"
+        "verified_corpus_perturbation_changes_only_corpus_identity",
+        "external_provider_identity_requires_successful_typed_execution_evidence"
       ],
-      "entry_digest": "73069d889496ee63e7e3587a1fcaaaa996a3c5291a27025a0592a6cbe607e488"
+      "entry_digest": "233623a21a0f8e58ed2546eaba5854b05068734fde32e336285601274b3f585a"
     },
     {
       "source": "src/lib.rs",
@@ -4119,7 +4120,7 @@
         "encapsulated_stl_manifest_contract_is_exact_and_case_scoped",
         "encapsulated_stl_report_projects_payload_geometry_and_grouped_evidence"
       ],
-      "entry_digest": "beb15b6eaa8853910d5edcf152f65ddaccd69b4d271485fc70e271e6d8eef880"
+      "entry_digest": "98551068f45da29f6dbf0f7d3505556d4593df702191427ac03aeeef3b7488a7"
     },
     {
       "source": "src/media.rs",

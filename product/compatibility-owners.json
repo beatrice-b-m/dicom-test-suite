@@ -11,6 +11,7 @@
         "case-list-result.schema.json",
         "cli-error-code-registry.schema.json", "cli-error-envelope.schema.json",
         "cli-success-envelope.schema.json", "generation-result.schema.json",
+        "generation-result-v2.schema.json",
         "report-result.schema.json", "standards-result.schema.json",
         "validation-result.schema.json", "version-result.schema.json",
         "version-result-v2.schema.json"
@@ -24,7 +25,7 @@
       "schemas": [
         "case-recipe.schema.json", "case-registry.schema.json",
         "coverage-gap-report.schema.json", "coverage-report.schema.json",
-        "manifest.schema.json"
+        "manifest.schema.json", "manifest-v1.schema.json"
       ]
     },
     {

@@ -47,7 +47,15 @@ fn structural_assembly_executes_through_shared_writer_and_manifest() {
     assert!(summary.published);
     assert_eq!(summary.artifacts_written, 1);
     assert!(summary.output_bytes > 0);
-    assert!(open_file(root.join("instances/primary.dcm")).is_ok());
+    let object = open_file(root.join("instances/primary.dcm")).unwrap();
+    assert_eq!(
+        object.meta().implementation_class_uid(),
+        "2.25.229836331705510893456395357084592248116"
+    );
+    assert_eq!(
+        object.meta().implementation_version_name.as_deref(),
+        Some("DICOMTS010")
+    );
 
     let manifest: serde_json::Value =
         serde_json::from_slice(&fs::read(root.join("manifest.json")).unwrap()).unwrap();

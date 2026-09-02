@@ -114,7 +114,11 @@ if [ -n "$release_binary_override" ]; then
 fi
 
 version_document=$($release_binary version --format json)
-capabilities_document=$($release_binary capabilities --format json)
+product_name=$(printf '%s' "$version_document" | jq -er '.result.product.name')
+[ "$product_name" = "synth-dicom-gen" ] || {
+    echo "release binary product identity must be synth-dicom-gen, got $product_name" >&2
+    exit 4
+}
 product_version=$(printf '%s' "$version_document" | jq -er '.result.product.version')
 binary_target=$(printf '%s' "$version_document" | jq -er '.result.target')
 [ "$binary_target" = "$release_target" ] || {
@@ -128,6 +132,7 @@ printf '%s' "$version_document" \
     echo "binary feature set does not match DTS_RELEASE_FEATURES" >&2
     exit 4
 }
+capabilities_document=$($release_binary capabilities --format json)
 
 archive_name="synth-dicom-gen-$product_version-$release_target"
 mkdir -p "$dist_directory"

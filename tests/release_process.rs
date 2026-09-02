@@ -66,6 +66,7 @@ fn release_scripts_default_to_clean_locked_target_bound_artifacts() {
         "source revision $source_revision does not match DTS_RELEASE_REVISION",
         "requested target $release_target does not match DTS_RELEASE_TARGET",
         "release binary SHA-256 does not match DTS_RELEASE_BINARY_SHA256",
+        "release binary product identity must be synth-dicom-gen",
         ".cargo_vcs_info.json",
         "release-manifest.json",
         "CHANGELOG.md",
@@ -79,6 +80,8 @@ fn release_scripts_default_to_clean_locked_target_bound_artifacts() {
         "archive checksum does not match",
         "unsafe manifest path",
         "payload checksum differs",
+        "release manifest product identity must be synth-dicom-gen",
+        "installed release binary product identity must be synth-dicom-gen",
         "verification=passed",
     ] {
         assert!(verifier.contains(required), "verifier omits {required}");
@@ -145,4 +148,55 @@ fn release_binary_override_contract_rejects_unbound_candidates() {
     ]);
     assert_eq!(wrong_hash.status.code(), Some(4));
     assert!(String::from_utf8_lossy(&wrong_hash.stderr).contains("release binary SHA-256"));
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let fixture_root = std::env::temp_dir().join(format!(
+            "synth-dicom-gen-wrong-release-identity-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&fixture_root);
+        fs::create_dir(&fixture_root).unwrap();
+        let fake_binary = fixture_root.join("wrong-product");
+        fs::write(
+            &fake_binary,
+            r##"#!/bin/sh
+case "$1" in
+  version) printf '%s\n' '{"result":{"product":{"name":"dicom-test-suite","version":"0.2.0"},"target":"candidate-target","enabled_features":[]}}' ;;
+  capabilities) printf '%s\n' '{"result":{}}' ;;
+  *) exit 2 ;;
+esac
+"##,
+        )
+        .unwrap();
+        let mut permissions = fs::metadata(&fake_binary).unwrap().permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&fake_binary, permissions).unwrap();
+        let fake_hash = synth_dicom_gen::sha256_hex(&fs::read(&fake_binary).unwrap());
+        let wrong_identity = Command::new("sh")
+            .arg("scripts/build-release-archive.sh")
+            .arg("candidate-target")
+            .arg(fixture_root.join("dist"))
+            .env("DTS_RELEASE_BINARY", &fake_binary)
+            .env("DTS_RELEASE_BINARY_SHA256", fake_hash)
+            .env("DTS_RELEASE_REVISION", &revision)
+            .env("DTS_RELEASE_TARGET", "candidate-target")
+            .env("DTS_RELEASE_ALLOW_DIRTY", "1")
+            .output()
+            .unwrap();
+        assert_eq!(wrong_identity.status.code(), Some(4));
+        assert!(
+            String::from_utf8_lossy(&wrong_identity.stderr)
+                .contains("release binary product identity must be synth-dicom-gen")
+        );
+        assert!(
+            !fixture_root
+                .join("dist")
+                .join("synth-dicom-gen-0.2.0-candidate-target.tar.gz")
+                .exists()
+        );
+        fs::remove_dir_all(fixture_root).unwrap();
+    }
 }

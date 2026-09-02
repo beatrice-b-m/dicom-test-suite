@@ -298,6 +298,56 @@ fn current_target_archive_is_manifest_bound_and_relocatable() {
     assert!(!tampered.status.success());
     assert!(String::from_utf8_lossy(&tampered.stderr).contains("checksum does not match"));
 
+    let wrong_identity_root = adversarial.join("wrong-identity-root");
+    fs::create_dir(&wrong_identity_root).unwrap();
+    let unpack_wrong_identity = Command::new("tar")
+        .args(["-xzf"])
+        .arg(&archive)
+        .arg("-C")
+        .arg(&wrong_identity_root)
+        .status()
+        .unwrap();
+    assert!(unpack_wrong_identity.success());
+    let wrong_identity_payload = wrong_identity_root.join(&archive_name);
+    let wrong_identity_manifest = wrong_identity_payload.join("release-manifest.json");
+    let mut wrong_identity_document = read_json(&wrong_identity_manifest);
+    wrong_identity_document["product"]["name"] = Value::String("dicom-test-suite".into());
+    wrong_identity_document["version_result"]["product"]["name"] =
+        Value::String("dicom-test-suite".into());
+    fs::write(
+        &wrong_identity_manifest,
+        serde_json::to_vec_pretty(&wrong_identity_document).unwrap(),
+    )
+    .unwrap();
+    let wrong_identity_archive = adversarial.join("wrong-identity.tar.gz");
+    let repack_wrong_identity = Command::new("tar")
+        .arg("-C")
+        .arg(&wrong_identity_root)
+        .arg("-czf")
+        .arg(&wrong_identity_archive)
+        .arg(&archive_name)
+        .status()
+        .unwrap();
+    assert!(repack_wrong_identity.success());
+    fs::write(
+        PathBuf::from(format!("{}.sha256", wrong_identity_archive.display())),
+        format!(
+            "{}  wrong-identity.tar.gz\n",
+            synth_dicom_gen::sha256_hex(&fs::read(&wrong_identity_archive).unwrap())
+        ),
+    )
+    .unwrap();
+    let wrong_identity = Command::new("sh")
+        .arg("scripts/verify-release-archive.sh")
+        .arg(&wrong_identity_archive)
+        .output()
+        .unwrap();
+    assert_eq!(wrong_identity.status.code(), Some(4));
+    assert!(
+        String::from_utf8_lossy(&wrong_identity.stderr)
+            .contains("release manifest product identity must be synth-dicom-gen")
+    );
+
     let root = if supplied_candidate {
         let root = PathBuf::from(std::env::var_os("DTS_RELEASE_EXTRACTED_ROOT").unwrap());
         assert!(root.is_absolute());

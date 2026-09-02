@@ -54,6 +54,11 @@ find "$verify_root" -mindepth 1 -maxdepth 1 -type d | LC_ALL=C sort > "$archive_
 archive_root=$(sed -n '1p' "$archive_roots")
 manifest="$archive_root/release-manifest.json"
 [ -f "$manifest" ] || { echo "release-manifest.json is missing" >&2; exit 4; }
+jq -e '.product.name == "synth-dicom-gen" and
+       .version_result.product.name == "synth-dicom-gen"' "$manifest" >/dev/null || {
+    echo "release manifest product identity must be synth-dicom-gen" >&2
+    exit 4
+}
 
 inventory="$verify_root/inventory.tsv"
 jq -er '.release_manifest_schema_version == "1.0.0"' "$manifest" >/dev/null
@@ -95,6 +100,10 @@ binary="$archive_root/bin/synth-dicom-gen"
 [ -x "$binary" ] || { echo "release binary is not executable" >&2; exit 4; }
 version=$($binary version --format json)
 capabilities=$($binary capabilities --format json)
+printf '%s' "$version" | jq -e '.result.product.name == "synth-dicom-gen"' >/dev/null || {
+    echo "installed release binary product identity must be synth-dicom-gen" >&2
+    exit 4
+}
 printf '%s' "$version" | jq -e --slurpfile manifest "$manifest" \
     '.result == $manifest[0].version_result' >/dev/null
 printf '%s' "$capabilities" | jq -e --slurpfile manifest "$manifest" \

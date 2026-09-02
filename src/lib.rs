@@ -67,6 +67,7 @@ pub mod cli_protocol;
 pub mod codecs;
 pub mod composition;
 pub mod conformance;
+pub mod corpus_definition;
 pub mod corpus_plan;
 pub mod coverage_gaps;
 pub mod curated_execution;
@@ -108,6 +109,11 @@ pub mod stress;
 pub mod uid;
 mod validation;
 pub(crate) mod waveform_manifest;
+pub use corpus_definition::{
+    AssetRecord, CaseDefinition, CorpusDefinitionBundle, CorpusDefinitionError,
+    CorpusDefinitionIdentity, CorpusDefinitionLimits, CorpusDefinitionManifest, CorpusScope,
+    EvidenceRecord, FileDescriptor, ProfileDefinition,
+};
 pub use coverage_gaps::{
     CoverageGapError, build_coverage_gap_report, render_coverage_gap_report_markdown,
 };

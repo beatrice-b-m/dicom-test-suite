@@ -36,6 +36,43 @@ pub use robustness::{
 
 const CASE_RECIPE_SCHEMA: &str = include_str!("../../schemas/case-recipe.schema.json");
 
+/// Inspect an integrity-captured caller recipe using the same schema,
+/// registered engine IDs, and shape rules as the embedded recipe catalog.
+pub(crate) fn inspect_corpus_recipe(
+    logical_path: &str,
+    value: Value,
+) -> Result<Vec<(String, String)>, RecipeCatalogError> {
+    let path = Path::new(logical_path);
+    let schema: Value = serde_json::from_str(CASE_RECIPE_SCHEMA).expect("embedded recipe schema");
+    let validator = jsonschema::validator_for(&schema).expect("case recipe schema compiles");
+    let errors = validator
+        .iter_errors(&value)
+        .map(|error| error.to_string())
+        .collect::<Vec<_>>();
+    if !errors.is_empty() {
+        return Err(RecipeCatalogError::Schema {
+            path: path.to_path_buf(),
+            errors,
+        });
+    }
+    let recipe: CaseRecipe =
+        serde_json::from_value(value).map_err(|error| RecipeCatalogError::Parse {
+            path: path.to_path_buf(),
+            message: error.to_string(),
+        })?;
+    validate_shape(path, &recipe)?;
+    Ok(recipe
+        .dependencies
+        .iter()
+        .map(|dependency| {
+            (
+                dependency.recipe.recipe_id.clone(),
+                dependency.recipe.recipe_version.clone(),
+            )
+        })
+        .collect())
+}
+
 #[derive(Debug)]
 pub struct RecipeCatalog {
     recipes: BTreeMap<RecipeIdentity, CaseRecipe>,

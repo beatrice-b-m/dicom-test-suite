@@ -13,6 +13,7 @@ mod enhanced;
 mod error;
 mod exceptional_sc;
 mod loader;
+pub(crate) use loader::inspect_corpus_recipe;
 mod metadata_sc;
 mod model;
 mod presentation;

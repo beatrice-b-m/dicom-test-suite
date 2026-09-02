@@ -1,0 +1,28 @@
+{
+  "release_manifest_schema_version": "1.0.0",
+  "product": {
+    "name": "synth-dicom-gen",
+    "version": "0.2.0"
+  },
+  "source": {
+    "revision": "1111111111111111111111111111111111111111",
+    "dirty": false
+  },
+  "target": "x86_64-unknown-linux-gnu",
+  "enabled_features": [],
+  "version_result": {
+    "product": {
+      "name": "synth-dicom-gen",
+      "version": "0.2.0"
+    },
+    "target": "x86_64-unknown-linux-gnu"
+  },
+  "capabilities_result": {},
+  "files": [
+    {
+      "path": "bin/synth-dicom-gen",
+      "size_bytes": 1,
+      "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+    }
+  ]
+}

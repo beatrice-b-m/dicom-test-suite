@@ -2544,7 +2544,7 @@
         "report_locks_rt_radiation_pair_contracts_and_markdown",
         "report_rejects_malformed_rt_radiation_pair_manifests"
       ],
-      "entry_digest": "00a7a943fc0be05a05bcf1ceb4c3530b56ae01dc26b8259a9f0fabd7702f293e"
+      "entry_digest": "46ea67578477a68760c3c1906eca659944b9d40f81dfe8693fda0b5c5f17e549"
     },
     {
       "source": "tests/robustness_qualification_api.rs",
@@ -3124,7 +3124,7 @@
         "validate_command_reports_missing_rt_dose_grid_scaling",
         "validate_command_reports_missing_encapsulated_pdf_mime_type"
       ],
-      "entry_digest": "b5f01ecfe23a81d326a08f530954cf473c795b5dcb9ed253dd41e2a490647aad"
+      "entry_digest": "004ad914fe226e2af958b50751e5b6f4576385cb53e5ff8145149ea964c362f1"
     },
     {
       "source": "tests/version_cli.rs",
@@ -4121,7 +4121,7 @@
         "encapsulated_stl_manifest_contract_is_exact_and_case_scoped",
         "encapsulated_stl_report_projects_payload_geometry_and_grouped_evidence"
       ],
-      "entry_digest": "98551068f45da29f6dbf0f7d3505556d4593df702191427ac03aeeef3b7488a7"
+      "entry_digest": "8cb9f9bc1cdcb7fe89c2cf71690601742f560b501bfc178f67fcdae6a3e3564c"
     },
     {
       "source": "src/media.rs",

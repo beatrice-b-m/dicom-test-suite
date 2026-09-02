@@ -3565,6 +3565,14 @@
       "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
     },
     {
+      "path": "tests/fixtures/cli/version-result-v1.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
       "path": "tests/general_ecg_waveform.rs",
       "token": "dicom-test-suite",
       "class": "legacy_payload_schema_fixture_or_evidence",
@@ -4350,11 +4358,11 @@
     }
   ],
   "retained_snapshot": {
-    "match_count": 870,
-    "sha256": "ecff895f74165daa5d9d72ee145ee746f7f799a6028f12916fd7c010dfaa44b1",
+    "match_count": 871,
+    "sha256": "8414b1971b05192e0bbab6512d44ff87106a8584e605a363e69de4cc30397667",
     "by_class": {
       "dicom_payload_identifier": 188,
-      "legacy_payload_schema_fixture_or_evidence": 270,
+      "legacy_payload_schema_fixture_or_evidence": 271,
       "locked_python_module_or_backend": 127,
       "qualified_adapter_environment": 143,
       "qualified_adapter_or_test_fixture": 142

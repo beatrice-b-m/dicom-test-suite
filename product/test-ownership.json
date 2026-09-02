@@ -4,9 +4,9 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 266,
-    "rust_test_entries": 1418,
+    "rust_test_entries": 1419,
     "integration_source_groups": 187,
-    "integration_test_entries": 896,
+    "integration_test_entries": 897,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
   },
   "enums": {
@@ -2510,7 +2510,7 @@
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 51,
+      "entry_count": 52,
       "entries": [
         "report_command_isolates_bounded_fuzz_qualification",
         "report_command_writes_json_coverage_for_core_root",
@@ -2541,6 +2541,7 @@
         "report_counts_feature_gated_implemented_cases_as_unavailable",
         "report_summarizes_lossy_image_compression_method",
         "report_command_rejects_missing_manifest",
+        "curated_cli_validate_and_report_reject_identity_contract_mutations",
         "report_surfaces_complete_unsigned_u32_pixel_contract",
         "report_surfaces_complete_one_bit_pixel_contract",
         "report_surfaces_complete_icc_profile_contract",
@@ -2564,7 +2565,7 @@
         "report_locks_rt_radiation_pair_contracts_and_markdown",
         "report_rejects_malformed_rt_radiation_pair_manifests"
       ],
-      "entry_digest": "c856db5d85967896a11a710e53d87a9d4df7e49eaf2a9700894c9b6d2728fbb3"
+      "entry_digest": "5cd89683c1c01d7fc603b2d36024c970d1e3682f82b2a0b9d3570f7542f4cc06"
     },
     {
       "source": "tests/robustness_qualification_api.rs",
@@ -2769,7 +2770,7 @@
         "sdk_assembly_validate_and_report_read_exact_supported_manifest_versions",
         "sdk_rejects_invalid_assembly_identity_contracts_before_semantics"
       ],
-      "entry_digest": "67f667297e11273689273a2afaa23c948d67d663ada903ec1bb1a0e49c486d79"
+      "entry_digest": "a31b51bb23212a8611baeaa6c0a9670410af79ab4ecabceeb5fc47e61b310103"
     },
     {
       "source": "tests/semantic_sr_rt_plan.rs",

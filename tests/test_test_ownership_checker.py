@@ -30,9 +30,9 @@ class TestOwnershipCheckerFixtures(unittest.TestCase):
         report = CHECKER.verify(ROOT, copy.deepcopy(self.manifest))
         self.assertEqual(report["rust_test_targets"], 22)
         self.assertEqual(report["integration_test_targets"], 20)
-        self.assertEqual(report["rust_test_entries"], 1418)
+        self.assertEqual(report["rust_test_entries"], 1419)
         self.assertEqual(report["integration_source_groups"], 187)
-        self.assertEqual(report["integration_test_entries"], 896)
+        self.assertEqual(report["integration_test_entries"], 897)
         self.assertEqual(
             sum(len(group.get("heavy_entries", [])) for group in self.manifest["entry_groups"]),
             6,

@@ -144,8 +144,9 @@ impl DicomTestSuite {
 
     /// Validate a published product output root and return typed findings.
     pub fn validate(&self, request: ValidateRequest) -> Result<ValidationOutcome, SdkError> {
-        let summary = crate::validate_generated_root(&request.output_root)
-            .map_err(|error| SdkError::classify("validate", error))?;
+        let summary =
+            crate::validate_generated_root_with_resources(&request.output_root, &self.resources)
+                .map_err(|error| SdkError::classify("validate", error))?;
         let manifest =
             SchemaBoundManifest::load(&request.output_root, &self.resources, "validate")?;
         Ok(ValidationOutcome {
@@ -500,93 +501,25 @@ impl SchemaBoundManifest {
         resources: &EngineResources,
         command: &str,
     ) -> Result<Self, SdkError> {
-        let path = output_root.join("manifest.json");
-        let bytes = std::fs::read(&path).map_err(|error| {
-            SdkError::classify(command, format!("manifest read failed: {error}"))
-        })?;
-        let value: serde_json::Value = serde_json::from_slice(&bytes).map_err(|error| {
-            SdkError::classify(command, format!("manifest JSON invalid: {error}"))
-        })?;
-        let field = |pointer: &str| {
-            value
-                .pointer(pointer)
-                .ok_or_else(|| SdkError::classify(command, "manifest schema invalid"))
-        };
-        let schema_version = field("/manifest_schema_version")?
-            .as_str()
-            .ok_or_else(|| SdkError::classify(command, "manifest schema invalid"))?
-            .to_owned();
-        let (kind, schema_path) = match value.pointer("/run/kind").and_then(|kind| kind.as_str()) {
-            Some("composition") => (
-                ManifestKind::QualifiedComposition,
-                "schemas/composition-manifest.schema.json",
-            ),
-            Some("structural_assembly") => (
-                ManifestKind::StructuralAssembly,
-                "schemas/structural-assembly-manifest.schema.json",
-            ),
-            None | Some("curated_generation") => (
-                ManifestKind::CuratedGeneration,
-                if schema_version == "1.0.0" {
-                    "schemas/manifest-v1.schema.json"
-                } else {
-                    "schemas/manifest.schema.json"
-                },
-            ),
-            Some(_) => return Err(SdkError::classify(command, "manifest run kind invalid")),
-        };
-        let seed = field("/run/seed")?
-            .as_u64()
-            .ok_or_else(|| SdkError::classify(command, "manifest schema invalid"))?;
-        let resource_schema = if schema_path == "schemas/manifest-v1.schema.json" {
-            None
-        } else {
-            Some(
-                resources
-                    .bytes(schema_path)
-                    .map_err(|error| SdkError::classify(command, error))?,
-            )
-        };
-        let schema_bytes = resource_schema
-            .as_deref()
-            .unwrap_or_else(|| include_bytes!("../schemas/manifest-v1.schema.json").as_slice());
-        let schema: serde_json::Value = serde_json::from_slice(schema_bytes)
+        let validated = crate::manifest_contract::load_manifest_contract(output_root, resources)
             .map_err(|error| SdkError::classify(command, error))?;
-        let legacy_manifest: serde_json::Value = serde_json::from_slice(
-            &resources
-                .bytes("schemas/manifest.schema.json")
-                .map_err(|error| SdkError::classify(command, error))?,
-        )
-        .map_err(|error| SdkError::classify(command, error))?;
-        let version_v2: serde_json::Value =
-            serde_json::from_slice(include_bytes!("../schemas/version-result-v2.schema.json"))
-                .map_err(|error| SdkError::classify(command, error))?;
-        let validator = jsonschema::options()
-            .with_draft(jsonschema::Draft::Draft202012)
-            .with_resource(
-                "https://dicom-test-suite.local/schemas/manifest.schema.json",
-                jsonschema::Resource::from_contents(legacy_manifest)
-                    .map_err(|error| SdkError::classify(command, error))?,
-            )
-            .with_resource(
-                "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json",
-                jsonschema::Resource::from_contents(version_v2)
-                    .map_err(|error| SdkError::classify(command, error))?,
-            )
-            .build(&schema)
-            .map_err(|error| SdkError::classify(command, error))?;
-        if let Err(error) = validator.validate(&value) {
-            return Err(SdkError::classify(
-                command,
-                format!("manifest schema invalid: {error}"),
-            ));
-        }
+        let kind = match validated.kind() {
+            crate::manifest_contract::ManifestContractKind::CuratedGeneration => {
+                ManifestKind::CuratedGeneration
+            }
+            crate::manifest_contract::ManifestContractKind::QualifiedComposition => {
+                ManifestKind::QualifiedComposition
+            }
+            crate::manifest_contract::ManifestContractKind::StructuralAssembly => {
+                ManifestKind::StructuralAssembly
+            }
+        };
         Ok(Self {
-            path,
-            schema_version,
+            path: validated.path().to_path_buf(),
+            schema_version: validated.schema_version().to_owned(),
             kind,
-            seed,
-            bytes,
+            seed: validated.seed(),
+            bytes: validated.bytes().to_vec(),
         })
     }
 

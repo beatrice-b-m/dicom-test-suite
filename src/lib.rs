@@ -89,6 +89,7 @@ pub mod generation_backends;
 mod geometry;
 pub(crate) mod hashing;
 pub mod identity;
+mod manifest_contract;
 pub mod media;
 pub mod media_runner;
 pub mod media_sources;
@@ -252,6 +253,10 @@ pub enum StandardsError {
 #[derive(Debug)]
 pub enum ReportError {
     EngineResources(String),
+    ManifestContract {
+        path: PathBuf,
+        message: String,
+    },
     ReadMetadata {
         path: PathBuf,
         source: std::io::Error,
@@ -462,6 +467,10 @@ pub enum ValidateError {
         path: PathBuf,
         source: serde_json::Error,
     },
+    ManifestContract {
+        path: PathBuf,
+        message: String,
+    },
     ManifestShape {
         path: PathBuf,
         message: &'static str,
@@ -484,6 +493,13 @@ impl fmt::Display for ValidateError {
             Self::ManifestShape { path, message } => {
                 write!(f, "invalid manifest shape in {}: {message}", path.display())
             }
+            Self::ManifestContract { path, message } => {
+                write!(
+                    f,
+                    "invalid manifest contract in {}: {message}",
+                    path.display()
+                )
+            }
             Self::ReadCorpus { path, source } => {
                 write!(
                     f,
@@ -500,6 +516,7 @@ impl Error for ValidateError {
         match self {
             Self::ReadManifest { source, .. } => Some(source),
             Self::ParseManifest { source, .. } => Some(source),
+            Self::ManifestContract { .. } => None,
             Self::ManifestShape { .. } => None,
             Self::ReadCorpus { source, .. } => Some(source),
         }
@@ -510,6 +527,13 @@ impl fmt::Display for ReportError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::EngineResources(message) => write!(f, "invalid product resources: {message}"),
+            Self::ManifestContract { path, message } => {
+                write!(
+                    f,
+                    "invalid manifest contract in {}: {message}",
+                    path.display()
+                )
+            }
             Self::ReadMetadata { path, source } => {
                 write!(
                     f,
@@ -539,6 +563,7 @@ impl Error for ReportError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             Self::EngineResources(_) => None,
+            Self::ManifestContract { .. } => None,
             Self::ReadMetadata { source, .. } => Some(source),
             Self::ParseMetadata { source, .. } => Some(source),
             Self::MetadataShape { .. } => None,
@@ -1259,20 +1284,24 @@ fn validate_selected_cases_match_profile(
 pub fn validate_generated_root(
     root_dir: impl AsRef<Path>,
 ) -> Result<ValidationSummary, ValidateError> {
+    validate_generated_root_with_resources(root_dir, &engine_resources::EngineResources::embedded())
+}
+
+fn validate_generated_root_with_resources(
+    root_dir: impl AsRef<Path>,
+    resources: &engine_resources::EngineResources,
+) -> Result<ValidationSummary, ValidateError> {
     let root_dir = root_dir.as_ref();
     let manifest_path = root_dir.join("manifest.json");
-    let manifest_contents =
-        fs::read_to_string(&manifest_path).map_err(|source| ValidateError::ReadManifest {
-            path: manifest_path.clone(),
-            source,
+    let validated =
+        manifest_contract::load_manifest_contract(root_dir, resources).map_err(|error| {
+            ValidateError::ManifestContract {
+                path: manifest_path.clone(),
+                message: error.to_string(),
+            }
         })?;
-    let manifest: Value = serde_json::from_str(&manifest_contents).map_err(|source| {
-        ValidateError::ParseManifest {
-            path: manifest_path.clone(),
-            source,
-        }
-    })?;
-    if manifest.pointer("/run/kind").and_then(Value::as_str) == Some("composition") {
+    let manifest = validated.value().clone();
+    if validated.kind() == manifest_contract::ManifestContractKind::QualifiedComposition {
         let (files_checked, failures) = composition::validate_composition_root(root_dir, &manifest);
         return Ok(ValidationSummary {
             manifest_path,
@@ -1280,7 +1309,7 @@ pub fn validate_generated_root(
             failures,
         });
     }
-    if manifest.pointer("/run/kind").and_then(Value::as_str) == Some("structural_assembly") {
+    if validated.kind() == manifest_contract::ManifestContractKind::StructuralAssembly {
         let (files_checked, failures) = assembly::validate_assembly_root(root_dir, &manifest);
         return Ok(ValidationSummary {
             manifest_path,
@@ -18135,20 +18164,32 @@ pub fn build_coverage_report_with_resources(
     let snapshot = resources
         .snapshot()
         .map_err(|error| ReportError::EngineResources(error.to_string()))?;
-    build_coverage_report_with_registry(root_dir, &snapshot.root().join("cases/registry.json"))
+    build_coverage_report_with_registry(
+        root_dir,
+        &snapshot.root().join("cases/registry.json"),
+        resources,
+    )
 }
 
 fn build_coverage_report_with_registry(
     root_dir: impl AsRef<Path>,
     registry_path: &Path,
+    resources: &engine_resources::EngineResources,
 ) -> Result<Value, ReportError> {
     let root_dir = root_dir.as_ref();
     let manifest_path = root_dir.join("manifest.json");
-    let manifest = read_report_json(&manifest_path)?;
-    if manifest.pointer("/run/kind").and_then(Value::as_str) == Some("composition") {
+    let validated =
+        manifest_contract::load_manifest_contract(root_dir, resources).map_err(|error| {
+            ReportError::ManifestContract {
+                path: manifest_path.clone(),
+                message: error.to_string(),
+            }
+        })?;
+    let manifest = validated.value().clone();
+    if validated.kind() == manifest_contract::ManifestContractKind::QualifiedComposition {
         return Ok(composition::composition_report(&manifest));
     }
-    if manifest.pointer("/run/kind").and_then(Value::as_str) == Some("structural_assembly") {
+    if validated.kind() == manifest_contract::ManifestContractKind::StructuralAssembly {
         return Ok(assembly::assembly_report(&manifest));
     }
     let registry = read_report_json(registry_path)?;

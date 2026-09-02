@@ -141,6 +141,33 @@ the unchanged raw object is then at `result.report`.
 Use a fresh output root per profile. Combining materially different scopes
 makes downstream pass/fail claims harder to interpret.
 
+### Select individual embedded cases
+
+Subsystem qualification can restrict generation to repeatable `--case-id`
+arguments while retaining the profile as a compatibility boundary:
+
+```sh
+cargo run --locked --features deflate -- generate \
+  --profile extended \
+  --case-id classic/sc/mono2_u8_deflated_explicit_le \
+  --case-id derived/seg/binary_multiframe_deflated_image_frame \
+  --out generated/deflate-selected --seed 1
+```
+
+Every requested ID must be known, unique, and selectable by the named profile;
+invalid requests fail before publication. Ordering the arguments differently
+does not change the deterministic output. Required recipe dependencies are
+expanded by the same curated planner, and generation still uses the ordinary
+bounded executor, validation, and atomic no-overwrite publication path.
+
+The resulting manifest is the selection evidence: every requested ID must
+appear in `files` or in `skipped_cases` with an explicit unavailable outcome.
+Dependency cases may also appear in `files`. Consumers must not interpret an
+unavailable row as generated or passing. Omitting `--case-id` preserves the
+existing full-profile behavior. This embedded-corpus selector is intended for
+bounded qualification and does not define the later external corpus-definition
+API.
+
 ## 4. Prepare Optional Capabilities
 
 The default build generates all selected Rust-native, feature-free cases and
@@ -163,6 +190,21 @@ cargo run --locked --features jpeg,deflate -- \
 | `deflate` | Deflated Explicit VR and Deflated Image Frame | None |
 | `htj2k_openjph` | HTJ2K lossless/lossy | `ojph_compress` |
 | `legacy_jpeg_dcmtk` | JPEG Lossless Process 14/SV1 | `dcmcjpeg` |
+
+The heavy codec matrix uses these representative case selections:
+
+| Feature | Selected case IDs |
+| --- | --- |
+| `jpeg` | `classic/sc/rgb_planar0_jpeg_baseline_8bit` |
+| `charls` | `classic/sc/mono2_u8_jpeg_ls_lossless` |
+| `jpegxl` | `classic/sc/rgb_planar0_jpegxl_lossless`, `classic/sc/rgb_jpegxl_lossy` |
+| `jpeg2000` | `classic/sc/mono2_u16_jpeg2000_lossless` |
+| `deflate` | `classic/sc/mono2_u8_deflated_explicit_le`, `derived/seg/binary_multiframe_deflated_image_frame` |
+| `htj2k_openjph` | `classic/sc/mono2_u16_htj2k_lossless`, `classic/sc/mono2_u16_htj2k_lossy` |
+| `legacy_jpeg_dcmtk` | `classic/sc/mono2_u16_jpeg_lossless_process_14`, `classic/sc/mono2_u16_jpeg_lossless_sv1` |
+
+The external-command rows remain explicit unavailable evidence when their
+pinned executable is absent; compilation alone is not a codec pass.
 
 External commands are discovered and fingerprinted. A feature flag does not
 make a missing executable available, and generation never installs one.

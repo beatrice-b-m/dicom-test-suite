@@ -606,20 +606,6 @@ pub fn prepare_generation_run(
 
 const CURATED_EXECUTOR_PARALLELISM: u32 = 4;
 
-fn prepare_curated_sc_plan(
-    run: &PreparedGenerationRun,
-    resource_root: &Path,
-) -> Result<CuratedScCorpusPlan, GenerateError> {
-    prepare_curated_plan_for_selection(
-        CuratedScSelection::Profile {
-            profile: run.profile.clone(),
-            include_stress: run.include_stress,
-        },
-        run.seed,
-        resource_root,
-    )
-}
-
 fn prepare_curated_plan_for_selection(
     selection: CuratedScSelection,
     seed: u64,
@@ -957,6 +943,28 @@ pub fn write_generation_run_with_resources(
     run: &PreparedGenerationRun,
     resources: &product_resources::ProductResources,
 ) -> Result<GenerationSummary, GenerateError> {
+    write_generation_selection_with_resources(run, None, resources)
+}
+
+/// Generate only the requested curated cases and their recipe dependencies.
+///
+/// The profile remains an explicit compatibility boundary: every requested
+/// case must belong to it, while dependency cases may come from another
+/// profile when the existing recipe graph requires them. The ordinary
+/// profile-wide generation contract is unchanged.
+pub fn write_selected_generation_run_with_resources(
+    run: &PreparedGenerationRun,
+    case_ids: Vec<String>,
+    resources: &product_resources::ProductResources,
+) -> Result<GenerationSummary, GenerateError> {
+    write_generation_selection_with_resources(run, Some(case_ids), resources)
+}
+
+fn write_generation_selection_with_resources(
+    run: &PreparedGenerationRun,
+    case_ids: Option<Vec<String>>,
+    resources: &product_resources::ProductResources,
+) -> Result<GenerationSummary, GenerateError> {
     if fs::symlink_metadata(&run.out_dir).is_ok() {
         return Err(GenerateError::OutputPathExists(run.out_dir.clone()));
     }
@@ -976,7 +984,20 @@ pub fn write_generation_run_with_resources(
     let resource_root = resource_snapshot.root();
     // Planning is deliberately complete before a publication transaction or
     // private staging directory exists.
-    let curated_sc_plan = prepare_curated_sc_plan(run, resource_root)?;
+    let selection = case_ids
+        .clone()
+        .map(CuratedScSelection::CaseIds)
+        .unwrap_or_else(|| CuratedScSelection::Profile {
+            profile: run.profile.clone(),
+            include_stress: run.include_stress,
+        });
+    let curated_sc_plan = prepare_curated_plan_for_selection(selection, run.seed, resource_root)?;
+    let registry_path = &resource_root.join("cases/registry.json");
+    let registry = read_json_metadata(registry_path)?;
+    validate_case_registry_semantics(&registry).map_err(GenerateError::InvalidRegistry)?;
+    if let Some(case_ids) = case_ids.as_deref() {
+        validate_selected_cases_match_profile(&registry, run, case_ids)?;
+    }
     let parent = run
         .out_dir
         .parent()
@@ -998,13 +1019,10 @@ pub fn write_generation_run_with_resources(
         .unwrap_or_else(|| run.out_dir.clone());
     let standards_lock_path = &resource_root.join("standards.lock.json");
     let cargo_lock_path = &resource_root.join("Cargo.lock");
-    let registry_path = &resource_root.join("cases/registry.json");
 
     let standards_lock = read_json_metadata(standards_lock_path)?;
     let standards_lock_bytes = read_bytes_metadata(standards_lock_path)?;
     let cargo_lock = read_bytes_metadata(cargo_lock_path)?;
-    let registry = read_json_metadata(registry_path)?;
-    validate_case_registry_semantics(&registry).map_err(GenerateError::InvalidRegistry)?;
 
     let projector = CuratedGenerationManifestProjector {
         run: run.clone(),
@@ -1051,6 +1069,50 @@ pub fn write_generation_run_with_resources(
         output_bytes: result.evidence.resources.actual_artifact_output_bytes,
         corpus_plan_sha256: result.evidence.corpus_plan_sha256,
     })
+}
+
+fn validate_selected_cases_match_profile(
+    registry: &Value,
+    run: &PreparedGenerationRun,
+    case_ids: &[String],
+) -> Result<(), GenerateError> {
+    let cases =
+        registry
+            .get("cases")
+            .and_then(Value::as_array)
+            .ok_or(GenerateError::MetadataShape {
+                path: PathBuf::from("cases/registry.json"),
+                message: "missing cases array",
+            })?;
+    for requested in case_ids {
+        let case = cases
+            .iter()
+            .find(|case| case.get("case_id").and_then(Value::as_str) == Some(requested.as_str()))
+            .ok_or_else(|| GenerateError::PlanFirst {
+                stage: "curated case selection",
+                message: format!("unknown case selection: {requested}"),
+            })?;
+        let profiles =
+            string_array(case.get("profiles")).map_err(|_| GenerateError::MetadataShape {
+                path: PathBuf::from("cases/registry.json"),
+                message: "case profiles must be a string array",
+            })?;
+        if !case_matches_profile(&profiles, &run.profile, run.include_stress) {
+            return Err(GenerateError::PlanFirst {
+                stage: "curated case selection",
+                message: format!(
+                    "case {requested} is not selectable by profile {}{}",
+                    run.profile,
+                    if run.include_stress {
+                        " with stress included"
+                    } else {
+                        ""
+                    }
+                ),
+            });
+        }
+    }
+    Ok(())
 }
 
 pub fn validate_generated_root(

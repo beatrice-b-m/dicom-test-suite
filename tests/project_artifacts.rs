@@ -77,6 +77,7 @@ fn ci_verifies_default_and_feature_gated_codec_paths() {
         "deflate",
         "htj2k_openjph",
         "legacy_jpeg_dcmtk",
+        "--case-id",
     ] {
         assert!(
             qualification.contains(required),

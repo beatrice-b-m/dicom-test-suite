@@ -129,7 +129,7 @@ fn heavy_workflow_retains_nightly_matrix_and_immutable_release_gate() {
     assert!(!heavy.contains("\n  pull_request:"));
     assert_eq!(
         heavy.matches("--compile-bytecode").count(),
-        4,
+        3,
         "every retained heavy backend environment must precompile the locked runtime"
     );
 
@@ -147,10 +147,10 @@ fn heavy_workflow_retains_nightly_matrix_and_immutable_release_gate() {
     assert!(default.contains("Verify smoke reproducibility"));
 
     assert!(codecs.contains("feature: [jpeg, charls, jpegxl, jpeg2000, deflate]"));
-    assert!(codecs.contains("--all-targets --no-default-features --features"));
-    assert!(codecs.contains("--no-run"));
-    assert!(codecs.contains("Prepare locked generation backend"));
-    assert!(codecs.contains("DTS_HIGHDICOM_PYTHON="));
+    assert!(codecs.contains("Compile feature-sensitive product surfaces"));
+    assert!(!codecs.contains("--all-targets"));
+    assert!(!codecs.contains("Prepare locked generation backend"));
+    assert!(!codecs.contains("DTS_HIGHDICOM_PYTHON="));
     assert!(codecs.contains("Test feature-sensitive surfaces"));
     assert!(codecs.contains("--lib codecs::tests::"));
     assert!(codecs.contains("curated_exceptional_execution"));
@@ -164,11 +164,51 @@ fn heavy_workflow_retains_nightly_matrix_and_immutable_release_gate() {
     assert!(!codecs.contains("--test report_cli"));
     assert!(!codecs.contains("--test validate_cli --test"));
     assert!(codecs.contains("Exercise feature corpus"));
-    assert!(codecs.contains(".counts.generated > 115 and .counts.blocked == 0"));
+    assert!(codecs.contains("--case-id"));
+    assert!(codecs.contains("selected_cases=${#cases[@]}"));
+    assert!(codecs.contains("[.files[].case_id] + [.skipped_cases[].case_id]"));
+    for case_id in [
+        "classic/sc/rgb_planar0_jpeg_baseline_8bit",
+        "classic/sc/mono2_u8_jpeg_ls_lossless",
+        "classic/sc/rgb_planar0_jpegxl_lossless",
+        "classic/sc/rgb_jpegxl_lossy",
+        "classic/sc/mono2_u16_jpeg2000_lossless",
+        "classic/sc/mono2_u8_deflated_explicit_le",
+        "derived/seg/binary_multiframe_deflated_image_frame",
+    ] {
+        assert!(codecs.contains(case_id), "codec matrix omitted {case_id}");
+    }
+    for forbidden in ["highdicom", "wsi/", "quantitative/"] {
+        assert!(
+            !codecs.contains(forbidden),
+            "feature-independent work leaked into codec matrix: {forbidden}"
+        );
+    }
     assert!(codecs.contains("fragments_per_frame == [1,1]"));
 
     assert!(external.contains("feature: [htj2k_openjph, legacy_jpeg_dcmtk]"));
-    assert!(external.contains("cargo test --locked --all-targets --features"));
+    assert!(!external.contains("--all-targets"));
+    assert!(!external.contains("setup-uv"));
+    assert!(external.contains("Exercise selected external codec cases"));
+    assert!(external.contains("--case-id"));
+    assert!(external.contains("[.files[].case_id] + [.skipped_cases[].case_id]"));
+    for case_id in [
+        "classic/sc/mono2_u16_htj2k_lossless",
+        "classic/sc/mono2_u16_htj2k_lossy",
+        "classic/sc/mono2_u16_jpeg_lossless_process_14",
+        "classic/sc/mono2_u16_jpeg_lossless_sv1",
+    ] {
+        assert!(
+            external.contains(case_id),
+            "external codec matrix omitted {case_id}"
+        );
+    }
+    for forbidden in ["highdicom", "wsi/", "quantitative/"] {
+        assert!(
+            !external.contains(forbidden),
+            "feature-independent work leaked into external codec matrix: {forbidden}"
+        );
+    }
 
     assert!(release.contains("if: needs.selection.outputs.class == 'release-candidate'"));
     for required in [

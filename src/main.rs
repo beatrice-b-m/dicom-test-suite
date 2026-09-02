@@ -331,6 +331,7 @@ fn run() -> Result<(), String> {
             let mut seed = 1;
             let mut include_stress = false;
             let mut format = None;
+            let mut case_ids = Vec::new();
 
             while let Some(arg) = args.next() {
                 match arg.as_str() {
@@ -355,6 +356,7 @@ fn run() -> Result<(), String> {
                     "--include-stress" => {
                         include_stress = true;
                     }
+                    "--case-id" => case_ids.push(required_value(&mut args, "--case-id")?),
                     "--format" => format = Some(required_value(&mut args, "--format")?),
                     "--help" | "-h" => {
                         print_generate_usage();
@@ -376,9 +378,14 @@ fn run() -> Result<(), String> {
                     include_stress,
                 })
                 .map_err(|err| err.to_string())?;
-            let summary =
+            let summary = if case_ids.is_empty() {
                 dicom_test_suite::write_generation_run_with_resources(&prepared, &resources)
-                    .map_err(|err| err.to_string())?;
+            } else {
+                dicom_test_suite::write_selected_generation_run_with_resources(
+                    &prepared, case_ids, &resources,
+                )
+            }
+            .map_err(|err| err.to_string())?;
 
             match format.as_deref() {
                 None => {
@@ -1538,7 +1545,7 @@ fn print_media_qualification_markdown(
 
 fn print_generate_usage() {
     println!(
-        "usage: dicom-test-suite generate --profile PROFILE --out PATH [--seed SEED] [--include-stress] [--format json]"
+        "usage: dicom-test-suite generate --profile PROFILE --out PATH [--seed SEED] [--include-stress] [--case-id CASE_ID ...] [--format json]"
     );
 }
 

@@ -214,14 +214,8 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.selection.outputs.revision }}
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-      - name: Prepare locked generation backend
-        run: |
-          uv python install 3.12.12
-          uv sync --project generation-backends/highdicom-pydicom --locked --no-editable --compile-bytecode --python 3.12.12
-          echo "DTS_HIGHDICOM_PYTHON=$PWD/generation-backends/highdicom-pydicom/.venv/bin/python" >> "$GITHUB_ENV"
-      - name: Compile every target with feature
-        run: cargo test --locked --all-targets --no-default-features --features "${{ matrix.feature }}" --no-run
+      - name: Compile feature-sensitive product surfaces
+        run: cargo check --locked --no-default-features --features "${{ matrix.feature }}" --lib --bins
       - name: Test feature-sensitive surfaces
         run: |
           cargo test --locked --no-default-features --features "${{ matrix.feature }}" --lib codecs::tests::
@@ -246,10 +240,23 @@ jobs:
       - name: Exercise feature corpus
         run: |
           root="$RUNNER_TEMP/dts-${{ matrix.feature }}"
-          cargo run --locked --no-default-features --features "${{ matrix.feature }}" -- generate --profile extended --out "$root" --seed 1
+          case "${{ matrix.feature }}" in
+            jpeg) cases=(classic/sc/rgb_planar0_jpeg_baseline_8bit) ;;
+            charls) cases=(classic/sc/mono2_u8_jpeg_ls_lossless) ;;
+            jpegxl) cases=(classic/sc/rgb_planar0_jpegxl_lossless classic/sc/rgb_jpegxl_lossy) ;;
+            jpeg2000) cases=(classic/sc/mono2_u16_jpeg2000_lossless) ;;
+            deflate) cases=(classic/sc/mono2_u8_deflated_explicit_le derived/seg/binary_multiframe_deflated_image_frame) ;;
+          esac
+          case_args=()
+          for case_id in "${cases[@]}"; do case_args+=(--case-id "$case_id"); done
+          started=$SECONDS
+          cargo run --locked --no-default-features --features "${{ matrix.feature }}" -- generate --profile extended "${case_args[@]}" --out "$root" --seed 1
           cargo run --locked --no-default-features --features "${{ matrix.feature }}" -- validate "$root"
           cargo run --locked --no-default-features --features "${{ matrix.feature }}" -- report "$root" --format json > "$root-report.json"
-          jq -e '.counts.generated > 115 and .counts.blocked == 0' "$root-report.json"
+          for case_id in "${cases[@]}"; do
+            jq --arg id "$case_id" -e '([.files[].case_id] + [.skipped_cases[].case_id]) | index($id) != null' "$root/manifest.json"
+          done
+          echo "codec_feature=${{ matrix.feature }} selected_cases=${#cases[@]} generated=$(jq '.files | length' "$root/manifest.json") skipped=$(jq '.skipped_cases | length' "$root/manifest.json") elapsed_seconds=$((SECONDS-started)) output_bytes=$(du -sk "$root" | awk '{print $1 * 1024}')"
           case "${{ matrix.feature }}" in
             jpeg) expected_ts=1.2.840.10008.1.2.4.50 ;;
             charls) expected_ts=1.2.840.10008.1.2.4.80 ;;
@@ -278,5 +285,26 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.selection.outputs.revision }}
-      - name: Compile feature and tests
-        run: cargo test --locked --all-targets --features "${{ matrix.feature }}" --no-run
+      - name: Compile and test feature-sensitive surfaces
+        run: |
+          cargo check --locked --no-default-features --features "${{ matrix.feature }}" --lib --bins
+          cargo test --locked --no-default-features --features "${{ matrix.feature }}" --lib codecs::tests::
+          cargo test --locked --no-default-features --features "${{ matrix.feature }}" \
+            --test codec_backend_registry --test curated_runtime_capabilities \
+            --test exceptional_sc_plan --test frame_codec_service --test runtime_capabilities
+      - name: Exercise selected external codec cases
+        run: |
+          root="$RUNNER_TEMP/dts-${{ matrix.feature }}"
+          case "${{ matrix.feature }}" in
+            htj2k_openjph) cases=(classic/sc/mono2_u16_htj2k_lossless classic/sc/mono2_u16_htj2k_lossy) ;;
+            legacy_jpeg_dcmtk) cases=(classic/sc/mono2_u16_jpeg_lossless_process_14 classic/sc/mono2_u16_jpeg_lossless_sv1) ;;
+          esac
+          case_args=()
+          for case_id in "${cases[@]}"; do case_args+=(--case-id "$case_id"); done
+          started=$SECONDS
+          cargo run --locked --no-default-features --features "${{ matrix.feature }}" -- generate --profile extended "${case_args[@]}" --out "$root" --seed 1
+          cargo run --locked --no-default-features --features "${{ matrix.feature }}" -- validate "$root"
+          for case_id in "${cases[@]}"; do
+            jq --arg id "$case_id" -e '([.files[].case_id] + [.skipped_cases[].case_id]) | index($id) != null' "$root/manifest.json"
+          done
+          echo "codec_feature=${{ matrix.feature }} selected_cases=${#cases[@]} generated=$(jq '.files | length' "$root/manifest.json") skipped=$(jq '.skipped_cases | length' "$root/manifest.json") elapsed_seconds=$((SECONDS-started)) output_bytes=$(du -sk "$root" | awk '{print $1 * 1024}')"

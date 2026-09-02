@@ -34,7 +34,7 @@ artifact.
 | Phase | State | Completed items | Current evidence or next gate |
 | --- | --- | --- | --- |
 | R0 — freeze migration contract | Complete | R0.1, R0.2, R0.3, R0.4 | ADR 0003, the dated cost baseline, the exhaustive 801-path ownership inventory, and the seed-1 smoke parity manifest fix repository ownership, invalidated verification class, and the byte/normalized-semantic migration boundary. The R0 gate passes. |
-| R1 — contain CI and local build cost | In progress | R1.1, R1.2 | Ordinary PR, `main` push, and manual Fast runs now select only formatting/JSON, warning-denied public compilation, named light contracts, and tiny smoke generation/validation. The intact broad graph is scheduled or manually selected, and package/archive/upload is restricted to an immutable release-candidate commit. R1.3-R1.6 and live remote acceptance remain. |
+| R1 — contain CI and local build cost | In progress | R1.1, R1.2, R1.3 | Ordinary PR, `main` push, and manual Fast runs now select only formatting/JSON, warning-denied public compilation, named light contracts, and tiny smoke generation/validation. The intact broad graph is scheduled or manually selected; codec jobs compile feature-sensitive surfaces and generate only representative case selections; package/archive/upload is restricted to an immutable release-candidate commit. R1.4-R1.6 and live remote acceptance remain. |
 | R2 — reduce Rust test-linking amplification | Not started | None | Requires R1 routing and the R0 test-target baseline. |
 | R3 — rename reusable product | Not started | None | Requires the R0 gate; no current file, package, crate, binary, archive, or environment spelling has been migrated. |
 | R4 — split immutable resources and corpus definitions | Not started | None | Requires the accepted naming decision and sequential resource/schema migration. |
@@ -440,6 +440,81 @@ scheduled execution, immutable candidate checkout, artifact upload identity,
 and live R1.1 superseded-run cancellation remain open remote evidence. R1.3
 through R1.6 also remain open; therefore neither the R1 gate nor terminal
 Fast-development/heavy-qualification acceptance is claimed.
+
+### R1.3 — feature-sensitive codec qualification
+
+**State:** complete; R1 remains in progress
+
+**Commit:** the commit introducing selected codec qualification, with subject
+`fix(ci): bound codec qualification to selected cases` (resolve the exact
+object with `git log --format='%H %s' -- .github/workflows/qualification.yml`)
+
+**Owned files:**
+
+- `.github/workflows/qualification.yml`
+- `src/main.rs`
+- `src/lib.rs`
+- `tests/generate_cli.rs`
+- `tests/ci_release_gates.rs`
+- `tests/project_artifacts.rs` (the existing workflow assertion only)
+- `docs/generation-guide.md`
+- `docs/synth-dicom-gen-dcmview-corpus-migration-status-2026-09-01.md`
+
+The additive embedded-corpus CLI contract keeps `--profile` required and
+accepts repeatable `--case-id`. Requested IDs must be known, unique, and
+members of the named profile; errors are deterministic machine failures and
+occur before publication. Selection uses the existing
+`CuratedScSelection::CaseIds`, including its sorted set semantics and recipe
+dependency closure, then follows the same plan-first executor, validation,
+private staging, and atomic publication path as profile generation. Omitting
+`--case-id` leaves the prior profile-wide CLI and SDK behavior unchanged. This
+is deliberately not the R4/R5 external `CorpusDefinitionBundle` contract.
+
+Each codec job asserts that every requested case appears in the generated
+manifest either as a file or as an explicit skipped/unavailable case. A
+missing external executable can therefore prove only unavailability, never a
+pass. The nightly/manual/release-candidate heavy workflow retains all five
+in-process features and both external-command features, but their jobs no
+longer install uv/Python or prepare highdicom, compile `--all-targets`, or
+generate the full `extended` profile. Feature-independent WSI and quantitative
+generation are absent from these jobs.
+
+Representative selections are:
+
+| Feature | Requested cases |
+| --- | --- |
+| `jpeg` | `classic/sc/rgb_planar0_jpeg_baseline_8bit` |
+| `charls` | `classic/sc/mono2_u8_jpeg_ls_lossless` |
+| `jpegxl` | `classic/sc/rgb_planar0_jpegxl_lossless`; `classic/sc/rgb_jpegxl_lossy` |
+| `jpeg2000` | `classic/sc/mono2_u16_jpeg2000_lossless` |
+| `deflate` | `classic/sc/mono2_u8_deflated_explicit_le`; `derived/seg/binary_multiframe_deflated_image_frame` |
+| `htj2k_openjph` | `classic/sc/mono2_u16_htj2k_lossless`; `classic/sc/mono2_u16_htj2k_lossy` |
+| `legacy_jpeg_dcmtk` | `classic/sc/mono2_u16_jpeg_lossless_process_14`; `classic/sc/mono2_u16_jpeg_lossless_sv1` |
+
+**Representative local measurement:** a clean `jpeg` build and selected run
+used `/private/tmp/dts-r13-codec.rRz1Ir/target` and requested only
+`classic/sc/rgb_planar0_jpeg_baseline_8bit`. Compilation plus generation took
+41.93 seconds; cached validation took 1.32 seconds and checked one file with
+zero failures. The manifest contained one generated requested case and 125
+explicit profile-scope skipped rows, occupied 299,008 allocated bytes with the
+single DICOM plus manifest, and the isolated target occupied 1,960,050,688
+allocated bytes. Compared with R0's all-target no-run observation, the target
+used 75.5% less allocated space (1,960,050,688 versus 8,013,463,552 bytes) and
+the selected output retained one payload instead of generating unrelated WSI,
+quantitative, or full-profile payloads. These local numbers are development-
+cost evidence, not remote billable time or another codec/target qualification.
+
+**Verification:** the two focused CLI selection tests passed, covering sorted
+output, manifest evidence, unknown IDs, duplicates, profile incompatibility,
+stable machine errors, and fail-before-publication. The existing workflow
+artifact assertion passed. Focused workflow, feature-sensitive codec, schema,
+formatting, and diff checks are recorded in the task commit report. The local
+`jpeg` corpus generated one file, validated with zero failures, and its
+manifest carried the requested transfer syntax and case ID. No highdicom,
+Python, WSI, quantitative, stress, full profile, external executable,
+independent conformance, package, release, or remote workflow qualification
+ran. OpenJPH, DCMTK `dcmcjpeg`, and `cjxl` runtime availability were not claimed
+by the local run.
 
 ## Measurements
 

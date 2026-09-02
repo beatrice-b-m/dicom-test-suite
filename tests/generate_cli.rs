@@ -307,6 +307,122 @@ fn generate_machine_result_is_clean_typed_and_manifest_bounded() {
 }
 
 #[test]
+fn generate_case_id_selection_is_profile_bounded_and_manifest_proven() {
+    let out_dir = unique_temp_dir("generate-case-id");
+    let requested = [
+        "classic/sc/rgb_planar0_explicit_le",
+        "classic/sc/mono2_u8_explicit_le",
+    ];
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["generate", "--profile", "smoke", "--out"])
+        .arg(&out_dir)
+        .args(["--case-id", requested[0], "--case-id", requested[1]])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let manifest: Value = serde_json::from_slice(&fs::read(out_dir.join("manifest.json")).unwrap())
+        .expect("selected manifest should parse");
+    assert_manifest_matches_committed_schema(&manifest);
+    assert_eq!(manifest["run"]["profile"], "smoke");
+    let emitted = manifest["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|file| file["case_id"].as_str().unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        emitted,
+        [
+            "classic/sc/mono2_u8_explicit_le",
+            "classic/sc/rgb_planar0_explicit_le"
+        ],
+        "selected output must be deterministic rather than request-order dependent"
+    );
+    for requested in requested {
+        assert!(emitted.contains(&requested));
+    }
+    assert!(
+        manifest["skipped_cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|case| case["case_id"] == "classic/sc/mono1_u8_explicit_le"),
+        "the manifest must retain explicit evidence for unselected profile cases"
+    );
+    fs::remove_dir_all(out_dir).unwrap();
+
+    let dependency_out = unique_temp_dir("generate-case-id-dependency");
+    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .args(["generate", "--profile", "extended", "--out"])
+        .arg(&dependency_out)
+        .args(["--case-id", "derived/presentation-state/color_softcopy"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let manifest: Value =
+        serde_json::from_slice(&fs::read(dependency_out.join("manifest.json")).unwrap()).unwrap();
+    let emitted = manifest["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|file| file["case_id"].as_str().unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        emitted,
+        [
+            "classic/sc/rgb_planar0_explicit_le",
+            "derived/presentation-state/color_softcopy"
+        ],
+        "selected generation must expand the recipe dependency closure"
+    );
+    fs::remove_dir_all(dependency_out).unwrap();
+}
+
+#[test]
+fn generate_case_id_selection_rejects_unknown_duplicate_and_incompatible_requests() {
+    let cases: [(&str, &[&str]); 3] = [
+        ("unknown", &["unknown/case"]),
+        (
+            "duplicate",
+            &[
+                "classic/sc/mono2_u8_explicit_le",
+                "classic/sc/mono2_u8_explicit_le",
+            ],
+        ),
+        (
+            "incompatible",
+            &["classic/sc/rgb_planar0_jpeg_baseline_8bit"],
+        ),
+    ];
+    for (label, requested) in cases {
+        let out_dir = unique_temp_dir(&format!("generate-case-id-{label}"));
+        let mut command = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"));
+        command
+            .args(["generate", "--profile", "smoke", "--out"])
+            .arg(&out_dir)
+            .args(["--format", "json"]);
+        for case_id in requested {
+            command.args(["--case-id", case_id]);
+        }
+        let output = command.output().unwrap();
+        assert_eq!(output.status.code(), Some(5), "{label}");
+        assert!(output.stdout.is_empty(), "{label}");
+        let error: Value = serde_json::from_slice(&output.stderr).unwrap();
+        assert_eq!(error["error"]["code"], "generation.planning.failed");
+        assert!(!out_dir.exists(), "{label} must fail before publication");
+    }
+}
+
+#[test]
 fn generate_command_writes_core_u16_native_pixel_case() {
     let out_dir = unique_temp_dir("generate-core-command");
 

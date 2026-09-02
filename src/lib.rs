@@ -13043,7 +13043,7 @@ fn validate_enhanced_pet_image_standard_elements(
         (
             tags::SOFTWARE_VERSIONS,
             "enhanced_pet_software_versions_type1",
-            PACKAGE_VERSION,
+            BYTE_STABLE_OUTPUT_VERSION,
         ),
     ] {
         validate_type1_str_element(failures, relative_path, obj, tag, name, locked);

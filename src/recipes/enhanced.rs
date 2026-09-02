@@ -33,7 +33,7 @@ use crate::native_pixel::{
     PhotometricInterpretation, PixelDataVr, PixelShape, StoredValueType,
 };
 use crate::uid::{DeterministicUidInput, UidRole, deterministic_uid};
-use crate::{IMPLEMENTATION_VERSION_NAME, PACKAGE_VERSION, sha256_hex};
+use crate::{BYTE_STABLE_OUTPUT_VERSION, IMPLEMENTATION_VERSION_NAME, sha256_hex};
 
 use super::{
     AdvancedArtifactPlanningContext, AdvancedArtifactProvenance, AdvancedArtifactRole,
@@ -1169,7 +1169,7 @@ impl Uids {
             implementation: deterministic_uid(&DeterministicUidInput {
                 standards_lock_sha256: lock,
                 case_id: "dicom-test-suite/implementation",
-                recipe_version: PACKAGE_VERSION,
+                recipe_version: BYTE_STABLE_OUTPUT_VERSION,
                 run_seed: 0,
                 file_index: 0,
                 frame_index: None,
@@ -1520,7 +1520,7 @@ fn common_attributes(
             DicomVr::LO,
             common.device_serial_number.as_str(),
         ),
-        ("SoftwareVersions", DicomVr::LO, PACKAGE_VERSION),
+        ("SoftwareVersions", DicomVr::LO, BYTE_STABLE_OUTPUT_VERSION),
         ("ImageType", DicomVr::CS, common.image_type.as_str()),
         ("InstanceNumber", DicomVr::IS, "1"),
         ("ContentDate", DicomVr::DA, "20260101"),

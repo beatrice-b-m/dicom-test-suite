@@ -47,15 +47,7 @@ fn version_json_is_clean_schema_valid_and_resource_bound_outside_the_checkout() 
         env!("CARGO_PKG_VERSION")
     );
     assert_eq!(envelope["result"]["target"], env!("SYNTH_DICOM_GEN_TARGET"));
-    assert_eq!(
-        envelope["result"]["product_resources"]["origin"],
-        "embedded"
-    );
-    assert!(
-        envelope["result"]["product_resources"]["resources"]
-            .as_array()
-            .is_some_and(|resources| !resources.is_empty())
-    );
+    assert!(envelope["result"].get("product_resources").is_none());
     let identities = &envelope["result"]["identity_domains"];
     assert_eq!(envelope["result"]["version_result_schema_version"], "2.0.0");
     assert!(identities["corpus_definition"].is_null());

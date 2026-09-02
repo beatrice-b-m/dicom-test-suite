@@ -24,10 +24,8 @@ fn sdk_embedded_discovery_is_typed_and_conservative() {
 
     assert_eq!(version.product.name, "synth-dicom-gen");
     assert_eq!(version.cli_api_version, "1.0.0");
-    assert_eq!(
-        version.product_resources.resource_set_sha256,
-        capabilities.product_resources.resource_set_sha256
-    );
+    assert!(version.product_resources.is_none());
+    assert!(capabilities.product_resources.is_none());
     assert_eq!(capabilities.structural_assembly.availability, "available");
 }
 

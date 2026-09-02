@@ -28,7 +28,8 @@ pub struct VersionResult {
     pub target: &'static str,
     pub rust_toolchain: &'static str,
     pub enabled_features: Vec<&'static str>,
-    pub product_resources: EngineResourceIdentity,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub product_resources: Option<EngineResourceIdentity>,
     pub identity_domains: InstalledIdentityDomains,
 }
 
@@ -50,7 +51,7 @@ pub fn version_result_with_context(
         target: crate::TARGET_TRIPLE,
         rust_toolchain: crate::RUSTC_VERSION,
         enabled_features: crate::ACTIVE_FEATURE_FLAGS.to_vec(),
-        product_resources: resources.verify_integrity()?,
+        product_resources: None,
         identity_domains: project_installed_identities(resources, context)?,
     })
 }
@@ -61,7 +62,8 @@ pub struct CapabilitiesResult {
     pub product_version: &'static str,
     pub cli_api_version: &'static str,
     pub enabled_features: Vec<&'static str>,
-    pub product_resources: EngineResourceIdentity,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub product_resources: Option<EngineResourceIdentity>,
     pub identity_domains: InstalledIdentityDomains,
     pub supported_versions: SupportedVersions,
     pub qualified_templates: Vec<QualifiedTemplateCapability>,
@@ -273,7 +275,7 @@ pub fn capabilities_result_with_context(
     resources: &EngineResources,
     context: IdentityInspectionContext<'_>,
 ) -> Result<CapabilitiesResult, DiscoveryError> {
-    let product_resources = resources.verify_integrity()?;
+    resources.verify_integrity()?;
     let identity_domains = project_installed_identities(resources, context)?;
     let snapshot = resources.snapshot()?;
     let catalog =
@@ -398,7 +400,7 @@ pub fn capabilities_result_with_context(
         product_version: crate::PACKAGE_VERSION,
         cli_api_version: crate::cli_protocol::CLI_API_VERSION,
         enabled_features: enabled.into_iter().collect(),
-        product_resources,
+        product_resources: None,
         identity_domains,
         supported_versions: SupportedVersions {
             cli_api: vec![crate::cli_protocol::CLI_API_VERSION],

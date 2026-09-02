@@ -24,7 +24,6 @@ fn current_release_manifest_v2() -> Value {
         capabilities["identity_domains"]
     );
     let identity_domains = version["identity_domains"].clone();
-    let legacy_product_resources = version["product_resources"].clone();
     json!({
         "release_manifest_schema_version": "2.0.0",
         "product": version["product"],
@@ -34,13 +33,24 @@ fn current_release_manifest_v2() -> Value {
         "version_result": version,
         "capabilities_result": capabilities,
         "identity_domains": identity_domains,
-        "legacy_product_resources": legacy_product_resources,
         "files": [{
             "path": "bin/synth-dicom-gen",
             "size_bytes": 1,
             "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
         }]
     })
+}
+
+fn add_legacy_resources(document: &mut Value) {
+    let fixture: Value = serde_json::from_slice(
+        &fs::read("tests/fixtures/cli/capabilities-result-v2-before-composition-readers.json")
+            .unwrap(),
+    )
+    .unwrap();
+    let legacy = fixture["product_resources"].clone();
+    document["legacy_product_resources"] = legacy.clone();
+    document["version_result"]["product_resources"] = legacy.clone();
+    document["capabilities_result"]["product_resources"] = legacy;
 }
 
 fn set_release_runtimes(document: &mut Value, runtimes: Value) {
@@ -82,21 +92,13 @@ fn release_manifest_reader_accepts_v1_and_current_v2() {
             .is_empty()
     );
 
-    let mut without_legacy = current.clone();
-    without_legacy
-        .as_object_mut()
-        .unwrap()
-        .remove("legacy_product_resources");
-    without_legacy["version_result"]
-        .as_object_mut()
-        .unwrap()
-        .remove("product_resources");
-    without_legacy["capabilities_result"]
-        .as_object_mut()
-        .unwrap()
-        .remove("product_resources");
-    assert!(release_manifest_v2_schema().is_valid(&without_legacy));
-    assert!(validate_release_manifest(&without_legacy).status.success());
+    assert!(current.get("legacy_product_resources").is_none());
+    assert!(current["version_result"].get("product_resources").is_none());
+    assert!(
+        current["capabilities_result"]
+            .get("product_resources")
+            .is_none()
+    );
 
     let mut with_runtime = current;
     set_release_runtimes(&mut with_runtime, unique_runtime());
@@ -174,6 +176,7 @@ fn release_manifest_v2_reader_rejects_identity_and_version_tampering() {
     cases.push(("duplicate runtime", duplicate));
 
     let mut legacy_presence = baseline.clone();
+    add_legacy_resources(&mut legacy_presence);
     legacy_presence["version_result"]
         .as_object_mut()
         .unwrap()
@@ -181,6 +184,7 @@ fn release_manifest_v2_reader_rejects_identity_and_version_tampering() {
     cases.push(("legacy presence mismatch", legacy_presence));
 
     let mut capability_presence = baseline.clone();
+    add_legacy_resources(&mut capability_presence);
     capability_presence["capabilities_result"]
         .as_object_mut()
         .unwrap()
@@ -188,11 +192,13 @@ fn release_manifest_v2_reader_rejects_identity_and_version_tampering() {
     cases.push(("capabilities legacy presence mismatch", capability_presence));
 
     let mut legacy_value = baseline.clone();
+    add_legacy_resources(&mut legacy_value);
     legacy_value["legacy_product_resources"]["resource_set_sha256"] =
         json!("8888888888888888888888888888888888888888888888888888888888888888");
     cases.push(("top legacy value mismatch", legacy_value));
 
     let mut capability_value = baseline.clone();
+    add_legacy_resources(&mut capability_value);
     capability_value["capabilities_result"]["product_resources"]["resource_set_sha256"] =
         json!("8888888888888888888888888888888888888888888888888888888888888888");
     cases.push(("capabilities legacy value mismatch", capability_value));

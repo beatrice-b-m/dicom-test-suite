@@ -361,7 +361,7 @@
         "structural_cancellation_publishes_nothing",
         "structural_destination_race_preserves_one_valid_winner_and_cleans_staging"
       ],
-      "entry_digest": "374f60d2d934a51f7066372673a4d635e0a3818dccca0cc7abd98125bbf25852"
+      "entry_digest": "59bd10f205c0a44f155122194b0f3d591619c4cf7941c1925b3e8eeeab938ceb"
     },
     {
       "source": "tests/blending_presentation_state.rs",

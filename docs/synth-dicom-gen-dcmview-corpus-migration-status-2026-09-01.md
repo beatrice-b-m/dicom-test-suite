@@ -1781,7 +1781,8 @@ aggregate R4 gate remain open.
 **State:** complete on 2026-09-02; aggregate R4 remains in progress
 
 **Commits:** `ed3ec9a`, `fbf6990`, `329fe37`, `78354e6`, `78dd58d`,
-`614024e`, and `39a41c8`.
+`614024e`, `39a41c8`, `4908032`, `4706fa7`, `dca8122`, `262e955`,
+and `af9d062`.
 
 The new strict Draft 2020-12 contract has schema version `1.0.0` and the
 post-rename identifier
@@ -1799,8 +1800,10 @@ manifest capture through declared-file capture and terminal inventory. Every
 component is opened descriptor-relatively with `openat` and `O_NOFOLLOW`;
 final inputs additionally use `O_NONBLOCK`, must be regular with `nlink == 1`,
 and retain device/inode/length while read under a bounded `take(limit + 1)`.
-The descriptor-relative inventory rejects symlinks, hardlink aliases, special
-files, undeclared files, and undeclared directories including empty ones, and
+The descriptor-relative inventory streams one bounded directory entry at a
+time, distinguishes `readdir` errors from EOF, rejects entry counts beyond the
+declared inventory, and rejects symlinks, hardlink aliases, special files,
+undeclared files, and undeclared directories including empty ones. It also
 checks directory stability. A regression replaces the pathname after opening
 the root and proves later reads remain on the held original descriptor. The
 non-Unix fallback retains bounded reads and symlink/type checks but does not
@@ -1813,9 +1816,15 @@ conformance, provider/backend, security, product, lock, or engine-asset
 namespaces. The trusted registry and recipe schemas plus existing registered
 provider/rule/output-shape validation apply to captured bytes. Implemented
 registry rows have exactly one matching recipe; non-implemented rows have
-none. Dependencies bind exact recipe identities, are unique and acyclic, and
-cannot leak valid/legacy/stress evidence into negative/fuzz or cross negative
-and fuzz. Profile membership equals the registry; each profile has its exact
+none. Dependencies bind exact recipe identities, are unique and acyclic.
+Ordinary smoke/core/extended definitions cannot import legacy, opt-in stress,
+negative, or fuzz recipes; legacy and stress cannot import one another or an
+invalid scope. Negative and fuzz definitions may reference ordinary valid
+sources or their own scope only: neither may import legacy, opt-in stress, or
+the other invalid scope. The intentional ordinary-source direction remains
+supported: the current corpus proves 16 negative or fuzz definitions
+referencing ordinary valid source recipes. Profile membership equals the
+registry; each profile has its exact
 scope; `all` is only smoke/core/extended with optional stress. Local notes and
 assets have complete, non-orphan closure. Unavailable runtimes remain
 unavailable definition input rather than implied passes.
@@ -1831,7 +1840,9 @@ declared and verified although planned cases correctly own no recipe. The
 result has 214 files and 1,754,298 captured bytes. Its exact manifest SHA-256
 is `905d36bc93c7ae10ae5011304b25a647c4b792852e143bd2017e2aacd1574de8`
 and framed corpus SHA-256 is
-`f4232bdcd8383065e40c6b4aef355ba6362edcdc6fc9b523c1137c6a90a967be`.
+`571fa23fd392dd557ccdbe2db527698eaedc7078d86543efc68dfffc877411f7`.
+The canonical frame includes role, logical record ID, logical path, decimal
+size, and file SHA-256 for every path-sorted declared record.
 Relocation preserves both; a whitespace-only manifest byte change changes
 both.
 
@@ -1848,10 +1859,10 @@ Focused verification passed:
 
 ```text
 cargo test --locked --no-default-features --lib corpus_definition::tests::
-16 passed; 0 failed; 475 filtered; 2.28s test / 2.34s wall
+19 passed; 0 failed; 475 filtered; 8.99s test
 
 cargo test --locked --no-default-features --lib corpus_definition::tests:: -- --list
-exactly 16 entries
+exactly 19 entries
 
 cargo test --locked --no-default-features --test schema_resources__fast schema_artifacts::committed_schema_files_are_parseable_json_schema_documents -- --exact
 1 passed; 72 filtered
@@ -1865,7 +1876,7 @@ git diff --check
 passed
 
 python3 scripts/check-test-ownership.py
-passed: 22 targets; 263 groups; 1,391 entries; historical 20 integration targets, 186 sources, and 879 entries unchanged
+passed: 22 targets; 263 groups; 1,394 entries; historical 20 integration targets, 186 sources, and 879 entries unchanged
 
 python3 -m unittest tests/test_change_test_routing.py
 13 passed
@@ -1874,7 +1885,7 @@ python3 scripts/check-spelling-transition.py
 passed: 870 classified retained occurrences; SHA-256 ecff895f74165daa5d9d72ee145ee746f7f799a6028f12916fd7c010dfaa44b1
 ```
 
-The routing dry run selects the exact 16-entry library filter
+The routing dry run selects the exact 19-entry library filter
 `corpus_definition::tests::`, schema subsystem, and unconditional Fast
 coverage. A standalone `python3 -m py_compile` attempt was unavailable because
 system Python tried to write sandbox-denied user cache state; the assembler

@@ -70,7 +70,7 @@ fn structural_assembly_executes_through_shared_writer_and_manifest() {
         .with_draft(jsonschema::Draft::Draft202012)
         .with_resource(
             "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json",
-            jsonschema::Resource::from_contents(identity_schema).unwrap(),
+            jsonschema::Resource::from_contents(identity_schema.clone()).unwrap(),
         )
         .build(&schema)
         .unwrap();
@@ -149,15 +149,35 @@ fn structural_assembly_executes_through_shared_writer_and_manifest() {
     assert_eq!(report["iod_conformance"], "not_assessed");
     assert!(report.get("coverage_matrix").is_none());
     let report_schema: serde_json::Value = serde_json::from_slice(
+        &fs::read("schemas/structural-assembly-report-v2.schema.json").unwrap(),
+    )
+    .unwrap();
+    let legacy_report_schema: serde_json::Value = serde_json::from_slice(
         &fs::read("schemas/structural-assembly-report.schema.json").unwrap(),
     )
     .unwrap();
     assert!(
         jsonschema::options()
             .with_draft(jsonschema::Draft::Draft202012)
+            .with_resource(
+                "https://dicom-test-suite.local/schemas/structural-assembly-report.schema.json",
+                jsonschema::Resource::from_contents(legacy_report_schema).unwrap(),
+            )
+            .with_resource(
+                "https://synth-dicom-gen.local/schemas/structural-assembly-manifest-v2.schema.json",
+                jsonschema::Resource::from_contents(schema.clone()).unwrap(),
+            )
+            .with_resource(
+                "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json",
+                jsonschema::Resource::from_contents(identity_schema).unwrap(),
+            )
             .build(&report_schema)
             .unwrap()
             .is_valid(&report)
+    );
+    assert_eq!(
+        report["identity_projection"],
+        manifest["identity_projection"]
     );
     let perturbed_root = output("request-identity-perturbation");
     let mut perturbed_request: serde_json::Value = serde_json::from_slice(&request()).unwrap();

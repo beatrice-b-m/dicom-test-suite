@@ -1894,7 +1894,8 @@ composition, assembly, coverage, and release manifest slices plus aggregate
 R4.3 remain in progress
 
 **Commits:** `1a1200e`, `3041bc6`, `71e4c62`, `4959d56`, `0566717`,
-`62decf0`, and `ec342e2`.
+`62decf0`, `ec342e2`, `242883c`, `ec529fc`, `1d59eed`, `7bec254`, and
+`5e8bfa8`, `f80564b`, `507b69f`, and `fe9b369`.
 
 The curated-generation producer now emits manifest `1.0.0` and generation
 result `2.0.0`. The manifest's `identity_projection` is an honest projected
@@ -1910,7 +1911,7 @@ External runtime identities are invocation evidence rather than capability
 declarations. A runtime is projected only from successful typed provider,
 codec, evidence-tool, or materialization-service evidence carrying an exact
 executable SHA-256. The built-in smoke path correctly emits an empty runtime
-list. A focused provider test proves passed evidence is projected and failed
+list. Focused tests cover each of those four evidence branches and prove failed
 or executable-free evidence is omitted; the identity projector independently
 sorts, validates, and rejects duplicate or malformed runtime identities.
 
@@ -1925,9 +1926,14 @@ members, 803,698 bytes, SHA-256
 R4.4 may remove the optional top-level monolith without changing manifest
 1.0's split identity meaning.
 
-The frozen manifest `0.2.0` and `0.3.0` schema was not changed. Committed
-fixtures validate both versions, and the installed SDK-backed `validate` and
-`report` paths consume both without synthesizing split identities. A committed
+The frozen manifest `0.2.0` and `0.3.0` schema was not changed. One shared
+fail-closed loader selects those versions, current curated `1.0.0`, composition
+`0.4.0`/`0.5.0`, or structural-assembly `1.0.0` by explicit discriminator and
+version before any library, CLI, or SDK validation/report semantics run.
+Unknown kinds or versions fail, and curated `1.0.0` fails when its split
+identity is absent or malformed. Real generated-root fixtures prove curated
+`0.2.0`, `0.3.0`, and `1.0.0` through every CLI and SDK validate/report path;
+legacy inputs are never assigned synthesized split identities. A committed
 generation-result `1.0.0` fixture remains valid under its frozen schema;
 capabilities separately advertises current generation producer `2.0.0` and
 validated consumer versions `1.0.0` and `2.0.0`.
@@ -1957,13 +1963,25 @@ cargo test --locked --no-default-features --test cli_sdk__nonfast generate_cli::
 cargo test --locked --no-default-features --test schema_resources__fast schema_artifacts::committed_schema_files_compile -- --exact
 1 passed; 72 filtered
 
+cargo test --locked --no-default-features --test cli_sdk__nonfast sdk_facade::
+8 passed; exact SDK validate/report readers cover curated 0.2/0.3/1.0 and rejection cases
+
+cargo test --locked --no-default-features --test schema_resources__subsystem
+86 passed; exact CLI validate/report readers cover curated 0.2/0.3/1.0 and rejection cases
+
+cargo test --locked --no-default-features --test cli_sdk__nonfast validate_cli::
+28 passed; schema-valid EOT fixtures reach the retained semantic guards
+
+cargo test --locked --no-default-features --test cli_sdk__nonfast report_cli::
+46 passed; handcrafted coverage fixtures are schema-bound before report semantics
+
 cargo check --locked --no-default-features
 cargo fmt --all -- --check
 python3 scripts/check-test-ownership.py
 python3 tests/test_change_test_routing.py
 python3 scripts/check-spelling-transition.py
 git diff --check
-passed; ownership 22 targets, 264 groups, 1,397 entries; routing 14 tests;
+passed; ownership 22 targets, 264 groups, 1,398 entries; routing 14 tests;
 spelling 883 reviewed occurrences
 ```
 
@@ -1972,7 +1990,11 @@ bounded route includes the three identity isolation tests, version and
 capabilities producers, the 86-test schema/resource suite with live standalone
 generation and legacy SDK readers, and unconditional Fast checks. No feature,
 provider, external adapter, Heavy, Nightly, release-candidate, remote, R4.4,
-R4.5, R5, or downstream manifest body ran.
+R4.5, R5, or downstream manifest body ran. The exploratory fixture
+incompatibilities were migrated without bypassing the loader: schema-valid
+fixtures preserve reachable semantic assertions, while shapes forbidden by the
+schema assert public schema-first rejection and retain their downstream guards
+in crate-internal tests.
 
 ### R4.2 — versioned caller-owned corpus definition bundle
 

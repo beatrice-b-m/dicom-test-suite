@@ -927,7 +927,7 @@ fn radiation_operations(
                 string_op("0008,1090", DicomVr::LO, "DTS C-Arm LINAC")?,
                 string_op("0018,1000", DicomVr::LO, "DTS-LINAC-001")?,
                 string_allow_empty_op("0018,100B", DicomVr::UI, "")?,
-                string_op("0018,1020", DicomVr::LO, crate::PACKAGE_VERSION)?,
+                string_op("0018,1020", DicomVr::LO, crate::BYTE_STABLE_OUTPUT_VERSION)?,
                 string_op("3010,001A", DicomVr::LO, "1")?,
                 string_allow_empty_op("3010,001B", DicomVr::UC, "")?,
                 string_op("3010,002D", DicomVr::LO, &value.machine_name)?,

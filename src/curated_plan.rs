@@ -2507,6 +2507,7 @@ fn semantic_context(
     sources: Vec<SemanticSource>,
     source_artifacts: &BTreeMap<(RecipeIdentity, String), CuratedSourceArtifact>,
 ) -> Result<SemanticPlanContext, CuratedPlanError> {
+    let output_version = semantic_output_version(recipe);
     let source = sources
         .first()
         .ok_or_else(|| CuratedPlanError::MissingDependency {
@@ -2559,7 +2560,7 @@ fn semantic_context(
     let implementation = deterministic_uid(&DeterministicUidInput {
         standards_lock_sha256,
         case_id: "dicom-test-suite/implementation",
-        recipe_version: crate::PACKAGE_VERSION,
+        recipe_version: output_version,
         run_seed: 0,
         file_index: 0,
         frame_index: None,
@@ -2700,7 +2701,7 @@ fn semantic_context(
                 message: error.to_string(),
             })?
         },
-        base_attributes: semantic_common_attributes(recipe)?,
+        base_attributes: semantic_common_attributes(recipe, output_version)?,
         sources,
         resources: ArtifactResourceEstimate {
             output_bytes: 1024 * 1024,
@@ -2709,8 +2710,17 @@ fn semantic_context(
     })
 }
 
+fn semantic_output_version(recipe: &CaseRecipe) -> &'static str {
+    if recipe.plan_provider_id == HIGH_DICOM_SR_IMPORT_PROVIDER_ID {
+        crate::PACKAGE_VERSION
+    } else {
+        crate::BYTE_STABLE_OUTPUT_VERSION
+    }
+}
+
 fn semantic_common_attributes(
     recipe: &CaseRecipe,
+    output_version: &str,
 ) -> Result<Vec<ResolvedAttribute>, CuratedPlanError> {
     let mut values = vec![
         (Tag(0x0008, 0x001C), DicomVr::CS, "YES"),
@@ -2723,7 +2733,7 @@ fn semantic_common_attributes(
         (Tag(0x0008, 0x0090), DicomVr::PN, ""),
         (Tag(0x0008, 0x0050), DicomVr::SH, ""),
         (Tag(0x0008, 0x0070), DicomVr::LO, "dicom-test-suite"),
-        (Tag(0x0018, 0x1020), DicomVr::LO, crate::PACKAGE_VERSION),
+        (Tag(0x0018, 0x1020), DicomVr::LO, output_version),
     ];
     let rt_kind = recipe
         .provider_parameters

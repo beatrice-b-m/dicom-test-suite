@@ -2279,7 +2279,7 @@ fn validate_historical_rt(
                     plan_series_instance_uid: &source.series_instance_uid,
                     plan_sop_instance_uid: &source.sop_instance_uid,
                     plan_sha256: &plan_hash,
-                    software_versions: PACKAGE_VERSION,
+                    software_versions: crate::BYTE_STABLE_OUTPUT_VERSION,
                 },
             );
             validate_rt_radiation_file(
@@ -2322,7 +2322,7 @@ fn validate_historical_rt(
                     radiation_series_instance_uid: &radiation.series_instance_uid,
                     radiation_sop_instance_uid: &radiation.sop_instance_uid,
                     radiation_sha256: &radiation_hash,
-                    software_versions: PACKAGE_VERSION,
+                    software_versions: crate::BYTE_STABLE_OUTPUT_VERSION,
                 },
             );
             validate_rt_radiation_set_file(

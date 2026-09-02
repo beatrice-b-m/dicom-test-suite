@@ -14692,7 +14692,7 @@ pub(crate) fn validate_rt_image_file(
         (
             "software_versions",
             tags::SOFTWARE_VERSIONS,
-            crate::PACKAGE_VERSION,
+            crate::BYTE_STABLE_OUTPUT_VERSION,
         ),
         ("acquisition_date", tags::ACQUISITION_DATE, "20260101"),
         ("acquisition_time", tags::ACQUISITION_TIME, "000000"),
@@ -15230,7 +15230,7 @@ pub(crate) fn validate_rt_plan_file(
         (
             "software_versions",
             tags::SOFTWARE_VERSIONS,
-            crate::PACKAGE_VERSION,
+            crate::BYTE_STABLE_OUTPUT_VERSION,
         ),
         ("instance_number", tags::INSTANCE_NUMBER, "1"),
         ("label", tags::RT_PLAN_LABEL, "DTS_PLAN"),

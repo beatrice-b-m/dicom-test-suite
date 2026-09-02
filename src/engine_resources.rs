@@ -5,7 +5,7 @@ use std::fs;
 use std::io::Read;
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 
 use serde::{Deserialize, Serialize};
 
@@ -71,9 +71,27 @@ pub struct EngineResourceSnapshot {
     materialized: Arc<MaterializedSnapshot>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct SnapshotCache {
-    materialized: Mutex<Option<Arc<MaterializedSnapshot>>>,
+    state: Mutex<SnapshotCacheState>,
+    ready: Condvar,
+}
+
+#[derive(Debug, Default)]
+enum SnapshotCacheState {
+    #[default]
+    Empty,
+    Building,
+    Ready(Arc<MaterializedSnapshot>),
+}
+
+impl Default for SnapshotCache {
+    fn default() -> Self {
+        Self {
+            state: Mutex::new(SnapshotCacheState::Empty),
+            ready: Condvar::new(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -341,22 +359,36 @@ impl EngineResources {
         &self,
         mut write: impl FnMut(&Path, &[u8]) -> std::io::Result<()>,
     ) -> Result<EngineResourceSnapshot, EngineResourceError> {
-        let mut cached = self
-            .snapshot_cache
-            .materialized
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        if let Some(materialized) = cached.as_ref() {
-            self.validate_snapshot_root(&materialized.root)?;
-            return Ok(EngineResourceSnapshot {
-                materialized: Arc::clone(materialized),
-            });
+        loop {
+            let mut state = lock_snapshot_state(&self.snapshot_cache);
+            match &*state {
+                SnapshotCacheState::Ready(materialized) => {
+                    let materialized = Arc::clone(materialized);
+                    drop(state);
+                    self.validate_snapshot_root(&materialized.root)?;
+                    return Ok(EngineResourceSnapshot { materialized });
+                }
+                SnapshotCacheState::Building => {
+                    state = self
+                        .snapshot_cache
+                        .ready
+                        .wait(state)
+                        .unwrap_or_else(|poisoned| poisoned.into_inner());
+                    drop(state);
+                }
+                SnapshotCacheState::Empty => {
+                    *state = SnapshotCacheState::Building;
+                    drop(state);
+                    break;
+                }
+            }
         }
 
+        let mut publication = SnapshotPublication::new(&self.snapshot_cache);
         self.verify_integrity()?;
         let materialized = Arc::new(self.materialize_snapshot(&mut write)?);
         self.validate_snapshot_root(&materialized.root)?;
-        *cached = Some(Arc::clone(&materialized));
+        publication.publish(Arc::clone(&materialized));
         Ok(EngineResourceSnapshot { materialized })
     }
 
@@ -437,6 +469,42 @@ impl EngineResources {
             }
         }
         Ok(())
+    }
+}
+
+fn lock_snapshot_state(cache: &SnapshotCache) -> MutexGuard<'_, SnapshotCacheState> {
+    cache
+        .state
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+struct SnapshotPublication<'a> {
+    cache: &'a SnapshotCache,
+    published: bool,
+}
+
+impl<'a> SnapshotPublication<'a> {
+    fn new(cache: &'a SnapshotCache) -> Self {
+        Self {
+            cache,
+            published: false,
+        }
+    }
+
+    fn publish(&mut self, materialized: Arc<MaterializedSnapshot>) {
+        *lock_snapshot_state(self.cache) = SnapshotCacheState::Ready(materialized);
+        self.published = true;
+        self.cache.ready.notify_all();
+    }
+}
+
+impl Drop for SnapshotPublication<'_> {
+    fn drop(&mut self) {
+        if !self.published {
+            *lock_snapshot_state(self.cache) = SnapshotCacheState::Empty;
+            self.cache.ready.notify_all();
+        }
     }
 }
 
@@ -602,21 +670,26 @@ mod snapshot_cache_tests {
         resources.verify_integrity().unwrap();
         resources.bytes("templates/catalog.json").unwrap();
         assert!(
-            resources
-                .snapshot_cache
-                .materialized
-                .lock()
-                .unwrap()
-                .is_none()
+            matches!(
+                *lock_snapshot_state(&resources.snapshot_cache),
+                SnapshotCacheState::Empty
+            ),
+            "identity and direct byte reads must not materialize a snapshot"
         );
 
         let clone = resources.clone();
+        let started = std::time::Instant::now();
         let first = resources.shared_snapshot().unwrap();
         let second = resources.shared_snapshot().unwrap();
         let third = clone.shared_snapshot().unwrap();
+        let elapsed = started.elapsed();
         assert_eq!(first.root(), second.root());
         assert_eq!(first.root(), third.root());
         assert_eq!(file_inventory(first.root()), (254, 2_664_374));
+        eprintln!(
+            "r4_5_post operations=3 roots=1 files_written=254 bytes_written=2664374 elapsed_us={}",
+            elapsed.as_micros()
+        );
     }
 
     #[test]
@@ -685,12 +758,11 @@ mod snapshot_cache_tests {
             .unwrap_err();
         assert!(matches!(error, EngineResourceError::WriteSnapshot { .. }));
         assert!(
-            resources
-                .snapshot_cache
-                .materialized
-                .lock()
-                .unwrap()
-                .is_none()
+            matches!(
+                *lock_snapshot_state(&resources.snapshot_cache),
+                SnapshotCacheState::Empty
+            ),
+            "failed materialization must reset the cache to retryable empty state"
         );
         assert!(!failed_root.expect("writer observed snapshot root").exists());
         let snapshot = resources.shared_snapshot().unwrap();

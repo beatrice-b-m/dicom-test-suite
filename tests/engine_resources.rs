@@ -68,6 +68,16 @@ fn resource_build_tracks_directory_additions() {
     assert!(build.contains("symlink_metadata"));
     assert!(build.contains("require_regular_engine_resource"));
     assert!(build.contains("validate_engine_resource_path"));
+    assert!(
+        !engine_resource_build_script::is_transitional_engine_resource(
+            "schemas/corpus-definition-bundle.schema.json"
+        )
+    );
+    assert!(
+        engine_resource_build_script::is_transitional_engine_resource(
+            "schemas/case-recipe.schema.json"
+        )
+    );
     let reader = fs::read_to_string("src/engine_resources.rs").unwrap();
     for required in [
         "libc::openat",

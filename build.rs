@@ -107,9 +107,18 @@ fn collect_json_files(root: &Path, relative: &Path, resources: &mut Vec<(String,
                 .expect("resource beneath root")
                 .to_string_lossy()
                 .replace('\\', "/");
-            resources.push((logical, path));
+            if is_transitional_engine_resource(&logical) {
+                resources.push((logical, path));
+            }
         }
     }
+}
+
+/// Corpus-definition schemas have an independent identity domain. R4.2 reads
+/// this schema directly without perturbing the locked transitional v1 engine
+/// inventory before the R4.3/R4.4 identity split.
+pub(crate) fn is_transitional_engine_resource(logical_path: &str) -> bool {
+    logical_path != "schemas/corpus-definition-bundle.schema.json"
 }
 
 fn require_regular_engine_resource(path: &Path) {

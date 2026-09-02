@@ -62,6 +62,13 @@
       ]
     },
     {
+      "contract_id": "corpus-definition-bundle",
+      "owner": "corpus_definition_maintainers",
+      "support_window": "every CorpusDefinitionBundle schema major advertised by the supported SDK or CLI",
+      "apis": ["synth_dicom_gen::corpus_definition"],
+      "schemas": ["corpus-definition-bundle.schema.json"]
+    },
+    {
       "contract_id": "rust-sdk",
       "owner": "sdk_maintainers",
       "support_window": "supported sdk facade for the product semantic-version line that introduced it",

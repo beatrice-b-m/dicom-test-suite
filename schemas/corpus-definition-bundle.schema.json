@@ -1,0 +1,435 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dicom-test-suite.local/schemas/corpus-definition-bundle.schema.json",
+  "title": "Corpus Definition Bundle",
+  "type": "object",
+  "required": [
+    "corpus_definition_bundle_schema_version",
+    "definition_id",
+    "definition_version",
+    "profiles",
+    "registry",
+    "cases"
+  ],
+  "properties": {
+    "corpus_definition_bundle_schema_version": {
+      "const": "1.0.0"
+    },
+    "definition_id": {
+      "$ref": "#/$defs/id"
+    },
+    "definition_version": {
+      "$ref": "#/$defs/semver"
+    },
+    "profiles": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "$ref": "#/$defs/profile_definition"
+      },
+      "uniqueItems": true
+    },
+    "registry": {
+      "$ref": "#/$defs/file_descriptor"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4096,
+      "items": {
+        "$ref": "#/$defs/case_definition"
+      },
+      "uniqueItems": true
+    },
+    "evidence": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "$ref": "#/$defs/evidence_record"
+      },
+      "uniqueItems": true
+    },
+    "assets": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/$defs/asset_record"
+      },
+      "uniqueItems": true
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+    },
+    "case_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 240,
+      "pattern": "^[a-z0-9][a-z0-9_.-]*(/[a-z0-9][a-z0-9_.-]*)+$"
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "logical_path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[A-Za-z0-9_-][A-Za-z0-9_.-]{0,127}(/[A-Za-z0-9_-][A-Za-z0-9_.-]{0,127})*$"
+    },
+    "file_descriptor": {
+      "type": "object",
+      "required": [
+        "path",
+        "size_bytes",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/logical_path"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2097152
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "additionalProperties": false
+    },
+    "profile_definition": {
+      "type": "object",
+      "required": [
+        "profile_id",
+        "scope"
+      ],
+      "properties": {
+        "profile_id": {
+          "enum": [
+            "smoke",
+            "core",
+            "extended",
+            "all",
+            "legacy",
+            "stress",
+            "negative",
+            "fuzz"
+          ]
+        },
+        "scope": {
+          "enum": [
+            "valid",
+            "legacy",
+            "stress",
+            "expected_invalid",
+            "fuzz"
+          ]
+        },
+        "members": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "$ref": "#/$defs/case_id"
+          },
+          "uniqueItems": true
+        },
+        "union_of": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {
+            "enum": [
+              "smoke",
+              "core",
+              "extended"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "optional_profile": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "stress",
+            null
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "profile_id": {
+                "const": "all"
+              }
+            },
+            "required": [
+              "profile_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "scope": {
+                "const": "valid"
+              },
+              "members": {
+                "maxItems": 0
+              },
+              "union_of": {
+                "type": "array",
+                "minItems": 3,
+                "maxItems": 3,
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "smoke",
+                    "core",
+                    "extended"
+                  ]
+                },
+                "allOf": [
+                  {
+                    "contains": {
+                      "const": "smoke"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "core"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "extended"
+                    }
+                  }
+                ]
+              },
+              "optional_profile": {
+                "const": "stress"
+              }
+            },
+            "required": [
+              "union_of",
+              "optional_profile"
+            ]
+          },
+          "else": {
+            "properties": {
+              "union_of": {
+                "maxItems": 0
+              },
+              "optional_profile": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "profile_id": {
+                "const": "negative"
+              }
+            },
+            "required": [
+              "profile_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "scope": {
+                "const": "expected_invalid"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "profile_id": {
+                "const": "fuzz"
+              }
+            },
+            "required": [
+              "profile_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "scope": {
+                "const": "fuzz"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "profile_id": {
+                "const": "stress"
+              }
+            },
+            "required": [
+              "profile_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "scope": {
+                "const": "stress"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "profile_id": {
+                "const": "legacy"
+              }
+            },
+            "required": [
+              "profile_id"
+            ]
+          },
+          "then": {
+            "properties": {
+              "scope": {
+                "const": "legacy"
+              }
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "case_definition": {
+      "type": "object",
+      "required": [
+        "case_id",
+        "recipe_id",
+        "recipe_version",
+        "recipe"
+      ],
+      "properties": {
+        "case_id": {
+          "$ref": "#/$defs/case_id"
+        },
+        "recipe_id": {
+          "$ref": "#/$defs/id"
+        },
+        "recipe_version": {
+          "$ref": "#/$defs/semver"
+        },
+        "recipe": {
+          "$ref": "#/$defs/file_descriptor"
+        },
+        "dependencies": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/case_id"
+          },
+          "uniqueItems": true
+        },
+        "evidence_ids": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        },
+        "asset_ids": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "evidence_record": {
+      "type": "object",
+      "required": [
+        "evidence_id",
+        "path",
+        "media_type",
+        "size_bytes",
+        "sha256"
+      ],
+      "properties": {
+        "evidence_id": {
+          "$ref": "#/$defs/id"
+        },
+        "path": {
+          "$ref": "#/$defs/logical_path"
+        },
+        "media_type": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 127,
+          "pattern": "^[a-z0-9!#$&^_.+-]+/[a-z0-9!#$&^_.+-]+$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2097152
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "additionalProperties": false
+    },
+    "asset_record": {
+      "type": "object",
+      "required": [
+        "asset_id",
+        "media_type",
+        "path",
+        "size_bytes",
+        "sha256"
+      ],
+      "properties": {
+        "asset_id": {
+          "$ref": "#/$defs/id"
+        },
+        "media_type": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 127,
+          "pattern": "^[a-z0-9!#$&^_.+-]+/[a-z0-9!#$&^_.+-]+$"
+        },
+        "path": {
+          "$ref": "#/$defs/logical_path"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 67108864
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

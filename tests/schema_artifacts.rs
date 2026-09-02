@@ -15,6 +15,10 @@ const SCHEMAS: &[(&str, &str)] = &[
         "https://dicom-test-suite.local/schemas/assembly-result.schema.json",
     ),
     (
+        "schemas/corpus-definition-bundle.schema.json",
+        "https://dicom-test-suite.local/schemas/corpus-definition-bundle.schema.json",
+    ),
+    (
         "schemas/version-result.schema.json",
         "https://dicom-test-suite.local/schemas/version-result.schema.json",
     ),

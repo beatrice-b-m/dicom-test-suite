@@ -10,7 +10,6 @@ use std::str::FromStr;
 use dicom_core::Tag;
 use serde_json::Value;
 
-use crate::PACKAGE_VERSION;
 use crate::composition::{
     AttributeAddress, AttributeValue, ByteOrder as CompositionByteOrder, CompositionUidRole,
     DicomVr, IdentityPlan, NativePixelPlan as CompositionPixelPlan,
@@ -33,6 +32,9 @@ use super::{
 
 const ORDINARY_SC: &str = "1.2.840.10008.5.1.4.1.1.7";
 const MULTIFRAME_SINGLE_BIT_SC: &str = "1.2.840.10008.5.1.4.1.1.7.1";
+// This identity is part of the locked byte-stable DICOM contract. Product and
+// release versions are reported separately and must not rewrite old payloads.
+const BYTE_STABLE_IMPLEMENTATION_VERSION: &str = "0.1.0";
 const MULTIFRAME_GRAYSCALE_BYTE_SC: &str = "1.2.840.10008.5.1.4.1.1.7.2";
 
 /// Convert typed recipe pixels into the registry-independent native contract.
@@ -266,7 +268,7 @@ fn exact_legacy_identities(
     let implementation = deterministic_uid(&DeterministicUidInput {
         standards_lock_sha256: input.standards_lock_sha256,
         case_id: "dicom-test-suite/implementation",
-        recipe_version: PACKAGE_VERSION,
+        recipe_version: BYTE_STABLE_IMPLEMENTATION_VERSION,
         run_seed: 0,
         file_index: 0,
         frame_index: None,
@@ -317,7 +319,7 @@ fn add_common_attributes(
         ("0010,0020", DicomVr::LO, "DICOMTEST-SMOKE-001"),
         ("0010,0030", DicomVr::DA, "19700101"),
         ("0010,0040", DicomVr::CS, "O"),
-        ("0018,1020", DicomVr::LO, PACKAGE_VERSION),
+        ("0018,1020", DicomVr::LO, BYTE_STABLE_IMPLEMENTATION_VERSION),
         ("0020,0010", DicomVr::SH, "SMOKE"),
         ("0020,0011", DicomVr::IS, "1"),
         ("0020,0013", DicomVr::IS, "1"),

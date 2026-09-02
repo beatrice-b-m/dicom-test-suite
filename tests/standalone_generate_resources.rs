@@ -80,6 +80,33 @@ fn generate_uses_embedded_resources_from_an_unrelated_working_directory() {
     for entry in manifest["files"].as_array().unwrap() {
         assert!(output_root.join(entry["path"].as_str().unwrap()).is_file());
     }
+    let expected = [
+        (
+            "classic/sc/mono1_u8_explicit_le",
+            926,
+            "76dc5208b139899fcb87bbf7ec9edf1a323000a91c4015de9ef8bde7bd344ecc",
+        ),
+        (
+            "classic/sc/mono2_u8_explicit_le",
+            926,
+            "fce766bcbb4b4aa79cfb3fa0c3b5e4ef888b11c0708fad713b9cde8d41ec6a15",
+        ),
+        (
+            "classic/sc/rgb_planar0_explicit_le",
+            938,
+            "33de9448509431fda27005cbf83c79977f1c3ebadb669ae1dedf1a225742f3c5",
+        ),
+    ];
+    for (case_id, size, sha256) in expected {
+        let file = manifest["files"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|file| file["case_id"] == case_id)
+            .unwrap();
+        assert_eq!(file["size_bytes"], size);
+        assert_eq!(file["sha256"], sha256);
+    }
 
     for arguments in [
         vec!["validate".to_string(), output_root.display().to_string()],

@@ -25,6 +25,7 @@
       "schemas": [
         "case-recipe.schema.json", "case-registry.schema.json",
         "coverage-gap-report.schema.json", "coverage-report.schema.json",
+        "coverage-report-v1.schema.json",
         "manifest.schema.json", "manifest-v1.schema.json"
       ]
     },
@@ -32,12 +33,13 @@
       "contract_id": "qualified-composition",
       "owner": "qualified_composition_maintainers",
       "support_window": "every composition request, manifest, provider, template, and catalog version advertised by the exact product",
-      "apis": ["compose", "templates"],
+      "apis": ["compose", "templates", "composition_report"],
       "schemas": [
         "composition-manifest.schema.json", "composition-manifest-v1.schema.json",
         "composition-provider-request.schema.json",
         "composition-provider-response.schema.json", "composition-result.schema.json",
         "composition-result-v2.schema.json",
+        "composition-report.schema.json", "composition-report-v1.schema.json",
         "composition-spec.schema.json", "template-catalog.schema.json",
         "templates-result.schema.json"
       ]
@@ -52,7 +54,8 @@
         "assembly-result-v2.schema.json",
         "structural-assembly-manifest.schema.json",
         "structural-assembly-manifest-v2.schema.json",
-        "structural-assembly-report.schema.json"
+        "structural-assembly-report.schema.json",
+        "structural-assembly-report-v2.schema.json"
       ]
     },
     {

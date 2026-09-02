@@ -147,6 +147,18 @@ const SCHEMAS: &[(&str, &str)] = &[
         "https://dicom-test-suite.local/schemas/coverage-report.schema.json",
     ),
     (
+        "schemas/coverage-report-v1.schema.json",
+        "https://synth-dicom-gen.local/schemas/coverage-report-v1.schema.json",
+    ),
+    (
+        "schemas/composition-report.schema.json",
+        "https://synth-dicom-gen.local/schemas/composition-report.schema.json",
+    ),
+    (
+        "schemas/composition-report-v1.schema.json",
+        "https://synth-dicom-gen.local/schemas/composition-report-v1.schema.json",
+    ),
+    (
         "schemas/coverage-gap-report.schema.json",
         "https://dicom-test-suite.local/schemas/coverage-gap-report.schema.json",
     ),
@@ -185,6 +197,10 @@ const SCHEMAS: &[(&str, &str)] = &[
     (
         "schemas/structural-assembly-report.schema.json",
         "https://dicom-test-suite.local/schemas/structural-assembly-report.schema.json",
+    ),
+    (
+        "schemas/structural-assembly-report-v2.schema.json",
+        "https://synth-dicom-gen.local/schemas/structural-assembly-report-v2.schema.json",
     ),
     (
         "schemas/transaction-report.schema.json",

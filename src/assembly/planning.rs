@@ -25,6 +25,17 @@ use crate::corpus_plan::{
 use crate::uid::{DeterministicUidInput, UidRole, deterministic_uid};
 use crate::{IMPLEMENTATION_VERSION_NAME, sha256_hex};
 
+/// Stable namespace salt used by the structural-assembly 1.x request contract.
+///
+/// The original implementation derived every deterministic UID from the
+/// monolithic embedded-resource digest. That digest also contains transitional
+/// corpus documents, so continuing to read it would let an unrelated corpus
+/// edit perturb assembly bytes. Freezing the value that produced the existing
+/// byte baseline preserves those bytes while separating UID semantics from
+/// mutable resource membership.
+const LEGACY_ASSEMBLY_UID_NAMESPACE_SHA256: &str =
+    "dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410";
+
 #[derive(Debug, Clone)]
 pub struct AssemblyPlan {
     pub request_sha256: String,
@@ -38,7 +49,7 @@ pub fn plan_assembly(
     caller_asset_root: &Path,
     seed: u64,
     parallelism: u32,
-    resource_identity_sha256: &str,
+    _resource_identity_sha256: &str,
 ) -> Result<AssemblyPlan, AssemblyError> {
     let request = AssemblyRequest::from_slice(request_bytes)?;
     if parallelism == 0 || parallelism > request.limits.max_parallelism {
@@ -46,7 +57,7 @@ pub fn plan_assembly(
     }
     let request_sha256 = sha256_hex(request_bytes);
     let implementation_uid = uid(
-        resource_identity_sha256,
+        LEGACY_ASSEMBLY_UID_NAMESPACE_SHA256,
         "product",
         seed,
         0,
@@ -73,7 +84,7 @@ pub fn plan_assembly(
             ResolvedIdentities {
                 study: identity.study_instance_uid.clone().unwrap_or_else(|| {
                     uid(
-                        resource_identity_sha256,
+                        LEGACY_ASSEMBLY_UID_NAMESPACE_SHA256,
                         study_key,
                         seed,
                         0,
@@ -82,7 +93,7 @@ pub fn plan_assembly(
                 }),
                 series: identity.series_instance_uid.clone().unwrap_or_else(|| {
                     uid(
-                        resource_identity_sha256,
+                        LEGACY_ASSEMBLY_UID_NAMESPACE_SHA256,
                         series_key,
                         seed,
                         0,
@@ -91,7 +102,7 @@ pub fn plan_assembly(
                 }),
                 sop: identity.sop_instance_uid.clone().unwrap_or_else(|| {
                     uid(
-                        resource_identity_sha256,
+                        LEGACY_ASSEMBLY_UID_NAMESPACE_SHA256,
                         &instance.instance_id,
                         seed,
                         index,
@@ -100,7 +111,7 @@ pub fn plan_assembly(
                 }),
                 frame: identity.frame_of_reference_uid.clone().unwrap_or_else(|| {
                     uid(
-                        resource_identity_sha256,
+                        LEGACY_ASSEMBLY_UID_NAMESPACE_SHA256,
                         frame_key,
                         seed,
                         0,

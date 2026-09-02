@@ -94,6 +94,18 @@ fn assembly_plan_identity_and_hash_are_parallelism_independent() {
 }
 
 #[test]
+fn assembly_uid_namespace_is_independent_of_transitional_resource_membership() {
+    let baseline = plan_assembly(request(), Path::new("."), 9, 1, RESOURCE_HASH).unwrap();
+    let corpus_changed = plan_assembly(request(), Path::new("."), 9, 1, &"f".repeat(64)).unwrap();
+
+    assert_eq!(baseline.instances, corpus_changed.instances);
+    assert_eq!(
+        baseline.corpus.canonical_sha256().unwrap(),
+        corpus_changed.corpus.canonical_sha256().unwrap()
+    );
+}
+
+#[test]
 fn assembly_plans_each_typed_bulk_adapter_with_hash_provenance() {
     let request = br#"{
       "assembly_request_schema_version":"1.0.0",

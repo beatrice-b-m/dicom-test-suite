@@ -21,36 +21,23 @@ fn output(label: &str) -> PathBuf {
 }
 
 fn request() -> Vec<u8> {
-    br#"{
-      "assembly_request_schema_version":"1.0.0",
-      "instances":[{
-        "instance_id":"primary",
-        "sop_class_uid":"1.2.840.10008.5.1.4.1.1.7",
-        "modality":"OT",
-        "elements":[
-          {"address":{"keyword":"PatientName"},"value":{"kind":"string","value":"SYNTHETIC^ASSEMBLY"}},
-          {"address":{"private_group":"0011","private_creator":"DTS_ASSEMBLY","private_offset":"10"},"vr":"LO","value":{"kind":"string","value":"STRUCTURAL"}}
-        ],
-        "bulk":[{
-          "kind":"integer_pixel_data","source":{"kind":"inline_base64","base64":"AAECAw=="},
-          "rows":2,"columns":2,"frames":1,"samples_per_pixel":1,"bits_allocated":8,"bits_stored":8,"signed":false,
-          "photometric_interpretation":"MONOCHROME2"
-        }]
-      }]
-    }"#
-        .to_vec()
+    include_bytes!("fixtures/cli/assembly-request-v1-capture.json").to_vec()
 }
 
 #[test]
 fn structural_assembly_executes_through_shared_writer_and_manifest() {
     let root = output("published");
+    assert_eq!(
+        synth_dicom_gen::sha256_hex(&request()),
+        "29a0da03979c74631959851cc103cdcb9114a703de3f2b658ef714efd062f664"
+    );
     let summary = assemble(
         &AssembleOptions {
             request_bytes: request(),
             caller_asset_root: PathBuf::from("."),
             output_root: root.clone(),
             seed: 5,
-            parallelism: 2,
+            parallelism: 1,
             dry_run: false,
         },
         &CancellationToken::new(),
@@ -65,14 +52,64 @@ fn structural_assembly_executes_through_shared_writer_and_manifest() {
     let manifest: serde_json::Value =
         serde_json::from_slice(&fs::read(root.join("manifest.json")).unwrap()).unwrap();
     let schema: serde_json::Value = serde_json::from_slice(
-        &fs::read("schemas/structural-assembly-manifest.schema.json").unwrap(),
+        &fs::read("schemas/structural-assembly-manifest-v2.schema.json").unwrap(),
+    )
+    .unwrap();
+    let identity_schema: serde_json::Value = serde_json::from_slice(
+        &fs::read("schemas/version-result-v2.schema.json").unwrap(),
     )
     .unwrap();
     let validator = jsonschema::options()
         .with_draft(jsonschema::Draft::Draft202012)
+        .with_resource(
+            "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json",
+            jsonschema::Resource::from_contents(identity_schema).unwrap(),
+        )
         .build(&schema)
         .unwrap();
     assert!(validator.is_valid(&manifest));
+    assert_eq!(manifest["manifest_schema_version"], "2.0.0");
+    assert_eq!(
+        manifest["identity_projection"]["corpus_definition"]["state"],
+        "transitional_embedded_unverified"
+    );
+    assert!(manifest["identity_projection"]["corpus_definition"]["identity"].is_null());
+    assert_eq!(manifest["identity_projection"]["external_runtime"], serde_json::json!([]));
+    assert_eq!(manifest["identity_projection"]["legacy_provenance"]["resource_count"], 240);
+    assert_eq!(
+        manifest["identity_projection"]["legacy_provenance"]["resource_set_sha256"],
+        "dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410"
+    );
+    assert_eq!(manifest["run"]["corpus_plan_sha256"], "d4ebd5a7ca2081375022b0d9bf8726d5e8f508afe59e1c1ad7d68d65f5ebda45");
+    assert_eq!(
+        synth_dicom_gen::sha256_hex(&fs::read(root.join("instances/primary.dcm")).unwrap()),
+        "7da898187a4f13054d48268660770f86c6939c082a5731d8f3737a5a855c7ba7"
+    );
+    assert_eq!(fs::metadata(root.join("instances/primary.dcm")).unwrap().len(), 774);
+    assert_eq!(
+        manifest["instances"][0]["identity"]["study_instance_uid"],
+        "2.25.131391886742213678286033606434638135815"
+    );
+    assert_eq!(
+        manifest["instances"][0]["identity"]["series_instance_uid"],
+        "2.25.39607469728402369607566362072293772613"
+    );
+    assert_eq!(
+        manifest["instances"][0]["identity"]["sop_instance_uid"],
+        "2.25.46553092604571578884474658719670022502"
+    );
+    assert_eq!(
+        manifest["instances"][0]["identity"]["frame_of_reference_uid"],
+        "2.25.245763833390795330413760970236265638444"
+    );
+    let mut normalized = manifest.clone();
+    normalized.as_object_mut().unwrap().remove("identity_projection");
+    normalized["manifest_schema_version"] = "1.0.0".into();
+    let legacy: serde_json::Value = serde_json::from_slice(include_bytes!(
+        "fixtures/cli/assembly-manifest-v1.json"
+    ))
+    .unwrap();
+    assert_eq!(normalized, legacy);
     assert_eq!(manifest["run"]["kind"], "structural_assembly");
     assert_eq!(manifest["run"]["iod_conformance"], "not_assessed");
     assert_eq!(manifest["instances"][0]["iod_conformance"], "not_assessed");

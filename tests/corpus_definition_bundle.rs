@@ -312,6 +312,14 @@ fn deterministic_current_source_assembly_loads_all_registry_cases() {
         "current corpus definition identity: {:?}",
         bundle.identity()
     );
+    assert_eq!(
+        bundle.identity().manifest_sha256,
+        "905d36bc93c7ae10ae5011304b25a647c4b792852e143bd2017e2aacd1574de8"
+    );
+    assert_eq!(
+        bundle.identity().corpus_definition_sha256,
+        "571fa23fd392dd557ccdbe2db527698eaedc7078d86543efc68dfffc877411f7"
+    );
     let registry: serde_json::Value =
         serde_json::from_slice(bundle.bytes("cases/registry.json").unwrap()).unwrap();
     assert_eq!(registry["cases"].as_array().unwrap().len(), 191);
@@ -336,6 +344,27 @@ fn deterministic_current_source_assembly_loads_all_registry_cases() {
     assert_eq!(bundle.manifest().assets.len(), 0);
     assert_eq!(bundle.manifest().profiles.len(), 8);
     assert_eq!(bundle.identity().file_count, 214);
+    let profile_by_case = registry["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|row| (row["case_id"].as_str().unwrap(), row["profiles"].as_array().unwrap()))
+        .collect::<std::collections::BTreeMap<_, _>>();
+    let invalid_to_ordinary_dependencies = bundle
+        .manifest()
+        .cases
+        .iter()
+        .filter(|case| {
+            let owner = profile_by_case[case.case_id.as_str()];
+            owner.iter().any(|value| matches!(value.as_str(), Some("negative" | "fuzz")))
+                && case.dependencies.iter().any(|dependency| {
+                    profile_by_case[dependency.as_str()].iter().any(|value| {
+                        matches!(value.as_str(), Some("smoke" | "core" | "extended"))
+                    })
+                })
+        })
+        .count();
+    assert_eq!(invalid_to_ordinary_dependencies, 16);
     fs::remove_dir_all(root).unwrap();
 }
 
@@ -448,9 +477,8 @@ fn hardlinks_fifo_and_nonregular_roots_are_rejected() {
     fs::remove_dir_all(parent).unwrap();
 }
 
-#[test]
-fn valid_dependency_cannot_cross_into_negative_scope() {
-    let root = temp("scope-leakage");
+fn assert_dependency_scope_rejected(scope: &str) {
+    let root = temp(&format!("scope-leakage-{scope}"));
     fs::remove_dir(&root).unwrap();
     assert!(
         Command::new("python3")
@@ -477,15 +505,15 @@ fn valid_dependency_cannot_cross_into_negative_scope() {
         .iter_mut()
         .find(|row| row["case_id"] == dependency)
         .unwrap();
-    row["profiles"] = serde_json::json!(["negative"]);
+    row["profiles"] = serde_json::json!([scope]);
     for profile in manifest["profiles"].as_array_mut().unwrap() {
         if profile["profile_id"] == "all" {
             continue;
         }
-        let is_negative = profile["profile_id"] == "negative";
+        let is_target = profile["profile_id"] == scope;
         let members = profile["members"].as_array_mut().unwrap();
         members.retain(|member| member.as_str() != Some(&dependency));
-        if is_negative {
+        if is_target {
             members.push(dependency.clone().into());
             members.sort_by_key(|value| value.as_str().unwrap().to_string());
         }
@@ -496,5 +524,36 @@ fn valid_dependency_cannot_cross_into_negative_scope() {
         matches!(&error, CorpusDefinitionError::Closure(message) if message.contains("dependency scope leakage")),
         "{error}"
     );
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn ordinary_dependency_cannot_cross_into_negative_scope() {
+    assert_dependency_scope_rejected("negative");
+}
+
+#[test]
+fn ordinary_dependency_cannot_cross_into_legacy_or_stress_scope() {
+    assert_dependency_scope_rejected("legacy");
+    assert_dependency_scope_rejected("stress");
+}
+
+#[test]
+fn excessive_undeclared_inventory_fails_without_buffering_all_names() {
+    let root = temp("excessive-inventory");
+    copy_bundle(&fixture(), &root);
+    let extras = root.join("excessive");
+    fs::create_dir(&extras).unwrap();
+    for index in 0..500 {
+        fs::write(extras.join(format!("entry-{index:04}")), b"x").unwrap();
+    }
+    assert!(matches!(
+        CorpusDefinitionBundle::load(&root),
+        Err(CorpusDefinitionError::Closure(_))
+    ));
+    let source = fs::read_to_string("src/corpus_definition/mod.rs").unwrap();
+    assert!(source.contains("let mut entry_count = 0_usize"));
+    assert!(source.contains("std::io::Error::from_raw_os_error(errno)"));
+    assert!(!source.contains("let mut names = Vec::new()"));
     fs::remove_dir_all(root).unwrap();
 }

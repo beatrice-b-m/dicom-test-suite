@@ -4,7 +4,7 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 266,
-    "rust_test_entries": 1422,
+    "rust_test_entries": 1423,
     "integration_source_groups": 187,
     "integration_test_entries": 900,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
@@ -447,7 +447,7 @@
         "ci_build_storage_controls_cover_every_job_and_preserve_heavy_evidence",
         "ci_cost_reporter_handles_missing_and_spaced_paths_and_fails_closed"
       ],
-      "entry_digest": "48dff4078427a778ac383ae2eea4a0c81aff9b9b385bd015c60326de4e47d3a7",
+      "entry_digest": "00bd4455098810548c1ab8353413ed56e7b4804449df519b9d27ee21d1f63bd4",
       "fast_cost_exemption": "Static workflow and script inspection; no heavyweight command is executed."
     },
     {
@@ -1654,7 +1654,7 @@
       "cost_tier": "ordinary",
       "entry_count": 7,
       "entries": [
-        "embedded_resources_cover_engine_families_and_transitional_membership",
+        "embedded_resources_separate_current_identity_from_legacy_physical_closure",
         "resource_build_tracks_directory_additions",
         "embedded_and_relocated_explicit_resources_have_identical_identity",
         "tampered_or_symlinked_explicit_resources_fail_before_materialization",
@@ -1662,7 +1662,7 @@
         "resource_lookup_rejects_unsafe_and_unknown_paths",
         "snapshot_materializes_and_cleans_the_complete_resource_tree"
       ],
-      "entry_digest": "cf901fcc7b947ad106596b24f3e47140b750ca357e66dbb5a9744b971ab2e245"
+      "entry_digest": "b82e6786651e33c6dba69db2d7675ba8e64f0fb2956a301997f439163bb29697"
     },
     {
       "source": "tests/enhanced_mr_temporal.rs",
@@ -2773,7 +2773,7 @@
         "sdk_assembly_validate_and_report_read_exact_supported_manifest_versions",
         "sdk_rejects_invalid_assembly_identity_contracts_before_semantics"
       ],
-      "entry_digest": "a31b51bb23212a8611baeaa6c0a9670410af79ab4ecabceeb5fc47e61b310103"
+      "entry_digest": "70e5d024e9ee667250c416ba789e0bf5c3e2269bd8094f599ccbf7ff4f77e6c7"
     },
     {
       "source": "tests/semantic_sr_rt_plan.rs",
@@ -3168,7 +3168,7 @@
         "version_human_output_preserves_the_existing_banner",
         "version_machine_resource_drift_is_a_stable_integrity_error"
       ],
-      "entry_digest": "a8f5e28fb24435966049b92c801760264e59187a7232da0e7a9d0222b8fa33e2"
+      "entry_digest": "2e7d4446f3a751f03e09961e889e38221ee09d800451f55d46c1fa1334cfcaaa"
     },
     {
       "source": "tests/waveform_document_mesh_plan.rs",
@@ -4059,13 +4059,14 @@
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 3,
+      "entry_count": 4,
       "entries": [
         "installed_membership_is_exhaustive_and_relocation_stable",
         "verified_corpus_perturbation_changes_only_corpus_identity",
+        "cargo_lock_perturbation_changes_only_toolchain_and_legacy_provenance",
         "external_runtime_identity_requires_successful_typed_execution_evidence"
       ],
-      "entry_digest": "b0caa64005461ca8e22d79011728065498654c788b36ca8d3b9e12fa4917f5c5"
+      "entry_digest": "5725828d10dfb635fd37f9e0daddc9b420636b31a015186afcc162812e95ff4f"
     },
     {
       "source": "src/lib.rs",

@@ -992,6 +992,78 @@ measures linked binaries and build cost, these new files are not independently
 discoverable Cargo targets. Therefore R2.2 remains in progress; this slice
 makes no compile-pass, at-most-20-binary, R2 gate, or cost-reduction claim.
 
+### R2.2 harness-conversion slice — composition and conformance
+
+**State:** slice complete; R2.2 remains in progress
+
+**Commit:** the commit introducing this conversion slice, with subject
+`test(harnesses): group composition and conformance domains` (resolve the exact
+object with `git log --format='%H %s' -- tests/harnesses/composition__subsystem.rs`)
+
+**Owned files:**
+
+- `tests/harnesses/composition__nightly.rs`
+- `tests/harnesses/composition__subsystem.rs`
+- `tests/harnesses/conformance_interoperability__nightly.rs`
+- `tests/harnesses/conformance_interoperability__subsystem.rs`
+- `docs/synth-dicom-gen-dcmview-corpus-migration-status-2026-09-01.md`
+
+This disjoint slice uses the complete frozen partition artifact
+`/private/tmp/r2.2-proposed-partition-fecc6bf.json`, SHA-256
+`f99fc5d0930bffd7838772b69f45129bb718e71e5d6b4ba1ce8309561df625b8`.
+The artifact declares schema `r2.2-proposed-partition/v3`, source revision
+`fecc6bf99f908153b77a712edb0deb6e87441159`, R2.1 ownership SHA-256
+`3befc2d9a9cbe634c959f368988ee4385fc3f32aad67bd22cca6a2849db63637`,
+and complete entry-contract SHA-256
+`87adfb84d24b5160beb27cba648f51ca1594a272608d48b82976ed6f42919d0e`.
+This commit owns only the following four-harness portion:
+
+| Harness | Included sources | Existing test entries | Entry-contract SHA-256 |
+| --- | ---: | ---: | --- |
+| `composition__nightly` | 2 | 4 | `184dc2787d7ee41ad11af77a4f83a65ff0a071f2b0ff893a79a42a62e5bcd98b` |
+| `composition__subsystem` | 28 | 84 | `233583b7250d6afacac8f4251b550babc7be1d139108ba16c125646057248a7d` |
+| `conformance_interoperability__nightly` | 1 | 3 | `596545df29e846e7d24551cea9b0bc6b847f46dd70d0ca0e4e69294f7ac20dcd` |
+| `conformance_interoperability__subsystem` | 17 | 45 | `0e4fb65ae6f1d1a1fefe90a500873ac9b7c6033c1e6dd3a2a27d21b9151146c9` |
+| **Slice total** | **48** | **136** | — |
+
+Each assigned source appears exactly once in artifact order through a stable
+`#[path = "../<source>.rs"] mod <source_stem>;` declaration. All 48 paths are
+unique and exist, every source stem matches its module identifier, and the
+original top-level integration sources remain byte-untouched. This slice
+therefore changes no assertion, ignore marker, provider timing, external-tool
+availability behavior, conformance/interoperability boundary, or evidence
+claim.
+
+**Static verification:** the partition SHA-256 was recomputed before
+generation. Deterministic exact-text and union comparisons proved ordered
+membership for all four files, 48 total and 48 unique source paths, and all
+136 existing entry assignments. Harness-only formatting with child traversal
+disabled, final-newline, trailing-whitespace, tracked diff, and untracked
+no-index diff checks passed. The parallel implementation step left the files
+unstaged for this selective serial commit.
+
+The frozen hazard inventory remains explicit for the central compile gate.
+`composition__nightly` has one nested-path source.
+`composition__subsystem` has five binary-environment consumers, three
+compile-time include consumers, two Unix crate-attribute sources, and two
+nested-path sources. `conformance_interoperability__nightly` has no recorded
+path, include, environment, or crate-attribute hazard. The subsystem
+conformance/interoperability harness has ten binary-environment consumers, two
+manifest-directory consumers, one compile-time include consumer, ten Unix
+crate-attribute sources, and two nested-path sources. None of these harnesses
+contains a recursion-limit source. Module nesting also changes fully qualified
+test names, so exact provider and workflow selectors must be updated only at
+the shared routing boundary.
+
+This slice deliberately does not edit `Cargo.toml`, workflows, the R2.1
+ownership manifest/checker, or routing. The central sequential boundary must
+disable the 186 implicit top-level targets, register all 20 proposed harnesses,
+compile and list every expected entry, prove feature and platform attributes,
+update exact selectors, and measure linked binaries and build cost. Until that
+gate passes, these files are not independently discoverable Cargo targets and
+R2.2 remains in progress. This slice makes no compile-pass,
+at-most-20-binary, R2 gate, or cost-reduction claim.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

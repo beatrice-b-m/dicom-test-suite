@@ -1,0 +1,19 @@
+{
+  "generation_result_schema_version": "1.0.0",
+  "requested_output_root": "/tmp/example",
+  "manifest_path": "/tmp/example/manifest.json",
+  "run_kind": "curated_generation",
+  "seed": 1,
+  "request_schema_version": "1.0.0",
+  "manifest_schema_version": "0.3.0",
+  "product_version": "0.1.0",
+  "emitted_artifact_count": 0,
+  "output_bytes": 0,
+  "unavailable_capability_count": 0,
+  "unavailable_capabilities": [],
+  "corpus_plan_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "published": true,
+  "publication_status": "published",
+  "validation_status": "passed",
+  "plan_preview": null
+}

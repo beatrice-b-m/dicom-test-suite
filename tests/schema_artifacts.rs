@@ -39,6 +39,10 @@ const SCHEMAS: &[(&str, &str)] = &[
         "https://dicom-test-suite.local/schemas/generation-result.schema.json",
     ),
     (
+        "schemas/generation-result-v2.schema.json",
+        "https://synth-dicom-gen.local/schemas/generation-result-v2.schema.json",
+    ),
+    (
         "schemas/composition-result.schema.json",
         "https://dicom-test-suite.local/schemas/composition-result.schema.json",
     ),
@@ -117,6 +121,10 @@ const SCHEMAS: &[(&str, &str)] = &[
     (
         "schemas/manifest.schema.json",
         "https://dicom-test-suite.local/schemas/manifest.schema.json",
+    ),
+    (
+        "schemas/manifest-v1.schema.json",
+        "https://synth-dicom-gen.local/schemas/manifest-v1.schema.json",
     ),
     (
         "schemas/case-registry.schema.json",
@@ -273,12 +281,19 @@ fn committed_schema_files_compile() {
     let version_v2 =
         jsonschema::Resource::from_contents(read_json("schemas/version-result-v2.schema.json"))
             .expect("version v2 schema resource");
+    let legacy_manifest =
+        jsonschema::Resource::from_contents(read_json("schemas/manifest.schema.json"))
+            .expect("legacy manifest schema resource");
     for (path, _) in SCHEMAS {
         let schema = read_json(path);
         jsonschema::options()
             .with_resource(
                 "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json",
                 version_v2.clone(),
+            )
+            .with_resource(
+                "https://dicom-test-suite.local/schemas/manifest.schema.json",
+                legacy_manifest.clone(),
             )
             .build(&schema)
             .unwrap_or_else(|error| panic!("{path} must compile as JSON Schema: {error}"));

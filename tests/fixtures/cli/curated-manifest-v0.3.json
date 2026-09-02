@@ -1,0 +1,33 @@
+{
+  "manifest_schema_version": "0.3.0",
+  "generated_at": "2026-09-02T00:00:00Z",
+  "generator": {
+    "name": "synth-dicom-gen",
+    "version": "0.1.0",
+    "rustc_version": "rustc 1.85.0",
+    "target_triple": "x86_64-unknown-linux-gnu",
+    "cargo_lock_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "feature_flags": []
+  },
+  "standards": {
+    "dicom_base_edition": "2026b",
+    "include_final_text_after_base": false,
+    "standards_lock_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "dicom_standard_kb": { "db_edition": "2026b" }
+  },
+  "dependencies": { "dicom_rs_versions": {}, "codec_versions": {} },
+  "product_resources": {
+    "resource_set_version": "1.0.0",
+    "origin": "embedded",
+    "resource_count": 1,
+    "resource_set_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "resources": [{
+      "logical_path": "schemas/manifest.schema.json",
+      "size_bytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }]
+  },
+  "run": { "profile": "smoke", "seed": 1, "include_stress": false },
+  "files": [],
+  "skipped_cases": []
+}

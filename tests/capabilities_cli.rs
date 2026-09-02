@@ -79,6 +79,22 @@ fn capabilities_json_is_live_schema_valid_and_conservative_outside_the_checkout(
         envelope["result"]["supported_versions"]["result_schema_validation"]["capabilities"],
         serde_json::json!(["1.0.0", "2.0.0"])
     );
+    assert_eq!(
+        envelope["result"]["supported_versions"]["result_schemas"]["generation"],
+        serde_json::json!(["2.0.0"])
+    );
+    assert_eq!(
+        envelope["result"]["supported_versions"]["result_schema_validation"]["generation"],
+        serde_json::json!(["1.0.0", "2.0.0"])
+    );
+    assert_eq!(
+        envelope["result"]["supported_versions"]["curated_manifest"],
+        serde_json::json!(["1.0.0"])
+    );
+    assert_eq!(
+        envelope["result"]["supported_versions"]["curated_manifest_validation"],
+        serde_json::json!(["0.2.0", "0.3.0", "1.0.0"])
+    );
     assert!(envelope["result"]["identity_domains"]["corpus_definition"].is_null());
     assert_eq!(
         envelope["result"]["identity_domains"]["external_runtime"],

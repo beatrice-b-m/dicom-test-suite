@@ -43,6 +43,23 @@ fn compile_schema(path: &str) -> jsonschema::Validator {
         .unwrap()
 }
 
+fn compile_manifest_v1_schema() -> jsonschema::Validator {
+    let schema: Value = read_json("schemas/manifest-v1.schema.json");
+    jsonschema::options()
+        .with_draft(jsonschema::Draft::Draft202012)
+        .with_resource(
+            "https://dicom-test-suite.local/schemas/manifest.schema.json",
+            jsonschema::Resource::from_contents(read_json("schemas/manifest.schema.json")).unwrap(),
+        )
+        .with_resource(
+            "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json",
+            jsonschema::Resource::from_contents(read_json("schemas/version-result-v2.schema.json"))
+                .unwrap(),
+        )
+        .build(&schema)
+        .unwrap()
+}
+
 #[test]
 fn generate_command_writes_smoke_part10_files_and_manifest() {
     let out_dir = unique_temp_dir("generate-command");
@@ -288,13 +305,46 @@ fn generate_machine_result_is_clean_typed_and_manifest_bounded() {
     assert!(output.stderr.is_empty());
     let envelope: Value = serde_json::from_slice(&output.stdout).unwrap();
     assert!(compile_schema("schemas/cli-success-envelope.schema.json").is_valid(&envelope));
-    assert!(compile_schema("schemas/generation-result.schema.json").is_valid(&envelope["result"]));
+    assert!(
+        compile_schema("schemas/generation-result-v2.schema.json").is_valid(&envelope["result"])
+    );
+    assert_eq!(
+        envelope["result"]["generation_result_schema_version"],
+        "2.0.0"
+    );
+    assert_eq!(envelope["result"]["manifest_schema_version"], "1.0.0");
     assert_eq!(envelope["command"], "generate");
     assert_eq!(envelope["result"]["published"], true);
     assert_eq!(envelope["result"]["emitted_artifact_count"], 3);
     assert_eq!(
         envelope["result"]["manifest_path"],
         out_dir.join("manifest.json").display().to_string()
+    );
+    let legacy_result = read_json("tests/fixtures/cli/generation-result-v1.json");
+    assert!(compile_schema("schemas/generation-result.schema.json").is_valid(&legacy_result));
+    let manifest: Value =
+        serde_json::from_slice(&fs::read(out_dir.join("manifest.json")).unwrap()).unwrap();
+    assert!(compile_manifest_v1_schema().is_valid(&manifest));
+    assert_eq!(
+        manifest["identity_projection"]["projection_state"],
+        "projected"
+    );
+    assert_eq!(
+        manifest["identity_projection"]["corpus_definition"]["state"],
+        "transitional_embedded_unverified"
+    );
+    assert!(manifest["identity_projection"]["corpus_definition"]["identity"].is_null());
+    assert_eq!(
+        manifest["identity_projection"]["external_runtime"],
+        serde_json::json!([])
+    );
+    assert_eq!(
+        manifest["identity_projection"]["legacy_provenance"]["resource_count"],
+        240
+    );
+    assert_eq!(
+        manifest["identity_projection"]["legacy_provenance"]["resource_set_sha256"],
+        "dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410"
     );
     assert_eq!(
         envelope["result"]["unavailable_capability_count"],
@@ -8813,6 +8863,10 @@ fn skipped_case_by_id<'a>(manifest: &'a Value, case_id: &str) -> &'a Value {
 }
 
 fn assert_manifest_matches_committed_schema(manifest: &Value) {
+    if manifest["manifest_schema_version"] == "1.0.0" {
+        assert!(compile_manifest_v1_schema().is_valid(manifest));
+        return;
+    }
     let schema = read_json("schemas/manifest.schema.json");
     assert_required_fields(manifest, &schema, "/required", "manifest");
     assert_allowed_properties(manifest, &schema, "/properties", "manifest");

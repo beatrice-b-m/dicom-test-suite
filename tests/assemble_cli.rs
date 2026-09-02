@@ -104,10 +104,30 @@ fn cli_validate_and_report_read_both_assembly_manifest_versions() {
         .arg(&request_path)
         .arg("--out")
         .arg(&output_root)
-        .args(["--seed", "5"])
+        .args(["--seed", "5", "--format", "json"])
         .output()
         .unwrap();
     assert!(assembled.status.success(), "{}", String::from_utf8_lossy(&assembled.stderr));
+    let envelope: serde_json::Value = serde_json::from_slice(&assembled.stdout).unwrap();
+    let current_result = envelope["result"].clone();
+    let result_v2_schema: serde_json::Value = serde_json::from_slice(
+        &fs::read("schemas/assembly-result-v2.schema.json").unwrap(),
+    )
+    .unwrap();
+    assert!(jsonschema::validator_for(&result_v2_schema).unwrap().is_valid(&current_result));
+    let legacy_result: serde_json::Value = serde_json::from_slice(include_bytes!(
+        "fixtures/cli/assembly-result-v1.json"
+    ))
+    .unwrap();
+    let result_v1_schema: serde_json::Value =
+        serde_json::from_slice(&fs::read("schemas/assembly-result.schema.json").unwrap()).unwrap();
+    assert!(jsonschema::validator_for(&result_v1_schema).unwrap().is_valid(&legacy_result));
+    let mut normalized_result = current_result;
+    normalized_result["assembly_result_schema_version"] = "1.0.0".into();
+    normalized_result["manifest_schema_version"] = "1.0.0".into();
+    normalized_result["requested_output_root"] = legacy_result["requested_output_root"].clone();
+    normalized_result["manifest_path"] = legacy_result["manifest_path"].clone();
+    assert_eq!(normalized_result, legacy_result);
     let manifest_path = output_root.join("manifest.json");
     let current = fs::read(&manifest_path).unwrap();
     for (version, bytes) in [

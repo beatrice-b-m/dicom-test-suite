@@ -403,7 +403,7 @@
       "target": "corpus_generation__nightly",
       "domain": "corpus_generation",
       "verification_class": "nightly",
-      "cost_tier": "ordinary",
+      "cost_tier": "heavy",
       "entry_count": 13,
       "entries": [
         "catalog_exactly_and_uniquely_binds_every_implemented_registry_recipe",
@@ -420,7 +420,7 @@
         "schema_rejects_parent_traversal_output_path",
         "schema_rejects_kind_payload_mismatch"
       ],
-      "entry_digest": "545aaea9968fcc3dd92675d97f49dbd5ffc4042917269f417b6b25d947438c50",
+      "entry_digest": "1c5997e98ac7f858a85464388b92f01370372ceaa7d2246145a4c94e310cd6a7",
       "heavy_entries": [
         "data_first_sc_and_metadata_values_and_hashes_match_current_generator_bytes"
       ]
@@ -440,7 +440,7 @@
         "ci_build_storage_controls_cover_every_job_and_preserve_heavy_evidence",
         "ci_cost_reporter_handles_missing_and_spaced_paths_and_fails_closed"
       ],
-      "entry_digest": "09ab26a11e01f3c909fe1501a27275a953b65e4dd415a0ffa720c9c00ec82934",
+      "entry_digest": "d092f84305fa35161a17cd4225d3cb00843bc2fd648835de309a0e4555f18990",
       "fast_cost_exemption": "Static workflow and script inspection; no heavyweight command is executed."
     },
     {
@@ -1546,7 +1546,7 @@
         "migrated_wsi_and_enhanced_ct_emit_typed_stress_qualifications",
         "stress_projection_source_has_no_filesystem_or_sc_parameter_bridge"
       ],
-      "entry_digest": "adc938c1232691fd614ff7ea46ac503dddb001a5cd756be4fb366511bd69b745",
+      "entry_digest": "708bb20e44d9970c5ce1473e821bbb228f1b36942f81e7137fff90d3a054e57d",
       "heavy_entries": [
         "typed_stress_projection_matches_frozen_file_values_and_resources"
       ]
@@ -1564,7 +1564,7 @@
         "all_stress_sc_cases_execute_through_private_streaming_services",
         "cancelled_stress_execution_never_publishes_destination"
       ],
-      "entry_digest": "18196ef0ab6ee40f09012a6b59e8bc0308514e90064b908701668e40d0c104e3",
+      "entry_digest": "1faef91a82a2a4090a73854e008c3d3fc245202a777e1df97877645c5d511ae3",
       "heavy_entries": [
         "all_stress_sc_cases_execute_through_private_streaming_services"
       ]
@@ -1739,7 +1739,7 @@
       "target": "cli_sdk__nonfast",
       "domain": "cli_sdk",
       "verification_class": "nightly",
-      "cost_tier": "ordinary",
+      "cost_tier": "heavy",
       "entry_count": 10,
       "entries": [
         "generate_command_writes_smoke_part10_files_and_manifest",
@@ -1753,7 +1753,7 @@
         "generate_command_writes_legacy_explicit_big_endian_secondary_capture_case",
         "generate_command_requires_output_path"
       ],
-      "entry_digest": "7a943ddfb3caeba62442eff0d12041fe3f6170862a6cc95635de1de4b0ff0c8f",
+      "entry_digest": "4798e28c764d10de70957b13b5f6dca9b7a21e11bae9563e3528898616ace198",
       "heavy_entries": [
         "generate_command_writes_all_profile_union_and_skips_planned_cases"
       ]
@@ -3138,7 +3138,7 @@
         "wsi_dag_has_volume_root_closure_and_no_singleton_edges",
         "provider_preserves_caller_owned_artifact_context"
       ],
-      "entry_digest": "c3e4d62b87bb59c72d6cbc52718f4083d484139e3f4373a38efe40b131314967",
+      "entry_digest": "4dd7971502e9748a95ad7d76688b73c1203a89400d7a6e5aa14c4e9913ebaa45",
       "heavy_entries": [
         "ordinary_wsi_direct_plans_match_fresh_seed_one_bytes_and_manifest_facts"
       ]
@@ -3153,7 +3153,7 @@
       "entries": [
         "stress_profile_emits_complete_three_instance_wsi_pyramid"
       ],
-      "entry_digest": "18b66f8d124161cb28072a3f2e736062be415ffc04aede8dc677d614d77124d0",
+      "entry_digest": "e668db30959a9a3aedd4785aa74c9fb567379d0d651a35e96c6ae68af537acb3",
       "heavy_entries": [
         "stress_profile_emits_complete_three_instance_wsi_pyramid"
       ]

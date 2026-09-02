@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::fs;
 use std::process::Command;
 
@@ -33,6 +34,45 @@ const PROVIDER_IGNORED_TESTS: [(&str, &str); 7] = [
     (
         "--test composition__subsystem",
         "composition_quantitative::caller_segmentation_and_parametric_values_round_trip_at_fixed_shape",
+    ),
+];
+
+const EXPLICIT_HEAVY_TESTS: [(&str, &str, &str, &str); 6] = [
+    (
+        "byte-parity",
+        "tests/case_recipe_catalog.rs",
+        "corpus_generation__nightly",
+        "case_recipe_catalog::data_first_sc_and_metadata_values_and_hashes_match_current_generator_bytes",
+    ),
+    (
+        "all-profile",
+        "tests/generate_cli.rs",
+        "cli_sdk__nonfast",
+        "generate_cli::generate_command_writes_all_profile_union_and_skips_planned_cases",
+    ),
+    (
+        "wsi",
+        "tests/wsi_direct_plan.rs",
+        "engine__nightly",
+        "wsi_direct_plan::ordinary_wsi_direct_plans_match_fresh_seed_one_bytes_and_manifest_facts",
+    ),
+    (
+        "wsi",
+        "tests/wsi_pyramid.rs",
+        "corpus_generation__nightly",
+        "wsi_pyramid::stress_profile_emits_complete_three_instance_wsi_pyramid",
+    ),
+    (
+        "stress",
+        "tests/curated_stress_manifest.rs",
+        "corpus_generation__nightly",
+        "curated_stress_manifest::typed_stress_projection_matches_frozen_file_values_and_resources",
+    ),
+    (
+        "stress",
+        "tests/curated_stress_sc_integration.rs",
+        "corpus_generation__nightly",
+        "curated_stress_sc_integration::all_stress_sc_cases_execute_through_private_streaming_services",
     ),
 ];
 
@@ -99,10 +139,20 @@ fn fast_pr_is_bounded_to_light_contracts_and_tiny_smoke() {
         "--release",
         "in-process-codecs",
         "external-codec",
+        "run-heavy-qualification",
+        "__nightly",
+        "cli_sdk__nonfast",
+        "--ignored",
     ] {
         assert!(
             !fast.contains(forbidden),
             "heavy boundary leaked into Fast PR: {forbidden}"
+        );
+    }
+    for (_, _, _, entry) in EXPLICIT_HEAVY_TESTS {
+        assert!(
+            !fast.contains(entry),
+            "explicit heavy entry leaked into Fast PR: {entry}"
         );
     }
 }
@@ -110,6 +160,7 @@ fn fast_pr_is_bounded_to_light_contracts_and_tiny_smoke() {
 #[test]
 fn heavy_workflow_retains_nightly_matrix_and_immutable_release_gate() {
     let heavy = workflow(".github/workflows/qualification.yml");
+    let dispatcher = workflow("scripts/run-heavy-qualification.sh");
     let provider = heavy
         .split("\n  native-provider-contract:\n")
         .nth(1)
@@ -185,9 +236,125 @@ fn heavy_workflow_retains_nightly_matrix_and_immutable_release_gate() {
     assert!(default.contains("timeout-minutes: 120"));
     assert!(!default.contains("RUST_TEST_THREADS"));
     assert!(default.contains("cargo test --locked --all-targets --no-default-features"));
+    assert_eq!(
+        heavy
+            .matches("scripts/run-heavy-qualification.sh all")
+            .count(),
+        1,
+        "Nightly/default must dispatch all explicit heavy entries exactly once"
+    );
+    assert!(default.contains("scripts/run-heavy-qualification.sh all"));
+    assert!(!release.contains("scripts/run-heavy-qualification.sh"));
+    assert!(
+        default
+            .find("cargo test --locked --all-targets --no-default-features")
+            .unwrap()
+            < default
+                .find("scripts/run-heavy-qualification.sh all")
+                .unwrap(),
+        "ordinary broad evidence must precede the explicit heavy dispatcher"
+    );
     assert!(default.contains("--profile core"));
     assert!(default.contains("--profile extended"));
     assert!(default.contains("Verify smoke reproducibility"));
+
+    let normalized_dispatcher = dispatcher.split_whitespace().collect::<Vec<_>>().join(" ");
+    assert_eq!(
+        dispatcher.matches("run_exact ").count(),
+        EXPLICIT_HEAVY_TESTS.len()
+    );
+    for fail_closed_marker in [
+        "--ignored --exact --list",
+        "grep -Fxc -- \"$entry: test\"",
+        "heavy entry selection must resolve exactly once",
+        "exit 3",
+    ] {
+        assert!(
+            dispatcher.contains(fail_closed_marker),
+            "heavy dispatcher lacks exact-selection preflight {fail_closed_marker}"
+        );
+    }
+    let expected_command = |harness: &str, entry: &str| {
+        format!(
+            "cargo test --locked --no-default-features --test {harness} {entry} -- --ignored --exact"
+        )
+    };
+    let mut expected_by_class = std::collections::BTreeMap::<&str, BTreeSet<String>>::new();
+    for (class, source_path, harness, entry) in EXPLICIT_HEAVY_TESTS {
+        let source = workflow(source_path);
+        let function = format!("fn {}()", entry.rsplit("::").next().unwrap());
+        let offset = source
+            .find(&function)
+            .unwrap_or_else(|| panic!("heavy inventory names undiscoverable test {entry}"));
+        let prefix = &source[offset.saturating_sub(220)..offset];
+        assert!(
+            prefix.contains(
+                "#[ignore = \"R2.3 explicit heavy qualification; run through scripts/run-heavy-qualification.sh\"]"
+            ),
+            "heavy entry {entry} is not excluded from ordinary broad execution"
+        );
+        assert!(
+            normalized_dispatcher.contains(&format!("run_exact {harness} \\ {entry}")),
+            "heavy dispatcher omitted exact harness/module entry {entry}"
+        );
+        assert_eq!(
+            dispatcher.matches(entry).count(),
+            1,
+            "heavy entry {entry} must have one primary dispatcher assignment"
+        );
+        expected_by_class
+            .entry(class)
+            .or_default()
+            .insert(expected_command(harness, entry));
+    }
+    let mut observed_by_class = std::collections::BTreeMap::<&str, BTreeSet<String>>::new();
+    for class in ["byte-parity", "all-profile", "wsi", "stress"] {
+        assert!(
+            dispatcher.contains(&format!("{class})")),
+            "heavy dispatcher omitted class {class}"
+        );
+        let output = Command::new("scripts/run-heavy-qualification.sh")
+            .args(["--dry-run", class])
+            .output()
+            .unwrap_or_else(|error| panic!("cannot dry-run heavy class {class}: {error}"));
+        assert!(output.status.success(), "heavy dry-run failed for {class}");
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        let command_lines = stdout.lines().map(str::to_owned).collect::<Vec<_>>();
+        let commands = command_lines.iter().cloned().collect::<BTreeSet<_>>();
+        assert_eq!(command_lines.len(), commands.len());
+        assert_eq!(commands, expected_by_class[class]);
+        observed_by_class.insert(class, commands);
+    }
+    let primary_union = observed_by_class
+        .values()
+        .flat_map(|commands| commands.iter().cloned())
+        .collect::<BTreeSet<_>>();
+    assert_eq!(primary_union.len(), EXPLICIT_HEAVY_TESTS.len());
+    assert_eq!(observed_by_class["byte-parity"].len(), 1);
+    assert_eq!(observed_by_class["all-profile"].len(), 1);
+    assert_eq!(observed_by_class["wsi"].len(), 2);
+    assert_eq!(observed_by_class["stress"].len(), 2);
+    let all_output = Command::new("scripts/run-heavy-qualification.sh")
+        .args(["--dry-run", "all"])
+        .output()
+        .expect("cannot dry-run all heavy entries");
+    assert!(all_output.status.success());
+    let all_stdout = String::from_utf8(all_output.stdout).unwrap();
+    let all_lines = all_stdout.lines().map(str::to_owned).collect::<Vec<_>>();
+    let all_commands = all_lines.iter().cloned().collect::<BTreeSet<_>>();
+    assert_eq!(all_lines.len(), EXPLICIT_HEAVY_TESTS.len());
+    assert_eq!(all_lines.len(), all_commands.len());
+    assert_eq!(all_commands, primary_union);
+    for scope_note in [
+        "ordinary, stress, and legacy scope",
+        "explicit opt-in stress coverage",
+        "Ordinary WSI byte parity plus the reduced stress pyramid",
+    ] {
+        assert!(
+            dispatcher.contains(scope_note),
+            "heavy dispatcher omitted secondary-scope note {scope_note}"
+        );
+    }
 
     assert!(codecs.contains("feature: [jpeg, charls, jpegxl, jpeg2000, deflate]"));
     assert!(codecs.contains("Compile feature-sensitive product surfaces"));
@@ -278,6 +445,13 @@ fn heavy_workflow_retains_nightly_matrix_and_immutable_release_gate() {
     }
 
     assert!(release.contains("if: needs.selection.outputs.class == 'release-candidate'"));
+    assert!(release.contains("needs: [selection, default]"));
+    for (_, _, _, entry) in EXPLICIT_HEAVY_TESTS {
+        assert!(
+            !release.contains(entry),
+            "release packaging job must inherit, not repeat, heavy entry {entry}"
+        );
+    }
     for required in [
         "cargo fmt --all -- --check",
         "git diff --check",

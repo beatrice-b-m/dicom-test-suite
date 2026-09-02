@@ -44,8 +44,16 @@ cargo fmt --all -- --check
 git diff --check
 RUSTFLAGS='-D warnings' cargo check --locked --all-targets --no-default-features
 cargo test --locked --all-targets --no-default-features
+scripts/run-heavy-qualification.sh all
 cargo package --locked --offline
 ```
+
+The broad Cargo command is ordinary evidence and skips the six explicitly
+ignored heavy bodies. The dispatcher then selects byte parity (including
+stress and legacy), all-profile (including opt-in stress), ordinary and stress
+WSI, and stress projection/execution exactly once. The release-candidate
+workflow inherits this completed Nightly/default gate and must not rerun the
+dispatcher in its packaging job.
 
 Use these verification tiers in order, stopping at the narrowest tier that
 matches the change until a phase or release boundary is reached:

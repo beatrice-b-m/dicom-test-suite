@@ -35,7 +35,7 @@ artifact.
 | --- | --- | --- | --- |
 | R0 — freeze migration contract | Complete | R0.1, R0.2, R0.3, R0.4 | ADR 0003, the dated cost baseline, the exhaustive 801-path ownership inventory, and the seed-1 smoke parity manifest fix repository ownership, invalidated verification class, and the byte/normalized-semantic migration boundary. The R0 gate passes. |
 | R1 — contain CI and local build cost | Complete | R1.1, R1.2, R1.3, R1.4, R1.5, R1.6 | A disposable draft-PR probe proved superseded-run cancellation and single-event ownership. Replacement Fast run `33581809536` passed in 123 seconds of job time with only the declared Fast work, a 739,602,432-byte target, four smoke artifacts occupying 122,880 allocated bytes, and the 4-GiB ceiling enforced. The broad matrix remains separately scheduled/manually invocable. The R1 gate passes. |
-| R2 — reduce Rust test-linking amplification | In progress | R2.1, R2.2 | The fail-closed inventory now maps 186 integration sources and all 879 integration entries into exactly 20 explicit harnesses while retaining one domain/class assignment per source entry. Cargo builds 22 total test executables including lib/bin, and live workflows select the intended harness plus module boundary. Explicit heavy entry points, change routing, and the R2 gate remain. |
+| R2 — reduce Rust test-linking amplification | In progress | R2.1, R2.2, R2.3 | The fail-closed inventory maps 186 integration sources and all 879 integration entries into exactly 20 explicit harnesses, and the six R0-measured heavy bodies now have exact ignored entry points selected once by Nightly/release-candidate qualification. Change routing and the aggregate R2 gate remain. |
 | R3 — rename reusable product | Not started | None | Requires the R0 gate; no current file, package, crate, binary, archive, or environment spelling has been migrated. |
 | R4 — split immutable resources and corpus definitions | Not started | None | Requires the accepted naming decision and sequential resource/schema migration. |
 | R5 — add supported external corpus API | Not started | None | Requires the R4 resource and identity boundary. |
@@ -1193,6 +1193,75 @@ removal and then removed. This closes R2.2's at-most-20 integration-binary,
 entry-parity, selector-compatibility, and measured-link-cost acceptance
 boundary. R2.3, R2.4, and the aggregate R2 gate remain open.
 
+### R2.3 — explicit heavy qualification entry points
+
+**State:** complete on 2026-09-02; R2 remains in progress
+
+**Commit:** the atomic commit with subject
+`test(qualification): isolate explicit heavy entry points` (resolve the exact
+object with `git log --format='%H %s' -- scripts/run-heavy-qualification.sh`)
+
+The six exact R0-measured heavyweight functions are now ignored by ordinary
+broad/default harness execution with the common reason `R2.3 explicit heavy
+qualification; run through scripts/run-heavy-qualification.sh`. No assertion,
+source membership, or harness root moved, and the integration inventory remains
+20 targets, 186 sources, and 879 entries. The ownership checker requires the
+exact six source/function assignments, the exact ignore reason, and their
+post-attribute entry digests:
+
+| Primary entry point | Harness and exact module-qualified function | Ownership entry digest |
+| --- | --- | --- |
+| Byte parity | `corpus_generation__nightly case_recipe_catalog::data_first_sc_and_metadata_values_and_hashes_match_current_generator_bytes` | `1c5997e98ac7f858a85464388b92f01370372ceaa7d2246145a4c94e310cd6a7` |
+| All-profile | `cli_sdk__nonfast generate_cli::generate_command_writes_all_profile_union_and_skips_planned_cases` | `4798e28c764d10de70957b13b5f6dca9b7a21e11bae95635de1de4b0ff0c8f` |
+| WSI ordinary | `engine__nightly wsi_direct_plan::ordinary_wsi_direct_plans_match_fresh_seed_one_bytes_and_manifest_facts` | `4dd7971502e9748a95ad7d76688b73c1203a89400d7a6e5aa14c4e9913ebaa45` |
+| WSI stress | `corpus_generation__nightly wsi_pyramid::stress_profile_emits_complete_three_instance_wsi_pyramid` | `e668db30959a9a3aedd4785aa74c9fb567379d0d651a35e96c6ae68af537acb3` |
+| Stress projection | `corpus_generation__nightly curated_stress_manifest::typed_stress_projection_matches_frozen_file_values_and_resources` | `708bb20e44d9970c5ce1473e821bbb228f1b36942f81e7137fff90d3a054e57d` |
+| Stress execution | `corpus_generation__nightly curated_stress_sc_integration::all_stress_sc_cases_execute_through_private_streaming_services` | `1faef91a82a2a4090a73854e008c3d3fc245202a777e1df97877645c5d511ae3` |
+
+`scripts/run-heavy-qualification.sh` exposes `byte-parity`, `all-profile`,
+`wsi`, `stress`, and `all`. The four primary classes are a disjoint 1/1/2/2
+partition; `all` is their six-command union, so semantically overlapping WSI
+stress evidence is not duplicated. Byte parity includes ordinary, stress, and
+legacy scope, all-profile includes opt-in stress, and WSI includes ordinary
+and reduced-stress evidence. Before executing a heavy body, every command runs
+an exact ignored list preflight and requires one discovered match, closing
+Cargo's otherwise-successful zero-match behavior. The 2,527-byte dispatcher
+has SHA-256
+`1904f04698a9eaf224ba79359ae41e40f915d8c17ee808368e8a80c97e0792cb`;
+the 193,361-byte ownership manifest has SHA-256
+`7a9d032b7179b6ab1994fe672bbaa15b078b09e66b0101febed542ba7eb1e7c6`.
+
+The Nightly/default job first runs the ordinary locked all-target suite, then
+invokes `scripts/run-heavy-qualification.sh all` exactly once. A release-
+candidate run depends on that default job and its standalone package/archive
+job contains no dispatcher or heavy function, so it inherits rather than
+repeats the six bodies. Fast statically rejects the dispatcher, Nightly and
+mixed non-Fast harnesses, ignored selection, broad profiles, and every exact
+heavy function. Provider, codec, package, archive, consumer, external-runtime,
+conformance, and interoperability cadence remains unchanged.
+
+Verification deliberately did not execute a heavy body. `sh -n` passed; dry
+runs of all four primary classes and `all` produced the expected disjoint
+1/1/2/2 sets and six unique locked, no-default-feature, ignored, exact
+commands. YAML parsing, `python3 scripts/check-test-ownership.py`, and all six
+ownership fixtures passed. The focused static
+`ci_release_gates::heavy_workflow_retains_nightly_matrix_and_immutable_release_gate`
+test passed. A fresh target at `/private/tmp/dts-r23-target.bO0W0w` compiled
+that focused gate in 23.44 seconds wall (65.91 user, 4.72 system); exact list
+mode then resolved every heavy selector to one test. After the three owning
+harnesses were linked, the target occupied 715,896 KiB (733,077,504 allocated
+bytes) across 993 files. Formatting and diff hygiene passed, and the exact
+temporary target was removed after measurement.
+
+The R0 bodies' recorded timings remain 683.69, 681.02, 688.21, 686.18, 691.07,
+and 685.37 seconds (4,115.54 seconds total); they were not rerun or substituted
+with list evidence. No ordinary broad suite, Nightly workflow, release-
+candidate, corpus generation, provider, codec, package/archive, external
+runtime, independent conformance, interoperability, remote workflow, or
+terminal target matrix ran. R2.3's explicit-entry and cadence acceptance
+passes; R2.4 routing, the aggregate R2 gate, and terminal heavy-qualification
+evidence remain open.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |
@@ -1235,7 +1304,7 @@ baseline alone is not proof that those budgets have passed.
 | Smoke migration | In progress | The R0 parity baseline passes for the current embedded smoke slice; R6 repository generation and comparison have not run. |
 | Complete migration | Not run | The current repository still owns the complete embedded corpus. |
 | Fast development | Not run | R0 measurements and representative post-change PR measurements are absent. |
-| Heavy qualification | Not run | New nightly/manual/release routing and exact applicable runs are absent. |
+| Heavy qualification | In progress | Nightly/manual/release routing now selects the six explicit heavy entries once, but no exact terminal Nightly or release-candidate run has executed at the separated-repository boundary. |
 | Artifact consumption | Not run | No keyed downstream corpus artifact or default viewer-consumption workflow exists. |
 | Packaging and release | Not run | Neither renamed repository has an independently qualified release procedure or exact candidate record. |
 | Documentation | Not run | ADR 0003 records the intended boundary; current operating documents still describe the monolithic product. |

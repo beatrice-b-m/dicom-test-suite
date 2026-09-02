@@ -88,6 +88,7 @@ fn execute(
 }
 
 #[test]
+#[ignore = "R2.3 explicit heavy qualification; run through scripts/run-heavy-qualification.sh"]
 fn typed_stress_projection_matches_frozen_file_values_and_resources() {
     let selected = &CASES;
     let (bundle, execution) = execute(selected, 4);

@@ -171,6 +171,7 @@ fn stress_sc_order_is_independent_of_case_input_and_parallelism() {
 }
 
 #[test]
+#[ignore = "R2.3 explicit heavy qualification; run through scripts/run-heavy-qualification.sh"]
 fn all_stress_sc_cases_execute_through_private_streaming_services() {
     let bundle = plan(CASES.map(str::to_owned).to_vec(), 2);
     let destination = TempRoot::new("output");

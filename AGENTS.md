@@ -79,11 +79,19 @@ artifacts, caches, virtual environments, or private keys.
 
 ## Local Verification
 
-The default regression baseline is:
+The ordinary default regression baseline is:
 
 ```sh
 cargo test --locked --all-targets --no-default-features
 ```
+
+That command deliberately skips the six explicitly ignored R2.3 heavyweight
+entries. Run the applicable slice through
+`scripts/run-heavy-qualification.sh byte-parity`, `all-profile`, `wsi`, or
+`stress`; use `scripts/run-heavy-qualification.sh all` only at the scheduled
+Nightly or exact release-candidate boundary. The dispatcher preserves the
+secondary scopes: byte parity includes stress and legacy, all-profile includes
+opt-in stress, and WSI includes ordinary and reduced-stress evidence.
 
 For documentation or CLI changes, also exercise the exact documented commands
 against a fresh output path and run `git diff --check`. Feature-gated codec work

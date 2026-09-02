@@ -8030,6 +8030,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
 }
 
 #[test]
+#[ignore = "R2.3 explicit heavy qualification; run through scripts/run-heavy-qualification.sh"]
 fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     let out_dir = unique_temp_dir("generate-all-command");
 

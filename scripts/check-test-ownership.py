@@ -73,6 +73,9 @@ KNOWN_HEAVY_ENTRIES = {
     },
     "tests/wsi_pyramid.rs": {"stress_profile_emits_complete_three_instance_wsi_pyramid"},
 }
+HEAVY_IGNORE_REASON = (
+    "R2.3 explicit heavy qualification; run through scripts/run-heavy-qualification.sh"
+)
 
 
 class OwnershipError(Exception):
@@ -141,6 +144,9 @@ def test_entries(path: Path) -> list[dict[str, object]]:
             {
                 "name": name,
                 "ignored": "#[ignore" in attributes,
+                "explicit_heavy_ignore": (
+                    f'#[ignore = "{HEAVY_IGNORE_REASON}"]' in attributes
+                ),
                 "heavy_source_marker": bool(FAST_SOURCE_MARKERS.search(segment)),
                 "segment_sha256": hashlib.sha256(segment.encode()).hexdigest(),
             }
@@ -256,6 +262,11 @@ def discovered_groups(root: Path, targets: list[dict[str, object]]) -> list[dict
                 "entry_count": len(entries),
                 "entry_digest": group_digest(entries),
                 "has_ignored": any(bool(entry["ignored"]) for entry in entries),
+                "explicit_heavy_entries": sorted(
+                    str(entry["name"])
+                    for entry in entries
+                    if bool(entry["explicit_heavy_ignore"])
+                ),
                 "has_heavy_source_marker": any(
                     bool(entry["heavy_source_marker"]) for entry in entries
                 ),
@@ -422,6 +433,8 @@ def verify(root: Path, manifest: dict[str, object]) -> dict[str, object]:
         required_heavy = KNOWN_HEAVY_ENTRIES.get(source, set())
         if set(heavy_entries) != required_heavy:
             errors.append(f"R0 heavyweight entry ownership drift: {source}")
+        if set(actual["explicit_heavy_entries"]) != required_heavy:
+            errors.append(f"R2.3 explicit heavyweight ignore drift: {source}")
 
         target_record = target_by_name.get(str(owned.get("target")))
         if source.startswith("tests/") and target_record is not None:

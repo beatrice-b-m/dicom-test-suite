@@ -227,6 +227,7 @@ fn catalog_derived_wsi_ownership_is_complete_and_planning_is_output_free() {
 }
 
 #[test]
+#[ignore = "R2.3 explicit heavy qualification; run through scripts/run-heavy-qualification.sh"]
 fn ordinary_wsi_direct_plans_match_fresh_seed_one_bytes_and_manifest_facts() {
     let (all_root, all_manifest) = generated("all");
     let (stress_root, stress_manifest) = generated("stress");

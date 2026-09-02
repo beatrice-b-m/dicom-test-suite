@@ -366,6 +366,7 @@ fn feature_free_metadata_sc_set_is_derived_and_fully_data_first() {
 }
 
 #[test]
+#[ignore = "R2.3 explicit heavy qualification; run through scripts/run-heavy-qualification.sh"]
 fn data_first_sc_and_metadata_values_and_hashes_match_current_generator_bytes() {
     let all_root = generate_profile("all", true);
     let legacy_root = generate_profile("legacy", false);

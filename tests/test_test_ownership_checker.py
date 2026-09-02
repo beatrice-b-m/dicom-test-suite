@@ -37,6 +37,12 @@ class TestOwnershipCheckerFixtures(unittest.TestCase):
             sum(len(group.get("heavy_entries", [])) for group in self.manifest["entry_groups"]),
             6,
         )
+        for source, expected in CHECKER.KNOWN_HEAVY_ENTRIES.items():
+            entries = CHECKER.test_entries(ROOT / source)
+            explicitly_ignored = {
+                entry["name"] for entry in entries if entry["explicit_heavy_ignore"]
+            }
+            self.assertEqual(explicitly_ignored, expected)
 
     def test_fast_workflow_runs_checker_and_negative_fixtures(self):
         workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")

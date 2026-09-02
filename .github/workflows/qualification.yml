@@ -173,6 +173,8 @@ jobs:
           jq empty cases/registry.json schemas/*.json transfer-syntax/*.json standards.lock.json
       - name: Run default test suite
         run: cargo test --locked --all-targets --no-default-features
+      - name: Run explicit heavy qualification once
+        run: scripts/run-heavy-qualification.sh all
       - name: Check standards lock
         run: cargo run --locked --no-default-features -- standards check-lock
       - name: Exercise default profiles

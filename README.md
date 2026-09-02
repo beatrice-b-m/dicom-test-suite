@@ -305,6 +305,12 @@ cargo run --locked -- version --format json
 cargo run --locked -- generate --profile smoke --out generated/dev-smoke --seed 1
 ```
 
+The broad Cargo command is the ordinary regression suite; it skips six
+explicitly ignored heavyweight corpus entries. Run an affected heavy slice via
+`scripts/run-heavy-qualification.sh byte-parity`, `all-profile`, `wsi`, or
+`stress`. Scheduled Nightly and exact release-candidate qualification use
+`scripts/run-heavy-qualification.sh all` once after the ordinary suite.
+
 Contributors and coding agents must follow [AGENTS.md](AGENTS.md), including its
 granular commit policy. Generated corpora belong under ignored output paths and
 must not be committed.

@@ -115,6 +115,56 @@ pub struct InstalledIdentityDomains {
     pub migration: IdentityMigrationContext,
 }
 
+pub const MANIFEST_IDENTITY_PROJECTION_SCHEMA_VERSION: &str = "1.0.0";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ManifestIdentityProjectionState {
+    Projected,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CorpusDefinitionProjectionState {
+    VerifiedBundle,
+    TransitionalEmbeddedUnverified,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ManifestCorpusDefinitionIdentity {
+    pub state: CorpusDefinitionProjectionState,
+    pub identity: Option<CorpusDefinitionIdentity>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct LegacyResourceProvenance {
+    pub resource_set_version: String,
+    pub origin: EngineResourceOrigin,
+    pub resource_count: usize,
+    pub resource_set_sha256: String,
+    pub removal_phase: &'static str,
+}
+
+/// Identity state projected into a curated-generation manifest.
+///
+/// Unlike discovery migration context, this type records that projection has
+/// happened. It cannot serialize the discovery-only deferred marker.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CuratedManifestIdentityProjection {
+    pub identity_projection_schema_version: &'static str,
+    pub projection_state: ManifestIdentityProjectionState,
+    pub engine: EngineIdentity,
+    pub schema_set: SchemaSetIdentity,
+    pub template_catalog: TemplateCatalogIdentity,
+    pub provider_catalog: ProviderCatalogIdentity,
+    pub corpus_definition: ManifestCorpusDefinitionIdentity,
+    pub toolchain: ToolchainIdentity,
+    pub external_runtime: Vec<ExternalRuntimeIdentity>,
+    pub standards: StandardsIdentity,
+    pub execution: ExecutionIdentity,
+    pub legacy_provenance: LegacyResourceProvenance,
+}
+
 #[derive(Debug, Clone, Copy, Default)]
 pub struct IdentityInspectionContext<'a> {
     pub corpus_definition: Option<&'a CorpusDefinitionBundle>,
@@ -125,6 +175,7 @@ pub enum IdentityProjectionError {
     Resources(EngineResourceError),
     MissingMember(&'static str),
     UnclassifiedMember(String),
+    InvalidExternalRuntime(String),
 }
 
 impl fmt::Display for IdentityProjectionError {
@@ -143,8 +194,104 @@ impl fmt::Display for IdentityProjectionError {
                     "identity projection has unclassified member {path}"
                 )
             }
+            Self::InvalidExternalRuntime(message) => {
+                write!(formatter, "invalid external runtime identity: {message}")
+            }
         }
     }
+}
+
+pub(crate) fn project_curated_manifest_identities(
+    resources: &EngineResources,
+    corpus_definition: Option<&CorpusDefinitionBundle>,
+    mut external_runtime: Vec<ExternalRuntimeIdentity>,
+) -> Result<CuratedManifestIdentityProjection, IdentityProjectionError> {
+    validate_external_runtime_identities(&mut external_runtime)?;
+    let installed =
+        project_installed_identities(resources, IdentityInspectionContext { corpus_definition })?;
+    let corpus_definition = ManifestCorpusDefinitionIdentity {
+        state: if installed.corpus_definition.is_some() {
+            CorpusDefinitionProjectionState::VerifiedBundle
+        } else {
+            CorpusDefinitionProjectionState::TransitionalEmbeddedUnverified
+        },
+        identity: installed.corpus_definition,
+    };
+    Ok(CuratedManifestIdentityProjection {
+        identity_projection_schema_version: MANIFEST_IDENTITY_PROJECTION_SCHEMA_VERSION,
+        projection_state: ManifestIdentityProjectionState::Projected,
+        engine: installed.engine,
+        schema_set: installed.schema_set,
+        template_catalog: installed.template_catalog,
+        provider_catalog: installed.provider_catalog,
+        corpus_definition,
+        toolchain: installed.toolchain,
+        external_runtime,
+        standards: installed.standards,
+        execution: installed.execution,
+        legacy_provenance: LegacyResourceProvenance {
+            resource_set_version: installed.migration.legacy_resource_set_version,
+            origin: installed.migration.legacy_resource_origin,
+            resource_count: installed.migration.legacy_resource_count,
+            resource_set_sha256: installed.migration.legacy_resource_set_sha256,
+            removal_phase: installed.migration.removal_phase,
+        },
+    })
+}
+
+fn validate_external_runtime_identities(
+    identities: &mut Vec<ExternalRuntimeIdentity>,
+) -> Result<(), IdentityProjectionError> {
+    for identity in identities.iter() {
+        if identity.runtime_id.trim().is_empty()
+            || identity.runtime_kind.trim().is_empty()
+            || identity.version.trim().is_empty()
+        {
+            return Err(IdentityProjectionError::InvalidExternalRuntime(
+                "runtime_id, runtime_kind, and version must be nonempty".into(),
+            ));
+        }
+        for (field, digest) in [
+            ("executable_sha256", &identity.executable_sha256),
+            ("invocation_sha256", &identity.invocation_sha256),
+        ] {
+            if digest.len() != 64
+                || !digest
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+            {
+                return Err(IdentityProjectionError::InvalidExternalRuntime(format!(
+                    "{} has invalid {field}",
+                    identity.runtime_id
+                )));
+            }
+        }
+    }
+    identities.sort_by(|left, right| {
+        (
+            &left.runtime_id,
+            &left.runtime_kind,
+            &left.executable_sha256,
+            &left.version,
+            &left.invocation_sha256,
+        )
+            .cmp(&(
+                &right.runtime_id,
+                &right.runtime_kind,
+                &right.executable_sha256,
+                &right.version,
+                &right.invocation_sha256,
+            ))
+    });
+    if identities
+        .windows(2)
+        .any(|pair| pair[0].runtime_id == pair[1].runtime_id)
+    {
+        return Err(IdentityProjectionError::InvalidExternalRuntime(
+            "runtime_id values must be unique".into(),
+        ));
+    }
+    Ok(())
 }
 
 impl std::error::Error for IdentityProjectionError {}

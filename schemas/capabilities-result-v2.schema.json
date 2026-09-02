@@ -114,6 +114,7 @@
         "assembly_manifest": { "$ref": "#/$defs/version_array" },
         "assembly_manifest_validation": { "const": ["1.0.0", "2.0.0"] },
         "release_manifest": { "$ref": "#/$defs/version_array" },
+        "release_manifest_validation": { "$ref": "#/$defs/version_array" },
         "curated_manifest": { "$ref": "#/$defs/version_array" },
         "curated_manifest_validation": { "$ref": "#/$defs/version_array" },
         "composition_manifest": { "$ref": "#/$defs/version_array" },

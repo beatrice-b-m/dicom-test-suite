@@ -88,6 +88,8 @@ pub struct SupportedVersions {
     /// Structural-assembly manifest versions covered by validate/report readers.
     pub assembly_manifest_validation: Vec<&'static str>,
     pub release_manifest: Vec<&'static str>,
+    /// Release manifest versions covered by archive-verifier readers.
+    pub release_manifest_validation: Vec<&'static str>,
     pub curated_manifest: Vec<&'static str>,
     /// Curated manifest versions covered by validate/report compatibility fixtures.
     pub curated_manifest_validation: Vec<&'static str>,
@@ -458,7 +460,8 @@ pub fn capabilities_result_with_context(
             assembly_request: vec![crate::assembly::ASSEMBLY_REQUEST_SCHEMA_VERSION],
             assembly_manifest: vec![crate::assembly::ASSEMBLY_MANIFEST_SCHEMA_VERSION],
             assembly_manifest_validation: vec!["1.0.0", "2.0.0"],
-            release_manifest: vec!["1.0.0"],
+            release_manifest: vec!["2.0.0"],
+            release_manifest_validation: vec!["1.0.0", "2.0.0"],
             curated_manifest: vec!["1.0.0"],
             curated_manifest_validation: vec!["0.2.0", "0.3.0", "1.0.0"],
             composition_manifest: vec!["1.0.0"],

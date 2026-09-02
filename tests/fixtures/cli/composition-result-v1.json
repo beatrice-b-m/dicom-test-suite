@@ -1,0 +1,20 @@
+{
+  "composition_result_schema_version": "1.0.0",
+  "requested_output_root": "/tmp/sdg-composition-capture.e7LjAw/out",
+  "manifest_path": "/tmp/sdg-composition-capture.e7LjAw/out/manifest.json",
+  "run_kind": "qualified_composition",
+  "seed": 1,
+  "request_schema_version": "0.1.0",
+  "manifest_schema_version": "0.5.0",
+  "product_version": "0.2.0",
+  "emitted_artifact_count": 1,
+  "output_bytes": 5010,
+  "unavailable_capability_count": 0,
+  "unavailable_capabilities": [],
+  "corpus_plan_sha256": "d0dbe90e60f181bae5c099106ffabb855b02580c11fc55950236d48ad9d3bdea",
+  "published": true,
+  "publication_status": "published",
+  "validation_status": "passed",
+  "plan_preview": null
+}
+

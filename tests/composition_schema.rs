@@ -126,3 +126,17 @@ fn template_catalog_rejects_unknown_fields_and_missing_evidence() {
     unconditioned_type_1c["templates"][0]["attributes"][0]["requirement"] = json!("1C");
     assert!(!validator.is_valid(&unconditioned_type_1c));
 }
+
+#[test]
+fn legacy_composition_contract_fixtures_are_validation_only_compatible() {
+    for fixture in [
+        "tests/fixtures/cli/composition-manifest-v0.4.json",
+        "tests/fixtures/cli/composition-manifest-v0.5.json",
+    ] {
+        assert_valid("schemas/composition-manifest.schema.json", fixture);
+    }
+    assert_valid(
+        "schemas/composition-result.schema.json",
+        "tests/fixtures/cli/composition-result-v1.json",
+    );
+}

@@ -1,0 +1,762 @@
+{
+  "composition": {
+    "assets": [],
+    "bundles": [
+      {
+        "bundle_root_instance_id": "primary",
+        "dependency_closure": [
+          "primary"
+        ],
+        "members": [
+          {
+            "bundle_role": "root",
+            "instance_id": "primary",
+            "requested": true,
+            "source_provenance": "requested"
+          }
+        ],
+        "references": []
+      }
+    ],
+    "entries": [
+      {
+        "bundle_role": "root",
+        "bundle_root_instance_id": "primary",
+        "construction_origin": "native_plan",
+        "content": [
+          {
+            "address": {
+              "element": 16,
+              "group": 32736
+            },
+            "kind": "native_pixels",
+            "placement": {
+              "kind": "top_level"
+            },
+            "properties": {},
+            "sha256": "fc79e707a60d7602732e7b610a0191cf3eb205264589af81571471727db68099",
+            "size_bytes": 4096,
+            "slot": "pixels",
+            "vr": "OB"
+          }
+        ],
+        "determinism": "byte_stable",
+        "dicom": {
+          "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1"
+        },
+        "instance_id": "primary",
+        "path": "instances/primary.dcm",
+        "references": [],
+        "requested": true,
+        "resolved_attributes": [
+          {
+            "address": {
+              "element": 5,
+              "group": 8
+            },
+            "origin": "template_default",
+            "value": {
+              "kind": "primitive",
+              "value": {
+                "kind": "string",
+                "value": "ISO_IR 192"
+              }
+            },
+            "vr": "CS"
+          },
+          {
+            "address": {
+              "element": 22,
+              "group": 8
+            },
+            "origin": "derived_structural",
+            "value": {
+              "kind": "primitive",
+              "value": {
+                "kind": "string",
+                "value": "1.2.840.10008.5.1.4.1.1.7"
+              }
+            },
+            "vr": "UI"
+          },
+          {
+            "address": {
+              "element": 24,
+              "group": 8
+            },
+            "origin": "derived_structural",
+            "value": {
+              "kind": "primitive",
+              "value": {
+                "kind": "string",
+                "value": "2.25.330025437847673057770667728326203097888"
+              }
+            },
+            "vr": "UI"
+          },
+          {
+            "address": {
+              "element": 28,
+              "group": 8
+            },
+            "origin": "derived_structural",
+            "value": {
+              "kind": "primitive",
+              "value": {
+                "kind": "string",
+                "value": "YES"
+              }
+            },
+            "vr": "CS"
+          },
+          {
+            "address": {
+              "element": 32,
+              "group": 8
+            },
+            "origin": "template_default",
+            "value": {
+              "kind": "primitive",
+              "value": {
+                "kind": "string",
+                "value": "20000101"
+              }
+            },
+            "vr": "DA"
+          },
+          {
+            "address": {
+              "element": 35,
+              "group": 8
+            },
+            "origin": "template_default",
+            "value": {
+              "kind": "primitive",
+              "value": {
+                "kind": "string",
+                "value": "20000101"
+              }
+            },
+            "vr": "DA"
+          },
+          {
+            "address": {
+              "element": 48,
+              "group": 8
+            },
+            "origin": "template_default",
+            "value": {
+              "kind": "primitive",
+              "value": {
+                "kind": "string",
+                "value": "000000"
+              }
+            },
+            "vr": "TM"
+          },
+          {
+            "address": {
+              "element": 51,
+              "group": 8
+            },
+            "origin": "template_default",
+            "value": {
+              "kind": "primitive",
+              "value": {
+                "kind": "string",
+                "value": "000000"
+              }
+            },
+            "vr": "TM"
+          },
+          {
+            "address": {
+              "element": 80,
+              "group": 8
+            },
+            "origin": "template_default",
+            "value": null,
+            "vr": "SH"
+          },
+          {
+            "address": {
+              "element": 96,
+              "group": 8
+            },
+            "origin": "template_default",
+            "value": {
+              "kind": "primitive",
+              "value": {
+                "kind": "string",
+                "value": "OT"
+              }
+            },
+            "vr": "CS"
+          },
+          {
+            "address": {
+              "element": 100,
+              "group": 8
+            },
+            "origin": "template_default",
+            "value": {
+              "kind": "primitive",
+              "value": {
+                "kind": "string",
+                "value": "WSD"
+              }
+            },
+            "vr": "CS"
+          },
+          {
+            "address": {
+              "element": 112,
+              "group": 8
+            },
+            "origin": "template_default",
+            "value": {
+              "kind": "primitive",
+              "value": {
+                "kind": "string",
+                "value": "OpenAI"
+              }
+            },
+            "vr": "LO"
+          },
+          {
+            "address": {
+              "element": 144,
+              "group": 8
+            },
+            "origin": "template_default",
+            "value": null,
+            "vr": "PN"
+          },
+          {
+            "address": {
+              "element": 4240,
+              "group": 8
+            },
+            "origin": "template_default",
+            "value": {
+              "kind": "primitive",
+              "value": {
+                "kind": "string",
+                "value": "DICOM Test Suite"
+              }
+            },
+            "vr": "LO"
+          },
+          {
+            "address": {
+              "element": 16,
+              "group": 16
+            },
+            "origin": "template_default",
+            "value": {
+              "kind": "primitive",
+              "value": {
+                "kind": "string",
+                "value": "DTS^Synthetic"
+              }
+            },
+            "vr": "PN"
+          },
+          {
+            "address": {
+              "element": 32,
+              "group": 16
+            },
+            "origin": "template_default",
+            "value": {
+              "kind": "primitive",
+              "value": {
+                "kind": "string",
+                "value": "DTS-COMPOSE"
+              }
+            },
+            "vr": "LO"
+          },
+          {
+            "address": {
+              "element": 48,
+              "group": 16
+            },
+            "origin": "template_default",
+            "value": null,
+            "vr": "DA"
+          },
+          {
+            "address": {
+              "element": 64,
+              "group": 16
+            },
+            "origin": "template_default",
+            "value": null,
+            "vr": "CS"
+          },
+          {
+            "address": {
+              "element": 13,
+              "group": 32
+            },
+            "origin": "derived_structural",
+            "value": {
+              "kind": "primitive",
+              "value": {
+                "kind": "string",
+                "value": "2.25.199732695774624384331568688825179981131"
+              }
+            },
+            "vr": "UI"
+          },
+          {
+            "address": {
+              "element": 14,
+              "group": 32
+            },
+            "origin": "derived_structural",
+            "value": {
+              "kind": "primitive",
+              "value": {
+                "kind": "string",
+                "value": "2.25.71385168826793466491224843263973851780"
+              }
+            },
+            "vr": "UI"
+          },
+          {
+            "address": {
+              "element": 16,
+              "group": 32
+            },
+            "origin": "template_default",
+            "value": {
+              "kind": "primitive",
+              "value": {
+                "kind": "string",
+                "value": "DTS-STUDY"
+              }
+            },
+            "vr": "SH"
+          },
+          {
+            "address": {
+              "element": 17,
+              "group": 32
+            },
+            "origin": "template_default",
+            "value": {
+              "kind": "primitive",
+              "value": {
+                "kind": "string",
+                "value": "1"
+              }
+            },
+            "vr": "IS"
+          },
+          {
+            "address": {
+              "element": 19,
+              "group": 32
+            },
+            "origin": "template_default",
+            "value": {
+              "kind": "primitive",
+              "value": {
+                "kind": "string",
+                "value": "1"
+              }
+            },
+            "vr": "IS"
+          },
+          {
+            "address": {
+              "element": 32,
+              "group": 32
+            },
+            "origin": "template_default",
+            "value": null,
+            "vr": "CS"
+          },
+          {
+            "address": {
+              "element": 96,
+              "group": 32
+            },
+            "origin": "template_default",
+            "value": {
+              "kind": "primitive",
+              "value": {
+                "kind": "string",
+                "value": "R"
+              }
+            },
+            "vr": "CS"
+          },
+          {
+            "address": {
+              "element": 2,
+              "group": 40
+            },
+            "origin": "derived_structural",
+            "value": {
+              "kind": "primitive",
+              "value": {
+                "kind": "unsigned",
+                "value": 1
+              }
+            },
+            "vr": "US"
+          },
+          {
+            "address": {
+              "element": 4,
+              "group": 40
+            },
+            "origin": "derived_structural",
+            "value": {
+              "kind": "primitive",
+              "value": {
+                "kind": "string",
+                "value": "MONOCHROME2"
+              }
+            },
+            "vr": "CS"
+          },
+          {
+            "address": {
+              "element": 16,
+              "group": 40
+            },
+            "origin": "derived_structural",
+            "value": {
+              "kind": "primitive",
+              "value": {
+                "kind": "unsigned",
+                "value": 64
+              }
+            },
+            "vr": "US"
+          },
+          {
+            "address": {
+              "element": 17,
+              "group": 40
+            },
+            "origin": "derived_structural",
+            "value": {
+              "kind": "primitive",
+              "value": {
+                "kind": "unsigned",
+                "value": 64
+              }
+            },
+            "vr": "US"
+          },
+          {
+            "address": {
+              "element": 256,
+              "group": 40
+            },
+            "origin": "derived_structural",
+            "value": {
+              "kind": "primitive",
+              "value": {
+                "kind": "unsigned",
+                "value": 8
+              }
+            },
+            "vr": "US"
+          },
+          {
+            "address": {
+              "element": 257,
+              "group": 40
+            },
+            "origin": "derived_structural",
+            "value": {
+              "kind": "primitive",
+              "value": {
+                "kind": "unsigned",
+                "value": 8
+              }
+            },
+            "vr": "US"
+          },
+          {
+            "address": {
+              "element": 258,
+              "group": 40
+            },
+            "origin": "derived_structural",
+            "value": {
+              "kind": "primitive",
+              "value": {
+                "kind": "unsigned",
+                "value": 7
+              }
+            },
+            "vr": "US"
+          },
+          {
+            "address": {
+              "element": 259,
+              "group": 40
+            },
+            "origin": "derived_structural",
+            "value": {
+              "kind": "primitive",
+              "value": {
+                "kind": "unsigned",
+                "value": 0
+              }
+            },
+            "vr": "US"
+          }
+        ],
+        "resolved_plan_sha256": "d75dac8223bff571572ca887b8611c31687508e86fe4530e88fe799eeb6d128e",
+        "sha256": "77bd0865e28ce3479e5219cb387bed1b705bed1c785d7ac655f148ccb3d13924",
+        "size_bytes": 5010,
+        "source_provenance": "requested",
+        "template_id": "classic/secondary-capture/monochrome",
+        "template_version": "1.0.0",
+        "uids": {
+          "implementation_class_uid#0": "2.25.295651541363466870677940607848063419523",
+          "series_instance_uid#0": "2.25.71385168826793466491224843263973851780",
+          "sop_instance_uid#0": "2.25.330025437847673057770667728326203097888",
+          "study_instance_uid#0": "2.25.199732695774624384331568688825179981131"
+        },
+        "validation": {
+          "checks": [
+            {
+              "layer": "part10",
+              "message": "128-byte preamble and DICM prefix are present",
+              "rule_id": "preamble_and_prefix",
+              "status": "passed"
+            },
+            {
+              "layer": "part10",
+              "message": "generated file reopens as a DICOM Part 10 object",
+              "rule_id": "reopen",
+              "status": "passed"
+            },
+            {
+              "layer": "part10",
+              "message": "file meta SOP and transfer-syntax identities match the resolved plan",
+              "rule_id": "meta_identity",
+              "status": "passed"
+            },
+            {
+              "layer": "generic_data_elements",
+              "message": "33 resolved attributes reopened with their planned VRs",
+              "rule_id": "resolved_attributes",
+              "status": "passed"
+            },
+            {
+              "layer": "content",
+              "message": "1 content slots match planned VR, size, and SHA-256",
+              "rule_id": "content_integrity",
+              "status": "passed"
+            },
+            {
+              "layer": "template",
+              "message": "0 materialized references are closed and source-consistent",
+              "rule_id": "reference_projection",
+              "status": "passed"
+            }
+          ],
+          "status": "passed"
+        },
+        "value_provenance": [
+          {
+            "origin": "template_default",
+            "tag": "0008,0005"
+          },
+          {
+            "origin": "derived_structural",
+            "tag": "0008,0016"
+          },
+          {
+            "origin": "derived_structural",
+            "tag": "0008,0018"
+          },
+          {
+            "origin": "derived_structural",
+            "tag": "0008,001C"
+          },
+          {
+            "origin": "template_default",
+            "tag": "0008,0020"
+          },
+          {
+            "origin": "template_default",
+            "tag": "0008,0023"
+          },
+          {
+            "origin": "template_default",
+            "tag": "0008,0030"
+          },
+          {
+            "origin": "template_default",
+            "tag": "0008,0033"
+          },
+          {
+            "origin": "template_default",
+            "tag": "0008,0050"
+          },
+          {
+            "origin": "template_default",
+            "tag": "0008,0060"
+          },
+          {
+            "origin": "template_default",
+            "tag": "0008,0064"
+          },
+          {
+            "origin": "template_default",
+            "tag": "0008,0070"
+          },
+          {
+            "origin": "template_default",
+            "tag": "0008,0090"
+          },
+          {
+            "origin": "template_default",
+            "tag": "0008,1090"
+          },
+          {
+            "origin": "template_default",
+            "tag": "0010,0010"
+          },
+          {
+            "origin": "template_default",
+            "tag": "0010,0020"
+          },
+          {
+            "origin": "template_default",
+            "tag": "0010,0030"
+          },
+          {
+            "origin": "template_default",
+            "tag": "0010,0040"
+          },
+          {
+            "origin": "derived_structural",
+            "tag": "0020,000D"
+          },
+          {
+            "origin": "derived_structural",
+            "tag": "0020,000E"
+          },
+          {
+            "origin": "template_default",
+            "tag": "0020,0010"
+          },
+          {
+            "origin": "template_default",
+            "tag": "0020,0011"
+          },
+          {
+            "origin": "template_default",
+            "tag": "0020,0013"
+          },
+          {
+            "origin": "template_default",
+            "tag": "0020,0020"
+          },
+          {
+            "origin": "template_default",
+            "tag": "0020,0060"
+          },
+          {
+            "origin": "derived_structural",
+            "tag": "0028,0002"
+          },
+          {
+            "origin": "derived_structural",
+            "tag": "0028,0004"
+          },
+          {
+            "origin": "derived_structural",
+            "tag": "0028,0010"
+          },
+          {
+            "origin": "derived_structural",
+            "tag": "0028,0011"
+          },
+          {
+            "origin": "derived_structural",
+            "tag": "0028,0100"
+          },
+          {
+            "origin": "derived_structural",
+            "tag": "0028,0101"
+          },
+          {
+            "origin": "derived_structural",
+            "tag": "0028,0102"
+          },
+          {
+            "origin": "derived_structural",
+            "tag": "0028,0103"
+          }
+        ]
+      }
+    ],
+    "publication": {
+      "atomic_promotion": "complete",
+      "cleanup_complete": true,
+      "expected_entries": 1,
+      "expected_output_bytes": 5010,
+      "staging_complete": true,
+      "validation_complete": true
+    },
+    "unavailable_capabilities": []
+  },
+  "dependencies": {
+    "template_catalog": "templates/catalog.json"
+  },
+  "generated_at": "2000-01-01T00:00:00Z",
+  "generator": {
+    "name": "dicom-test-suite",
+    "rustc": "rustc 1.85.0 (4d91de4e4 2025-02-17)",
+    "target": "aarch64-apple-darwin",
+    "version": "0.1.0"
+  },
+  "manifest_schema_version": "0.4.0",
+  "run": {
+    "composition_spec_schema_version": "0.1.0",
+    "corpus_plan_sha256": "499e92f0c0007da69b83670a6b1ce928b0095b96b05d5a275b8c5c1d674290d2",
+    "input_spec_sha256": "2daacc7e63f83509f23677863c36c783a35cce75d3392bb6aa2d7f846c171d1e",
+    "kind": "composition",
+    "parallelism": {
+      "requested": 1,
+      "used": 1
+    },
+    "resource_limits": {
+      "max_attributes_per_instance": 4096,
+      "max_content_assignments_per_instance": 64,
+      "max_file_bytes": 1073741824,
+      "max_input_files": 1024,
+      "max_instances": 1024,
+      "max_parameter_depth": 32,
+      "max_parameter_nodes": 4096,
+      "max_references_per_instance": 4096,
+      "max_sequence_items": 4096,
+      "max_spec_bytes": 16777216,
+      "max_total_input_bytes": 4294967296,
+      "max_total_output_bytes": 8589934592,
+      "max_value_multiplicity": 1024
+    },
+    "seed": 1,
+    "template_catalog_schema_version": "0.1.0",
+    "template_catalog_sha256": "a1e66bbea38510e701f0ab656eace802b53c027dfba875d470d96f8537bb4db5"
+  },
+  "standards": {
+    "dicom_base_edition": "2026b",
+    "standards_lock_sha256": "823230c5932b81b504434330d118fba286d5ff41d4e2f7766372633f4a49e559"
+  }
+}
+

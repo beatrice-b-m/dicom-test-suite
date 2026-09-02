@@ -180,7 +180,7 @@ impl CorpusDefinitionBundle {
             .map_err(|error| invalid(CORPUS_DEFINITION_MANIFEST, error.to_string()))?;
         validate_manifest_shape(&manifest, limits)?;
 
-        let mut declared = BTreeMap::<String, (&str, &FileDescriptor)>::new();
+        let mut declared = BTreeMap::<String, (&str, &str, &FileDescriptor)>::new();
         insert_descriptor(&mut declared, "registry", "registry", &manifest.registry)?;
         for case in &manifest.cases {
             insert_descriptor(&mut declared, "recipe", &case.case_id, &case.recipe)?;
@@ -204,7 +204,7 @@ impl CorpusDefinitionBundle {
         let mut files = BTreeMap::new();
         let mut document_total = manifest_bytes.len() as u64;
         let mut asset_total = 0_u64;
-        for (path, (role, descriptor)) in &declared {
+        for (path, (role, _id, descriptor)) in &declared {
             let per_file_limit = if *role == "asset" {
                 limits.asset_bytes
             } else {
@@ -423,9 +423,9 @@ fn validate_manifest_shape(
 }
 
 fn insert_descriptor<'a>(
-    out: &mut BTreeMap<String, (&'a str, &'a FileDescriptor)>,
+    out: &mut BTreeMap<String, (&'a str, &'a str, &'a FileDescriptor)>,
     role: &'a str,
-    id: &str,
+    id: &'a str,
     d: &'a FileDescriptor,
 ) -> Result<(), CorpusDefinitionError> {
     validate_logical_path(&d.path)?;
@@ -449,7 +449,7 @@ fn insert_descriptor<'a>(
         )));
     }
     validate_sha256(&d.sha256)?;
-    if out.insert(d.path.clone(), (role, d)).is_some() {
+    if out.insert(d.path.clone(), (role, id, d)).is_some() {
         return Err(CorpusDefinitionError::Closure(format!(
             "duplicate declared path {}",
             d.path
@@ -826,15 +826,24 @@ fn validate_closure(
             let dependency_profiles = registry_cases[dependency.as_str()]["profiles"]
                 .as_array()
                 .expect("registry schema validated profiles");
-            let owner_is_valid = owner_profiles.iter().any(|value| {
-                matches!(
-                    value.as_str(),
-                    Some("smoke" | "core" | "extended" | "legacy" | "stress")
-                )
-            });
+            let owner_is_ordinary = owner_profiles
+                .iter()
+                .any(|value| matches!(value.as_str(), Some("smoke" | "core" | "extended")));
+            let owner_is_legacy = owner_profiles
+                .iter()
+                .any(|value| value.as_str() == Some("legacy"));
+            let owner_is_stress = owner_profiles
+                .iter()
+                .any(|value| value.as_str() == Some("stress"));
             let dependency_is_invalid = dependency_profiles
                 .iter()
                 .any(|value| matches!(value.as_str(), Some("negative" | "fuzz")));
+            let dependency_is_legacy = dependency_profiles
+                .iter()
+                .any(|value| value.as_str() == Some("legacy"));
+            let dependency_is_stress = dependency_profiles
+                .iter()
+                .any(|value| value.as_str() == Some("stress"));
             let owner_negative = owner_profiles
                 .iter()
                 .any(|value| value.as_str() == Some("negative"));
@@ -847,7 +856,10 @@ fn validate_closure(
             let dependency_fuzz = dependency_profiles
                 .iter()
                 .any(|value| value.as_str() == Some("fuzz"));
-            if (owner_is_valid && dependency_is_invalid)
+            if (owner_is_ordinary
+                && (dependency_is_legacy || dependency_is_stress || dependency_is_invalid))
+                || (owner_is_legacy && (dependency_is_stress || dependency_is_invalid))
+                || (owner_is_stress && (dependency_is_legacy || dependency_is_invalid))
                 || (owner_negative && dependency_fuzz)
                 || (owner_fuzz && dependency_negative)
             {
@@ -1054,15 +1066,17 @@ fn detect_cycles(
 fn definition_digest(
     m: &CorpusDefinitionManifest,
     manifest_sha: &str,
-    files: &BTreeMap<String, (&str, &FileDescriptor)>,
+    files: &BTreeMap<String, (&str, &str, &FileDescriptor)>,
 ) -> String {
     let mut framed = b"synth-dicom-gen/corpus-definition-bundle\0".to_vec();
     framed.extend_from_slice(m.corpus_definition_bundle_schema_version.as_bytes());
     framed.push(0);
     framed.extend_from_slice(manifest_sha.as_bytes());
     framed.push(b'\n');
-    for (path, (role, descriptor)) in files {
+    for (path, (role, id, descriptor)) in files {
         framed.extend_from_slice(role.as_bytes());
+        framed.push(0);
+        framed.extend_from_slice(id.as_bytes());
         framed.push(0);
         framed.extend_from_slice(path.as_bytes());
         framed.push(0);
@@ -1331,6 +1345,26 @@ fn capture_file(
 }
 
 #[cfg(unix)]
+struct DirectoryStream(*mut libc::DIR);
+
+#[cfg(unix)]
+impl Drop for DirectoryStream {
+    fn drop(&mut self) {
+        unsafe { libc::closedir(self.0) };
+    }
+}
+
+#[cfg(any(target_os = "macos", target_os = "ios", target_os = "freebsd"))]
+unsafe fn errno_pointer() -> *mut libc::c_int {
+    unsafe { libc::__error() }
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+unsafe fn errno_pointer() -> *mut libc::c_int {
+    unsafe { libc::__errno_location() }
+}
+
+#[cfg(unix)]
 fn inventory_directory(
     directory: &fs::File,
     prefix: &str,
@@ -1353,29 +1387,42 @@ fn inventory_directory(
             source: std::io::Error::last_os_error(),
         });
     }
-    let stream = unsafe { libc::fdopendir(duplicate) };
-    if stream.is_null() {
+    let raw_stream = unsafe { libc::fdopendir(duplicate) };
+    if raw_stream.is_null() {
         unsafe { libc::close(duplicate) };
         return Err(CorpusDefinitionError::Read {
             path: PathBuf::from(prefix),
             source: std::io::Error::last_os_error(),
         });
     }
-    let mut names = Vec::new();
+    let stream = DirectoryStream(raw_stream);
+    let mut entry_count = 0_usize;
     loop {
-        let entry = unsafe { libc::readdir(stream) };
+        unsafe { *errno_pointer() = 0 };
+        let entry = unsafe { libc::readdir(stream.0) };
         if entry.is_null() {
+            let errno = unsafe { *errno_pointer() };
+            if errno != 0 {
+                return Err(CorpusDefinitionError::Read {
+                    path: PathBuf::from(prefix),
+                    source: std::io::Error::from_raw_os_error(errno),
+                });
+            }
             break;
         }
         let name = unsafe { CStr::from_ptr((*entry).d_name.as_ptr()) }.to_bytes();
-        if name != b"." && name != b".." {
-            names.push(name.to_vec());
+        if name == b"." || name == b".." {
+            continue;
         }
-    }
-    unsafe { libc::closedir(stream) };
-    names.sort();
-
-    for name_bytes in names {
+        entry_count = entry_count
+            .checked_add(1)
+            .ok_or_else(|| limit(prefix, expected.len() as u64))?;
+        if entry_count > expected.len() {
+            return Err(CorpusDefinitionError::Closure(format!(
+                "directory {prefix:?} contains more entries than the declared bundle can own"
+            )));
+        }
+        let name_bytes = name.to_vec();
         let name = std::str::from_utf8(&name_bytes)
             .map_err(|_| CorpusDefinitionError::UnsafePath(format!("{prefix}<non-UTF8>")))?;
         let logical = if prefix.is_empty() {

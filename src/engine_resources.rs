@@ -4,8 +4,8 @@ use std::fmt;
 use std::fs;
 use std::io::Read;
 use std::path::{Component, Path, PathBuf};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 
@@ -63,10 +63,21 @@ enum EngineResourceSource {
 #[derive(Debug, Clone)]
 pub struct EngineResources {
     source: EngineResourceSource,
+    snapshot_cache: Arc<SnapshotCache>,
+}
+
+#[derive(Debug, Clone)]
+pub struct EngineResourceSnapshot {
+    materialized: Arc<MaterializedSnapshot>,
+}
+
+#[derive(Debug, Default)]
+struct SnapshotCache {
+    materialized: Mutex<Option<Arc<MaterializedSnapshot>>>,
 }
 
 #[derive(Debug)]
-pub struct EngineResourceSnapshot {
+struct MaterializedSnapshot {
     root: PathBuf,
 }
 
@@ -189,6 +200,7 @@ impl EngineResources {
     pub fn embedded() -> Self {
         Self {
             source: EngineResourceSource::Embedded,
+            snapshot_cache: Arc::default(),
         }
     }
 
@@ -197,6 +209,7 @@ impl EngineResources {
         let captured = capture_explicit_resources(&root)?;
         let resources = Self {
             source: EngineResourceSource::Explicit(Arc::new(captured)),
+            snapshot_cache: Arc::default(),
         };
         resources.verify_integrity()?;
         Ok(resources)
@@ -314,6 +327,43 @@ impl EngineResources {
 
     pub fn snapshot(&self) -> Result<EngineResourceSnapshot, EngineResourceError> {
         self.verify_integrity()?;
+        let materialized =
+            Arc::new(self.materialize_snapshot(&mut |path, bytes| fs::write(path, bytes))?);
+        self.validate_snapshot_root(&materialized.root)?;
+        Ok(EngineResourceSnapshot { materialized })
+    }
+
+    pub(crate) fn shared_snapshot(&self) -> Result<EngineResourceSnapshot, EngineResourceError> {
+        self.shared_snapshot_with_writer(|path, bytes| fs::write(path, bytes))
+    }
+
+    fn shared_snapshot_with_writer(
+        &self,
+        mut write: impl FnMut(&Path, &[u8]) -> std::io::Result<()>,
+    ) -> Result<EngineResourceSnapshot, EngineResourceError> {
+        let mut cached = self
+            .snapshot_cache
+            .materialized
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if let Some(materialized) = cached.as_ref() {
+            self.validate_snapshot_root(&materialized.root)?;
+            return Ok(EngineResourceSnapshot {
+                materialized: Arc::clone(materialized),
+            });
+        }
+
+        self.verify_integrity()?;
+        let materialized = Arc::new(self.materialize_snapshot(&mut write)?);
+        self.validate_snapshot_root(&materialized.root)?;
+        *cached = Some(Arc::clone(&materialized));
+        Ok(EngineResourceSnapshot { materialized })
+    }
+
+    fn materialize_snapshot(
+        &self,
+        write: &mut impl FnMut(&Path, &[u8]) -> std::io::Result<()>,
+    ) -> Result<MaterializedSnapshot, EngineResourceError> {
         static NEXT_SNAPSHOT: AtomicU64 = AtomicU64::new(0);
         let parent = std::env::temp_dir();
         let root = (0..128)
@@ -340,9 +390,10 @@ impl EngineResources {
                     "could not allocate a unique resource snapshot",
                 ),
             })?;
+        let mut pending = PendingSnapshot::new(root);
 
         for logical_path in self.logical_paths() {
-            let path = root.join(logical_path);
+            let path = pending.root().join(logical_path);
             if let Some(parent) = path.parent() {
                 fs::create_dir_all(parent).map_err(|source| {
                     EngineResourceError::WriteSnapshot {
@@ -353,13 +404,66 @@ impl EngineResources {
                 })?;
             }
             let bytes = self.bytes(logical_path)?;
-            fs::write(&path, &bytes).map_err(|source| EngineResourceError::WriteSnapshot {
+            write(&path, &bytes).map_err(|source| EngineResourceError::WriteSnapshot {
                 logical_path: logical_path.to_string(),
                 path,
                 source,
             })?;
         }
-        Ok(EngineResourceSnapshot { root })
+        Ok(MaterializedSnapshot {
+            root: pending.publish(),
+        })
+    }
+
+    fn validate_snapshot_root(&self, root: &Path) -> Result<(), EngineResourceError> {
+        let captured = capture_explicit_resources(root)?;
+        for logical_path in self.logical_paths() {
+            let actual = captured
+                .get(logical_path)
+                .expect("complete snapshot capture contains every resource");
+            if actual.as_slice() != self.bytes(logical_path)?.as_ref() {
+                return Err(EngineResourceError::Integrity {
+                    expected_resource_set_sha256: format!(
+                        "{}:{}",
+                        logical_path,
+                        crate::sha256_hex(self.bytes(logical_path)?.as_ref())
+                    ),
+                    actual_resource_set_sha256: format!(
+                        "{}:{}",
+                        logical_path,
+                        crate::sha256_hex(actual)
+                    ),
+                });
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+struct PendingSnapshot {
+    root: Option<PathBuf>,
+}
+
+impl PendingSnapshot {
+    fn new(root: PathBuf) -> Self {
+        Self { root: Some(root) }
+    }
+
+    fn root(&self) -> &Path {
+        self.root.as_deref().expect("pending snapshot has a root")
+    }
+
+    fn publish(&mut self) -> PathBuf {
+        self.root.take().expect("pending snapshot has a root")
+    }
+}
+
+impl Drop for PendingSnapshot {
+    fn drop(&mut self) {
+        if let Some(root) = self.root.take() {
+            let _ = fs::remove_dir_all(root);
+        }
     }
 }
 
@@ -405,16 +509,16 @@ impl EngineResourceError {
 
 impl EngineResourceSnapshot {
     pub fn root(&self) -> &Path {
-        &self.root
+        &self.materialized.root
     }
 
     pub fn path(&self, logical_path: &str) -> Result<PathBuf, EngineResourceError> {
         validate_logical_path(logical_path)?;
-        Ok(self.root.join(logical_path))
+        Ok(self.materialized.root.join(logical_path))
     }
 }
 
-impl Drop for EngineResourceSnapshot {
+impl Drop for MaterializedSnapshot {
     fn drop(&mut self) {
         let _ = fs::remove_dir_all(&self.root);
     }
@@ -464,6 +568,147 @@ fn verify_transitional_oracle(
             identity.resource_set_version, identity.resource_count, identity.resource_set_sha256
         ),
     })
+}
+
+#[cfg(test)]
+mod snapshot_cache_tests {
+    use super::*;
+    use std::collections::BTreeSet;
+    use std::sync::{Arc, Barrier};
+    use std::thread;
+
+    fn file_inventory(root: &Path) -> (usize, u64) {
+        let mut pending = vec![root.to_path_buf()];
+        let mut files = 0;
+        let mut bytes = 0;
+        while let Some(directory) = pending.pop() {
+            for entry in fs::read_dir(directory).unwrap() {
+                let entry = entry.unwrap();
+                let metadata = entry.metadata().unwrap();
+                if metadata.is_dir() {
+                    pending.push(entry.path());
+                } else {
+                    files += 1;
+                    bytes += metadata.len();
+                }
+            }
+        }
+        (files, bytes)
+    }
+
+    #[test]
+    fn snapshot_cache_is_lazy_and_reuses_one_complete_copy_across_clones() {
+        let resources = EngineResources::embedded();
+        resources.verify_integrity().unwrap();
+        resources.bytes("templates/catalog.json").unwrap();
+        assert!(
+            resources
+                .snapshot_cache
+                .materialized
+                .lock()
+                .unwrap()
+                .is_none()
+        );
+
+        let clone = resources.clone();
+        let first = resources.shared_snapshot().unwrap();
+        let second = resources.shared_snapshot().unwrap();
+        let third = clone.shared_snapshot().unwrap();
+        assert_eq!(first.root(), second.root());
+        assert_eq!(first.root(), third.root());
+        assert_eq!(file_inventory(first.root()), (254, 2_664_374));
+    }
+
+    #[test]
+    fn concurrent_snapshot_acquisition_materializes_once_per_handle() {
+        let resources = EngineResources::embedded();
+        let barrier = Arc::new(Barrier::new(9));
+        let workers = (0..8)
+            .map(|_| {
+                let resources = resources.clone();
+                let barrier = Arc::clone(&barrier);
+                thread::spawn(move || {
+                    barrier.wait();
+                    resources.shared_snapshot().unwrap().root().to_path_buf()
+                })
+            })
+            .collect::<Vec<_>>();
+        barrier.wait();
+        let roots = workers
+            .into_iter()
+            .map(|worker| worker.join().unwrap())
+            .collect::<BTreeSet<_>>();
+        assert_eq!(roots.len(), 1);
+    }
+
+    #[test]
+    fn separately_constructed_handles_remain_isolated() {
+        let first_resources = EngineResources::embedded();
+        let second_resources = EngineResources::embedded();
+        let first = first_resources.shared_snapshot().unwrap();
+        let second = second_resources.shared_snapshot().unwrap();
+        assert_ne!(first.root(), second.root());
+        assert_eq!(file_inventory(first.root()), file_inventory(second.root()));
+    }
+
+    #[test]
+    fn materialized_root_lives_until_the_last_resource_or_snapshot_handle() {
+        let resources = EngineResources::embedded();
+        let resource_clone = resources.clone();
+        let snapshot = resources.shared_snapshot().unwrap();
+        let snapshot_clone = snapshot.clone();
+        let root = snapshot.root().to_path_buf();
+        drop(resources);
+        drop(snapshot);
+        assert!(root.exists());
+        drop(resource_clone);
+        assert!(root.exists());
+        drop(snapshot_clone);
+        assert!(!root.exists());
+    }
+
+    #[test]
+    fn failed_or_corrupt_materialization_is_not_published_and_can_retry() {
+        let resources = EngineResources::embedded();
+        let mut failed_root = None;
+        let error = resources
+            .shared_snapshot_with_writer(|path, _| {
+                failed_root = path.ancestors().find_map(|ancestor| {
+                    ancestor
+                        .file_name()
+                        .and_then(|name| name.to_str())
+                        .filter(|name| name.starts_with("synth-dicom-gen-resources-"))
+                        .map(|_| ancestor.to_path_buf())
+                });
+                Err(std::io::Error::other("injected write failure"))
+            })
+            .unwrap_err();
+        assert!(matches!(error, EngineResourceError::WriteSnapshot { .. }));
+        assert!(
+            resources
+                .snapshot_cache
+                .materialized
+                .lock()
+                .unwrap()
+                .is_none()
+        );
+        assert!(!failed_root.expect("writer observed snapshot root").exists());
+        let snapshot = resources.shared_snapshot().unwrap();
+        assert_eq!(file_inventory(snapshot.root()), (254, 2_664_374));
+    }
+
+    #[test]
+    fn mutation_of_an_internal_shared_root_fails_closed_on_reuse() {
+        let resources = EngineResources::embedded();
+        let snapshot = resources.shared_snapshot().unwrap();
+        let catalog = snapshot.path("templates/catalog.json").unwrap();
+        let mut bytes = fs::read(&catalog).unwrap();
+        bytes[0] ^= 1;
+        fs::write(catalog, bytes).unwrap();
+        let error = resources.shared_snapshot().unwrap_err();
+        assert!(matches!(error, EngineResourceError::Integrity { .. }));
+        assert_eq!(error.code(), "evidence.integrity.failed");
+    }
 }
 
 #[cfg(unix)]

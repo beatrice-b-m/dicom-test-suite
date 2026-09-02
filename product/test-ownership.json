@@ -361,7 +361,7 @@
         "structural_cancellation_publishes_nothing",
         "structural_destination_race_preserves_one_valid_winner_and_cleans_staging"
       ],
-      "entry_digest": "59bd10f205c0a44f155122194b0f3d591619c4cf7941c1925b3e8eeeab938ceb"
+      "entry_digest": "017e75b10c70f344f4546c419c2b577c027758161ad8cfd3bbb593f5d203add3"
     },
     {
       "source": "tests/blending_presentation_state.rs",
@@ -4061,7 +4061,7 @@
         "verified_corpus_perturbation_changes_only_corpus_identity",
         "external_runtime_identity_requires_successful_typed_execution_evidence"
       ],
-      "entry_digest": "047a72642beccffacb46db7551d14e3d7f46c9e231ba0f8ec785710576cc6f50"
+      "entry_digest": "15dfc94a0177a9437ad893b0e06c43385479fb55bafca8fd26bd376bfef7d73a"
     },
     {
       "source": "src/lib.rs",

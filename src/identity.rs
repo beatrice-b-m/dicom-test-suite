@@ -594,6 +594,7 @@ fn digest_domain(
 
 #[cfg(test)]
 mod identity_domain_tests {
+    use std::collections::BTreeMap;
     use std::fs;
     use std::path::{Path, PathBuf};
 
@@ -645,7 +646,7 @@ mod identity_domain_tests {
         )
         .unwrap();
         assert_eq!(embedded.engine.member_count, 3);
-        assert_eq!(embedded.schema_set.member_count, 40);
+        assert_eq!(embedded.schema_set.member_count, 42);
         assert_eq!(embedded.template_catalog.member_count, 3);
         assert_eq!(embedded.provider_catalog.member_count, 16);
         assert_eq!(embedded.migration.legacy_resource_count, 240);
@@ -720,6 +721,86 @@ mod identity_domain_tests {
             changed.migration.corpus_identity_status,
             "verified_bundle_loaded"
         );
+
+        let original_manifest =
+            project_curated_manifest_identities(&resources, Some(&original_bundle), Vec::new())
+                .unwrap();
+        let changed_manifest =
+            project_curated_manifest_identities(&resources, Some(&changed_bundle), Vec::new())
+                .unwrap();
+        assert_eq!(
+            original_manifest.projection_state,
+            ManifestIdentityProjectionState::Projected
+        );
+        assert_eq!(original_manifest.engine, changed_manifest.engine);
+        assert_eq!(original_manifest.schema_set, changed_manifest.schema_set);
+        assert_eq!(
+            original_manifest.template_catalog,
+            changed_manifest.template_catalog
+        );
+        assert_eq!(
+            original_manifest.provider_catalog,
+            changed_manifest.provider_catalog
+        );
+        assert_eq!(original_manifest.toolchain, changed_manifest.toolchain);
+        assert_eq!(
+            original_manifest.external_runtime,
+            changed_manifest.external_runtime
+        );
+        assert_eq!(original_manifest.standards, changed_manifest.standards);
+        assert_eq!(original_manifest.execution, changed_manifest.execution);
+        assert_eq!(
+            original_manifest.legacy_provenance,
+            changed_manifest.legacy_provenance
+        );
+        assert_eq!(
+            original_manifest.corpus_definition.state,
+            CorpusDefinitionProjectionState::VerifiedBundle
+        );
+        assert_ne!(
+            original_manifest.corpus_definition.identity,
+            changed_manifest.corpus_definition.identity
+        );
+
+        let embedded_manifest =
+            project_curated_manifest_identities(&resources, None, Vec::new()).unwrap();
+        assert_eq!(
+            embedded_manifest.corpus_definition.state,
+            CorpusDefinitionProjectionState::TransitionalEmbeddedUnverified
+        );
+        assert!(embedded_manifest.corpus_definition.identity.is_none());
         fs::remove_dir_all(changed_root).unwrap();
+    }
+
+    #[test]
+    fn external_provider_identity_requires_successful_typed_execution_evidence() {
+        use crate::executor::evidence::{ProviderEvidence, ResultStatus};
+
+        let digest = "a".repeat(64);
+        let provider = ProviderEvidence {
+            provider_id: "qualified_provider".into(),
+            provider_version: "1.2.3".into(),
+            status: ResultStatus::Passed,
+            executable_sha256: Some(digest.clone()),
+            argument_sha256: "b".repeat(64),
+            request_sha256: "c".repeat(64),
+            response_sha256: "d".repeat(64),
+            outputs: BTreeMap::from([("primary".into(), "e".repeat(64))]),
+            claims: BTreeMap::new(),
+        };
+        let identity = crate::provider_external_runtime_identity("case/one", &provider)
+            .expect("passed provider evidence with executable identity must project");
+        assert_eq!(identity.runtime_id, "provider/case/one/qualified_provider");
+        assert_eq!(identity.runtime_kind, "generation_provider");
+        assert_eq!(identity.executable_sha256, digest);
+        assert_eq!(identity.version, "1.2.3");
+        assert_eq!(identity.invocation_sha256.len(), 64);
+
+        let mut failed = provider.clone();
+        failed.status = ResultStatus::Failed;
+        assert!(crate::provider_external_runtime_identity("case/one", &failed).is_none());
+        let mut internal = provider;
+        internal.executable_sha256 = None;
+        assert!(crate::provider_external_runtime_identity("case/one", &internal).is_none());
     }
 }

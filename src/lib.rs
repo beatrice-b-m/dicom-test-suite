@@ -955,32 +955,11 @@ fn curated_external_runtime_identities(
             continue;
         }
         for provider in &artifact.execution.providers {
-            let Some(executable_sha256) = &provider.executable_sha256 else {
-                continue;
-            };
-            if provider.status != ResultStatus::Passed {
-                continue;
+            if let Some(identity) =
+                provider_external_runtime_identity(&artifact.execution.logical_id, provider)
+            {
+                identities.push(identity);
             }
-            identities.push(identity::ExternalRuntimeIdentity {
-                runtime_id: format!(
-                    "provider/{}/{}",
-                    artifact.execution.logical_id, provider.provider_id
-                ),
-                runtime_kind: "generation_provider".into(),
-                executable_sha256: executable_sha256.clone(),
-                version: provider.provider_version.clone(),
-                invocation_sha256: sha256_hex(
-                    format!(
-                        "artifact={}\nprovider={}\nargument={}\nrequest={}\nresponse={}\n",
-                        artifact.execution.logical_id,
-                        provider.provider_id,
-                        provider.argument_sha256,
-                        provider.request_sha256,
-                        provider.response_sha256,
-                    )
-                    .as_bytes(),
-                ),
-            });
         }
         for codec in &artifact.execution.codecs {
             let Some(tool) = &codec.tool else {
@@ -1066,6 +1045,32 @@ fn curated_external_runtime_identities(
         }
     }
     Ok(identities)
+}
+
+fn provider_external_runtime_identity(
+    artifact_id: &str,
+    provider: &crate::executor::evidence::ProviderEvidence,
+) -> Option<identity::ExternalRuntimeIdentity> {
+    let executable_sha256 = provider.executable_sha256.as_ref()?;
+    if provider.status != ResultStatus::Passed {
+        return None;
+    }
+    Some(identity::ExternalRuntimeIdentity {
+        runtime_id: format!("provider/{artifact_id}/{}", provider.provider_id),
+        runtime_kind: "generation_provider".into(),
+        executable_sha256: executable_sha256.clone(),
+        version: provider.provider_version.clone(),
+        invocation_sha256: sha256_hex(
+            format!(
+                "artifact={artifact_id}\nprovider={}\nargument={}\nrequest={}\nresponse={}\n",
+                provider.provider_id,
+                provider.argument_sha256,
+                provider.request_sha256,
+                provider.response_sha256,
+            )
+            .as_bytes(),
+        ),
+    })
 }
 
 pub fn write_generation_run(

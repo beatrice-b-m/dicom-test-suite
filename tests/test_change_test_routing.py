@@ -264,6 +264,32 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
             self.commands(result),
         )
 
+    def test_report_producers_route_domain_and_cross_family_reader_evidence(self):
+        for path, domain in [
+            ("src/assembly/validation.rs", "assembly"),
+            ("src/composition/validation.rs", "composition"),
+        ]:
+            with self.subTest(path=path):
+                result = self.select(path)
+                self.assertEqual(result["bundle_ids"], [domain, "report"])
+                self.assertEqual(
+                    result["matched_rules"][path],
+                    [domain, "report-producers"],
+                )
+                commands = self.commands(result)
+                self.assertIn(
+                    "cargo test --locked --no-default-features --lib report_contract::report_contract_tests::",
+                    commands,
+                )
+                self.assertIn(
+                    "cargo test --locked --no-default-features --test cli_sdk__nonfast report_cli::",
+                    commands,
+                )
+                self.assertIn(
+                    "cargo test --locked --no-default-features --test cli_sdk__nonfast sdk_facade::",
+                    commands,
+                )
+
     def test_structured_report_qualification_is_explicitly_deferred(self):
         result = self.select("tests/composition_structured_reports.rs")
         self.assertEqual(result["bundle_ids"], [])

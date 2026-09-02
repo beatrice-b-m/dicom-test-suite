@@ -195,6 +195,11 @@
       "bundles": ["report", "schema"]
     },
     {
+      "id": "report-producers",
+      "exact": ["src/assembly/validation.rs", "src/composition/validation.rs"],
+      "bundles": ["report"]
+    },
+    {
       "id": "identity-discovery",
       "exact": [
         "schemas/capabilities-result-v2.schema.json",

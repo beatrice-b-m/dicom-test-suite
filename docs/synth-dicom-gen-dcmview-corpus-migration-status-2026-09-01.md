@@ -1359,6 +1359,22 @@ R1 Fast target; compared with the compile-only R2.2 Fast target it adds
 exact temporary target and routing/list/cache outputs were measured before
 removal.
 
+An independent warm-invalidation audit then rebuilt the same two
+unconditional Fast harnesses and selected engine route in the exact temporary
+target `/private/tmp/dts-r2-warm-target.esIeLZ/target`. The initial run took
+31.57 plus 35.33 seconds and occupied 705,957,888 allocated bytes across 994
+files. After changing only the modification time of `src/planning.rs`, the
+same commands took 23.78 plus 35.04 seconds and occupied 706,031,616 allocated
+bytes across the same 994 files. The invalidation therefore added 73,728 bytes
+(0.0104%) and produced zero files under `target/debug/incremental`; both the
+committed development/test profiles and the measurement environment disable
+incremental compilation. The R0 record did not retain a separate warm-tree
+capture, so the comparison deliberately uses its smaller clean
+8,013,463,552-byte tree as the conservative denominator: the post-invalidation
+R2 tree is still 7,307,431,936 bytes (91.19%) smaller. No source content or
+tracked worktree state changed, and the exact temporary root was removed after
+measurement.
+
 No heavy, ignored, provider, feature-gated codec, broad all-target, Nightly,
 release-candidate, package build, corpus-generation body, release/archive,
 external runtime, independent conformance, interoperability, or remote
@@ -1380,6 +1396,7 @@ the later qualification phases and is not implied by this routing proof.
 | CI/generated artifact count and size | Actions API for run `33491521696` | 1 upload, ID `9798112659`, 9,929,745-byte ZIP; no uploaded corpus | — | Baseline recorded |
 | Representative generator Fast PR | No independent class at `65a296b` | Not independently measurable; every PR selects the full graph | Remote run `33581809536`: 123s job interval, 116 build-work seconds, 739,602,432-byte target, four smoke artifacts occupying 122,880 allocated bytes | R1 gate passes 4-GiB and 15-minute budgets; target is 68.1% smaller than the pre-R1.5 Fast measurement and 90.8% smaller than the differently scoped R0 all-target tree |
 | R2.4 bounded Fast plus selected engine route | R0 clean no-default all-target target at `65a296b` | 8,013,463,552 target bytes; 188 Cargo-reported harness executables | 68.57s wall; 705,949,696 target bytes; four test binaries plus one product binary; one 36,864-byte allocated log artifact | 7,307,513,856 bytes / 91.19% smaller; 4-GiB Fast disk budget passes; exact temporary target removed |
+| R2 warm invalidation, Fast plus selected engine route | Same R0 clean tree, conservatively used because R0 retained no separate warm-tree capture | 8,013,463,552 clean target bytes | Initial 66.90s and 705,957,888 bytes; post-touch 58.82s and 706,031,616 bytes; 994 files; zero incremental-cache files | Warm invalidation added 73,728 bytes / 0.0104%; terminal tree remains 7,307,431,936 bytes / 91.19% smaller than the R0 clean lower bound; exact temporary target removed |
 | Representative corpus PR | Repository does not yet exist; embedded corpus edit selects full graph | Not independently measurable | — | Explicit boundary recorded |
 | Representative viewer PR | Viewer repository not in current scope | — | — | Not measured |
 | Nightly and release-candidate cost | No separate Nightly/RC trigger; run `33491521696` is exact candidate evidence | Nightly not independently measurable; provider/default/release critical chain 123m53s | — | Explicit boundary recorded |

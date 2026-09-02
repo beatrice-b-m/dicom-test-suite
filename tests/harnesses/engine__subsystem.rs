@@ -12,10 +12,14 @@ mod classic_plan_contracts;
 mod classic_vl_projection_plan;
 #[path = "../corpus_plan.rs"]
 mod corpus_plan;
+#[path = "../support/coverage_report.rs"]
+mod coverage_report;
 #[path = "../curated_advanced_plan.rs"]
 mod curated_advanced_plan;
 #[path = "../curated_external_import_plan.rs"]
 mod curated_external_import_plan;
+#[path = "../curated_manifest_contract_support.rs"]
+mod curated_manifest_contract_support;
 #[path = "../curated_negative_plan.rs"]
 mod curated_negative_plan;
 #[path = "../curated_reference_plan.rs"]

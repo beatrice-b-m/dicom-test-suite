@@ -1,4 +1,5 @@
 use std::fs;
+use std::process::Command;
 
 fn workflow(path: &str) -> String {
     fs::read_to_string(path).unwrap_or_else(|error| panic!("cannot read {path}: {error}"))
@@ -76,7 +77,7 @@ fn fast_pr_is_bounded_to_light_contracts_and_tiny_smoke() {
         "--test standalone_docs --test ci_release_gates",
         "generate --profile smoke",
         "validate \"$root\"",
-        "target_bytes=",
+        "scripts/report-ci-cost.sh fast-pr",
         "output_artifact_count=",
     ] {
         assert!(fast.contains(required), "Fast PR omitted {required}");
@@ -353,4 +354,128 @@ fn ignored_provider_inventory_is_owned_and_matches_serial_workflow() {
             "ignored provider test {test} lacks explicit R1.4 ownership"
         );
     }
+}
+
+#[test]
+fn ci_build_storage_controls_cover_every_job_and_preserve_heavy_evidence() {
+    let fast = workflow(".github/workflows/ci.yml");
+    let heavy = workflow(".github/workflows/qualification.yml");
+    let cargo = workflow("Cargo.toml");
+
+    for profile in ["[profile.dev]", "[profile.test]"] {
+        let body = cargo.split(profile).nth(1).unwrap();
+        assert!(body.lines().take(3).any(|line| line == "debug = 0"));
+        assert!(
+            body.lines()
+                .take(3)
+                .any(|line| line == "incremental = false")
+        );
+    }
+
+    let jobs = [
+        (&fast, "  fast-pr:", None),
+        (&heavy, "  selection:", Some("  native-provider-contract:")),
+        (&heavy, "  native-provider-contract:", Some("  default:")),
+        (&heavy, "  default:", Some("  standalone-release:")),
+        (
+            &heavy,
+            "  standalone-release:",
+            Some("  in-process-codecs:"),
+        ),
+        (
+            &heavy,
+            "  in-process-codecs:",
+            Some("  external-codec-compile:"),
+        ),
+        (&heavy, "  external-codec-compile:", None),
+    ];
+    for (source, start, end) in jobs {
+        let mut job = source.split(start).nth(1).unwrap();
+        if let Some(end) = end {
+            job = job.split(end).next().unwrap();
+        }
+        for required in [
+            "CARGO_INCREMENTAL: \"0\"",
+            "CARGO_PROFILE_DEV_DEBUG: \"0\"",
+            "CARGO_PROFILE_TEST_DEBUG: \"0\"",
+            "CARGO_TARGET_DIR: ${{ runner.temp }}/cargo-target-",
+            "CI_DISK_BUDGET_BYTES:",
+            "Start build-work cost clock",
+            "if: always()",
+            "scripts/report-ci-cost.sh",
+        ] {
+            assert!(job.contains(required), "{start} omitted {required}");
+        }
+    }
+
+    assert_eq!(fast.matches("scripts/report-ci-cost.sh").count(), 1);
+    assert_eq!(heavy.matches("scripts/report-ci-cost.sh").count(), 6);
+    assert_eq!(fast.matches("if: always()").count(), 1);
+    assert_eq!(heavy.matches("if: always()").count(), 6);
+    for budget in ["4294967296", "6442450944", "12884901888", "17179869184"] {
+        assert!(
+            format!("{fast}\n{heavy}").contains(budget),
+            "workflow budgets omitted {budget}"
+        );
+    }
+    assert!(fast.contains("CI_COST_ENFORCE: ${{ job.status == 'success'"));
+    assert!(heavy.contains("CI_COST_ENFORCE: ${{ job.status == 'success'"));
+    assert!(heavy.contains("CI_COST_ENFORCE: \"0\""));
+    assert!(!fast.contains("du -sk target"));
+    assert!(!heavy.contains("CARGO_TARGET_DIR: target"));
+}
+
+#[test]
+fn ci_cost_reporter_handles_missing_and_spaced_paths_and_fails_closed() {
+    let fixture = std::env::temp_dir().join(format!("dts-ci-cost fixture-{}", std::process::id()));
+    let target = fixture.join("target tree");
+    let output = fixture.join("output tree");
+    fs::create_dir_all(&target).unwrap();
+    fs::create_dir_all(&output).unwrap();
+    fs::write(target.join("artifact"), vec![0_u8; 2048]).unwrap();
+    fs::write(output.join("one"), b"one").unwrap();
+    fs::write(output.join("two"), b"two").unwrap();
+
+    let run = |budget: &str, enforce: &str| {
+        Command::new("sh")
+            .arg("scripts/report-ci-cost.sh")
+            .arg("fixture")
+            .arg(budget)
+            .arg(&target)
+            .arg(&output)
+            .arg(fixture.join("missing"))
+            .env("CARGO_TARGET_DIR", &target)
+            .env("CI_COST_ENFORCE", enforce)
+            .output()
+            .unwrap()
+    };
+
+    let report = run("4294967296", "1");
+    assert!(report.status.success());
+    let stdout = String::from_utf8(report.stdout).unwrap();
+    for marker in [
+        "ci_cost_elapsed_build_seconds=",
+        "ci_cost_target_root=",
+        "ci_cost_target_bytes=",
+        "ci_cost_output_bytes=",
+        "ci_cost_output_artifact_count=2",
+        "ci_cost_disk_budget_bytes=4294967296",
+    ] {
+        assert!(stdout.contains(marker), "report omitted {marker}");
+    }
+
+    let over_budget = run("1", "1");
+    assert_eq!(over_budget.status.code(), Some(1));
+    let overflow = run("9007199254740992", "1");
+    assert_eq!(overflow.status.code(), Some(2));
+    let mismatch = Command::new("sh")
+        .arg("scripts/report-ci-cost.sh")
+        .arg("fixture")
+        .arg("4294967296")
+        .arg(&target)
+        .env("CARGO_TARGET_DIR", fixture.join("different target"))
+        .output()
+        .unwrap();
+    assert_eq!(mismatch.status.code(), Some(2));
+    fs::remove_dir_all(&fixture).unwrap();
 }

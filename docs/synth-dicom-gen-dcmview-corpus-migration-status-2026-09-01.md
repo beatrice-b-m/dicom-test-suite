@@ -34,7 +34,7 @@ artifact.
 | Phase | State | Completed items | Current evidence or next gate |
 | --- | --- | --- | --- |
 | R0 — freeze migration contract | Complete | R0.1, R0.2, R0.3, R0.4 | ADR 0003, the dated cost baseline, the exhaustive 801-path ownership inventory, and the seed-1 smoke parity manifest fix repository ownership, invalidated verification class, and the byte/normalized-semantic migration boundary. The R0 gate passes. |
-| R1 — contain CI and local build cost | In progress | R1.1, R1.2, R1.3, R1.4 | Ordinary PR, `main` push, and manual Fast runs now select only formatting/JSON, warning-denied public compilation, named light contracts, and tiny smoke generation/validation. The intact broad graph is scheduled or manually selected; codec jobs compile feature-sensitive surfaces and generate only representative case selections; provider timing and prepared-backend qualifications have auditable serial ownership while the default harness uses normal parallelism; package/archive/upload is restricted to an immutable release-candidate commit. R1.5-R1.6 and live remote acceptance remain. |
+| R1 — contain CI and local build cost | In progress | R1.1, R1.2, R1.3, R1.4, R1.5 | Ordinary PR, `main` push, and manual Fast runs now select only formatting/JSON, warning-denied public compilation, named light contracts, and tiny smoke generation/validation. The intact broad graph is scheduled or manually selected; codec jobs compile feature-sensitive surfaces and generate only representative case selections; provider timing and prepared-backend qualifications have auditable serial ownership while the default harness uses normal parallelism; every job uses an isolated non-incremental minimal-debug target and always reports bounded build/output cost; package/archive/upload is restricted to an immutable release-candidate commit. R1.6 and live remote acceptance remain. |
 | R2 — reduce Rust test-linking amplification | Not started | None | Requires R1 routing and the R0 test-target baseline. |
 | R3 — rename reusable product | Not started | None | Requires the R0 gate; no current file, package, crate, binary, archive, or environment spelling has been migrated. |
 | R4 — split immutable resources and corpus definitions | Not started | None | Requires the accepted naming decision and sequential resource/schema migration. |
@@ -578,6 +578,83 @@ temporary root was removed. This is local development-cost evidence, not
 remote runner/billable evidence or a broad default, provider, corpus, target,
 or release qualification.
 
+### R1.5 — build-storage controls and cost reporting
+
+**State:** complete; R1 remains in progress
+
+**Commit:** the commit introducing this storage contract, with subject
+`fix(ci): bound and report build storage` (resolve the exact object with
+`git log --format='%H %s' -- scripts/report-ci-cost.sh`)
+
+**Owned files:**
+
+- `Cargo.toml`
+- `.github/workflows/ci.yml`
+- `.github/workflows/qualification.yml`
+- `scripts/report-ci-cost.sh`
+- `tests/ci_release_gates.rs`
+- `docs/synth-dicom-gen-dcmview-corpus-migration-status-2026-09-01.md`
+
+The committed development and test profiles disable incremental compilation
+and set debug information to zero. Every Fast or heavy workflow job also sets
+`CARGO_INCREMENTAL=0`, the development/test debug controls, and a unique
+absolute `CARGO_TARGET_DIR` under `runner.temp`; the release-candidate job
+additionally sets release debug information to zero. Package extraction and
+native archive construction consume that exact target root instead of an
+implicit repository `target/` path.
+
+Every logical job has one final `if: always()` cost step. The shared reporter
+prints elapsed build-work seconds, the exact target root and allocated bytes,
+relevant output allocated bytes and file count, the configured byte ceiling,
+and whether enforcement applies. Missing outputs report zero; paths are
+passed as quoted arguments; unsigned and exact-number-range checks reject
+unsafe arithmetic; and the target argument must exactly equal
+`CARGO_TARGET_DIR`. The reporter never removes or broadly searches for build
+evidence. A Fast, selection, provider, or codec job enforces its ceiling only
+after all preceding job work succeeds, while a failed job still reports its
+partial evidence. Nightly and release-candidate jobs retain their larger
+explicit ceilings as measurements rather than short-budget gates.
+
+The R0 7.46-GiB all-target tree establishes the upper comparison boundary.
+The agreed class ceilings are:
+
+| Class/job | Ceiling | Enforcement |
+| --- | ---: | --- |
+| Fast PR | 4,294,967,296 bytes (4 GiB) | Fail an otherwise-successful job above the ceiling |
+| Selection | 1,073,741,824 bytes (1 GiB) | Fail an otherwise-successful job above the ceiling |
+| Provider and codec subsystem | 6,442,450,944 bytes (6 GiB) | Fail an otherwise-successful job above the ceiling; 19.6% below R0 |
+| Nightly broad default | 12,884,901,888 bytes (12 GiB) | Always report; do not discard broad evidence to meet an ordinary ceiling |
+| Release candidate | 17,179,869,184 bytes (16 GiB) | Always report; do not discard terminal evidence to meet an ordinary ceiling |
+
+**Representative clean Fast measurement:** the exact R1.2 Fast-equivalent
+sequence ran with the new profiles and explicit
+`/private/tmp/dts-r15-fast.xciWHT/target`, generated only
+`/private/tmp/dts-r15-fast.xciWHT/smoke`, and completed successfully in 56
+seconds. The reporter recorded 870,412,288 allocated target bytes, 1,872
+target files, and four smoke artifacts occupying 98,304 allocated bytes. This
+is 62.4% less target storage than the comparable pre-R1.5 R1.2 Fast
+measurement (2,315,911,168 bytes) and 89.1% below the differently scoped R0
+all-target observation (8,013,463,552 bytes). The exact temporary root was
+removed after reporting and confirmed absent. The 56-second local result is
+below the 15-minute Fast wall budget; it is not remote runner or billable-time
+evidence.
+
+**Verification:** shell syntax and spaced-path, missing-path, overflow, and
+over-budget fixtures passed. Both workflow files parsed as YAML. The clean
+Fast sequence passed formatting, committed JSON parsing, warning-denied public
+compilation, 73 schema tests, one compatibility-ownership test, four
+documentation tests, six workflow/storage tests, smoke generation, and strict
+validation of three files with zero failures. `cargo metadata --locked
+--no-deps`, `cargo fmt --all -- --check`, and `git diff --check` passed. The
+packaged-crate inventory includes the executable reporter through the existing
+`scripts/**` package include. No WSI, stress, full-profile, codec, provider,
+Python, package build, archive build, release, external-runtime, independent
+conformance, interoperability, or remote qualification ran.
+
+R1.6 release-build reuse and live remote Fast/storage measurements remain
+open. Therefore neither the R1 gate nor terminal Fast-development or heavy-
+qualification acceptance is claimed.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |
@@ -587,7 +664,7 @@ or release qualification.
 | Largest local target-directory size | `CARGO_TARGET_DIR=/private/tmp/dts-r02-target.xAApSK cargo test --locked --all-targets --no-default-features --no-run` | 8,013,463,552 bytes after 72.29s | — | Baseline recorded; exact directory removed |
 | Integration-test target count | Cargo metadata plus top-level `tests/*.rs` at `65a296b` | 186 integration targets; 188 Cargo-reported harness executables | — | Baseline recorded |
 | CI/generated artifact count and size | Actions API for run `33491521696` | 1 upload, ID `9798112659`, 9,929,745-byte ZIP; no uploaded corpus | — | Baseline recorded |
-| Representative generator Fast PR | No independent class at `65a296b` | Not independently measurable; every PR selects the full graph | 71s clean local wall; 2,315,911,168-byte target; four 98,304-byte allocated smoke artifacts | Local R1.2 class passes initial budget; remote gate remains |
+| Representative generator Fast PR | No independent class at `65a296b` | Not independently measurable; every PR selects the full graph | 56s clean local wall; 870,412,288-byte target; 1,872 target files; four 98,304-byte allocated smoke artifacts | Local R1.5 class passes 4-GiB and 15-minute budgets; 62.4% less target storage than R1.2; remote gate remains |
 | Representative corpus PR | Repository does not yet exist; embedded corpus edit selects full graph | Not independently measurable | — | Explicit boundary recorded |
 | Representative viewer PR | Viewer repository not in current scope | — | — | Not measured |
 | Nightly and release-candidate cost | No separate Nightly/RC trigger; run `33491521696` is exact candidate evidence | Nightly not independently measurable; provider/default/release critical chain 123m53s | — | Explicit boundary recorded |

@@ -29,10 +29,19 @@ jobs:
   selection:
     name: Resolve qualification class and immutable revision
     runs-on: ubuntu-latest
+    env:
+      CARGO_INCREMENTAL: "0"
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      CARGO_TARGET_DIR: ${{ runner.temp }}/cargo-target-selection
+      CI_DISK_BUDGET_BYTES: "1073741824"
     outputs:
       class: ${{ steps.selection.outputs.class }}
       revision: ${{ steps.selection.outputs.revision }}
     steps:
+      - uses: actions/checkout@v6
+      - name: Start build-work cost clock
+        run: echo "CI_COST_STARTED_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
       - name: Validate explicit selection
         id: selection
         env:
@@ -65,23 +74,37 @@ jobs:
           echo "class=$class" >> "$GITHUB_OUTPUT"
           echo "revision=$revision" >> "$GITHUB_OUTPUT"
           echo "qualification_class=$class immutable_revision=$revision"
-      - uses: actions/checkout@v6
+      - name: Check out selected revision
+        uses: actions/checkout@v6
         with:
           ref: ${{ steps.selection.outputs.revision }}
       - name: Prove selected revision
         env:
           EXPECTED_REVISION: ${{ steps.selection.outputs.revision }}
         run: test "$(git rev-parse HEAD)" = "$EXPECTED_REVISION"
+      - name: Report selection cost
+        if: always()
+        env:
+          CI_COST_ENFORCE: ${{ job.status == 'success' && '1' || '0' }}
+        run: scripts/report-ci-cost.sh selection "$CI_DISK_BUDGET_BYTES" "$CARGO_TARGET_DIR"
 
   native-provider-contract:
     name: Native provider contract
     needs: selection
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      CARGO_INCREMENTAL: "0"
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      CARGO_TARGET_DIR: ${{ runner.temp }}/cargo-target-native-provider
+      CI_DISK_BUDGET_BYTES: "6442450944"
     steps:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.selection.outputs.revision }}
+      - name: Start build-work cost clock
+        run: echo "CI_COST_STARTED_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
       - name: Prepare locked generation backend
         run: |
@@ -110,16 +133,29 @@ jobs:
             quantitative_default_bundles_are_closed_provenanced_and_reproducible -- --ignored --exact
           cargo test --locked --no-default-features --test composition_quantitative \
             caller_segmentation_and_parametric_values_round_trip_at_fixed_shape -- --ignored --exact
+      - name: Report and enforce provider build cost
+        if: always()
+        env:
+          CI_COST_ENFORCE: ${{ job.status == 'success' && '1' || '0' }}
+        run: scripts/report-ci-cost.sh subsystem-provider "$CI_DISK_BUDGET_BYTES" "$CARGO_TARGET_DIR"
 
   default:
     name: Default corpus
     needs: [selection, native-provider-contract]
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    env:
+      CARGO_INCREMENTAL: "0"
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      CARGO_TARGET_DIR: ${{ runner.temp }}/cargo-target-nightly-default
+      CI_DISK_BUDGET_BYTES: "12884901888"
     steps:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.selection.outputs.revision }}
+      - name: Start build-work cost clock
+        run: echo "CI_COST_STARTED_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
       - name: Prepare locked generation backend
         run: |
@@ -151,6 +187,14 @@ jobs:
           cargo run --locked --no-default-features -- generate --profile smoke --out "$RUNNER_TEMP/dts-repro-a" --seed 1
           cargo run --locked --no-default-features -- generate --profile smoke --out "$RUNNER_TEMP/dts-repro-b" --seed 1
           diff -r "$RUNNER_TEMP/dts-repro-a" "$RUNNER_TEMP/dts-repro-b"
+      - name: Report Nightly build cost
+        if: always()
+        env:
+          CI_COST_ENFORCE: "0"
+        run: >-
+          scripts/report-ci-cost.sh nightly "$CI_DISK_BUDGET_BYTES" "$CARGO_TARGET_DIR"
+          "$RUNNER_TEMP/dts-smoke" "$RUNNER_TEMP/dts-core" "$RUNNER_TEMP/dts-extended"
+          "$RUNNER_TEMP/dts-extended-report.json" "$RUNNER_TEMP/dts-repro-a" "$RUNNER_TEMP/dts-repro-b"
 
   standalone-release:
     name: Standalone release contract
@@ -158,10 +202,19 @@ jobs:
     if: needs.selection.outputs.class == 'release-candidate'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      CARGO_INCREMENTAL: "0"
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_RELEASE_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      CARGO_TARGET_DIR: ${{ runner.temp }}/cargo-target-release-candidate
+      CI_DISK_BUDGET_BYTES: "17179869184"
     steps:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.selection.outputs.revision }}
+      - name: Start build-work cost clock
+        run: echo "CI_COST_STARTED_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
       - name: Prepare locked generation backend
         run: |
@@ -184,14 +237,16 @@ jobs:
           cargo package --locked
           PACKAGE_ROOT="$RUNNER_TEMP/package"
           mkdir -p "$PACKAGE_ROOT"
-          tar -xzf target/package/dicom-test-suite-0.1.0.crate -C "$PACKAGE_ROOT"
+          tar -xzf "$CARGO_TARGET_DIR/package/dicom-test-suite-0.1.0.crate" -C "$PACKAGE_ROOT"
           DTS_SDK_PACKAGE_ROOT="$PACKAGE_ROOT/dicom-test-suite-0.1.0" \
             cargo test --locked --no-default-features --test sdk_external_consumer
       - name: Build and qualify installed archive
         run: |
           TARGET=$(rustc -vV | sed -n 's/^host: //p')
           DIST="$RUNNER_TEMP/dist"
-          scripts/build-release-archive.sh "$TARGET" "$DIST"
+          cargo build --release --locked --target "$TARGET" --no-default-features
+          DTS_RELEASE_BINARY="$CARGO_TARGET_DIR/$TARGET/release/dicom-test-suite" \
+            scripts/build-release-archive.sh "$TARGET" "$DIST"
           ARCHIVE=$(find "$DIST" -maxdepth 1 -name '*.tar.gz' -type f -print -quit)
           scripts/verify-release-archive.sh "$ARCHIVE"
           EXTRACTED="$RUNNER_TEMP/extracted"
@@ -210,12 +265,25 @@ jobs:
         with:
           name: dicom-test-suite-${{ runner.os }}-${{ runner.arch }}-${{ needs.selection.outputs.revision }}
           path: ${{ runner.temp }}/dist/*
+      - name: Report release-candidate build cost
+        if: always()
+        env:
+          CI_COST_ENFORCE: "0"
+        run: >-
+          scripts/report-ci-cost.sh release-candidate "$CI_DISK_BUDGET_BYTES" "$CARGO_TARGET_DIR"
+          "$RUNNER_TEMP/package" "$RUNNER_TEMP/dist" "$RUNNER_TEMP/extracted"
 
   in-process-codecs:
     name: Codec (${{ matrix.feature }})
     needs: selection
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      CARGO_INCREMENTAL: "0"
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      CARGO_TARGET_DIR: ${{ runner.temp }}/cargo-target-codec-${{ matrix.feature }}
+      CI_DISK_BUDGET_BYTES: "6442450944"
     strategy:
       fail-fast: false
       matrix:
@@ -224,6 +292,8 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.selection.outputs.revision }}
+      - name: Start build-work cost clock
+        run: echo "CI_COST_STARTED_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
       - name: Compile feature-sensitive product surfaces
         run: cargo check --locked --no-default-features --features "${{ matrix.feature }}" --lib --bins
       - name: Test feature-sensitive surfaces
@@ -281,12 +351,25 @@ jobs:
           if [ "${{ matrix.feature }}" = deflate ]; then
             jq -e '.files[] | select(.case_id == "derived/seg/binary_multiframe_deflated_image_frame") | .pixel_data.native_or_encapsulated == "encapsulated" and .pixel_data.codec.backend_id == "dicom_rs_deflated_image_frame_writer" and .pixel_data.encapsulated_pixel_data.fragments_per_frame == [1,1]' "$root/manifest.json"
           fi
+      - name: Report and enforce codec build cost
+        if: always()
+        env:
+          CI_COST_ENFORCE: ${{ job.status == 'success' && '1' || '0' }}
+        run: >-
+          scripts/report-ci-cost.sh subsystem-codec "$CI_DISK_BUDGET_BYTES" "$CARGO_TARGET_DIR"
+          "$RUNNER_TEMP/dts-${{ matrix.feature }}" "$RUNNER_TEMP/dts-${{ matrix.feature }}-report.json"
 
   external-codec-compile:
     name: External codec compile (${{ matrix.feature }})
     needs: selection
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      CARGO_INCREMENTAL: "0"
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      CARGO_TARGET_DIR: ${{ runner.temp }}/cargo-target-external-codec-${{ matrix.feature }}
+      CI_DISK_BUDGET_BYTES: "6442450944"
     strategy:
       fail-fast: false
       matrix:
@@ -295,6 +378,8 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.selection.outputs.revision }}
+      - name: Start build-work cost clock
+        run: echo "CI_COST_STARTED_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
       - name: Compile and test feature-sensitive surfaces
         run: |
           cargo check --locked --no-default-features --features "${{ matrix.feature }}" --lib --bins
@@ -318,3 +403,8 @@ jobs:
             jq --arg id "$case_id" -e '([.files[].case_id] + [.skipped_cases[].case_id]) | index($id) != null' "$root/manifest.json"
           done
           echo "codec_feature=${{ matrix.feature }} selected_cases=${#cases[@]} generated=$(jq '.files | length' "$root/manifest.json") skipped=$(jq '.skipped_cases | length' "$root/manifest.json") elapsed_seconds=$((SECONDS-started)) output_bytes=$(du -sk "$root" | awk '{print $1 * 1024}')"
+      - name: Report and enforce external-codec build cost
+        if: always()
+        env:
+          CI_COST_ENFORCE: ${{ job.status == 'success' && '1' || '0' }}
+        run: scripts/report-ci-cost.sh subsystem-external-codec "$CI_DISK_BUDGET_BYTES" "$CARGO_TARGET_DIR" "$RUNNER_TEMP/dts-${{ matrix.feature }}"

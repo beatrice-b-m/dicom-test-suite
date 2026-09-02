@@ -19,8 +19,16 @@ jobs:
     name: Fast contracts and smoke
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      CARGO_INCREMENTAL: "0"
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      CARGO_TARGET_DIR: ${{ runner.temp }}/cargo-target-fast-pr
+      CI_DISK_BUDGET_BYTES: "4294967296"
     steps:
       - uses: actions/checkout@v6
+      - name: Start build-work cost clock
+        run: echo "CI_COST_STARTED_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
       - name: Show toolchain
         run: rustc --version && cargo --version
       - name: Check formatting and JSON schemas
@@ -43,6 +51,10 @@ jobs:
           cargo run --locked --no-default-features -- generate --profile smoke --out "$root" --seed 1
           cargo run --locked --no-default-features -- validate "$root"
           echo "fast_pr_elapsed_seconds=$((SECONDS - started))"
-          echo "target_bytes=$(du -sk target | awk '{print $1 * 1024}')"
           echo "output_bytes=$(du -sk "$root" | awk '{print $1 * 1024}')"
           echo "output_artifact_count=$(find "$root" -type f | wc -l | tr -d ' ')"
+      - name: Report and enforce Fast build cost
+        if: always()
+        env:
+          CI_COST_ENFORCE: ${{ job.status == 'success' && '1' || '0' }}
+        run: scripts/report-ci-cost.sh fast-pr "$CI_DISK_BUDGET_BYTES" "$CARGO_TARGET_DIR" "$RUNNER_TEMP/dts-fast-smoke"

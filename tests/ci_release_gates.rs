@@ -420,40 +420,106 @@ fn ci_build_storage_controls_cover_every_job_and_preserve_heavy_evidence() {
         );
     }
 
+    for source in [&fast, &heavy] {
+        let mut in_jobs = false;
+        let mut in_steps = false;
+        for line in source.lines() {
+            let trimmed = line.trim_start();
+            if trimmed.is_empty() {
+                continue;
+            }
+            let indentation = line.len() - trimmed.len();
+            if indentation == 0 {
+                in_jobs = trimmed == "jobs:";
+                in_steps = false;
+            } else if in_jobs && indentation == 2 && trimmed.ends_with(':') {
+                in_steps = false;
+            } else if in_jobs && indentation == 4 && trimmed == "steps:" {
+                in_steps = true;
+            }
+            if line.contains("${{ runner.") {
+                assert!(
+                    in_jobs && in_steps,
+                    "runner context is unavailable outside workflow steps: {line}"
+                );
+            }
+        }
+    }
+
     let jobs = [
-        (&fast, "  fast-pr:", None),
-        (&heavy, "  selection:", Some("  native-provider-contract:")),
-        (&heavy, "  native-provider-contract:", Some("  default:")),
-        (&heavy, "  default:", Some("  standalone-release:")),
+        (&fast, "  fast-pr:", None, "cargo-target-fast-pr"),
+        (
+            &heavy,
+            "  selection:",
+            Some("  native-provider-contract:"),
+            "cargo-target-selection",
+        ),
+        (
+            &heavy,
+            "  native-provider-contract:",
+            Some("  default:"),
+            "cargo-target-native-provider",
+        ),
+        (
+            &heavy,
+            "  default:",
+            Some("  standalone-release:"),
+            "cargo-target-nightly-default",
+        ),
         (
             &heavy,
             "  standalone-release:",
             Some("  in-process-codecs:"),
+            "cargo-target-release-candidate",
         ),
         (
             &heavy,
             "  in-process-codecs:",
             Some("  external-codec-compile:"),
+            "cargo-target-codec-${{ matrix.feature }}",
         ),
-        (&heavy, "  external-codec-compile:", None),
+        (
+            &heavy,
+            "  external-codec-compile:",
+            None,
+            "cargo-target-external-codec-${{ matrix.feature }}",
+        ),
     ];
-    for (source, start, end) in jobs {
-        let mut job = source.split(start).nth(1).unwrap();
+    for (source, start, end, target_suffix) in jobs {
+        let start_marker = format!("\n{start}");
+        let mut job = source.split_once(&start_marker).unwrap().1;
         if let Some(end) = end {
-            job = job.split(end).next().unwrap();
+            let end_marker = format!("\n{end}");
+            job = job.split_once(&end_marker).unwrap().0;
         }
         for required in [
             "CARGO_INCREMENTAL: \"0\"",
             "CARGO_PROFILE_DEV_DEBUG: \"0\"",
             "CARGO_PROFILE_TEST_DEBUG: \"0\"",
-            "CARGO_TARGET_DIR: ${{ runner.temp }}/cargo-target-",
             "CI_DISK_BUDGET_BYTES:",
-            "Start build-work cost clock",
+            "Initialize isolated build root and cost clock",
             "if: always()",
             "scripts/report-ci-cost.sh",
         ] {
             assert!(job.contains(required), "{start} omitted {required}");
         }
+        let export =
+            format!("echo \"CARGO_TARGET_DIR=$RUNNER_TEMP/{target_suffix}\" >> \"$GITHUB_ENV\"");
+        assert_eq!(
+            job.matches(&export).count(),
+            1,
+            "{start} must export its unique target exactly once"
+        );
+        if let Some(cargo_work) = job.find("cargo ") {
+            assert!(
+                job.find(&export).unwrap() < cargo_work,
+                "{start} exports its target after Cargo work begins"
+            );
+        }
+        assert!(
+            !job.contains("CARGO_TARGET_DIR: ${{ runner."),
+            "{start} uses runner context while GitHub evaluates job env"
+        );
     }
 
     assert_eq!(fast.matches("scripts/report-ci-cost.sh").count(), 1);

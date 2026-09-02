@@ -21,8 +21,10 @@ with tempfile.TemporaryDirectory(prefix="dts-upgrade-consumer-") as temporary:
     supported = run(["capabilities","--format","json"], work)["result"]["supported_versions"]
     assert supported["composition_request"] == ["0.1.0"]
     assert supported["assembly_request"] == ["1.0.0"]
-    assert supported["curated_manifest"] == ["0.2.0","0.3.0"]
-    assert supported["composition_manifest"] == ["0.4.0","0.5.0"]
+    assert supported["curated_manifest"] == ["1.0.0"]
+    assert supported["curated_manifest_validation"] == ["0.2.0","0.3.0","1.0.0"]
+    assert supported["composition_manifest"] == ["1.0.0"]
+    assert supported["composition_manifest_validation"] == ["0.4.0","0.5.0","1.0.0"]
     assert supported["cli_api"] == ["1.0.0"]
 
     composition_spec = work / "composition.json"
@@ -35,6 +37,7 @@ with tempfile.TemporaryDirectory(prefix="dts-upgrade-consumer-") as temporary:
     manifest = json.loads(manifest_path.read_text())
     manifest["manifest_schema_version"] = "0.4.0"
     manifest.pop("product_resources")
+    manifest.pop("identity_projection")
     manifest_path.write_text(json.dumps(manifest))
     run(["validate",str(prior_composition),"--format","json"], work)
     run(["report",str(prior_composition),"--format","json","--cli-api","1.0.0"], work)
@@ -47,6 +50,7 @@ with tempfile.TemporaryDirectory(prefix="dts-upgrade-consumer-") as temporary:
     manifest = json.loads(manifest_path.read_text())
     manifest["manifest_schema_version"] = "0.2.0"
     manifest.pop("product_resources")
+    manifest.pop("identity_projection")
     manifest_path.write_text(json.dumps(manifest))
     run(["validate",str(prior_curated),"--format","json"], work)
     run(["report",str(prior_curated),"--format","json","--cli-api","1.0.0"], work)

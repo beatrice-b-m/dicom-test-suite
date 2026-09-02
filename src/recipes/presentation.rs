@@ -993,7 +993,11 @@ fn common_attributes(
         set_string(tags::MANUFACTURER, DicomVr::LO, "dicom-test-suite"),
         set_string(tags::MANUFACTURER_MODEL_NAME, DicomVr::LO, model),
         set_string(tags::DEVICE_SERIAL_NUMBER, DicomVr::LO, serial),
-        set_string(tags::SOFTWARE_VERSIONS, DicomVr::LO, crate::PACKAGE_VERSION),
+        set_string(
+            tags::SOFTWARE_VERSIONS,
+            DicomVr::LO,
+            crate::BYTE_STABLE_OUTPUT_VERSION,
+        ),
         set_string(tags::INSTANCE_NUMBER, DicomVr::IS, "1"),
     ]
 }
@@ -1266,7 +1270,7 @@ fn implementation_uid(lock: &str) -> String {
     deterministic_uid(&DeterministicUidInput {
         standards_lock_sha256: lock,
         case_id: "dicom-test-suite/implementation",
-        recipe_version: crate::PACKAGE_VERSION,
+        recipe_version: crate::BYTE_STABLE_OUTPUT_VERSION,
         run_seed: 0,
         file_index: 0,
         frame_index: None,

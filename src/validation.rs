@@ -6084,9 +6084,9 @@ pub(crate) fn validate_color_softcopy_presentation_state_file(
         (
             "color_softcopy_software_versions",
             tags::SOFTWARE_VERSIONS,
-            crate::PACKAGE_VERSION,
-            "Software Versions matches the running generator version.",
-            "Software Versions does not match the running generator version.",
+            crate::BYTE_STABLE_OUTPUT_VERSION,
+            "Software Versions matches the byte-stable output contract.",
+            "Software Versions does not match the byte-stable output contract.",
         ),
         (
             "color_softcopy_instance_number",
@@ -6728,7 +6728,7 @@ pub(crate) fn validate_blending_presentation_state_file(
         (
             "software_versions",
             tags::SOFTWARE_VERSIONS,
-            crate::PACKAGE_VERSION,
+            crate::BYTE_STABLE_OUTPUT_VERSION,
         ),
         ("instance_number", tags::INSTANCE_NUMBER, "1"),
         (
@@ -7391,7 +7391,7 @@ pub(crate) fn validate_advanced_blending_presentation_state_file(
         (
             "advanced_blending_software_versions",
             tags::SOFTWARE_VERSIONS,
-            crate::PACKAGE_VERSION,
+            crate::BYTE_STABLE_OUTPUT_VERSION,
         ),
         (
             "advanced_blending_instance_number",

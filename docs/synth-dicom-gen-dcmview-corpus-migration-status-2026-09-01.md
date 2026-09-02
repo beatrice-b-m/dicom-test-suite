@@ -2616,6 +2616,12 @@ report version; the smoke comparison reproduces the exact R0 report bytes.
 
 All three current schemas reject unknown versions, missing identity,
 malformed digests, and duplicate runtime IDs with different fingerprints.
+The two domain report producers now have explicit overlapping change routes:
+`src/composition/validation.rs` selects composition plus the focused report
+bundle, and `src/assembly/validation.rs` selects assembly plus that report
+bundle. The curated producer remains conservatively covered by the existing
+`src/lib.rs` all-ordinary route. Routing fixtures fail closed if either overlap
+is removed.
 The dedicated composition report legacy/current schemas establish the
 previously absent public contract and have exactly one compatibility owner.
 Capabilities advertise current producers separately from report validation

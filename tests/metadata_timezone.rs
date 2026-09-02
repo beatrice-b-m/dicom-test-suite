@@ -91,10 +91,7 @@ fn timezone_boundaries_are_deterministic_strict_and_reported() {
     );
 
     let report = report_json(&first_root);
-    let report_schema = read_json("schemas/coverage-report.schema.json");
-    let report_validator =
-        jsonschema::validator_for(&report_schema).expect("report schema must compile");
-    assert!(report_validator.is_valid(&report));
+    coverage_report::assert_current_contract(&first_root, &report);
     assert_eq!(
         report.pointer("/grouped_coverage/metadata_temporal_boundary_ids/positive_max"),
         Some(&Value::from(1))
@@ -259,3 +256,5 @@ fn unique_temp_dir(label: &str) -> PathBuf {
         std::process::id()
     ))
 }
+#[path = "support/coverage_report.rs"]
+mod coverage_report;

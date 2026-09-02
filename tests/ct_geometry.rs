@@ -169,20 +169,7 @@ fn core_generates_ct_series_with_conflicting_instance_number_order() {
 
     let report = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect("coverage report should include geometry expectations");
-    let report_schema: Value = serde_json::from_slice(
-        &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
-    )
-    .expect("coverage schema JSON");
-    let report_validator =
-        jsonschema::validator_for(&report_schema).expect("coverage schema should compile");
-    let report_errors = report_validator
-        .iter_errors(&report)
-        .map(|error| error.to_string())
-        .collect::<Vec<_>>();
-    assert!(
-        report_errors.is_empty(),
-        "geometry coverage report must match schema: {report_errors:?}"
-    );
+    coverage_report::assert_current_contract(&out_dir, &report);
     let geometry_rows = report["coverage_matrix"]
         .as_array()
         .expect("coverage matrix")
@@ -874,3 +861,5 @@ fn unique_temp_dir(label: &str) -> PathBuf {
         .as_nanos();
     std::env::temp_dir().join(format!("dicom-test-suite-{label}-{nonce}"))
 }
+#[path = "support/coverage_report.rs"]
+mod coverage_report;

@@ -158,11 +158,7 @@ fn pet_rescaled_activity_vertical_slice_is_exact_byte_stable_and_reported() {
     assert!(summary.failures.is_empty(), "{:?}", summary.failures);
 
     let report = report_json(&first_root);
-    assert!(
-        jsonschema::validator_for(&read_json("schemas/coverage-report.schema.json"))
-            .unwrap()
-            .is_valid(&report)
-    );
+    coverage_report::assert_current_contract(&first_root, &report);
     let row = report["coverage_matrix"]
         .as_array()
         .unwrap()
@@ -374,3 +370,5 @@ fn unique_temp_dir(label: &str) -> PathBuf {
         std::process::id()
     ))
 }
+#[path = "support/coverage_report.rs"]
+mod coverage_report;

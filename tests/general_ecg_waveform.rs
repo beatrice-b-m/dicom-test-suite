@@ -107,7 +107,7 @@ fn general_ecg_vertical_slice_is_byte_deterministic_and_closed() {
 
     let report =
         synth_dicom_gen::build_coverage_report(&first_root).expect("coverage report should build");
-    assert_schema_valid("schemas/coverage-report.schema.json", &report);
+    coverage_report::assert_current_contract(&first_root, &report);
     assert_report_contract(&report);
     assert_registry_and_skip_closure(&first_manifest);
 
@@ -485,16 +485,6 @@ fn temporary_workspace(label: &str) -> PathBuf {
     path
 }
 
-fn assert_schema_valid(path: &str, value: &Value) {
-    let schema = read_repo_json(path);
-    let validator = jsonschema::validator_for(&schema).expect("JSON schema should compile");
-    let errors = validator
-        .iter_errors(value)
-        .map(|error| error.to_string())
-        .collect::<Vec<_>>();
-    assert!(errors.is_empty(), "{path} failures: {errors:#?}");
-}
-
 fn sequence(object: &InMemDicomObject, tag: dicom_core::Tag) -> &[InMemDicomObject] {
     object
         .element(tag)
@@ -536,3 +526,5 @@ fn read_repo_json(path: &str) -> Value {
 fn repo_path(path: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join(path)
 }
+#[path = "support/coverage_report.rs"]
+mod coverage_report;

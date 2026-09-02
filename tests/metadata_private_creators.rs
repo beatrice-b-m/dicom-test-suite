@@ -84,12 +84,7 @@ fn private_creator_vertical_slice_is_exact_byte_stable_and_reported() {
     );
 
     let report = report_json(&first_root);
-    let report_schema = read_json("schemas/coverage-report.schema.json");
-    assert!(
-        jsonschema::validator_for(&report_schema)
-            .expect("coverage report schema must compile")
-            .is_valid(&report)
-    );
+    coverage_report::assert_current_contract(&first_root, &report);
     let row = report["coverage_matrix"]
         .as_array()
         .expect("coverage matrix must be an array")
@@ -295,3 +290,5 @@ fn unique_temp_dir(label: &str) -> PathBuf {
         std::process::id()
     ))
 }
+#[path = "support/coverage_report.rs"]
+mod coverage_report;

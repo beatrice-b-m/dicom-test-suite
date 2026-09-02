@@ -2105,6 +2105,63 @@ Nightly, release-candidate, or R7 terminal qualification ran. This repair is
 ordinary R3/R0 compatibility evidence only and does not promote any deferred
 R7 or terminal acceptance row.
 
+The subsequent R3 review found that eight crate-internal validator fixture
+modules still constructed Software Versions with `PACKAGE_VERSION`, allowing
+their paired expectations to pass against release-coupled fixture bytes even
+though native producers were correctly frozen. Commit `8123f2b` changes the
+color, advanced-blending, and blending presentation-state fixtures; general
+and twelve-lead ECG fixtures; linked RT image and plan fixtures; and
+second-generation RT radiation/set fixtures to
+`BYTE_STABLE_OUTPUT_VERSION`. An exhaustive search now finds zero
+`PACKAGE_VERSION` or `CARGO_PKG_VERSION` occurrences in
+`src/validation_*_tests.rs`.
+
+All 36 accept and mutation tests in the affected validator modules passed:
+
+```text
+cargo test --locked --no-default-features --lib validation::color_softcopy_presentation_state_tests::
+8 passed
+
+cargo test --locked --no-default-features --lib validation::advanced_blending_presentation_state_tests::
+4 passed
+
+cargo test --locked --no-default-features --lib validation::blending_presentation_state_tests::
+3 passed
+
+cargo test --locked --no-default-features --lib validation::general_ecg_tests::
+3 passed
+
+cargo test --locked --no-default-features --lib validation::twelve_lead_ecg_tests::
+6 passed
+
+cargo test --locked --no-default-features --lib validation::rt_image_tests::
+4 passed
+
+cargo test --locked --no-default-features --lib validation::rt_plan_tests::
+4 passed
+
+cargo test --locked --no-default-features --lib validation::rt_radiation_tests::
+4 passed
+```
+
+Commit `5736d50` expands the fail-closed audit from recipe-only coverage to the
+complete version-bearing output boundary: recursive recipes, composition
+defaults, native curated plans and execution, curated manifest projection,
+library manifest/product expectations, production validators, and every
+crate-internal validator fixture. It additionally enumerates exact allowed
+lines for product manifest and runtime identities in assembly, codecs,
+composition, materialization, curated execution, and the library; the two
+highdicom and three quantitative semantic-stable external cases are the only
+allowed external DICOM Software Versions uses. Any new or moved occurrence
+fails the test. The complete seven-test unified audit passed, and refreshed
+ownership metadata passes with 22 targets, 264 groups, 1,400 entries, 20
+integration targets, 186 integration sources, and 882 integration entries;
+ownership SHA-256 is
+`a13adc8112b28ab2bf27f42db4768a059d9b5d4743d23ce73ddd144820e71cea`.
+
+This review remediation ran no Heavy, unrelated manifest-fixture, external
+provider, Nightly, release-candidate, or R7 qualification body.
+
 Focused verification passed:
 
 ```text

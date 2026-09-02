@@ -189,6 +189,39 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
                     commands,
                 )
 
+    def test_assembly_identity_schemas_route_live_producers_readers_and_schema_checks(self):
+        for schema in [
+            "schemas/assembly-result-v2.schema.json",
+            "schemas/structural-assembly-manifest-v2.schema.json",
+        ]:
+            with self.subTest(schema=schema):
+                result = self.select(schema)
+                self.assertEqual(
+                    result["bundle_ids"],
+                    ["assembly", "identity", "schema", "sdk"],
+                )
+                self.assertEqual(
+                    result["matched_rules"][schema],
+                    ["assembly-identity-contract", "schema"],
+                )
+                commands = self.commands(result)
+                self.assertIn(
+                    "cargo test --locked --no-default-features --test assembly__subsystem",
+                    commands,
+                )
+                self.assertIn(
+                    "cargo test --locked --no-default-features --test cli_sdk__nonfast sdk_facade::",
+                    commands,
+                )
+                self.assertIn(
+                    "cargo test --locked --no-default-features --lib identity::identity_domain_tests::",
+                    commands,
+                )
+                self.assertIn(
+                    "cargo test --locked --no-default-features --test schema_resources__subsystem",
+                    commands,
+                )
+
     def test_structured_report_qualification_is_explicitly_deferred(self):
         result = self.select("tests/composition_structured_reports.rs")
         self.assertEqual(result["bundle_ids"], [])

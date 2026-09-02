@@ -12,7 +12,7 @@
       "dependency_lock": {
         "format": "cargo-lock-v4",
         "path": "Cargo.lock",
-        "sha256": "d7620bc018085a5bdf4ced7d7d575edea6d974a8cc7eb35492065fb6035b6b16"
+        "sha256": "6b924968e704a002780829a784f5f6c453766bcff4b5b3531f9626378be6086c"
       },
       "fingerprint_components": [
         "dependency_lock_bytes",
@@ -200,7 +200,7 @@
     "dependency_lock": {
       "format": "cargo-lock-v4",
       "path": "Cargo.lock",
-      "sha256": "d7620bc018085a5bdf4ced7d7d575edea6d974a8cc7eb35492065fb6035b6b16"
+      "sha256": "6b924968e704a002780829a784f5f6c453766bcff4b5b3531f9626378be6086c"
     },
     "fingerprint_components": [
       "canonical_executable_bytes",
@@ -273,7 +273,7 @@
     "dependency_lock": {
       "format": "cargo-lock-v4",
       "path": "Cargo.lock",
-      "sha256": "d7620bc018085a5bdf4ced7d7d575edea6d974a8cc7eb35492065fb6035b6b16"
+      "sha256": "6b924968e704a002780829a784f5f6c453766bcff4b5b3531f9626378be6086c"
     },
     "fingerprint_components": [
       "canonical_executable_bytes",

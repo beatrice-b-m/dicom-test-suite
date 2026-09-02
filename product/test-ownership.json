@@ -3069,7 +3069,7 @@
         "byte_stable_provider_inventory_is_complete_and_version_decoupled",
         "every_direct_output_version_provider_family_has_an_exact_payload_plan"
       ],
-      "entry_digest": "278be992dce0d573a2b2426a395a24115f39f230bb82e8637d806514319ee133"
+      "entry_digest": "0103ab791b83fdde79aef57e61a8bcca10369af7dcb4f2876c4354a0805faa97"
     },
     {
       "source": "tests/unified_spine_boundaries.rs",
@@ -3230,7 +3230,7 @@
         "xa_monoplane_vertical_slice_is_exact_byte_stable_and_reported",
         "validator_rejects_tampered_xa_projection_contract"
       ],
-      "entry_digest": "8dc87d8691b6a7bb6859217648e9e886d85ba410b9d0483a3e84a0bea726547b"
+      "entry_digest": "f4b3ede8c32f74bf4698b730fec80c019ae6f29696518aa9ebc9c0f4c5835a30"
     },
     {
       "source": "tests/xrf_monoplane.rs",
@@ -3243,7 +3243,7 @@
         "xrf_monoplane_vertical_slice_is_exact_byte_stable_and_reported",
         "validator_rejects_tampered_xrf_projection_contract"
       ],
-      "entry_digest": "b68fc364700dcd970d7a0a5bfbeaf91bd2f98a5a6a4f4c7230d1618319193c5a"
+      "entry_digest": "35bb7c4a87f0366d7354a86e0fd8833cbb08bbe20b46544bc0feb84274378922"
     },
     {
       "source": "src/codecs.rs",

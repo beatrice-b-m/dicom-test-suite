@@ -4054,7 +4054,7 @@
         "verified_corpus_perturbation_changes_only_corpus_identity",
         "external_runtime_identity_requires_successful_typed_execution_evidence"
       ],
-      "entry_digest": "654a3e13611b087556a046e8e566ca89756729104efacb248ac375c9aff67196"
+      "entry_digest": "1d3303f6c7cc943da538aebe34196579e060866a215b33564b76eb291963c92c"
     },
     {
       "source": "src/lib.rs",

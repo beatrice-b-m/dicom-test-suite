@@ -4,6 +4,7 @@ use synth_dicom_gen::sdk::{
     AssembleRequest, CancellationToken, ComposeRequest, DicomTestSuite, ManifestKind, ReportKind,
     ReportRequest, SdkErrorKind, ValidateRequest,
 };
+use synth_dicom_gen::{GenerateOptions, prepare_generation_run, write_generation_run};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
@@ -110,6 +111,84 @@ fn sdk_validation_and_report_return_typed_schema_bound_results() {
     assert_eq!(report.schema_version(), "0.1.0");
     assert!(!report.json_bytes().is_empty());
 
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn sdk_curated_validate_and_report_read_exact_supported_manifest_versions() {
+    let product = DicomTestSuite::embedded().unwrap();
+    let root = output("curated-readers");
+    let run = prepare_generation_run(GenerateOptions {
+        profile: "smoke".into(),
+        out_dir: root.clone(),
+        seed: 1,
+        include_stress: false,
+    })
+    .unwrap();
+    write_generation_run(&run).unwrap();
+    let manifest_path = root.join("manifest.json");
+    let current: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&manifest_path).unwrap()).unwrap();
+
+    for version in ["1.0.0", "0.3.0", "0.2.0"] {
+        let mut manifest = current.clone();
+        manifest["manifest_schema_version"] = version.into();
+        if version != "1.0.0" {
+            manifest
+                .as_object_mut()
+                .unwrap()
+                .remove("identity_projection");
+        }
+        if version == "0.2.0" {
+            manifest
+                .as_object_mut()
+                .unwrap()
+                .remove("product_resources");
+        }
+        std::fs::write(
+            &manifest_path,
+            serde_json::to_vec_pretty(&manifest).unwrap(),
+        )
+        .unwrap();
+        let validation = product.validate(ValidateRequest::new(&root)).unwrap();
+        assert!(validation.is_valid());
+        assert_eq!(
+            validation.manifest().kind(),
+            ManifestKind::CuratedGeneration
+        );
+        assert_eq!(validation.manifest().schema_version(), version);
+        let report = product.report(ReportRequest::new(&root)).unwrap();
+        assert_eq!(report.kind(), ReportKind::CuratedCoverage);
+    }
+
+    let mut unknown = current.clone();
+    unknown["manifest_schema_version"] = "9.0.0".into();
+    std::fs::write(&manifest_path, serde_json::to_vec_pretty(&unknown).unwrap()).unwrap();
+    assert!(product.validate(ValidateRequest::new(&root)).is_err());
+    assert!(product.report(ReportRequest::new(&root)).is_err());
+
+    let mut malformed_identity = current.clone();
+    malformed_identity["identity_projection"]["engine"]["engine_sha256"] = "not-a-digest".into();
+    std::fs::write(
+        &manifest_path,
+        serde_json::to_vec_pretty(&malformed_identity).unwrap(),
+    )
+    .unwrap();
+    assert!(product.validate(ValidateRequest::new(&root)).is_err());
+    assert!(product.report(ReportRequest::new(&root)).is_err());
+
+    let mut missing_identity = current;
+    missing_identity
+        .as_object_mut()
+        .unwrap()
+        .remove("identity_projection");
+    std::fs::write(
+        &manifest_path,
+        serde_json::to_vec_pretty(&missing_identity).unwrap(),
+    )
+    .unwrap();
+    assert!(product.validate(ValidateRequest::new(&root)).is_err());
+    assert!(product.report(ReportRequest::new(&root)).is_err());
     std::fs::remove_dir_all(root).unwrap();
 }
 

@@ -195,5 +195,42 @@ fn generate_uses_embedded_resources_from_an_unrelated_working_directory() {
         }
     }
 
+    for (label, rejected) in [
+        ("unknown version", {
+            let mut value = manifest.clone();
+            value["manifest_schema_version"] = Value::String("9.0.0".into());
+            value
+        }),
+        ("missing identity", {
+            let mut value = manifest.clone();
+            value.as_object_mut().unwrap().remove("identity_projection");
+            value
+        }),
+        ("malformed identity", {
+            let mut value = manifest.clone();
+            value["identity_projection"]["engine"]["engine_sha256"] =
+                Value::String("not-a-digest".into());
+            value
+        }),
+    ] {
+        fs::write(
+            output_root.join("manifest.json"),
+            serde_json::to_vec_pretty(&rejected).unwrap(),
+        )
+        .unwrap();
+        for command in ["validate", "report"] {
+            let mut arguments = vec![command.to_string(), output_root.display().to_string()];
+            if command == "report" {
+                arguments.extend(["--format".to_string(), "json".to_string()]);
+            }
+            let result = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
+                .current_dir(&working)
+                .args(&arguments)
+                .output()
+                .unwrap();
+            assert!(!result.status.success(), "{command} must reject {label}");
+        }
+    }
+
     fs::remove_dir_all(base).unwrap();
 }

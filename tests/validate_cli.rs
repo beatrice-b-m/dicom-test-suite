@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use serde_json::{Value, json};
+use synth_dicom_gen::engine_resources::EngineResources;
 
 #[test]
 fn validate_command_accepts_generated_smoke_root() {
@@ -31,6 +32,48 @@ fn validate_command_accepts_generated_smoke_root() {
     )));
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
+}
+
+#[test]
+fn validate_command_honors_verified_explicit_resources_and_rejects_tampering() {
+    let out_dir = unique_temp_dir("validate-explicit-resources");
+    generate_smoke(&out_dir);
+    let resources = EngineResources::embedded();
+    let snapshot = resources.snapshot().unwrap();
+    let binary = env!("CARGO_BIN_EXE_synth-dicom-gen");
+
+    let valid = Command::new(binary)
+        .arg("--resource-root")
+        .arg(snapshot.root())
+        .arg("validate")
+        .arg(&out_dir)
+        .output()
+        .expect("validate command with explicit resources must run");
+    assert!(
+        valid.status.success(),
+        "verified explicit resources must validate: {}",
+        String::from_utf8_lossy(&valid.stderr)
+    );
+
+    let schema = snapshot.root().join("schemas/manifest-v1.schema.json");
+    let mut bytes = fs::read(&schema).unwrap();
+    bytes[0] ^= 1;
+    fs::write(&schema, bytes).unwrap();
+    let tampered = Command::new(binary)
+        .arg("--resource-root")
+        .arg(snapshot.root())
+        .arg("validate")
+        .arg(&out_dir)
+        .output()
+        .expect("tampered explicit-resource validation must terminate");
+    assert!(!tampered.status.success());
+    assert!(
+        String::from_utf8_lossy(&tampered.stderr).contains("integrity"),
+        "tampered explicit resources must fail at the selected boundary: {}",
+        String::from_utf8_lossy(&tampered.stderr)
+    );
+
+    fs::remove_dir_all(out_dir).unwrap();
 }
 
 #[test]

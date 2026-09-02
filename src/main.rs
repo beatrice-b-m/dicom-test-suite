@@ -60,11 +60,16 @@ fn requests_machine_json(arguments: &[String]) -> bool {
 
 fn run() -> Result<(), String> {
     let mut args = std::env::args().skip(1).peekable();
-    let resources = if args.peek().map(String::as_str) == Some("--resource-root") {
+    let explicit_resource_root = if args.peek().map(String::as_str) == Some("--resource-root") {
         args.next();
-        let root = args
-            .next()
-            .ok_or_else(|| "--resource-root requires a path".to_string())?;
+        Some(
+            args.next()
+                .ok_or_else(|| "--resource-root requires a path".to_string())?,
+        )
+    } else {
+        None
+    };
+    let resources = if let Some(root) = explicit_resource_root.as_deref() {
         synth_dicom_gen::engine_resources::EngineResources::explicit(root)
             .map_err(|error| error.to_string())?
     } else {
@@ -74,13 +79,22 @@ fn run() -> Result<(), String> {
         println!("{}", synth_dicom_gen::version_banner());
         return Ok(());
     };
-    let resource_snapshot = resources.snapshot().map_err(|error| error.to_string())?;
-    let resource_path = |logical_path: &str| {
-        resource_snapshot
+    let mut resource_snapshot = None;
+    let mut resource_path = |logical_path: &str| -> Result<String, String> {
+        let snapshot = match resource_snapshot.as_ref() {
+            Some(snapshot) => snapshot,
+            None => {
+                resource_snapshot = Some(resources.snapshot().map_err(|error| error.to_string())?);
+                resource_snapshot
+                    .as_ref()
+                    .expect("snapshot was initialized")
+            }
+        };
+        Ok(snapshot
             .root()
             .join(logical_path)
             .to_string_lossy()
-            .into_owned()
+            .into_owned())
     };
 
     match command.as_str() {
@@ -149,7 +163,7 @@ fn run() -> Result<(), String> {
             match subcommand.as_str() {
                 "check-tools" => {
                     let mut config =
-                        resource_path(synth_dicom_gen::conformance::DEFAULT_VALIDATOR_CONFIG);
+                        resource_path(synth_dicom_gen::conformance::DEFAULT_VALIDATOR_CONFIG)?;
                     let mut format = None;
                     while let Some(arg) = args.next() {
                         match arg.as_str() {
@@ -197,7 +211,7 @@ fn run() -> Result<(), String> {
                     })?;
                     let mut out = None;
                     let mut config =
-                        resource_path(synth_dicom_gen::conformance::DEFAULT_VALIDATOR_CONFIG);
+                        resource_path(synth_dicom_gen::conformance::DEFAULT_VALIDATOR_CONFIG)?;
                     let mut format = None;
                     while let Some(arg) = args.next() {
                         match arg.as_str() {
@@ -260,7 +274,7 @@ fn run() -> Result<(), String> {
                         "conformance verify requires an evidence root path".to_string()
                     })?;
                     let mut allowlist =
-                        resource_path(synth_dicom_gen::conformance::DEFAULT_ACCEPTED_FINDINGS);
+                        resource_path(synth_dicom_gen::conformance::DEFAULT_ACCEPTED_FINDINGS)?;
                     let mut format = None;
                     while let Some(arg) = args.next() {
                         match arg.as_str() {
@@ -485,7 +499,7 @@ fn run() -> Result<(), String> {
                     })?;
                     let mut format = None;
                     let mut seed = 1_u64;
-                    let mut fixtures = resource_path("security/fixtures/fixtures.lock.json");
+                    let mut fixtures = resource_path("security/fixtures/fixtures.lock.json")?;
                     while let Some(argument) = args.next() {
                         match argument.as_str() {
                             "--format" => format = Some(required_value(&mut args, "--format")?),
@@ -572,7 +586,7 @@ fn run() -> Result<(), String> {
             let mut spec_path = None;
             let mut out_dir = None;
             let mut seed = 1_u64;
-            let mut catalog_path = resource_path("templates/catalog.json");
+            let mut catalog_path = "templates/catalog.json".to_string();
             let mut dry_run = false;
             let mut format = None;
             while let Some(argument) = args.next() {
@@ -703,7 +717,7 @@ fn run() -> Result<(), String> {
             let subcommand = args
                 .next()
                 .ok_or_else(|| "templates requires a subcommand".to_string())?;
-            let mut catalog_path = resource_path("templates/catalog.json");
+            let mut catalog_path = resource_path("templates/catalog.json")?;
             match subcommand.as_str() {
                 "list" => {
                     let mut format = String::from("table");
@@ -844,7 +858,7 @@ fn run() -> Result<(), String> {
             }
         }
         "list-cases" => {
-            let mut registry_path = resource_path("cases/registry.json");
+            let mut registry_path = resource_path("cases/registry.json")?;
             let mut profile_filter = None;
             let mut status_filter = None;
             let mut format = None;
@@ -928,26 +942,33 @@ fn run() -> Result<(), String> {
                 }
             }
 
-            let summary =
-                synth_dicom_gen::validate_generated_root(&root).map_err(|err| err.to_string())?;
+            let product = if let Some(resource_root) = explicit_resource_root.as_deref() {
+                synth_dicom_gen::sdk::DicomTestSuite::explicit_resource_root(resource_root)
+            } else {
+                synth_dicom_gen::sdk::DicomTestSuite::embedded()
+            }
+            .map_err(|error| error.to_string())?;
+            let outcome = product
+                .validate(synth_dicom_gen::sdk::ValidateRequest::new(&root))
+                .map_err(|error| error.to_string())?;
             match format.as_deref() {
                 None => {
                     println!("generated_root\t{root}");
-                    println!("manifest\t{}", summary.manifest_path.display());
-                    println!("files_checked\t{}", summary.files_checked);
-                    println!("validation_failures\t{}", summary.failures.len());
-                    for failure in &summary.failures {
+                    println!("manifest\t{}", outcome.manifest().path().display());
+                    println!("files_checked\t{}", outcome.files_checked());
+                    println!("validation_failures\t{}", outcome.failures().len());
+                    for failure in outcome.failures() {
                         println!("failure\t{failure}");
                     }
                 }
-                Some("json") if summary.failures.is_empty() => write_machine_success(
+                Some("json") if outcome.is_valid() => write_machine_success(
                     "validate",
                     synth_dicom_gen::cli_protocol::ValidationResult {
                         validation_result_schema_version:
                             synth_dicom_gen::cli_protocol::VALIDATION_RESULT_SCHEMA_VERSION,
                         generated_root: root.clone(),
-                        manifest_path: summary.manifest_path.display().to_string(),
-                        files_checked: summary.files_checked,
+                        manifest_path: outcome.manifest().path().display().to_string(),
+                        files_checked: outcome.files_checked(),
                         valid: true,
                         failures: Vec::new(),
                     },
@@ -955,7 +976,7 @@ fn run() -> Result<(), String> {
                 Some("json") => {}
                 Some(other) => return Err(format!("unsupported validate format: {other}")),
             }
-            if summary.failures.is_empty() {
+            if outcome.is_valid() {
                 Ok(())
             } else {
                 Err("validation failed".to_string())
@@ -971,8 +992,8 @@ fn run() -> Result<(), String> {
             }
             let gap_report = root == "gaps";
             let mut format = None;
-            let mut registry_path = resource_path("cases/registry.json");
-            let mut standards_lock_path = resource_path("standards.lock.json");
+            let mut registry_path = "cases/registry.json".to_string();
+            let mut standards_lock_path = "standards.lock.json".to_string();
             let mut cli_api = None;
             while let Some(arg) = args.next() {
                 match arg.as_str() {
@@ -1008,6 +1029,12 @@ fn run() -> Result<(), String> {
                 }
             }
             if gap_report {
+                if registry_path == "cases/registry.json" {
+                    registry_path = resource_path("cases/registry.json")?;
+                }
+                if standards_lock_path == "standards.lock.json" {
+                    standards_lock_path = resource_path("standards.lock.json")?;
+                }
                 let report =
                     synth_dicom_gen::build_coverage_gap_report(registry_path, standards_lock_path)
                         .map_err(|err| err.to_string())?;
@@ -1071,7 +1098,7 @@ fn run() -> Result<(), String> {
                 .ok_or_else(|| "standards requires a subcommand".to_string())?;
             match subcommand.as_str() {
                 "check-lock" => {
-                    let mut lock_path = resource_path("standards.lock.json");
+                    let mut lock_path = resource_path("standards.lock.json")?;
                     let mut format = None;
                     while let Some(arg) = args.next() {
                         match arg.as_str() {
@@ -1113,7 +1140,7 @@ fn run() -> Result<(), String> {
                     Ok(())
                 }
                 "gaps" => {
-                    let mut registry_path = resource_path("cases/registry.json");
+                    let mut registry_path = resource_path("cases/registry.json")?;
                     let mut profile = None;
                     let mut format = None;
                     while let Some(arg) = args.next() {

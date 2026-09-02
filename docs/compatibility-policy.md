@@ -20,7 +20,8 @@ necessarily change every other contract.
 | Composition request | `0.1.0` | `composition_spec_schema_version` and its accepted document semantics. |
 | Structural-assembly request | `1.0.0` when introduced | `assembly_request_schema_version` and its accepted document semantics. |
 | Curated manifest | `1.0.0` (reader retains `0.2.0` and `0.3.0`) | `manifest_schema_version` for registry-led runs. Version `1.0.0` adds split identity projection; older readers remain legacy-only and never synthesize split identities. |
-| Composition manifest | `0.5.0` (reader retains `0.4.0`) | `manifest_schema_version` plus `run.kind = "composition"`. Version `0.5.0` adds immutable product-resource identity. |
+| Composition manifest | `1.0.0` (reader retains `0.4.0` and `0.5.0`) | `manifest_schema_version` plus `run.kind = "composition"`. Version `1.0.0` adds split identity projection; legacy readers remain validation/report compatible without synthesizing split identities. |
+| Composition result | `2.0.0` (schema validation retains `1.0.0`) | `composition_result_schema_version`; version `2.0.0` binds published and dry-run outcomes to the composition manifest `1.0.0` contract while preserving their typed shape. |
 | Structural-assembly manifest | `1.0.0` when introduced | Discriminated structural-assembly branch and its no-IOD-claim semantics. |
 | Coverage report | `0.1.0` | `coverage_report_schema_version` and report field meanings. |
 | Template catalog | `0.1.0` | `template_catalog_schema_version`; each descriptor also has an independent template ID/version. |

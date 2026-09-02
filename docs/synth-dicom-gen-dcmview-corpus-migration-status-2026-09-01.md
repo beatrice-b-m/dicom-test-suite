@@ -37,7 +37,7 @@ artifact.
 | R1 — contain CI and local build cost | Complete | R1.1, R1.2, R1.3, R1.4, R1.5, R1.6 | A disposable draft-PR probe proved superseded-run cancellation and single-event ownership. Replacement Fast run `33581809536` passed in 123 seconds of job time with only the declared Fast work, a 739,602,432-byte target, four smoke artifacts occupying 122,880 allocated bytes, and the 4-GiB ceiling enforced. The broad matrix remains separately scheduled/manually invocable. The R1 gate passes. |
 | R2 — reduce Rust test-linking amplification | Complete | R2.1, R2.2, R2.3, R2.4 | The fail-closed inventory maps 186 integration sources and all 879 integration entries into exactly 20 explicit harnesses. Six R0-measured heavy bodies have exact ignored qualification entry points, while deterministic change routing now selects bounded Fast/subsystem evidence and reports every deferred class without executing it. The aggregate R2 target-count, cost, heavy-isolation, and routing gates pass. |
 | R3 — rename reusable product | Complete | R3.1, R3.2, R3.3, R3.4 | Product, package, crate, library, sole binary, archives, discovery, package metadata, current operating guides, product-controlled environment, and production scratch paths use `synth-dicom-gen` / `synth_dicom_gen` at the breaking pre-1.0 product boundary `0.2.0`. Immutable dated evidence retains its exact old candidate identity, and 12 qualified-adapter variables retain provenance-bound spellings pending external requalification. The external-consumer audit found no supported `0.1.0` product consumer requiring an alias. A clean side project compiled and exercised only `synth_dicom_gen::sdk` from the extracted, verified `synth-dicom-gen-0.2.0.crate`, without the old repository path. The aggregate R3 gate passes. |
-| R4 — split immutable resources and corpus definitions | In progress | R4.1, R4.2; discovery and curated-generation R4.3 slices | `EngineResources` owns the immutable product-resource boundary, `CorpusDefinitionBundle` 1.0.0 inspects integrity-checked caller corpus data, and version/capabilities plus curated-generation contracts now project independent identity domains. Composition/assembly/coverage/release R4.3 slices, corpus/Cargo digest removal, reusable materialization, and the supported SDK/CLI generation route remain open. |
+| R4 — split immutable resources and corpus definitions | In progress | R4.1, R4.2; discovery, curated-generation, and composition R4.3 slices | `EngineResources` owns the immutable product-resource boundary, `CorpusDefinitionBundle` 1.0.0 inspects integrity-checked caller corpus data, and version/capabilities plus curated-generation and composition contracts now project independent identity domains. Assembly/coverage/release R4.3 slices, corpus/Cargo digest removal, reusable materialization, and the supported SDK/CLI generation route remain open. |
 | R5 — add supported external corpus API | Not started | None | Requires the R4 resource and identity boundary. |
 | R6 — establish smoke corpus repository | Not started | None | No external repository has been created; authority and destination are still required before out-of-workspace mutation. |
 | R7 — migrate complete dcmview corpus | Not started | None | Requires R6 smoke parity and supported contracts. |
@@ -2410,6 +2410,84 @@ external adapter, Nightly, release-candidate, remote, release, R4.3 identity,
 R4.4 removal, R4.5 materialization, or R5 API body ran. R4.3-R4.5 and the
 aggregate R4 gate remain open.
 
+### R4.3 — bounded composition identity slice
+
+**State:** composition manifest/result slice complete on 2026-09-02;
+assembly, coverage, and release manifest slices plus aggregate R4.3 remain in
+progress
+
+**Commits:** `23fbb3d`, `63ce3f3`, `cacaf6e`, `62b9158`, `e2eb787`,
+`60dccf6`, `11d77e5`, `8127b33`, `0d48a2e`, `9fa9be5`, `2b9a8ec`,
+`e6f8824`, `4016ff2`, `ba5e3c6`, and `bdd972f`.
+
+The composition producer now emits manifest `1.0.0` and result `2.0.0`.
+Before the producer change, exact validation-only fixtures froze real manifest
+`0.4.0`, manifest `0.5.0`, and result `1.0.0` documents. The shared
+schema/version-aware reader retains CLI and SDK validate/report support for
+composition manifests `0.4.0`, `0.5.0`, and `1.0.0`; it rejects unknown
+versions and rejects a malformed or missing `1.0.0` identity projection before
+composition semantics. The current result producer is `2.0.0`, while
+capabilities separately advertises schema-validation support for result
+`1.0.0` and `2.0.0` and manifest-reader support for `0.4.0`, `0.5.0`, and
+`1.0.0`. Both additive discovery fields remain optional in capabilities v2,
+and a frozen pre-field capabilities-v2 document remains valid.
+
+Composition verifies `EngineResources` and computes the installed base
+identity before executing. The terminal manifest projects independent engine,
+schema-set, template-catalog, provider-catalog, toolchain, standards, and
+execution identities. Its corpus state is honestly
+`transitional_embedded_unverified` with a null identity; no external corpus
+selector or R5 execution route was added. A caller-selected custom template
+catalog changes `run.template_catalog_sha256` but not the installed template
+catalog identity. Successful provider execution projects exactly one
+`generation_provider` runtime with its executable SHA-256; built-in execution
+projects no external runtime, and failed provider execution publishes no
+manifest. The shared manifest-contract semantic guard rejects duplicate
+runtime IDs even when their fingerprints differ, closing the gap that JSON
+Schema `uniqueItems` cannot express.
+
+The transitional top-level resource identity and legacy provenance remain
+exactly version `1.0.0`, origin `embedded`, 240 members, and SHA-256
+`dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410`.
+The new schemas are directly classified in the schema-set identity and
+excluded from that frozen oracle. The installed schema-set identity is now 44
+members, 826,627 bytes, SHA-256
+`c19d6ce89fc4f96565acf973b6a40b526f6f8d09dbfa8d58082f428ab4108e0d`.
+
+Exact equality after removing only `identity_projection` and resetting the
+version to `0.5.0` proves that manifest `1.0.0` preserves the frozen `0.5.0`
+DICOM hashes and paths, plan and ordering, bundles, assets, references,
+validation, unavailable rows, and publication semantics. Custom-catalog byte
+parity and provider provenance tests also pass. Focused evidence completed:
+
+```text
+composition manifest fixtures: 1 passed (0.4/0.5/result-v1 validation-only)
+composition manifest identity/schema tests: 3 passed
+composition public API identity/parity tests: 4 passed
+composition CLI result-v2 and 0.4/0.5/1.0 reader tests: 2 passed
+SDK composition result and 0.4/0.5/1.0 reader tests: 2 passed
+capabilities live/additive fixture tests: 2 passed
+schema compilation and transitional exclusion checks: 2 passed
+identity-domain isolation/evidence module: 3 passed
+python3 scripts/check-test-ownership.py: 22 targets, 265 groups, 1,408 entries
+python3 -m unittest tests.test_change_test_routing: 16 passed
+cargo fmt --all -- --check; git diff --check: passed
+```
+
+The new composition schemas route through live composition producers, SDK
+readers, identity discovery, generic schema checks, and unconditional Fast
+coverage. The full ordinary composition harness passes with 85 passed and
+three existing prepared-backend qualification entries ignored. Its two
+ordinary structured-report tests retain their full semantic assertions when
+the locked `generation-backends/highdicom-pydicom/.venv/bin/python` executable
+exists; in this checkout they instead assert that exact runtime is explicitly
+unavailable. Missing-runtime acquisition no longer poisons the shared
+environment mutex or cascades into another failure. This is not independent
+external provider evidence, and this slice did not install or run that
+backend. No feature matrix, external provider qualification, Heavy, Nightly,
+release-candidate, remote, assembly/coverage/release projection, R4.4, R4.5,
+or R5 body ran.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |
@@ -2454,7 +2532,7 @@ baseline alone is not proof that those budgets have passed.
 | Repository boundary | Not run | Must prove no generator dependency on dcmview and no corpus use of unsupported modules or sibling paths. |
 | Naming and compatibility | Passed | R3.1-R3.4 prove package `synth-dicom-gen` `0.2.0`, library `synth_dicom_gen`, the sole binary and version-derived archive/discovery identities, clean no-alias product environment, renamed production scratch paths, dual readers only at the four approved compatibility boundaries, current operating guides under the new identity, immutable historical evidence under the old identity, and 12 explicitly evidence-bound retained adapter environments. The exact 2,500,992-byte packaged crate (`9bc4cdaa357ce6f87a8dcce61d2f554d45f7a795a5c5f09fbb93017e65f79fe6`) passed Cargo verification and a clean extracted-package SDK consumer without an old repository path. A qualified `0.2.0` release remains correctly separate in the packaging-and-release row. |
 | External corpus contract | In progress | R4.2 proves the versioned, bounded, integrity-checked definition schema and typed inspection loader. R5 must still expose supported CLI/SDK selection and generation without internal imports or sibling paths before this row can pass. |
-| Identity separation | In progress | R4.3 now independently projects engine, toolchain, template, provider, schema, standards, execution, verified loaded-corpus, and invocation runtime identities in v2 version/capabilities discovery and curated-generation manifest 1.0/result 2.0. Embedded generation records an explicit null unverified corpus identity, and frozen 0.2/0.3 plus result-v1 readers remain proven. Composition/assembly/coverage/release manifest projections remain sequential R4.3 work, and R4.4 still owns removal of the transitional monolithic inventory. |
+| Identity separation | In progress | R4.3 now independently projects engine, toolchain, template, provider, schema, standards, execution, verified loaded-corpus, and invocation runtime identities in v2 discovery, curated-generation manifest 1.0/result 2.0, and composition manifest 1.0/result 2.0. Embedded generation and composition record an explicit null unverified corpus identity; curated 0.2/0.3 and composition 0.4/0.5 manifest readers plus result-v1 schema validation remain proven. Assembly/coverage/release projections remain sequential R4.3 work, and R4.4 still owns removal of the transitional monolithic inventory. |
 | Smoke migration | In progress | The R0 parity baseline passes for the current embedded smoke slice; R6 repository generation and comparison have not run. |
 | Complete migration | Not run | The current repository still owns the complete embedded corpus. |
 | Fast development | In progress | R1-R2 record the representative 123-second generator Fast PR, 739,602,432-byte target, bounded smoke artifacts, 20 integration harnesses, 84.28% comparable clean-tree size reduction, 91.19% bounded Fast-route reduction, and warm-invalidation evidence while preserving separately invocable heavy coverage. Representative corpus and viewer PR measurements remain absent, and R9.6 still owns terminal verification-class cost measurements, so this terminal row does not yet pass. |

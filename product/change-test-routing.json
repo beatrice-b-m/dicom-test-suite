@@ -59,7 +59,7 @@
     },
     "identity": {
       "commands": [
-        {"kind": "lib", "module": "identity::tests", "source": "src/identity.rs", "list_count": 2},
+        {"kind": "lib", "module": "identity::identity_domain_tests", "source": "src/identity.rs", "list_count": 2},
         {"target": "cli_sdk__nonfast", "module": "version_cli"},
         {"target": "cli_sdk__nonfast", "module": "capabilities_cli"},
         {"target": "schema_resources__subsystem", "module": "cli_contract_schema"}

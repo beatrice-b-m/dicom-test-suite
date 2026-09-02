@@ -438,7 +438,7 @@ fn digest_domain(
 }
 
 #[cfg(test)]
-mod tests {
+mod identity_domain_tests {
     use std::fs;
     use std::path::{Path, PathBuf};
 

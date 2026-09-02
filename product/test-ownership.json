@@ -2701,7 +2701,7 @@
         "manifest_schema_types_exact_rt_radiation_set_expectations",
         "manifest_schema_scopes_second_generation_rt_expectations_to_their_cases"
       ],
-      "entry_digest": "c27415268fc6acd361ed8438a1806649ba817d31246b9a9889244894e2918bd6",
+      "entry_digest": "d3f74f60f39e057ee609e03afb17df0432df8e18e4f6c47fed069310b7e12158",
       "fast_cost_exemption": "Static JSON Schema validation; WSI names do not generate a corpus."
     },
     {

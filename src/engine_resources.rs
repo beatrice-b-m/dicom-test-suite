@@ -1,7 +1,9 @@
 use std::borrow::Cow;
+use std::collections::BTreeMap;
 use std::fmt;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde::{Deserialize, Serialize};
@@ -46,7 +48,7 @@ pub struct EngineResourceIdentity {
 #[derive(Debug, Clone)]
 enum EngineResourceSource {
     Embedded,
-    Explicit(PathBuf),
+    Explicit(Arc<BTreeMap<&'static str, Vec<u8>>>),
 }
 
 #[derive(Debug, Clone)]
@@ -157,8 +159,19 @@ impl EngineResources {
     }
 
     pub fn explicit(root: impl Into<PathBuf>) -> Result<Self, EngineResourceError> {
+        let root = root.into();
+        let mut captured = BTreeMap::new();
+        for (logical_path, _) in EMBEDDED_ENGINE_RESOURCES {
+            let path = explicit_resource_path(&root, logical_path)?;
+            let bytes = fs::read(&path).map_err(|source| EngineResourceError::Read {
+                logical_path: (*logical_path).to_string(),
+                path,
+                source,
+            })?;
+            captured.insert(*logical_path, bytes);
+        }
         let resources = Self {
-            source: EngineResourceSource::Explicit(root.into()),
+            source: EngineResourceSource::Explicit(Arc::new(captured)),
         };
         resources.verify_integrity()?;
         Ok(resources)
@@ -192,16 +205,12 @@ impl EngineResources {
             .map_err(|_| EngineResourceError::UnknownResource(logical_path.to_string()))?;
         match &self.source {
             EngineResourceSource::Embedded => Ok(Cow::Borrowed(EMBEDDED_ENGINE_RESOURCES[index].1)),
-            EngineResourceSource::Explicit(root) => {
-                let path = explicit_resource_path(root, logical_path)?;
-                fs::read(&path)
-                    .map(Cow::Owned)
-                    .map_err(|source| EngineResourceError::Read {
-                        logical_path: logical_path.to_string(),
-                        path,
-                        source,
-                    })
-            }
+            EngineResourceSource::Explicit(captured) => Ok(Cow::Owned(
+                captured
+                    .get(logical_path)
+                    .expect("validated engine resource was captured")
+                    .clone(),
+            )),
         }
     }
 

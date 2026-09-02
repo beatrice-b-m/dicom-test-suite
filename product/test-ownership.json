@@ -1610,7 +1610,7 @@
         "resource_lookup_rejects_unsafe_and_unknown_paths",
         "snapshot_materializes_and_cleans_the_complete_resource_tree"
       ],
-      "entry_digest": "0b030964e84d78a6268f4072b5fc1e0b848bc55061dbd8b5cec06fb169c2831c"
+      "entry_digest": "723e3be73d441fac2ba2869332e72d4820945dd9c7591d19189e01eba8596edc"
     },
     {
       "source": "tests/enhanced_mr_temporal.rs",

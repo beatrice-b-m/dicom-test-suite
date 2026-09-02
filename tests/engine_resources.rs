@@ -67,16 +67,28 @@ fn embedded_and_relocated_explicit_resources_have_identical_identity() {
     }
 
     let embedded = resources.identity().unwrap();
-    let explicit = EngineResources::explicit(&root)
-        .unwrap()
-        .verify_integrity()
-        .unwrap();
+    let explicit = EngineResources::explicit(&root).unwrap();
+    let explicit_identity = explicit.verify_integrity().unwrap();
     assert_eq!(embedded.resource_set_version, ENGINE_RESOURCE_SET_VERSION);
     assert_eq!(embedded.origin, EngineResourceOrigin::Embedded);
-    assert_eq!(explicit.origin, EngineResourceOrigin::Explicit);
-    assert_eq!(embedded.resource_count, explicit.resource_count);
-    assert_eq!(embedded.resource_set_sha256, explicit.resource_set_sha256);
-    assert_eq!(embedded.resources, explicit.resources);
+    assert_eq!(explicit_identity.origin, EngineResourceOrigin::Explicit);
+    assert_eq!(embedded.resource_count, explicit_identity.resource_count);
+    assert_eq!(
+        embedded.resource_set_sha256,
+        explicit_identity.resource_set_sha256
+    );
+    assert_eq!(embedded.resources, explicit_identity.resources);
+
+    fs::write(
+        root.join("cases/registry.json"),
+        b"post-construction tamper",
+    )
+    .unwrap();
+    assert_eq!(
+        resources.bytes("cases/registry.json").unwrap(),
+        explicit.bytes("cases/registry.json").unwrap(),
+        "an explicit handle must retain its verified immutable capture"
+    );
     fs::remove_dir_all(root).unwrap();
 }
 

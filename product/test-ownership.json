@@ -994,7 +994,7 @@
         "typed_sr_parameters_change_only_known_content_item_values",
         "arbitrary_sr_trees_and_out_of_range_values_are_schema_rejected"
       ],
-      "entry_digest": "a0d5ca4142a21a1f9a93fd33f224a518a8313402e8694b6e0deca1c902483621"
+      "entry_digest": "b0a3a373e7eac3662da3f7d4445220b9bd9d0abc58324c877700e785e0f24b20"
     },
     {
       "source": "tests/composition_wsi.rs",

@@ -2162,6 +2162,30 @@ ownership SHA-256 is
 This review remediation ran no Heavy, unrelated manifest-fixture, external
 provider, Nightly, release-candidate, or R7 qualification body.
 
+Routing review then found that changes to `src/validation.rs` and
+`src/validation_*_tests.rs` selected corpus integration evidence but omitted
+the crate-internal validators repaired above. Commit `b821f2c` adds the
+`byte_stable_validation` ordinary bundle without adding an integration target.
+It contains eight exact `cargo test --locked --no-default-features --lib
+validation::...::` filters with locked list counts 4, 3, 8, 3, 4, 4, 4, and 6,
+covering all 36 affected accept and mutation tests.
+
+Dry runs for `src/validation.rs` and each of the eight repaired fixture paths
+select both `byte_stable_validation` and the existing `corpus` bundle. The
+immediate library commands contain no `--ignored`, feature, release, Nightly,
+or Heavy selector; `explicit_heavy`, `future_external_corpus`, and
+`release_candidate` remain explicitly deferred. The routing config identity is
+`c5aaca6491ecdeba43497eea7502532b810d8ccf6ecddf30df32f5ac13b429c9`.
+All eight exact routed filters passed again with 36/36 tests, and
+`python3 -m unittest tests/test_change_test_routing.py` passed 15/15 router
+tests. Ownership remains unchanged at SHA-256
+`a13adc8112b28ab2bf27f42db4768a059d9b5d4743d23ce73ddd144820e71cea`.
+
+This routing repair did not run the existing corpus integration commands,
+because the scoped blocker was the missing library slice and the known 27
+unrelated manifest-v1/schema/routing failures remain outside R3. No Heavy or
+terminal qualification evidence was invoked or claimed.
+
 Focused verification passed:
 
 ```text

@@ -37,7 +37,7 @@ artifact.
 | R1 — contain CI and local build cost | Complete | R1.1, R1.2, R1.3, R1.4, R1.5, R1.6 | A disposable draft-PR probe proved superseded-run cancellation and single-event ownership. Replacement Fast run `33581809536` passed in 123 seconds of job time with only the declared Fast work, a 739,602,432-byte target, four smoke artifacts occupying 122,880 allocated bytes, and the 4-GiB ceiling enforced. The broad matrix remains separately scheduled/manually invocable. The R1 gate passes. |
 | R2 — reduce Rust test-linking amplification | Complete | R2.1, R2.2, R2.3, R2.4 | The fail-closed inventory maps 186 integration sources and all 879 integration entries into exactly 20 explicit harnesses. Six R0-measured heavy bodies have exact ignored qualification entry points, while deterministic change routing now selects bounded Fast/subsystem evidence and reports every deferred class without executing it. The aggregate R2 target-count, cost, heavy-isolation, and routing gates pass. |
 | R3 — rename reusable product | Complete | R3.1, R3.2, R3.3, R3.4 | Product, package, crate, library, sole binary, archives, discovery, package metadata, current operating guides, product-controlled environment, and production scratch paths use `synth-dicom-gen` / `synth_dicom_gen` at the breaking pre-1.0 product boundary `0.2.0`. Immutable dated evidence retains its exact old candidate identity, and 12 qualified-adapter variables retain provenance-bound spellings pending external requalification. The external-consumer audit found no supported `0.1.0` product consumer requiring an alias. A clean side project compiled and exercised only `synth_dicom_gen::sdk` from the extracted, verified `synth-dicom-gen-0.2.0.crate`, without the old repository path. The aggregate R3 gate passes. |
-| R4 — split immutable resources and corpus definitions | In progress | R4.1 | `EngineResources` now owns the embedded and explicit immutable engine-resource boundary without an old public alias. The serialized monolithic identity and its corpus/Cargo membership remain intentionally transitional until R4.3/R4.4. R4.2 externalizes the corpus definition next. |
+| R4 — split immutable resources and corpus definitions | In progress | R4.1, R4.2 | `EngineResources` owns the immutable product-resource boundary and `CorpusDefinitionBundle` 1.0.0 now inspects integrity-checked caller corpus data. The supported SDK/CLI generation route, independent identity projection, corpus/Cargo digest removal, and reusable materialization remain R4.3-R5 work. |
 | R5 — add supported external corpus API | Not started | None | Requires the R4 resource and identity boundary. |
 | R6 — establish smoke corpus repository | Not started | None | No external repository has been created; authority and destination are still required before out-of-workspace mutation. |
 | R7 — migrate complete dcmview corpus | Not started | None | Requires R6 smoke parity and supported contracts. |
@@ -1776,6 +1776,114 @@ heavy body, codec/provider runtime, external adapter, Nightly,
 release-candidate body, remote operation, or release ran. R4.2-R4.5 and the
 aggregate R4 gate remain open.
 
+### R4.2 — versioned caller-owned corpus definition bundle
+
+**State:** complete on 2026-09-02; aggregate R4 remains in progress
+
+**Commits:** `ed3ec9a`, `fbf6990`, `329fe37`, `78354e6`, `78dd58d`,
+`614024e`, and `39a41c8`.
+
+The new strict Draft 2020-12 contract has schema version `1.0.0` and the
+post-rename identifier
+`https://synth-dicom-gen.local/schemas/corpus-definition-bundle.schema.json`.
+It describes profiles, the exact registry descriptor, implemented
+case-to-recipe bindings, dependencies, expected evidence, and assets. Unknown
+fields, duplicate keys including escaped collisions, BOMs, invalid UTF-8,
+unsupported versions, unsafe and case-fold-colliding paths, missing/extra
+content, and every configured size, count, JSON-depth, array, and string limit
+fail closed. The manifest exact bytes and every declared file's exact size and
+SHA-256 form a framed aggregate identity with no host-absolute path input.
+
+On macOS and Linux, one `O_DIRECTORY|O_NOFOLLOW` root descriptor is held from
+manifest capture through declared-file capture and terminal inventory. Every
+component is opened descriptor-relatively with `openat` and `O_NOFOLLOW`;
+final inputs additionally use `O_NONBLOCK`, must be regular with `nlink == 1`,
+and retain device/inode/length while read under a bounded `take(limit + 1)`.
+The descriptor-relative inventory rejects symlinks, hardlink aliases, special
+files, undeclared files, and undeclared directories including empty ones, and
+checks directory stability. A regression replaces the pathname after opening
+the root and proves later reads remain on the held original descriptor. The
+non-Unix fallback retains bounded reads and symlink/type checks but does not
+claim the Unix descriptor-race proof.
+
+Role roots are canonical: `cases/registry.json`, JSON below
+`cases/recipes/`, evidence below `evidence/`, and assets below `assets/`.
+Caller data cannot enter engine-owned schema, template, transfer-syntax,
+conformance, provider/backend, security, product, lock, or engine-asset
+namespaces. The trusted registry and recipe schemas plus existing registered
+provider/rule/output-shape validation apply to captured bytes. Implemented
+registry rows have exactly one matching recipe; non-implemented rows have
+none. Dependencies bind exact recipe identities, are unique and acyclic, and
+cannot leak valid/legacy/stress evidence into negative/fuzz or cross negative
+and fuzz. Profile membership equals the registry; each profile has its exact
+scope; `all` is only smoke/core/extended with optional stress. Local notes and
+assets have complete, non-orphan closure. Unavailable runtimes remain
+unavailable definition input rather than implied passes.
+
+The committed deterministic assembler copies source registry, recipe, and
+note bytes into a fresh dedicated root without normalization. The full-current
+fixture proves 191 registry rows, 178 implemented recipes, eight profiles,
+zero external assets, and 45 local-note references resolving to 34 unique
+evidence files. The 34th note,
+`phase-3-integer-parametric-map-provider.md`, is referenced only by planned
+case `derived/parametric-map/integer_ct_derived_explicit_le`; it is still
+declared and verified although planned cases correctly own no recipe. The
+result has 214 files and 1,754,298 captured bytes. Its exact manifest SHA-256
+is `905d36bc93c7ae10ae5011304b25a647c4b792852e143bd2017e2aacd1574de8`
+and framed corpus SHA-256 is
+`f4232bdcd8383065e40c6b4aef355ba6362edcdc6fc9b523c1137c6a90a967be`.
+Relocation preserves both; a whitespace-only manifest byte change changes
+both.
+
+R4.2 adds no SDK method, CLI option, generation request/result, discovery
+field, generated-manifest field, or execution route. The public implementation
+module is explicitly unsupported migration surface, has no crate-root type
+re-export, and compatibility ownership advertises no live SDK/CLI API before
+R5. Embedded behavior is unchanged. Direct inclusion of the new corpus schema
+is excluded from the transitional engine scan, so the R4.1 oracle remains
+exactly 240 resources and SHA-256
+`dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410`.
+
+Focused verification passed:
+
+```text
+cargo test --locked --no-default-features --lib corpus_definition::tests::
+16 passed; 0 failed; 475 filtered; 2.28s test / 2.34s wall
+
+cargo test --locked --no-default-features --lib corpus_definition::tests:: -- --list
+exactly 16 entries
+
+cargo test --locked --no-default-features --test schema_resources__fast schema_artifacts::committed_schema_files_are_parseable_json_schema_documents -- --exact
+1 passed; 72 filtered
+
+cargo test --locked --no-default-features --test schema_resources__subsystem engine_resources::embedded_resources_cover_engine_families_and_transitional_membership -- --exact
+1 passed; 85 filtered; locked 240/dc61 oracle unchanged
+
+cargo check --locked --no-default-features --lib
+cargo fmt --all -- --check
+git diff --check
+passed
+
+python3 scripts/check-test-ownership.py
+passed: 22 targets; 263 groups; 1,391 entries; historical 20 integration targets, 186 sources, and 879 entries unchanged
+
+python3 -m unittest tests/test_change_test_routing.py
+13 passed
+
+python3 scripts/check-spelling-transition.py
+passed: 870 classified retained occurrences; SHA-256 ecff895f74165daa5d9d72ee145ee746f7f799a6028f12916fd7c010dfaa44b1
+```
+
+The routing dry run selects the exact 16-entry library filter
+`corpus_definition::tests::`, schema subsystem, and unconditional Fast
+coverage. A standalone `python3 -m py_compile` attempt was unavailable because
+system Python tried to write sandbox-denied user cache state; the assembler
+itself ran successfully in the full-current tests and its exact temporary
+roots were removed. No broad all-target, heavy, feature/provider runtime,
+external adapter, Nightly, release-candidate, remote, release, R4.3 identity,
+R4.4 removal, R4.5 materialization, or R5 API body ran. R4.3-R4.5 and the
+aggregate R4 gate remain open.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |
@@ -1819,7 +1927,7 @@ baseline alone is not proof that those budgets have passed.
 | --- | --- | --- |
 | Repository boundary | Not run | Must prove no generator dependency on dcmview and no corpus use of unsupported modules or sibling paths. |
 | Naming and compatibility | Passed | R3.1-R3.4 prove package `synth-dicom-gen` `0.2.0`, library `synth_dicom_gen`, the sole binary and version-derived archive/discovery identities, clean no-alias product environment, renamed production scratch paths, dual readers only at the four approved compatibility boundaries, current operating guides under the new identity, immutable historical evidence under the old identity, and 12 explicitly evidence-bound retained adapter environments. The exact 2,500,992-byte packaged crate (`9bc4cdaa357ce6f87a8dcce61d2f554d45f7a795a5c5f09fbb93017e65f79fe6`) passed Cargo verification and a clean extracted-package SDK consumer without an old repository path. A qualified `0.2.0` release remains correctly separate in the packaging-and-release row. |
-| External corpus contract | Not run | Versioned external definition loader and CLI/SDK generation contract are not implemented. |
+| External corpus contract | In progress | R4.2 proves the versioned, bounded, integrity-checked definition schema and typed inspection loader. R5 must still expose supported CLI/SDK selection and generation without internal imports or sibling paths before this row can pass. |
 | Identity separation | Not run | Engine, toolchain, template/provider, schema, corpus, and external-runtime identities are not independently projected. |
 | Smoke migration | In progress | The R0 parity baseline passes for the current embedded smoke slice; R6 repository generation and comparison have not run. |
 | Complete migration | Not run | The current repository still owns the complete embedded corpus. |

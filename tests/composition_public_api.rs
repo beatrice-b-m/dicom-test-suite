@@ -76,6 +76,33 @@ fn byte_and_file_rust_apis_share_the_exact_pipeline() {
 }
 
 #[test]
+fn manifest_v1_only_adds_versioned_identity_to_the_frozen_v05_payload() {
+    let spec_path = PathBuf::from("tests/fixtures/composition/valid/template-only.json");
+    let out = root("v05-parity");
+    let (_, mut current) = compose(&ComposeOptions {
+        spec_path,
+        out_dir: out.clone(),
+        seed: 1,
+        catalog_path: "templates/catalog.json".into(),
+        dry_run: false,
+    })
+    .unwrap();
+    let frozen: serde_json::Value = serde_json::from_slice(include_bytes!(
+        "fixtures/cli/composition-manifest-v0.5.json"
+    ))
+    .unwrap();
+
+    current["manifest_schema_version"] = "0.5.0".into();
+    current
+        .as_object_mut()
+        .unwrap()
+        .remove("identity_projection");
+    assert_eq!(current, frozen);
+
+    fs::remove_dir_all(out).unwrap();
+}
+
+#[test]
 fn custom_catalog_run_hash_does_not_replace_installed_template_identity() {
     let workspace = root("custom-catalog-identity");
     fs::create_dir(&workspace).unwrap();

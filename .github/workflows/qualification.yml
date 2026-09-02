@@ -245,9 +245,11 @@ jobs:
         run: |
           cargo package --locked
           PACKAGE_ROOT="$RUNNER_TEMP/package"
+          PACKAGE_STEM=$(cargo metadata --locked --no-deps --format-version 1 | \
+            jq -er 'if (.packages | length) == 1 then .packages[0] | "\(.name)-\(.version)" else error("expected one workspace package") end')
           mkdir -p "$PACKAGE_ROOT"
-          tar -xzf "$CARGO_TARGET_DIR/package/synth-dicom-gen-0.1.0.crate" -C "$PACKAGE_ROOT"
-          DTS_SDK_PACKAGE_ROOT="$PACKAGE_ROOT/synth-dicom-gen-0.1.0" \
+          tar -xzf "$CARGO_TARGET_DIR/package/$PACKAGE_STEM.crate" -C "$PACKAGE_ROOT"
+          DTS_SDK_PACKAGE_ROOT="$PACKAGE_ROOT/$PACKAGE_STEM" \
             cargo test --locked --no-default-features --test release_ci__nonfast sdk_external_consumer::
       - name: Build and qualify installed archive
         env:

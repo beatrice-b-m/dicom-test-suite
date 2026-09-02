@@ -509,6 +509,21 @@ fn heavy_workflow_retains_nightly_matrix_and_immutable_release_gate() {
         );
     }
     assert_eq!(heavy.matches("cargo package --locked").count(), 1);
+    assert!(
+        !heavy.contains("synth-dicom-gen-0.1.0"),
+        "qualification must not pin the unpublished candidate version"
+    );
+    for package_derivation in [
+        "cargo metadata --locked --no-deps --format-version 1",
+        "PACKAGE_STEM",
+        "$CARGO_TARGET_DIR/package/$PACKAGE_STEM.crate",
+        "DTS_SDK_PACKAGE_ROOT=\"$PACKAGE_ROOT/$PACKAGE_STEM\"",
+    ] {
+        assert!(
+            heavy.contains(package_derivation),
+            "qualification must derive the packaged consumer root via {package_derivation}"
+        );
+    }
     assert_eq!(heavy.matches("actions/upload-artifact@v7").count(), 1);
     assert_eq!(
         release.matches("cargo build --release --locked").count(),

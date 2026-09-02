@@ -1783,7 +1783,7 @@ generated/composition/assembly/coverage/release manifest slices and aggregate
 R4.3 remain in progress
 
 **Commits:** `5a841cc`, `10ad60e`, `8d8e996`, `d6d52b2`, `97322b1`,
-`ff0e7db`, and `d052e5c`.
+`ff0e7db`, `d052e5c`, and `dfee112`.
 
 Version and capabilities producers now emit schema `2.0.0`. Their shared
 identity projection has separately framed schema `1.0.0` domains for engine,
@@ -1874,8 +1874,13 @@ passed
 
 The fail-closed route now owns `src/identity.rs` and `src/discovery.rs`
 through the identity bundle instead of routing discovery through embedded
-corpus. It selects the exact two-entry identity module, bounded version and
-capabilities CLI filters, schema subsystem, and unconditional Fast coverage.
+corpus. Each v2 version/capabilities schema path deliberately overlaps the
+identity and generic schema rules, so a contract-only change selects the exact
+two-entry identity module, bounded version and capabilities CLI filters, full
+schema subsystem, and unconditional Fast coverage. Fourteen routing unit tests
+bind both schema paths to that exact four-command selection; the routing
+configuration SHA-256 is
+`79a7246ad94642ed3e842bb483132ec655faefe8f85a5cee7e7ca15f70c4c8c7`.
 An earlier unnecessarily broad CLI/SDK harness run exposed the pre-existing
 nonsquare spatial hash mismatch; it is outside this slice and the focused
 affected filters pass. No manifest schema or producer, R4.4 removal, R4.5

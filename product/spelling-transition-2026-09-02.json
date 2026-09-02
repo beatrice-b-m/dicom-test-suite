@@ -1381,6 +1381,14 @@
       "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
     },
     {
+      "path": "schemas/coverage-report-v1.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 12,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The current report schema references the frozen legacy schema identity without changing its bytes or meaning."
+    },
+    {
       "path": "schemas/coverage-report.schema.json",
       "token": "DTS_DRR",
       "class": "dicom_payload_identifier",
@@ -1611,6 +1619,14 @@
       "count": 1,
       "owner": "compatibility-or-immutable-evidence",
       "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/structural-assembly-report-v2.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 6,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The current report schema references the frozen legacy schema identity without changing its bytes or meaning."
     },
     {
       "path": "schemas/structural-assembly-report.schema.json",
@@ -2501,6 +2517,14 @@
       "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
     },
     {
+      "path": "src/report_contract.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 3,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The version-aware report reader registers frozen legacy schema identities explicitly."
+    },
+    {
       "path": "src/validation.rs",
       "token": "DTS_DRR",
       "class": "dicom_payload_identifier",
@@ -2928,7 +2952,7 @@
       "path": "tests/assembly_run.rs",
       "token": "dicom-test-suite",
       "class": "legacy_payload_schema_fixture_or_evidence",
-      "count": 1,
+      "count": 2,
       "owner": "compatibility-or-immutable-evidence",
       "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
     },
@@ -4128,7 +4152,7 @@
       "path": "tests/report_cli.rs",
       "token": "dicom-test-suite",
       "class": "legacy_payload_schema_fixture_or_evidence",
-      "count": 1,
+      "count": 3,
       "owner": "compatibility-or-immutable-evidence",
       "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
     },
@@ -4454,11 +4478,11 @@
     }
   ],
   "retained_snapshot": {
-    "match_count": 920,
-    "sha256": "91566a24eb3bd68af2bb2e0fa24a11fece70ef4cb26ad4e0acfa4e98cfbfa126",
+    "match_count": 944,
+    "sha256": "8c59a643a5719e4690c9150cdfd632014e7996c6b8e2ad4b639d0e0cf4c88618",
     "by_class": {
       "dicom_payload_identifier": 189,
-      "legacy_payload_schema_fixture_or_evidence": 286,
+      "legacy_payload_schema_fixture_or_evidence": 310,
       "locked_python_module_or_backend": 148,
       "qualified_adapter_environment": 155,
       "qualified_adapter_or_test_fixture": 142

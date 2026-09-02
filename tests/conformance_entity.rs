@@ -329,7 +329,7 @@ fn temp_dir(label: &str) -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let root = std::env::temp_dir().join(format!("dts-{label}-{nonce}"));
+    let root = std::env::temp_dir().join(format!("synth-dicom-gen-{label}-{nonce}"));
     fs::create_dir_all(&root).unwrap();
     root
 }

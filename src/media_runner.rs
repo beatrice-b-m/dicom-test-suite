@@ -287,7 +287,10 @@ impl StagingDirectory {
         })?;
         for _ in 0..100 {
             let nonce = STAGING_NONCE.fetch_add(1, Ordering::Relaxed);
-            let root = parent.join(format!("dts-media-{}-{nonce}", std::process::id()));
+            let root = parent.join(format!(
+                "synth-dicom-gen-media-{}-{nonce}",
+                std::process::id()
+            ));
             match fs::create_dir(&root) {
                 Ok(()) => {
                     let fileset_root = root.join("fileset");
@@ -587,7 +590,7 @@ mod tests {
 
     fn fixture_root(label: &str) -> PathBuf {
         let root = std::env::temp_dir().join(format!(
-            "dts-media-runner-test-{}-{}-{label}",
+            "synth-dicom-gen-media-runner-test-{}-{}-{label}",
             std::process::id(),
             STAGING_NONCE.fetch_add(1, Ordering::Relaxed)
         ));

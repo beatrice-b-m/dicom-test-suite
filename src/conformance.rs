@@ -3383,7 +3383,7 @@ fn collect_pixel_result(
         .ok_or_else(|| "available parser has no executable".to_string())?;
     let pixel_dir = evidence_root.join("pixels/dcmtk-dcmdrle");
     fs::create_dir_all(&pixel_dir).map_err(|error| error.to_string())?;
-    let work_dir = conformance_work_dir("dts-pixel", evidence_root, stable_key);
+    let work_dir = conformance_work_dir("synth-dicom-gen-pixel", evidence_root, stable_key);
     fs::create_dir_all(&work_dir).map_err(|error| error.to_string())?;
     let decoded = work_dir.join("decoded.dcm");
     let input = generated_root.join(relative_input);
@@ -3522,7 +3522,7 @@ fn collect_u1_pixel_result(
         .as_str()
         .ok_or_else(|| "available parser has no executable".to_string())?;
     let input = generated_root.join(relative_input);
-    let work_dir = conformance_work_dir("dts-u1-pixel", evidence_root, stable_key);
+    let work_dir = conformance_work_dir("synth-dicom-gen-u1-pixel", evidence_root, stable_key);
     fs::create_dir_all(&work_dir).map_err(|error| error.to_string())?;
     let output_base = work_dir.join("frame.pgm");
     let arguments = string_array(adapter, "arguments")?
@@ -3733,7 +3733,8 @@ fn collect_rt_image_pixel_result(
         .as_str()
         .ok_or_else(|| "available dcmdump parser has no executable".to_string())?;
     let input = generated_root.join(relative_input);
-    let work_dir = conformance_work_dir("dts-rt-image-pixel", evidence_root, stable_key);
+    let work_dir =
+        conformance_work_dir("synth-dicom-gen-rt-image-pixel", evidence_root, stable_key);
     fs::create_dir_all(&work_dir).map_err(|error| error.to_string())?;
     let output = work_dir.join("image.pgm");
     let arguments = string_array(adapter, "arguments")?
@@ -4565,7 +4566,11 @@ fn collect_visible_light_pixel_result(
         .as_str()
         .ok_or_else(|| "available dcmdump parser has no executable".to_string())?;
     let input = generated_root.join(relative_input);
-    let work_dir = conformance_work_dir("dts-visible-light-pixel", evidence_root, stable_key);
+    let work_dir = conformance_work_dir(
+        "synth-dicom-gen-visible-light-pixel",
+        evidence_root,
+        stable_key,
+    );
     fs::create_dir_all(&work_dir).map_err(|error| error.to_string())?;
     let output = work_dir.join("image.ppm");
     let arguments = string_array(adapter, "arguments")?
@@ -5533,7 +5538,7 @@ fn collect_icc_result(
         .as_str()
         .ok_or_else(|| "available independent parser has no executable".to_string())?;
     let input = generated_root.join(relative_input);
-    let work_dir = conformance_work_dir("dts-icc", evidence_root, stable_key);
+    let work_dir = conformance_work_dir("synth-dicom-gen-icc", evidence_root, stable_key);
     fs::create_dir_all(&work_dir).map_err(|error| error.to_string())?;
     let extraction_arguments = vec![
         "+W".to_string(),

@@ -13,6 +13,7 @@
     ["DTS_COMPOSITION_PROVIDER_RESPONSE", "SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_RESPONSE"],
     ["DTS_QUALIFIED_CATALOG_BINARY", "SYNTH_DICOM_GEN_QUALIFIED_CATALOG_BINARY"],
     ["DTS_REAL_CONFORMANCE", "SYNTH_DICOM_GEN_REAL_CONFORMANCE"],
+    ["DTS_M6_SEGMENTATION_FIXTURE", "SYNTH_DICOM_GEN_M6_SEGMENTATION_FIXTURE"],
     ["DTS_RELEASE_ALLOW_DIRTY", "SYNTH_DICOM_GEN_RELEASE_ALLOW_DIRTY"],
     ["DTS_RELEASE_ARCHIVE", "SYNTH_DICOM_GEN_RELEASE_ARCHIVE"],
     ["DTS_RELEASE_ARCHIVE_SHA256", "SYNTH_DICOM_GEN_RELEASE_ARCHIVE_SHA256"],
@@ -35,7 +36,15 @@
     [".dts-compose-", ".synth-dicom-gen-staging-"],
     [".dts-release.", ".synth-dicom-gen-release."],
     ["dts-release-verify.", "synth-dicom-gen-release-verify."],
-    ["$RUNNER_TEMP/dts-", "$RUNNER_TEMP/synth-dicom-gen-"]
+    ["$RUNNER_TEMP/dts-", "$RUNNER_TEMP/synth-dicom-gen-"],
+    ["dts-{label}-", "synth-dicom-gen-{label}-"],
+    ["dts-streaming", "synth-dicom-gen-streaming"],
+    ["dts-pixel", "synth-dicom-gen-pixel"],
+    ["dts-u1-pixel", "synth-dicom-gen-u1-pixel"],
+    ["dts-rt-image-pixel", "synth-dicom-gen-rt-image-pixel"],
+    ["dts-visible-light-pixel", "synth-dicom-gen-visible-light-pixel"],
+    ["dts-icc", "synth-dicom-gen-icc"],
+    ["dts-media-", "synth-dicom-gen-media-"]
   ],
   "allowed_removed_occurrences": [],
   "retained_adapter_environment": [
@@ -49,7 +58,6 @@
     "DTS_DICOM_VALIDATOR_STANDARD_HOME",
     "DTS_HIGHDICOM_PYTHON",
     "DTS_LCMS_HOME",
-    "DTS_M6_SEGMENTATION_FIXTURE",
     "DTS_PIXELMED_HOME",
     "DTS_WSI_RECONSTRUCTION_PYTHON"
   ],
@@ -60,14 +68,14 @@
     "legacy_payload_schema_fixture_or_evidence": "The bare dicom-test-suite spelling remains only in payload/schema compatibility fixtures, qualified adapter metadata, migration metadata, or historical evidence; R3.3 separately owns Markdown history/current-doc treatment."
   },
   "retained_snapshot": {
-    "match_count": 884,
-    "sha256": "997a86933b6e326a26751b1ec48d018b49e166972fe40af0d74109ddb7a4b0d6",
+    "match_count": 871,
+    "sha256": "9d8e0bf9b6a643ba782905150cbf587d398e1c2317430699098cc8e7a0145b05",
     "by_class": {
       "dicom_payload_identifier": 188,
       "legacy_payload_schema_fixture_or_evidence": 271,
       "locked_python_module_or_backend": 127,
-      "qualified_adapter_environment": 145,
-      "qualified_adapter_or_test_fixture": 153
+      "qualified_adapter_environment": 143,
+      "qualified_adapter_or_test_fixture": 142
     }
   }
 }

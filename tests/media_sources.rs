@@ -104,7 +104,7 @@ fn write_fixture(root: &Path, traversal: bool, broken_reference: bool) {
 
 fn fixture_root() -> PathBuf {
     std::env::temp_dir().join(format!(
-        "dts-media-sources-{}-{}",
+        "synth-dicom-gen-media-sources-{}-{}",
         std::process::id(),
         NONCE.fetch_add(1, Ordering::Relaxed)
     ))

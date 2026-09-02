@@ -2783,7 +2783,10 @@ fn unique_codec_temp_dir(label: &str) -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_nanos())
         .unwrap_or_default();
-    env::temp_dir().join(format!("dts-{label}-{}-{nonce}", std::process::id()))
+    env::temp_dir().join(format!(
+        "synth-dicom-gen-{label}-{}-{nonce}",
+        std::process::id()
+    ))
 }
 
 #[cfg(test)]

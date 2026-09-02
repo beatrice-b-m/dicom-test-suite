@@ -801,7 +801,7 @@ fn stream_staged_content(
         ));
     }
 
-    let temporary = path.with_extension("dts-streaming");
+    let temporary = path.with_extension("synth-dicom-gen-streaming");
     let mut destination = OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -1578,7 +1578,7 @@ mod tests {
             .unwrap_err();
         assert!(matches!(error, MaterializeError::Cancelled));
         assert!(polls.load(Ordering::Relaxed) >= 6);
-        let _ = fs::remove_file(path.with_extension("dts-streaming"));
+        let _ = fs::remove_file(path.with_extension("synth-dicom-gen-streaming"));
         let _ = fs::remove_file(path);
         fs::remove_file(source).unwrap();
     }

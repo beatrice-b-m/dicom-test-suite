@@ -75,9 +75,12 @@ def test_correction_fails_closed_on_definition_drift(drift: str) -> None:
 def test_real_generated_file_rejects_each_required_macro_removal(
     tmp_path: Path, scope: str, keyword: str
 ) -> None:
-    configured = os.environ.get("DTS_M6_SEGMENTATION_FIXTURE")
+    configured = os.environ.get("SYNTH_DICOM_GEN_M6_SEGMENTATION_FIXTURE")
     if not configured:
-        pytest.skip("DTS_M6_SEGMENTATION_FIXTURE is required for generated-file qualification")
+        pytest.skip(
+            "SYNTH_DICOM_GEN_M6_SEGMENTATION_FIXTURE is required for "
+            "generated-file qualification"
+        )
     fixture = Path(configured)
     assert fixture.is_file(), fixture
     verify_exact_case_functional_groups(fixture)

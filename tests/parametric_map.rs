@@ -719,5 +719,8 @@ fn unique_temp_dir(label: &str) -> PathBuf {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    std::env::temp_dir().join(format!("dts-{label}-{}-{nonce}", std::process::id()))
+    std::env::temp_dir().join(format!(
+        "synth-dicom-gen-{label}-{}-{nonce}",
+        std::process::id()
+    ))
 }

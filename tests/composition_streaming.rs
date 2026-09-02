@@ -79,7 +79,7 @@ fn large_native_pixels_use_the_hash_checked_streaming_writer() {
             .unwrap()
             .path()
             .extension()
-            .is_some_and(|value| value == "dts-streaming")
+            .is_some_and(|value| value == "synth-dicom-gen-streaming")
     }));
     let manifest_value: Value =
         serde_json::from_slice(&fs::read(out.join("manifest.json")).unwrap()).unwrap();

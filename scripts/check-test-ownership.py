@@ -332,7 +332,12 @@ def bootstrap(root: Path) -> dict[str, object]:
                 "verification_classes": classes,
             }
         )
-    integration_groups = [group for group in manifest_groups if str(group["source"]).startswith("tests/")]
+    target_kind = {str(target["name"]): str(target["kind"]) for target in targets}
+    integration_groups = [
+        group
+        for group in manifest_groups
+        if target_kind.get(str(group["target"])) == "integration"
+    ]
     return {
         "schema_version": SCHEMA_VERSION,
         "scope": {
@@ -437,7 +442,7 @@ def verify(root: Path, manifest: dict[str, object]) -> dict[str, object]:
             errors.append(f"R2.3 explicit heavyweight ignore drift: {source}")
 
         target_record = target_by_name.get(str(owned.get("target")))
-        if source.startswith("tests/") and target_record is not None:
+        if target_record is not None and target_record.get("kind") == "integration":
             if owned.get("domain") != target_record.get("domain"):
                 errors.append(f"integration target/test domain disagreement: {source}")
             if verification_class not in target_record.get("verification_classes", []):
@@ -463,11 +468,14 @@ def verify(root: Path, manifest: dict[str, object]) -> dict[str, object]:
         "integration_test_targets": sum(item["kind"] == "integration" for item in actual_targets),
         "rust_test_entry_groups": len(actual_groups),
         "rust_test_entries": sum(int(item["entry_count"]) for item in actual_groups),
-        "integration_source_groups": sum(str(item["source"]).startswith("tests/") for item in actual_groups),
+        "integration_source_groups": sum(
+            target_by_name.get(str(item["target"]), {}).get("kind") == "integration"
+            for item in actual_groups
+        ),
         "integration_test_entries": sum(
             int(item["entry_count"])
             for item in actual_groups
-            if str(item["source"]).startswith("tests/")
+            if target_by_name.get(str(item["target"]), {}).get("kind") == "integration"
         ),
     }
     for key, value in expected_counts.items():

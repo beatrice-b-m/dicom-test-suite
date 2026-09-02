@@ -3,8 +3,8 @@
   "scope": {
     "rust_test_targets": 22,
     "integration_test_targets": 20,
-    "rust_test_entry_groups": 262,
-    "rust_test_entries": 1375,
+    "rust_test_entry_groups": 263,
+    "rust_test_entries": 1391,
     "integration_source_groups": 186,
     "integration_test_entries": 879,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
@@ -1208,6 +1208,33 @@
       "entry_digest": "7b2130938f166c625b70fa786b75cc6c1b624aa2805a906bee152278ce7cc7e4"
     },
     {
+      "source": "tests/corpus_definition_bundle.rs",
+      "target": "synth_dicom_gen",
+      "domain": "corpus_generation",
+      "verification_class": "subsystem",
+      "cost_tier": "ordinary",
+      "entry_count": 16,
+      "entries": [
+        "minimal_bundle_loads_with_stable_exact_byte_identity",
+        "manifest_bytes_are_identity_bearing",
+        "malformed_duplicate_unknown_bom_and_utf8_are_rejected",
+        "undeclared_hash_size_version_and_limits_fail_closed",
+        "root_intermediate_and_file_symlinks_are_rejected",
+        "unsupported_version_has_stable_classification",
+        "traversal_and_casefold_collisions_fail_before_file_access",
+        "declared_size_mismatch_is_integrity_failure",
+        "reserved_engine_namespaces_and_unexpected_directories_are_rejected",
+        "closure_rejects_binding_dependency_and_profile_inconsistency",
+        "deterministic_current_source_assembly_loads_all_registry_cases",
+        "json_depth_array_and_string_limits_have_limit_classification",
+        "document_and_aggregate_limits_are_enforced",
+        "held_root_descriptor_cannot_switch_to_a_replacement_tree",
+        "hardlinks_fifo_and_nonregular_roots_are_rejected",
+        "valid_dependency_cannot_cross_into_negative_scope"
+      ],
+      "entry_digest": "43a92b1172bad752429e0a537f00362e3e14e98051b6c7ee4bfef57ad59e4bca"
+    },
+    {
       "source": "tests/corpus_plan.rs",
       "target": "engine__subsystem",
       "domain": "engine",
@@ -1610,7 +1637,7 @@
         "resource_lookup_rejects_unsafe_and_unknown_paths",
         "snapshot_materializes_and_cleans_the_complete_resource_tree"
       ],
-      "entry_digest": "bbf8a94988bd28cddbe44fb9ad4267442087b048021aac08820ef2d3d67dc81f"
+      "entry_digest": "d91ebeaba03695f835127657a27e1413ad0d9440dcbaa629fdfd1e1ac1f974d3"
     },
     {
       "source": "tests/enhanced_mr_temporal.rs",

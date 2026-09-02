@@ -40,6 +40,11 @@
       "covered_by_fast": ["schema_resources__fast"],
       "deferred": ["explicit_heavy", "future_external_corpus"]
     },
+    "corpus_definition_internal": {
+      "commands": [
+        {"kind": "lib", "module": "corpus_definition::tests", "source": "tests/corpus_definition_bundle.rs", "list_count": 16}
+      ]
+    },
     "engine": {
       "commands": [
         {"kind": "lib", "module": "executor::evidence::tests", "source": "src/executor/evidence.rs", "list_count": 3},
@@ -156,6 +161,18 @@
       "prefixes": ["cases/", "src/curated_execution/", "src/curated_manifest/", "src/recipes/"],
       "file_prefixes": ["src/validation_"],
       "bundles": ["corpus"]
+    },
+    {
+      "id": "external-corpus-definition",
+      "exact": [
+        "scripts/build-current-corpus-definition-bundle.py",
+        "tests/corpus_definition_bundle.rs"
+      ],
+      "prefixes": [
+        "src/corpus_definition/",
+        "tests/fixtures/corpus-definition/"
+      ],
+      "bundles": ["corpus_definition_internal", "schema"]
     },
     {
       "id": "assembly",

@@ -88,6 +88,10 @@ def validate_command(command: dict[str, Any], targets: dict[str, dict[str, Any]]
             "target" in command
             or not isinstance(command.get("module"), str)
             or not command["module"]
+            or not all(
+                component and component.replace("_", "a").isalnum()
+                for component in command["module"].split("::")
+            )
             or not isinstance(command.get("source"), str)
             or not isinstance(command.get("list_count"), int)
             or command["list_count"] <= 0
@@ -288,7 +292,11 @@ def select(paths: list[str], config: dict[str, Any], ownership: dict[str, Any], 
                 and group.get("cost_tier") == "ordinary"
                 and not group.get("heavy_entries")
             ):
-                bundle_id = f"test:{path}"
+                bundle_id = (
+                    "corpus_definition_internal"
+                    if group.get("target") == "synth_dicom_gen"
+                    else f"test:{path}"
+                )
                 bundle_ids.add(bundle_id)
             else:
                 if group.get("heavy_entries"):

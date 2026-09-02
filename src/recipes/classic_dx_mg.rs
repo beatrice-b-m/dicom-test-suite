@@ -216,7 +216,7 @@ pub fn plan_dx_mg_recipe(
     let implementation_class_uid = deterministic_uid(&DeterministicUidInput {
         standards_lock_sha256,
         case_id: "dicom-test-suite/implementation",
-        recipe_version: crate::PACKAGE_VERSION,
+        recipe_version: crate::BYTE_STABLE_OUTPUT_VERSION,
         run_seed: 0,
         file_index: 0,
         frame_index: None,
@@ -409,7 +409,7 @@ fn common_modules(
         equipment: EquipmentModuleInput {
             manufacturer: ElementPresence::Value("dicom-test-suite".into()),
             manufacturer_model_name: ElementPresence::Value(recipe.recipe_id.clone()),
-            software_versions: ElementPresence::Value(crate::PACKAGE_VERSION.into()),
+            software_versions: ElementPresence::Value(crate::BYTE_STABLE_OUTPUT_VERSION.into()),
         },
         image: ImageModuleInput {
             instance_number: ElementPresence::Value("1".into()),

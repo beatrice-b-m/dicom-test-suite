@@ -134,7 +134,7 @@ pub fn plan_mr_cr_recipe(
     let implementation_class_uid = deterministic_uid(&DeterministicUidInput {
         standards_lock_sha256,
         case_id: "dicom-test-suite/implementation",
-        recipe_version: crate::PACKAGE_VERSION,
+        recipe_version: crate::BYTE_STABLE_OUTPUT_VERSION,
         run_seed: 0,
         file_index: 0,
         frame_index: None,
@@ -384,7 +384,7 @@ fn common(
         equipment: EquipmentModuleInput {
             manufacturer: value("dicom-test-suite"),
             manufacturer_model_name: value(&recipe.recipe_id),
-            software_versions: value(crate::PACKAGE_VERSION),
+            software_versions: value(crate::BYTE_STABLE_OUTPUT_VERSION),
         },
         image: ImageModuleInput {
             instance_number: value(instance_number),

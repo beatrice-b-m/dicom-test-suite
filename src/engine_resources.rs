@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::fmt;
 use std::fs;
+use std::io::Read;
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -79,6 +80,16 @@ pub enum EngineResourceError {
         logical_path: String,
         path: PathBuf,
     },
+    SizeMismatch {
+        logical_path: String,
+        path: PathBuf,
+        expected: u64,
+        actual: u64,
+    },
+    Unstable {
+        logical_path: String,
+        path: PathBuf,
+    },
     NonUtf8(String),
     Integrity {
         expected_resource_set_sha256: String,
@@ -121,6 +132,21 @@ impl fmt::Display for EngineResourceError {
                 "engine resource {logical_path} is not a regular file at {}",
                 path.display()
             ),
+            Self::SizeMismatch {
+                logical_path,
+                path,
+                expected,
+                actual,
+            } => write!(
+                formatter,
+                "engine resource {logical_path} at {} has size {actual}, expected {expected}",
+                path.display()
+            ),
+            Self::Unstable { logical_path, path } => write!(
+                formatter,
+                "engine resource {logical_path} changed while being captured at {}",
+                path.display()
+            ),
             Self::NonUtf8(path) => write!(formatter, "product resource is not UTF-8: {path}"),
             Self::Integrity {
                 expected_resource_set_sha256,
@@ -160,16 +186,7 @@ impl EngineResources {
 
     pub fn explicit(root: impl Into<PathBuf>) -> Result<Self, EngineResourceError> {
         let root = root.into();
-        let mut captured = BTreeMap::new();
-        for (logical_path, _) in EMBEDDED_ENGINE_RESOURCES {
-            let path = explicit_resource_path(&root, logical_path)?;
-            let bytes = fs::read(&path).map_err(|source| EngineResourceError::Read {
-                logical_path: (*logical_path).to_string(),
-                path,
-                source,
-            })?;
-            captured.insert(*logical_path, bytes);
-        }
+        let captured = capture_explicit_resources(&root)?;
         let resources = Self {
             source: EngineResourceSource::Explicit(Arc::new(captured)),
         };
@@ -325,7 +342,9 @@ impl EngineResourceError {
             | Self::UnknownResource(_)
             | Self::NonUtf8(_)
             | Self::Symlink { .. }
-            | Self::NotRegular { .. } => "resource.document.invalid",
+            | Self::NotRegular { .. }
+            | Self::SizeMismatch { .. }
+            | Self::Unstable { .. } => "resource.document.invalid",
             Self::Integrity { .. } => "evidence.integrity.failed",
             Self::Read { .. } => "io.read.failed",
             Self::CreateSnapshot { .. } | Self::WriteSnapshot { .. } => "io.write.failed",
@@ -376,6 +395,308 @@ fn validate_logical_path(path: &str) -> Result<(), EngineResourceError> {
     }
 }
 
+#[cfg(unix)]
+fn capture_explicit_resources(
+    root: &Path,
+) -> Result<BTreeMap<&'static str, Vec<u8>>, EngineResourceError> {
+    use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+
+    let root_before = fs::symlink_metadata(root).map_err(|source| EngineResourceError::Read {
+        logical_path: ".".to_string(),
+        path: root.to_path_buf(),
+        source,
+    })?;
+    if root_before.file_type().is_symlink() {
+        return Err(EngineResourceError::Symlink {
+            logical_path: ".".to_string(),
+            path: root.to_path_buf(),
+        });
+    }
+    if !root_before.is_dir() {
+        return Err(EngineResourceError::NotRegular {
+            logical_path: ".".to_string(),
+            path: root.to_path_buf(),
+        });
+    }
+    let root_handle = fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_CLOEXEC | libc::O_DIRECTORY | libc::O_NOFOLLOW)
+        .open(root)
+        .map_err(|source| map_open_error(".", root.to_path_buf(), source))?;
+    let root_open = root_handle
+        .metadata()
+        .map_err(|source| EngineResourceError::Read {
+            logical_path: ".".to_string(),
+            path: root.to_path_buf(),
+            source,
+        })?;
+    if root_before.dev() != root_open.dev() || root_before.ino() != root_open.ino() {
+        return Err(EngineResourceError::Unstable {
+            logical_path: ".".to_string(),
+            path: root.to_path_buf(),
+        });
+    }
+
+    let expected_total = EMBEDDED_ENGINE_RESOURCES
+        .iter()
+        .try_fold(0_u64, |total, (_, bytes)| {
+            total.checked_add(bytes.len() as u64)
+        })
+        .expect("embedded engine resource total fits u64");
+    let mut inspected_total = 0_u64;
+    for (logical_path, expected) in EMBEDDED_ENGINE_RESOURCES {
+        let file = open_resource_at(&root_handle, root, logical_path)?;
+        let metadata = validate_open_resource(&file, root, logical_path, expected.len() as u64)?;
+        inspected_total = inspected_total.checked_add(metadata.len()).ok_or_else(|| {
+            EngineResourceError::SizeMismatch {
+                logical_path: (*logical_path).to_string(),
+                path: root.join(logical_path),
+                expected: expected_total,
+                actual: u64::MAX,
+            }
+        })?;
+    }
+    if inspected_total != expected_total {
+        return Err(EngineResourceError::SizeMismatch {
+            logical_path: ".".to_string(),
+            path: root.to_path_buf(),
+            expected: expected_total,
+            actual: inspected_total,
+        });
+    }
+
+    let mut captured = BTreeMap::new();
+    for (logical_path, expected) in EMBEDDED_ENGINE_RESOURCES {
+        let mut file = open_resource_at(&root_handle, root, logical_path)?;
+        let before = validate_open_resource(&file, root, logical_path, expected.len() as u64)?;
+        let mut bytes = Vec::with_capacity(expected.len());
+        file.by_ref()
+            .take(expected.len() as u64 + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|source| EngineResourceError::Read {
+                logical_path: (*logical_path).to_string(),
+                path: root.join(logical_path),
+                source,
+            })?;
+        if bytes.len() != expected.len() {
+            return Err(EngineResourceError::SizeMismatch {
+                logical_path: (*logical_path).to_string(),
+                path: root.join(logical_path),
+                expected: expected.len() as u64,
+                actual: bytes.len() as u64,
+            });
+        }
+        let after = file
+            .metadata()
+            .map_err(|source| EngineResourceError::Read {
+                logical_path: (*logical_path).to_string(),
+                path: root.join(logical_path),
+                source,
+            })?;
+        if before.dev() != after.dev() || before.ino() != after.ino() || before.len() != after.len()
+        {
+            return Err(EngineResourceError::Unstable {
+                logical_path: (*logical_path).to_string(),
+                path: root.join(logical_path),
+            });
+        }
+        captured.insert(*logical_path, bytes);
+    }
+
+    let root_after = fs::symlink_metadata(root).map_err(|source| EngineResourceError::Read {
+        logical_path: ".".to_string(),
+        path: root.to_path_buf(),
+        source,
+    })?;
+    if root_after.file_type().is_symlink()
+        || !root_after.is_dir()
+        || root_after.dev() != root_open.dev()
+        || root_after.ino() != root_open.ino()
+    {
+        return Err(EngineResourceError::Unstable {
+            logical_path: ".".to_string(),
+            path: root.to_path_buf(),
+        });
+    }
+    Ok(captured)
+}
+
+#[cfg(unix)]
+fn open_resource_at(
+    root_handle: &fs::File,
+    root: &Path,
+    logical_path: &'static str,
+) -> Result<fs::File, EngineResourceError> {
+    use std::ffi::CString;
+    use std::os::fd::{AsRawFd, FromRawFd};
+    use std::os::unix::ffi::OsStrExt;
+
+    let components = Path::new(logical_path).components().collect::<Vec<_>>();
+    let mut directory = root_handle
+        .try_clone()
+        .map_err(|source| EngineResourceError::Read {
+            logical_path: logical_path.to_string(),
+            path: root.to_path_buf(),
+            source,
+        })?;
+    let mut traversed = root.to_path_buf();
+    for (index, component) in components.iter().enumerate() {
+        let Component::Normal(component) = component else {
+            return Err(EngineResourceError::UnsafeLogicalPath(
+                logical_path.to_string(),
+            ));
+        };
+        traversed.push(component);
+        let name = CString::new(component.as_bytes())
+            .map_err(|_| EngineResourceError::UnsafeLogicalPath(logical_path.to_string()))?;
+        let is_last = index + 1 == components.len();
+        let flags = libc::O_CLOEXEC
+            | libc::O_NOFOLLOW
+            | if is_last {
+                libc::O_RDONLY | libc::O_NONBLOCK
+            } else {
+                libc::O_RDONLY | libc::O_DIRECTORY
+            };
+        let descriptor = unsafe { libc::openat(directory.as_raw_fd(), name.as_ptr(), flags) };
+        if descriptor < 0 {
+            return Err(map_open_error(
+                logical_path,
+                traversed,
+                std::io::Error::last_os_error(),
+            ));
+        }
+        let opened = unsafe { fs::File::from_raw_fd(descriptor) };
+        if is_last {
+            return Ok(opened);
+        }
+        directory = opened;
+    }
+    Err(EngineResourceError::UnsafeLogicalPath(
+        logical_path.to_string(),
+    ))
+}
+
+#[cfg(unix)]
+fn validate_open_resource(
+    file: &fs::File,
+    root: &Path,
+    logical_path: &'static str,
+    expected: u64,
+) -> Result<fs::Metadata, EngineResourceError> {
+    let path = root.join(logical_path);
+    let metadata = file
+        .metadata()
+        .map_err(|source| EngineResourceError::Read {
+            logical_path: logical_path.to_string(),
+            path: path.clone(),
+            source,
+        })?;
+    if !metadata.is_file() {
+        return Err(EngineResourceError::NotRegular {
+            logical_path: logical_path.to_string(),
+            path,
+        });
+    }
+    if metadata.len() != expected {
+        return Err(EngineResourceError::SizeMismatch {
+            logical_path: logical_path.to_string(),
+            path,
+            expected,
+            actual: metadata.len(),
+        });
+    }
+    Ok(metadata)
+}
+
+#[cfg(unix)]
+fn map_open_error(
+    logical_path: &str,
+    path: PathBuf,
+    source: std::io::Error,
+) -> EngineResourceError {
+    match source.raw_os_error() {
+        Some(libc::ELOOP) => EngineResourceError::Symlink {
+            logical_path: logical_path.to_string(),
+            path,
+        },
+        Some(libc::ENOTDIR) | Some(libc::EISDIR) | Some(libc::ENXIO) => {
+            EngineResourceError::NotRegular {
+                logical_path: logical_path.to_string(),
+                path,
+            }
+        }
+        _ => EngineResourceError::Read {
+            logical_path: logical_path.to_string(),
+            path,
+            source,
+        },
+    }
+}
+
+#[cfg(not(unix))]
+fn capture_explicit_resources(
+    root: &Path,
+) -> Result<BTreeMap<&'static str, Vec<u8>>, EngineResourceError> {
+    let expected_total = EMBEDDED_ENGINE_RESOURCES
+        .iter()
+        .map(|(_, bytes)| bytes.len() as u64)
+        .sum::<u64>();
+    let mut inspected_total = 0_u64;
+    for (logical_path, expected) in EMBEDDED_ENGINE_RESOURCES {
+        let path = explicit_resource_path(root, logical_path)?;
+        let metadata = fs::metadata(&path).map_err(|source| EngineResourceError::Read {
+            logical_path: (*logical_path).to_string(),
+            path: path.clone(),
+            source,
+        })?;
+        if metadata.len() != expected.len() as u64 {
+            return Err(EngineResourceError::SizeMismatch {
+                logical_path: (*logical_path).to_string(),
+                path,
+                expected: expected.len() as u64,
+                actual: metadata.len(),
+            });
+        }
+        inspected_total += metadata.len();
+    }
+    if inspected_total != expected_total {
+        return Err(EngineResourceError::SizeMismatch {
+            logical_path: ".".to_string(),
+            path: root.to_path_buf(),
+            expected: expected_total,
+            actual: inspected_total,
+        });
+    }
+    let mut captured = BTreeMap::new();
+    for (logical_path, expected) in EMBEDDED_ENGINE_RESOURCES {
+        let path = explicit_resource_path(root, logical_path)?;
+        let file = fs::File::open(&path).map_err(|source| EngineResourceError::Read {
+            logical_path: (*logical_path).to_string(),
+            path: path.clone(),
+            source,
+        })?;
+        let mut bytes = Vec::with_capacity(expected.len());
+        file.take(expected.len() as u64 + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|source| EngineResourceError::Read {
+                logical_path: (*logical_path).to_string(),
+                path: path.clone(),
+                source,
+            })?;
+        if bytes.len() != expected.len() {
+            return Err(EngineResourceError::SizeMismatch {
+                logical_path: (*logical_path).to_string(),
+                path,
+                expected: expected.len() as u64,
+                actual: bytes.len() as u64,
+            });
+        }
+        captured.insert(*logical_path, bytes);
+    }
+    Ok(captured)
+}
+
+#[cfg(not(unix))]
 fn explicit_resource_path(root: &Path, logical_path: &str) -> Result<PathBuf, EngineResourceError> {
     let mut path = root.to_path_buf();
     let root_metadata = fs::symlink_metadata(root).map_err(|source| EngineResourceError::Read {

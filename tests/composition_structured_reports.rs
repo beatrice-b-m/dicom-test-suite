@@ -24,8 +24,8 @@ fn root(label: &str) -> PathBuf {
     ))
 }
 
-fn run(spec: impl Into<PathBuf>, out: PathBuf, seed: u64) -> Result<(), PathBuf> {
-    let _backend = prepared_backend::PreparedBackendOverride::try_acquire()?;
+fn run(spec: impl Into<PathBuf>, out: PathBuf, seed: u64) {
+    let _backend = prepared_backend::PreparedBackendOverride::acquire();
     compose(&ComposeOptions {
         spec_path: spec.into(),
         out_dir: out,
@@ -34,14 +34,6 @@ fn run(spec: impl Into<PathBuf>, out: PathBuf, seed: u64) -> Result<(), PathBuf>
         dry_run: false,
     })
     .unwrap();
-    Ok(())
-}
-
-fn assert_explicit_backend_unavailable(path: &PathBuf) {
-    assert!(
-        !path.is_file(),
-        "unavailable backend path became executable"
-    );
 }
 
 fn oracle_digest(root: &PathBuf) -> String {
@@ -116,18 +108,16 @@ fn first_f32_values(object: &InMemDicomObject, tag: Tag) -> Option<Vec<f32>> {
 }
 
 #[test]
+#[ignore = "external qualification requires the prepared locked highdicom backend"]
 fn structured_report_defaults_have_closed_reproducible_reference_graphs() {
     let first = root("defaults-a");
     let second = root("defaults-b");
     for out in [&first, &second] {
-        if let Err(path) = run(
+        run(
             "tests/fixtures/composition/valid/p6-structured-report-defaults.json",
             out.clone(),
             72,
-        ) {
-            assert_explicit_backend_unavailable(&path);
-            return;
-        }
+        );
     }
     assert_eq!(
         fs::read(first.join("manifest.json")).unwrap(),
@@ -171,6 +161,7 @@ fn structured_report_defaults_have_closed_reproducible_reference_graphs() {
 }
 
 #[test]
+#[ignore = "external qualification requires the prepared locked highdicom backend"]
 fn typed_sr_parameters_change_only_known_content_item_values() {
     let workspace = root("parameters");
     fs::create_dir(&workspace).unwrap();
@@ -190,11 +181,7 @@ fn typed_sr_parameters_change_only_known_content_item_values() {
     )
     .unwrap();
     let out = workspace.join("out");
-    if let Err(path) = run(spec, out.clone(), 73) {
-        assert_explicit_backend_unavailable(&path);
-        fs::remove_dir_all(workspace).unwrap();
-        return;
-    }
+    run(spec, out.clone(), 73);
     let basic = open_file(out.join("instances/basic.dcm"))
         .unwrap()
         .into_inner();

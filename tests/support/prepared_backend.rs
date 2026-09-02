@@ -10,7 +10,7 @@ pub struct PreparedBackendOverride {
 }
 
 impl PreparedBackendOverride {
-    pub fn try_acquire() -> Result<Self, PathBuf> {
+    pub fn acquire() -> Self {
         let guard = BACKEND_ENV_LOCK
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
@@ -18,9 +18,11 @@ impl PreparedBackendOverride {
         let configured = previous.as_ref().map(PathBuf::from).unwrap_or_else(|| {
             Path::new("generation-backends/highdicom-pydicom/.venv/bin/python").into()
         });
-        if !configured.is_file() {
-            return Err(configured);
-        }
+        assert!(
+            configured.is_file(),
+            "composition qualification requires the prepared locked backend at {}",
+            configured.display()
+        );
         let executable = if configured.is_absolute() {
             configured
         } else {
@@ -29,20 +31,10 @@ impl PreparedBackendOverride {
         // Preserve the venv entry-point path: canonicalizing it follows the
         // interpreter symlink and loses the prepared environment's modules.
         unsafe { std::env::set_var("DTS_HIGHDICOM_PYTHON", executable) };
-        Ok(Self {
+        Self {
             previous,
             _guard: guard,
-        })
-    }
-
-    #[allow(dead_code)]
-    pub fn acquire() -> Self {
-        Self::try_acquire().unwrap_or_else(|configured| {
-            panic!(
-                "composition qualification requires the prepared locked backend at {}",
-                configured.display()
-            )
-        })
+        }
     }
 }
 

@@ -33,7 +33,7 @@ artifact.
 
 | Phase | State | Completed items | Current evidence or next gate |
 | --- | --- | --- | --- |
-| R0 — freeze migration contract | In progress | R0.1 | ADR 0003 fixes names, the `0.2.0` clean-rename decision, compatibility treatment, ownership, dependency direction, evidence boundaries, and verification invalidation. R0.2-R0.4 remain unmeasured or unimplemented. |
+| R0 — freeze migration contract | In progress | R0.1, R0.2 | ADR 0003 fixes the separation contract. The dated R0.2 baseline records current workflow ownership, exact remote and local measurements, test-link amplification, artifacts, and unavailable representative classes. R0.3-R0.4 remain unimplemented, so the R0 gate has not passed. |
 | R1 — contain CI and local build cost | Not started | None | Requires the accepted R0 contract and dated baseline. |
 | R2 — reduce Rust test-linking amplification | Not started | None | Requires R1 routing and the R0 test-target baseline. |
 | R3 — rename reusable product | Not started | None | Requires the R0 gate; no current file, package, crate, binary, archive, or environment spelling has been migrated. |
@@ -97,29 +97,66 @@ neutral-example, and README external-consumer contracts while the new ADR
 supersedes only repository ownership. No generator, corpus, package, release,
 or target qualification is claimed by R0.1.
 
-## Measurements
+### R0.2 — dated development-cost baseline
 
-R0.2 has not run. No value in this section is a performance baseline yet.
+**State:** complete
+
+**Baseline revision:**
+`65a296bbb489fcaaff22e38fa35036f0805ccab6`, code-equivalent to starting
+revision `fbd0f76a36dc5726bb41602f44bff290588f560d` outside R0.1 documentation.
+
+**Evidence:**
+`docs/synth-dicom-gen-dcmview-cost-baseline-2026-09-01.md`
+
+The baseline maps every current workflow job and recorded heavyweight target
+to an owner, verification class, and R1/R2 acceptance item. A clean explicit
+`CARGO_TARGET_DIR` all-target no-run build completed in 72.29 seconds, occupied
+8,013,463,552 bytes, and linked 188 Cargo-reported harness artifacts, including
+186 integration-test targets. The exact temporary target and log paths were
+removed after measurement.
+
+Public GitHub API data for authoritative run `33491521696` records 7,935
+seconds (132m15s) of wall time through the isolated successful retry, 10,545
+seconds (175m45s) of actual runner time including the failed JPEG 2000 attempt,
+and 180 per-job rounded billable minutes. The run uploaded one 9,929,745-byte
+artifact, ID `9798112659`, whose archive and ZIP identities remain bound to
+historical candidate `69d3e5f8`. The run predates `f1d1727`'s removal of an
+unrelated curated test from codec jobs, so its exact codec timings are
+conservative historical evidence rather than a claim of a remote run at
+`65a296b`.
+
+No independent Fast PR, Corpus PR, Nightly, or release-candidate workflow is
+present at R0.2. Subsystem and corpus-edit costs are not independently
+measurable because every push, pull request, and manual dispatch selects the
+same graph with no concurrency cancellation or path routing. No heavyweight
+qualification or durable generation was performed for this baseline.
+
+**Verification:** the documentation-only Fast PR check
+`cargo test --locked --no-default-features --test standalone_docs` passed 4/4
+tests in 0.20 seconds, and `git diff --check` passed with no output. This does
+not qualify any generator, corpus, codec, provider, package, release, or target.
+
+## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |
 | --- | --- | ---: | ---: | --- |
-| CI wall time by verification class | Not recorded | — | — | Not measured |
-| Billable runner time by verification class | Not recorded | — | — | Not measured |
-| Largest local target-directory size | Not recorded | — | — | Not measured |
-| Integration-test target count | Not recorded | — | — | Not measured; the plan's dated 186-target statement is diagnostic context only |
-| CI/generated artifact count and size | Not recorded | — | — | Not measured |
-| Representative generator Fast PR | Not recorded | — | — | Not measured |
-| Representative corpus PR | Repository does not yet exist | — | — | Not measured |
+| CI wall time by verification class | Run `33491521696`; class projection documented in the dated baseline | 132m15s full observed interval; no class is independently routed | — | Baseline recorded |
+| Billable runner time by verification class | Exact API job durations; failed attempt plus retry included | 175m45s actual; 180 per-job rounded minutes | — | Baseline recorded |
+| Largest local target-directory size | `CARGO_TARGET_DIR=/private/tmp/dts-r02-target.xAApSK cargo test --locked --all-targets --no-default-features --no-run` | 8,013,463,552 bytes after 72.29s | — | Baseline recorded; exact directory removed |
+| Integration-test target count | Cargo metadata plus top-level `tests/*.rs` at `65a296b` | 186 integration targets; 188 Cargo-reported harness executables | — | Baseline recorded |
+| CI/generated artifact count and size | Actions API for run `33491521696` | 1 upload, ID `9798112659`, 9,929,745-byte ZIP; no uploaded corpus | — | Baseline recorded |
+| Representative generator Fast PR | No independent class at `65a296b` | Not independently measurable; every PR selects the full graph | — | Explicit boundary recorded |
+| Representative corpus PR | Repository does not yet exist; embedded corpus edit selects full graph | Not independently measurable | — | Explicit boundary recorded |
 | Representative viewer PR | Viewer repository not in current scope | — | — | Not measured |
-| Nightly and release-candidate cost | Not recorded | — | — | Not measured |
+| Nightly and release-candidate cost | No separate Nightly/RC trigger; run `33491521696` is exact candidate evidence | Nightly not independently measurable; provider/default/release critical chain 123m53s | — | Explicit boundary recorded |
 
-Before/after cost reduction cannot be claimed until R0.2 records exact commands,
-revisions, elapsed wall time, billable runner time, linked targets, build-tree
-size, and artifacts, and R9.6 repeats the comparable terminal measurements.
+Before/after cost reduction cannot be claimed until R1/R2 record comparable
+class-specific results and R9.6 repeats the terminal measurements. The R0.2
+baseline is diagnostic evidence, not proof that a target budget has passed.
 
 ## Blockers and authority boundaries
 
-- R0.2-R0.4 remain required before the R0 gate can pass.
+- R0.3-R0.4 remain required before the R0 gate can pass.
 - The location, remote, and creation authority for `dcmview-test-corpus` have
   not been supplied. No external repository, remote, release, or other out-of-
   workspace state has been created or mutated.

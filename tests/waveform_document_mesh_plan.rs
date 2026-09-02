@@ -7,11 +7,12 @@ use synth_dicom_gen::recipes::{
     TypedBulkPlanningContext, WaveformPlanProvider, encapsulated_payload_input_from_recipe,
     waveform_input_from_recipe,
 };
-use synth_dicom_gen::{
-    DeterministicUidInput, PACKAGE_VERSION, UidRole, deterministic_uid, sha256_hex,
-};
+use synth_dicom_gen::{DeterministicUidInput, UidRole, deterministic_uid, sha256_hex};
 
 const LOCK: &str = "823230c5932b81b504434330d118fba286d5ff41d4e2f7766372633f4a49e559";
+// These helpers reproduce byte-stable 0.1 output and must not follow the
+// independently versioned public package metadata.
+const BYTE_STABLE_OUTPUT_VERSION: &str = "0.1.0";
 
 fn recipe(path: &str) -> synth_dicom_gen::recipes::CaseRecipe {
     serde_json::from_slice(&fs::read(path).unwrap()).unwrap()
@@ -58,7 +59,7 @@ fn context(
             deterministic_uid(&DeterministicUidInput {
                 standards_lock_sha256: LOCK,
                 case_id: "dicom-test-suite/implementation",
-                recipe_version: PACKAGE_VERSION,
+                recipe_version: BYTE_STABLE_OUTPUT_VERSION,
                 run_seed: 0,
                 file_index: 0,
                 frame_index: None,

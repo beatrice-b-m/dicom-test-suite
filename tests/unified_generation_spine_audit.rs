@@ -268,6 +268,7 @@ fn byte_stable_provider_inventory_is_complete_and_version_decoupled() {
         PathBuf::from("src/composition/modules.rs"),
         PathBuf::from("src/curated_manifest.rs"),
         PathBuf::from("src/validation.rs"),
+        PathBuf::from("tests/waveform_document_mesh_plan.rs"),
     ]);
     output_sources.extend(fs::read_dir("src").unwrap().filter_map(|entry| {
         let path = entry.unwrap().path();

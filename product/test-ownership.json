@@ -441,7 +441,7 @@
         "ci_build_storage_controls_cover_every_job_and_preserve_heavy_evidence",
         "ci_cost_reporter_handles_missing_and_spaced_paths_and_fails_closed"
       ],
-      "entry_digest": "eee9fb487048f4d5d57db0151f62f98d2fa3e0065e1b6c4ae68e7139a2d968ef",
+      "entry_digest": "6cbebb443df5d2e1ae94e8707dc16c3f67e5f6b9b6db62a88b8c7e0439e87563",
       "fast_cost_exemption": "Static workflow and script inspection; no heavyweight command is executed."
     },
     {
@@ -995,7 +995,7 @@
         "typed_sr_parameters_change_only_known_content_item_values",
         "arbitrary_sr_trees_and_out_of_range_values_are_schema_rejected"
       ],
-      "entry_digest": "c85b324a05f50abe57cf8c53af1cea6c935832dd3ea837687686f886d6ffcc1d"
+      "entry_digest": "ff8069acf28e02d42898a0112a486e6625065ea0d2c60fa5c2fa2a67536e118e"
     },
     {
       "source": "tests/composition_wsi.rs",

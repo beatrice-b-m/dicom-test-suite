@@ -2960,7 +2960,7 @@
       "path": "tests/ci_release_gates.rs",
       "token": "DTS_HIGHDICOM_PYTHON",
       "class": "qualified_adapter_environment",
-      "count": 1,
+      "count": 2,
       "owner": "qualified-adapter-interface",
       "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
     },
@@ -4430,13 +4430,13 @@
     }
   ],
   "retained_snapshot": {
-    "match_count": 910,
-    "sha256": "3bb7713fbad7ff44ac73f19544fcb35803e9a0561f2cd4b00fa8cac00e92575d",
+    "match_count": 911,
+    "sha256": "dc9927ccb96a299a801c3b1a9169e7b3ffbcb772fbdbc57064b4eed4b556924f",
     "by_class": {
       "dicom_payload_identifier": 188,
       "legacy_payload_schema_fixture_or_evidence": 285,
       "locked_python_module_or_backend": 141,
-      "qualified_adapter_environment": 154,
+      "qualified_adapter_environment": 155,
       "qualified_adapter_or_test_fixture": 142
     }
   }

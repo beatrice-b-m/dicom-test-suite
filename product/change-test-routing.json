@@ -157,6 +157,11 @@
       "bundles": ["sdk"]
     },
     {
+      "id": "manifest-contract",
+      "exact": ["src/manifest_contract.rs"],
+      "bundles": ["sdk", "schema"]
+    },
+    {
       "id": "identity-discovery",
       "exact": [
         "schemas/capabilities-result-v2.schema.json",

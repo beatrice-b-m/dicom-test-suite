@@ -4,9 +4,9 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 264,
-    "rust_test_entries": 1397,
+    "rust_test_entries": 1398,
     "integration_source_groups": 186,
-    "integration_test_entries": 879,
+    "integration_test_entries": 880,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
   },
   "enums": {
@@ -2734,17 +2734,18 @@
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 7,
+      "entry_count": 8,
       "entries": [
         "sdk_embedded_discovery_is_typed_and_conservative",
         "sdk_explicit_resources_fail_closed_with_stable_error",
         "sdk_compose_bytes_returns_typed_publish_and_dry_run_outcomes",
         "sdk_validation_and_report_return_typed_schema_bound_results",
+        "sdk_curated_validate_and_report_read_exact_supported_manifest_versions",
         "sdk_file_and_byte_requests_share_asset_root_and_pipeline",
         "sdk_precancelled_request_returns_typed_error_and_publishes_nothing",
         "sdk_structural_assembly_returns_no_claim_typed_manifest"
       ],
-      "entry_digest": "11bfb8397efb8faa4434d759f3aa7c745ef3e5cc7cdbb6cb17d92d6da233ab66"
+      "entry_digest": "fa415adcdb587153f8de2de8067540953f88deab48956b1600ca87e69f1ede7f"
     },
     {
       "source": "tests/semantic_sr_rt_plan.rs",
@@ -2828,7 +2829,7 @@
       "entries": [
         "generate_uses_embedded_resources_from_an_unrelated_working_directory"
       ],
-      "entry_digest": "950ce923c89ae5f0f88a6319bfeaa46b9936e4037ffe70dfcd923efb2463679c"
+      "entry_digest": "8d50f34cad89f28e46676c3d68c50c89ff3ec3f9fdedb7b3d021454fdc80aa66"
     },
     {
       "source": "tests/standards_cli.rs",
@@ -4032,9 +4033,9 @@
       "entries": [
         "installed_membership_is_exhaustive_and_relocation_stable",
         "verified_corpus_perturbation_changes_only_corpus_identity",
-        "external_provider_identity_requires_successful_typed_execution_evidence"
+        "external_runtime_identity_requires_successful_typed_execution_evidence"
       ],
-      "entry_digest": "233623a21a0f8e58ed2546eaba5854b05068734fde32e336285601274b3f585a"
+      "entry_digest": "654a3e13611b087556a046e8e566ca89756729104efacb248ac375c9aff67196"
     },
     {
       "source": "src/lib.rs",

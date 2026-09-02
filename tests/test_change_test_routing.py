@@ -79,6 +79,14 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
                 ],
                 ["release_candidate"],
             ),
+            "src/manifest_contract.rs": (
+                ["schema", "sdk"],
+                [
+                    "cargo test --locked --no-default-features --test cli_sdk__nonfast sdk_facade::",
+                    "cargo test --locked --no-default-features --test schema_resources__subsystem",
+                ],
+                ["release_candidate"],
+            ),
             "cases/registry.json": (
                 ["corpus"],
                 [

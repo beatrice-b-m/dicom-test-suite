@@ -85,6 +85,20 @@ The ordinary default regression baseline is:
 cargo test --locked --all-targets --no-default-features
 ```
 
+For a focused current-repository change, inspect the fail-closed Fast/subsystem
+selection before executing it:
+
+```sh
+python3 scripts/route-changed-tests.py --path src/sdk.rs --dry-run
+python3 scripts/route-changed-tests.py --path src/sdk.rs
+```
+
+Repeat `--path` for overlaps. The JSON report names unconditional Fast
+coverage, selected ordinary commands, and deferred Nightly, codec, provider,
+heavy, package/release, or future external-corpus evidence. An unmapped
+code/data path is an error; `--all-ordinary` is the conservative manual
+fallback and still does not run deferred evidence.
+
 That command deliberately skips the six explicitly ignored R2.3 heavyweight
 entries. Run the applicable slice through
 `scripts/run-heavy-qualification.sh byte-parity`, `all-profile`, `wsi`, or

@@ -301,6 +301,7 @@ are contributor workflows, not consumer installation instructions:
 
 ```sh
 cargo test --locked --all-targets --no-default-features
+python3 scripts/route-changed-tests.py --path src/sdk.rs --dry-run
 cargo run --locked -- version --format json
 cargo run --locked -- generate --profile smoke --out generated/dev-smoke --seed 1
 ```
@@ -310,6 +311,11 @@ explicitly ignored heavyweight corpus entries. Run an affected heavy slice via
 `scripts/run-heavy-qualification.sh byte-parity`, `all-profile`, `wsi`, or
 `stress`. Scheduled Nightly and exact release-candidate qualification use
 `scripts/run-heavy-qualification.sh all` once after the ordinary suite.
+Fast CI always runs its two contract harnesses, then uses the fail-closed
+change router to execute only list-proven ordinary Fast/subsystem bundles. Its
+JSON output keeps feature codecs, native providers, explicit heavy entries,
+package/release work, and the future independent corpus workflow visible as
+deferred evidence rather than implying they passed.
 
 Contributors and coding agents must follow [AGENTS.md](AGENTS.md), including its
 granular commit policy. Generated corpora belong under ignored output paths and

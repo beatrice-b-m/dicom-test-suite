@@ -26,6 +26,8 @@ jobs:
       CI_DISK_BUDGET_BYTES: "4294967296"
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - name: Initialize isolated build root and cost clock
         run: |
           echo "CARGO_TARGET_DIR=$RUNNER_TEMP/cargo-target-fast-pr" >> "$GITHUB_ENV"
@@ -38,6 +40,7 @@ jobs:
           jq empty cases/registry.json schemas/*.json transfer-syntax/*.json standards.lock.json
           python3 scripts/check-test-ownership.py
           python3 -m unittest tests/test_test_ownership_checker.py
+          python3 -m unittest tests/test_change_test_routing.py
       - name: Compile public library and CLI with warnings denied
         env:
           RUSTFLAGS: -D warnings
@@ -46,6 +49,20 @@ jobs:
         run: |
           cargo test --locked --no-default-features \
             --test schema_resources__fast --test release_ci__fast
+      - name: Run routed ordinary subsystem bundles
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          case "$EVENT_NAME" in
+            pull_request) base=$PR_BASE_SHA ;;
+            push) base=$PUSH_BEFORE_SHA ;;
+            workflow_dispatch) base=0000000000000000000000000000000000000000 ;;
+            *) echo "unsupported Fast routing event: $EVENT_NAME" >&2; exit 2 ;;
+          esac
+          python3 scripts/route-changed-tests.py --diff "$base" "$HEAD_SHA"
       - name: Generate and validate tiny smoke corpus
         run: |
           started=$SECONDS

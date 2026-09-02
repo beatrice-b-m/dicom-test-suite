@@ -114,6 +114,13 @@ fn fast_pr_is_bounded_to_light_contracts_and_tiny_smoke() {
         "RUSTFLAGS: -D warnings",
         "cargo check --locked --no-default-features --lib --bins",
         "--test schema_resources__fast --test release_ci__fast",
+        "fetch-depth: 0",
+        "python3 -m unittest tests/test_change_test_routing.py",
+        "Run routed ordinary subsystem bundles",
+        "PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}",
+        "PUSH_BEFORE_SHA: ${{ github.event.before }}",
+        "workflow_dispatch) base=0000000000000000000000000000000000000000",
+        "python3 scripts/route-changed-tests.py --diff \"$base\" \"$HEAD_SHA\"",
         "generate --profile smoke",
         "validate \"$root\"",
         "scripts/report-ci-cost.sh fast-pr",
@@ -155,6 +162,17 @@ fn fast_pr_is_bounded_to_light_contracts_and_tiny_smoke() {
             "explicit heavy entry leaked into Fast PR: {entry}"
         );
     }
+    assert_eq!(
+        fast.matches("scripts/route-changed-tests.py --diff")
+            .count(),
+        1
+    );
+    assert!(
+        fast.find("--test schema_resources__fast --test release_ci__fast")
+            .unwrap()
+            < fast.find("scripts/route-changed-tests.py --diff").unwrap(),
+        "unconditional Fast ownership must run before routed ordinary bundles"
+    );
 }
 
 #[test]

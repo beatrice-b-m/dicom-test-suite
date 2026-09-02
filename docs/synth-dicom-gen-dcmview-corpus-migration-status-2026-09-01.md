@@ -35,7 +35,7 @@ artifact.
 | --- | --- | --- | --- |
 | R0 — freeze migration contract | Complete | R0.1, R0.2, R0.3, R0.4 | ADR 0003, the dated cost baseline, the exhaustive 801-path ownership inventory, and the seed-1 smoke parity manifest fix repository ownership, invalidated verification class, and the byte/normalized-semantic migration boundary. The R0 gate passes. |
 | R1 — contain CI and local build cost | Complete | R1.1, R1.2, R1.3, R1.4, R1.5, R1.6 | A disposable draft-PR probe proved superseded-run cancellation and single-event ownership. Replacement Fast run `33581809536` passed in 123 seconds of job time with only the declared Fast work, a 739,602,432-byte target, four smoke artifacts occupying 122,880 allocated bytes, and the 4-GiB ceiling enforced. The broad matrix remains separately scheduled/manually invocable. The R1 gate passes. |
-| R2 — reduce Rust test-linking amplification | In progress | R2.1, R2.2, R2.3 | The fail-closed inventory maps 186 integration sources and all 879 integration entries into exactly 20 explicit harnesses, and the six R0-measured heavy bodies now have exact ignored entry points selected once by Nightly/release-candidate qualification. Change routing and the aggregate R2 gate remain. |
+| R2 — reduce Rust test-linking amplification | Complete | R2.1, R2.2, R2.3, R2.4 | The fail-closed inventory maps 186 integration sources and all 879 integration entries into exactly 20 explicit harnesses. Six R0-measured heavy bodies have exact ignored qualification entry points, while deterministic change routing now selects bounded Fast/subsystem evidence and reports every deferred class without executing it. The aggregate R2 target-count, cost, heavy-isolation, and routing gates pass. |
 | R3 — rename reusable product | Not started | None | Requires the R0 gate; no current file, package, crate, binary, archive, or environment spelling has been migrated. |
 | R4 — split immutable resources and corpus definitions | Not started | None | Requires the accepted naming decision and sequential resource/schema migration. |
 | R5 — add supported external corpus API | Not started | None | Requires the R4 resource and identity boundary. |
@@ -1262,6 +1262,113 @@ terminal target matrix ran. R2.3's explicit-entry and cadence acceptance
 passes; R2.4 routing, the aggregate R2 gate, and terminal heavy-qualification
 evidence remain open.
 
+### R2.4 — fail-closed targeted ordinary routing
+
+**State:** complete on 2026-09-02; aggregate R2 gate complete
+
+**Commit:** the atomic commit with subject
+`test(routing): add fail-closed change selection` (resolve the exact object
+with `git log --format='%H %s' -- product/change-test-routing.json`)
+
+The repository now owns a structured routing contract in
+`product/change-test-routing.json` and an argv-only dispatcher in
+`scripts/route-changed-tests.py`. Exact paths and directory or filename
+prefixes select deterministic bundles for representative engine, codec,
+provider, schema, SDK, and current embedded-corpus changes. Repeated and
+overlapping paths are unioned and deduplicated; a whole integration target
+subsumes its module filters, and the two unconditional Fast targets subsume
+their routed modules. Top-level Rust test sources derive their one target,
+module, verification class, cost tier, heavy state, and ignore state from
+`product/test-ownership.json`. Unknown executable, code, or data paths fail
+closed. The only ignored paths are a hard-coded non-executable governance
+allowlist, so config drift cannot hide a new executable surface.
+
+Pull requests use the immutable merge-base/head pair, pushes use before/head,
+and checkout fetches full history. Rename and copy records route both sides,
+while deletion paths remain evidence-bearing. Revisions must be lowercase
+40-hex objects and Git name-status tokens are validated before selection.
+Manual runs and a zero before-object select the conservative configured
+ordinary union without invoking Git; a positive fixture proves that zero-base
+path produces all seven deferral records. Fast always runs
+`schema_resources__fast` and `release_ci__fast` first, then invokes the router
+exactly once in the same bounded target directory. A real empty diff may add
+no routed command, but a missing selection mode is an error.
+
+Immediate commands are locked and no-default-feature only. They contain no
+all-target, feature, ignored, release, release-candidate, heavy, or provider-
+qualification selector. The global fallback contains 60 unique commands: 46
+ownership-safe integration target/module selections across 11 target names
+and 14 explicit library prefixes. Every library prefix is configured rather
+than inferred from a source path, resolves to a nonzero live no-default list,
+and is bound to the owning entry names and count. This finite fallback does
+not claim exhaustive ordinary library coverage; `unrouted_lib_groups` remains
+explicitly deferred. Its other explicit deferrals are the codec feature
+matrix, R2.3 heavy entries, future external-corpus evidence, native-provider
+qualification, Nightly, and release-candidate evidence. None is executed by
+the router.
+
+Some representative bundles deliberately include ordinary dependency
+evidence assigned to another R2.1 domain: engine changes include executor
+library groups owned by corpus-generation and codec, provider changes include
+ordinary corpus-generation library groups, SDK changes include a schema
+contract module, and embedded-corpus changes include an engine planning
+module. These dependencies are explicit structured commands, not accidental
+broad-target leakage. `generation_backends::process::tests::` is the sole
+restricted heavy-cost source exception: default list/execution selects its
+four ordinary tests while Rust's default ignore behavior leaves its six
+provider timing entries for `native_provider_contract` qualification. The
+exception cannot be configured for any other source.
+
+The config is 10,761 bytes with SHA-256
+`bc1e377bbe4cf49d41eb12f637fbb3ce1efe0e222417b577587fa4960eaff626`;
+the 22,299-byte dispatcher has SHA-256
+`5514ddde65fd448b55b2a80062ff6e2d9de9477bf291d872a370b398544a1e7e`.
+The ownership manifest has SHA-256
+`d6e7c4812e3274420539605ccbaca199d80a83160c4f1ab30fcccd938fa91889`.
+Regeneration changed only the `tests/ci_release_gates.rs` entry digest: target,
+source, entry, domain, class, cost, heavy, and ignored inventories remain 22
+targets, 262 groups, and 1,375 entries with otherwise identical assignments.
+All 831 tracked paths route or match the explicit governance ignore inventory;
+the Cargo package list contains 830 paths and includes the config, dispatcher,
+and fixtures under the existing `product/**`, `scripts/**`, and `tests/**`
+rules.
+
+Proportional verification passed: 13 routing fixtures, six ownership-checker
+fixtures, the ownership checker, and all six focused `ci_release_gates::`
+tests; Python compile, JSON and workflow YAML parsing, Cargo metadata, package
+inventory, Rust formatting, and diff hygiene also passed. The fixtures bind
+the six representative exact command/deferred sets, overlap and whole/module
+subsumption, unconditional-Fast coverage, docs-only behavior, unknown and
+unowned source rejection, rename/copy/deletion parsing, malformed statuses,
+immutable revisions, zero-base fallback, config/ignore/command injection
+rejection, tracked-surface coverage, provider ignored isolation, package
+contents, and the workflow contract.
+
+A clean Fast-equivalent local measurement used the exact temporary target
+`/private/tmp/dts-r24-fast-target/target`, ran the two unconditional Fast
+harnesses and the selected engine ordinary bundle, and completed in 68.57
+seconds wall (`user 184.02`, `sys 13.74`). The target occupied 705,949,696
+bytes and linked four test binaries plus one product binary; the additional
+library test binary is the fixture's no-default `--lib -- --list` proof. The
+one retained log artifact occupied 36,864 allocated bytes, and the existing
+4,294,967,296-byte Fast disk budget passed. Relative to the comparable R0
+8,013,463,552-byte all-target tree, this bounded target is 7,307,513,856 bytes
+(91.19%) smaller. It is 33,652,736 bytes below the differently scoped remote
+R1 Fast target; compared with the compile-only R2.2 Fast target it adds
+125,632,512 bytes for list-proven library and selected engine evidence. The
+exact temporary target and routing/list/cache outputs were measured before
+removal.
+
+No heavy, ignored, provider, feature-gated codec, broad all-target, Nightly,
+release-candidate, package build, corpus-generation body, release/archive,
+external runtime, independent conformance, interoperability, or remote
+workflow body ran. The embedded-corpus rule remains temporary until the
+separate corpus repository exists; it neither imports an internal generator
+module nor accesses a sibling path. R2.1 ownership, R2.2 harness consolidation,
+R2.3 explicit heavy isolation, and this bounded routing/cost acceptance now
+close the aggregate R2 gate. Terminal qualification evidence remains owned by
+the later qualification phases and is not implied by this routing proof.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |
@@ -1272,6 +1379,7 @@ evidence remain open.
 | Integration-test target count | Cargo metadata plus top-level `tests/*.rs` at `65a296b` | 186 integration targets; 188 Cargo-reported harness executables | 20 explicit integration targets; 22 executables including lib/bin | R2.2 target-count gate passes |
 | CI/generated artifact count and size | Actions API for run `33491521696` | 1 upload, ID `9798112659`, 9,929,745-byte ZIP; no uploaded corpus | — | Baseline recorded |
 | Representative generator Fast PR | No independent class at `65a296b` | Not independently measurable; every PR selects the full graph | Remote run `33581809536`: 123s job interval, 116 build-work seconds, 739,602,432-byte target, four smoke artifacts occupying 122,880 allocated bytes | R1 gate passes 4-GiB and 15-minute budgets; target is 68.1% smaller than the pre-R1.5 Fast measurement and 90.8% smaller than the differently scoped R0 all-target tree |
+| R2.4 bounded Fast plus selected engine route | R0 clean no-default all-target target at `65a296b` | 8,013,463,552 target bytes; 188 Cargo-reported harness executables | 68.57s wall; 705,949,696 target bytes; four test binaries plus one product binary; one 36,864-byte allocated log artifact | 7,307,513,856 bytes / 91.19% smaller; 4-GiB Fast disk budget passes; exact temporary target removed |
 | Representative corpus PR | Repository does not yet exist; embedded corpus edit selects full graph | Not independently measurable | — | Explicit boundary recorded |
 | Representative viewer PR | Viewer repository not in current scope | — | — | Not measured |
 | Nightly and release-candidate cost | No separate Nightly/RC trigger; run `33491521696` is exact candidate evidence | Nightly not independently measurable; provider/default/release critical chain 123m53s | — | Explicit boundary recorded |

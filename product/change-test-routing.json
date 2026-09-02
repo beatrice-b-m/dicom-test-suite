@@ -1,0 +1,280 @@
+{
+  "schema_version": 1,
+  "ownership_manifest": "product/test-ownership.json",
+  "unconditional_fast_targets": [
+    "release_ci__fast",
+    "schema_resources__fast"
+  ],
+  "deferred_evidence": {
+    "codec_feature_matrix": "Feature-specific codec compilation and corpus evidence remains in Heavy qualification.",
+    "explicit_heavy": "R2.3 ignored byte-parity, all-profile, WSI, and stress entries run only through the heavy dispatcher.",
+    "future_external_corpus": "The future corpus repository will own its independent PR workflow after extraction; no sibling path is consulted.",
+    "native_provider_contract": "The locked Python provider and ignored process contracts remain in Heavy qualification.",
+    "nightly": "Nightly-owned ordinary and ignored entries remain in the scheduled/manual default qualification.",
+    "release_candidate": "Packaging, installed SDK, archive, and immutable release evidence remains release-candidate-only.",
+    "unrouted_lib_groups": "All-configured-ordinary runs only list-proven representative lib prefixes; remaining ordinary lib groups stay explicit deferred evidence."
+  },
+  "bundles": {
+    "assembly": {
+      "commands": [{"target": "assembly__subsystem"}]
+    },
+    "codec": {
+      "commands": [
+        {"kind": "lib", "module": "codecs::tests", "source": "src/codecs.rs", "list_count": 15},
+        {"target": "codec__subsystem"}
+      ],
+      "deferred": ["codec_feature_matrix"]
+    },
+    "composition": {
+      "commands": [{"target": "composition__subsystem", "scope": "ordinary"}],
+      "deferred": ["native_provider_contract"]
+    },
+    "conformance": {
+      "commands": [{"target": "conformance_interoperability__subsystem"}]
+    },
+    "corpus": {
+      "commands": [
+        {"target": "corpus_generation__subsystem"},
+        {"target": "engine__subsystem", "module": "corpus_plan"}
+      ],
+      "covered_by_fast": ["schema_resources__fast"],
+      "deferred": ["explicit_heavy", "future_external_corpus"]
+    },
+    "engine": {
+      "commands": [
+        {"kind": "lib", "module": "executor::evidence::tests", "source": "src/executor/evidence.rs", "list_count": 3},
+        {"kind": "lib", "module": "executor::materialization::tests", "source": "src/executor/materialization.rs", "list_count": 16},
+        {"kind": "lib", "module": "executor::native_codec::tests", "source": "src/executor/native_codec.rs", "list_count": 1},
+        {"kind": "lib", "module": "executor::scheduler::tests", "source": "src/executor/scheduler.rs", "list_count": 9},
+        {"kind": "lib", "module": "executor::services::tests", "source": "src/executor/services.rs", "list_count": 5},
+        {"kind": "lib", "module": "executor::transaction::tests", "source": "src/executor/transaction.rs", "list_count": 10},
+        {"target": "engine__subsystem"}
+      ],
+      "deferred": ["nightly"]
+    },
+    "provider": {
+      "commands": [
+        {"kind": "lib", "module": "generation_backends::tests", "source": "src/generation_backends/mod.rs", "list_count": 5},
+        {"kind": "lib", "module": "generation_backends::discovery::tests", "source": "src/generation_backends/discovery.rs", "list_count": 3},
+        {"kind": "lib", "module": "generation_backends::parametric_map::tests", "source": "src/generation_backends/parametric_map.rs", "list_count": 5},
+        {"kind": "lib", "module": "generation_backends::process::tests", "source": "src/generation_backends/process.rs", "list_count": 10, "ignored_heavy_skipped": true},
+        {"kind": "lib", "module": "generation_backends::scoord3d::tests", "source": "src/generation_backends/scoord3d.rs", "list_count": 4},
+        {"kind": "lib", "module": "generation_backends::staging::tests", "source": "src/generation_backends/staging.rs", "list_count": 8},
+        {"kind": "lib", "module": "generation_backends::tid1500::caller_parameter_tests", "source": "src/generation_backends/tid1500.rs", "list_count": 1},
+        {"target": "provider__subsystem"}
+      ],
+      "deferred": ["native_provider_contract"]
+    },
+    "routing_contract": {
+      "commands": [],
+      "covered_by_fast": ["release_ci__fast"]
+    },
+    "schema": {
+      "commands": [{"target": "schema_resources__subsystem"}],
+      "covered_by_fast": ["schema_resources__fast"]
+    },
+    "sdk": {
+      "commands": [
+        {"target": "cli_sdk__nonfast", "module": "sdk_facade"},
+        {"target": "schema_resources__subsystem", "module": "cli_contract_schema"}
+      ]
+    },
+    "standards": {
+      "commands": [{"target": "standards_validation__subsystem"}]
+    }
+  },
+  "rules": [
+    {
+      "id": "global-build",
+      "exact": ["Cargo.lock", "Cargo.toml", "build.rs", "src/lib.rs", "src/main.rs"],
+      "all_ordinary": true,
+      "deferred": ["codec_feature_matrix", "explicit_heavy", "future_external_corpus", "native_provider_contract", "nightly", "release_candidate"]
+    },
+    {
+      "id": "routing-contract",
+      "exact": [
+        ".github/workflows/ci.yml",
+        "product/change-test-routing.json",
+        "product/test-ownership.json",
+        "scripts/check-test-ownership.py",
+        "scripts/route-changed-tests.py",
+        "tests/test_change_test_routing.py"
+      ],
+      "bundles": ["routing_contract"],
+      "deferred": ["release_candidate"]
+    },
+    {
+      "id": "engine",
+      "exact": [
+        "src/corpus_plan.rs", "src/fuzz.rs", "src/mutation.rs", "src/negative.rs",
+        "src/negative_plan.rs", "src/planning.rs", "src/planning_preview.rs",
+        "src/qualification_plan.rs", "src/stress.rs"
+      ],
+      "prefixes": ["src/executor/"],
+      "bundles": ["engine"]
+    },
+    {
+      "id": "codec",
+      "exact": [
+        "src/codecs.rs", "src/encapsulation.rs", "src/encoded_content.rs",
+        "src/executor/frame_codec.rs", "src/executor/native_codec.rs", "src/native_pixel.rs"
+      ],
+      "prefixes": ["transfer-syntax/"],
+      "bundles": ["codec"]
+    },
+    {
+      "id": "provider",
+      "exact": ["src/recipes/content_provider.rs"],
+      "prefixes": ["generation-backends/", "src/generation_backends/"],
+      "bundles": ["provider"]
+    },
+    {
+      "id": "schema",
+      "exact": ["src/product_resources.rs"],
+      "prefixes": ["schemas/"],
+      "bundles": ["schema"]
+    },
+    {
+      "id": "sdk",
+      "exact": ["src/cli_protocol.rs", "src/coverage_gaps.rs", "src/runtime_capabilities.rs", "src/sdk.rs"],
+      "bundles": ["sdk"]
+    },
+    {
+      "id": "embedded-corpus",
+      "exact": [
+        "src/curated_execution.rs", "src/curated_manifest.rs", "src/curated_plan.rs",
+        "src/curated_validation.rs", "src/discovery.rs", "src/geometry.rs",
+        "src/hashing.rs", "src/metadata.rs", "src/part10_locator.rs",
+        "src/quantitative_evidence.rs", "src/rt_manifest.rs",
+        "src/rt_radiation_manifest.rs", "src/sr_rt_manifest.rs",
+        "src/sr_rt_validation.rs", "src/uid.rs", "src/validation.rs",
+        "src/waveform_manifest.rs"
+      ],
+      "prefixes": ["cases/", "src/curated_execution/", "src/curated_manifest/", "src/recipes/"],
+      "file_prefixes": ["src/validation_"],
+      "bundles": ["corpus"]
+    },
+    {
+      "id": "assembly",
+      "prefixes": ["src/assembly/"],
+      "bundles": ["assembly"]
+    },
+    {
+      "id": "composition",
+      "prefixes": ["src/composition/"],
+      "bundles": ["composition"]
+    },
+    {
+      "id": "conformance",
+      "exact": [
+        "src/conformance.rs", "src/media.rs", "src/media_runner.rs", "src/media_sources.rs",
+        "src/protocol.rs", "src/protocol_baseline.rs"
+      ],
+      "prefixes": ["conformance-backends/"],
+      "bundles": ["conformance"]
+    },
+    {
+      "id": "standards",
+      "exact": ["standards.lock.json"],
+      "prefixes": ["standards/"],
+      "bundles": ["standards"]
+    },
+    {
+      "id": "release-governance",
+      "exact": [
+        ".github/workflows/qualification.yml", "scripts/build-release-archive.sh",
+        "scripts/report-ci-cost.sh", "scripts/run-heavy-qualification.sh",
+        "scripts/verify-release-archive.sh"
+      ],
+      "bundles": ["routing_contract"],
+      "deferred": ["explicit_heavy", "release_candidate"]
+    },
+    {
+      "id": "product-data",
+      "exact": ["product/cli-error-codes.json", "product/compatibility-owners.json"],
+      "bundles": ["schema", "sdk"]
+    },
+    {
+      "id": "embedded-assets",
+      "prefixes": ["src/assets/"],
+      "bundles": ["corpus", "schema"]
+    },
+    {
+      "id": "test-harness-roots",
+      "prefixes": ["tests/harnesses/"],
+      "all_ordinary": true
+    },
+    {
+      "id": "test-support",
+      "prefixes": ["tests/support/", "tests/fixtures/generation-backend/"],
+      "bundles": ["provider"]
+    },
+    {
+      "id": "composition-fixtures",
+      "prefixes": ["tests/fixtures/composition/"],
+      "bundles": ["composition"]
+    },
+    {
+      "id": "corpus-fixtures",
+      "prefixes": ["tests/fixtures/case-recipes/"],
+      "bundles": ["corpus"]
+    },
+    {
+      "id": "schema-fixtures",
+      "prefixes": ["tests/fixtures/cli/", "tests/conformance/fixtures/"],
+      "bundles": ["schema", "sdk"]
+    },
+    {
+      "id": "python-contract-tests",
+      "exact": ["tests/test_test_ownership_checker.py"],
+      "bundles": ["routing_contract"]
+    },
+    {
+      "id": "release-python-consumers",
+      "exact": [
+        "tests/black_box_cli_consumer.py", "tests/caller_content_consumer.py",
+        "tests/qualified_catalog_consumer.py", "tests/structural_catalog_consumer.py",
+        "tests/upgrade_consumer.py"
+      ],
+      "bundles": ["routing_contract"],
+      "deferred": ["release_candidate"]
+    },
+    {
+      "id": "toolchain",
+      "exact": ["rust-toolchain.toml"],
+      "all_ordinary": true,
+      "deferred": ["codec_feature_matrix", "native_provider_contract", "nightly", "release_candidate"]
+    },
+    {
+      "id": "provider-lock",
+      "exact": ["generation-backends.lock.json"],
+      "bundles": ["provider"]
+    },
+    {
+      "id": "conformance-data",
+      "prefixes": ["conformance/", "security/"],
+      "bundles": ["conformance"],
+      "deferred": ["nightly"]
+    },
+    {
+      "id": "templates",
+      "prefixes": ["templates/"],
+      "bundles": ["corpus", "schema"]
+    },
+    {
+      "id": "examples",
+      "prefixes": ["examples/"],
+      "bundles": ["composition", "sdk"]
+    }
+  ],
+  "ignored": {
+    "exact": [
+      ".gitignore", "AGENTS.md", "CHANGELOG.md", "CURRENT_PLAN.md", "CURRENT_PROGRESS.md",
+      "LICENSE-APACHE", "LICENSE-MIT", "README.md", "SYSTEM_SPEC.md",
+      "docs/synth-dicom-gen-dcmview-corpus-migration-status-2026-09-01.md",
+      "product/migration-file-ownership-2026-09-01.json",
+      "scripts/run_codex_current_slices.sh", "scripts/run_codex_slices.sh"
+    ],
+    "prefixes": ["docs/", ".codex/", ".agents/"]
+  }
+}

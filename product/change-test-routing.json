@@ -100,7 +100,7 @@
     },
     "resource_cache": {
       "commands": [
-        {"kind": "lib", "module": "engine_resources::snapshot_cache_tests", "source": "src/engine_resources.rs", "list_count": 6}
+        {"kind": "lib", "module": "engine_resources::snapshot_cache_tests", "source": "src/engine_resources.rs", "list_count": 7}
       ]
     },
     "schema": {

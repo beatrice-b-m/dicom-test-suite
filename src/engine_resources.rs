@@ -781,6 +781,80 @@ mod snapshot_cache_tests {
         assert!(matches!(error, EngineResourceError::Integrity { .. }));
         assert_eq!(error.code(), "evidence.integrity.failed");
     }
+
+    #[test]
+    fn one_handle_reuses_one_tree_across_batch_generate_validate_report_and_compose() {
+        let resources = EngineResources::embedded();
+        let workspace = std::env::temp_dir().join(format!(
+            "synth-dicom-gen-r4-5-batch-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let generated = workspace.join("generated");
+        let run = crate::prepare_generation_run(crate::GenerateOptions {
+            profile: "smoke".to_string(),
+            out_dir: generated.clone(),
+            seed: 1,
+            include_stress: false,
+        })
+        .unwrap();
+        let summary = crate::write_generation_run_with_resources(&run, &resources).unwrap();
+        assert_eq!(summary.files_written, 3);
+        let shared_root = resources.shared_snapshot().unwrap().root().to_path_buf();
+
+        let validation = crate::validate_generated_root_with_resources(&generated, &resources)
+            .expect("shared-resource validation must complete");
+        assert!(validation.failures.is_empty());
+        let report = crate::build_coverage_report_with_resources(&generated, &resources)
+            .expect("shared-resource report must complete");
+        assert_eq!(report["coverage_report_schema_version"], "1.0.0");
+
+        for (path, expected) in [
+            (
+                "classic/sc/mono1_u8_explicit_le/instance.dcm",
+                "76dc5208b139899fcb87bbf7ec9edf1a323000a91c4015de9ef8bde7bd344ecc",
+            ),
+            (
+                "classic/sc/mono2_u8_explicit_le/instance.dcm",
+                "fce766bcbb4b4aa79cfb3fa0c3b5e4ef888b11c0708fad713b9cde8d41ec6a15",
+            ),
+            (
+                "classic/sc/rgb_planar0_explicit_le/instance.dcm",
+                "33de9448509431fda27005cbf83c79977f1c3ebadb669ae1dedf1a225742f3c5",
+            ),
+        ] {
+            assert_eq!(
+                crate::sha256_hex(&fs::read(generated.join(path)).unwrap()),
+                expected
+            );
+        }
+
+        let composition_out = workspace.join("composition");
+        let composition_options = crate::composition::ComposeBytesOptions {
+            spec_root: PathBuf::from("tests/fixtures/composition/valid"),
+            out_dir: composition_out.clone(),
+            seed: 1,
+            catalog_path: PathBuf::from(TEMPLATE_CATALOG_RESOURCE),
+            dry_run: false,
+        };
+        let (composition_summary, _) = crate::composition::compose_from_bytes_with_resources(
+            include_bytes!("../tests/fixtures/composition/valid/template-only.json"),
+            &composition_options,
+            &resources,
+        )
+        .unwrap();
+        assert_eq!(composition_summary.instances_written, 1);
+        assert_eq!(
+            resources.shared_snapshot().unwrap().root(),
+            shared_root.as_path()
+        );
+        assert_eq!(file_inventory(&shared_root), (254, 2_664_374));
+
+        fs::remove_dir_all(workspace).unwrap();
+    }
 }
 
 #[cfg(unix)]

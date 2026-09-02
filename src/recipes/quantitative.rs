@@ -1134,7 +1134,11 @@ fn common_attributes(
             DicomVr::LO,
             device_serial_number,
         ),
-        set_string(tags::SOFTWARE_VERSIONS, DicomVr::LO, crate::PACKAGE_VERSION),
+        set_string(
+            tags::SOFTWARE_VERSIONS,
+            DicomVr::LO,
+            crate::BYTE_STABLE_OUTPUT_VERSION,
+        ),
     ])
 }
 

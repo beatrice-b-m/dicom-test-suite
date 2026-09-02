@@ -2867,6 +2867,12 @@ fn quantitative_context(
             role,
         })
     };
+    let implementation_recipe_version =
+        if recipe.plan_provider_id == crate::recipes::QUANTITATIVE_EXTERNAL_PROVIDER_ID {
+            crate::PACKAGE_VERSION
+        } else {
+            crate::BYTE_STABLE_OUTPUT_VERSION
+        };
     let mut identities = vec![
         (
             CompositionUidRole::StudyInstance,
@@ -2901,7 +2907,7 @@ fn quantitative_context(
             deterministic_uid(&DeterministicUidInput {
                 standards_lock_sha256,
                 case_id: "dicom-test-suite/implementation",
-                recipe_version: crate::PACKAGE_VERSION,
+                recipe_version: implementation_recipe_version,
                 run_seed: 0,
                 file_index: 0,
                 frame_index: None,

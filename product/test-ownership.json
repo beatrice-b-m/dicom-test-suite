@@ -4,9 +4,9 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 265,
-    "rust_test_entries": 1409,
+    "rust_test_entries": 1414,
     "integration_source_groups": 187,
-    "integration_test_entries": 890,
+    "integration_test_entries": 895,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
   },
   "enums": {
@@ -287,14 +287,16 @@
       "domain": "assembly",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 4,
+      "entry_count": 6,
       "entries": [
         "assemble_cli_publish_and_dry_run_share_the_typed_machine_shape",
+        "cli_validate_and_report_read_both_assembly_manifest_versions",
+        "cli_validate_and_report_reject_invalid_assembly_identity_contracts",
         "assemble_cli_schema_failure_uses_stable_machine_error",
         "assemble_cli_adversarial_inputs_use_stable_exit_classes",
         "assemble_cli_destination_and_resource_failures_publish_nothing"
       ],
-      "entry_digest": "19e026d89b57eb6ee74ed6b4fc842dd834433e56583fbb16553ff99676981a33"
+      "entry_digest": "c832704750cba4fb6dda45c62ae3c601581c513e98124c4fdf7673e59c5b1fb2"
     },
     {
       "source": "tests/assembly_plan.rs",
@@ -302,16 +304,17 @@
       "domain": "assembly",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 6,
+      "entry_count": 7,
       "entries": [
         "assembly_plans_structural_artifacts_on_the_neutral_corpus_spine",
         "assembly_plan_identity_and_hash_are_parallelism_independent",
+        "assembly_uid_namespace_is_independent_of_transitional_resource_membership",
         "assembly_plans_each_typed_bulk_adapter_with_hash_provenance",
         "assembly_rejects_typed_bulk_shape_mismatch_before_publication",
         "assembly_rejects_invalid_document_signatures_before_publication",
         "assembly_rejects_symlinks_in_any_caller_asset_path_component"
       ],
-      "entry_digest": "d027d921b3e4bc038002c5c0cadeba603f64667025dc839683adb8ebc2be9ade"
+      "entry_digest": "fe01956da43330f97c98be7beb3af968f074b420464badeeb0e37ddfd4177185"
     },
     {
       "source": "tests/assembly_qualification.rs",
@@ -358,7 +361,7 @@
         "structural_cancellation_publishes_nothing",
         "structural_destination_race_preserves_one_valid_winner_and_cleans_staging"
       ],
-      "entry_digest": "2a2f617e71cdc5a737e5a5f16720475040bab40efececcef591457b476aaa959"
+      "entry_digest": "1a2bf09a8cdd67fcb8f50f654676b7a5e651dbb7406da0a07933368351e016df"
     },
     {
       "source": "tests/blending_presentation_state.rs",
@@ -397,7 +400,7 @@
         "capabilities_requires_an_explicit_machine_format",
         "capabilities_machine_syntax_failure_is_one_schema_valid_stderr_envelope"
       ],
-      "entry_digest": "947b01adf75780334c2bea3f89d600755f915750e2d6cd1318b081c47b36346a"
+      "entry_digest": "b45949d214f614b2b814836e7ba650fc56cf21166a2d6e55f614c7ae6888af74"
     },
     {
       "source": "tests/case_recipe_catalog.rs",
@@ -2750,7 +2753,7 @@
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 10,
+      "entry_count": 12,
       "entries": [
         "sdk_embedded_discovery_is_typed_and_conservative",
         "sdk_explicit_resources_fail_closed_with_stable_error",
@@ -2761,9 +2764,11 @@
         "sdk_curated_validate_and_report_read_exact_supported_manifest_versions",
         "sdk_file_and_byte_requests_share_asset_root_and_pipeline",
         "sdk_precancelled_request_returns_typed_error_and_publishes_nothing",
-        "sdk_structural_assembly_returns_no_claim_typed_manifest"
+        "sdk_structural_assembly_returns_no_claim_typed_manifest",
+        "sdk_assembly_validate_and_report_read_exact_supported_manifest_versions",
+        "sdk_rejects_invalid_assembly_identity_contracts_before_semantics"
       ],
-      "entry_digest": "ea2ec631493699eae09dcd156bc381370dc6333f3ed13769f0bcb2a0b848a846"
+      "entry_digest": "dc1224074398659ba1e14ea7758ec216b4ffb2089aad62296e41cbe441740b8d"
     },
     {
       "source": "tests/semantic_sr_rt_plan.rs",
@@ -4055,7 +4060,7 @@
         "verified_corpus_perturbation_changes_only_corpus_identity",
         "external_runtime_identity_requires_successful_typed_execution_evidence"
       ],
-      "entry_digest": "b0ab5fc6161a049926b949b510dc5766a5512e6de0a3ad49f54f4e6b83d1db84"
+      "entry_digest": "9b51a5e75875d4acf6f20fa346c9c9a1609e45fe8e8a9f9aabf14fe450832c27"
     },
     {
       "source": "src/lib.rs",

@@ -123,6 +123,7 @@ pub(crate) fn is_transitional_engine_resource(logical_path: &str) -> bool {
         "schemas/corpus-definition-bundle.schema.json"
             | "schemas/version-result-v2.schema.json"
             | "schemas/capabilities-result-v2.schema.json"
+            | "schemas/composition-manifest-v1.schema.json"
             | "schemas/generation-result-v2.schema.json"
             | "schemas/manifest-v1.schema.json"
     )

@@ -689,8 +689,15 @@ impl ManifestProjector for CompositionExecutorManifestProjector {
                 }
             }
         }
+        let external_runtime = crate::terminal_external_runtime_identities(input)?;
+        let mut inputs = self.context.inputs.clone();
+        inputs.identity_projection = crate::identity::finalize_manifest_runtime_identities(
+            inputs.identity_projection,
+            external_runtime,
+        )
+        .map_err(|error| ManifestProjectionError(error.to_string()))?;
         let mut manifest = CompositionManifestAssembler
-            .assemble_from_mixed_evidence(self.context.inputs.clone(), &entries)
+            .assemble_from_mixed_evidence(inputs, &entries)
             .map_err(|error| ManifestProjectionError(error.to_string()))?;
         manifest["run"]["corpus_plan_sha256"] =
             serde_json::Value::String(input.corpus_plan_sha256.clone());

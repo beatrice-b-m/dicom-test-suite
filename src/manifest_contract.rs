@@ -1,5 +1,6 @@
 //! Shared, version-aware manifest loading before validation or reporting.
 
+use std::collections::BTreeSet;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
@@ -104,6 +105,10 @@ pub(crate) fn load_manifest_contract(
                 ManifestContractKind::QualifiedComposition,
                 resource_bytes(resources, "schemas/composition-manifest.schema.json")?,
             ),
+            "1.0.0" => (
+                ManifestContractKind::QualifiedComposition,
+                include_bytes!("../schemas/composition-manifest-v1.schema.json").to_vec(),
+            ),
             _ => {
                 return Err(contract_error(format!(
                     "unsupported composition manifest schema version {schema_version}"
@@ -158,6 +163,14 @@ pub(crate) fn load_manifest_contract(
             path.display()
         )));
     }
+    if schema_version == "1.0.0"
+        && matches!(
+            kind,
+            ManifestContractKind::CuratedGeneration | ManifestContractKind::QualifiedComposition
+        )
+    {
+        validate_external_runtime_uniqueness(&value)?;
+    }
     let seed = value
         .pointer("/run/seed")
         .and_then(Value::as_u64)
@@ -170,6 +183,26 @@ pub(crate) fn load_manifest_contract(
         kind,
         seed,
     })
+}
+
+fn validate_external_runtime_uniqueness(value: &Value) -> Result<(), ManifestContractError> {
+    let runtimes = value
+        .pointer("/identity_projection/external_runtime")
+        .and_then(Value::as_array)
+        .ok_or_else(|| contract_error("identity_projection.external_runtime must be an array"))?;
+    let mut runtime_ids = BTreeSet::new();
+    for runtime in runtimes {
+        let runtime_id = runtime
+            .get("runtime_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| contract_error("external runtime identity has no runtime_id"))?;
+        if !runtime_ids.insert(runtime_id) {
+            return Err(contract_error(format!(
+                "identity_projection.external_runtime contains duplicate runtime_id {runtime_id}"
+            )));
+        }
+    }
+    Ok(())
 }
 
 fn resource_bytes(

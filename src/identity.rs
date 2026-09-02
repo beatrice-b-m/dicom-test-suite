@@ -150,7 +150,7 @@ pub struct LegacyResourceProvenance {
 /// Unlike discovery migration context, this type records that projection has
 /// happened. It cannot serialize the discovery-only deferred marker.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct CuratedManifestIdentityProjection {
+pub struct ManifestIdentityProjection {
     pub identity_projection_schema_version: &'static str,
     pub projection_state: ManifestIdentityProjectionState,
     pub engine: EngineIdentity,
@@ -164,6 +164,10 @@ pub struct CuratedManifestIdentityProjection {
     pub execution: ExecutionIdentity,
     pub legacy_provenance: LegacyResourceProvenance,
 }
+
+/// Compatibility name retained for the already-published curated projection
+/// model. Composition and later manifest families use the domain-neutral name.
+pub type CuratedManifestIdentityProjection = ManifestIdentityProjection;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct IdentityInspectionContext<'a> {
@@ -204,8 +208,16 @@ impl fmt::Display for IdentityProjectionError {
 pub(crate) fn project_curated_manifest_identities(
     resources: &EngineResources,
     corpus_definition: Option<&CorpusDefinitionBundle>,
-    mut external_runtime: Vec<ExternalRuntimeIdentity>,
+    external_runtime: Vec<ExternalRuntimeIdentity>,
 ) -> Result<CuratedManifestIdentityProjection, IdentityProjectionError> {
+    project_manifest_identities(resources, corpus_definition, external_runtime)
+}
+
+pub(crate) fn project_manifest_identities(
+    resources: &EngineResources,
+    corpus_definition: Option<&CorpusDefinitionBundle>,
+    mut external_runtime: Vec<ExternalRuntimeIdentity>,
+) -> Result<ManifestIdentityProjection, IdentityProjectionError> {
     validate_external_runtime_identities(&mut external_runtime)?;
     let installed =
         project_installed_identities(resources, IdentityInspectionContext { corpus_definition })?;
@@ -217,7 +229,7 @@ pub(crate) fn project_curated_manifest_identities(
         },
         identity: installed.corpus_definition,
     };
-    Ok(CuratedManifestIdentityProjection {
+    Ok(ManifestIdentityProjection {
         identity_projection_schema_version: MANIFEST_IDENTITY_PROJECTION_SCHEMA_VERSION,
         projection_state: ManifestIdentityProjectionState::Projected,
         engine: installed.engine,
@@ -237,6 +249,15 @@ pub(crate) fn project_curated_manifest_identities(
             removal_phase: installed.migration.removal_phase,
         },
     })
+}
+
+pub(crate) fn finalize_manifest_runtime_identities(
+    mut projection: ManifestIdentityProjection,
+    mut external_runtime: Vec<ExternalRuntimeIdentity>,
+) -> Result<ManifestIdentityProjection, IdentityProjectionError> {
+    validate_external_runtime_identities(&mut external_runtime)?;
+    projection.external_runtime = external_runtime;
+    Ok(projection)
 }
 
 fn validate_external_runtime_identities(
@@ -326,6 +347,10 @@ const DIRECT_SCHEMA_MEMBERS: &[(&str, &[u8])] = &[
     (
         "schemas/corpus-definition-bundle.schema.json",
         include_bytes!("../schemas/corpus-definition-bundle.schema.json"),
+    ),
+    (
+        "schemas/composition-manifest-v1.schema.json",
+        include_bytes!("../schemas/composition-manifest-v1.schema.json"),
     ),
     (
         "schemas/generation-result-v2.schema.json",

@@ -10,9 +10,10 @@ use serde_json::{Value, json};
 
 use super::{CompositionUidRole, ResolvedInstancePlan};
 use crate::engine_resources::EngineResourceIdentity;
+use crate::identity::ManifestIdentityProjection;
 use crate::sha256_hex;
 
-const MANIFEST_SCHEMA: &str = include_str!("../../schemas/composition-manifest.schema.json");
+const MANIFEST_SCHEMA: &str = include_str!("../../schemas/composition-manifest-v1.schema.json");
 
 #[derive(Debug, Clone)]
 pub struct CompositionManifestInputs {
@@ -21,6 +22,7 @@ pub struct CompositionManifestInputs {
     pub standards: Value,
     pub dependencies: Value,
     pub product_resources: EngineResourceIdentity,
+    pub identity_projection: ManifestIdentityProjection,
     pub seed: u64,
     pub composition_spec_schema_version: String,
     pub input_spec_sha256: String,
@@ -722,12 +724,13 @@ impl CompositionManifestAssembler {
             })
             .collect::<Vec<_>>();
         let manifest = json!({
-            "manifest_schema_version": "0.5.0",
+            "manifest_schema_version": "1.0.0",
             "generated_at": inputs.generated_at,
             "generator": inputs.generator,
             "standards": inputs.standards,
             "dependencies": inputs.dependencies,
             "product_resources": inputs.product_resources,
+            "identity_projection": inputs.identity_projection,
             "run": {
                 "kind": "composition",
                 "seed": inputs.seed,
@@ -883,12 +886,13 @@ fn finish_manifest(
         })
         .collect::<Vec<_>>();
     let manifest = json!({
-        "manifest_schema_version": "0.5.0",
+        "manifest_schema_version": "1.0.0",
         "generated_at": inputs.generated_at,
         "generator": inputs.generator,
         "standards": inputs.standards,
         "dependencies": inputs.dependencies,
         "product_resources": inputs.product_resources,
+        "identity_projection": inputs.identity_projection,
         "run": {
             "kind": "composition",
             "seed": inputs.seed,
@@ -921,7 +925,17 @@ fn finish_manifest(
 pub(super) fn validate_manifest_schema(manifest: &Value) -> Result<(), ManifestError> {
     let schema: Value = serde_json::from_str(MANIFEST_SCHEMA)
         .map_err(|error| ManifestError::Schema(error.to_string()))?;
-    let validator = jsonschema::validator_for(&schema)
+    let identities: Value =
+        serde_json::from_str(include_str!("../../schemas/version-result-v2.schema.json"))
+            .map_err(|error| ManifestError::Schema(error.to_string()))?;
+    let validator = jsonschema::options()
+        .with_draft(jsonschema::Draft::Draft202012)
+        .with_resource(
+            "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json",
+            jsonschema::Resource::from_contents(identities)
+                .map_err(|error| ManifestError::Schema(error.to_string()))?,
+        )
+        .build(&schema)
         .map_err(|error| ManifestError::Schema(error.to_string()))?;
     let errors = validator
         .iter_errors(manifest)
@@ -1034,6 +1048,12 @@ mod tests {
             product_resources: crate::engine_resources::EngineResources::embedded()
                 .identity()
                 .unwrap(),
+            identity_projection: crate::identity::project_manifest_identities(
+                &crate::engine_resources::EngineResources::embedded(),
+                None,
+                Vec::new(),
+            )
+            .unwrap(),
             seed: 7,
             composition_spec_schema_version: "0.1.0".into(),
             input_spec_sha256: HASH.into(),

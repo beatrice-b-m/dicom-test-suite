@@ -47,6 +47,10 @@ const SCHEMAS: &[(&str, &str)] = &[
         "https://dicom-test-suite.local/schemas/composition-result.schema.json",
     ),
     (
+        "schemas/composition-manifest-v1.schema.json",
+        "https://synth-dicom-gen.local/schemas/composition-manifest-v1.schema.json",
+    ),
+    (
         "schemas/templates-result.schema.json",
         "https://dicom-test-suite.local/schemas/templates-result.schema.json",
     ),

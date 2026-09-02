@@ -376,6 +376,12 @@ fn compose_consumes_provider_content_and_records_full_provenance() {
     assert_eq!(properties["provider_termination"], "exit_zero");
     assert!(properties["provider_request_sha256"].as_str().is_some());
     assert!(properties["provider_response_sha256"].as_str().is_some());
+    let runtimes = manifest["identity_projection"]["external_runtime"]
+        .as_array()
+        .expect("terminal runtime identities");
+    assert_eq!(runtimes.len(), 1);
+    assert_eq!(runtimes[0]["runtime_kind"], "generation_provider");
+    assert_eq!(runtimes[0]["executable_sha256"], executable_sha256);
     assert!(!out.join(".providers").exists());
     assert!(!out.join(".assets").exists());
     fs::remove_dir_all(root).unwrap();

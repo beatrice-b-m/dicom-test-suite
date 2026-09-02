@@ -137,6 +137,9 @@ pub fn compose_with_cancellation_and_resources(
     let product_resource_identity = resources
         .verify_integrity()
         .map_err(|error| ComposeError::EngineResources(error.to_string()))?;
+    let identity_projection =
+        crate::identity::project_manifest_identities(resources, None, Vec::new())
+            .map_err(|error| ComposeError::EngineResources(error.to_string()))?;
     let catalog_path =
         if options.catalog_path == Path::new(crate::engine_resources::TEMPLATE_CATALOG_RESOURCE) {
             snapshot
@@ -158,6 +161,7 @@ pub fn compose_with_cancellation_and_resources(
         &catalog_path,
         snapshot.root(),
         &product_resource_identity,
+        identity_projection,
         options.dry_run,
         cancellation,
     )
@@ -209,6 +213,9 @@ pub fn compose_from_bytes_with_cancellation_and_resources(
     let product_resource_identity = resources
         .verify_integrity()
         .map_err(|error| ComposeError::EngineResources(error.to_string()))?;
+    let identity_projection =
+        crate::identity::project_manifest_identities(resources, None, Vec::new())
+            .map_err(|error| ComposeError::EngineResources(error.to_string()))?;
     let catalog_path = if options.catalog_path == Path::new("templates/catalog.json") {
         snapshot
             .path("templates/catalog.json")
@@ -224,6 +231,7 @@ pub fn compose_from_bytes_with_cancellation_and_resources(
         &catalog_path,
         snapshot.root(),
         &product_resource_identity,
+        identity_projection,
         options.dry_run,
         cancellation,
     )
@@ -237,6 +245,7 @@ fn compose_loaded(
     catalog_path: &Path,
     resource_root: &Path,
     product_resources: &EngineResourceIdentity,
+    identity_projection: crate::identity::ManifestIdentityProjection,
     dry_run: bool,
     cancellation: &ComposeCancellationToken,
 ) -> Result<(ComposeSummary, Value), ComposeError> {
@@ -270,6 +279,7 @@ fn compose_loaded(
         spec_root,
         resource_root,
         product_resources,
+        identity_projection,
         cancellation,
     )?;
     if cancellation.is_cancelled() {
@@ -383,6 +393,7 @@ fn resolve_execution_bundle(
     spec_root: &Path,
     resource_root: &Path,
     product_resources: &EngineResourceIdentity,
+    identity_projection: crate::identity::ManifestIdentityProjection,
     cancellation: &ComposeCancellationToken,
 ) -> Result<PlannedCompositionExecution, ComposeError> {
     let bundle_resolution = BundleResolver.resolve(spec.clone(), catalog)?;
@@ -1233,6 +1244,7 @@ fn resolve_execution_bundle(
             }),
             dependencies: json!({ "template_catalog": "templates/catalog.json" }),
             product_resources: product_resources.clone(),
+            identity_projection,
             seed: options.seed,
             composition_spec_schema_version: spec.composition_spec_schema_version.clone(),
             input_spec_sha256: sha256_hex(spec_bytes),
@@ -2903,6 +2915,12 @@ mod tests {
             &root,
             Path::new("."),
             &EngineResources::embedded().identity().unwrap(),
+            crate::identity::project_manifest_identities(
+                &EngineResources::embedded(),
+                None,
+                Vec::new(),
+            )
+            .unwrap(),
             &ComposeCancellationToken::new(),
         )
         .unwrap();
@@ -2948,6 +2966,12 @@ mod tests {
             Path::new("tests/fixtures/composition/valid"),
             Path::new("."),
             &EngineResources::embedded().identity().unwrap(),
+            crate::identity::project_manifest_identities(
+                &EngineResources::embedded(),
+                None,
+                Vec::new(),
+            )
+            .unwrap(),
             &ComposeCancellationToken::new(),
         )
         .unwrap();

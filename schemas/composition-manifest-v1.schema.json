@@ -1,0 +1,745 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://synth-dicom-gen.local/schemas/composition-manifest-v1.schema.json",
+  "title": "Synth DICOM Gen Composition Run Manifest v1",
+  "type": "object",
+  "required": [
+    "manifest_schema_version",
+    "generated_at",
+    "generator",
+    "standards",
+    "dependencies",
+    "product_resources",
+    "identity_projection",
+    "run",
+    "composition"
+  ],
+  "properties": {
+    "manifest_schema_version": {
+      "const": "1.0.0"
+    },
+    "generated_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generator": {
+      "type": "object"
+    },
+    "standards": {
+      "type": "object"
+    },
+    "dependencies": {
+      "type": "object"
+    },
+    "product_resources": {
+      "$ref": "#/$defs/product_resources"
+    },
+    "run": {
+      "$ref": "#/$defs/run"
+    },
+    "composition": {
+      "$ref": "#/$defs/composition"
+    },
+    "identity_projection": {
+      "$ref": "#/$defs/identity_projection"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "product_resources": {
+      "type": "object",
+      "required": [
+        "resource_set_version",
+        "origin",
+        "resource_count",
+        "resource_set_sha256",
+        "resources"
+      ],
+      "properties": {
+        "resource_set_version": {
+          "const": "1.0.0"
+        },
+        "origin": {
+          "enum": [
+            "embedded",
+            "explicit"
+          ]
+        },
+        "resource_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "resource_set_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "resources": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "logical_path",
+              "size_bytes",
+              "sha256"
+            ],
+            "properties": {
+              "logical_path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "size_bytes": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "sha256": {
+                "$ref": "#/$defs/sha256"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "uid": {
+      "type": "string",
+      "pattern": "^[0-9]+(\\.[0-9]+)+$",
+      "maxLength": 64
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]*$"
+    },
+    "safe_path": {
+      "type": "string",
+      "minLength": 1,
+      "allOf": [
+        {
+          "not": {
+            "pattern": "^/"
+          }
+        },
+        {
+          "not": {
+            "pattern": "(^|/)\\.\\.?(/|$)"
+          }
+        },
+        {
+          "not": {
+            "pattern": "[\\\\:]"
+          }
+        }
+      ]
+    },
+    "run": {
+      "type": "object",
+      "required": [
+        "kind",
+        "seed",
+        "composition_spec_schema_version",
+        "input_spec_sha256",
+        "template_catalog_schema_version",
+        "template_catalog_sha256",
+        "resource_limits",
+        "parallelism"
+      ],
+      "properties": {
+        "kind": {
+          "const": "composition"
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "corpus_plan_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "composition_spec_schema_version": {
+          "const": "0.1.0"
+        },
+        "input_spec_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "template_catalog_schema_version": {
+          "const": "0.1.0"
+        },
+        "template_catalog_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "resource_limits": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "parallelism": {
+          "type": "object",
+          "required": [
+            "requested",
+            "used"
+          ],
+          "properties": {
+            "requested": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "used": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "composition": {
+      "type": "object",
+      "required": [
+        "entries",
+        "bundles",
+        "assets",
+        "unavailable_capabilities",
+        "publication"
+      ],
+      "properties": {
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/entry"
+          }
+        },
+        "bundles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/bundle"
+          }
+        },
+        "assets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/asset"
+          }
+        },
+        "unavailable_capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/unavailable"
+          }
+        },
+        "publication": {
+          "$ref": "#/$defs/publication"
+        }
+      },
+      "additionalProperties": false
+    },
+    "entry": {
+      "type": "object",
+      "required": [
+        "instance_id",
+        "template_id",
+        "template_version",
+        "requested",
+        "bundle_root_instance_id",
+        "bundle_role",
+        "source_provenance",
+        "construction_origin",
+        "path",
+        "size_bytes",
+        "sha256",
+        "determinism",
+        "resolved_plan_sha256",
+        "dicom",
+        "uids",
+        "resolved_attributes",
+        "value_provenance",
+        "content",
+        "references",
+        "validation"
+      ],
+      "properties": {
+        "instance_id": {
+          "$ref": "#/$defs/id"
+        },
+        "template_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "template_version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "requested": {
+          "type": "boolean"
+        },
+        "bundle_root_instance_id": {
+          "$ref": "#/$defs/id"
+        },
+        "bundle_role": {
+          "$ref": "#/$defs/id"
+        },
+        "source_provenance": {
+          "enum": [
+            "requested",
+            "default_template_dependency"
+          ]
+        },
+        "construction_origin": {
+          "enum": [
+            "native_plan",
+            "external_provider_import"
+          ]
+        },
+        "path": {
+          "$ref": "#/$defs/safe_path"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "determinism": {
+          "enum": [
+            "byte_stable",
+            "semantic_stable"
+          ]
+        },
+        "resolved_plan_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "dicom": {
+          "type": "object",
+          "required": [
+            "sop_class_uid",
+            "transfer_syntax_uid"
+          ],
+          "properties": {
+            "sop_class_uid": {
+              "$ref": "#/$defs/uid"
+            },
+            "transfer_syntax_uid": {
+              "$ref": "#/$defs/uid"
+            }
+          },
+          "additionalProperties": false
+        },
+        "uids": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/uid"
+          }
+        },
+        "resolved_attributes": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "value_provenance": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "tag",
+              "origin"
+            ],
+            "properties": {
+              "tag": {
+                "type": "string",
+                "pattern": "^[0-9A-F]{4},[0-9A-F]{4}$"
+              },
+              "origin": {
+                "enum": [
+                  "template_default",
+                  "run_default",
+                  "instance_override",
+                  "derived_structural"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "content": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "validation": {
+          "$ref": "#/$defs/validation"
+        }
+      },
+      "additionalProperties": false
+    },
+    "bundle": {
+      "type": "object",
+      "required": [
+        "bundle_root_instance_id",
+        "members",
+        "dependency_closure",
+        "references"
+      ],
+      "properties": {
+        "bundle_root_instance_id": {
+          "$ref": "#/$defs/id"
+        },
+        "members": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "instance_id",
+              "bundle_role",
+              "requested",
+              "source_provenance"
+            ],
+            "properties": {
+              "instance_id": {
+                "$ref": "#/$defs/id"
+              },
+              "bundle_role": {
+                "$ref": "#/$defs/id"
+              },
+              "requested": {
+                "type": "boolean"
+              },
+              "source_provenance": {
+                "enum": [
+                  "requested",
+                  "default_template_dependency"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "dependency_closure": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "validation": {
+      "type": "object",
+      "required": [
+        "status",
+        "checks"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "passed",
+            "failed"
+          ]
+        },
+        "checks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "layer",
+              "rule_id",
+              "status",
+              "message"
+            ],
+            "properties": {
+              "layer": {
+                "enum": [
+                  "part10",
+                  "generic_data_elements",
+                  "template",
+                  "content"
+                ]
+              },
+              "rule_id": {
+                "$ref": "#/$defs/id"
+              },
+              "status": {
+                "enum": [
+                  "passed",
+                  "failed"
+                ]
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "asset": {
+      "type": "object",
+      "required": [
+        "asset_id",
+        "spec_relative_path",
+        "kind",
+        "size_bytes",
+        "sha256",
+        "content_slots",
+        "staging_method"
+      ],
+      "properties": {
+        "asset_id": {
+          "$ref": "#/$defs/sha256"
+        },
+        "spec_relative_path": {
+          "$ref": "#/$defs/safe_path"
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "content_slots": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "uniqueItems": true
+        },
+        "staging_method": {
+          "enum": [
+            "stream_copy",
+            "inline"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "unavailable": {
+      "type": "object",
+      "required": [
+        "instance_id",
+        "template_id",
+        "category",
+        "reason_code",
+        "message"
+      ],
+      "properties": {
+        "instance_id": {
+          "$ref": "#/$defs/id"
+        },
+        "template_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "category": {
+          "enum": [
+            "template_unavailable",
+            "transfer_syntax_unavailable",
+            "codec_unavailable",
+            "provider_unavailable",
+            "independent_validator_unavailable",
+            "resource_envelope_unsupported"
+          ]
+        },
+        "reason_code": {
+          "$ref": "#/$defs/id"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "publication": {
+      "type": "object",
+      "required": [
+        "staging_complete",
+        "validation_complete",
+        "expected_entries",
+        "expected_output_bytes",
+        "atomic_promotion",
+        "cleanup_complete"
+      ],
+      "properties": {
+        "staging_complete": {
+          "const": true
+        },
+        "validation_complete": {
+          "const": true
+        },
+        "expected_entries": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "expected_output_bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "atomic_promotion": {
+          "const": "complete"
+        },
+        "cleanup_complete": {
+          "const": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "corpus_definition_projection": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "state",
+            "identity"
+          ],
+          "properties": {
+            "state": {
+              "const": "verified_bundle"
+            },
+            "identity": {
+              "$ref": "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json#/$defs/corpus_definition_identity"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "state",
+            "identity"
+          ],
+          "properties": {
+            "state": {
+              "const": "transitional_embedded_unverified"
+            },
+            "identity": {
+              "type": "null"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "legacy_provenance": {
+      "type": "object",
+      "required": [
+        "resource_set_version",
+        "origin",
+        "resource_count",
+        "resource_set_sha256",
+        "removal_phase"
+      ],
+      "properties": {
+        "resource_set_version": {
+          "const": "1.0.0"
+        },
+        "origin": {
+          "enum": [
+            "embedded",
+            "explicit"
+          ]
+        },
+        "resource_count": {
+          "const": 240
+        },
+        "resource_set_sha256": {
+          "const": "dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410"
+        },
+        "removal_phase": {
+          "const": "R4.4"
+        }
+      },
+      "additionalProperties": false
+    },
+    "identity_projection": {
+      "type": "object",
+      "required": [
+        "identity_projection_schema_version",
+        "projection_state",
+        "engine",
+        "schema_set",
+        "template_catalog",
+        "provider_catalog",
+        "corpus_definition",
+        "toolchain",
+        "external_runtime",
+        "standards",
+        "execution",
+        "legacy_provenance"
+      ],
+      "properties": {
+        "identity_projection_schema_version": {
+          "const": "1.0.0"
+        },
+        "projection_state": {
+          "const": "projected"
+        },
+        "engine": {
+          "$ref": "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json#/$defs/engine_identity"
+        },
+        "schema_set": {
+          "$ref": "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json#/$defs/schema_set_identity"
+        },
+        "template_catalog": {
+          "$ref": "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json#/$defs/template_catalog_identity"
+        },
+        "provider_catalog": {
+          "$ref": "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json#/$defs/provider_catalog_identity"
+        },
+        "corpus_definition": {
+          "$ref": "#/$defs/corpus_definition_projection"
+        },
+        "toolchain": {
+          "$ref": "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json#/$defs/toolchain_identity"
+        },
+        "external_runtime": {
+          "type": "array",
+          "items": {
+            "$ref": "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json#/$defs/external_runtime_identity"
+          }
+        },
+        "standards": {
+          "$ref": "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json#/$defs/standards_identity"
+        },
+        "execution": {
+          "$ref": "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json#/$defs/execution_identity"
+        },
+        "legacy_provenance": {
+          "$ref": "#/$defs/legacy_provenance"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
+

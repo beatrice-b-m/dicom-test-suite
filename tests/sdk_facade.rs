@@ -115,6 +115,48 @@ fn sdk_validation_and_report_return_typed_schema_bound_results() {
 }
 
 #[test]
+fn sdk_rejects_duplicate_terminal_runtime_ids_before_composition_semantics() {
+    let product = DicomTestSuite::embedded().unwrap();
+    let root = output("duplicate-runtime-identity");
+    product
+        .compose(ComposeRequest::from_json_bytes(
+            include_bytes!("fixtures/composition/valid/template-only.json").as_slice(),
+            ".",
+            &root,
+        ))
+        .unwrap();
+    let manifest_path = root.join("manifest.json");
+    let mut manifest: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&manifest_path).unwrap()).unwrap();
+    let runtime = serde_json::json!({
+        "runtime_id": "provider/primary/fixture",
+        "runtime_kind": "generation_provider",
+        "executable_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "version": "1.0.0",
+        "invocation_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    });
+    let mut changed = runtime.clone();
+    changed["invocation_sha256"] =
+        serde_json::json!("cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc");
+    manifest["identity_projection"]["external_runtime"] = serde_json::json!([runtime, changed]);
+    std::fs::write(
+        &manifest_path,
+        serde_json::to_vec_pretty(&manifest).unwrap(),
+    )
+    .unwrap();
+
+    let validation = product
+        .validate(ValidateRequest::new(&root))
+        .expect_err("duplicate runtime IDs must fail before validation semantics");
+    assert!(validation.diagnostic().contains("duplicate runtime_id"));
+    let report = product
+        .report(ReportRequest::new(&root))
+        .expect_err("duplicate runtime IDs must fail before report semantics");
+    assert!(report.diagnostic().contains("duplicate runtime_id"));
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn sdk_curated_validate_and_report_read_exact_supported_manifest_versions() {
     let product = DicomTestSuite::embedded().unwrap();
     let root = output("curated-readers");

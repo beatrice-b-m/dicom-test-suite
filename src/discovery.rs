@@ -277,7 +277,7 @@ pub fn capabilities_result_with_context(
 ) -> Result<CapabilitiesResult, DiscoveryError> {
     resources.verify_integrity()?;
     let identity_domains = project_installed_identities(resources, context)?;
-    let snapshot = resources.snapshot()?;
+    let snapshot = resources.shared_snapshot()?;
     let catalog =
         crate::composition::TemplateCatalog::load(snapshot.root().join("templates/catalog.json"))
             .map_err(|error| DiscoveryError::TemplateCatalog(error.to_string()))?;

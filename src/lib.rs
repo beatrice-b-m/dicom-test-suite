@@ -1174,12 +1174,13 @@ fn write_generation_selection_with_resources(
                 stage: "legacy product resource reconstruction",
                 message: error.to_string(),
             })?;
-    let resource_snapshot = resources
-        .snapshot()
-        .map_err(|error| GenerateError::PlanFirst {
-            stage: "product resource materialization",
-            message: error.to_string(),
-        })?;
+    let resource_snapshot =
+        resources
+            .shared_snapshot()
+            .map_err(|error| GenerateError::PlanFirst {
+                stage: "product resource materialization",
+                message: error.to_string(),
+            })?;
     let resource_root = resource_snapshot.root();
     // Planning is deliberately complete before a publication transaction or
     // private staging directory exists.
@@ -18223,7 +18224,7 @@ pub fn build_coverage_report_with_resources(
     resources: &engine_resources::EngineResources,
 ) -> Result<Value, ReportError> {
     let snapshot = resources
-        .snapshot()
+        .shared_snapshot()
         .map_err(|error| ReportError::EngineResources(error.to_string()))?;
     build_coverage_report_with_registry(
         root_dir,

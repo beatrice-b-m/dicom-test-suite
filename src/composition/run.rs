@@ -132,7 +132,7 @@ pub fn compose_with_cancellation_and_resources(
 ) -> Result<(ComposeSummary, Value), ComposeError> {
     check_cancelled(cancellation)?;
     let snapshot = resources
-        .snapshot()
+        .shared_snapshot()
         .map_err(|error| ComposeError::EngineResources(error.to_string()))?;
     resources
         .verify_integrity()
@@ -211,7 +211,7 @@ pub fn compose_from_bytes_with_cancellation_and_resources(
 ) -> Result<(ComposeSummary, Value), ComposeError> {
     check_cancelled(cancellation)?;
     let snapshot = resources
-        .snapshot()
+        .shared_snapshot()
         .map_err(|error| ComposeError::EngineResources(error.to_string()))?;
     resources
         .verify_integrity()

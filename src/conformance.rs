@@ -51,7 +51,9 @@ pub fn verify_conformance_with_resources(
     allowlist_path: impl AsRef<Path>,
     resources: &crate::engine_resources::EngineResources,
 ) -> Result<Value, String> {
-    let snapshot = resources.snapshot().map_err(|error| error.to_string())?;
+    let snapshot = resources
+        .shared_snapshot()
+        .map_err(|error| error.to_string())?;
     verify_conformance_with_schema_root(evidence_root, allowlist_path, snapshot.root())
 }
 

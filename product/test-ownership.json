@@ -440,7 +440,7 @@
         "ci_build_storage_controls_cover_every_job_and_preserve_heavy_evidence",
         "ci_cost_reporter_handles_missing_and_spaced_paths_and_fails_closed"
       ],
-      "entry_digest": "6bf845a34337b725da489cd160b400d00b1af724ea33f1b72899adba278d0e15",
+      "entry_digest": "982879d571f85d83de89c420115d0ece39fd67e7d3d4ba8d42ccb26626e9dd8d",
       "fast_cost_exemption": "Static workflow and script inspection; no heavyweight command is executed."
     },
     {

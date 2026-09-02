@@ -95,7 +95,9 @@
       "exact": [
         ".github/workflows/ci.yml",
         "product/change-test-routing.json",
+        "product/spelling-transition-2026-09-02.json",
         "product/test-ownership.json",
+        "scripts/check-spelling-transition.py",
         "scripts/check-test-ownership.py",
         "scripts/route-changed-tests.py",
         "tests/test_change_test_routing.py"

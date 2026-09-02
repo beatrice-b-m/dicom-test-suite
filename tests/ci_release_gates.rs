@@ -6,6 +6,23 @@ fn workflow(path: &str) -> String {
     fs::read_to_string(path).unwrap_or_else(|error| panic!("cannot read {path}: {error}"))
 }
 
+fn assert_product_spelling_transition_is_exhaustive_and_fail_closed() {
+    let output = Command::new("python3")
+        .arg("scripts/check-spelling-transition.py")
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("spelling_transition=passed"));
+    assert!(stdout.contains("qualified_adapter_environment"));
+    assert!(stdout.contains("dicom_payload_identifier"));
+}
+
 const PROVIDER_IGNORED_TESTS: [(&str, &str); 7] = [
     (
         "--lib",
@@ -105,6 +122,7 @@ concurrency:
 
 #[test]
 fn fast_pr_is_bounded_to_light_contracts_and_tiny_smoke() {
+    assert_product_spelling_transition_is_exhaustive_and_fail_closed();
     let fast = workflow(".github/workflows/ci.yml");
 
     for required in [

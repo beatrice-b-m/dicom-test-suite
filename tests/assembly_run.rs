@@ -55,10 +55,9 @@ fn structural_assembly_executes_through_shared_writer_and_manifest() {
         &fs::read("schemas/structural-assembly-manifest-v2.schema.json").unwrap(),
     )
     .unwrap();
-    let identity_schema: serde_json::Value = serde_json::from_slice(
-        &fs::read("schemas/version-result-v2.schema.json").unwrap(),
-    )
-    .unwrap();
+    let identity_schema: serde_json::Value =
+        serde_json::from_slice(&fs::read("schemas/version-result-v2.schema.json").unwrap())
+            .unwrap();
     let validator = jsonschema::options()
         .with_draft(jsonschema::Draft::Draft202012)
         .with_resource(
@@ -74,18 +73,32 @@ fn structural_assembly_executes_through_shared_writer_and_manifest() {
         "transitional_embedded_unverified"
     );
     assert!(manifest["identity_projection"]["corpus_definition"]["identity"].is_null());
-    assert_eq!(manifest["identity_projection"]["external_runtime"], serde_json::json!([]));
-    assert_eq!(manifest["identity_projection"]["legacy_provenance"]["resource_count"], 240);
+    assert_eq!(
+        manifest["identity_projection"]["external_runtime"],
+        serde_json::json!([])
+    );
+    assert_eq!(
+        manifest["identity_projection"]["legacy_provenance"]["resource_count"],
+        240
+    );
     assert_eq!(
         manifest["identity_projection"]["legacy_provenance"]["resource_set_sha256"],
         "dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410"
     );
-    assert_eq!(manifest["run"]["corpus_plan_sha256"], "d4ebd5a7ca2081375022b0d9bf8726d5e8f508afe59e1c1ad7d68d65f5ebda45");
+    assert_eq!(
+        manifest["run"]["corpus_plan_sha256"],
+        "d4ebd5a7ca2081375022b0d9bf8726d5e8f508afe59e1c1ad7d68d65f5ebda45"
+    );
     assert_eq!(
         synth_dicom_gen::sha256_hex(&fs::read(root.join("instances/primary.dcm")).unwrap()),
         "7da898187a4f13054d48268660770f86c6939c082a5731d8f3737a5a855c7ba7"
     );
-    assert_eq!(fs::metadata(root.join("instances/primary.dcm")).unwrap().len(), 774);
+    assert_eq!(
+        fs::metadata(root.join("instances/primary.dcm"))
+            .unwrap()
+            .len(),
+        774
+    );
     assert_eq!(
         manifest["instances"][0]["identity"]["study_instance_uid"],
         "2.25.131391886742213678286033606434638135815"
@@ -103,12 +116,13 @@ fn structural_assembly_executes_through_shared_writer_and_manifest() {
         "2.25.245763833390795330413760970236265638444"
     );
     let mut normalized = manifest.clone();
-    normalized.as_object_mut().unwrap().remove("identity_projection");
+    normalized
+        .as_object_mut()
+        .unwrap()
+        .remove("identity_projection");
     normalized["manifest_schema_version"] = "1.0.0".into();
-    let legacy: serde_json::Value = serde_json::from_slice(include_bytes!(
-        "fixtures/cli/assembly-manifest-v1.json"
-    ))
-    .unwrap();
+    let legacy: serde_json::Value =
+        serde_json::from_slice(include_bytes!("fixtures/cli/assembly-manifest-v1.json")).unwrap();
     assert_eq!(normalized, legacy);
     assert_eq!(manifest["run"]["kind"], "structural_assembly");
     assert_eq!(manifest["run"]["iod_conformance"], "not_assessed");
@@ -161,8 +175,7 @@ fn structural_assembly_executes_through_shared_writer_and_manifest() {
         perturbed_manifest["run"]["request_sha256"]
     );
     assert_eq!(
-        manifest["identity_projection"],
-        perturbed_manifest["identity_projection"],
+        manifest["identity_projection"], perturbed_manifest["identity_projection"],
         "caller request content and assets are not installed identity domains"
     );
     fs::remove_dir_all(root).unwrap();

@@ -53,10 +53,9 @@ fn assemble_cli_publish_and_dry_run_share_the_typed_machine_shape() {
         String::from_utf8_lossy(&dry.stderr)
     );
     let dry: serde_json::Value = serde_json::from_slice(&dry.stdout).unwrap();
-    let schema: serde_json::Value = serde_json::from_slice(
-        &fs::read("schemas/assembly-result-v2.schema.json").unwrap(),
-    )
-    .unwrap();
+    let schema: serde_json::Value =
+        serde_json::from_slice(&fs::read("schemas/assembly-result-v2.schema.json").unwrap())
+            .unwrap();
     let validator = jsonschema::options()
         .with_draft(jsonschema::Draft::Draft202012)
         .build(&schema)
@@ -65,7 +64,10 @@ fn assemble_cli_publish_and_dry_run_share_the_typed_machine_shape() {
     assert!(validator.is_valid(&dry["result"]));
     assert_eq!(published["result"]["published"], true);
     assert_eq!(dry["result"]["published"], false);
-    assert_eq!(published["result"]["assembly_result_schema_version"], "2.0.0");
+    assert_eq!(
+        published["result"]["assembly_result_schema_version"],
+        "2.0.0"
+    );
     assert_eq!(published["result"]["manifest_schema_version"], "2.0.0");
     assert_eq!(
         published["result"]["corpus_plan_sha256"],
@@ -107,21 +109,30 @@ fn cli_validate_and_report_read_both_assembly_manifest_versions() {
         .args(["--seed", "5", "--format", "json"])
         .output()
         .unwrap();
-    assert!(assembled.status.success(), "{}", String::from_utf8_lossy(&assembled.stderr));
+    assert!(
+        assembled.status.success(),
+        "{}",
+        String::from_utf8_lossy(&assembled.stderr)
+    );
     let envelope: serde_json::Value = serde_json::from_slice(&assembled.stdout).unwrap();
     let current_result = envelope["result"].clone();
-    let result_v2_schema: serde_json::Value = serde_json::from_slice(
-        &fs::read("schemas/assembly-result-v2.schema.json").unwrap(),
-    )
-    .unwrap();
-    assert!(jsonschema::validator_for(&result_v2_schema).unwrap().is_valid(&current_result));
-    let legacy_result: serde_json::Value = serde_json::from_slice(include_bytes!(
-        "fixtures/cli/assembly-result-v1.json"
-    ))
-    .unwrap();
+    let result_v2_schema: serde_json::Value =
+        serde_json::from_slice(&fs::read("schemas/assembly-result-v2.schema.json").unwrap())
+            .unwrap();
+    assert!(
+        jsonschema::validator_for(&result_v2_schema)
+            .unwrap()
+            .is_valid(&current_result)
+    );
+    let legacy_result: serde_json::Value =
+        serde_json::from_slice(include_bytes!("fixtures/cli/assembly-result-v1.json")).unwrap();
     let result_v1_schema: serde_json::Value =
         serde_json::from_slice(&fs::read("schemas/assembly-result.schema.json").unwrap()).unwrap();
-    assert!(jsonschema::validator_for(&result_v1_schema).unwrap().is_valid(&legacy_result));
+    assert!(
+        jsonschema::validator_for(&result_v1_schema)
+            .unwrap()
+            .is_valid(&legacy_result)
+    );
     let mut normalized_result = current_result;
     normalized_result["assembly_result_schema_version"] = "1.0.0".into();
     normalized_result["manifest_schema_version"] = "1.0.0".into();
@@ -188,33 +199,52 @@ fn cli_validate_and_report_reject_invalid_assembly_identity_contracts() {
         "invocation_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     });
     let mut changed_runtime = runtime.clone();
-    changed_runtime["invocation_sha256"] = serde_json::json!(
-        "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
-    );
+    changed_runtime["invocation_sha256"] =
+        serde_json::json!("cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc");
     for (label, manifest, diagnostic) in [
-        ("unknown-version", {
-            let mut value = current.clone();
-            value["manifest_schema_version"] = "9.0.0".into();
-            value
-        }, "unsupported assembly manifest schema version"),
-        ("missing-identity", {
-            let mut value = current.clone();
-            value.as_object_mut().unwrap().remove("identity_projection");
-            value
-        }, "identity_projection"),
-        ("malformed-digest", {
-            let mut value = current.clone();
-            value["identity_projection"]["engine"]["engine_sha256"] = "short".into();
-            value
-        }, "short"),
-        ("duplicate-runtime", {
-            let mut value = current.clone();
-            value["identity_projection"]["external_runtime"] =
-                serde_json::json!([runtime, changed_runtime]);
-            value
-        }, "duplicate runtime_id"),
+        (
+            "unknown-version",
+            {
+                let mut value = current.clone();
+                value["manifest_schema_version"] = "9.0.0".into();
+                value
+            },
+            "unsupported assembly manifest schema version",
+        ),
+        (
+            "missing-identity",
+            {
+                let mut value = current.clone();
+                value.as_object_mut().unwrap().remove("identity_projection");
+                value
+            },
+            "identity_projection",
+        ),
+        (
+            "malformed-digest",
+            {
+                let mut value = current.clone();
+                value["identity_projection"]["engine"]["engine_sha256"] = "short".into();
+                value
+            },
+            "short",
+        ),
+        (
+            "duplicate-runtime",
+            {
+                let mut value = current.clone();
+                value["identity_projection"]["external_runtime"] =
+                    serde_json::json!([runtime, changed_runtime]);
+                value
+            },
+            "duplicate runtime_id",
+        ),
     ] {
-        fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest).unwrap()).unwrap();
+        fs::write(
+            &manifest_path,
+            serde_json::to_vec_pretty(&manifest).unwrap(),
+        )
+        .unwrap();
         for args in [
             vec!["validate", output_root.to_str().unwrap()],
             vec!["report", output_root.to_str().unwrap(), "--format", "json"],

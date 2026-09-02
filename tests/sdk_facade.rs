@@ -452,7 +452,10 @@ fn sdk_assembly_validate_and_report_read_exact_supported_manifest_versions() {
         let validation = product.validate(ValidateRequest::new(&root)).unwrap();
         assert!(validation.is_valid());
         assert_eq!(validation.manifest().schema_version(), version);
-        assert_eq!(validation.manifest().kind(), ManifestKind::StructuralAssembly);
+        assert_eq!(
+            validation.manifest().kind(),
+            ManifestKind::StructuralAssembly
+        );
         let report = product.report(ReportRequest::new(&root)).unwrap();
         assert_eq!(report.kind(), ReportKind::StructuralAssembly);
     }
@@ -484,31 +487,46 @@ fn sdk_rejects_invalid_assembly_identity_contracts_before_semantics() {
         "invocation_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     });
     let mut changed_runtime = runtime.clone();
-    changed_runtime["invocation_sha256"] = serde_json::json!(
-        "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
-    );
+    changed_runtime["invocation_sha256"] =
+        serde_json::json!("cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc");
     for (label, manifest, diagnostic) in [
-        ("unknown-version", {
-            let mut value = current.clone();
-            value["manifest_schema_version"] = "9.0.0".into();
-            value
-        }, "unsupported assembly manifest schema version"),
-        ("missing-identity", {
-            let mut value = current.clone();
-            value.as_object_mut().unwrap().remove("identity_projection");
-            value
-        }, "identity_projection"),
-        ("malformed-digest", {
-            let mut value = current.clone();
-            value["identity_projection"]["engine"]["engine_sha256"] = "short".into();
-            value
-        }, "short"),
-        ("duplicate-runtime", {
-            let mut value = current.clone();
-            value["identity_projection"]["external_runtime"] =
-                serde_json::json!([runtime, changed_runtime]);
-            value
-        }, "duplicate runtime_id"),
+        (
+            "unknown-version",
+            {
+                let mut value = current.clone();
+                value["manifest_schema_version"] = "9.0.0".into();
+                value
+            },
+            "unsupported assembly manifest schema version",
+        ),
+        (
+            "missing-identity",
+            {
+                let mut value = current.clone();
+                value.as_object_mut().unwrap().remove("identity_projection");
+                value
+            },
+            "identity_projection",
+        ),
+        (
+            "malformed-digest",
+            {
+                let mut value = current.clone();
+                value["identity_projection"]["engine"]["engine_sha256"] = "short".into();
+                value
+            },
+            "short",
+        ),
+        (
+            "duplicate-runtime",
+            {
+                let mut value = current.clone();
+                value["identity_projection"]["external_runtime"] =
+                    serde_json::json!([runtime, changed_runtime]);
+                value
+            },
+            "duplicate runtime_id",
+        ),
     ] {
         std::fs::write(
             &manifest_path,

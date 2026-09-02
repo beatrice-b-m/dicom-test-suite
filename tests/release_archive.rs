@@ -148,7 +148,40 @@ fn assert_installed_example(
 
 #[test]
 fn current_target_archive_is_manifest_bound_and_relocatable() {
-    let binary = PathBuf::from(env!("CARGO_BIN_EXE_dicom-test-suite"));
+    let candidate_variables = [
+        "DTS_RELEASE_ARCHIVE",
+        "DTS_RELEASE_ARCHIVE_SHA256",
+        "DTS_RELEASE_BINARY",
+        "DTS_RELEASE_BINARY_SHA256",
+        "DTS_RELEASE_TARGET",
+        "DTS_RELEASE_REVISION",
+        "DTS_RELEASE_EXTRACTED_ROOT",
+    ];
+    let supplied_count = candidate_variables
+        .iter()
+        .filter(|name| std::env::var_os(name).is_some())
+        .count();
+    assert!(
+        supplied_count == 0 || supplied_count == candidate_variables.len(),
+        "release candidate environment must be entirely absent or supply archive, binary, extraction, hashes, target, and revision"
+    );
+    let supplied_candidate = supplied_count != 0;
+    let binary = if supplied_candidate {
+        PathBuf::from(std::env::var_os("DTS_RELEASE_BINARY").unwrap())
+    } else {
+        PathBuf::from(env!("CARGO_BIN_EXE_dicom-test-suite"))
+            .canonicalize()
+            .unwrap()
+    };
+    assert!(binary.is_absolute());
+    let binary_sha256 = dicom_test_suite::sha256_hex(&fs::read(&binary).unwrap());
+    if supplied_candidate {
+        assert_eq!(
+            binary_sha256,
+            std::env::var("DTS_RELEASE_BINARY_SHA256").unwrap(),
+            "supplied binary does not match its immutable identity"
+        );
+    }
     let version_output = Command::new(&binary)
         .args(["version", "--format", "json"])
         .output()
@@ -156,27 +189,57 @@ fn current_target_archive_is_manifest_bound_and_relocatable() {
     assert!(version_output.status.success());
     let version: Value = serde_json::from_slice(&version_output.stdout).unwrap();
     let target = version["result"]["target"].as_str().unwrap();
+    if supplied_candidate {
+        assert_eq!(target, std::env::var("DTS_RELEASE_TARGET").unwrap());
+    }
     let product_version = version["result"]["product"]["version"].as_str().unwrap();
 
     let workspace = TempRoot::new("build");
-    let dist = workspace.0.join("dist");
-    let build = Command::new("sh")
-        .arg("scripts/build-release-archive.sh")
-        .arg(target)
-        .arg(&dist)
-        .env("DTS_RELEASE_BINARY", &binary)
-        .env("DTS_RELEASE_ALLOW_DIRTY", "1")
-        .output()
-        .unwrap();
-    assert!(
-        build.status.success(),
-        "archive build failed: {}",
-        String::from_utf8_lossy(&build.stderr)
-    );
-
     let archive_name = format!("dicom-test-suite-{product_version}-{target}");
-    let archive = dist.join(format!("{archive_name}.tar.gz"));
-    let checksum = dist.join(format!("{archive_name}.tar.gz.sha256"));
+    let (archive, expected_revision) = if supplied_candidate {
+        let archive = PathBuf::from(std::env::var_os("DTS_RELEASE_ARCHIVE").unwrap());
+        assert!(archive.is_absolute());
+        assert_eq!(
+            archive.file_name().unwrap().to_str().unwrap(),
+            format!("{archive_name}.tar.gz")
+        );
+        assert_eq!(
+            dicom_test_suite::sha256_hex(&fs::read(&archive).unwrap()),
+            std::env::var("DTS_RELEASE_ARCHIVE_SHA256").unwrap(),
+            "supplied archive does not match its immutable identity"
+        );
+        (archive, std::env::var("DTS_RELEASE_REVISION").unwrap())
+    } else {
+        let dist = workspace.0.join("dist");
+        let revision = String::from_utf8(
+            Command::new("git")
+                .args(["rev-parse", "HEAD"])
+                .output()
+                .unwrap()
+                .stdout,
+        )
+        .unwrap()
+        .trim()
+        .to_owned();
+        let build = Command::new("sh")
+            .arg("scripts/build-release-archive.sh")
+            .arg(target)
+            .arg(&dist)
+            .env("DTS_RELEASE_BINARY", &binary)
+            .env("DTS_RELEASE_BINARY_SHA256", &binary_sha256)
+            .env("DTS_RELEASE_REVISION", &revision)
+            .env("DTS_RELEASE_TARGET", target)
+            .env("DTS_RELEASE_ALLOW_DIRTY", "1")
+            .output()
+            .unwrap();
+        assert!(
+            build.status.success(),
+            "archive build failed: {}",
+            String::from_utf8_lossy(&build.stderr)
+        );
+        (dist.join(format!("{archive_name}.tar.gz")), revision)
+    };
+    let checksum = PathBuf::from(format!("{}.sha256", archive.display()));
     assert!(archive.is_file());
     assert_eq!(
         fs::read_to_string(&checksum)
@@ -198,17 +261,61 @@ fn current_target_archive_is_manifest_bound_and_relocatable() {
     );
     assert!(String::from_utf8_lossy(&verified.stdout).contains("verification=passed"));
 
-    let extracted = workspace.0.join("extracted");
-    fs::create_dir(&extracted).unwrap();
-    let unpack = Command::new("tar")
-        .args(["-xzf"])
-        .arg(&archive)
-        .arg("-C")
-        .arg(&extracted)
-        .status()
+    let adversarial = workspace.0.join("adversarial");
+    fs::create_dir(&adversarial).unwrap();
+    let bad_checksum_archive = adversarial.join("bad-checksum.tar.gz");
+    fs::copy(&archive, &bad_checksum_archive).unwrap();
+    fs::write(
+        PathBuf::from(format!("{}.sha256", bad_checksum_archive.display())),
+        format!("{}  bad-checksum.tar.gz\n", "0".repeat(64)),
+    )
+    .unwrap();
+    let bad_checksum = Command::new("sh")
+        .arg("scripts/verify-release-archive.sh")
+        .arg(&bad_checksum_archive)
+        .output()
         .unwrap();
-    assert!(unpack.success());
-    let root = extracted.join(&archive_name);
+    assert!(!bad_checksum.status.success());
+    assert!(String::from_utf8_lossy(&bad_checksum.stderr).contains("checksum does not match"));
+
+    let tampered_archive = adversarial.join("tampered.tar.gz");
+    let mut tampered_bytes = fs::read(&archive).unwrap();
+    tampered_bytes.push(0);
+    fs::write(&tampered_archive, tampered_bytes).unwrap();
+    fs::write(
+        PathBuf::from(format!("{}.sha256", tampered_archive.display())),
+        format!(
+            "{}  tampered.tar.gz\n",
+            dicom_test_suite::sha256_hex(&fs::read(&archive).unwrap())
+        ),
+    )
+    .unwrap();
+    let tampered = Command::new("sh")
+        .arg("scripts/verify-release-archive.sh")
+        .arg(&tampered_archive)
+        .output()
+        .unwrap();
+    assert!(!tampered.status.success());
+    assert!(String::from_utf8_lossy(&tampered.stderr).contains("checksum does not match"));
+
+    let root = if supplied_candidate {
+        let root = PathBuf::from(std::env::var_os("DTS_RELEASE_EXTRACTED_ROOT").unwrap());
+        assert!(root.is_absolute());
+        assert_eq!(root.file_name().unwrap().to_str().unwrap(), archive_name);
+        root
+    } else {
+        let extracted = workspace.0.join("extracted");
+        fs::create_dir(&extracted).unwrap();
+        let unpack = Command::new("tar")
+            .args(["-xzf"])
+            .arg(&archive)
+            .arg("-C")
+            .arg(&extracted)
+            .status()
+            .unwrap();
+        assert!(unpack.success());
+        extracted.join(&archive_name)
+    };
     let manifest = read_json(root.join("release-manifest.json"));
     let schema = read_json("schemas/release-manifest.schema.json");
     Validator::new(&schema)
@@ -227,7 +334,7 @@ fn current_target_archive_is_manifest_bound_and_relocatable() {
         false
     };
     assert_eq!(manifest["source"]["dirty"], expected_dirty);
-    assert_eq!(manifest["source"]["revision"].as_str().unwrap().len(), 40);
+    assert_eq!(manifest["source"]["revision"], expected_revision);
     assert_eq!(
         manifest["version_result"]["product"]["version"],
         product_version
@@ -261,6 +368,11 @@ fn current_target_archive_is_manifest_bound_and_relocatable() {
     let unrelated = workspace.0.join("unrelated");
     fs::create_dir(&unrelated).unwrap();
     let installed = root.join("bin/dicom-test-suite");
+    assert_eq!(
+        dicom_test_suite::sha256_hex(&fs::read(&installed).unwrap()),
+        binary_sha256,
+        "installed archive binary differs from the single qualified candidate binary"
+    );
     for command in ["version", "capabilities"] {
         let output = Command::new(&installed)
             .current_dir(&unrelated)

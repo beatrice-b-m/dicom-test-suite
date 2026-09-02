@@ -286,7 +286,55 @@ fn heavy_workflow_retains_nightly_matrix_and_immutable_release_gate() {
     assert!(release.contains("path: ${{ runner.temp }}/dist/*"));
     assert_eq!(heavy.matches("cargo package --locked").count(), 1);
     assert_eq!(heavy.matches("actions/upload-artifact@v7").count(), 1);
+    assert_eq!(
+        release.matches("cargo build --release --locked").count(),
+        1,
+        "the RC job must compile exactly one optimized candidate binary"
+    );
+    assert_eq!(
+        release.matches("scripts/build-release-archive.sh").count(),
+        1,
+        "the RC job must construct exactly one candidate archive"
+    );
+    assert_eq!(
+        release.matches("tar -xzf \"$ARCHIVE\"").count(),
+        1,
+        "installed consumers and the harness must reuse one extraction"
+    );
+    for binding in [
+        "DTS_RELEASE_BINARY=$BINARY",
+        "DTS_RELEASE_BINARY_SHA256=$BINARY_SHA256",
+        "DTS_RELEASE_ARCHIVE=$ARCHIVE",
+        "DTS_RELEASE_ARCHIVE_SHA256=$ARCHIVE_SHA256",
+        "DTS_RELEASE_TARGET=$TARGET",
+        "DTS_RELEASE_REVISION=$DTS_RELEASE_REVISION",
+        "DTS_RELEASE_EXTRACTED_ROOT=$ROOT",
+        "test \"$(sha256sum \"$INSTALLED_BINARY\"",
+    ] {
+        assert!(
+            release.contains(binding),
+            "RC reuse dataflow omitted {binding}"
+        );
+    }
+    let harness_offset = release
+        .find("cargo test --locked --no-default-features --test release_archive")
+        .unwrap();
+    let upload_offset = release.find("actions/upload-artifact@v7").unwrap();
+    assert!(
+        upload_offset > harness_offset,
+        "candidate artifacts may be uploaded only after archive qualification passes"
+    );
     assert!(!release.contains("archive: false"));
+
+    let archive_harness = fs::read_to_string("tests/release_archive.rs").unwrap();
+    assert!(archive_harness.contains("supplied_candidate"));
+    assert!(archive_harness.contains("DTS_RELEASE_ARCHIVE_SHA256"));
+    assert!(archive_harness.contains("DTS_RELEASE_BINARY_SHA256"));
+    assert!(archive_harness.contains("DTS_RELEASE_EXTRACTED_ROOT"));
+    assert!(archive_harness.contains("supplied archive does not match its immutable identity"));
+    assert!(archive_harness.contains("installed archive binary differs"));
+    assert!(archive_harness.contains("bad-checksum.tar.gz"));
+    assert!(archive_harness.contains("tampered.tar.gz"));
 
     let regression_sources = [
         (

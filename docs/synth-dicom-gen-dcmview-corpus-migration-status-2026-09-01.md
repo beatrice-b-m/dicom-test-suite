@@ -34,7 +34,7 @@ artifact.
 | Phase | State | Completed items | Current evidence or next gate |
 | --- | --- | --- | --- |
 | R0 — freeze migration contract | Complete | R0.1, R0.2, R0.3, R0.4 | ADR 0003, the dated cost baseline, the exhaustive 801-path ownership inventory, and the seed-1 smoke parity manifest fix repository ownership, invalidated verification class, and the byte/normalized-semantic migration boundary. The R0 gate passes. |
-| R1 — contain CI and local build cost | In progress | R1.1, R1.2, R1.3, R1.4, R1.5 | Ordinary PR, `main` push, and manual Fast runs now select only formatting/JSON, warning-denied public compilation, named light contracts, and tiny smoke generation/validation. The intact broad graph is scheduled or manually selected; codec jobs compile feature-sensitive surfaces and generate only representative case selections; provider timing and prepared-backend qualifications have auditable serial ownership while the default harness uses normal parallelism; every job uses an isolated non-incremental minimal-debug target and always reports bounded build/output cost; package/archive/upload is restricted to an immutable release-candidate commit. R1.6 and live remote acceptance remain. |
+| R1 — contain CI and local build cost | In progress | R1.1, R1.2, R1.3, R1.4, R1.5, R1.6 | Ordinary PR, `main` push, and manual Fast runs now select only formatting/JSON, warning-denied public compilation, named light contracts, and tiny smoke generation/validation. The intact broad graph is scheduled or manually selected; codec jobs compile feature-sensitive surfaces and generate only representative case selections; provider timing and prepared-backend qualifications have auditable serial ownership while the default harness uses normal parallelism; every job uses an isolated non-incremental minimal-debug target and always reports bounded build/output cost; package verification remains locked, while one immutable release binary, archive, and extraction feed every installed consumer and archive check before upload. Live remote cancellation, Fast, storage, and RC reuse evidence remains, so the R1 gate is open. |
 | R2 — reduce Rust test-linking amplification | Not started | None | Requires R1 routing and the R0 test-target baseline. |
 | R3 — rename reusable product | Not started | None | Requires the R0 gate; no current file, package, crate, binary, archive, or environment spelling has been migrated. |
 | R4 — split immutable resources and corpus definitions | Not started | None | Requires the accepted naming decision and sequential resource/schema migration. |
@@ -651,9 +651,81 @@ packaged-crate inventory includes the executable reporter through the existing
 Python, package build, archive build, release, external-runtime, independent
 conformance, interoperability, or remote qualification ran.
 
-R1.6 release-build reuse and live remote Fast/storage measurements remain
-open. Therefore neither the R1 gate nor terminal Fast-development or heavy-
-qualification acceptance is claimed.
+Live remote cancellation and Fast/storage measurements remain open. Therefore
+neither the R1 gate nor terminal Fast-development or heavy-qualification
+acceptance is claimed.
+
+### R1.6 — release build and archive reuse
+
+**State:** complete; R1 remains in progress
+
+**Commit:** the commit establishing immutable RC artifact reuse, with subject
+`fix(release): reuse immutable candidate artifacts` (resolve the exact object
+with `git log --format='%H %s' -- .github/workflows/qualification.yml`)
+
+**Owned files:**
+
+- `.github/workflows/qualification.yml`
+- `scripts/build-release-archive.sh`
+- `tests/release_archive.rs`
+- `tests/ci_release_gates.rs`
+- `tests/release_process.rs`
+- `docs/synth-dicom-gen-dcmview-corpus-migration-status-2026-09-01.md`
+
+The release-candidate job retains exactly one `cargo package --locked` and one
+package extraction for the packaged SDK consumer. It then compiles the
+target-specific optimized binary exactly once, records its absolute path,
+SHA-256, target, and immutable selected revision, constructs exactly one
+archive, verifies and extracts that archive once, and proves that the installed
+binary is byte-identical to the compiled candidate. Black-box, caller-content,
+qualified-catalog, structural-catalog, and upgrade consumers all use that one
+installed binary and extraction. The archive harness receives the same binary
+and archive identities through the job environment; it does not repackage the
+Cargo test binary when a candidate is supplied. Upload remains after the
+archive harness, and the artifact name includes the immutable selected
+revision.
+
+The archive builder now fails closed when an override is relative, lacks a
+64-hex expected SHA-256, differs from that hash, lacks an expected source
+revision or target, or disagrees with the checked-out revision or requested
+target. The archive harness similarly requires either none or all six candidate
+bindings, requires absolute paths, rehashes both inputs, compares target and
+manifest revision, and confirms the extracted executable hash. Its checksum
+and payload-tampering fixtures copy the supplied archive, so adversarial checks
+do not construct an unqualified substitute. The no-environment local source
+test still constructs one archive around Cargo's test binary and passed.
+
+**Before/after construction count:** before R1.6, the RC workflow made one
+optimized binary/archive for installed consumers, then the integration harness
+made a second archive around its debug test binary. After R1.6, the RC workflow
+performs one optimized release build, one archive construction, and one archive
+extraction; all installed consumers and the harness share those exact
+artifacts. Static CI regressions count the package, release-build, archive,
+extraction, and upload commands, prove the hash/revision/target dataflow, and
+require upload ordering after qualification. No package, archive, or release
+evidence was removed.
+
+**Focused local verification and measurement:** shell syntax, formatting, six
+CI release/storage tests, four release-process tests, and the complete
+release-archive harness passed. The ordinary no-prebuilt harness took 36.54
+seconds wall time (35.75 seconds in the test). A fresh isolated macOS arm64
+candidate run at revision `333355d8b3ccf8ff693d43235b62b18b3772cfa1`
+performed one release build and one archive construction, then passed the
+supplied-candidate archive harness in 11.01 seconds; the complete isolated
+compile/archive/test sequence took 118 seconds. The 25,256,816-byte binary had
+SHA-256 `8607165d05c5790a5d42664c1239c7de2a55acfbabef80d14a1676125d0ebcbd`.
+The 9,031,179-byte archive had SHA-256
+`e6675709b136b8a87c5c4bc0564da6544558c0bb978a805aae364b181586eea7`.
+The isolated target occupied 1,117,933,568 allocated bytes. These are local
+reuse and identity measurements for a dirty-worktree test candidate, not
+promoted release or remote runner evidence.
+
+No broad profile, WSI, stress, provider, codec, external-runtime, independent
+conformance, interoperability, or target matrix ran. Live remote proof that
+superseded runs cancel and that representative Fast, storage, and immutable RC
+jobs satisfy their budgets and reuse contract remains unavailable. Therefore
+R1.6 is complete, but the R1 gate and terminal Fast-development/heavy-
+qualification rows remain open.
 
 ## Measurements
 

@@ -1,4 +1,5 @@
 use std::fs;
+use std::process::Command;
 
 #[test]
 fn maintainer_procedure_is_clean_clone_complete_and_fail_closed() {
@@ -60,6 +61,11 @@ fn release_scripts_default_to_clean_locked_target_bound_artifacts() {
     for required in [
         "release archives require a clean worktree",
         "cargo build --release --locked --target",
+        "DTS_RELEASE_BINARY must be an absolute path",
+        "DTS_RELEASE_BINARY_SHA256 is required with DTS_RELEASE_BINARY",
+        "source revision $source_revision does not match DTS_RELEASE_REVISION",
+        "requested target $release_target does not match DTS_RELEASE_TARGET",
+        "release binary SHA-256 does not match DTS_RELEASE_BINARY_SHA256",
         ".cargo_vcs_info.json",
         "release-manifest.json",
         "CHANGELOG.md",
@@ -77,4 +83,66 @@ fn release_scripts_default_to_clean_locked_target_bound_artifacts() {
     ] {
         assert!(verifier.contains(required), "verifier omits {required}");
     }
+}
+
+#[test]
+fn release_binary_override_contract_rejects_unbound_candidates() {
+    let binary = std::env::current_exe().unwrap().canonicalize().unwrap();
+    let binary_sha256 = dicom_test_suite::sha256_hex(&fs::read(&binary).unwrap());
+    let revision = String::from_utf8(
+        Command::new("git")
+            .args(["rev-parse", "HEAD"])
+            .output()
+            .unwrap()
+            .stdout,
+    )
+    .unwrap()
+    .trim()
+    .to_owned();
+    let run = |extra: &[(&str, &str)]| {
+        let mut command = Command::new("sh");
+        command
+            .arg("scripts/build-release-archive.sh")
+            .args(["candidate-target", "/tmp"])
+            .env("DTS_RELEASE_BINARY", &binary)
+            .env("DTS_RELEASE_ALLOW_DIRTY", "1")
+            .env_remove("DTS_RELEASE_BINARY_SHA256")
+            .env_remove("DTS_RELEASE_REVISION")
+            .env_remove("DTS_RELEASE_TARGET");
+        for (name, value) in extra {
+            command.env(name, value);
+        }
+        command.output().unwrap()
+    };
+
+    let missing_hash = run(&[]);
+    assert_eq!(missing_hash.status.code(), Some(4));
+    assert!(
+        String::from_utf8_lossy(&missing_hash.stderr)
+            .contains("DTS_RELEASE_BINARY_SHA256 is required")
+    );
+
+    let wrong_revision = run(&[
+        ("DTS_RELEASE_BINARY_SHA256", &binary_sha256),
+        ("DTS_RELEASE_REVISION", &"0".repeat(40)),
+        ("DTS_RELEASE_TARGET", "candidate-target"),
+    ]);
+    assert_eq!(wrong_revision.status.code(), Some(4));
+    assert!(String::from_utf8_lossy(&wrong_revision.stderr).contains("source revision"));
+
+    let wrong_target = run(&[
+        ("DTS_RELEASE_BINARY_SHA256", &binary_sha256),
+        ("DTS_RELEASE_REVISION", &revision),
+        ("DTS_RELEASE_TARGET", "different-target"),
+    ]);
+    assert_eq!(wrong_target.status.code(), Some(4));
+    assert!(String::from_utf8_lossy(&wrong_target.stderr).contains("requested target"));
+
+    let wrong_hash = run(&[
+        ("DTS_RELEASE_BINARY_SHA256", &"0".repeat(64)),
+        ("DTS_RELEASE_REVISION", &revision),
+        ("DTS_RELEASE_TARGET", "candidate-target"),
+    ]);
+    assert_eq!(wrong_hash.status.code(), Some(4));
+    assert!(String::from_utf8_lossy(&wrong_hash.stderr).contains("release binary SHA-256"));
 }

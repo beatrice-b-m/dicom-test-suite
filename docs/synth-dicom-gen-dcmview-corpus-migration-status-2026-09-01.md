@@ -925,6 +925,73 @@ count, and clean size/time comparison are shared sequential boundaries still
 pending. Accordingly this slice does not mark R2.2 complete and makes no R2
 gate or cost-reduction claim.
 
+### R2.2 harness-conversion slice — corpus generation and codecs
+
+**State:** slice complete; R2.2 remains in progress
+
+**Commit:** the commit introducing this conversion slice, with subject
+`test(harnesses): group corpus and codec domains` (resolve the exact object
+with `git log --format='%H %s' -- tests/harnesses/corpus_generation__subsystem.rs`)
+
+**Owned files:**
+
+- `tests/harnesses/corpus_generation__nightly.rs`
+- `tests/harnesses/corpus_generation__subsystem.rs`
+- `tests/harnesses/codec__nightly.rs`
+- `tests/harnesses/codec__subsystem.rs`
+- `docs/synth-dicom-gen-dcmview-corpus-migration-status-2026-09-01.md`
+
+This disjoint slice uses the same complete partition artifact as the preceding
+R2.2 slice: `/private/tmp/r2.2-proposed-partition-fecc6bf.json`, SHA-256
+`f99fc5d0930bffd7838772b69f45129bb718e71e5d6b4ba1ce8309561df625b8`.
+The artifact is bound to source revision
+`fecc6bf99f908153b77a712edb0deb6e87441159`, R2.1 ownership SHA-256
+`3befc2d9a9cbe634c959f368988ee4385fc3f32aad67bd22cca6a2849db63637`,
+and entry-contract SHA-256
+`87adfb84d24b5160beb27cba648f51ca1594a272608d48b82976ed6f42919d0e`.
+This commit owns only the following four-harness portion:
+
+| Harness | Included sources | Existing test entries |
+| --- | ---: | ---: |
+| `corpus_generation__nightly` | 14 | 49 |
+| `corpus_generation__subsystem` | 36 | 102 |
+| `codec__nightly` | 1 | 3 |
+| `codec__subsystem` | 7 | 42 |
+| **Slice total** | **58** | **196** |
+
+Every assigned source appears exactly once in artifact order through a stable
+`#[path = "../<source>.rs"] mod <source_stem>;` declaration. All 58 paths are
+unique and exist, and every path stem equals its module identifier. The source
+files remain byte-untouched, so this slice changes no assertion, helper, ignore
+marker, qualification scope, or evidence claim.
+
+**Static verification:** the partition hash was recomputed before generation.
+An exact ordered comparison checked all four harnesses against the artifact,
+proved 58 total and 58 unique source paths, matched all 196 existing entry
+assignments, parsed every path/module pair, and found no missing file. Scoped
+Rust formatting, trailing-whitespace, final-newline, and diff checks passed.
+The parallel implementation step left the files unstaged for selective serial
+integration.
+
+The stable paths preserve deliberate hazards for the later compile gate. The
+nightly corpus harness contains one feature-gated source, one compile-time
+include source, and four `CARGO_BIN_EXE_dicom-test-suite` consumers. The
+subsystem corpus harness contains two sources with nested `#[path]` modules,
+three compile-time include sources, 25 binary-environment consumers, and seven
+`CARGO_MANIFEST_DIR` consumers. The subsystem codec harness contains two
+feature-gated sources, three binary-environment consumers, and one manifest-
+directory consumer; the nightly codec harness has no recorded path, include,
+environment, or crate-attribute hazard. None of these four harnesses owns a
+recursion-limit source.
+
+This slice deliberately does not edit central `Cargo.toml` test registration,
+workflows, the R2.1 ownership manifest/checker, or routing. Until the shared
+Cargo boundary disables implicit discovery, registers all 20 proposed
+harnesses, compiles and lists their exact entries, updates selectors, and
+measures linked binaries and build cost, these new files are not independently
+discoverable Cargo targets. Therefore R2.2 remains in progress; this slice
+makes no compile-pass, at-most-20-binary, R2 gate, or cost-reduction claim.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

@@ -77,6 +77,7 @@ fn resource_build_tracks_directory_additions() {
         "schemas/version-result-v2.schema.json",
         "schemas/capabilities-result-v2.schema.json",
         "schemas/composition-manifest-v1.schema.json",
+        "schemas/composition-result-v2.schema.json",
         "schemas/generation-result-v2.schema.json",
         "schemas/manifest-v1.schema.json",
     ] {

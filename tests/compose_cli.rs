@@ -105,9 +105,14 @@ fn compose_machine_publish_and_dry_run_share_one_typed_outcome_shape() {
     assert!(publish.stderr.is_empty());
     let publish: Value = serde_json::from_slice(&publish.stdout).unwrap();
     assert!(compile_schema("schemas/cli-success-envelope.schema.json").is_valid(&publish));
-    let result_schema = compile_schema("schemas/composition-result.schema.json");
+    let result_schema = compile_schema("schemas/composition-result-v2.schema.json");
     assert!(result_schema.is_valid(&publish["result"]));
     assert_eq!(publish["command"], "compose");
+    assert_eq!(
+        publish["result"]["composition_result_schema_version"],
+        "2.0.0"
+    );
+    assert_eq!(publish["result"]["manifest_schema_version"], "1.0.0");
     assert_eq!(publish["result"]["published"], true);
     assert!(publish["result"]["manifest_path"].is_string());
     assert!(publish["result"]["plan_preview"].is_null());
@@ -137,6 +142,8 @@ fn compose_machine_publish_and_dry_run_share_one_typed_outcome_shape() {
     let dry: Value = serde_json::from_slice(&dry.stdout).unwrap();
     assert!(result_schema.is_valid(&dry["result"]));
     assert_eq!(dry["command"], "compose");
+    assert_eq!(dry["result"]["composition_result_schema_version"], "2.0.0");
+    assert_eq!(dry["result"]["manifest_schema_version"], "1.0.0");
     assert_eq!(dry["result"]["published"], false);
     assert!(dry["result"]["manifest_path"].is_null());
     assert_eq!(dry["result"]["plan_preview"]["artifact_count"], 1);
@@ -158,6 +165,64 @@ fn compose_machine_publish_and_dry_run_share_one_typed_outcome_shape() {
     );
     assert!(!dry_root.exists());
     fs::remove_dir_all(published).unwrap();
+}
+
+#[test]
+fn cli_validate_and_report_read_all_supported_composition_manifests() {
+    let root = output("manifest-readers");
+    let compose = Command::new(binary())
+        .args([
+            "compose",
+            "--spec",
+            "tests/fixtures/composition/valid/template-only.json",
+            "--out",
+            root.to_str().unwrap(),
+            "--seed",
+            "9",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        compose.status.success(),
+        "{}",
+        String::from_utf8_lossy(&compose.stderr)
+    );
+    let manifest_path = root.join("manifest.json");
+    let current: Value = serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+
+    for version in ["1.0.0", "0.5.0", "0.4.0"] {
+        let mut manifest = current.clone();
+        manifest["manifest_schema_version"] = version.into();
+        if version != "1.0.0" {
+            manifest
+                .as_object_mut()
+                .unwrap()
+                .remove("identity_projection");
+        }
+        if version == "0.4.0" {
+            manifest
+                .as_object_mut()
+                .unwrap()
+                .remove("product_resources");
+        }
+        fs::write(
+            &manifest_path,
+            serde_json::to_vec_pretty(&manifest).unwrap(),
+        )
+        .unwrap();
+        for args in [
+            vec!["validate", root.to_str().unwrap()],
+            vec!["report", root.to_str().unwrap(), "--format", "json"],
+        ] {
+            let output = Command::new(binary()).args(args).output().unwrap();
+            assert!(
+                output.status.success(),
+                "{version} reader failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+    }
+    fs::remove_dir_all(root).unwrap();
 }
 
 #[test]

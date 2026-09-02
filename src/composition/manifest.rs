@@ -14,6 +14,7 @@ use crate::identity::ManifestIdentityProjection;
 use crate::sha256_hex;
 
 const MANIFEST_SCHEMA: &str = include_str!("../../schemas/composition-manifest-v1.schema.json");
+const LEGACY_MANIFEST_SCHEMA: &str = include_str!("../../schemas/composition-manifest.schema.json");
 
 #[derive(Debug, Clone)]
 pub struct CompositionManifestInputs {
@@ -923,7 +924,20 @@ fn finish_manifest(
 }
 
 pub(super) fn validate_manifest_schema(manifest: &Value) -> Result<(), ManifestError> {
-    let schema: Value = serde_json::from_str(MANIFEST_SCHEMA)
+    let version = manifest
+        .get("manifest_schema_version")
+        .and_then(Value::as_str)
+        .ok_or_else(|| ManifestError::Schema("manifest_schema_version must be a string".into()))?;
+    let schema_text = match version {
+        "0.4.0" | "0.5.0" => LEGACY_MANIFEST_SCHEMA,
+        "1.0.0" => MANIFEST_SCHEMA,
+        other => {
+            return Err(ManifestError::Schema(format!(
+                "unsupported composition manifest version {other}"
+            )));
+        }
+    };
+    let schema: Value = serde_json::from_str(schema_text)
         .map_err(|error| ManifestError::Schema(error.to_string()))?;
     let identities: Value =
         serde_json::from_str(include_str!("../../schemas/version-result-v2.schema.json"))

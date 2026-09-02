@@ -99,9 +99,10 @@
         },
         "result_schema_validation": {
           "type": "object",
-          "required": ["capabilities", "generation", "version"],
+          "required": ["capabilities", "composition", "generation", "version"],
           "properties": {
             "capabilities": { "const": ["1.0.0", "2.0.0"] },
+            "composition": { "const": ["1.0.0", "2.0.0"] },
             "generation": { "const": ["1.0.0", "2.0.0"] },
             "version": { "const": ["1.0.0", "2.0.0"] }
           },

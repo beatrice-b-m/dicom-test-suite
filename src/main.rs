@@ -1328,7 +1328,7 @@ fn composition_result(
             seed,
             request_schema_version: request_schema_version.to_string(),
             manifest_schema_version: if summary.dry_run {
-                "0.5.0".to_string()
+                "1.0.0".to_string()
             } else {
                 output["manifest_schema_version"]
                     .as_str()

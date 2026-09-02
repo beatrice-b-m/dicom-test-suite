@@ -65,7 +65,7 @@ fn sdk_compose_bytes_returns_typed_publish_and_dry_run_outcomes() {
     assert!(published.plan_preview().is_none());
     let manifest = published.manifest().unwrap();
     assert_eq!(manifest.kind(), ManifestKind::QualifiedComposition);
-    assert_eq!(manifest.schema_version(), "0.5.0");
+    assert_eq!(manifest.schema_version(), "1.0.0");
     assert_eq!(manifest.seed(), 9);
     assert_eq!(manifest.path(), published_root.join("manifest.json"));
 
@@ -110,6 +110,55 @@ fn sdk_validation_and_report_return_typed_schema_bound_results() {
     assert_eq!(report.kind(), ReportKind::QualifiedComposition);
     assert_eq!(report.schema_version(), "0.1.0");
     assert!(!report.json_bytes().is_empty());
+
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn sdk_composition_validate_and_report_read_exact_supported_manifest_versions() {
+    let product = DicomTestSuite::embedded().unwrap();
+    let root = output("composition-readers");
+    product
+        .compose(ComposeRequest::from_json_bytes(
+            include_bytes!("fixtures/composition/valid/template-only.json").as_slice(),
+            ".",
+            &root,
+        ))
+        .unwrap();
+    let manifest_path = root.join("manifest.json");
+    let current: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&manifest_path).unwrap()).unwrap();
+
+    for version in ["1.0.0", "0.5.0", "0.4.0"] {
+        let mut manifest = current.clone();
+        manifest["manifest_schema_version"] = version.into();
+        if version != "1.0.0" {
+            manifest
+                .as_object_mut()
+                .unwrap()
+                .remove("identity_projection");
+        }
+        if version == "0.4.0" {
+            manifest
+                .as_object_mut()
+                .unwrap()
+                .remove("product_resources");
+        }
+        std::fs::write(
+            &manifest_path,
+            serde_json::to_vec_pretty(&manifest).unwrap(),
+        )
+        .unwrap();
+        let validation = product.validate(ValidateRequest::new(&root)).unwrap();
+        assert!(validation.is_valid());
+        assert_eq!(validation.manifest().schema_version(), version);
+        assert_eq!(
+            validation.manifest().kind(),
+            ManifestKind::QualifiedComposition
+        );
+        let report = product.report(ReportRequest::new(&root)).unwrap();
+        assert_eq!(report.kind(), ReportKind::QualifiedComposition);
+    }
 
     std::fs::remove_dir_all(root).unwrap();
 }

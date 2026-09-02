@@ -246,8 +246,8 @@ jobs:
           cargo package --locked
           PACKAGE_ROOT="$RUNNER_TEMP/package"
           mkdir -p "$PACKAGE_ROOT"
-          tar -xzf "$CARGO_TARGET_DIR/package/dicom-test-suite-0.1.0.crate" -C "$PACKAGE_ROOT"
-          DTS_SDK_PACKAGE_ROOT="$PACKAGE_ROOT/dicom-test-suite-0.1.0" \
+          tar -xzf "$CARGO_TARGET_DIR/package/synth-dicom-gen-0.1.0.crate" -C "$PACKAGE_ROOT"
+          DTS_SDK_PACKAGE_ROOT="$PACKAGE_ROOT/synth-dicom-gen-0.1.0" \
             cargo test --locked --no-default-features --test release_ci__nonfast sdk_external_consumer::
       - name: Build and qualify installed archive
         env:
@@ -256,7 +256,7 @@ jobs:
           TARGET=$(rustc -vV | sed -n 's/^host: //p')
           DIST="$RUNNER_TEMP/dist"
           cargo build --release --locked --target "$TARGET" --no-default-features
-          BINARY="$CARGO_TARGET_DIR/$TARGET/release/dicom-test-suite"
+          BINARY="$CARGO_TARGET_DIR/$TARGET/release/synth-dicom-gen"
           BINARY_SHA256=$(sha256sum "$BINARY" | awk '{print $1}')
           DTS_RELEASE_BINARY="$BINARY" \
           DTS_RELEASE_BINARY_SHA256="$BINARY_SHA256" \
@@ -273,7 +273,7 @@ jobs:
           EXTRACTED="$RUNNER_TEMP/extracted"
           mkdir -p "$EXTRACTED"
           tar -xzf "$ARCHIVE" -C "$EXTRACTED"
-          INSTALLED_BINARY=$(find "$EXTRACTED" -path '*/bin/dicom-test-suite' -type f -print)
+          INSTALLED_BINARY=$(find "$EXTRACTED" -path '*/bin/synth-dicom-gen' -type f -print)
           [ "$(printf '%s\n' "$INSTALLED_BINARY" | sed '/^$/d' | wc -l)" -eq 1 ] || {
             echo "expected exactly one installed release binary" >&2
             exit 4
@@ -298,7 +298,7 @@ jobs:
           cargo test --locked --no-default-features --test release_ci__nonfast release_archive::
       - uses: actions/upload-artifact@v7
         with:
-          name: dicom-test-suite-${{ runner.os }}-${{ runner.arch }}-${{ needs.selection.outputs.revision }}
+          name: synth-dicom-gen-${{ runner.os }}-${{ runner.arch }}-${{ needs.selection.outputs.revision }}
           path: ${{ runner.temp }}/dist/*
       - name: Report release-candidate build cost
         if: always()

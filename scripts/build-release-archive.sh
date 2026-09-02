@@ -98,7 +98,7 @@ else
     else
         cargo build --release --locked --target "$release_target" --no-default-features
     fi
-    release_binary="target/$release_target/release/dicom-test-suite"
+    release_binary="target/$release_target/release/synth-dicom-gen"
 fi
 
 [ -x "$release_binary" ] || {
@@ -129,7 +129,7 @@ printf '%s' "$version_document" \
     exit 4
 }
 
-archive_name="dicom-test-suite-$product_version-$release_target"
+archive_name="synth-dicom-gen-$product_version-$release_target"
 mkdir -p "$dist_directory"
 archive_path="$dist_directory/$archive_name.tar.gz"
 checksum_path="$archive_path.sha256"
@@ -146,7 +146,7 @@ trap cleanup EXIT HUP INT TERM
 archive_root="$staging_parent/$archive_name"
 mkdir -p "$archive_root/bin" "$archive_root/docs" "$archive_root/examples" "$archive_root/schemas"
 
-cp "$release_binary" "$archive_root/bin/dicom-test-suite"
+cp "$release_binary" "$archive_root/bin/synth-dicom-gen"
 cp CHANGELOG.md LICENSE-APACHE LICENSE-MIT README.md Cargo.lock "$archive_root/"
 cp product/compatibility-owners.json "$archive_root/"
 for release_doc in \
@@ -196,7 +196,7 @@ jq -S -n \
     --slurpfile capabilities_document "$archive_root/capabilities.json" \
     --slurpfile files "$file_inventory" \
     '{release_manifest_schema_version:"1.0.0",
-      product:{name:"dicom-test-suite",version:$version},
+      product:{name:"synth-dicom-gen",version:$version},
       source:{revision:$revision,dirty:$dirty},
       target:$target,
       enabled_features:($features | split(",") | map(select(length > 0))),

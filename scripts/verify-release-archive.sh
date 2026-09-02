@@ -91,7 +91,7 @@ do
     }
 done
 
-binary="$archive_root/bin/dicom-test-suite"
+binary="$archive_root/bin/synth-dicom-gen"
 [ -x "$binary" ] || { echo "release binary is not executable" >&2; exit 4; }
 version=$($binary version --format json)
 capabilities=$($binary capabilities --format json)

@@ -164,7 +164,7 @@ fn sdk_composition_validate_and_report_read_exact_supported_manifest_versions() 
 }
 
 #[test]
-fn sdk_rejects_duplicate_terminal_runtime_ids_before_composition_semantics() {
+fn sdk_rejects_invalid_composition_identity_contracts_before_semantics() {
     let product = DicomTestSuite::embedded().unwrap();
     let root = output("duplicate-runtime-identity");
     product
@@ -175,7 +175,7 @@ fn sdk_rejects_duplicate_terminal_runtime_ids_before_composition_semantics() {
         ))
         .unwrap();
     let manifest_path = root.join("manifest.json");
-    let mut manifest: serde_json::Value =
+    let current: serde_json::Value =
         serde_json::from_slice(&std::fs::read(&manifest_path).unwrap()).unwrap();
     let runtime = serde_json::json!({
         "runtime_id": "provider/primary/fixture",
@@ -187,21 +187,63 @@ fn sdk_rejects_duplicate_terminal_runtime_ids_before_composition_semantics() {
     let mut changed = runtime.clone();
     changed["invocation_sha256"] =
         serde_json::json!("cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc");
-    manifest["identity_projection"]["external_runtime"] = serde_json::json!([runtime, changed]);
-    std::fs::write(
-        &manifest_path,
-        serde_json::to_vec_pretty(&manifest).unwrap(),
-    )
-    .unwrap();
-
-    let validation = product
-        .validate(ValidateRequest::new(&root))
-        .expect_err("duplicate runtime IDs must fail before validation semantics");
-    assert!(validation.diagnostic().contains("duplicate runtime_id"));
-    let report = product
-        .report(ReportRequest::new(&root))
-        .expect_err("duplicate runtime IDs must fail before report semantics");
-    assert!(report.diagnostic().contains("duplicate runtime_id"));
+    for (label, manifest, diagnostic) in [
+        (
+            "unknown-version",
+            {
+                let mut value = current.clone();
+                value["manifest_schema_version"] = "9.0.0".into();
+                value
+            },
+            "unsupported composition manifest schema version",
+        ),
+        (
+            "missing-identity",
+            {
+                let mut value = current.clone();
+                value.as_object_mut().unwrap().remove("identity_projection");
+                value
+            },
+            "identity_projection",
+        ),
+        (
+            "malformed-digest",
+            {
+                let mut value = current.clone();
+                value["identity_projection"]["engine"]["engine_sha256"] = "short".into();
+                value
+            },
+            "short",
+        ),
+        (
+            "duplicate-runtime",
+            {
+                let mut value = current.clone();
+                value["identity_projection"]["external_runtime"] =
+                    serde_json::json!([runtime, changed]);
+                value
+            },
+            "duplicate runtime_id",
+        ),
+    ] {
+        std::fs::write(
+            &manifest_path,
+            serde_json::to_vec_pretty(&manifest).unwrap(),
+        )
+        .unwrap();
+        let validation = product.validate(ValidateRequest::new(&root)).unwrap_err();
+        assert!(
+            validation.diagnostic().contains(diagnostic),
+            "{label} validate diagnostic: {}",
+            validation.diagnostic()
+        );
+        let report = product.report(ReportRequest::new(&root)).unwrap_err();
+        assert!(
+            report.diagnostic().contains(diagnostic),
+            "{label} report diagnostic: {}",
+            report.diagnostic()
+        );
+    }
     std::fs::remove_dir_all(root).unwrap();
 }
 

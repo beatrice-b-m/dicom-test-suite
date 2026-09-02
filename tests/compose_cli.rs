@@ -226,6 +226,95 @@ fn cli_validate_and_report_read_all_supported_composition_manifests() {
 }
 
 #[test]
+fn cli_validate_and_report_reject_invalid_composition_identity_contracts() {
+    let root = output("manifest-reader-rejections");
+    let compose = Command::new(binary())
+        .args([
+            "compose",
+            "--spec",
+            "tests/fixtures/composition/valid/template-only.json",
+            "--out",
+            root.to_str().unwrap(),
+            "--seed",
+            "9",
+        ])
+        .output()
+        .unwrap();
+    assert!(compose.status.success());
+    let manifest_path = root.join("manifest.json");
+    let current: Value = serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+    let runtime = serde_json::json!({
+        "runtime_id": "provider/primary/fixture",
+        "runtime_kind": "generation_provider",
+        "executable_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "version": "1.0.0",
+        "invocation_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    });
+    let mut changed = runtime.clone();
+    changed["invocation_sha256"] =
+        serde_json::json!("cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc");
+
+    for (label, manifest, diagnostic) in [
+        (
+            "unknown-version",
+            {
+                let mut value = current.clone();
+                value["manifest_schema_version"] = "9.0.0".into();
+                value
+            },
+            "unsupported composition manifest schema version",
+        ),
+        (
+            "missing-identity",
+            {
+                let mut value = current.clone();
+                value.as_object_mut().unwrap().remove("identity_projection");
+                value
+            },
+            "identity_projection",
+        ),
+        (
+            "malformed-digest",
+            {
+                let mut value = current.clone();
+                value["identity_projection"]["engine"]["engine_sha256"] = "short".into();
+                value
+            },
+            "short",
+        ),
+        (
+            "duplicate-runtime",
+            {
+                let mut value = current.clone();
+                value["identity_projection"]["external_runtime"] =
+                    serde_json::json!([runtime, changed]);
+                value
+            },
+            "duplicate runtime_id",
+        ),
+    ] {
+        fs::write(
+            &manifest_path,
+            serde_json::to_vec_pretty(&manifest).unwrap(),
+        )
+        .unwrap();
+        for args in [
+            vec!["validate", root.to_str().unwrap()],
+            vec!["report", root.to_str().unwrap(), "--format", "json"],
+        ] {
+            let output = Command::new(binary()).args(args).output().unwrap();
+            assert!(!output.status.success(), "{label} unexpectedly succeeded");
+            assert!(
+                String::from_utf8_lossy(&output.stderr).contains(diagnostic),
+                "{label} diagnostic: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+    }
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn compose_rejects_protected_rows_before_promotion() {
     let root = output("protected");
     fs::create_dir(&root).unwrap();

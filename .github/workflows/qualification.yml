@@ -249,20 +249,20 @@ jobs:
             jq -er 'if (.packages | length) == 1 then .packages[0] | "\(.name)-\(.version)" else error("expected one workspace package") end')
           mkdir -p "$PACKAGE_ROOT"
           tar -xzf "$CARGO_TARGET_DIR/package/$PACKAGE_STEM.crate" -C "$PACKAGE_ROOT"
-          DTS_SDK_PACKAGE_ROOT="$PACKAGE_ROOT/$PACKAGE_STEM" \
+          SYNTH_DICOM_GEN_SDK_PACKAGE_ROOT="$PACKAGE_ROOT/$PACKAGE_STEM" \
             cargo test --locked --no-default-features --test release_ci__nonfast sdk_external_consumer::
       - name: Build and qualify installed archive
         env:
-          DTS_RELEASE_REVISION: ${{ needs.selection.outputs.revision }}
+          SYNTH_DICOM_GEN_RELEASE_REVISION: ${{ needs.selection.outputs.revision }}
         run: |
           TARGET=$(rustc -vV | sed -n 's/^host: //p')
           DIST="$RUNNER_TEMP/dist"
           cargo build --release --locked --target "$TARGET" --no-default-features
           BINARY="$CARGO_TARGET_DIR/$TARGET/release/synth-dicom-gen"
           BINARY_SHA256=$(sha256sum "$BINARY" | awk '{print $1}')
-          DTS_RELEASE_BINARY="$BINARY" \
-          DTS_RELEASE_BINARY_SHA256="$BINARY_SHA256" \
-          DTS_RELEASE_TARGET="$TARGET" \
+          SYNTH_DICOM_GEN_RELEASE_BINARY="$BINARY" \
+          SYNTH_DICOM_GEN_RELEASE_BINARY_SHA256="$BINARY_SHA256" \
+          SYNTH_DICOM_GEN_RELEASE_TARGET="$TARGET" \
             scripts/build-release-archive.sh "$TARGET" "$DIST"
           set -- "$DIST"/*.tar.gz
           [ "$#" -eq 1 ] && [ -f "$1" ] || {
@@ -283,13 +283,13 @@ jobs:
           ROOT=$(dirname "$(dirname "$INSTALLED_BINARY")")
           test "$(sha256sum "$INSTALLED_BINARY" | awk '{print $1}')" = "$BINARY_SHA256"
           printf '%s\n' \
-            "DTS_RELEASE_BINARY=$BINARY" \
-            "DTS_RELEASE_BINARY_SHA256=$BINARY_SHA256" \
-            "DTS_RELEASE_ARCHIVE=$ARCHIVE" \
-            "DTS_RELEASE_ARCHIVE_SHA256=$ARCHIVE_SHA256" \
-            "DTS_RELEASE_TARGET=$TARGET" \
-            "DTS_RELEASE_REVISION=$DTS_RELEASE_REVISION" \
-            "DTS_RELEASE_EXTRACTED_ROOT=$ROOT" >> "$GITHUB_ENV"
+            "SYNTH_DICOM_GEN_RELEASE_BINARY=$BINARY" \
+            "SYNTH_DICOM_GEN_RELEASE_BINARY_SHA256=$BINARY_SHA256" \
+            "SYNTH_DICOM_GEN_RELEASE_ARCHIVE=$ARCHIVE" \
+            "SYNTH_DICOM_GEN_RELEASE_ARCHIVE_SHA256=$ARCHIVE_SHA256" \
+            "SYNTH_DICOM_GEN_RELEASE_TARGET=$TARGET" \
+            "SYNTH_DICOM_GEN_RELEASE_REVISION=$SYNTH_DICOM_GEN_RELEASE_REVISION" \
+            "SYNTH_DICOM_GEN_RELEASE_EXTRACTED_ROOT=$ROOT" >> "$GITHUB_ENV"
           python3 tests/black_box_cli_consumer.py "$INSTALLED_BINARY" "$ROOT"
           python3 tests/caller_content_consumer.py "$INSTALLED_BINARY"
           python3 tests/qualified_catalog_consumer.py "$INSTALLED_BINARY"

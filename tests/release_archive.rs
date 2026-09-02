@@ -149,13 +149,13 @@ fn assert_installed_example(
 #[test]
 fn current_target_archive_is_manifest_bound_and_relocatable() {
     let candidate_variables = [
-        "DTS_RELEASE_ARCHIVE",
-        "DTS_RELEASE_ARCHIVE_SHA256",
-        "DTS_RELEASE_BINARY",
-        "DTS_RELEASE_BINARY_SHA256",
-        "DTS_RELEASE_TARGET",
-        "DTS_RELEASE_REVISION",
-        "DTS_RELEASE_EXTRACTED_ROOT",
+        "SYNTH_DICOM_GEN_RELEASE_ARCHIVE",
+        "SYNTH_DICOM_GEN_RELEASE_ARCHIVE_SHA256",
+        "SYNTH_DICOM_GEN_RELEASE_BINARY",
+        "SYNTH_DICOM_GEN_RELEASE_BINARY_SHA256",
+        "SYNTH_DICOM_GEN_RELEASE_TARGET",
+        "SYNTH_DICOM_GEN_RELEASE_REVISION",
+        "SYNTH_DICOM_GEN_RELEASE_EXTRACTED_ROOT",
     ];
     let supplied_count = candidate_variables
         .iter()
@@ -167,7 +167,7 @@ fn current_target_archive_is_manifest_bound_and_relocatable() {
     );
     let supplied_candidate = supplied_count != 0;
     let binary = if supplied_candidate {
-        PathBuf::from(std::env::var_os("DTS_RELEASE_BINARY").unwrap())
+        PathBuf::from(std::env::var_os("SYNTH_DICOM_GEN_RELEASE_BINARY").unwrap())
     } else {
         PathBuf::from(env!("CARGO_BIN_EXE_synth-dicom-gen"))
             .canonicalize()
@@ -178,7 +178,7 @@ fn current_target_archive_is_manifest_bound_and_relocatable() {
     if supplied_candidate {
         assert_eq!(
             binary_sha256,
-            std::env::var("DTS_RELEASE_BINARY_SHA256").unwrap(),
+            std::env::var("SYNTH_DICOM_GEN_RELEASE_BINARY_SHA256").unwrap(),
             "supplied binary does not match its immutable identity"
         );
     }
@@ -190,14 +190,17 @@ fn current_target_archive_is_manifest_bound_and_relocatable() {
     let version: Value = serde_json::from_slice(&version_output.stdout).unwrap();
     let target = version["result"]["target"].as_str().unwrap();
     if supplied_candidate {
-        assert_eq!(target, std::env::var("DTS_RELEASE_TARGET").unwrap());
+        assert_eq!(
+            target,
+            std::env::var("SYNTH_DICOM_GEN_RELEASE_TARGET").unwrap()
+        );
     }
     let product_version = version["result"]["product"]["version"].as_str().unwrap();
 
     let workspace = TempRoot::new("build");
     let archive_name = format!("synth-dicom-gen-{product_version}-{target}");
     let (archive, expected_revision) = if supplied_candidate {
-        let archive = PathBuf::from(std::env::var_os("DTS_RELEASE_ARCHIVE").unwrap());
+        let archive = PathBuf::from(std::env::var_os("SYNTH_DICOM_GEN_RELEASE_ARCHIVE").unwrap());
         assert!(archive.is_absolute());
         assert_eq!(
             archive.file_name().unwrap().to_str().unwrap(),
@@ -205,10 +208,13 @@ fn current_target_archive_is_manifest_bound_and_relocatable() {
         );
         assert_eq!(
             synth_dicom_gen::sha256_hex(&fs::read(&archive).unwrap()),
-            std::env::var("DTS_RELEASE_ARCHIVE_SHA256").unwrap(),
+            std::env::var("SYNTH_DICOM_GEN_RELEASE_ARCHIVE_SHA256").unwrap(),
             "supplied archive does not match its immutable identity"
         );
-        (archive, std::env::var("DTS_RELEASE_REVISION").unwrap())
+        (
+            archive,
+            std::env::var("SYNTH_DICOM_GEN_RELEASE_REVISION").unwrap(),
+        )
     } else {
         let dist = workspace.0.join("dist");
         let revision = String::from_utf8(
@@ -225,11 +231,11 @@ fn current_target_archive_is_manifest_bound_and_relocatable() {
             .arg("scripts/build-release-archive.sh")
             .arg(target)
             .arg(&dist)
-            .env("DTS_RELEASE_BINARY", &binary)
-            .env("DTS_RELEASE_BINARY_SHA256", &binary_sha256)
-            .env("DTS_RELEASE_REVISION", &revision)
-            .env("DTS_RELEASE_TARGET", target)
-            .env("DTS_RELEASE_ALLOW_DIRTY", "1")
+            .env("SYNTH_DICOM_GEN_RELEASE_BINARY", &binary)
+            .env("SYNTH_DICOM_GEN_RELEASE_BINARY_SHA256", &binary_sha256)
+            .env("SYNTH_DICOM_GEN_RELEASE_REVISION", &revision)
+            .env("SYNTH_DICOM_GEN_RELEASE_TARGET", target)
+            .env("SYNTH_DICOM_GEN_RELEASE_ALLOW_DIRTY", "1")
             .output()
             .unwrap();
         assert!(
@@ -349,7 +355,8 @@ fn current_target_archive_is_manifest_bound_and_relocatable() {
     );
 
     let root = if supplied_candidate {
-        let root = PathBuf::from(std::env::var_os("DTS_RELEASE_EXTRACTED_ROOT").unwrap());
+        let root =
+            PathBuf::from(std::env::var_os("SYNTH_DICOM_GEN_RELEASE_EXTRACTED_ROOT").unwrap());
         assert!(root.is_absolute());
         assert_eq!(root.file_name().unwrap().to_str().unwrap(), archive_name);
         root

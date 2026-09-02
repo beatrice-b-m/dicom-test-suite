@@ -10,12 +10,12 @@ usage() {
 
 release_target=$1
 dist_directory=$2
-release_features=${DTS_RELEASE_FEATURES:-}
-release_binary_override=${DTS_RELEASE_BINARY:-}
-expected_binary_sha256=${DTS_RELEASE_BINARY_SHA256:-}
-expected_revision=${DTS_RELEASE_REVISION:-}
-expected_target=${DTS_RELEASE_TARGET:-}
-allow_dirty=${DTS_RELEASE_ALLOW_DIRTY:-0}
+release_features=${SYNTH_DICOM_GEN_RELEASE_FEATURES:-}
+release_binary_override=${SYNTH_DICOM_GEN_RELEASE_BINARY:-}
+expected_binary_sha256=${SYNTH_DICOM_GEN_RELEASE_BINARY_SHA256:-}
+expected_revision=${SYNTH_DICOM_GEN_RELEASE_REVISION:-}
+expected_target=${SYNTH_DICOM_GEN_RELEASE_TARGET:-}
+allow_dirty=${SYNTH_DICOM_GEN_RELEASE_ALLOW_DIRTY:-0}
 
 case "$release_target" in
     *[!A-Za-z0-9._-]*|'') echo "invalid target triple: $release_target" >&2; exit 2 ;;
@@ -61,33 +61,33 @@ fi
 if [ -n "$release_binary_override" ]; then
     case "$release_binary_override" in
         /*) ;;
-        *) echo "DTS_RELEASE_BINARY must be an absolute path" >&2; exit 4 ;;
+        *) echo "SYNTH_DICOM_GEN_RELEASE_BINARY must be an absolute path" >&2; exit 4 ;;
     esac
     [ -n "$expected_binary_sha256" ] || {
-        echo "DTS_RELEASE_BINARY_SHA256 is required with DTS_RELEASE_BINARY" >&2
+        echo "SYNTH_DICOM_GEN_RELEASE_BINARY_SHA256 is required with SYNTH_DICOM_GEN_RELEASE_BINARY" >&2
         exit 4
     }
     case "$expected_binary_sha256" in
-        *[!0-9a-f]*|'') echo "invalid DTS_RELEASE_BINARY_SHA256" >&2; exit 4 ;;
+        *[!0-9a-f]*|'') echo "invalid SYNTH_DICOM_GEN_RELEASE_BINARY_SHA256" >&2; exit 4 ;;
     esac
     [ "${#expected_binary_sha256}" -eq 64 ] || {
-        echo "invalid DTS_RELEASE_BINARY_SHA256" >&2
+        echo "invalid SYNTH_DICOM_GEN_RELEASE_BINARY_SHA256" >&2
         exit 4
     }
     [ -n "$expected_revision" ] || {
-        echo "DTS_RELEASE_REVISION is required with DTS_RELEASE_BINARY" >&2
+        echo "SYNTH_DICOM_GEN_RELEASE_REVISION is required with SYNTH_DICOM_GEN_RELEASE_BINARY" >&2
         exit 4
     }
     [ "$expected_revision" = "$source_revision" ] || {
-        echo "source revision $source_revision does not match DTS_RELEASE_REVISION $expected_revision" >&2
+        echo "source revision $source_revision does not match SYNTH_DICOM_GEN_RELEASE_REVISION $expected_revision" >&2
         exit 4
     }
     [ -n "$expected_target" ] || {
-        echo "DTS_RELEASE_TARGET is required with DTS_RELEASE_BINARY" >&2
+        echo "SYNTH_DICOM_GEN_RELEASE_TARGET is required with SYNTH_DICOM_GEN_RELEASE_BINARY" >&2
         exit 4
     }
     [ "$expected_target" = "$release_target" ] || {
-        echo "requested target $release_target does not match DTS_RELEASE_TARGET $expected_target" >&2
+        echo "requested target $release_target does not match SYNTH_DICOM_GEN_RELEASE_TARGET $expected_target" >&2
         exit 4
     }
     release_binary=$release_binary_override
@@ -108,7 +108,7 @@ fi
 if [ -n "$release_binary_override" ]; then
     actual_binary_sha256=$(sha256_file "$release_binary")
     [ "$actual_binary_sha256" = "$expected_binary_sha256" ] || {
-        echo "release binary SHA-256 does not match DTS_RELEASE_BINARY_SHA256" >&2
+        echo "release binary SHA-256 does not match SYNTH_DICOM_GEN_RELEASE_BINARY_SHA256" >&2
         exit 4
     }
 fi
@@ -129,7 +129,7 @@ printf '%s' "$version_document" \
     | jq -e --arg features "$release_features" \
         '(.result.enabled_features | sort) ==
          ($features | split(",") | map(select(length > 0)) | sort)' >/dev/null || {
-    echo "binary feature set does not match DTS_RELEASE_FEATURES" >&2
+    echo "binary feature set does not match SYNTH_DICOM_GEN_RELEASE_FEATURES" >&2
     exit 4
 }
 capabilities_document=$($release_binary capabilities --format json)

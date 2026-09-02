@@ -440,7 +440,7 @@
         "ci_build_storage_controls_cover_every_job_and_preserve_heavy_evidence",
         "ci_cost_reporter_handles_missing_and_spaced_paths_and_fails_closed"
       ],
-      "entry_digest": "6cfd6967c1b0593340e675fda95ba95afb3b546b49fc5afbc448beb51688e32d",
+      "entry_digest": "6bf845a34337b725da489cd160b400d00b1af724ea33f1b72899adba278d0e15",
       "fast_cost_exemption": "Static workflow and script inspection; no heavyweight command is executed."
     },
     {
@@ -2438,7 +2438,7 @@
       "entries": [
         "current_target_archive_is_manifest_bound_and_relocatable"
       ],
-      "entry_digest": "f1b0d7ea52a4d68e9c9661fa0ec24497b2600e2cabb6852682e23f7fdb733822"
+      "entry_digest": "9fe3ac813623659639552a2369d19259c17c8a1b9092271166b5c64b4793ccbf"
     },
     {
       "source": "tests/release_process.rs",
@@ -2453,7 +2453,7 @@
         "release_scripts_default_to_clean_locked_target_bound_artifacts",
         "release_binary_override_contract_rejects_unbound_candidates"
       ],
-      "entry_digest": "b5f3bba8a37032698b8d6f32a0b499e72e6cf7bf4e9dff147275d62b6b892856"
+      "entry_digest": "94688d4ae6a2daa22087c5e0370d650572a7af514d72a1430499ab71776a6ff6"
     },
     {
       "source": "tests/report_cli.rs",

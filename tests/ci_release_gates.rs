@@ -517,7 +517,7 @@ fn heavy_workflow_retains_nightly_matrix_and_immutable_release_gate() {
         "cargo metadata --locked --no-deps --format-version 1",
         "PACKAGE_STEM",
         "$CARGO_TARGET_DIR/package/$PACKAGE_STEM.crate",
-        "DTS_SDK_PACKAGE_ROOT=\"$PACKAGE_ROOT/$PACKAGE_STEM\"",
+        "SYNTH_DICOM_GEN_SDK_PACKAGE_ROOT=\"$PACKAGE_ROOT/$PACKAGE_STEM\"",
     ] {
         assert!(
             heavy.contains(package_derivation),
@@ -541,13 +541,13 @@ fn heavy_workflow_retains_nightly_matrix_and_immutable_release_gate() {
         "installed consumers and the harness must reuse one extraction"
     );
     for binding in [
-        "DTS_RELEASE_BINARY=$BINARY",
-        "DTS_RELEASE_BINARY_SHA256=$BINARY_SHA256",
-        "DTS_RELEASE_ARCHIVE=$ARCHIVE",
-        "DTS_RELEASE_ARCHIVE_SHA256=$ARCHIVE_SHA256",
-        "DTS_RELEASE_TARGET=$TARGET",
-        "DTS_RELEASE_REVISION=$DTS_RELEASE_REVISION",
-        "DTS_RELEASE_EXTRACTED_ROOT=$ROOT",
+        "SYNTH_DICOM_GEN_RELEASE_BINARY=$BINARY",
+        "SYNTH_DICOM_GEN_RELEASE_BINARY_SHA256=$BINARY_SHA256",
+        "SYNTH_DICOM_GEN_RELEASE_ARCHIVE=$ARCHIVE",
+        "SYNTH_DICOM_GEN_RELEASE_ARCHIVE_SHA256=$ARCHIVE_SHA256",
+        "SYNTH_DICOM_GEN_RELEASE_TARGET=$TARGET",
+        "SYNTH_DICOM_GEN_RELEASE_REVISION=$SYNTH_DICOM_GEN_RELEASE_REVISION",
+        "SYNTH_DICOM_GEN_RELEASE_EXTRACTED_ROOT=$ROOT",
         "test \"$(sha256sum \"$INSTALLED_BINARY\"",
     ] {
         assert!(
@@ -569,9 +569,9 @@ fn heavy_workflow_retains_nightly_matrix_and_immutable_release_gate() {
 
     let archive_harness = fs::read_to_string("tests/release_archive.rs").unwrap();
     assert!(archive_harness.contains("supplied_candidate"));
-    assert!(archive_harness.contains("DTS_RELEASE_ARCHIVE_SHA256"));
-    assert!(archive_harness.contains("DTS_RELEASE_BINARY_SHA256"));
-    assert!(archive_harness.contains("DTS_RELEASE_EXTRACTED_ROOT"));
+    assert!(archive_harness.contains("SYNTH_DICOM_GEN_RELEASE_ARCHIVE_SHA256"));
+    assert!(archive_harness.contains("SYNTH_DICOM_GEN_RELEASE_BINARY_SHA256"));
+    assert!(archive_harness.contains("SYNTH_DICOM_GEN_RELEASE_EXTRACTED_ROOT"));
     assert!(archive_harness.contains("supplied archive does not match its immutable identity"));
     assert!(archive_harness.contains("installed archive binary differs"));
     assert!(archive_harness.contains("bad-checksum.tar.gz"));

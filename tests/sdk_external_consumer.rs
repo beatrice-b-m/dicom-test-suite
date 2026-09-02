@@ -14,7 +14,7 @@ fn workspace() -> PathBuf {
 }
 
 fn dependency_root() -> PathBuf {
-    std::env::var_os("DTS_SDK_PACKAGE_ROOT")
+    std::env::var_os("SYNTH_DICOM_GEN_SDK_PACKAGE_ROOT")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")))
 }

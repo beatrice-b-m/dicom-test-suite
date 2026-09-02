@@ -28,7 +28,7 @@ fn maintainer_procedure_is_clean_clone_complete_and_fail_closed() {
             "release procedure omits {required}"
         );
     }
-    assert!(!procedure.contains("DTS_RELEASE_ALLOW_DIRTY=1"));
+    assert!(!procedure.contains("SYNTH_DICOM_GEN_RELEASE_ALLOW_DIRTY=1"));
     assert!(!procedure.contains("git add -A"));
 }
 
@@ -61,11 +61,11 @@ fn release_scripts_default_to_clean_locked_target_bound_artifacts() {
     for required in [
         "release archives require a clean worktree",
         "cargo build --release --locked --target",
-        "DTS_RELEASE_BINARY must be an absolute path",
-        "DTS_RELEASE_BINARY_SHA256 is required with DTS_RELEASE_BINARY",
-        "source revision $source_revision does not match DTS_RELEASE_REVISION",
-        "requested target $release_target does not match DTS_RELEASE_TARGET",
-        "release binary SHA-256 does not match DTS_RELEASE_BINARY_SHA256",
+        "SYNTH_DICOM_GEN_RELEASE_BINARY must be an absolute path",
+        "SYNTH_DICOM_GEN_RELEASE_BINARY_SHA256 is required with SYNTH_DICOM_GEN_RELEASE_BINARY",
+        "source revision $source_revision does not match SYNTH_DICOM_GEN_RELEASE_REVISION",
+        "requested target $release_target does not match SYNTH_DICOM_GEN_RELEASE_TARGET",
+        "release binary SHA-256 does not match SYNTH_DICOM_GEN_RELEASE_BINARY_SHA256",
         "release binary product identity must be synth-dicom-gen",
         ".cargo_vcs_info.json",
         "release-manifest.json",
@@ -107,11 +107,11 @@ fn release_binary_override_contract_rejects_unbound_candidates() {
         command
             .arg("scripts/build-release-archive.sh")
             .args(["candidate-target", "/tmp"])
-            .env("DTS_RELEASE_BINARY", &binary)
-            .env("DTS_RELEASE_ALLOW_DIRTY", "1")
-            .env_remove("DTS_RELEASE_BINARY_SHA256")
-            .env_remove("DTS_RELEASE_REVISION")
-            .env_remove("DTS_RELEASE_TARGET");
+            .env("SYNTH_DICOM_GEN_RELEASE_BINARY", &binary)
+            .env("SYNTH_DICOM_GEN_RELEASE_ALLOW_DIRTY", "1")
+            .env_remove("SYNTH_DICOM_GEN_RELEASE_BINARY_SHA256")
+            .env_remove("SYNTH_DICOM_GEN_RELEASE_REVISION")
+            .env_remove("SYNTH_DICOM_GEN_RELEASE_TARGET");
         for (name, value) in extra {
             command.env(name, value);
         }
@@ -122,29 +122,29 @@ fn release_binary_override_contract_rejects_unbound_candidates() {
     assert_eq!(missing_hash.status.code(), Some(4));
     assert!(
         String::from_utf8_lossy(&missing_hash.stderr)
-            .contains("DTS_RELEASE_BINARY_SHA256 is required")
+            .contains("SYNTH_DICOM_GEN_RELEASE_BINARY_SHA256 is required")
     );
 
     let wrong_revision = run(&[
-        ("DTS_RELEASE_BINARY_SHA256", &binary_sha256),
-        ("DTS_RELEASE_REVISION", &"0".repeat(40)),
-        ("DTS_RELEASE_TARGET", "candidate-target"),
+        ("SYNTH_DICOM_GEN_RELEASE_BINARY_SHA256", &binary_sha256),
+        ("SYNTH_DICOM_GEN_RELEASE_REVISION", &"0".repeat(40)),
+        ("SYNTH_DICOM_GEN_RELEASE_TARGET", "candidate-target"),
     ]);
     assert_eq!(wrong_revision.status.code(), Some(4));
     assert!(String::from_utf8_lossy(&wrong_revision.stderr).contains("source revision"));
 
     let wrong_target = run(&[
-        ("DTS_RELEASE_BINARY_SHA256", &binary_sha256),
-        ("DTS_RELEASE_REVISION", &revision),
-        ("DTS_RELEASE_TARGET", "different-target"),
+        ("SYNTH_DICOM_GEN_RELEASE_BINARY_SHA256", &binary_sha256),
+        ("SYNTH_DICOM_GEN_RELEASE_REVISION", &revision),
+        ("SYNTH_DICOM_GEN_RELEASE_TARGET", "different-target"),
     ]);
     assert_eq!(wrong_target.status.code(), Some(4));
     assert!(String::from_utf8_lossy(&wrong_target.stderr).contains("requested target"));
 
     let wrong_hash = run(&[
-        ("DTS_RELEASE_BINARY_SHA256", &"0".repeat(64)),
-        ("DTS_RELEASE_REVISION", &revision),
-        ("DTS_RELEASE_TARGET", "candidate-target"),
+        ("SYNTH_DICOM_GEN_RELEASE_BINARY_SHA256", &"0".repeat(64)),
+        ("SYNTH_DICOM_GEN_RELEASE_REVISION", &revision),
+        ("SYNTH_DICOM_GEN_RELEASE_TARGET", "candidate-target"),
     ]);
     assert_eq!(wrong_hash.status.code(), Some(4));
     assert!(String::from_utf8_lossy(&wrong_hash.stderr).contains("release binary SHA-256"));
@@ -179,11 +179,11 @@ esac
             .arg("scripts/build-release-archive.sh")
             .arg("candidate-target")
             .arg(fixture_root.join("dist"))
-            .env("DTS_RELEASE_BINARY", &fake_binary)
-            .env("DTS_RELEASE_BINARY_SHA256", fake_hash)
-            .env("DTS_RELEASE_REVISION", &revision)
-            .env("DTS_RELEASE_TARGET", "candidate-target")
-            .env("DTS_RELEASE_ALLOW_DIRTY", "1")
+            .env("SYNTH_DICOM_GEN_RELEASE_BINARY", &fake_binary)
+            .env("SYNTH_DICOM_GEN_RELEASE_BINARY_SHA256", fake_hash)
+            .env("SYNTH_DICOM_GEN_RELEASE_REVISION", &revision)
+            .env("SYNTH_DICOM_GEN_RELEASE_TARGET", "candidate-target")
+            .env("SYNTH_DICOM_GEN_RELEASE_ALLOW_DIRTY", "1")
             .output()
             .unwrap();
         assert_eq!(wrong_identity.status.code(), Some(4));

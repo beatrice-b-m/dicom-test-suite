@@ -2,9 +2,9 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 
 use synth_dicom_gen::engine_resources::{
-    ENGINE_RESOURCE_SET_MEMBERSHIP, ENGINE_RESOURCE_SET_VERSION, EngineResourceError,
+    ENGINE_RESOURCE_COUNT_V2, ENGINE_RESOURCE_SET_MEMBERSHIP, ENGINE_RESOURCE_SET_VERSION,
+    ENGINE_RESOURCE_SHA256_V2, ENGINE_RESOURCE_TOTAL_BYTES_V2, EngineResourceError,
     EngineResourceOrigin, EngineResourceSetMembership, EngineResources,
-    TRANSITIONAL_ENGINE_RESOURCE_COUNT_V1, TRANSITIONAL_ENGINE_RESOURCE_SHA256_V1,
 };
 
 #[allow(dead_code)]
@@ -12,7 +12,7 @@ use synth_dicom_gen::engine_resources::{
 mod engine_resource_build_script;
 
 #[test]
-fn embedded_resources_cover_engine_families_and_transitional_membership() {
+fn embedded_resources_separate_current_identity_from_legacy_physical_closure() {
     let resources = EngineResources::embedded();
     for path in [
         "cases/registry.json",
@@ -38,24 +38,27 @@ fn embedded_resources_cover_engine_families_and_transitional_membership() {
     }
     assert_eq!(
         ENGINE_RESOURCE_SET_MEMBERSHIP,
-        EngineResourceSetMembership::TransitionalMonolithic
+        EngineResourceSetMembership::SeparatedWithLegacyPhysicalClosure
     );
     assert!(resources.contains("cases/registry.json"));
     assert!(resources.contains("Cargo.lock"));
     let identity = resources.verify_integrity().unwrap();
-    assert_eq!(identity.resource_set_version, "1.0.0");
+    assert_eq!(identity.resource_set_version, ENGINE_RESOURCE_SET_VERSION);
+    assert_eq!(identity.resource_count, ENGINE_RESOURCE_COUNT_V2);
+    assert_eq!(identity.resource_count, 60);
+    assert_eq!(identity.resource_set_sha256, ENGINE_RESOURCE_SHA256_V2);
     assert_eq!(
-        identity.resource_count,
-        TRANSITIONAL_ENGINE_RESOURCE_COUNT_V1
+        identity
+            .resources
+            .iter()
+            .map(|item| item.size_bytes)
+            .sum::<u64>(),
+        ENGINE_RESOURCE_TOTAL_BYTES_V2
     );
-    assert_eq!(identity.resource_count, 240);
-    assert_eq!(
-        identity.resource_set_sha256,
-        TRANSITIONAL_ENGINE_RESOURCE_SHA256_V1
-    );
-    assert_eq!(
-        identity.resource_set_sha256,
-        "dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410"
+    assert!(
+        !identity.resources.iter().any(
+            |item| item.logical_path == "Cargo.lock" || item.logical_path.starts_with("cases/")
+        )
     );
 }
 

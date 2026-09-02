@@ -11,19 +11,24 @@ use serde::{Deserialize, Serialize};
 
 include!(concat!(env!("OUT_DIR"), "/embedded_engine_resources.rs"));
 
-pub const ENGINE_RESOURCE_SET_VERSION: &str = "1.0.0";
+pub const ENGINE_RESOURCE_SET_VERSION: &str = "2.0.0";
+pub const ENGINE_RESOURCE_COUNT_V2: usize = 60;
+pub const ENGINE_RESOURCE_TOTAL_BYTES_V2: u64 = 1_169_381;
+pub const ENGINE_RESOURCE_SHA256_V2: &str =
+    "b489c5f5b427f6417aff230ad57e983b7d9277696d007d7d0c0b2f44b147787f";
 pub const TRANSITIONAL_ENGINE_RESOURCE_COUNT_V1: usize = 240;
 pub const TRANSITIONAL_ENGINE_RESOURCE_SHA256_V1: &str =
     "dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410";
-/// R4.1 preserves the existing digest membership until R4.3/R4.4 split its
-/// independently versioned identity domains.
+/// R4.4 makes the reduced immutable set authoritative while retaining the
+/// full physical table solely for internal compatibility and explicit-root
+/// integrity until R5 rewires every consumer.
 pub const ENGINE_RESOURCE_SET_MEMBERSHIP: EngineResourceSetMembership =
-    EngineResourceSetMembership::TransitionalMonolithic;
+    EngineResourceSetMembership::SeparatedWithLegacyPhysicalClosure;
 pub const TEMPLATE_CATALOG_RESOURCE: &str = "templates/catalog.json";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EngineResourceSetMembership {
-    TransitionalMonolithic,
+    SeparatedWithLegacyPhysicalClosure,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -246,9 +251,26 @@ impl EngineResources {
     }
 
     pub fn identity(&self) -> Result<EngineResourceIdentity, EngineResourceError> {
-        let mut records = Vec::with_capacity(EMBEDDED_ENGINE_RESOURCES.len());
+        self.identity_for_paths(
+            self.logical_paths()
+                .into_iter()
+                .filter(|path| *path != "Cargo.lock" && !path.starts_with("cases/")),
+            ENGINE_RESOURCE_SET_VERSION,
+        )
+    }
+
+    pub(crate) fn legacy_identity_v1(&self) -> Result<EngineResourceIdentity, EngineResourceError> {
+        self.identity_for_paths(self.logical_paths(), "1.0.0")
+    }
+
+    fn identity_for_paths<'a>(
+        &self,
+        paths: impl IntoIterator<Item = &'a str>,
+        version: &str,
+    ) -> Result<EngineResourceIdentity, EngineResourceError> {
+        let mut records = Vec::new();
         let mut identity_bytes = Vec::new();
-        for logical_path in self.logical_paths() {
+        for logical_path in paths {
             let bytes = self.bytes(logical_path)?;
             let sha256 = crate::sha256_hex(&bytes);
             identity_bytes.extend_from_slice(logical_path.as_bytes());
@@ -264,7 +286,7 @@ impl EngineResources {
             });
         }
         Ok(EngineResourceIdentity {
-            resource_set_version: ENGINE_RESOURCE_SET_VERSION.to_string(),
+            resource_set_version: version.to_string(),
             origin: self.origin(),
             resource_count: records.len(),
             resource_set_sha256: crate::sha256_hex(&identity_bytes),
@@ -273,9 +295,11 @@ impl EngineResources {
     }
 
     pub fn verify_integrity(&self) -> Result<EngineResourceIdentity, EngineResourceError> {
+        let legacy = self.legacy_identity_v1()?;
+        verify_transitional_oracle(&legacy)?;
         let actual = self.identity()?;
         if self.origin() == EngineResourceOrigin::Embedded {
-            verify_transitional_oracle(&actual)?;
+            verify_current_oracle(&actual)?;
             return Ok(actual);
         }
         let expected = Self::embedded().verify_integrity()?;
@@ -337,6 +361,30 @@ impl EngineResources {
         }
         Ok(EngineResourceSnapshot { root })
     }
+}
+
+fn verify_current_oracle(identity: &EngineResourceIdentity) -> Result<(), EngineResourceError> {
+    let total = identity
+        .resources
+        .iter()
+        .map(|record| record.size_bytes)
+        .sum::<u64>();
+    if identity.resource_set_version == ENGINE_RESOURCE_SET_VERSION
+        && identity.resource_count == ENGINE_RESOURCE_COUNT_V2
+        && total == ENGINE_RESOURCE_TOTAL_BYTES_V2
+        && identity.resource_set_sha256 == ENGINE_RESOURCE_SHA256_V2
+    {
+        return Ok(());
+    }
+    Err(EngineResourceError::Integrity {
+        expected_resource_set_sha256: format!(
+            "version={ENGINE_RESOURCE_SET_VERSION};count={ENGINE_RESOURCE_COUNT_V2};bytes={ENGINE_RESOURCE_TOTAL_BYTES_V2};sha256={ENGINE_RESOURCE_SHA256_V2}"
+        ),
+        actual_resource_set_sha256: format!(
+            "version={};count={};bytes={total};sha256={}",
+            identity.resource_set_version, identity.resource_count, identity.resource_set_sha256
+        ),
+    })
 }
 
 impl EngineResourceError {
@@ -401,7 +449,7 @@ fn validate_logical_path(path: &str) -> Result<(), EngineResourceError> {
 fn verify_transitional_oracle(
     identity: &EngineResourceIdentity,
 ) -> Result<(), EngineResourceError> {
-    if identity.resource_set_version == ENGINE_RESOURCE_SET_VERSION
+    if identity.resource_set_version == "1.0.0"
         && identity.resource_count == TRANSITIONAL_ENGINE_RESOURCE_COUNT_V1
         && identity.resource_set_sha256 == TRANSITIONAL_ENGINE_RESOURCE_SHA256_V1
     {
@@ -409,7 +457,7 @@ fn verify_transitional_oracle(
     }
     Err(EngineResourceError::Integrity {
         expected_resource_set_sha256: format!(
-            "version={ENGINE_RESOURCE_SET_VERSION};count={TRANSITIONAL_ENGINE_RESOURCE_COUNT_V1};sha256={TRANSITIONAL_ENGINE_RESOURCE_SHA256_V1}"
+            "version=1.0.0;count={TRANSITIONAL_ENGINE_RESOURCE_COUNT_V1};sha256={TRANSITIONAL_ENGINE_RESOURCE_SHA256_V1}"
         ),
         actual_resource_set_sha256: format!(
             "version={};count={};sha256={}",

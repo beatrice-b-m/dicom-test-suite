@@ -2419,6 +2419,8 @@ progress
 **Commits:** `23fbb3d`, `63ce3f3`, `cacaf6e`, `62b9158`, `e2eb787`,
 `60dccf6`, `11d77e5`, `8127b33`, `0d48a2e`, `9fa9be5`, `2b9a8ec`,
 `e6f8824`, `4016ff2`, `ba5e3c6`, `bdd972f`, and `cb1668c`.
+Review remediation is recorded by `937d045`, `9fd275c`, `80e9d85`, and
+`3b73b49`.
 
 The composition producer now emits manifest `1.0.0` and result `2.0.0`.
 Before the producer change, exact validation-only fixtures froze real manifest
@@ -2450,9 +2452,10 @@ The transitional top-level resource identity and legacy provenance remain
 exactly version `1.0.0`, origin `embedded`, 240 members, and SHA-256
 `dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410`.
 The new schemas are directly classified in the schema-set identity and
-excluded from that frozen oracle. The installed schema-set identity is now 44
-members, 826,627 bytes, SHA-256
-`c19d6ce89fc4f96565acf973b6a40b526f6f8d09dbfa8d58082f428ab4108e0d`.
+excluded from that frozen oracle. After the EOF-only formatting correction,
+the installed schema-set identity is exactly 44 members, 826,625 bytes,
+SHA-256
+`29f9c67a96302911a4ba38013deb0cafb8c6205eed53801f816e58728ebecba1`.
 
 Exact equality after removing only `identity_projection` and resetting the
 version to `0.5.0` proves that manifest `1.0.0` preserves the frozen `0.5.0`
@@ -2466,6 +2469,7 @@ composition manifest identity/schema tests: 3 passed
 composition public API identity/parity tests: 4 passed
 composition CLI result-v2 and 0.4/0.5/1.0 reader tests: 2 passed
 SDK composition result and 0.4/0.5/1.0 reader tests: 2 passed
+composition CLI and SDK invalid-reader matrices: 2 passed; both validate and report reject unknown version, missing identity, malformed digest, and duplicate runtime ID
 capabilities live/additive fixture tests: 2 passed
 schema compilation and transitional exclusion checks: 2 passed
 identity-domain isolation/evidence module: 3 passed
@@ -2476,15 +2480,19 @@ cargo fmt --all -- --check; git diff --check: passed
 
 The new composition schemas route through live composition producers, SDK
 readers, identity discovery, generic schema checks, and unconditional Fast
-coverage. The full ordinary composition harness passes with 85 passed and
-three existing prepared-backend qualification entries ignored. Its two
-ordinary structured-report tests retain their full semantic assertions when
-the locked `generation-backends/highdicom-pydicom/.venv/bin/python` executable
-exists; in this checkout they instead assert that exact runtime is explicitly
-unavailable. Missing-runtime acquisition no longer poisons the shared
-environment mutex or cascades into another failure. This is not independent
-external provider evidence, and this slice did not install or run that
-backend. No feature matrix, external provider qualification, Heavy, Nightly,
+coverage. The full ordinary composition harness passes with 84 passed and five
+ignored. Three are the pre-existing prepared-backend qualifications; the two
+structured-report semantic bodies are now also explicit ignored external
+qualifications. Their bodies and assertions remain intact and are separately
+invocable with exact `--ignored` test filters, but they were unavailable and
+were not run because the locked
+`generation-backends/highdicom-pydicom/.venv/bin/python` executable is absent.
+If invoked without it, fail-closed acquisition reports that exact missing
+runtime; mutex recovery prevents one failed invocation from changing a later
+failure into a poison error. Routing classifies changes to that source as
+deferred `native_provider_contract` evidence. This is not independent external
+provider evidence, and this slice did not install or run that backend. No
+feature matrix, external provider qualification, Heavy, Nightly,
 release-candidate, remote, assembly/coverage/release projection, R4.4, R4.5,
 or R5 body ran.
 

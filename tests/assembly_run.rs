@@ -137,7 +137,36 @@ fn structural_assembly_executes_through_shared_writer_and_manifest() {
             .unwrap()
             .is_valid(&report)
     );
+    let perturbed_root = output("request-identity-perturbation");
+    let mut perturbed_request: serde_json::Value = serde_json::from_slice(&request()).unwrap();
+    perturbed_request["instances"][0]["elements"][0]["value"]["value"] =
+        "SYNTHETIC^ASSEMBLY^PERTURBED".into();
+    assemble(
+        &AssembleOptions {
+            request_bytes: serde_json::to_vec(&perturbed_request).unwrap(),
+            caller_asset_root: PathBuf::from("."),
+            output_root: perturbed_root.clone(),
+            seed: 5,
+            parallelism: 1,
+            dry_run: false,
+        },
+        &CancellationToken::new(),
+        &EngineResources::embedded(),
+    )
+    .unwrap();
+    let perturbed_manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(perturbed_root.join("manifest.json")).unwrap()).unwrap();
+    assert_ne!(
+        manifest["run"]["request_sha256"],
+        perturbed_manifest["run"]["request_sha256"]
+    );
+    assert_eq!(
+        manifest["identity_projection"],
+        perturbed_manifest["identity_projection"],
+        "caller request content and assets are not installed identity domains"
+    );
     fs::remove_dir_all(root).unwrap();
+    fs::remove_dir_all(perturbed_root).unwrap();
 }
 
 #[test]

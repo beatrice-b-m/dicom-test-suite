@@ -2,7 +2,7 @@
 
 **Recorded:** 2026-09-01
 
-**Updated:** 2026-09-01
+**Updated:** 2026-09-02
 
 **Contract:** `docs/synth-dicom-gen-dcmview-corpus-separation-plan.md`
 
@@ -34,7 +34,7 @@ artifact.
 | Phase | State | Completed items | Current evidence or next gate |
 | --- | --- | --- | --- |
 | R0 — freeze migration contract | Complete | R0.1, R0.2, R0.3, R0.4 | ADR 0003, the dated cost baseline, the exhaustive 801-path ownership inventory, and the seed-1 smoke parity manifest fix repository ownership, invalidated verification class, and the byte/normalized-semantic migration boundary. The R0 gate passes. |
-| R1 — contain CI and local build cost | In progress | R1.1, R1.2, R1.3, R1.4, R1.5, R1.6 | Ordinary PR, `main` push, and manual Fast runs now select only formatting/JSON, warning-denied public compilation, named light contracts, and tiny smoke generation/validation. The intact broad graph is scheduled or manually selected; codec jobs compile feature-sensitive surfaces and generate only representative case selections; provider timing and prepared-backend qualifications have auditable serial ownership while the default harness uses normal parallelism; every job uses an isolated non-incremental minimal-debug target and always reports bounded build/output cost; package verification remains locked, while one immutable release binary, archive, and extraction feed every installed consumer and archive check before upload. Live remote cancellation, Fast, storage, and RC reuse evidence remains, so the R1 gate is open. |
+| R1 — contain CI and local build cost | Complete | R1.1, R1.2, R1.3, R1.4, R1.5, R1.6 | A disposable draft-PR probe proved superseded-run cancellation and single-event ownership. Replacement Fast run `33581809536` passed in 123 seconds of job time with only the declared Fast work, a 739,602,432-byte target, four smoke artifacts occupying 122,880 allocated bytes, and the 4-GiB ceiling enforced. The broad matrix remains separately scheduled/manually invocable. The R1 gate passes. |
 | R2 — reduce Rust test-linking amplification | Not started | None | Requires R1 routing and the R0 test-target baseline. |
 | R3 — rename reusable product | Not started | None | Requires the R0 gate; no current file, package, crate, binary, archive, or environment spelling has been migrated. |
 | R4 — split immutable resources and corpus definitions | Not started | None | Requires the accepted naming decision and sequential resource/schema migration. |
@@ -654,9 +654,10 @@ packaged-crate inventory includes the executable reporter through the existing
 Python, package build, archive build, release, external-runtime, independent
 conformance, interoperability, or remote qualification ran.
 
-Live remote cancellation and Fast/storage measurements remain open. Therefore
-neither the R1 gate nor terminal Fast-development or heavy-qualification
-acceptance is claimed.
+The local evidence alone did not close the gate; the corrected live probe
+below supplies the required remote cancellation, Fast-routing, and storage
+measurement. Terminal multi-repository Fast-development and heavy-
+qualification acceptance remain later-phase claims.
 
 **Remote workflow-evaluation regression (2026-09-01):** the first authorized
 live probe at immutable revision
@@ -677,9 +678,34 @@ target occupied 870,436,864 allocated bytes, and its four-file smoke output
 occupied 98,304 allocated bytes with zero validation failures. The focused six
 workflow/storage tests, workflow YAML parsing, formatting, and diff checks also
 passed. The local temporary root was removed after measurement. These failed
-remote runs are diagnostic evidence only: a corrected live
-Fast/cancellation/storage probe is still required, and no remote R1.5 pass is
-claimed here.
+remote runs are diagnostic evidence only and are not counted as passing jobs.
+
+**Corrected live R1 gate probe (2026-09-02):** with explicit user authority, a
+disposable draft pull request received two rapid synchronize updates. Fast run
+[`33581782550`](https://github.com/beatrice-b-m/dicom-test-suite/actions/runs/33581782550)
+started for head `65aa444fc643da1947ed1d3b3fd7f29361bac47d` at
+02:03:39Z and completed `cancelled` at 02:04:18Z after the second update.
+Replacement Fast run
+[`33581809536`](https://github.com/beatrice-b-m/dicom-test-suite/actions/runs/33581809536)
+ran for head `5d1564a02b4ddbfbec4ca99274d24bc3ea1575dd` from
+02:04:21Z through 02:06:24Z and completed `success`. Both repaired-head runs
+had event `pull_request`; neither head scheduled a push-equivalent CI run or a
+qualification workflow. The two earlier push-event parser failures above are
+bound only to the invalid pre-repair head and allocated zero jobs.
+
+The successful job passed formatting and JSON schemas, warnings-denied public
+library/CLI compilation, the named light contract/domain tests, generation of
+the three-file seed-1 smoke corpus, and strict validation with zero failures.
+It performed no WSI, stress, full-profile, Python-backend, codec, provider,
+package, archive, or release work. The reporter measured 116 build-work
+seconds, 739,602,432 allocated target bytes, 122,880 allocated output bytes,
+and four output artifacts, and enforced the 4,294,967,296-byte Fast ceiling.
+The GitHub job interval was 123 seconds including setup and cleanup, below the
+15-minute gate. The draft pull request was closed without merge and its remote
+probe branch was deleted after evidence capture. The permanent implementation
+is commit `066357f`; the two probe-only commits are not part of product
+history. This closes the R1 gate without claiming a Nightly, release-candidate,
+external-runtime, conformance, interoperability, or target-matrix run.
 
 ### R1.6 — release build and archive reuse
 
@@ -747,11 +773,12 @@ reuse and identity measurements for a dirty-worktree test candidate, not
 promoted release or remote runner evidence.
 
 No broad profile, WSI, stress, provider, codec, external-runtime, independent
-conformance, interoperability, or target matrix ran. Live remote proof that
-superseded runs cancel and that representative Fast, storage, and immutable RC
-jobs satisfy their budgets and reuse contract remains unavailable. Therefore
-R1.6 is complete, but the R1 gate and terminal Fast-development/heavy-
-qualification rows remain open.
+conformance, interoperability, or target matrix ran. R1.6's single-construction
+and identity contract is established by the focused local candidate and static
+workflow gates; R1 does not require a release-candidate execution. The live
+probe above closes the phase gate only for the representative Fast class.
+Terminal Fast-development and heavy-qualification rows remain open until the
+later repository split and exact terminal runs.
 
 ## Measurements
 
@@ -762,7 +789,7 @@ qualification rows remain open.
 | Largest local target-directory size | `CARGO_TARGET_DIR=/private/tmp/dts-r02-target.xAApSK cargo test --locked --all-targets --no-default-features --no-run` | 8,013,463,552 bytes after 72.29s | — | Baseline recorded; exact directory removed |
 | Integration-test target count | Cargo metadata plus top-level `tests/*.rs` at `65a296b` | 186 integration targets; 188 Cargo-reported harness executables | — | Baseline recorded |
 | CI/generated artifact count and size | Actions API for run `33491521696` | 1 upload, ID `9798112659`, 9,929,745-byte ZIP; no uploaded corpus | — | Baseline recorded |
-| Representative generator Fast PR | No independent class at `65a296b` | Not independently measurable; every PR selects the full graph | 56s clean local wall; 870,412,288-byte target; 1,872 target files; four 98,304-byte allocated smoke artifacts | Local R1.5 class passes 4-GiB and 15-minute budgets; 62.4% less target storage than R1.2; remote gate remains |
+| Representative generator Fast PR | No independent class at `65a296b` | Not independently measurable; every PR selects the full graph | Remote run `33581809536`: 123s job interval, 116 build-work seconds, 739,602,432-byte target, four smoke artifacts occupying 122,880 allocated bytes | R1 gate passes 4-GiB and 15-minute budgets; target is 68.1% smaller than the pre-R1.5 Fast measurement and 90.8% smaller than the differently scoped R0 all-target tree |
 | Representative corpus PR | Repository does not yet exist; embedded corpus edit selects full graph | Not independently measurable | — | Explicit boundary recorded |
 | Representative viewer PR | Viewer repository not in current scope | — | — | Not measured |
 | Nightly and release-candidate cost | No separate Nightly/RC trigger; run `33491521696` is exact candidate evidence | Nightly not independently measurable; provider/default/release critical chain 123m53s | — | Explicit boundary recorded |
@@ -774,8 +801,9 @@ baseline is diagnostic evidence, not proof that a target budget has passed.
 ## Blockers and authority boundaries
 
 - The location, remote, and creation authority for `dcmview-test-corpus` have
-  not been supplied. No external repository, remote, release, or other out-of-
-  workspace state has been created or mutated.
+  not been supplied. No persistent corpus repository, release, or remote has
+  been created. The authorized disposable R1 probe was closed and its branch
+  deleted after evidence capture.
 - External-consumer inventory has not run. The clean rename remains the
   default; a temporary alias may be introduced only if R3.2 discovers a real
   consumer and records its tested support window.

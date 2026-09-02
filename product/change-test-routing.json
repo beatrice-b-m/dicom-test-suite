@@ -95,6 +95,18 @@
     },
     "standards": {
       "commands": [{"target": "standards_validation__subsystem"}]
+    },
+    "byte_stable_validation": {
+      "commands": [
+        {"kind": "lib", "module": "validation::advanced_blending_presentation_state_tests", "source": "src/validation_advanced_blending_presentation_state_tests.rs", "list_count": 4},
+        {"kind": "lib", "module": "validation::blending_presentation_state_tests", "source": "src/validation_blending_presentation_state_tests.rs", "list_count": 3},
+        {"kind": "lib", "module": "validation::color_softcopy_presentation_state_tests", "source": "src/validation_color_softcopy_presentation_state_tests.rs", "list_count": 8},
+        {"kind": "lib", "module": "validation::general_ecg_tests", "source": "src/validation_general_ecg_tests.rs", "list_count": 3},
+        {"kind": "lib", "module": "validation::rt_image_tests", "source": "src/validation_rt_image_tests.rs", "list_count": 4},
+        {"kind": "lib", "module": "validation::rt_plan_tests", "source": "src/validation_rt_plan_tests.rs", "list_count": 4},
+        {"kind": "lib", "module": "validation::rt_radiation_tests", "source": "src/validation_rt_radiation_tests.rs", "list_count": 4},
+        {"kind": "lib", "module": "validation::twelve_lead_ecg_tests", "source": "src/validation_twelve_lead_ecg_tests.rs", "list_count": 6}
+      ]
     }
   },
   "rules": [
@@ -187,6 +199,12 @@
       "prefixes": ["cases/", "src/curated_execution/", "src/curated_manifest/", "src/recipes/"],
       "file_prefixes": ["src/validation_"],
       "bundles": ["corpus"]
+    },
+    {
+      "id": "byte-stable-validation",
+      "exact": ["src/validation.rs"],
+      "file_prefixes": ["src/validation_"],
+      "bundles": ["byte_stable_validation"]
     },
     {
       "id": "external-corpus-definition",

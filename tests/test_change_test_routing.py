@@ -151,6 +151,48 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
                 )
                 self.assertEqual(self.commands(result), expected_commands)
 
+    def test_native_validation_routes_all_byte_stable_fixture_contracts(self):
+        validation_commands = [
+            "cargo test --locked --no-default-features --lib validation::advanced_blending_presentation_state_tests::",
+            "cargo test --locked --no-default-features --lib validation::blending_presentation_state_tests::",
+            "cargo test --locked --no-default-features --lib validation::color_softcopy_presentation_state_tests::",
+            "cargo test --locked --no-default-features --lib validation::general_ecg_tests::",
+            "cargo test --locked --no-default-features --lib validation::rt_image_tests::",
+            "cargo test --locked --no-default-features --lib validation::rt_plan_tests::",
+            "cargo test --locked --no-default-features --lib validation::rt_radiation_tests::",
+            "cargo test --locked --no-default-features --lib validation::twelve_lead_ecg_tests::",
+        ]
+        for changed in [
+            "src/validation.rs",
+            "src/validation_advanced_blending_presentation_state_tests.rs",
+            "src/validation_blending_presentation_state_tests.rs",
+            "src/validation_color_softcopy_presentation_state_tests.rs",
+            "src/validation_general_ecg_tests.rs",
+            "src/validation_rt_image_tests.rs",
+            "src/validation_rt_plan_tests.rs",
+            "src/validation_rt_radiation_tests.rs",
+            "src/validation_twelve_lead_ecg_tests.rs",
+        ]:
+            with self.subTest(changed=changed):
+                result = self.select(changed)
+                self.assertEqual(
+                    result["bundle_ids"],
+                    ["byte_stable_validation", "corpus"],
+                )
+                commands = self.commands(result)
+                self.assertEqual(commands[:8], validation_commands)
+                self.assertEqual(
+                    sum(command["list_count"] for command in result["commands"] if command.get("kind") == "lib"),
+                    36,
+                )
+                self.assertEqual(
+                    [item["id"] for item in result["deferred_evidence"]],
+                    ["explicit_heavy", "future_external_corpus", "release_candidate"],
+                )
+                routed = " ".join(commands)
+                for forbidden in ["--ignored", "--features", "--release", "__nightly"]:
+                    self.assertNotIn(forbidden, routed)
+
     def test_docs_only_selects_no_extra_work_and_unknown_source_fails_closed(self):
         result = self.select("docs/generation-guide.md")
         self.assertEqual(result["commands"], [])

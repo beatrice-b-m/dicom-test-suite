@@ -134,6 +134,7 @@ fn fast_pr_is_bounded_to_light_contracts_and_tiny_smoke() {
         "--test schema_resources__fast --test release_ci__fast",
         "fetch-depth: 0",
         "python3 -m unittest tests/test_change_test_routing.py",
+        "python3 -m unittest tests/test_spelling_transition.py",
         "Run routed ordinary subsystem bundles",
         "PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}",
         "PUSH_BEFORE_SHA: ${{ github.event.before }}",

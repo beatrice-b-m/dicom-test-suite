@@ -3,73 +3,4363 @@
   "recorded": "2026-09-02",
   "policy": "Product-controlled environment variables and temporary paths make a clean transition with no old-name alias. Qualified adapter identities, DICOM payload values, compatibility fixtures, and historical evidence retain their exact qualified bytes until their owning boundary is separately migrated.",
   "removed_environment": [
-    ["DICOM_TEST_SUITE_RUSTC_VERSION", "SYNTH_DICOM_GEN_RUSTC_VERSION"],
-    ["DICOM_TEST_SUITE_TARGET", "SYNTH_DICOM_GEN_TARGET"],
-    ["DTS_CALLER_CONTENT_BINARY", "SYNTH_DICOM_GEN_CALLER_CONTENT_BINARY"],
-    ["DTS_CLASSIC_BASELINE_ROOT", "SYNTH_DICOM_GEN_CLASSIC_BASELINE_ROOT"],
-    ["DTS_COMPOSITION_PROVIDER_NETWORK", "SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_NETWORK"],
-    ["DTS_COMPOSITION_PROVIDER_OUTPUTS", "SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_OUTPUTS"],
-    ["DTS_COMPOSITION_PROVIDER_REQUEST", "SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_REQUEST"],
-    ["DTS_COMPOSITION_PROVIDER_RESPONSE", "SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_RESPONSE"],
-    ["DTS_QUALIFIED_CATALOG_BINARY", "SYNTH_DICOM_GEN_QUALIFIED_CATALOG_BINARY"],
-    ["DTS_REAL_CONFORMANCE", "SYNTH_DICOM_GEN_REAL_CONFORMANCE"],
-    ["DTS_M6_SEGMENTATION_FIXTURE", "SYNTH_DICOM_GEN_M6_SEGMENTATION_FIXTURE"],
-    ["DTS_RELEASE_ALLOW_DIRTY", "SYNTH_DICOM_GEN_RELEASE_ALLOW_DIRTY"],
-    ["DTS_RELEASE_ARCHIVE", "SYNTH_DICOM_GEN_RELEASE_ARCHIVE"],
-    ["DTS_RELEASE_ARCHIVE_SHA256", "SYNTH_DICOM_GEN_RELEASE_ARCHIVE_SHA256"],
-    ["DTS_RELEASE_BINARY", "SYNTH_DICOM_GEN_RELEASE_BINARY"],
-    ["DTS_RELEASE_BINARY_SHA256", "SYNTH_DICOM_GEN_RELEASE_BINARY_SHA256"],
-    ["DTS_RELEASE_EXTRACTED_ROOT", "SYNTH_DICOM_GEN_RELEASE_EXTRACTED_ROOT"],
-    ["DTS_RELEASE_FEATURES", "SYNTH_DICOM_GEN_RELEASE_FEATURES"],
-    ["DTS_RELEASE_REVISION", "SYNTH_DICOM_GEN_RELEASE_REVISION"],
-    ["DTS_RELEASE_TARGET", "SYNTH_DICOM_GEN_RELEASE_TARGET"],
-    ["DTS_SDK_PACKAGE_ROOT", "SYNTH_DICOM_GEN_SDK_PACKAGE_ROOT"],
-    ["DTS_STRUCTURAL_CATALOG_BINARY", "SYNTH_DICOM_GEN_STRUCTURAL_CATALOG_BINARY"],
-    ["DTS_TEST_IOD_ARTIFACT_ROOT", "SYNTH_DICOM_GEN_TEST_IOD_ARTIFACT_ROOT"],
-    ["DTS_TEST_IOD_EXECUTABLE", "SYNTH_DICOM_GEN_TEST_IOD_EXECUTABLE"],
-    ["DTS_TEST_PIXELMED_HOME", "SYNTH_DICOM_GEN_TEST_PIXELMED_HOME"],
-    ["DTS_UPGRADE_BINARY", "SYNTH_DICOM_GEN_UPGRADE_BINARY"]
+    [
+      "DICOM_TEST_SUITE_RUSTC_VERSION",
+      "SYNTH_DICOM_GEN_RUSTC_VERSION"
+    ],
+    [
+      "DICOM_TEST_SUITE_TARGET",
+      "SYNTH_DICOM_GEN_TARGET"
+    ],
+    [
+      "DTS_CALLER_CONTENT_BINARY",
+      "SYNTH_DICOM_GEN_CALLER_CONTENT_BINARY"
+    ],
+    [
+      "DTS_CLASSIC_BASELINE_ROOT",
+      "SYNTH_DICOM_GEN_CLASSIC_BASELINE_ROOT"
+    ],
+    [
+      "DTS_COMPOSITION_PROVIDER_NETWORK",
+      "SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_NETWORK"
+    ],
+    [
+      "DTS_COMPOSITION_PROVIDER_OUTPUTS",
+      "SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_OUTPUTS"
+    ],
+    [
+      "DTS_COMPOSITION_PROVIDER_REQUEST",
+      "SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_REQUEST"
+    ],
+    [
+      "DTS_COMPOSITION_PROVIDER_RESPONSE",
+      "SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_RESPONSE"
+    ],
+    [
+      "DTS_QUALIFIED_CATALOG_BINARY",
+      "SYNTH_DICOM_GEN_QUALIFIED_CATALOG_BINARY"
+    ],
+    [
+      "DTS_REAL_CONFORMANCE",
+      "SYNTH_DICOM_GEN_REAL_CONFORMANCE"
+    ],
+    [
+      "DTS_M6_SEGMENTATION_FIXTURE",
+      "SYNTH_DICOM_GEN_M6_SEGMENTATION_FIXTURE"
+    ],
+    [
+      "DTS_RELEASE_ALLOW_DIRTY",
+      "SYNTH_DICOM_GEN_RELEASE_ALLOW_DIRTY"
+    ],
+    [
+      "DTS_RELEASE_ARCHIVE",
+      "SYNTH_DICOM_GEN_RELEASE_ARCHIVE"
+    ],
+    [
+      "DTS_RELEASE_ARCHIVE_SHA256",
+      "SYNTH_DICOM_GEN_RELEASE_ARCHIVE_SHA256"
+    ],
+    [
+      "DTS_RELEASE_BINARY",
+      "SYNTH_DICOM_GEN_RELEASE_BINARY"
+    ],
+    [
+      "DTS_RELEASE_BINARY_SHA256",
+      "SYNTH_DICOM_GEN_RELEASE_BINARY_SHA256"
+    ],
+    [
+      "DTS_RELEASE_EXTRACTED_ROOT",
+      "SYNTH_DICOM_GEN_RELEASE_EXTRACTED_ROOT"
+    ],
+    [
+      "DTS_RELEASE_FEATURES",
+      "SYNTH_DICOM_GEN_RELEASE_FEATURES"
+    ],
+    [
+      "DTS_RELEASE_REVISION",
+      "SYNTH_DICOM_GEN_RELEASE_REVISION"
+    ],
+    [
+      "DTS_RELEASE_TARGET",
+      "SYNTH_DICOM_GEN_RELEASE_TARGET"
+    ],
+    [
+      "DTS_SDK_PACKAGE_ROOT",
+      "SYNTH_DICOM_GEN_SDK_PACKAGE_ROOT"
+    ],
+    [
+      "DTS_STRUCTURAL_CATALOG_BINARY",
+      "SYNTH_DICOM_GEN_STRUCTURAL_CATALOG_BINARY"
+    ],
+    [
+      "DTS_TEST_IOD_ARTIFACT_ROOT",
+      "SYNTH_DICOM_GEN_TEST_IOD_ARTIFACT_ROOT"
+    ],
+    [
+      "DTS_TEST_IOD_EXECUTABLE",
+      "SYNTH_DICOM_GEN_TEST_IOD_EXECUTABLE"
+    ],
+    [
+      "DTS_TEST_PIXELMED_HOME",
+      "SYNTH_DICOM_GEN_TEST_PIXELMED_HOME"
+    ],
+    [
+      "DTS_UPGRADE_BINARY",
+      "SYNTH_DICOM_GEN_UPGRADE_BINARY"
+    ]
   ],
   "removed_path_prefixes": [
-    [".dicom-test-suite-staging-", ".synth-dicom-gen-staging-"],
-    ["dicom-test-suite-transaction-", "synth-dicom-gen-transaction-"],
-    [".dts-compose-", ".synth-dicom-gen-staging-"],
-    [".dts-release.", ".synth-dicom-gen-release."],
-    ["dts-release-verify.", "synth-dicom-gen-release-verify."],
-    ["$RUNNER_TEMP/dts-", "$RUNNER_TEMP/synth-dicom-gen-"],
-    ["dts-{label}-", "synth-dicom-gen-{label}-"],
-    ["dts-streaming", "synth-dicom-gen-streaming"],
-    ["dts-pixel", "synth-dicom-gen-pixel"],
-    ["dts-u1-pixel", "synth-dicom-gen-u1-pixel"],
-    ["dts-rt-image-pixel", "synth-dicom-gen-rt-image-pixel"],
-    ["dts-visible-light-pixel", "synth-dicom-gen-visible-light-pixel"],
-    ["dts-icc", "synth-dicom-gen-icc"],
-    ["dts-media-", "synth-dicom-gen-media-"]
+    [
+      ".dicom-test-suite-staging-",
+      ".synth-dicom-gen-staging-"
+    ],
+    [
+      "dicom-test-suite-transaction-",
+      "synth-dicom-gen-transaction-"
+    ],
+    [
+      ".dts-compose-",
+      ".synth-dicom-gen-staging-"
+    ],
+    [
+      ".dts-release.",
+      ".synth-dicom-gen-release."
+    ],
+    [
+      "dts-release-verify.",
+      "synth-dicom-gen-release-verify."
+    ],
+    [
+      "$RUNNER_TEMP/dts-",
+      "$RUNNER_TEMP/synth-dicom-gen-"
+    ],
+    [
+      "dts-{label}-",
+      "synth-dicom-gen-{label}-"
+    ],
+    [
+      "dts-streaming",
+      "synth-dicom-gen-streaming"
+    ],
+    [
+      "dts-pixel",
+      "synth-dicom-gen-pixel"
+    ],
+    [
+      "dts-u1-pixel",
+      "synth-dicom-gen-u1-pixel"
+    ],
+    [
+      "dts-rt-image-pixel",
+      "synth-dicom-gen-rt-image-pixel"
+    ],
+    [
+      "dts-visible-light-pixel",
+      "synth-dicom-gen-visible-light-pixel"
+    ],
+    [
+      "dts-icc",
+      "synth-dicom-gen-icc"
+    ],
+    [
+      "dts-media-",
+      "synth-dicom-gen-media-"
+    ]
   ],
   "allowed_removed_occurrences": [],
   "retained_adapter_environment": [
-    "DTS_BACKEND_DEPENDENCY_LOCK_SHA256",
-    "DTS_BACKEND_ENVIRONMENT_FINGERPRINT",
-    "DTS_BACKEND_EXECUTABLE_FINGERPRINT",
-    "DTS_BACKEND_OUTPUTS",
-    "DTS_BACKEND_REQUEST",
-    "DTS_BACKEND_RESPONSE",
-    "DTS_DICOM_VALIDATOR_PYTHON",
-    "DTS_DICOM_VALIDATOR_STANDARD_HOME",
-    "DTS_HIGHDICOM_PYTHON",
-    "DTS_LCMS_HOME",
-    "DTS_PIXELMED_HOME",
-    "DTS_WSI_RECONSTRUCTION_PYTHON"
+    {
+      "name": "DTS_BACKEND_DEPENDENCY_LOCK_SHA256",
+      "owner": "qualified-generation-backend-protocol",
+      "reason": "The locked host-to-highdicom protocol binds this exact environment field.",
+      "evidence_paths": [
+        "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/protocol.py",
+        "src/generation_backends/process.rs"
+      ]
+    },
+    {
+      "name": "DTS_BACKEND_ENVIRONMENT_FINGERPRINT",
+      "owner": "qualified-generation-backend-protocol",
+      "reason": "The locked host-to-highdicom protocol binds this exact environment field.",
+      "evidence_paths": [
+        "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/protocol.py",
+        "src/generation_backends/process.rs"
+      ]
+    },
+    {
+      "name": "DTS_BACKEND_EXECUTABLE_FINGERPRINT",
+      "owner": "qualified-generation-backend-protocol",
+      "reason": "The locked host-to-highdicom protocol binds this exact environment field.",
+      "evidence_paths": [
+        "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/protocol.py",
+        "src/generation_backends/process.rs"
+      ]
+    },
+    {
+      "name": "DTS_BACKEND_OUTPUTS",
+      "owner": "qualified-generation-backend-protocol",
+      "reason": "The locked host-to-highdicom protocol binds this exact environment field.",
+      "evidence_paths": [
+        "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/protocol.py",
+        "src/generation_backends/process.rs"
+      ]
+    },
+    {
+      "name": "DTS_BACKEND_REQUEST",
+      "owner": "qualified-generation-backend-protocol",
+      "reason": "The locked host-to-highdicom protocol binds this exact environment field.",
+      "evidence_paths": [
+        "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/protocol.py",
+        "src/generation_backends/process.rs"
+      ]
+    },
+    {
+      "name": "DTS_BACKEND_RESPONSE",
+      "owner": "qualified-generation-backend-protocol",
+      "reason": "The locked host-to-highdicom protocol binds this exact environment field.",
+      "evidence_paths": [
+        "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/protocol.py",
+        "src/generation_backends/process.rs"
+      ]
+    },
+    {
+      "name": "DTS_DICOM_VALIDATOR_PYTHON",
+      "owner": "qualified-conformance-adapter",
+      "reason": "The validator catalog and lock bind this executable selector.",
+      "evidence_paths": [
+        "conformance/validators.json",
+        "conformance/validator-lock.json"
+      ]
+    },
+    {
+      "name": "DTS_DICOM_VALIDATOR_STANDARD_HOME",
+      "owner": "qualified-conformance-adapter",
+      "reason": "The validator catalog and adapter bind this standards root selector.",
+      "evidence_paths": [
+        "conformance/validators.json",
+        "conformance-backends/dicom-validator/src/dts_dicom_validator_adapter/__main__.py"
+      ]
+    },
+    {
+      "name": "DTS_HIGHDICOM_PYTHON",
+      "owner": "qualified-generation-backend",
+      "reason": "The generation-backend lock binds this executable override.",
+      "evidence_paths": [
+        "generation-backends.lock.json",
+        ".github/workflows/qualification.yml"
+      ]
+    },
+    {
+      "name": "DTS_LCMS_HOME",
+      "owner": "qualified-conformance-adapter",
+      "reason": "The validator catalog and lock bind this LittleCMS artifact root.",
+      "evidence_paths": [
+        "conformance/validators.json",
+        "conformance/validator-lock.json"
+      ]
+    },
+    {
+      "name": "DTS_PIXELMED_HOME",
+      "owner": "qualified-conformance-adapter",
+      "reason": "The validator catalog and lock bind this PixelMed artifact root.",
+      "evidence_paths": [
+        "conformance/validators.json",
+        "conformance/validator-lock.json"
+      ]
+    },
+    {
+      "name": "DTS_WSI_RECONSTRUCTION_PYTHON",
+      "owner": "qualified-conformance-adapter",
+      "reason": "The validator catalog and lock bind this reconstruction interpreter.",
+      "evidence_paths": [
+        "conformance/validators.json",
+        "conformance/validator-lock.json"
+      ]
+    }
   ],
   "retained_classes": {
-    "dicom_payload_identifier": "Upper-case DTS values not listed as adapter environments are DICOM payload, AE-title, manufacturer/device, private-creator, or immutable fixture values.",
-    "locked_python_module_or_backend": "Lower-case snake identities are locked Python package/module or external adapter protocol names.",
-    "qualified_adapter_or_test_fixture": "Lower-case dts-* identities are qualified adapter names or internal-only test fixture/scratch labels; they are not a supported product executable, archive, or environment alias.",
-    "legacy_payload_schema_fixture_or_evidence": "The bare dicom-test-suite spelling remains only in payload/schema compatibility fixtures, qualified adapter metadata, migration metadata, or historical evidence; R3.3 separately owns Markdown history/current-doc treatment."
+    "qualified_adapter_environment": {
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    "dicom_payload_identifier": {
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    "locked_python_module_or_backend": {
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    "qualified_adapter_or_test_fixture": {
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    "legacy_payload_schema_fixture_or_evidence": {
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    }
   },
+  "retained_occurrences": [
+    {
+      "path": ".github/workflows/qualification.yml",
+      "token": "DTS_HIGHDICOM_PYTHON",
+      "class": "qualified_adapter_environment",
+      "count": 3,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "build.rs",
+      "token": "dts_highdicom_backend",
+      "class": "locked_python_module_or_backend",
+      "count": 7,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
+      "path": "cases/recipes/classic/ct/ct_mono2_i16_rescale.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "cases/recipes/classic/ct/ct_mono2_i16_rescale_rle_lossless.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "cases/recipes/classic/nm/classic_nm_multiframe_explicit_le.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "cases/recipes/classic/pet/classic_pet_rescaled_activity_explicit_le.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "cases/recipes/classic/us/classic_us_multiframe_explicit_le.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "cases/recipes/classic/us/us_mono2_u8.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "cases/recipes/classic/us/us_mono2_u8_rle_lossless.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "cases/recipes/classic/xa/classic_xa_monoplane_explicit_le.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "cases/recipes/classic/xrf/classic_xrf_monoplane_explicit_le.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "cases/recipes/derived/registration/derived_registration_deformable_ct_pair.json",
+      "token": "DTS_DEFORM_REG",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "cases/recipes/derived/registration/derived_registration_spatial_ct_pair.json",
+      "token": "DTS_RIGID_REG",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "cases/recipes/derived/rwvm/rwvm_linear_ct_mapping.json",
+      "token": "DTS_HU",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "cases/recipes/derived/seg/seg_binary_multiframe.json",
+      "token": "DTS_SYNTHETIC_REGION",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "cases/recipes/derived/seg/seg_binary_multiframe_deflated_image_frame.json",
+      "token": "DTS_SYNTHETIC_REGION_DEFLATED",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "cases/recipes/derived/seg/seg_fractional_probability_multiframe.json",
+      "token": "DTS_SYNTHETIC_PROBABILITY",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "cases/recipes/derived/seg/seg_labelmap_multiframe.json",
+      "token": "DTS_SYNTHETIC_LABELMAP",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "cases/recipes/geometry/ct/geometry_ct_duplicate_missing_instance_number.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "cases/recipes/geometry/ct/geometry_ct_gantry_tilt_series.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "cases/recipes/geometry/ct/geometry_ct_multiseries_shared_frame_of_reference.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "cases/recipes/geometry/ct/geometry_ct_nonuniform_slice_spacing.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "cases/recipes/geometry/ct/geometry_ct_spatial_sort_conflicts_instance_number.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "cases/recipes/metadata/sc/metadata_sc_private_creator_blocks.json",
+      "token": "DTS_PRIVATE_ALPHA",
+      "class": "dicom_payload_identifier",
+      "count": 2,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "cases/recipes/metadata/sc/metadata_sc_private_creator_blocks.json",
+      "token": "DTS_PRIVATE_BETA",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "cases/recipes/non-image/rt/non_image_rt_carm_photon_electron_radiation_minimal.json",
+      "token": "DTS_LINAC",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "cases/recipes/non-image/rt/non_image_rt_carm_photon_electron_radiation_minimal.json",
+      "token": "DTS_RADIATION",
+      "class": "dicom_payload_identifier",
+      "count": 2,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "cases/recipes/non-image/rt/non_image_rt_image_linked.json",
+      "token": "DTS_DRR",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "cases/recipes/non-image/rt/non_image_rt_image_linked.json",
+      "token": "DTS_LINAC",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "cases/recipes/non-image/rt/non_image_rt_plan_linked.json",
+      "token": "DTS_LINAC",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "cases/recipes/non-image/rt/non_image_rt_plan_linked.json",
+      "token": "DTS_PLAN",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "cases/recipes/non-image/rt/non_image_rt_plan_linked.json",
+      "token": "DTS_STATIC_AP",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "cases/recipes/non-image/rt/non_image_rt_radiation_set_minimal.json",
+      "token": "DTS_RADSET",
+      "class": "dicom_payload_identifier",
+      "count": 2,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "cases/recipes/non-image/rt/rt_dose_grid_u16.json",
+      "token": "DTS_RTDOSE",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "cases/recipes/non-image/rt/rt_structure_set_single_roi.json",
+      "token": "DTS_RTSTRUCT",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "cases/recipes/non-image/rt/rt_structure_set_single_roi.json",
+      "token": "DTS_SYNTHETIC_ROI",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "cases/recipes/stress/sc/stress_sc_deep_nested_sequences.json",
+      "token": "DTS_STRESS_NESTED",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "cases/recipes/vl/endoscopic/vl_endoscopic_rgb_explicit_le.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "cases/recipes/vl/microscopic/vl_microscopic_rgb_explicit_le.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "cases/recipes/vl/photo/vl_photo_palette_color.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "cases/recipes/vl/photo/vl_photo_palette_color_rle_lossless.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "cases/recipes/vl/photo/vl_photo_rgb_icc_profile_explicit_le.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "cases/recipes/vl/photo/vl_photo_rgb_planar0.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "cases/recipes/vl/photo/vl_photo_rgb_planar0_rle_lossless.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "cases/recipes/vl/photo/vl_photo_rgb_planar1_rle_lossless.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "conformance-backends/dicom-validator/pyproject.toml",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 2,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "conformance-backends/dicom-validator/pyproject.toml",
+      "token": "dts-dicom-validator",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "conformance-backends/dicom-validator/pyproject.toml",
+      "token": "dts_dicom_validator_adapter",
+      "class": "locked_python_module_or_backend",
+      "count": 1,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
+      "path": "conformance-backends/dicom-validator/src/dts_dicom_validator_adapter/__init__.py",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "conformance-backends/dicom-validator/src/dts_dicom_validator_adapter/__main__.py",
+      "token": "DTS_DICOM_VALIDATOR_STANDARD_HOME",
+      "class": "qualified_adapter_environment",
+      "count": 2,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "conformance-backends/dicom-validator/src/dts_dicom_validator_adapter/__main__.py",
+      "token": "dts-dicom-validator",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "conformance-backends/dicom-validator/src/dts_dicom_validator_adapter/wsi_tile_segmentation.py",
+      "token": "DTS_DICOM_VALIDATOR_STANDARD_HOME",
+      "class": "qualified_adapter_environment",
+      "count": 2,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "conformance-backends/dicom-validator/src/dts_dicom_validator_adapter/wsi_tile_segmentation.py",
+      "token": "dts-dicom-validator-wsi-tile-segmentation",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "conformance-backends/dicom-validator/tests/test_definition_correction.py",
+      "token": "dts-dicom-validator",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "conformance-backends/dicom-validator/tests/test_definition_correction.py",
+      "token": "dts_dicom_validator_adapter",
+      "class": "locked_python_module_or_backend",
+      "count": 1,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
+      "path": "conformance-backends/dicom-validator/tests/test_encapsulated_stl.py",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "conformance-backends/dicom-validator/tests/test_encapsulated_stl.py",
+      "token": "dts-stl-adapter-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "conformance-backends/dicom-validator/tests/test_encapsulated_stl.py",
+      "token": "dts_dicom_validator_adapter",
+      "class": "locked_python_module_or_backend",
+      "count": 2,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
+      "path": "conformance-backends/dicom-validator/tests/test_nonsquare_spacing.py",
+      "token": "dts-nonsquare-adapter-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "conformance-backends/dicom-validator/tests/test_nonsquare_spacing.py",
+      "token": "dts_dicom_validator_adapter",
+      "class": "locked_python_module_or_backend",
+      "count": 3,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
+      "path": "conformance-backends/dicom-validator/tests/test_waveform.py",
+      "token": "dts-waveform-adapter-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "conformance-backends/dicom-validator/tests/test_waveform.py",
+      "token": "dts_dicom_validator_adapter",
+      "class": "locked_python_module_or_backend",
+      "count": 3,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
+      "path": "conformance-backends/dicom-validator/tests/test_wsi_tile_segmentation.py",
+      "token": "dts_dicom_validator_adapter",
+      "class": "locked_python_module_or_backend",
+      "count": 1,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
+      "path": "conformance-backends/dicom-validator/uv.lock",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "conformance-backends/wsi-reconstruction/pyproject.toml",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "conformance-backends/wsi-reconstruction/pyproject.toml",
+      "token": "dts-wsi-reconstruct",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "conformance-backends/wsi-reconstruction/pyproject.toml",
+      "token": "dts_wsi_reconstruction",
+      "class": "locked_python_module_or_backend",
+      "count": 1,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
+      "path": "conformance-backends/wsi-reconstruction/src/dts_wsi_reconstruction/__main__.py",
+      "token": "dts-wsi-reconstruct",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 5,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "conformance-backends/wsi-reconstruction/tests/test_reconstruction.py",
+      "token": "dts_wsi_reconstruction",
+      "class": "locked_python_module_or_backend",
+      "count": 1,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
+      "path": "conformance-backends/wsi-reconstruction/uv.lock",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "conformance/accepted-findings.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 8,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "conformance/validator-lock.json",
+      "token": "DTS_DICOM_VALIDATOR_PYTHON",
+      "class": "qualified_adapter_environment",
+      "count": 5,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "conformance/validator-lock.json",
+      "token": "DTS_DICOM_VALIDATOR_STANDARD_HOME",
+      "class": "qualified_adapter_environment",
+      "count": 5,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "conformance/validator-lock.json",
+      "token": "DTS_LCMS_HOME",
+      "class": "qualified_adapter_environment",
+      "count": 1,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "conformance/validator-lock.json",
+      "token": "DTS_PIXELMED_HOME",
+      "class": "qualified_adapter_environment",
+      "count": 1,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "conformance/validator-lock.json",
+      "token": "DTS_WSI_RECONSTRUCTION_PYTHON",
+      "class": "qualified_adapter_environment",
+      "count": 1,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "conformance/validators.json",
+      "token": "DTS_DICOM_VALIDATOR_PYTHON",
+      "class": "qualified_adapter_environment",
+      "count": 9,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "conformance/validators.json",
+      "token": "DTS_DICOM_VALIDATOR_STANDARD_HOME",
+      "class": "qualified_adapter_environment",
+      "count": 72,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "conformance/validators.json",
+      "token": "DTS_LCMS_HOME",
+      "class": "qualified_adapter_environment",
+      "count": 1,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "conformance/validators.json",
+      "token": "DTS_PIXELMED_HOME",
+      "class": "qualified_adapter_environment",
+      "count": 1,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "conformance/validators.json",
+      "token": "DTS_WSI_RECONSTRUCTION_PYTHON",
+      "class": "qualified_adapter_environment",
+      "count": 1,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "conformance/validators.json",
+      "token": "dts_dicom_validator_adapter",
+      "class": "locked_python_module_or_backend",
+      "count": 40,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
+      "path": "conformance/validators.json",
+      "token": "dts_wsi_reconstruction",
+      "class": "locked_python_module_or_backend",
+      "count": 5,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
+      "path": "docs/baselines/dcmview-smoke-parity-seed-1-2026-09-01.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 2,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "examples/assemble-structural.json",
+      "token": "DTS_EXAMPLE",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "examples/compose-metadata-private-sequence.json",
+      "token": "DTS_EXAMPLE",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "generation-backends.lock.json",
+      "token": "DTS_HIGHDICOM_PYTHON",
+      "class": "qualified_adapter_environment",
+      "count": 1,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "generation-backends.lock.json",
+      "token": "dts_highdicom_backend",
+      "class": "locked_python_module_or_backend",
+      "count": 10,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
+      "path": "generation-backends/highdicom-pydicom/pyproject.toml",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 2,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "generation-backends/highdicom-pydicom/pyproject.toml",
+      "token": "dts-highdicom-backend",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "generation-backends/highdicom-pydicom/pyproject.toml",
+      "token": "dts_highdicom_backend",
+      "class": "locked_python_module_or_backend",
+      "count": 1,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
+      "path": "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/__init__.py",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/__main__.py",
+      "token": "dts-highdicom-backend",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/parametric_map.py",
+      "token": "DTS_FLOAT32",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/parametric_map.py",
+      "token": "DTS_FLOAT64",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/protocol.py",
+      "token": "DTS_BACKEND_DEPENDENCY_LOCK_SHA256",
+      "class": "qualified_adapter_environment",
+      "count": 1,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/protocol.py",
+      "token": "DTS_BACKEND_ENVIRONMENT_FINGERPRINT",
+      "class": "qualified_adapter_environment",
+      "count": 1,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/protocol.py",
+      "token": "DTS_BACKEND_EXECUTABLE_FINGERPRINT",
+      "class": "qualified_adapter_environment",
+      "count": 1,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/protocol.py",
+      "token": "DTS_BACKEND_OUTPUTS",
+      "class": "qualified_adapter_environment",
+      "count": 1,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/protocol.py",
+      "token": "DTS_BACKEND_REQUEST",
+      "class": "qualified_adapter_environment",
+      "count": 1,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/protocol.py",
+      "token": "DTS_BACKEND_RESPONSE",
+      "class": "qualified_adapter_environment",
+      "count": 1,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/protocol.py",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 2,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/wsi_tile_segmentation.py",
+      "token": "DTS_SYNTHETIC_REGION",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "generation-backends/highdicom-pydicom/tests/test_entrypoint.py",
+      "token": "dts_highdicom_backend",
+      "class": "locked_python_module_or_backend",
+      "count": 2,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
+      "path": "generation-backends/highdicom-pydicom/tests/test_parametric_map.py",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "generation-backends/highdicom-pydicom/tests/test_parametric_map.py",
+      "token": "dts_highdicom_backend",
+      "class": "locked_python_module_or_backend",
+      "count": 2,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
+      "path": "generation-backends/highdicom-pydicom/tests/test_protocol.py",
+      "token": "dts_highdicom_backend",
+      "class": "locked_python_module_or_backend",
+      "count": 1,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
+      "path": "generation-backends/highdicom-pydicom/tests/test_scoord3d.py",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "generation-backends/highdicom-pydicom/tests/test_scoord3d.py",
+      "token": "dts_highdicom_backend",
+      "class": "locked_python_module_or_backend",
+      "count": 3,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
+      "path": "generation-backends/highdicom-pydicom/tests/test_tid1500.py",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "generation-backends/highdicom-pydicom/tests/test_tid1500.py",
+      "token": "dts_highdicom_backend",
+      "class": "locked_python_module_or_backend",
+      "count": 5,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
+      "path": "generation-backends/highdicom-pydicom/tests/test_wsi_tile_segmentation.py",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 2,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "generation-backends/highdicom-pydicom/tests/test_wsi_tile_segmentation.py",
+      "token": "dts_highdicom_backend",
+      "class": "locked_python_module_or_backend",
+      "count": 4,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
+      "path": "generation-backends/highdicom-pydicom/uv.lock",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "product/migration-file-ownership-2026-09-01.json",
+      "token": "dts_dicom_validator_adapter",
+      "class": "locked_python_module_or_backend",
+      "count": 8,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
+      "path": "product/migration-file-ownership-2026-09-01.json",
+      "token": "dts_highdicom_backend",
+      "class": "locked_python_module_or_backend",
+      "count": 14,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
+      "path": "product/migration-file-ownership-2026-09-01.json",
+      "token": "dts_wsi_reconstruction",
+      "class": "locked_python_module_or_backend",
+      "count": 4,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
+      "path": "schemas/assembly-request.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/assembly-result.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/capabilities-result.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/case-list-result.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/case-recipe.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/case-registry.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/cli-error-code-registry.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/cli-error-envelope.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/cli-success-envelope.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/composition-manifest.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/composition-provider-request.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/composition-provider-response.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/composition-result.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/composition-spec.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/conformance-accepted-findings.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/conformance-result.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/conformance-run.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/coverage-gap-report.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/coverage-report.schema.json",
+      "token": "DTS_DRR",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "schemas/coverage-report.schema.json",
+      "token": "DTS_LINAC",
+      "class": "dicom_payload_identifier",
+      "count": 2,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "schemas/coverage-report.schema.json",
+      "token": "DTS_PLAN",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "schemas/coverage-report.schema.json",
+      "token": "DTS_RADIATION",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "schemas/coverage-report.schema.json",
+      "token": "DTS_RADSET",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "schemas/coverage-report.schema.json",
+      "token": "DTS_STATIC_AP",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "schemas/coverage-report.schema.json",
+      "token": "DTS_TPG_1",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "schemas/coverage-report.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 3,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/generation-backend-lock.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/generation-backend-request.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/generation-backend-response.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/generation-result.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/interoperability-result.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/manifest.schema.json",
+      "token": "DTS_DRR",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "schemas/manifest.schema.json",
+      "token": "DTS_LINAC",
+      "class": "dicom_payload_identifier",
+      "count": 3,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "schemas/manifest.schema.json",
+      "token": "DTS_PLAN",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "schemas/manifest.schema.json",
+      "token": "DTS_RADIATION",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "schemas/manifest.schema.json",
+      "token": "DTS_RADSET",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "schemas/manifest.schema.json",
+      "token": "DTS_STATIC_AP",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "schemas/manifest.schema.json",
+      "token": "DTS_SYNTHETIC_REGION",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "schemas/manifest.schema.json",
+      "token": "DTS_TPG_1",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "schemas/manifest.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 4,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/media-report.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/release-manifest.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 2,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/report-result.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/standards-result.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/structural-assembly-manifest.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 2,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/structural-assembly-report.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/template-catalog.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/templates-result.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/transaction-report.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/validation-result.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/version-result.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 2,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "schemas/viewer-report.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "security/fixtures/fixtures.lock.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "security/fixtures/openssl-fixtures.cnf",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/composition/attribute.rs",
+      "token": "DTS_COMPOSE",
+      "class": "dicom_payload_identifier",
+      "count": 2,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/composition/attribute.rs",
+      "token": "DTS_MANAGED",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/composition/content.rs",
+      "token": "dts-composition-content-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/composition/external_quantitative.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/composition/manifest.rs",
+      "token": "dts-composition-implicit-vr-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/composition/manifest.rs",
+      "token": "dts-composition-manifest-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/composition/manifest.rs",
+      "token": "dts-composition-validation-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/composition/materializer.rs",
+      "token": "dts-composition-cancel-stream-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 2,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/composition/materializer.rs",
+      "token": "dts-composition-encoded-text-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/composition/materializer.rs",
+      "token": "dts-composition-materializer-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/composition/materializer.rs",
+      "token": "dts-composition-materializer-bad-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/composition/materializer.rs",
+      "token": "dts-composition-nested-content-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/composition/materializer.rs",
+      "token": "dts-part10-legacy-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/composition/materializer.rs",
+      "token": "dts-part10-lengths-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/composition/materializer.rs",
+      "token": "dts-part10-native-endian-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/composition/materializer.rs",
+      "token": "dts-part10-padding-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/composition/materializer.rs",
+      "token": "dts-part10-policy-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/composition/materializer.rs",
+      "token": "dts-part10-policy-reject-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/composition/materializer.rs",
+      "token": "dts-part10-preamble-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/composition/materializer.rs",
+      "token": "dts-part10-preview-must-not-create-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/composition/materializer.rs",
+      "token": "dts-part10-preview-parity-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/composition/native_content.rs",
+      "token": "dts-raw-native-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/composition/run.rs",
+      "token": "dts-compose-run-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/composition/spec.rs",
+      "token": "DTS_COMPOSE",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/composition/spec.rs",
+      "token": "dts-p2-attributes-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/composition/validation.rs",
+      "token": "dts-composition-validation-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/conformance.rs",
+      "token": "dts-p6-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/conformance.rs",
+      "token": "dts-p6-bad-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/conformance.rs",
+      "token": "dts-vl-sidecar-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/conformance.rs",
+      "token": "dts-wsi-multiple-path-sidecar-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/conformance.rs",
+      "token": "dts-wsi-pyramid-sidecar-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/conformance.rs",
+      "token": "dts-wsi-reconstruct",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 7,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/conformance.rs",
+      "token": "dts-wsi-sidecar-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/conformance.rs",
+      "token": "dts-wsi-sparse-sidecar-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/curated_execution.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 2,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/curated_execution/external_import.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/curated_manifest/external.rs",
+      "token": "DTS_SYNTHETIC_REGION",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/curated_plan.rs",
+      "token": "DTS_STRESS_LONG_",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/curated_plan.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 4,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/executor/evidence.rs",
+      "token": "DTS_TEST",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/executor/materialization.rs",
+      "token": "dts-materialization-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/executor/stress_content.rs",
+      "token": "dts-stress-content-test-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/generation_backends/discovery.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/generation_backends/discovery.rs",
+      "token": "dts-first-repository",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 2,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/generation_backends/discovery.rs",
+      "token": "dts-second-repository",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/generation_backends/discovery.rs",
+      "token": "dts_highdicom_backend",
+      "class": "locked_python_module_or_backend",
+      "count": 1,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
+      "path": "src/generation_backends/parametric_map.rs",
+      "token": "dts-parametric-map-staged-payload-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/generation_backends/process.rs",
+      "token": "DTS_BACKEND_DEPENDENCY_LOCK_SHA256",
+      "class": "qualified_adapter_environment",
+      "count": 2,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "src/generation_backends/process.rs",
+      "token": "DTS_BACKEND_ENVIRONMENT_FINGERPRINT",
+      "class": "qualified_adapter_environment",
+      "count": 2,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "src/generation_backends/process.rs",
+      "token": "DTS_BACKEND_EXECUTABLE_FINGERPRINT",
+      "class": "qualified_adapter_environment",
+      "count": 2,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "src/generation_backends/process.rs",
+      "token": "DTS_BACKEND_OUTPUTS",
+      "class": "qualified_adapter_environment",
+      "count": 2,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "src/generation_backends/process.rs",
+      "token": "DTS_BACKEND_REQUEST",
+      "class": "qualified_adapter_environment",
+      "count": 2,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "src/generation_backends/process.rs",
+      "token": "DTS_BACKEND_RESPONSE",
+      "class": "qualified_adapter_environment",
+      "count": 2,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "src/generation_backends/process.rs",
+      "token": "dts-backend-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/generation_backends/scoord3d.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/generation_backends/staging.rs",
+      "token": "dts-staging-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/generation_backends/wsi_tile_segmentation.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/generation_backends/wsi_tile_segmentation.rs",
+      "token": "dts-wsi-seg-backend-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/geometry.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/lib.rs",
+      "token": "DTS_DEFORM_REG",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/lib.rs",
+      "token": "DTS_DRR",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/lib.rs",
+      "token": "DTS_LINAC",
+      "class": "dicom_payload_identifier",
+      "count": 3,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/lib.rs",
+      "token": "DTS_RADIATION",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/lib.rs",
+      "token": "DTS_RADSET",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/lib.rs",
+      "token": "DTS_RIGID_REG",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/lib.rs",
+      "token": "DTS_STATIC_AP",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/lib.rs",
+      "token": "DTS_SYNTHETIC_REGION",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/lib.rs",
+      "token": "DTS_TPG_1",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/lib.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 6,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/metadata.rs",
+      "token": "DTS_PRIVATE_ALPHA",
+      "class": "dicom_payload_identifier",
+      "count": 2,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/metadata.rs",
+      "token": "DTS_PRIVATE_BETA",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/protocol_baseline.rs",
+      "token": "DTS_SCP",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/protocol_baseline.rs",
+      "token": "DTS_SCU",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/recipes/classic_ct.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/recipes/classic_dx_mg.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 2,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/recipes/classic_mr_cr.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 2,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/recipes/classic_nuclear.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/recipes/classic_vl_projection.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/recipes/encapsulated_payload.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 2,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/recipes/enhanced.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 2,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/recipes/presentation.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 2,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/recipes/quantitative.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 2,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/recipes/registration.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 2,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/recipes/rt.rs",
+      "token": "DTS_PLAN",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/recipes/rt.rs",
+      "token": "DTS_TPG_1",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/recipes/rt.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/recipes/sc.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 2,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/recipes/stress_ct.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 2,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/recipes/stress_sc.rs",
+      "token": "DTS_STRESS_NESTED",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/recipes/stress_sc.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 2,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/recipes/waveform.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/recipes/wsi.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 2,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/rt_manifest.rs",
+      "token": "DTS_DRR",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/rt_manifest.rs",
+      "token": "DTS_LINAC",
+      "class": "dicom_payload_identifier",
+      "count": 2,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/rt_manifest.rs",
+      "token": "DTS_PLAN",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/rt_manifest.rs",
+      "token": "DTS_STATIC_AP",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/rt_radiation_manifest.rs",
+      "token": "DTS_LINAC",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/rt_radiation_manifest.rs",
+      "token": "DTS_RADIATION",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/rt_radiation_manifest.rs",
+      "token": "DTS_RADSET",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/rt_radiation_manifest.rs",
+      "token": "DTS_TPG_1",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/rt_radiation_manifest.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 2,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/validation.rs",
+      "token": "DTS_DRR",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/validation.rs",
+      "token": "DTS_LINAC",
+      "class": "dicom_payload_identifier",
+      "count": 3,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/validation.rs",
+      "token": "DTS_PLAN",
+      "class": "dicom_payload_identifier",
+      "count": 2,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/validation.rs",
+      "token": "DTS_STATIC_AP",
+      "class": "dicom_payload_identifier",
+      "count": 2,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/validation.rs",
+      "token": "DTS_SYNTHETIC_REGION",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/validation.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 6,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/validation_advanced_blending_presentation_state_tests.rs",
+      "token": "DTS_TEST",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/validation_advanced_blending_presentation_state_tests.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/validation_advanced_blending_presentation_state_tests.rs",
+      "token": "dts-advanced-blending-validation-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/validation_blending_presentation_state_tests.rs",
+      "token": "DTS_TEST",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/validation_blending_presentation_state_tests.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/validation_blending_presentation_state_tests.rs",
+      "token": "dts-blending-validation-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/validation_color_softcopy_presentation_state_tests.rs",
+      "token": "DTS_TEST",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/validation_color_softcopy_presentation_state_tests.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/validation_color_softcopy_presentation_state_tests.rs",
+      "token": "dts-color-softcopy-validation-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/validation_deformable_spatial_registration_tests.rs",
+      "token": "DTS_DEFORM_REG",
+      "class": "dicom_payload_identifier",
+      "count": 2,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/validation_deformable_spatial_registration_tests.rs",
+      "token": "DTS_TEST",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/validation_deformable_spatial_registration_tests.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 2,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/validation_deformable_spatial_registration_tests.rs",
+      "token": "dts-deformable-registration-validation-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/validation_general_ecg_tests.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 2,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/validation_rt_image_tests.rs",
+      "token": "DTS_DRR",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/validation_rt_image_tests.rs",
+      "token": "DTS_LINAC",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/validation_rt_image_tests.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 2,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/validation_rt_plan_tests.rs",
+      "token": "DTS_LINAC",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/validation_rt_plan_tests.rs",
+      "token": "DTS_PLAN",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/validation_rt_plan_tests.rs",
+      "token": "DTS_STATIC_AP",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/validation_rt_plan_tests.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 2,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/validation_rt_radiation_tests.rs",
+      "token": "DTS_LINAC",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/validation_rt_radiation_tests.rs",
+      "token": "DTS_RADIATION",
+      "class": "dicom_payload_identifier",
+      "count": 2,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/validation_rt_radiation_tests.rs",
+      "token": "DTS_RADSET",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/validation_rt_radiation_tests.rs",
+      "token": "DTS_TPG_1",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/validation_rt_radiation_tests.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 2,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/validation_rt_radiation_tests.rs",
+      "token": "dts-rt-radiation-validation-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/validation_spatial_registration_tests.rs",
+      "token": "DTS_RIGID_REG",
+      "class": "dicom_payload_identifier",
+      "count": 2,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/validation_spatial_registration_tests.rs",
+      "token": "DTS_TEST",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "src/validation_spatial_registration_tests.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 2,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/validation_spatial_registration_tests.rs",
+      "token": "dts-spatial-registration-validation-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "src/validation_twelve_lead_ecg_tests.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 2,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/validation_vl_single_frame_tests.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/validation_wsi_multiple_optical_paths_tests.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/validation_wsi_pyramid_tests.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/validation_wsi_tiled_full_tests.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "src/validation_wsi_tiled_sparse_tests.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/advanced_blending_presentation_state.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/assemble_cli.rs",
+      "token": "dts-assemble-cli-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/assembly_plan.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/assembly_qualification.rs",
+      "token": "DTS_ONE",
+      "class": "dicom_payload_identifier",
+      "count": 2,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/assembly_qualification.rs",
+      "token": "DTS_TWO",
+      "class": "dicom_payload_identifier",
+      "count": 2,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/assembly_qualification.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/assembly_request.rs",
+      "token": "DTS_ASSEMBLY",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/assembly_run.rs",
+      "token": "DTS_ASSEMBLY",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/assembly_run.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/black_box_cli_consumer.py",
+      "token": "dts-python-consumer-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/blending_presentation_state.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/caller_content_consumer.py",
+      "token": "DTS_CALLER",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/caller_content_consumer.py",
+      "token": "dts-caller-content-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/capabilities_cli.rs",
+      "token": "dts-capabilities-cli-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/case_recipe_catalog.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/ci_release_gates.rs",
+      "token": "DTS_HIGHDICOM_PYTHON",
+      "class": "qualified_adapter_environment",
+      "count": 1,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "tests/ci_release_gates.rs",
+      "token": "dts-ci-cost",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/classic_ct_plan.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/classic_dx_mg_plan.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/classic_first_wave_part10_parity.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/classic_mr_cr_plan.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/classic_nuclear_plan.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/classic_plan_contracts.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/classic_vl_projection_plan.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/cli_error_golden.rs",
+      "token": "dts-cli-error-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/color_softcopy_presentation_state.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/compose_cli.rs",
+      "token": "dts-compose-cli-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/composition_advanced_plan_first.rs",
+      "token": "dts-composition-advanced-plan-first-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/composition_bulk.rs",
+      "token": "dts-composition-bulk-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/composition_classic_iod.rs",
+      "token": "dts-composition-classic-iod-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/composition_codec.rs",
+      "token": "dts-composition-codec-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/composition_concatenation.rs",
+      "token": "dts-composition-concatenation-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/composition_curated_migration.rs",
+      "token": "DTS_HIGHDICOM_PYTHON",
+      "class": "qualified_adapter_environment",
+      "count": 1,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "tests/composition_curated_migration.rs",
+      "token": "dts-composition-migration-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/composition_derived_references.rs",
+      "token": "dts-composition-derived-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/composition_enhanced.rs",
+      "token": "dts-composition-enhanced-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/composition_p2_e2e.rs",
+      "token": "dts-composition-p2-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/composition_p8_qualification.rs",
+      "token": "dts-composition-p8-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/composition_parallel.rs",
+      "token": "dts-composition-parallel-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/composition_provider.rs",
+      "token": "dts-composition-provider-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/composition_public_api.rs",
+      "token": "dts-composition-api-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/composition_quantitative.rs",
+      "token": "dts-composition-quantitative-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/composition_quantitative_plan_first.rs",
+      "token": "dts-composition-quantitative-plan-first-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/composition_radiotherapy.rs",
+      "token": "dts-composition-rt-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/composition_resources.rs",
+      "token": "dts-composition-resources-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/composition_sc_iod.rs",
+      "token": "dts-composition-iod-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/composition_sr_plan_first.rs",
+      "token": "dts-composition-sr-plan-first-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/composition_streaming.rs",
+      "token": "dts-composition-streaming-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/composition_structured_reports.rs",
+      "token": "dts-composition-sr-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/composition_wsi.rs",
+      "token": "dts-composition-wsi-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/conformance/fixtures/minimal-run.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/conformance_check_tools.rs",
+      "token": "dts-conformance-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/conformance_icc.rs",
+      "token": "dts-conformance-icc-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/conformance_iod_routing.rs",
+      "token": "dts-conformance-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/conformance_pixel.rs",
+      "token": "dts-real-pixel-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/conformance_rt.rs",
+      "token": "dts-conformance-rt-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/conformance_run.rs",
+      "token": "dts-conformance-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/conformance_sr.rs",
+      "token": "dts-conformance-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/conformance_verify.rs",
+      "token": "dts-verify-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/conformance_visible_light.rs",
+      "token": "DTS_DICOM_VALIDATOR_PYTHON",
+      "class": "qualified_adapter_environment",
+      "count": 1,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "tests/conformance_waveform.rs",
+      "token": "dts-conformance-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/conformance_wsi.rs",
+      "token": "DTS_DICOM_VALIDATOR_PYTHON",
+      "class": "qualified_adapter_environment",
+      "count": 2,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "tests/conformance_wsi.rs",
+      "token": "DTS_WSI_RECONSTRUCTION_PYTHON",
+      "class": "qualified_adapter_environment",
+      "count": 1,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "tests/conformance_wsi.rs",
+      "token": "dts_dicom_validator_adapter",
+      "class": "locked_python_module_or_backend",
+      "count": 1,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
+      "path": "tests/conformance_wsi.rs",
+      "token": "dts_wsi_reconstruction",
+      "class": "locked_python_module_or_backend",
+      "count": 4,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
+      "path": "tests/ct_geometry.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/curated_advanced_plan.rs",
+      "token": "dts-curated-advanced-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/curated_advanced_plan.rs",
+      "token": "dts-curated-advanced-execution-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/curated_advanced_plan.rs",
+      "token": "dts-curated-advanced-plan-only-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/curated_classic_validation.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/curated_exceptional_execution.rs",
+      "token": "dts-exceptional-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/curated_execution.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/curated_external_import_plan.rs",
+      "token": "dts-curated-external-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/curated_generate_integration.rs",
+      "token": "DTS_HIGHDICOM_PYTHON",
+      "class": "qualified_adapter_environment",
+      "count": 1,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "tests/curated_generate_integration.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/curated_locked_full_file_execution.rs",
+      "token": "dts-locked-fake-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/curated_locked_full_file_execution.rs",
+      "token": "dts-locked-real-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/curated_manifest.rs",
+      "token": "dts-u36-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/curated_negative_plan.rs",
+      "token": "dts-curated-negative-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/curated_negative_plan.rs",
+      "token": "dts-curated-negative-execution-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/curated_robustness_qualification.rs",
+      "token": "dts-curated-robustness-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/curated_sc_corpus_plan.rs",
+      "token": "dts-curated-plan-must-not-create-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/curated_stress_ct_execution.rs",
+      "token": "dts-stress-ct-validation-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/curated_stress_manifest.rs",
+      "token": "dts-curated-stress-manifest-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/curated_stress_sc_integration.rs",
+      "token": "dts-stress-sc-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/deformable_spatial_registration.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/enhanced_mr_temporal.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/enhanced_pet_multiframe.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/enhanced_plan_provider.rs",
+      "token": "dts-enhanced-plan-provider-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/exceptional_sc_plan.rs",
+      "token": "dts-exceptional-deflated-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/executor_engine.rs",
+      "token": "dts-executor-sanitize-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/fixtures/composition/valid/typed-local-content.json",
+      "token": "DTS_COMPOSE",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/general_ecg_waveform.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/generate_cli.rs",
+      "token": "DTS_HU",
+      "class": "dicom_payload_identifier",
+      "count": 2,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/generate_cli.rs",
+      "token": "DTS_SYNTHETIC_ROI",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/generate_cli.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/generate_reproducibility.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/generation_backend_contract.rs",
+      "token": "DTS_HIGHDICOM_PYTHON",
+      "class": "qualified_adapter_environment",
+      "count": 1,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "tests/generation_backend_discovery.rs",
+      "token": "dts-highdicom-backend",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/interoperability_schema.rs",
+      "token": "dts_protocol_harness",
+      "class": "locked_python_module_or_backend",
+      "count": 1,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
+      "path": "tests/interoperate_cli.rs",
+      "token": "dts-interoperate-cli-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/legacy_jpeg_dcmtk_wrapper.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/legacy_jpeg_spike.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/metadata_empty_type2.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/metadata_iso2022.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/metadata_private_creators.rs",
+      "token": "DTS_PRIVATE_ALPHA",
+      "class": "dicom_payload_identifier",
+      "count": 7,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/metadata_private_creators.rs",
+      "token": "DTS_PRIVATE_BETA",
+      "class": "dicom_payload_identifier",
+      "count": 3,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/metadata_private_creators.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/metadata_sc_recipe_planner.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/metadata_sequence_lengths.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/metadata_string_boundaries.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/metadata_timezone.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/metadata_utf8.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/negative_plan.rs",
+      "token": "dts-negative-plan-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/neutral_content_provider.rs",
+      "token": "DTS_PLAN",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/nm_multiframe.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/pet_rescaled_activity.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/planning_preview.rs",
+      "token": "dts-planning-preview-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/presentation_direct_plan.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/product_resource_lookup_audit.rs",
+      "token": "dts-unified-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/product_resources.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/project_artifacts.rs",
+      "token": "DTS_DICOM_VALIDATOR_PYTHON",
+      "class": "qualified_adapter_environment",
+      "count": 4,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "tests/project_artifacts.rs",
+      "token": "DTS_DICOM_VALIDATOR_STANDARD_HOME",
+      "class": "qualified_adapter_environment",
+      "count": 1,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "tests/project_artifacts.rs",
+      "token": "DTS_LCMS_HOME",
+      "class": "qualified_adapter_environment",
+      "count": 1,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "tests/project_artifacts.rs",
+      "token": "DTS_TPG_1",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/protocol_substrate.rs",
+      "token": "DTS_SCP",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/protocol_substrate.rs",
+      "token": "DTS_SCU",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/protocol_substrate.rs",
+      "token": "dts_protocol_harness",
+      "class": "locked_python_module_or_backend",
+      "count": 1,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
+      "path": "tests/qualification_materialization.rs",
+      "token": "dts-qualification-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/qualified_catalog_consumer.py",
+      "token": "dts-qualified-catalog-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/qualified_catalog_consumer.rs",
+      "token": "DTS_HIGHDICOM_PYTHON",
+      "class": "qualified_adapter_environment",
+      "count": 2,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "tests/quantitative_direct_parity.rs",
+      "token": "dts-quantitative-parity-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/quantitative_evidence.rs",
+      "token": "DTS_SYNTHETIC_REGION",
+      "class": "dicom_payload_identifier",
+      "count": 2,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/quantitative_plan.rs",
+      "token": "DTS_SYNTHETIC_REGION",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/registration_plan_provider.rs",
+      "token": "DTS_DEFORM_REG",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/registration_plan_provider.rs",
+      "token": "DTS_RIGID_REG",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/registration_plan_provider.rs",
+      "token": "dts-registration-no-output-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/registration_plan_provider.rs",
+      "token": "dts-registration-plan-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/release_archive.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 2,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/release_archive.rs",
+      "token": "dts-release-archive-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/release_process.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/report_cli.rs",
+      "token": "DTS_DRR",
+      "class": "dicom_payload_identifier",
+      "count": 5,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/report_cli.rs",
+      "token": "DTS_HU",
+      "class": "dicom_payload_identifier",
+      "count": 3,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/report_cli.rs",
+      "token": "DTS_LINAC",
+      "class": "dicom_payload_identifier",
+      "count": 2,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/report_cli.rs",
+      "token": "DTS_PLAN",
+      "class": "dicom_payload_identifier",
+      "count": 4,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/report_cli.rs",
+      "token": "DTS_RADIATION",
+      "class": "dicom_payload_identifier",
+      "count": 2,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/report_cli.rs",
+      "token": "DTS_RADSET",
+      "class": "dicom_payload_identifier",
+      "count": 3,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/report_cli.rs",
+      "token": "DTS_RTSTRUCT",
+      "class": "dicom_payload_identifier",
+      "count": 3,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/report_cli.rs",
+      "token": "DTS_STATIC_AP",
+      "class": "dicom_payload_identifier",
+      "count": 4,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/report_cli.rs",
+      "token": "DTS_SYNTHETIC_ROI",
+      "class": "dicom_payload_identifier",
+      "count": 3,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/report_cli.rs",
+      "token": "DTS_TPG_1",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/report_cli.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/sc_recipe_planner.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/schema_artifacts.rs",
+      "token": "DTS_DRR",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/schema_artifacts.rs",
+      "token": "DTS_LINAC",
+      "class": "dicom_payload_identifier",
+      "count": 3,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/schema_artifacts.rs",
+      "token": "DTS_PLAN",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/schema_artifacts.rs",
+      "token": "DTS_PRIVATE_ALPHA",
+      "class": "dicom_payload_identifier",
+      "count": 2,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/schema_artifacts.rs",
+      "token": "DTS_PRIVATE_BETA",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/schema_artifacts.rs",
+      "token": "DTS_RADIATION",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/schema_artifacts.rs",
+      "token": "DTS_RADSET",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/schema_artifacts.rs",
+      "token": "DTS_STATIC_AP",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/schema_artifacts.rs",
+      "token": "DTS_SYNTHETIC_REGION",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/schema_artifacts.rs",
+      "token": "DTS_TPG_1",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/schema_artifacts.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 40,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/semantic_sr_rt_plan.rs",
+      "token": "DTS_DOSE",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/semantic_sr_rt_plan.rs",
+      "token": "DTS_TEST",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/sr_rt_evidence.rs",
+      "token": "DTS_0_1_0",
+      "class": "dicom_payload_identifier",
+      "count": 2,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/standalone_compose_resources.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/standalone_generate_resources.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/standards_cli.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/stress_ct_plan.rs",
+      "token": "dts-stress-ct-plan-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/stress_sc_plan.rs",
+      "token": "dts-stress-plan-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/structural_catalog_consumer.py",
+      "token": "DTS_RELEASE",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/structural_catalog_consumer.py",
+      "token": "dts-structural-catalog-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/support/prepared_backend.rs",
+      "token": "DTS_HIGHDICOM_PYTHON",
+      "class": "qualified_adapter_environment",
+      "count": 4,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "tests/template_default_recipes.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/twelve_lead_ecg_waveform.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/u3_plan_first_equivalence.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/u4_classic_integration_parity.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/u4_classic_qualification.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/upgrade_consumer.py",
+      "token": "dts-upgrade-consumer-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/us_multiframe.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/validate_cli.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/version_cli.rs",
+      "token": "dts-version-cli-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/waveform_document_mesh_plan.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/waveform_document_mesh_plan.rs",
+      "token": "dts-encapsulated-direct-plan-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/waveform_document_mesh_plan.rs",
+      "token": "dts-typed-bulk-plan-sentinel-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/waveform_document_mesh_plan.rs",
+      "token": "dts-waveform-direct-plan-",
+      "class": "qualified_adapter_or_test_fixture",
+      "count": 1,
+      "owner": "qualified-adapter-or-internal-test",
+      "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
+    },
+    {
+      "path": "tests/wsi_direct_plan.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/wsi_pyramid.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/xa_monoplane.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/xrf_monoplane.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    }
+  ],
   "retained_snapshot": {
     "match_count": 871,
-    "sha256": "9d8e0bf9b6a643ba782905150cbf587d398e1c2317430699098cc8e7a0145b05",
+    "sha256": "086c5823091c9d8a50271401ca6c35613d618ef6590c59b94d918922e681525c",
     "by_class": {
       "dicom_payload_identifier": 188,
       "legacy_payload_schema_fixture_or_evidence": 271,

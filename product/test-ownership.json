@@ -440,7 +440,7 @@
         "ci_build_storage_controls_cover_every_job_and_preserve_heavy_evidence",
         "ci_cost_reporter_handles_missing_and_spaced_paths_and_fails_closed"
       ],
-      "entry_digest": "982879d571f85d83de89c420115d0ece39fd67e7d3d4ba8d42ccb26626e9dd8d",
+      "entry_digest": "7c5ea8ac6faa2b30f96de188bdea3ce492c140b284ca22c48ea3b32ad0b884bf",
       "fast_cost_exemption": "Static workflow and script inspection; no heavyweight command is executed."
     },
     {
@@ -975,7 +975,7 @@
       "entries": [
         "large_native_pixels_use_the_hash_checked_streaming_writer"
       ],
-      "entry_digest": "980f1cdeca17756091290ecb24e5bb41f9b569ad3f1cae3ba436d2809fb91b3e"
+      "entry_digest": "93d7b4fcb4cf08a7efa5433a989e23b49075e82ab8e819637cf21f039a5cfae2"
     },
     {
       "source": "tests/composition_structured_reports.rs",
@@ -1032,7 +1032,7 @@
         "u32_entity_projection_is_byte_preserving_hash_linked_and_tamper_evident",
         "u32_entity_projection_rejects_ineligible_manifest_shape"
       ],
-      "entry_digest": "100a9444efc5eab4e9b334cff1f381b7974e0d2ec366ba59112888d0098e9753"
+      "entry_digest": "21bfba8503f8270e6dcce3ea47c2698067b87bca13807b3a5d4384526bd1f959"
     },
     {
       "source": "tests/conformance_icc.rs",
@@ -1070,7 +1070,7 @@
       "entries": [
         "parser_records_success_failure_timeout_and_unsupported_syntax"
       ],
-      "entry_digest": "37041a6dbe20939b9e97f1e2e0aeb45cf5a215274a7f32254c06f77487917ea3"
+      "entry_digest": "bec751509da1a10f5d2013affa1f4f1e052dc5d59aba26353691fa4398634c32"
     },
     {
       "source": "tests/conformance_pixel.rs",
@@ -1912,7 +1912,7 @@
         "selects_locked_mixed_file_set_with_closed_reference",
         "rejects_traversal_and_broken_reference_closure"
       ],
-      "entry_digest": "37307047947bb46d3d23296a695fc723d61ee50c9b63af4ef8ba0e933ff925c1"
+      "entry_digest": "202a5b98954838787aa95834461cabaa33d2615f1a72f9cb4151595cf13cc533"
     },
     {
       "source": "tests/metadata_empty_type2.rs",
@@ -2106,7 +2106,7 @@
       "entries": [
         "promoted_float32_parametric_map_satisfies_external_proof_contract"
       ],
-      "entry_digest": "c86c6f67a7dbf02ff6fe6dd27a37ca83f8f41708cccfa1488e02a4f5556d1733"
+      "entry_digest": "7607775e72c0fd35064416d9106f13a13c29c273e8f8d951584d0f6196a96cbc"
     },
     {
       "source": "tests/pet_rescaled_activity.rs",
@@ -2684,7 +2684,7 @@
       "entries": [
         "scoord3d_vertical_slice_is_byte_deterministic_and_strictly_validated"
       ],
-      "entry_digest": "76a7578733667ffb8b8158fccf807d88cf656498a4ee0b5c62ff276597c15617"
+      "entry_digest": "69a4e5dcc2a39795d20cbd249d24bc1b07ef395ed6dedf464ccfe48a23b5463f"
     },
     {
       "source": "tests/sdk_external_consumer.rs",
@@ -2742,7 +2742,7 @@
       "entries": [
         "spatial_registration_vertical_slice_is_byte_deterministic_and_strictly_validated"
       ],
-      "entry_digest": "22764f2162923679dad9797c9ce921cc17cb1680210c9d4c54f84e9f1ff18302"
+      "entry_digest": "94e5c2f01c94e447a1ad1621391a635cc8fe2f29c55f3c1e521a9699b7ef1814"
     },
     {
       "source": "tests/sr_rt_evidence.rs",
@@ -2900,7 +2900,7 @@
       "entries": [
         "tid1500_vertical_slice_is_byte_deterministic_and_strictly_validated"
       ],
-      "entry_digest": "1ab72bdecc09f427a7d4ac064716501c5c989fcf7ae4a50756e9a03168614ccc"
+      "entry_digest": "fbaa68b8409d3496ebe9908e3e76fbc4409b079313614b025d8af8a2fcaa922d"
     },
     {
       "source": "tests/twelve_lead_ecg_waveform.rs",
@@ -3440,7 +3440,7 @@
         "preserves_signed_and_unsigned_pixel_padding_value_encodings",
         "raw_private_address_does_not_synthesize_creator_reservation"
       ],
-      "entry_digest": "028617d11d52bb2b098b50bc7420c49d87aa2f560f36549eb4378e5f6f5a54e9"
+      "entry_digest": "1be859a196a7cb5456c04466dcee0d56783ffa8abc900126d2999fdb0810fc53"
     },
     {
       "source": "src/composition/modules.rs",
@@ -3620,7 +3620,7 @@
         "pyramid_group_sidecar_rejects_incomplete_mutated_and_misbound_evidence",
         "wsi_is_exactly_scoped_into_the_visible_light_iod_route"
       ],
-      "entry_digest": "86e7f9bc035722b40fa7985d24fe583fedb07d6b462f577b1959ff0836f7c47e"
+      "entry_digest": "a51e2113ba718f24b03a173d76fe495403206ff44601b408cc4bc92b497630aa"
     },
     {
       "source": "src/coverage_gaps.rs",

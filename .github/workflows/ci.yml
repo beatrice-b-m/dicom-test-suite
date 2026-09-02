@@ -41,6 +41,7 @@ jobs:
           python3 scripts/check-test-ownership.py
           python3 -m unittest tests/test_test_ownership_checker.py
           python3 -m unittest tests/test_change_test_routing.py
+          python3 -m unittest tests/test_spelling_transition.py
       - name: Compile public library and CLI with warnings denied
         env:
           RUSTFLAGS: -D warnings

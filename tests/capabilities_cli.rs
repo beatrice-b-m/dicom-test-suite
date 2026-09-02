@@ -113,6 +113,10 @@ fn capabilities_json_is_live_schema_valid_and_conservative_outside_the_checkout(
         serde_json::json!(["1.0.0"])
     );
     assert_eq!(
+        envelope["result"]["supported_versions"]["composition_manifest_validation"],
+        serde_json::json!(["0.4.0", "0.5.0", "1.0.0"])
+    );
+    assert_eq!(
         envelope["result"]["supported_versions"]["result_schemas"]["validation"][0],
         "1.0.0"
     );
@@ -177,6 +181,26 @@ fn capabilities_json_is_live_schema_valid_and_conservative_outside_the_checkout(
     .unwrap();
     assert!(compile_schema("schemas/capabilities-result.schema.json").is_valid(&fixture));
     assert!(fixture.get("identity_domains").is_none());
+}
+
+#[test]
+fn capabilities_v2_schema_keeps_pre_composition_reader_documents_valid() {
+    let fixture: Value = serde_json::from_slice(
+        &fs::read("tests/fixtures/cli/capabilities-result-v2-before-composition-readers.json")
+            .unwrap(),
+    )
+    .unwrap();
+    assert!(
+        fixture["supported_versions"]["result_schema_validation"]
+            .get("composition")
+            .is_none()
+    );
+    assert!(
+        fixture["supported_versions"]
+            .get("composition_manifest_validation")
+            .is_none()
+    );
+    assert!(compile_v2_capabilities_schema().is_valid(&fixture));
 }
 
 #[test]

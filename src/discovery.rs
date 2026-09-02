@@ -90,6 +90,8 @@ pub struct SupportedVersions {
     /// Curated manifest versions covered by validate/report compatibility fixtures.
     pub curated_manifest_validation: Vec<&'static str>,
     pub composition_manifest: Vec<&'static str>,
+    /// Composition manifest versions covered by validate/report compatibility readers.
+    pub composition_manifest_validation: Vec<&'static str>,
     pub coverage_report: Vec<&'static str>,
     pub template_catalog: Vec<String>,
     pub case_registry: Vec<&'static str>,
@@ -448,6 +450,7 @@ pub fn capabilities_result_with_context(
             curated_manifest: vec!["1.0.0"],
             curated_manifest_validation: vec!["0.2.0", "0.3.0", "1.0.0"],
             composition_manifest: vec!["1.0.0"],
+            composition_manifest_validation: vec!["0.4.0", "0.5.0", "1.0.0"],
             coverage_report: vec!["0.1.0"],
             template_catalog: vec![catalog.template_catalog_schema_version],
             case_registry: vec!["0.2.0"],

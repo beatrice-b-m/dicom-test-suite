@@ -99,7 +99,7 @@
         },
         "result_schema_validation": {
           "type": "object",
-          "required": ["capabilities", "composition", "generation", "version"],
+          "required": ["capabilities", "generation", "version"],
           "properties": {
             "capabilities": { "const": ["1.0.0", "2.0.0"] },
             "composition": { "const": ["1.0.0", "2.0.0"] },
@@ -115,6 +115,7 @@
         "curated_manifest": { "$ref": "#/$defs/version_array" },
         "curated_manifest_validation": { "$ref": "#/$defs/version_array" },
         "composition_manifest": { "$ref": "#/$defs/version_array" },
+        "composition_manifest_validation": { "$ref": "#/$defs/version_array" },
         "coverage_report": { "$ref": "#/$defs/version_array" },
         "template_catalog": { "$ref": "#/$defs/version_array" },
         "case_registry": { "$ref": "#/$defs/version_array" },

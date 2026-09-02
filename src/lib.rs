@@ -37266,7 +37266,7 @@ mod tests {
 
     #[test]
     fn version_banner_uses_package_metadata() {
-        assert_eq!(version_banner(), "synth-dicom-gen 0.1.0");
+        assert_eq!(version_banner(), "synth-dicom-gen 0.2.0");
     }
 
     #[test]

@@ -47,7 +47,7 @@ fn compose_uses_embedded_catalogs_from_an_unrelated_working_directory() {
 
     let manifest: Value =
         serde_json::from_slice(&fs::read(output_root.join("manifest.json")).unwrap()).unwrap();
-    assert_eq!(manifest["manifest_schema_version"], "0.5.0");
+    assert_eq!(manifest["manifest_schema_version"], "1.0.0");
     assert_eq!(manifest["product_resources"]["origin"], "embedded");
     assert_eq!(
         manifest["product_resources"]["resource_set_version"],
@@ -60,24 +60,44 @@ fn compose_uses_embedded_catalogs_from_an_unrelated_working_directory() {
             .unwrap()
             .len()
     );
-    let schema: Value =
+    let current_schema: Value =
+        serde_json::from_slice(&fs::read("schemas/composition-manifest-v1.schema.json").unwrap())
+            .unwrap();
+    let identity_schema: Value =
+        serde_json::from_slice(&fs::read("schemas/version-result-v2.schema.json").unwrap())
+            .unwrap();
+    let current_validator = jsonschema::options()
+        .with_draft(jsonschema::Draft::Draft202012)
+        .with_resource(
+            "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json",
+            jsonschema::Resource::from_contents(identity_schema).unwrap(),
+        )
+        .build(&current_schema)
+        .unwrap();
+    assert!(current_validator.is_valid(&manifest));
+    let legacy_schema: Value =
         serde_json::from_slice(&fs::read("schemas/composition-manifest.schema.json").unwrap())
             .unwrap();
-    let validator = jsonschema::validator_for(&schema).unwrap();
-    assert!(validator.is_valid(&manifest));
+    let legacy_validator = jsonschema::validator_for(&legacy_schema).unwrap();
     let mut prior_manifest = manifest.clone();
+    prior_manifest["manifest_schema_version"] = Value::String("0.5.0".into());
+    prior_manifest
+        .as_object_mut()
+        .unwrap()
+        .remove("identity_projection");
+    assert!(legacy_validator.is_valid(&prior_manifest));
     prior_manifest["manifest_schema_version"] = Value::String("0.4.0".into());
     prior_manifest
         .as_object_mut()
         .unwrap()
         .remove("product_resources");
-    assert!(validator.is_valid(&prior_manifest));
+    assert!(legacy_validator.is_valid(&prior_manifest));
     let mut missing_identity = manifest.clone();
     missing_identity
         .as_object_mut()
         .unwrap()
         .remove("product_resources");
-    assert!(!validator.is_valid(&missing_identity));
+    assert!(!current_validator.is_valid(&missing_identity));
     assert_eq!(
         manifest.pointer("/run/kind").and_then(Value::as_str),
         Some("composition")

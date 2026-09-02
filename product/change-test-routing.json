@@ -158,7 +158,12 @@
     },
     {
       "id": "identity-discovery",
-      "exact": ["src/discovery.rs", "src/identity.rs"],
+      "exact": [
+        "schemas/capabilities-result-v2.schema.json",
+        "schemas/version-result-v2.schema.json",
+        "src/discovery.rs",
+        "src/identity.rs"
+      ],
       "bundles": ["identity"]
     },
     {

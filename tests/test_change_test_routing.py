@@ -121,6 +121,26 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
             ["release_ci__fast", "schema_resources__fast"],
         )
 
+    def test_v2_discovery_schemas_route_live_identity_and_generic_schema_checks(self):
+        expected_commands = [
+            "cargo test --locked --no-default-features --lib identity::identity_domain_tests::",
+            "cargo test --locked --no-default-features --test cli_sdk__nonfast capabilities_cli::",
+            "cargo test --locked --no-default-features --test cli_sdk__nonfast version_cli::",
+            "cargo test --locked --no-default-features --test schema_resources__subsystem",
+        ]
+        for schema in [
+            "schemas/capabilities-result-v2.schema.json",
+            "schemas/version-result-v2.schema.json",
+        ]:
+            with self.subTest(schema=schema):
+                result = self.select(schema)
+                self.assertEqual(result["bundle_ids"], ["identity", "schema"])
+                self.assertEqual(
+                    result["matched_rules"][schema],
+                    ["identity-discovery", "schema"],
+                )
+                self.assertEqual(self.commands(result), expected_commands)
+
     def test_docs_only_selects_no_extra_work_and_unknown_source_fails_closed(self):
         result = self.select("docs/generation-guide.md")
         self.assertEqual(result["commands"], [])

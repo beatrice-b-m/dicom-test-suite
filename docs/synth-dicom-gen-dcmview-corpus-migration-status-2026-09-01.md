@@ -862,6 +862,69 @@ still owns explicit heavy entry points, and R2.4 owns change-to-test routing.
 Therefore neither the R2 gate nor a reduction in linked harness count is
 claimed by R2.1.
 
+### R2.2 harness-conversion slice — assembly, engine, provider, and standards
+
+**State:** slice complete; R2.2 remains in progress
+
+**Commit:** the commit introducing this conversion slice, with subject
+`test(harnesses): group planning and provider domains` (resolve the exact
+object with `git log --format='%H %s' -- tests/harnesses/engine__subsystem.rs`)
+
+**Owned files:**
+
+- `tests/harnesses/assembly__nightly.rs`
+- `tests/harnesses/assembly__subsystem.rs`
+- `tests/harnesses/engine__nightly.rs`
+- `tests/harnesses/engine__subsystem.rs`
+- `tests/harnesses/provider__subsystem.rs`
+- `tests/harnesses/standards_validation__subsystem.rs`
+- `docs/synth-dicom-gen-dcmview-corpus-migration-status-2026-09-01.md`
+
+This slice is derived mechanically from
+`/private/tmp/r2.2-proposed-partition-fecc6bf.json`, SHA-256
+`f99fc5d0930bffd7838772b69f45129bb718e71e5d6b4ba1ce8309561df625b8`.
+The artifact declares schema `r2.2-proposed-partition/v3`, source revision
+`fecc6bf99f908153b77a712edb0deb6e87441159`, R2.1 ownership SHA-256
+`3befc2d9a9cbe634c959f368988ee4385fc3f32aad67bd22cca6a2849db63637`,
+and entry-contract SHA-256
+`87adfb84d24b5160beb27cba648f51ca1594a272608d48b82976ed6f42919d0e`.
+It proposes the complete 186-source/20-harness partition; this commit owns only
+the following disjoint portion:
+
+| Harness | Included sources | Existing test entries |
+| --- | ---: | ---: |
+| `assembly__nightly` | 1 | 2 |
+| `assembly__subsystem` | 4 | 22 |
+| `engine__nightly` | 6 | 19 |
+| `engine__subsystem` | 30 | 137 |
+| `provider__subsystem` | 7 | 30 |
+| `standards_validation__subsystem` | 1 | 1 |
+| **Slice total** | **49** | **211** |
+
+Each harness includes every assigned top-level integration source exactly once
+with stable `#[path = "../<source>.rs"] mod <source_stem>;` declarations. The
+49 source files remain in place and byte-untouched; no test assertion, helper,
+ignore marker, evidence boundary, or selection changed. Module isolation keeps
+source-local helper names from colliding across the grouped harness.
+
+**Static verification:** the partition artifact's SHA-256 was recomputed before
+generation. A deterministic comparison proved exact ordered membership for all
+six harnesses, 49 unique source paths with no within- or cross-slice duplicate,
+matching source-stem module identifiers, and an existing file for every path.
+All six new files end with a newline, contain no trailing whitespace, and pass
+the scoped diff check. Nothing was staged during the parallel implementation
+step.
+
+The sources include existing `CARGO_BIN_EXE_dicom-test-suite`,
+`CARGO_MANIFEST_DIR`, and source-relative `include_str!` uses. Their behavior
+must be proven by the central Cargo target declaration and compile/list gate;
+this slice deliberately does not edit `Cargo.toml`, workflows, R2.1 ownership
+metadata/checker, or routing. The other 14 proposed harnesses, removal of the
+186 implicit top-level targets, exact compiled test-entry parity, linked-binary
+count, and clean size/time comparison are shared sequential boundaries still
+pending. Accordingly this slice does not mark R2.2 complete and makes no R2
+gate or cost-reduction claim.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

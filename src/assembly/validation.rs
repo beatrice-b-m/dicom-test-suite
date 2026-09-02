@@ -493,7 +493,7 @@ fn padded_bytes_match(actual: &[u8], expected: &[u8]) -> bool {
             && actual[expected.len()] == 0)
 }
 
-pub fn assembly_report(manifest: &Value) -> Value {
+pub fn assembly_report(manifest: &Value) -> Result<Value, String> {
     let instances = manifest
         .get("instances")
         .and_then(Value::as_array)
@@ -520,7 +520,18 @@ pub fn assembly_report(manifest: &Value) -> Value {
                 counts
             },
         );
-    json!({
+    let current_identity_projection = match manifest["manifest_schema_version"].as_str() {
+        Some("1.0.0") => None,
+        Some("2.0.0") => Some(
+            manifest
+                .get("identity_projection")
+                .cloned()
+                .ok_or_else(|| "assembly manifest 2.0 identity_projection missing".to_string())?,
+        ),
+        Some(version) => return Err(format!("unsupported assembly manifest version {version}")),
+        None => return Err("assembly manifest schema version missing".to_string()),
+    };
+    let mut report = json!({
         "structural_assembly_report_schema_version": "1.0.0",
         "report_kind": "structural_assembly",
         "iod_conformance": "not_assessed",
@@ -532,7 +543,12 @@ pub fn assembly_report(manifest: &Value) -> Value {
             "iod_conformance": "not_assessed"
         })).collect::<Vec<_>>(),
         "warnings": ["IOD conformance was not assessed; structural results are excluded from curated and qualified coverage"]
-    })
+    });
+    if let Some(identity_projection) = current_identity_projection {
+        report["structural_assembly_report_schema_version"] = "2.0.0".into();
+        report["identity_projection"] = identity_projection;
+    }
+    Ok(report)
 }
 
 fn contains_key(value: &Value, key: &str) -> bool {

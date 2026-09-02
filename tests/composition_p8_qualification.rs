@@ -158,7 +158,7 @@ fn every_qualified_default_and_bundle_passes_p8_reproducibility_validation_and_r
             count,
             manifest["composition"]["entries"].as_array().unwrap().len()
         );
-        let report = composition_report(manifest);
+        let report = composition_report(manifest).unwrap();
         assert_eq!(report["report_kind"], "composition");
         assert_eq!(report["counts"]["instances"], count);
         assert!(!report.to_string().contains("case_id"));

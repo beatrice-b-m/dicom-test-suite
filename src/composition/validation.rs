@@ -121,7 +121,7 @@ fn plan_from_entry(
     })
 }
 
-pub fn composition_report(manifest: &Value) -> Value {
+pub fn composition_report(manifest: &Value) -> Result<Value, String> {
     let entries = manifest
         .pointer("/composition/entries")
         .and_then(Value::as_array)
@@ -159,7 +159,20 @@ pub fn composition_report(manifest: &Value) -> Value {
             })
         })
         .collect::<Vec<_>>();
-    json!({
+    let current_identity_projection =
+        match manifest["manifest_schema_version"].as_str() {
+            Some("0.4.0" | "0.5.0") => None,
+            Some("1.0.0") => Some(manifest.get("identity_projection").cloned().ok_or_else(
+                || "composition manifest 1.0 identity_projection missing".to_string(),
+            )?),
+            Some(version) => {
+                return Err(format!(
+                    "unsupported composition manifest version {version}"
+                ));
+            }
+            None => return Err("composition manifest schema version missing".to_string()),
+        };
+    let mut report = json!({
         "composition_report_schema_version": "0.1.0",
         "report_kind": "composition",
         "generated_at": manifest["generated_at"],
@@ -172,7 +185,12 @@ pub fn composition_report(manifest: &Value) -> Value {
         "templates": templates,
         "transfer_syntaxes": transfer_syntaxes,
         "instances": rows
-    })
+    });
+    if let Some(identity_projection) = current_identity_projection {
+        report["composition_report_schema_version"] = "1.0.0".into();
+        report["identity_projection"] = identity_projection;
+    }
+    Ok(report)
 }
 
 pub fn render_composition_report_markdown(report: &Value) -> String {
@@ -224,7 +242,7 @@ mod tests {
         let (count, failures) = validate_composition_root(&root, &manifest);
         assert_eq!(count, 1);
         assert!(failures.is_empty(), "{failures:?}");
-        let report = composition_report(&manifest);
+        let report = composition_report(&manifest).unwrap();
         assert_eq!(report["report_kind"], "composition");
         assert!(!report.to_string().contains("case_id"));
         assert!(!report.to_string().contains("profile"));

@@ -629,6 +629,8 @@ pub struct ReportOutcome {
 
 impl ReportOutcome {
     fn from_value(output_root: PathBuf, value: &serde_json::Value) -> Result<Self, SdkError> {
+        crate::report_contract::validate_report_contract(value)
+            .map_err(|error| SdkError::classify("report", error))?;
         let (kind, version_field) = match value.get("report_kind").and_then(|kind| kind.as_str()) {
             Some("composition") => (
                 ReportKind::QualifiedComposition,

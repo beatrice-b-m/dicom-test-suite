@@ -26,6 +26,8 @@ use crate::executor::evidence::{ExecutionStatus, ResultStatus};
 use crate::executor::frame_codec::ExternalFrameCodecCommands;
 use crate::executor::transaction::TransactionError;
 use crate::runtime_capabilities::CapabilityInventory;
+
+mod report_contract;
 #[cfg(any(
     feature = "htj2k_openjph",
     feature = "jpegxl",
@@ -258,6 +260,7 @@ pub enum StandardsError {
 #[derive(Debug)]
 pub enum ReportError {
     EngineResources(String),
+    ReportContract(String),
     ManifestContract {
         path: PathBuf,
         message: String,
@@ -532,6 +535,7 @@ impl fmt::Display for ReportError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::EngineResources(message) => write!(f, "invalid product resources: {message}"),
+            Self::ReportContract(message) => write!(f, "invalid report contract: {message}"),
             Self::ManifestContract { path, message } => {
                 write!(
                     f,
@@ -567,7 +571,7 @@ impl fmt::Display for ReportError {
 impl Error for ReportError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            Self::EngineResources(_) => None,
+            Self::EngineResources(_) | Self::ReportContract(_) => None,
             Self::ManifestContract { .. } => None,
             Self::ReadMetadata { source, .. } => Some(source),
             Self::ParseMetadata { source, .. } => Some(source),
@@ -18238,10 +18242,17 @@ fn build_coverage_report_with_registry(
         })?;
     let manifest = validated.value().clone();
     if validated.kind() == manifest_contract::ManifestContractKind::QualifiedComposition {
-        return Ok(composition::composition_report(&manifest));
+        let report =
+            composition::composition_report(&manifest).map_err(ReportError::ReportContract)?;
+        report_contract::validate_report_contract(&report)
+            .map_err(|error| ReportError::ReportContract(error.to_string()))?;
+        return Ok(report);
     }
     if validated.kind() == manifest_contract::ManifestContractKind::StructuralAssembly {
-        return Ok(assembly::assembly_report(&manifest));
+        let report = assembly::assembly_report(&manifest).map_err(ReportError::ReportContract)?;
+        report_contract::validate_report_contract(&report)
+            .map_err(|error| ReportError::ReportContract(error.to_string()))?;
+        return Ok(report);
     }
     let registry = read_report_json(registry_path)?;
     let files =
@@ -18335,7 +18346,13 @@ fn build_coverage_report_with_registry(
         })
         .collect::<Vec<_>>();
 
-    Ok(serde_json::json!({
+    let current_identity_projection = (validated.schema_version() == "1.0.0").then(|| {
+        manifest
+            .get("identity_projection")
+            .cloned()
+            .expect("validated curated manifest 1.0 requires identity_projection")
+    });
+    let mut report = serde_json::json!({
         "coverage_report_schema_version": "0.1.0",
         "generated_at": manifest.get("generated_at").and_then(Value::as_str).unwrap_or("19700101000000.000000+0000"),
         "standards_lock_sha256": manifest.pointer("/standards/standards_lock_sha256").and_then(Value::as_str).unwrap_or("0000000000000000000000000000000000000000000000000000000000000000"),
@@ -18355,7 +18372,14 @@ fn build_coverage_report_with_registry(
         "stress_coverage": stress_rows,
         "grouped_stress_coverage": grouped_stress.to_json(),
         "gaps": gaps
-    }))
+    });
+    if let Some(identity_projection) = current_identity_projection {
+        report["coverage_report_schema_version"] = "1.0.0".into();
+        report["identity_projection"] = identity_projection;
+    }
+    report_contract::validate_report_contract(&report)
+        .map_err(|error| ReportError::ReportContract(error.to_string()))?;
+    Ok(report)
 }
 
 fn stress_coverage_row(manifest_path: &Path, qualification: &Value) -> Result<Value, ReportError> {

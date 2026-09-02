@@ -1,6 +1,40 @@
 use std::fs;
 
 #[test]
+fn ci_cancels_superseded_runs_without_duplicate_pr_branch_ownership() {
+    let workflow = fs::read_to_string(".github/workflows/ci.yml").unwrap();
+    let expected_header = r#"name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || format('{0}-{1}', github.event_name, github.ref) }}
+  cancel-in-progress: true
+
+"#;
+
+    assert!(
+        workflow.starts_with(expected_header),
+        "CI event ownership and concurrency must retain main pushes, pull requests, and manual dispatches while canceling only superseded runs of the same PR or event/ref"
+    );
+    assert_eq!(
+        workflow.matches("\n  push:").count(),
+        1,
+        "CI must have one explicitly restricted push owner"
+    );
+    assert_eq!(
+        workflow.matches("\n  pull_request:").count(),
+        1,
+        "a pull request must select one workflow, not a duplicate push-owned graph"
+    );
+}
+
+#[test]
 fn ci_makes_every_standalone_release_gate_mandatory_and_regression_backed() {
     let workflow = fs::read_to_string(".github/workflows/ci.yml").unwrap();
     let provider = workflow

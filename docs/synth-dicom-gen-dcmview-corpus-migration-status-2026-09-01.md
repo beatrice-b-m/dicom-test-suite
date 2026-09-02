@@ -34,7 +34,7 @@ artifact.
 | Phase | State | Completed items | Current evidence or next gate |
 | --- | --- | --- | --- |
 | R0 — freeze migration contract | Complete | R0.1, R0.2, R0.3, R0.4 | ADR 0003, the dated cost baseline, the exhaustive 801-path ownership inventory, and the seed-1 smoke parity manifest fix repository ownership, invalidated verification class, and the byte/normalized-semantic migration boundary. The R0 gate passes. |
-| R1 — contain CI and local build cost | Not started | None | Requires the accepted R0 contract and dated baseline. |
+| R1 — contain CI and local build cost | In progress | R1.1 | CI now cancels superseded runs with event-aware concurrency keys and gives full push ownership only to `main`; R1.2-R1.6 and the representative Fast PR gate remain. |
 | R2 — reduce Rust test-linking amplification | Not started | None | Requires R1 routing and the R0 test-target baseline. |
 | R3 — rename reusable product | Not started | None | Requires the R0 gate; no current file, package, crate, binary, archive, or environment spelling has been migrated. |
 | R4 — split immutable resources and corpus definitions | Not started | None | Requires the accepted naming decision and sequential resource/schema migration. |
@@ -291,6 +291,62 @@ This is same-project generation and strict-validation evidence for the small
 native smoke slice. It is not R6 migration parity, independent conformance,
 viewer interoperability, codec/provider, package, release, or target-matrix
 qualification.
+
+### R1.1 — workflow concurrency and non-duplicated event ownership
+
+**State:** complete; R1 remains in progress
+
+**Commit:** the commit introducing this workflow contract, with subject
+`fix(ci): cancel superseded workflow runs` (resolve the exact object with
+`git log --format='%H %s' -- .github/workflows/ci.yml`)
+
+**Owned files:**
+
+- `.github/workflows/ci.yml`
+- `tests/ci_release_gates.rs`
+- `docs/synth-dicom-gen-dcmview-corpus-migration-status-2026-09-01.md`
+
+**Acceptance evidence:** push ownership is restricted to `main`, while
+`pull_request` and `workflow_dispatch` remain explicit workflow owners. A PR
+run uses `ci-pr-<number>` so a newer synchronization of that PR supersedes its
+older run. A push uses `ci-push-<ref>` and a manual dispatch uses
+`ci-workflow_dispatch-<ref>`, so rapid repeats of the same event and ref
+supersede older runs without a manual qualification canceling, or being
+canceled by, an unrelated push. Because non-`main` branches no longer own a
+push-triggered copy of this full graph, ordinary PR branches receive only the
+pull-request workflow. Every concurrency group has `cancel-in-progress: true`.
+The job graph and all upload/release assertions remain unchanged for R1.2 to
+separate by verification class.
+
+The existing `ci_release_gates` integration target contains a static contract
+for the exact trigger and concurrency preamble. It fails if push ownership is
+broadened, `main`, pull-request, or manual ownership is removed, the event-aware
+key changes, cancellation is disabled, or duplicate trigger entries are added.
+Its pre-existing assertions continue to protect mandatory release, package,
+consumer, archive, and upload behavior.
+
+**Verification:**
+
+```text
+cargo test --locked --no-default-features --test ci_release_gates
+result: 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+cargo fmt --all -- --check
+result: passed with no output
+
+workflow parse/inspection
+result: the workflow preamble parsed successfully and the static contract
+        confirmed exact main-push, PR, manual, group, and cancellation behavior
+
+git diff --check
+result: passed with no output
+```
+
+No remote workflow was created or mutated and two rapid GitHub updates were
+not dispatched or observed for this item. Live superseded-run evidence remains
+to be captured with the representative remote Fast PR evidence before the R1
+gate is claimed. This item does not qualify a generator, corpus, codec,
+provider, package, release artifact, or target.
 
 ## Measurements
 

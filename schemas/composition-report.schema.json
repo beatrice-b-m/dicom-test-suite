@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://synth-dicom-gen.local/schemas/composition-report.schema.json",
+  "title": "Synth DICOM Gen Composition Report 0.1",
+  "type": "object",
+  "required": [
+    "composition_report_schema_version",
+    "report_kind",
+    "generated_at",
+    "standards_lock_sha256",
+    "counts",
+    "templates",
+    "transfer_syntaxes",
+    "instances"
+  ],
+  "properties": {
+    "composition_report_schema_version": {
+      "const": "0.1.0"
+    },
+    "report_kind": {
+      "const": "composition"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "standards_lock_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "counts": {
+      "type": "object",
+      "required": [
+        "instances",
+        "output_bytes",
+        "unavailable_capabilities"
+      ],
+      "properties": {
+        "instances": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unavailable_capabilities": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "templates": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "transfer_syntaxes": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "instances": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "instance_id",
+          "template",
+          "sop_class_uid",
+          "transfer_syntax_uid",
+          "path",
+          "size_bytes",
+          "sha256",
+          "validation_status",
+          "content_slots",
+          "references"
+        ],
+        "properties": {
+          "instance_id": {
+            "type": "string"
+          },
+          "template": {
+            "type": "string"
+          },
+          "sop_class_uid": {
+            "type": "string"
+          },
+          "transfer_syntax_uid": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "validation_status": {
+            "type": "string"
+          },
+          "content_slots": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "references": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

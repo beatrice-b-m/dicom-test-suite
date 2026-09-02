@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://synth-dicom-gen.local/schemas/composition-report-v1.schema.json",
+  "title": "Synth DICOM Gen Composition Report 1.0",
+  "type": "object",
+  "required": [
+    "composition_report_schema_version",
+    "report_kind",
+    "generated_at",
+    "standards_lock_sha256",
+    "counts",
+    "templates",
+    "transfer_syntaxes",
+    "instances",
+    "identity_projection"
+  ],
+  "properties": {
+    "composition_report_schema_version": {
+      "const": "1.0.0"
+    },
+    "report_kind": {
+      "$ref": "https://synth-dicom-gen.local/schemas/composition-report.schema.json#/properties/report_kind"
+    },
+    "generated_at": {
+      "$ref": "https://synth-dicom-gen.local/schemas/composition-report.schema.json#/properties/generated_at"
+    },
+    "standards_lock_sha256": {
+      "$ref": "https://synth-dicom-gen.local/schemas/composition-report.schema.json#/properties/standards_lock_sha256"
+    },
+    "counts": {
+      "$ref": "https://synth-dicom-gen.local/schemas/composition-report.schema.json#/properties/counts"
+    },
+    "templates": {
+      "$ref": "https://synth-dicom-gen.local/schemas/composition-report.schema.json#/properties/templates"
+    },
+    "transfer_syntaxes": {
+      "$ref": "https://synth-dicom-gen.local/schemas/composition-report.schema.json#/properties/transfer_syntaxes"
+    },
+    "instances": {
+      "$ref": "https://synth-dicom-gen.local/schemas/composition-report.schema.json#/properties/instances"
+    },
+    "identity_projection": {
+      "$ref": "https://synth-dicom-gen.local/schemas/composition-manifest-v1.schema.json#/$defs/identity_projection"
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://synth-dicom-gen.local/schemas/coverage-report-v1.schema.json",
+  "title": "Synth DICOM Gen Coverage Report 1.0",
+  "type": "object",
+  "required": [
+    "coverage_report_schema_version",
+    "generated_at",
+    "standards_lock_sha256",
+    "counts",
+    "coverage_matrix",
+    "identity_projection"
+  ],
+  "properties": {
+    "coverage_report_schema_version": {
+      "const": "1.0.0"
+    },
+    "generated_at": {
+      "$ref": "https://dicom-test-suite.local/schemas/coverage-report.schema.json#/properties/generated_at"
+    },
+    "standards_lock_sha256": {
+      "$ref": "https://dicom-test-suite.local/schemas/coverage-report.schema.json#/properties/standards_lock_sha256"
+    },
+    "counts": {
+      "$ref": "https://dicom-test-suite.local/schemas/coverage-report.schema.json#/properties/counts"
+    },
+    "coverage_matrix": {
+      "$ref": "https://dicom-test-suite.local/schemas/coverage-report.schema.json#/properties/coverage_matrix"
+    },
+    "negative_coverage": {
+      "$ref": "https://dicom-test-suite.local/schemas/coverage-report.schema.json#/properties/negative_coverage"
+    },
+    "grouped_negative_coverage": {
+      "$ref": "https://dicom-test-suite.local/schemas/coverage-report.schema.json#/properties/grouped_negative_coverage"
+    },
+    "fuzz_coverage": {
+      "$ref": "https://dicom-test-suite.local/schemas/coverage-report.schema.json#/properties/fuzz_coverage"
+    },
+    "grouped_fuzz_coverage": {
+      "$ref": "https://dicom-test-suite.local/schemas/coverage-report.schema.json#/properties/grouped_fuzz_coverage"
+    },
+    "stress_coverage": {
+      "$ref": "https://dicom-test-suite.local/schemas/coverage-report.schema.json#/properties/stress_coverage"
+    },
+    "grouped_stress_coverage": {
+      "$ref": "https://dicom-test-suite.local/schemas/coverage-report.schema.json#/properties/grouped_stress_coverage"
+    },
+    "grouped_coverage": {
+      "$ref": "https://dicom-test-suite.local/schemas/coverage-report.schema.json#/properties/grouped_coverage"
+    },
+    "gaps": {
+      "$ref": "https://dicom-test-suite.local/schemas/coverage-report.schema.json#/properties/gaps"
+    },
+    "identity_projection": {
+      "$ref": "https://synth-dicom-gen.local/schemas/manifest-v1.schema.json#/$defs/identity_projection"
+    }
+  },
+  "dependentRequired": {
+    "negative_coverage": [
+      "grouped_negative_coverage"
+    ],
+    "grouped_negative_coverage": [
+      "negative_coverage"
+    ],
+    "fuzz_coverage": [
+      "grouped_fuzz_coverage"
+    ],
+    "grouped_fuzz_coverage": [
+      "fuzz_coverage"
+    ],
+    "stress_coverage": [
+      "grouped_stress_coverage"
+    ],
+    "grouped_stress_coverage": [
+      "stress_coverage"
+    ]
+  },
+  "additionalProperties": false
+}

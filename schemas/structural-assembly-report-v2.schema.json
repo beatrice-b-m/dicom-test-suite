@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://synth-dicom-gen.local/schemas/structural-assembly-report-v2.schema.json",
+  "title": "Synth DICOM Gen Structural Assembly Report 2.0",
+  "type": "object",
+  "required": [
+    "structural_assembly_report_schema_version",
+    "report_kind",
+    "iod_conformance",
+    "counts",
+    "bulk_kinds",
+    "instances",
+    "warnings",
+    "identity_projection"
+  ],
+  "properties": {
+    "structural_assembly_report_schema_version": {
+      "const": "2.0.0"
+    },
+    "report_kind": {
+      "$ref": "https://dicom-test-suite.local/schemas/structural-assembly-report.schema.json#/properties/report_kind"
+    },
+    "iod_conformance": {
+      "$ref": "https://dicom-test-suite.local/schemas/structural-assembly-report.schema.json#/properties/iod_conformance"
+    },
+    "counts": {
+      "$ref": "https://dicom-test-suite.local/schemas/structural-assembly-report.schema.json#/properties/counts"
+    },
+    "bulk_kinds": {
+      "$ref": "https://dicom-test-suite.local/schemas/structural-assembly-report.schema.json#/properties/bulk_kinds"
+    },
+    "instances": {
+      "$ref": "https://dicom-test-suite.local/schemas/structural-assembly-report.schema.json#/properties/instances"
+    },
+    "warnings": {
+      "$ref": "https://dicom-test-suite.local/schemas/structural-assembly-report.schema.json#/properties/warnings"
+    },
+    "identity_projection": {
+      "$ref": "https://synth-dicom-gen.local/schemas/structural-assembly-manifest-v2.schema.json#/$defs/identity_projection"
+    }
+  },
+  "additionalProperties": false
+}

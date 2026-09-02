@@ -173,7 +173,7 @@ pub(crate) fn load_manifest_contract(
             | (ManifestContractKind::QualifiedComposition, "1.0.0")
             | (ManifestContractKind::StructuralAssembly, "2.0.0")
     ) {
-        validate_external_runtime_uniqueness(&value)?;
+        validate_identity_projection_runtime_uniqueness(&value)?;
     }
     let seed = value
         .pointer("/run/seed")
@@ -189,7 +189,9 @@ pub(crate) fn load_manifest_contract(
     })
 }
 
-fn validate_external_runtime_uniqueness(value: &Value) -> Result<(), ManifestContractError> {
+pub(crate) fn validate_identity_projection_runtime_uniqueness(
+    value: &Value,
+) -> Result<(), ManifestContractError> {
     let runtimes = value
         .pointer("/identity_projection/external_runtime")
         .and_then(Value::as_array)

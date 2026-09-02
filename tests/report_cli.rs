@@ -5821,6 +5821,98 @@ fn report_command_rejects_missing_manifest() {
 }
 
 #[test]
+fn curated_cli_validate_and_report_reject_identity_contract_mutations() {
+    let out_dir = unique_temp_dir("curated-reader-rejections");
+    let generated = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
+        .args([
+            "generate",
+            "--profile",
+            "smoke",
+            "--out",
+            out_dir.to_str().unwrap(),
+            "--seed",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(generated.status.success());
+    let manifest_path = out_dir.join("manifest.json");
+    let current: Value = serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+    let runtime = json!({
+        "runtime_id": "provider/primary/fixture",
+        "runtime_kind": "generation_provider",
+        "executable_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "version": "1.0.0",
+        "invocation_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    });
+    let mut changed_runtime = runtime.clone();
+    changed_runtime["invocation_sha256"] =
+        "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".into();
+
+    for (label, manifest, diagnostic) in [
+        (
+            "unknown-version",
+            {
+                let mut value = current.clone();
+                value["manifest_schema_version"] = "9.0.0".into();
+                value
+            },
+            "unsupported curated manifest schema version",
+        ),
+        (
+            "missing-identity",
+            {
+                let mut value = current.clone();
+                value.as_object_mut().unwrap().remove("identity_projection");
+                value
+            },
+            "identity_projection",
+        ),
+        (
+            "malformed-digest",
+            {
+                let mut value = current.clone();
+                value["identity_projection"]["engine"]["engine_sha256"] = "short".into();
+                value
+            },
+            "short",
+        ),
+        (
+            "duplicate-runtime",
+            {
+                let mut value = current.clone();
+                value["identity_projection"]["external_runtime"] =
+                    json!([runtime, changed_runtime]);
+                value
+            },
+            "duplicate runtime_id",
+        ),
+    ] {
+        fs::write(
+            &manifest_path,
+            serde_json::to_vec_pretty(&manifest).unwrap(),
+        )
+        .unwrap();
+        for args in [
+            vec!["validate", out_dir.to_str().unwrap()],
+            vec!["report", out_dir.to_str().unwrap(), "--format", "json"],
+        ] {
+            let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
+                .args(args)
+                .output()
+                .unwrap();
+            assert!(!output.status.success(), "{label} unexpectedly succeeded");
+            assert!(
+                String::from_utf8_lossy(&output.stderr).contains(diagnostic),
+                "{label} diagnostic: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+    }
+    fs::remove_dir_all(out_dir).unwrap();
+}
+
+#[test]
 fn report_surfaces_complete_unsigned_u32_pixel_contract() {
     let out_dir = unique_temp_dir("report-u32-pixels");
     generate_extended(&out_dir);

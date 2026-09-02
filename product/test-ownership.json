@@ -296,7 +296,7 @@
         "assemble_cli_adversarial_inputs_use_stable_exit_classes",
         "assemble_cli_destination_and_resource_failures_publish_nothing"
       ],
-      "entry_digest": "a2ea8afd2fed943915876df57e3d38bdabdc82843aa811c855f589e20991cc56"
+      "entry_digest": "5cdd68a535402bd86f8dc2f0dbaa746d4dc134ad53becb1096024d1af16b8baa"
     },
     {
       "source": "tests/assembly_plan.rs",
@@ -361,7 +361,7 @@
         "structural_cancellation_publishes_nothing",
         "structural_destination_race_preserves_one_valid_winner_and_cleans_staging"
       ],
-      "entry_digest": "792bd641abff139523d1f2957fe381b0c96892c3d4154fbca8d2ae618415cfd4"
+      "entry_digest": "374f60d2d934a51f7066372673a4d635e0a3818dccca0cc7abd98125bbf25852"
     },
     {
       "source": "tests/blending_presentation_state.rs",
@@ -2768,7 +2768,7 @@
         "sdk_assembly_validate_and_report_read_exact_supported_manifest_versions",
         "sdk_rejects_invalid_assembly_identity_contracts_before_semantics"
       ],
-      "entry_digest": "dc1224074398659ba1e14ea7758ec216b4ffb2089aad62296e41cbe441740b8d"
+      "entry_digest": "3ffb0d419d62051740cf1d68f3f9dea3ab5cf697b34bd3637c1e0fbd9d4678e7"
     },
     {
       "source": "tests/semantic_sr_rt_plan.rs",

@@ -1,0 +1,377 @@
+{
+  "parity_manifest_schema_version": "1.0.0",
+  "baseline_id": "dcmview-smoke-seed-1-2026-09-01",
+  "recorded_date": "2026-09-01",
+  "purpose": "R0.4 byte and normalized-manifest baseline for R6.4 migration parity",
+  "source": {
+    "repository": "dicom-test-suite",
+    "revision": "71f083669d46d6029a1ec4176942a13d317c97bf",
+    "code_equivalence": "Equivalent to fbd0f76a36dc5726bb41602f44bff290588f560d outside R0 documentation",
+    "worktree_note": "Generation used the recorded revision's product code and embedded resources; concurrent R0 documentation does not enter product identities."
+  },
+  "selection": {
+    "profile": "smoke",
+    "seed": 1,
+    "include_stress": false,
+    "cargo_features": [],
+    "no_default_features": true,
+    "requested_case_ids": [],
+    "selection_semantics": "All implemented cases in the smoke profile"
+  },
+  "expected_counts": {
+    "selected_cases": 3,
+    "generated_cases": 3,
+    "generated_files": 3,
+    "passed_validations": 3,
+    "validation_failures": 0,
+    "skipped_cases": 0,
+    "unavailable_cases": 0,
+    "blocked_cases": 0,
+    "planned_cases": 0,
+    "deprecated_cases": 0
+  },
+  "identity": {
+    "product": {
+      "name": "dicom-test-suite",
+      "version": "0.1.0",
+      "target_triple": "aarch64-apple-darwin",
+      "rustc_version": "rustc 1.85.0 (4d91de4e4 2025-02-17)",
+      "cargo_lock_sha256": "d7620bc018085a5bdf4ced7d7d575edea6d974a8cc7eb35492065fb6035b6b16",
+      "manifest_git_sha": null
+    },
+    "manifest_schema": {
+      "version": "0.3.0",
+      "logical_path": "schemas/manifest.schema.json",
+      "sha256": "8bb4b042d4370dddca63aff8b7f328bb1c2ea726c0dc332ad0f343028c5a05fd",
+      "size_bytes": 352712
+    },
+    "monolithic_product_resources": {
+      "origin": "embedded",
+      "version": "1.0.0",
+      "resource_count": 240,
+      "sha256": "3b2f84098c7a9ccdcea58758b21f1b11b5d989b4c9f391dbef771524b95ea46a"
+    },
+    "corpus_definition": {
+      "logical_path": "cases/registry.json",
+      "sha256": "354a5447c3b8f40b5f777f184a8d8850beb74f87fa08dc0c259e4b211142731b",
+      "size_bytes": 463479
+    },
+    "template_catalog": {
+      "logical_path": "templates/catalog.json",
+      "sha256": "a1e66bbea38510e701f0ab656eace802b53c027dfba875d470d96f8537bb4db5",
+      "size_bytes": 129006
+    },
+    "corpus_plan_sha256": "2a18d78c956c2873755c30e989e90c900ece38bfd5ca87947565c19cfed8127c",
+    "standards": {
+      "dicom_base_edition": "2026b",
+      "standards_lock_sha256": "823230c5932b81b504434330d118fba286d5ff41d4e2f7766372633f4a49e559",
+      "source_manifest_sha256": "1cc11d28abf1e6f4efa4b07a73d4a7c953b3b3101b4112865c7170ccdeb84728",
+      "include_final_text_after_base": false
+    },
+    "raw_generated_manifest": {
+      "digest_kind": "raw_file_bytes",
+      "sha256": "6a6540ba8acc13afa5e76e35e46d246d77f46ffdc2e5dcce0497fb882ab684eb",
+      "size_bytes": 83680
+    },
+    "canonical_generated_manifest": {
+      "digest_kind": "RFC-8259 JSON parsed then compact-serialized with recursively sorted object keys and one trailing LF",
+      "sha256": "223c5e206fa83aabdcdf3245b8288c23fa7d722c1ff948e7a75b646742edf31d"
+    },
+    "normalized_semantic_projection": {
+      "digest_kind": "comparison_contract.projection compact-serialized with recursively sorted object keys and one trailing LF",
+      "sha256": "18f154c38903677cadf4f955b0658ed2fd59162c44a970a9b15c5dc9905eabcd"
+    },
+    "raw_json_report": {
+      "digest_kind": "raw_file_bytes",
+      "sha256": "c18f4bbd8807eb9d108c07a59035f97ff75771aa3fe962f395153fd81d1a8b0a",
+      "size_bytes": 93929
+    }
+  },
+  "cases": [
+    {
+      "case_id": "classic/sc/mono1_u8_explicit_le",
+      "profile_membership": ["smoke"],
+      "recipe": {
+        "recipe_id": "sc_mono1_u8",
+        "recipe_version": "0.1.0",
+        "logical_path": "cases/recipes/classic/sc/sc_mono1_u8.json",
+        "sha256": "38824e9f8fa8189675753e815e7c87a914f1c37f95f50e630365ae5dc7ae5096",
+        "template_id": "classic/secondary-capture/monochrome",
+        "template_version": "1.0.0",
+        "provider_id": "rust_native"
+      },
+      "output": {
+        "path": "classic/sc/mono1_u8_explicit_le/instance.dcm",
+        "sha256": "76dc5208b139899fcb87bbf7ec9edf1a323000a91c4015de9ef8bde7bd344ecc",
+        "size_bytes": 926,
+        "determinism": "byte_stable",
+        "resolved_plan_sha256": "71792e2a52c1bb1b0ef483324922a4c7c7613d0ae9535f088f84601c33eec32a"
+      },
+      "dicom": {
+        "iod_name": "Secondary Capture Image",
+        "sop_class_name": "Secondary Capture Image Storage",
+        "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+        "transfer_syntax_name": "Explicit VR Little Endian",
+        "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+        "modality": "OT"
+      },
+      "image": {
+        "rows": 2,
+        "columns": 2,
+        "frames": 1,
+        "samples_per_pixel": 1,
+        "photometric_interpretation": "MONOCHROME1",
+        "planar_configuration": null,
+        "bits_allocated": 8,
+        "bits_stored": 8,
+        "high_bit": 7,
+        "pixel_representation": 0
+      },
+      "pixel_data": {
+        "vr": "OB",
+        "native_or_encapsulated": "native",
+        "value_length": 4,
+        "frame_count": 1,
+        "frame_hashes": ["03b722a15d4658be01f1eb9def5e8be124710cc0e88842f78107abfda3e23ea8"]
+      },
+      "uids": {
+        "implementation_class_uid": "2.25.93442075376351194778596039619060852790",
+        "implementation_version_name": "DICOMTS010",
+        "study_instance_uid": "2.25.232040928469136211462002529736534939054",
+        "series_instance_uid": "2.25.166341141195805831465462731521479921439",
+        "sop_instance_uid": "2.25.211835710801527244917558607722373301133",
+        "frame_of_reference_uid": null
+      },
+      "references": [],
+      "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels"],
+      "expected_semantics": {
+        "conversion_type": "SYN",
+        "synthetic_data": "YES",
+        "lossy_image_compression": "00",
+        "lossy_image_compression_method": null,
+        "lossy_image_compression_ratio": null,
+        "image_type": null,
+        "photometric_semantics": "minimum sample value displays as white",
+        "pixel_min": 0,
+        "pixel_max": 255,
+        "pixel_padding": null
+      },
+      "expected_visual_pattern": "2x2_inverse_monochrome_gradient",
+      "known_stressors": ["minimal_secondary_capture", "native_ob_pixel_data"],
+      "validation": {
+        "status": "passed",
+        "internal_check_count": 25,
+        "standards_check_count": 4,
+        "external_check_count": 0,
+        "standards_evidence_count": 5
+      }
+    },
+    {
+      "case_id": "classic/sc/mono2_u8_explicit_le",
+      "profile_membership": ["smoke"],
+      "recipe": {
+        "recipe_id": "sc_mono2_u8",
+        "recipe_version": "0.1.0",
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_u8.json",
+        "sha256": "a980d4136fa5a6c94f7e1b99fde6628c24171aa6e7b548497c7911d7b72f9639",
+        "template_id": "classic/secondary-capture/monochrome",
+        "template_version": "1.0.0",
+        "provider_id": "rust_native"
+      },
+      "output": {
+        "path": "classic/sc/mono2_u8_explicit_le/instance.dcm",
+        "sha256": "fce766bcbb4b4aa79cfb3fa0c3b5e4ef888b11c0708fad713b9cde8d41ec6a15",
+        "size_bytes": 926,
+        "determinism": "byte_stable",
+        "resolved_plan_sha256": "394035d0ae5aa616041b4c140d6e20b0861e5074efa3177059cd533e5c5060ef"
+      },
+      "dicom": {
+        "iod_name": "Secondary Capture Image",
+        "sop_class_name": "Secondary Capture Image Storage",
+        "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+        "transfer_syntax_name": "Explicit VR Little Endian",
+        "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+        "modality": "OT"
+      },
+      "image": {
+        "rows": 2,
+        "columns": 2,
+        "frames": 1,
+        "samples_per_pixel": 1,
+        "photometric_interpretation": "MONOCHROME2",
+        "planar_configuration": null,
+        "bits_allocated": 8,
+        "bits_stored": 8,
+        "high_bit": 7,
+        "pixel_representation": 0
+      },
+      "pixel_data": {
+        "vr": "OB",
+        "native_or_encapsulated": "native",
+        "value_length": 4,
+        "frame_count": 1,
+        "frame_hashes": ["03b722a15d4658be01f1eb9def5e8be124710cc0e88842f78107abfda3e23ea8"]
+      },
+      "uids": {
+        "implementation_class_uid": "2.25.93442075376351194778596039619060852790",
+        "implementation_version_name": "DICOMTS010",
+        "study_instance_uid": "2.25.110621916702016898207646918832336515489",
+        "series_instance_uid": "2.25.84953006260899890866964724351938364237",
+        "sop_instance_uid": "2.25.177850388362475519418706570851715276186",
+        "frame_of_reference_uid": null
+      },
+      "references": [],
+      "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels"],
+      "expected_semantics": {
+        "conversion_type": "SYN",
+        "synthetic_data": "YES",
+        "lossy_image_compression": "00",
+        "lossy_image_compression_method": null,
+        "lossy_image_compression_ratio": null,
+        "image_type": null,
+        "photometric_semantics": "minimum sample value displays as black",
+        "pixel_min": 0,
+        "pixel_max": 255,
+        "pixel_padding": null
+      },
+      "expected_visual_pattern": "2x2_monochrome_gradient",
+      "known_stressors": ["minimal_secondary_capture", "native_ob_pixel_data"],
+      "validation": {
+        "status": "passed",
+        "internal_check_count": 25,
+        "standards_check_count": 4,
+        "external_check_count": 0,
+        "standards_evidence_count": 5
+      }
+    },
+    {
+      "case_id": "classic/sc/rgb_planar0_explicit_le",
+      "profile_membership": ["smoke"],
+      "recipe": {
+        "recipe_id": "sc_rgb_planar0",
+        "recipe_version": "0.1.0",
+        "logical_path": "cases/recipes/classic/sc/sc_rgb_planar0.json",
+        "sha256": "d4bce8627062bcba7f8d4e4302c5d89a269861620ecb4fea89a793f9a5b2f00c",
+        "template_id": "classic/secondary-capture/rgb",
+        "template_version": "1.0.0",
+        "provider_id": "rust_native"
+      },
+      "output": {
+        "path": "classic/sc/rgb_planar0_explicit_le/instance.dcm",
+        "sha256": "33de9448509431fda27005cbf83c79977f1c3ebadb669ae1dedf1a225742f3c5",
+        "size_bytes": 938,
+        "determinism": "byte_stable",
+        "resolved_plan_sha256": "aa32a98e6145116050f31d35739423619c84b096b65fa1d38e332396b888853e"
+      },
+      "dicom": {
+        "iod_name": "Secondary Capture Image",
+        "sop_class_name": "Secondary Capture Image Storage",
+        "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+        "transfer_syntax_name": "Explicit VR Little Endian",
+        "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+        "modality": "OT"
+      },
+      "image": {
+        "rows": 2,
+        "columns": 2,
+        "frames": 1,
+        "samples_per_pixel": 3,
+        "photometric_interpretation": "RGB",
+        "planar_configuration": 0,
+        "bits_allocated": 8,
+        "bits_stored": 8,
+        "high_bit": 7,
+        "pixel_representation": 0
+      },
+      "pixel_data": {
+        "vr": "OB",
+        "native_or_encapsulated": "native",
+        "value_length": 12,
+        "frame_count": 1,
+        "frame_hashes": ["6733cdd08e5c7ef0453e2759ef0d28fbd43ea2aa7883b55422a13dac38e23ecc"]
+      },
+      "uids": {
+        "implementation_class_uid": "2.25.93442075376351194778596039619060852790",
+        "implementation_version_name": "DICOMTS010",
+        "study_instance_uid": "2.25.157442252679385108441424001200466571605",
+        "series_instance_uid": "2.25.310329571028498074578263222893941807283",
+        "sop_instance_uid": "2.25.35845167800952987451667441293412972481",
+        "frame_of_reference_uid": null
+      },
+      "references": [],
+      "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels"],
+      "expected_semantics": {
+        "conversion_type": "SYN",
+        "synthetic_data": "YES",
+        "lossy_image_compression": "00",
+        "lossy_image_compression_method": null,
+        "lossy_image_compression_ratio": null,
+        "image_type": null,
+        "photometric_semantics": "RGB samples are interleaved color-by-pixel",
+        "pixel_min": 0,
+        "pixel_max": 255,
+        "pixel_padding": null
+      },
+      "expected_visual_pattern": "2x2_rgb_red_green_blue_white",
+      "known_stressors": ["minimal_secondary_capture", "native_ob_pixel_data"],
+      "validation": {
+        "status": "passed",
+        "internal_check_count": 25,
+        "standards_check_count": 4,
+        "external_check_count": 0,
+        "standards_evidence_count": 7
+      }
+    }
+  ],
+  "unavailable_contract": {
+    "baseline_skipped_cases": [],
+    "baseline_unavailable_reasons": {},
+    "required_features": [],
+    "required_external_codecs": [],
+    "required_external_validators": [],
+    "rule": "All three smoke cases are mandatory under no-default-features. Any skipped, blocked, planned, deprecated, or unavailable row is a parity failure; missing capability must remain an explicit non-success outcome and may not be omitted or counted as generated."
+  },
+  "comparison_contract": {
+    "consumer": "R6.4 migration parity",
+    "case_key": ["case_id", "output.path"],
+    "ordering": "Sort cases lexicographically by case_id then output.path before comparison.",
+    "byte_comparison": "For each case, hash the exact emitted file bytes with SHA-256 and compare output.sha256 and output.size_bytes. All three files must be byte-identical to this baseline.",
+    "normalized_manifest_comparison": {
+      "required_equal_fields": [
+        "selection profile, seed, include_stress, and empty feature set",
+        "stable expected counts and explicit skipped/unavailable sets",
+        "case_id, profile membership, recipe ID/version, template ID/version, and provider ID",
+        "output path, byte SHA-256, size, and byte_stable determinism",
+        "DICOM IOD, SOP Class, transfer syntax, and modality",
+        "all image and pixel-data fields, including frame hashes",
+        "study, series, SOP Instance, and frame-of-reference UIDs",
+        "references and reference closure",
+        "expected capabilities, semantics, visual pattern, and stressors",
+        "passed validation status with no failures and preserved standards evidence"
+      ],
+      "projection": "From a generated manifest, retain run; files sorted by case_id/path with case_id, path, sha256, size_bytes, determinism, recipe, dicom, image, pixel_data, uids, expected_capabilities, expected_semantics, expected_visual_checks, known_stressors, profile_membership, references, validation status plus internal/standards check name and status, and standards_evidence; skipped_cases; and standards. Canonicalize by recursively sorting object keys and compact UTF-8 serialization with one trailing LF.",
+      "baseline_projection_sha256": "18f154c38903677cadf4f955b0658ed2fd59162c44a970a9b15c5dc9905eabcd"
+    },
+    "deliberately_changeable_identity_fields": [
+      {
+        "phase": "R3",
+        "fields": ["identity.product.name", "identity.product.version", "binary/crate/library names", "generator implementation_version_name only if the rename/version policy deliberately versions it"],
+        "condition": "Must match the accepted synth-dicom-gen 0.2.0 rename and compatibility record; these changes do not permit payload or semantic drift."
+      },
+      {
+        "phase": "R4",
+        "fields": ["identity.monolithic_product_resources", "identity.corpus_definition representation", "identity.template_catalog representation", "identity.manifest_schema when explicitly versioned", "identity.corpus_plan_sha256 and per-case resolved_plan_sha256 when only their versioned representation changes"],
+        "condition": "Replacement engine, template/provider, corpus-definition, schema, and toolchain identity domains must be explicit and independently recomputable. A changed representation is allowed only when the migration record maps old meaning to new domains and normalized case semantics still match."
+      }
+    ],
+    "versioned_migration_required_for_change": [
+      "any output path, file byte SHA-256, or file size",
+      "recipe ID/version or template ID/version",
+      "case selection, status, profile membership, skipped/unavailable behavior, or counts",
+      "SOP Class, transfer syntax, modality, image geometry, pixel representation, photometric interpretation, planar configuration, or pixel/frame hash",
+      "study, series, SOP Instance, or reference identity/topology",
+      "expected capabilities, semantic expectations, visual pattern, stressors, determinism class, validation result, or standards evidence"
+    ],
+    "failure_rule": "A deliberate R3/R4 identity-domain difference must be reported separately from parity. Any unlisted difference fails R6.4 unless a reviewed, versioned migration names the affected recipe/template/schema, explains the evidence impact, and establishes a new baseline without converting missing capability into a pass."
+  }
+}

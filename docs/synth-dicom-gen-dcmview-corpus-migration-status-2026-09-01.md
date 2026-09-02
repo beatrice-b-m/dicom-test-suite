@@ -33,7 +33,7 @@ artifact.
 
 | Phase | State | Completed items | Current evidence or next gate |
 | --- | --- | --- | --- |
-| R0 — freeze migration contract | In progress | R0.1, R0.2, R0.3 | ADR 0003 fixes the separation contract. The dated cost baseline records current development cost, and the exhaustive 801-path ownership inventory assigns every baseline/task file one disposition, destination, domain, invalidated verification class, and migration slice. R0.4 remains unimplemented, so the R0 gate has not passed. |
+| R0 — freeze migration contract | Complete | R0.1, R0.2, R0.3, R0.4 | ADR 0003, the dated cost baseline, the exhaustive 801-path ownership inventory, and the seed-1 smoke parity manifest fix repository ownership, invalidated verification class, and the byte/normalized-semantic migration boundary. The R0 gate passes. |
 | R1 — contain CI and local build cost | Not started | None | Requires the accepted R0 contract and dated baseline. |
 | R2 — reduce Rust test-linking amplification | Not started | None | Requires R1 routing and the R0 test-target baseline. |
 | R3 — rename reusable product | Not started | None | Requires the R0 gate; no current file, package, crate, binary, archive, or environment spelling has been migrated. |
@@ -180,6 +180,118 @@ documentation test passed. Exact command results are recorded in the R0.3
 commit and task report. No generation, parity, package, release, external
 repository, target, or R0-gate qualification is claimed.
 
+### R0.4 — seed-1 smoke migration parity baseline
+
+**State:** complete; the R0 gate passes
+
+**Commit:** the commit introducing the parity manifest, with subject
+`docs(migration): freeze smoke parity baseline` (resolve the exact object with
+`git log --format='%H %s' -- docs/baselines/dcmview-smoke-parity-seed-1-2026-09-01.json`)
+
+**Baseline revision:**
+`71f083669d46d6029a1ec4176942a13d317c97bf`, code-equivalent to starting
+revision `fbd0f76a36dc5726bb41602f44bff290588f560d` outside R0 documentation.
+A mechanical `git diff --exit-code` over Cargo, build, source, case, template,
+schema, standards-lock, and transfer-syntax inputs confirmed that equivalence.
+
+**Evidence:**
+`docs/baselines/dcmview-smoke-parity-seed-1-2026-09-01.json`
+
+The versioned parity manifest records the exact `smoke`, seed `1`,
+no-default-feature selection and all three stable cases. Each case binds its
+recipe and template version, native provider, output path, byte SHA-256 and
+size, byte-stable determinism, SOP Class and transfer syntax, modality, image
+and pixel contract, deterministic UIDs, empty reference closure, viewer-neutral
+capabilities and semantics, validation result, and standards-evidence count.
+It also records product, Cargo/toolchain, monolithic resource, schema, registry,
+template-catalog, corpus-plan, standards-lock, raw-manifest, canonical-manifest,
+normalized-semantic, and raw-report identities.
+
+The exact generated payload identities are:
+
+```text
+classic/sc/mono1_u8_explicit_le/instance.dcm
+  926 bytes  76dc5208b139899fcb87bbf7ec9edf1a323000a91c4015de9ef8bde7bd344ecc
+classic/sc/mono2_u8_explicit_le/instance.dcm
+  926 bytes  fce766bcbb4b4aa79cfb3fa0c3b5e4ef888b11c0708fad713b9cde8d41ec6a15
+classic/sc/rgb_planar0_explicit_le/instance.dcm
+  938 bytes  33de9448509431fda27005cbf83c79977f1c3ebadb669ae1dedf1a225742f3c5
+raw manifest.json
+  83,680 bytes  6a6540ba8acc13afa5e76e35e46d246d77f46ffdc2e5dcce0497fb882ab684eb
+normalized semantic projection
+  18f154c38903677cadf4f955b0658ed2fd59162c44a970a9b15c5dc9905eabcd
+```
+
+R3 may deliberately change product/package/crate/binary identity and the
+accepted version spelling. R4 may replace the monolithic product-resource,
+corpus, schema, catalog, and plan-digest representation with independently
+recomputable identity domains. Those exceptions do not permit payload or
+semantic drift. The parity manifest's R6.4 comparison contract requires exact
+file bytes and normalized run, selection, recipe/template/provider, DICOM,
+pixel, UID, reference, expectation, validation, and standards semantics. Any
+other difference requires a reviewed, versioned migration; unavailable
+capability remains an explicit non-success and cannot be omitted or counted as
+generated.
+
+**Executed commands and measurements:** one task-specific root,
+`/private/tmp/dts-r04.1rW7mL`, held the fresh explicit
+`CARGO_TARGET_DIR`, two fresh output roots, the JSON report, and transient logs.
+The first successful generation command included 28 seconds waiting for the
+fresh target's initial compilation invocation to release its build lock; this
+contention is retained in the exact elapsed observation rather than subtracted.
+
+```text
+CARGO_TARGET_DIR=/private/tmp/dts-r04.1rW7mL/target \
+  cargo run --locked --no-default-features -- generate \
+  --profile smoke --out /private/tmp/dts-r04.1rW7mL/smoke-a --seed 1
+result: 3 files written; manifest written
+elapsed: 29.83 seconds
+
+CARGO_TARGET_DIR=/private/tmp/dts-r04.1rW7mL/target \
+  cargo run --locked --no-default-features -- validate \
+  /private/tmp/dts-r04.1rW7mL/smoke-a
+result: 3 files checked; 0 validation failures
+elapsed: 1.21 seconds
+
+CARGO_TARGET_DIR=/private/tmp/dts-r04.1rW7mL/target \
+  cargo run --locked --no-default-features -- report \
+  /private/tmp/dts-r04.1rW7mL/smoke-a --format json
+result: generated 3; skipped 0; blocked 0; planned 0; deprecated 0;
+        3 passed validation rows; no unavailable reasons
+elapsed: 1.31 seconds
+
+CARGO_TARGET_DIR=/private/tmp/dts-r04.1rW7mL/target \
+  cargo run --locked --no-default-features -- generate \
+  --profile smoke --out /private/tmp/dts-r04.1rW7mL/smoke-b --seed 1
+result: 3 files written; manifest written
+elapsed: 1.81 seconds
+
+diff -r /private/tmp/dts-r04.1rW7mL/smoke-a \
+  /private/tmp/dts-r04.1rW7mL/smoke-b
+result: passed with no differences
+elapsed: 0.00 seconds
+```
+
+At measurement, the target directory occupied 1,918,328,832 bytes. Each
+generated root occupied 98,304 allocated bytes; its four files contained
+86,470 logical bytes. The raw report contained 93,929 bytes. A deterministic
+Python comparison parsed the parity baseline and mechanically checked every
+recorded run, count, identity, case, recipe/template/provider, payload,
+semantic, validation, standards, report, and two-root value against the
+generated manifest/files, repository inputs, registry, recipes, and report. It
+passed with `cases=3 files=3 validation_failures=0 skipped=0 unavailable=0`.
+`jq empty`, the focused documentation check, and `git diff --check` also
+passed. The focused
+`cargo test --locked --no-default-features --test standalone_docs` check passed
+4/4 tests in 0.42 seconds. The exact temporary root was removed after
+verification; no generated DICOM, ordinary manifest/report, build product, or
+log was retained.
+
+This is same-project generation and strict-validation evidence for the small
+native smoke slice. It is not R6 migration parity, independent conformance,
+viewer interoperability, codec/provider, package, release, or target-matrix
+qualification.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |
@@ -200,7 +312,6 @@ baseline is diagnostic evidence, not proof that a target budget has passed.
 
 ## Blockers and authority boundaries
 
-- R0.4 remains required before the R0 gate can pass.
 - The location, remote, and creation authority for `dcmview-test-corpus` have
   not been supplied. No external repository, remote, release, or other out-of-
   workspace state has been created or mutated.
@@ -219,7 +330,7 @@ baseline is diagnostic evidence, not proof that a target budget has passed.
 | Naming and compatibility | Not run | Current product still uses `dicom-test-suite`; renamed package, library, binary, archives, discovery, guides, and migrations do not exist. |
 | External corpus contract | Not run | Versioned external definition loader and CLI/SDK generation contract are not implemented. |
 | Identity separation | Not run | Engine, toolchain, template/provider, schema, corpus, and external-runtime identities are not independently projected. |
-| Smoke migration | Not run | R0 parity baseline and R6 repository smoke generation have not run. |
+| Smoke migration | In progress | The R0 parity baseline passes for the current embedded smoke slice; R6 repository generation and comparison have not run. |
 | Complete migration | Not run | The current repository still owns the complete embedded corpus. |
 | Fast development | Not run | R0 measurements and representative post-change PR measurements are absent. |
 | Heavy qualification | Not run | New nightly/manual/release routing and exact applicable runs are absent. |

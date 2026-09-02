@@ -1,0 +1,17 @@
+{
+  "assembly_request_schema_version": "1.0.0",
+  "instances": [{
+    "instance_id": "primary",
+    "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+    "modality": "OT",
+    "elements": [
+      {"address":{"keyword":"PatientName"},"value":{"kind":"string","value":"SYNTHETIC^ASSEMBLY"}},
+      {"address":{"private_group":"0011","private_creator":"DTS_ASSEMBLY","private_offset":"10"},"vr":"LO","value":{"kind":"string","value":"STRUCTURAL"}}
+    ],
+    "bulk": [{
+      "kind":"integer_pixel_data","source":{"kind":"inline_base64","base64":"AAECAw=="},
+      "rows":2,"columns":2,"frames":1,"samples_per_pixel":1,"bits_allocated":8,"bits_stored":8,"signed":false,
+      "photometric_interpretation":"MONOCHROME2"
+    }]
+  }]
+}

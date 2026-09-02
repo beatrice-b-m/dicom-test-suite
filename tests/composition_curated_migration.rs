@@ -15,6 +15,7 @@ fn output(label: &str) -> PathBuf {
 }
 
 #[test]
+#[ignore = "R1.4 native-provider-contract: prepared-backend all-profile qualification"]
 fn migrated_curated_recipes_record_shared_plan_materialization() {
     let root = output("classic-families");
     let prepared_backend = PathBuf::from("generation-backends/highdicom-pydicom/.venv/bin/python");

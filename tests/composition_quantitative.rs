@@ -53,6 +53,7 @@ fn referenced_sop_uids(object: &InMemDicomObject) -> BTreeSet<String> {
 }
 
 #[test]
+#[ignore = "R1.4 native-provider-contract: prepared-backend quantitative qualification"]
 fn quantitative_default_bundles_are_closed_provenanced_and_reproducible() {
     let first = root("defaults-a");
     let second = root("defaults-b");
@@ -143,6 +144,7 @@ fn quantitative_default_bundles_are_closed_provenanced_and_reproducible() {
 }
 
 #[test]
+#[ignore = "R1.4 native-provider-contract: prepared-backend caller-value qualification"]
 fn caller_segmentation_and_parametric_values_round_trip_at_fixed_shape() {
     let workspace = root("caller");
     fs::create_dir(&workspace).unwrap();

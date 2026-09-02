@@ -93,11 +93,23 @@ jobs:
           RUST_TEST_THREADS: "1"
         run: |
           cargo test --locked --no-default-features --lib \
-            generation_backends::process::tests::fake_backend_cancellation_
+            generation_backends::process::tests::fake_backend_timeout_is_enforced \
+            -- --ignored --exact
+          cargo test --locked --no-default-features --lib \
+            generation_backends::process::tests::fake_backend_cancellation_interrupts_fingerprinting_promptly \
+            -- --ignored --exact
+          cargo test --locked --no-default-features --lib \
+            generation_backends::process::tests::fake_backend_cancellation_kills_and_reaps_a_spawned_process_tree_promptly \
+            -- --ignored --exact
+          cargo test --locked --no-default-features --lib \
+            generation_backends::process::tests::fake_backend_inherited_pipe_timeout_is_enforced \
+            -- --ignored --exact
           cargo test --locked --no-default-features --test composition_curated_migration \
-            migrated_curated_recipes_record_shared_plan_materialization -- --exact
+            migrated_curated_recipes_record_shared_plan_materialization -- --ignored --exact
           cargo test --locked --no-default-features --test composition_quantitative \
-            quantitative_default_bundles_are_closed_provenanced_and_reproducible -- --exact
+            quantitative_default_bundles_are_closed_provenanced_and_reproducible -- --ignored --exact
+          cargo test --locked --no-default-features --test composition_quantitative \
+            caller_segmentation_and_parametric_values_round_trip_at_fixed_shape -- --ignored --exact
 
   default:
     name: Default corpus
@@ -121,8 +133,6 @@ jobs:
           cargo fmt -- --check
           jq empty cases/registry.json schemas/*.json transfer-syntax/*.json standards.lock.json
       - name: Run default test suite
-        env:
-          RUST_TEST_THREADS: "1"
         run: cargo test --locked --all-targets --no-default-features
       - name: Check standards lock
         run: cargo run --locked --no-default-features -- standards check-lock

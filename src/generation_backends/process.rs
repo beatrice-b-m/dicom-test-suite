@@ -488,6 +488,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "R1.4 native-provider-contract: strict backend timeout wall clock"]
     fn fake_backend_timeout_is_enforced() {
         let staging = unique_staging("timeout");
         let error = invoke_backend(
@@ -502,6 +503,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "R1.4 native-provider-contract: strict fingerprint cancellation wall clock"]
     fn fake_backend_cancellation_interrupts_fingerprinting_promptly() {
         let staging = unique_staging("grandchild-cancelled");
         let started = Instant::now();
@@ -523,6 +525,7 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
+    #[ignore = "R1.4 native-provider-contract: strict process-tree cancellation wall clock"]
     fn fake_backend_cancellation_kills_and_reaps_a_spawned_process_tree_promptly() {
         let staging = unique_staging("spawned-tree-cancelled");
         let started_marker = staging.join("backend-started");
@@ -561,6 +564,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "R1.4 native-provider-contract: strict inherited-pipe timeout wall clock"]
     fn fake_backend_inherited_pipe_timeout_is_enforced() {
         let staging = unique_staging("grandchild");
         let started = Instant::now();
@@ -608,7 +612,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
+    #[ignore = "subprocess fixture invoked by provider tests; not qualification evidence"]
     fn fake_backend_process() {
         let current_directory = std::env::current_dir().expect("fake current directory");
         let behavior = current_directory
@@ -691,7 +695,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
+    #[ignore = "subprocess fixture invoked by provider tests; not qualification evidence"]
     fn fake_backend_pipe_holder() {
         thread::sleep(Duration::from_secs(10));
     }

@@ -34,7 +34,7 @@ artifact.
 | Phase | State | Completed items | Current evidence or next gate |
 | --- | --- | --- | --- |
 | R0 — freeze migration contract | Complete | R0.1, R0.2, R0.3, R0.4 | ADR 0003, the dated cost baseline, the exhaustive 801-path ownership inventory, and the seed-1 smoke parity manifest fix repository ownership, invalidated verification class, and the byte/normalized-semantic migration boundary. The R0 gate passes. |
-| R1 — contain CI and local build cost | In progress | R1.1, R1.2, R1.3 | Ordinary PR, `main` push, and manual Fast runs now select only formatting/JSON, warning-denied public compilation, named light contracts, and tiny smoke generation/validation. The intact broad graph is scheduled or manually selected; codec jobs compile feature-sensitive surfaces and generate only representative case selections; package/archive/upload is restricted to an immutable release-candidate commit. R1.4-R1.6 and live remote acceptance remain. |
+| R1 — contain CI and local build cost | In progress | R1.1, R1.2, R1.3, R1.4 | Ordinary PR, `main` push, and manual Fast runs now select only formatting/JSON, warning-denied public compilation, named light contracts, and tiny smoke generation/validation. The intact broad graph is scheduled or manually selected; codec jobs compile feature-sensitive surfaces and generate only representative case selections; provider timing and prepared-backend qualifications have auditable serial ownership while the default harness uses normal parallelism; package/archive/upload is restricted to an immutable release-candidate commit. R1.5-R1.6 and live remote acceptance remain. |
 | R2 — reduce Rust test-linking amplification | Not started | None | Requires R1 routing and the R0 test-target baseline. |
 | R3 — rename reusable product | Not started | None | Requires the R0 gate; no current file, package, crate, binary, archive, or environment spelling has been migrated. |
 | R4 — split immutable resources and corpus definitions | Not started | None | Requires the accepted naming decision and sequential resource/schema migration. |
@@ -515,6 +515,68 @@ Python, WSI, quantitative, stress, full profile, external executable,
 independent conformance, package, release, or remote workflow qualification
 ran. OpenJPH, DCMTK `dcmcjpeg`, and `cjxl` runtime availability were not claimed
 by the local run.
+
+### R1.4 — isolated native-provider timing and heavyweight qualifications
+
+**State:** complete; R1 remains in progress
+
+**Commit:** the commit isolating provider-owned tests, with subject
+`test(provider): isolate serial provider qualifications` (resolve the exact
+object with `git log --format='%H %s' -- .github/workflows/qualification.yml`)
+
+**Owned files:**
+
+- `.github/workflows/qualification.yml`
+- `src/generation_backends/process.rs`
+- `tests/composition_curated_migration.rs`
+- `tests/composition_quantitative.rs`
+- `tests/ci_release_gates.rs`
+- `docs/synth-dicom-gen-dcmview-corpus-migration-status-2026-09-01.md`
+
+The default all-target command retains its full test target selection but no
+longer sets a global `RUST_TEST_THREADS=1`. Seven exact provider qualifications
+are ignored by default with an explicit `R1.4 native-provider-contract` reason
+and are invoked individually by the scheduled/manual/release-candidate native
+provider job under `RUST_TEST_THREADS=1`, `--ignored`, and `--exact`:
+
+1. `generation_backends::process::tests::fake_backend_timeout_is_enforced`
+2. `generation_backends::process::tests::fake_backend_cancellation_interrupts_fingerprinting_promptly`
+3. `generation_backends::process::tests::fake_backend_cancellation_kills_and_reaps_a_spawned_process_tree_promptly`
+4. `generation_backends::process::tests::fake_backend_inherited_pipe_timeout_is_enforced`
+5. `migrated_curated_recipes_record_shared_plan_materialization`
+6. `quantitative_default_bundles_are_closed_provenanced_and_reproducible`
+7. `caller_segmentation_and_parametric_values_round_trip_at_fixed_shape`
+
+The two ignored re-entrant-process entries in the library harness are marked
+separately as subprocess fixtures, not qualification evidence. Static CI
+regressions require exactly seven provider-owned ignore reasons, exactly two
+fixture reasons, no unreasoned ignore marker in these sources, one explicit
+serial command per provider test, and no default-job test-thread override.
+This keeps default discovery and the provider command inventory synchronized.
+The 30-millisecond timeout, 15-second cancellation ceilings, 8-second inherited
+pipe ceiling, and other existing resource/timing ceilings were not relaxed.
+
+**Verification and local runtime boundary:** all four exact ignored process
+commands passed serially on macOS arm64. Their harness execution times were
+3.00 seconds, 0.05 seconds, 0.07 seconds, and 0.57 seconds respectively. Test
+discovery found all seven named entries. The three prepared-backend tests were
+not executed because
+`generation-backends/highdicom-pydicom/.venv/bin/python` was absent; this is an
+explicit local runtime blocker, not an unavailable-to-pass conversion or
+provider qualification. Their workflow commands remain exact and the heavy job
+prepares the locked backend before execution. No Python environment was
+created, and no WSI, quantitative, stress, full-profile, package, release,
+external-codec, or remote qualification ran locally.
+
+**Representative local cost measurement:** after one clean compile into the
+isolated `/private/tmp/dts-r14-provider.FqqaUu/target`, the default library
+bundle ran 475 discovered tests with 469 passed and six ignored. Normal harness
+parallelism took 8.46 seconds wall time; the same cached bundle under
+`RUST_TEST_THREADS=1` took 33.34 seconds, a 74.6% wall-time reduction for this
+representative bundle. The isolated target occupied 1,125,044 KiB and its exact
+temporary root was removed. This is local development-cost evidence, not
+remote runner/billable evidence or a broad default, provider, corpus, target,
+or release qualification.
 
 ## Measurements
 

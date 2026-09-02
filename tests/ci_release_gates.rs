@@ -4,6 +4,37 @@ fn workflow(path: &str) -> String {
     fs::read_to_string(path).unwrap_or_else(|error| panic!("cannot read {path}: {error}"))
 }
 
+const PROVIDER_IGNORED_TESTS: [(&str, &str); 7] = [
+    (
+        "--lib",
+        "generation_backends::process::tests::fake_backend_timeout_is_enforced",
+    ),
+    (
+        "--lib",
+        "generation_backends::process::tests::fake_backend_cancellation_interrupts_fingerprinting_promptly",
+    ),
+    (
+        "--lib",
+        "generation_backends::process::tests::fake_backend_cancellation_kills_and_reaps_a_spawned_process_tree_promptly",
+    ),
+    (
+        "--lib",
+        "generation_backends::process::tests::fake_backend_inherited_pipe_timeout_is_enforced",
+    ),
+    (
+        "--test composition_curated_migration",
+        "migrated_curated_recipes_record_shared_plan_materialization",
+    ),
+    (
+        "--test composition_quantitative",
+        "quantitative_default_bundles_are_closed_provenanced_and_reproducible",
+    ),
+    (
+        "--test composition_quantitative",
+        "caller_segmentation_and_parametric_values_round_trip_at_fixed_shape",
+    ),
+];
+
 #[test]
 fn fast_pr_cancels_superseded_runs_without_duplicate_pr_branch_ownership() {
     let fast = workflow(".github/workflows/ci.yml");
@@ -134,13 +165,25 @@ fn heavy_workflow_retains_nightly_matrix_and_immutable_release_gate() {
     );
 
     assert!(provider.contains("Native provider contract"));
-    assert!(provider.contains("fake_backend_cancellation_"));
-    assert!(provider.contains("composition_curated_migration"));
-    assert!(provider.contains("composition_quantitative"));
     assert!(provider.contains("RUST_TEST_THREADS: \"1\""));
+    assert_eq!(
+        provider.matches("-- --ignored --exact").count(),
+        PROVIDER_IGNORED_TESTS.len()
+    );
+    let normalized_provider = provider.split_whitespace().collect::<Vec<_>>().join(" ");
+    for (target, test) in PROVIDER_IGNORED_TESTS {
+        let separator = if target == "--lib" { " \\" } else { "" };
+        let command = format!(
+            "cargo test --locked --no-default-features {target} \\ {test}{separator} -- --ignored --exact"
+        );
+        assert!(
+            normalized_provider.contains(&command),
+            "serial provider job omitted exact ignored test {test}"
+        );
+    }
 
     assert!(default.contains("timeout-minutes: 120"));
-    assert!(default.contains("RUST_TEST_THREADS: \"1\""));
+    assert!(!default.contains("RUST_TEST_THREADS"));
     assert!(default.contains("cargo test --locked --all-targets --no-default-features"));
     assert!(default.contains("--profile core"));
     assert!(default.contains("--profile extended"));
@@ -259,6 +302,55 @@ fn heavy_workflow_retains_nightly_matrix_and_immutable_release_gate() {
         assert!(
             fs::read_to_string(path).unwrap().contains(marker),
             "{path} lacks deliberate regression marker {marker}"
+        );
+    }
+}
+
+#[test]
+fn ignored_provider_inventory_is_owned_and_matches_serial_workflow() {
+    let process = workflow("src/generation_backends/process.rs");
+    let curated = workflow("tests/composition_curated_migration.rs");
+    let quantitative = workflow("tests/composition_quantitative.rs");
+    let sources = [&process, &curated, &quantitative];
+    let provider_reason = "#[ignore = \"R1.4 native-provider-contract:";
+    let fixture_reason =
+        "#[ignore = \"subprocess fixture invoked by provider tests; not qualification evidence\"]";
+
+    assert_eq!(
+        sources
+            .iter()
+            .map(|source| source.matches(provider_reason).count())
+            .sum::<usize>(),
+        PROVIDER_IGNORED_TESTS.len(),
+        "provider discovery count must stay synchronized with the serial workflow inventory"
+    );
+    assert_eq!(process.matches(fixture_reason).count(), 2);
+    assert_eq!(
+        sources
+            .iter()
+            .map(|source| source.matches("#[ignore").count())
+            .sum::<usize>(),
+        PROVIDER_IGNORED_TESTS.len() + 2,
+        "every ignored entry in provider-owned sources needs provider or subprocess-fixture ownership"
+    );
+    assert!(!sources.iter().any(|source| source.contains("#[ignore]")));
+
+    for (_, test) in PROVIDER_IGNORED_TESTS {
+        let source = if test.starts_with("generation_backends::") {
+            &process
+        } else if test.starts_with("migrated_curated") {
+            &curated
+        } else {
+            &quantitative
+        };
+        let function = format!("fn {test}()", test = test.rsplit("::").next().unwrap());
+        let offset = source
+            .find(&function)
+            .unwrap_or_else(|| panic!("provider inventory names undiscoverable test {test}"));
+        let prefix = &source[offset.saturating_sub(220)..offset];
+        assert!(
+            prefix.contains(provider_reason),
+            "ignored provider test {test} lacks explicit R1.4 ownership"
         );
     }
 }

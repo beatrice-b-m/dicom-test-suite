@@ -264,7 +264,16 @@ fn byte_stable_provider_inventory_is_complete_and_version_decoupled() {
 
     let mut output_sources = Vec::new();
     rust_sources(Path::new("src/recipes"), &mut output_sources);
-    output_sources.push(PathBuf::from("src/composition/modules.rs"));
+    output_sources.extend([
+        PathBuf::from("src/composition/modules.rs"),
+        PathBuf::from("src/curated_manifest.rs"),
+        PathBuf::from("src/validation.rs"),
+    ]);
+    output_sources.extend(fs::read_dir("src").unwrap().filter_map(|entry| {
+        let path = entry.unwrap().path();
+        let name = path.file_name()?.to_str()?;
+        (name.starts_with("validation_") && name.ends_with("_tests.rs")).then_some(path)
+    }));
     for path in output_sources {
         let source = fs::read_to_string(&path).unwrap();
         assert!(
@@ -307,26 +316,80 @@ fn byte_stable_provider_inventory_is_complete_and_version_decoupled() {
             ("external.quantitative_import_plan", 3),
         ])
     );
-    assert!(
-        fs::read_to_string("src/curated_execution/external_import.rs")
-            .unwrap()
-            .contains("software_versions: env!(\"CARGO_PKG_VERSION\").into()")
-    );
-    assert!(
-        fs::read_to_string("src/composition/external_quantitative.rs")
-            .unwrap()
-            .contains("software_versions: env!(\"CARGO_PKG_VERSION\").into()")
-    );
-    assert!(
-        fs::read_to_string("src/curated_execution.rs")
-            .unwrap()
-            .contains("version: PACKAGE_VERSION.into()")
-    );
-    assert!(
-        fs::read_to_string("src/lib.rs")
-            .unwrap()
-            .contains("\"version\": PACKAGE_VERSION")
-    );
+
+    let allowed_product_version_lines = BTreeMap::from([
+        (
+            "src/assembly/run.rs",
+            vec![
+                "\"generator\": { \"name\": crate::PACKAGE_NAME, \"version\": crate::PACKAGE_VERSION, \"target\": crate::TARGET_TRIPLE, \"rustc\": crate::RUSTC_VERSION },",
+            ],
+        ),
+        (
+            "src/codecs.rs",
+            vec!["use crate::PACKAGE_VERSION;", "version: PACKAGE_VERSION,"],
+        ),
+        (
+            "src/composition/executor_adapter.rs",
+            vec![
+                "use crate::{PACKAGE_VERSION, sha256_hex};",
+                "version: PACKAGE_VERSION.into(),",
+            ],
+        ),
+        (
+            "src/composition/external_quantitative.rs",
+            vec!["software_versions: env!(\"CARGO_PKG_VERSION\").into(),"],
+        ),
+        (
+            "src/composition/run.rs",
+            vec![
+                "use crate::{PACKAGE_NAME, PACKAGE_VERSION, RUSTC_VERSION, TARGET_TRIPLE, sha256_hex};",
+                "\"version\": PACKAGE_VERSION,",
+            ],
+        ),
+        (
+            "src/curated_execution.rs",
+            vec![
+                "PACKAGE_VERSION, WsiPyramidLockedInputs, WsiPyramidMemberIdentity, WsiPyramidRole, sha256_hex,",
+                "version: PACKAGE_VERSION.into(),",
+            ],
+        ),
+        (
+            "src/curated_execution/external_import.rs",
+            vec!["software_versions: env!(\"CARGO_PKG_VERSION\").into(),"],
+        ),
+        (
+            "src/curated_plan.rs",
+            vec!["crate::PACKAGE_VERSION", "crate::PACKAGE_VERSION"],
+        ),
+        (
+            "src/executor/materialization.rs",
+            vec![
+                "use crate::{PACKAGE_VERSION, sha256_hex};",
+                "version: PACKAGE_VERSION.into(),",
+            ],
+        ),
+        (
+            "src/lib.rs",
+            vec![
+                "pub const PACKAGE_VERSION: &str = env!(\"CARGO_PKG_VERSION\");",
+                "/// Product releases report [`PACKAGE_VERSION`] separately. Changing the",
+                "format!(\"{PACKAGE_NAME} {PACKAGE_VERSION}\")",
+                "\"version\": PACKAGE_VERSION,",
+            ],
+        ),
+    ]);
+    for (path, expected) in allowed_product_version_lines {
+        let source = fs::read_to_string(path).unwrap();
+        let actual = source
+            .lines()
+            .filter(|line| line.contains("PACKAGE_VERSION") || line.contains("CARGO_PKG_VERSION"))
+            .map(str::trim)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            actual, expected,
+            "{path} has an unclassified product-version coupling in the output pipeline"
+        );
+    }
 }
 
 #[test]

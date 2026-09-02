@@ -3041,7 +3041,7 @@
         "byte_stable_provider_inventory_is_complete_and_version_decoupled",
         "every_direct_output_version_provider_family_has_an_exact_payload_plan"
       ],
-      "entry_digest": "0c9567a809679b0e8e97ec7f15046dd509396a2b74ac80eb30a9ea0d14b30ac4"
+      "entry_digest": "278be992dce0d573a2b2426a395a24115f39f230bb82e8637d806514319ee133"
     },
     {
       "source": "tests/unified_spine_boundaries.rs",
@@ -4316,7 +4316,7 @@
         "rejects_redirected_reordered_and_incomplete_source_closure",
         "rejects_locked_value_icc_and_forbidden_content_mutations"
       ],
-      "entry_digest": "676d6c74700f9b7df639ef9e8c150058e88933914a39eb88b95f3b616db9d037"
+      "entry_digest": "8471625525ffc168e6e73922bfebf1a2d0faf9512afb4e81b9895d7f327487d7"
     },
     {
       "source": "src/validation_blending_presentation_state_tests.rs",
@@ -4330,7 +4330,7 @@
         "rejects_cardinality_position_opacity_and_reference_gaps",
         "rejects_transform_payload_and_forbidden_module_mutations"
       ],
-      "entry_digest": "d846de1c01917d7ac6b171021a40c7d9ae109cc530c26608c329b5218446b94c"
+      "entry_digest": "3af3c621ea990e80cb25299949a8667404493c9b46e954eb434bd5097643e8d2"
     },
     {
       "source": "src/validation_color_softcopy_presentation_state_tests.rs",
@@ -4349,7 +4349,7 @@
         "rejects_unexpected_graphic_content",
         "rejects_unexpected_pixel_data"
       ],
-      "entry_digest": "4a16b87db22d64f82c5f12c02617561882e3c77307295de4111ea49814e90b58"
+      "entry_digest": "fdabb087e0b4b39408aef05a0fbe7e18bcb68d43b7e2d12ca4bb3ea8a347691f"
     },
     {
       "source": "src/validation_deformable_spatial_registration_tests.rs",
@@ -4381,7 +4381,7 @@
         "rejects_general_ecg_dataset_tampering",
         "rejects_general_ecg_manifest_aggregate_mismatch"
       ],
-      "entry_digest": "8636d5f92c836a78c7e5b6e60108d6297e8444e7b84e86d005e80d46d850a0e4"
+      "entry_digest": "0a281d662996beef8f82831d9747027073e3f733cc3ec8ab996469613bb33f91"
     },
     {
       "source": "src/validation_rt_image_tests.rs",
@@ -4396,7 +4396,7 @@
         "rejects_every_locked_absence_category",
         "rejects_manifest_identity_storage_and_absence_drift"
       ],
-      "entry_digest": "63461a4a75bfdf3ed7ca2f03a85276085c9edf3a537e22b0c3a18b201ff144cf"
+      "entry_digest": "d2855a35828ef7a3eee7d807484fbea04f6641471a693579d2db48bd73d4ae1f"
     },
     {
       "source": "src/validation_rt_plan_tests.rs",
@@ -4411,7 +4411,7 @@
         "rejects_manifest_reference_identity_drift",
         "rejects_manifest_absence_weakening"
       ],
-      "entry_digest": "9b700783e3eb5de4c9c1dbc8d2686e347434f9418273a010dd253405f0326ac4"
+      "entry_digest": "9a5488a0d07c28547cbcfd5a1c1ac59367e98768620b03f0bfb7c7cc8303bc47"
     },
     {
       "source": "src/validation_rt_radiation_tests.rs",
@@ -4426,7 +4426,7 @@
         "rejects_set_reference_order_membership_and_absence_mutations",
         "rejects_manifest_graph_and_absence_weakening"
       ],
-      "entry_digest": "3b844bc4e63d8f6f21c94653e6b18b581121dea50e9e9ab80652ad60bec7e4ea"
+      "entry_digest": "fb77b160f287e8aaa643ece2a3ce7f1ed86f0c03e04b097f0166a213c79d8d2c"
     },
     {
       "source": "src/validation_spatial_registration_tests.rs",
@@ -4460,7 +4460,7 @@
         "rejects_manifest_group_order_and_cardinality_mutations",
         "rejects_manifest_aggregate_mutations"
       ],
-      "entry_digest": "2c31dcf65b85d8bd741f1f084295d297daa6578814e6da97a0e2345ed5d9aea9"
+      "entry_digest": "e17464015658d11ce079bebf55d4dce21d66db24032448c3e34a5d3fc603aecb"
     },
     {
       "source": "src/validation_vl_single_frame_tests.rs",

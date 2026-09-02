@@ -33,7 +33,7 @@ artifact.
 
 | Phase | State | Completed items | Current evidence or next gate |
 | --- | --- | --- | --- |
-| R0 — freeze migration contract | In progress | R0.1, R0.2 | ADR 0003 fixes the separation contract. The dated R0.2 baseline records current workflow ownership, exact remote and local measurements, test-link amplification, artifacts, and unavailable representative classes. R0.3-R0.4 remain unimplemented, so the R0 gate has not passed. |
+| R0 — freeze migration contract | In progress | R0.1, R0.2, R0.3 | ADR 0003 fixes the separation contract. The dated cost baseline records current development cost, and the exhaustive 801-path ownership inventory assigns every baseline/task file one disposition, destination, domain, invalidated verification class, and migration slice. R0.4 remains unimplemented, so the R0 gate has not passed. |
 | R1 — contain CI and local build cost | Not started | None | Requires the accepted R0 contract and dated baseline. |
 | R2 — reduce Rust test-linking amplification | Not started | None | Requires R1 routing and the R0 test-target baseline. |
 | R3 — rename reusable product | Not started | None | Requires the R0 gate; no current file, package, crate, binary, archive, or environment spelling has been migrated. |
@@ -136,6 +136,50 @@ qualification or durable generation was performed for this baseline.
 tests in 0.20 seconds, and `git diff --check` passed with no output. This does
 not qualify any generator, corpus, codec, provider, package, release, or target.
 
+### R0.3 — exhaustive file/module ownership inventory
+
+**State:** complete
+
+**Baseline revision:**
+`f640748b412151b4410dfb104685519cef2bde75`
+
+**Evidence:**
+
+- `docs/synth-dicom-gen-dcmview-file-ownership-2026-09-01.md`
+- `product/migration-file-ownership-2026-09-01.json`
+
+The machine-readable inventory explicitly enumerates all 799 paths tracked at
+the exact baseline plus the two new R0.3 ownership artifacts. This status file
+is the third task-owned file but already existed at the baseline, so it appears
+exactly once. All 801 unique entries have one disposition, primary destination,
+ownership domain, rationale, invalidated verification class, and migration
+phase/slice. All 175 split entries additionally name concrete synth and corpus
+outputs while preserving one primary disposition and destination.
+
+Disposition totals are 283 `retain_synth`, 310 `move_corpus`, 175 `split`, zero
+`retire`, and 33 `archive_history`. The zero retirement count is intentional:
+embedded-corpus code is split or moved until supported replacements and parity
+make deletion safe. Domain totals are 105 engine, 136 generic capability, 313
+corpus definition, 20 viewer expectations, 33 historical evidence, 20
+build/release, 26 documentation, 4 governance/legal, and 144 test
+infrastructure paths.
+
+The inventory distinguishes corpus registry/recipes and case-selection notes
+from generic templates/providers/engine evidence; assigns viewer schemas and
+expectations downstream; and preserves dated documents, hashes, old artifact
+names, ADRs, and qualification claims as synth history. Ambiguous-looking
+`CorpusPlan`, manifest/schema, recipe-family, conformance-adapter, lockfile, and
+mixed-test decisions are resolved in the dated evidence document.
+
+**Verification:** a deterministic Python comparison proved the inventory path
+set equals both `git ls-files` at the R0.3 commit and the fixed baseline tree
+plus the two new paths, with no duplicates, missing paths, or extras. The same
+check validated required fields, enums, destination prefixes, split-output
+shape, and non-empty values. `jq empty`, `git diff --check`, and the focused
+documentation test passed. Exact command results are recorded in the R0.3
+commit and task report. No generation, parity, package, release, external
+repository, target, or R0-gate qualification is claimed.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |
@@ -156,7 +200,7 @@ baseline is diagnostic evidence, not proof that a target budget has passed.
 
 ## Blockers and authority boundaries
 
-- R0.3-R0.4 remain required before the R0 gate can pass.
+- R0.4 remains required before the R0 gate can pass.
 - The location, remote, and creation authority for `dcmview-test-corpus` have
   not been supplied. No external repository, remote, release, or other out-of-
   workspace state has been created or mutated.

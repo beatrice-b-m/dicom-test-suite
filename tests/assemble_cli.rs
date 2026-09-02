@@ -97,7 +97,7 @@ fn cli_validate_and_report_read_both_assembly_manifest_versions() {
     let request_path = workspace.join("request.json");
     fs::write(
         &request_path,
-        include_bytes!("fixtures/cli/assembly-request-v1-capture.json"),
+        include_bytes!("fixtures/cli/assembly-request-seed5.json"),
     )
     .unwrap();
     let output_root = root("manifest-readers");
@@ -175,7 +175,7 @@ fn cli_validate_and_report_reject_invalid_assembly_identity_contracts() {
     let request_path = workspace.join("request.json");
     fs::write(
         &request_path,
-        include_bytes!("fixtures/cli/assembly-request-v1-capture.json"),
+        include_bytes!("fixtures/cli/assembly-request-seed5.json"),
     )
     .unwrap();
     let output_root = root("manifest-rejections");

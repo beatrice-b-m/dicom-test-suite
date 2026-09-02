@@ -2917,7 +2917,7 @@
       "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
     },
     {
-      "path": "tests/fixtures/cli/assembly-request-v1-capture.json",
+      "path": "tests/fixtures/cli/assembly-request-seed5.json",
       "token": "DTS_ASSEMBLY",
       "class": "dicom_payload_identifier",
       "count": 1,
@@ -4455,7 +4455,7 @@
   ],
   "retained_snapshot": {
     "match_count": 920,
-    "sha256": "da5ad53dc550e057db3490957df41bfa69cc488d09d3e542d03b5e417e5c2630",
+    "sha256": "91566a24eb3bd68af2bb2e0fa24a11fece70ef4cb26ad4e0acfa4e98cfbfa126",
     "by_class": {
       "dicom_payload_identifier": 189,
       "legacy_payload_schema_fixture_or_evidence": 286,

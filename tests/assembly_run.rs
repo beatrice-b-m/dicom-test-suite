@@ -21,7 +21,7 @@ fn output(label: &str) -> PathBuf {
 }
 
 fn request() -> Vec<u8> {
-    include_bytes!("fixtures/cli/assembly-request-v1-capture.json").to_vec()
+    include_bytes!("fixtures/cli/assembly-request-seed5.json").to_vec()
 }
 
 #[test]

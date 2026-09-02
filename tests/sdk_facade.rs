@@ -432,7 +432,7 @@ fn sdk_assembly_validate_and_report_read_exact_supported_manifest_versions() {
     product
         .assemble(
             AssembleRequest::from_json_bytes(
-                include_bytes!("fixtures/cli/assembly-request-v1-capture.json").as_slice(),
+                include_bytes!("fixtures/cli/assembly-request-seed5.json").as_slice(),
                 ".",
                 &root,
             )
@@ -469,7 +469,7 @@ fn sdk_rejects_invalid_assembly_identity_contracts_before_semantics() {
     product
         .assemble(
             AssembleRequest::from_json_bytes(
-                include_bytes!("fixtures/cli/assembly-request-v1-capture.json").as_slice(),
+                include_bytes!("fixtures/cli/assembly-request-seed5.json").as_slice(),
                 ".",
                 &root,
             )

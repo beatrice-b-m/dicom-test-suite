@@ -228,7 +228,7 @@ fn ordinary_generate_routes_curated_sc_through_the_shared_executor_only() {
         .map(|offset| start + offset)
         .unwrap();
     let generation = &library[start..end];
-    for required in ["prepare_curated_sc_plan", ".execute("] {
+    for required in ["prepare_curated_plan_for_selection", ".execute("] {
         assert!(
             generation.contains(required),
             "ordinary generation does not use {required}"
@@ -251,7 +251,7 @@ fn ordinary_generate_routes_curated_sc_through_the_shared_executor_only() {
         );
     }
     let plan = generation
-        .find("prepare_curated_sc_plan")
+        .find("prepare_curated_plan_for_selection")
         .expect("curated plan call");
     let transaction = generation.find(".execute(").expect("executor publication");
     assert!(

@@ -1,0 +1,21 @@
+{
+  "version_result_schema_version": "1.0.0",
+  "product": { "name": "dicom-test-suite", "version": "0.1.0" },
+  "cli_api_version": "1.0.0",
+  "target": "legacy-fixture-target",
+  "rust_toolchain": "rustc legacy-fixture",
+  "enabled_features": [],
+  "product_resources": {
+    "resource_set_version": "1.0.0",
+    "origin": "embedded",
+    "resource_count": 1,
+    "resource_set_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "resources": [
+      {
+        "logical_path": "legacy/resource.json",
+        "size_bytes": 1,
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ]
+  }
+}

@@ -436,3 +436,135 @@ fn digest_domain(
         total_size_bytes,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+    use std::path::{Path, PathBuf};
+
+    use super::*;
+
+    fn unique_temp_root(label: &str) -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "synth-dicom-gen-identity-{label}-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ))
+    }
+
+    fn copy_fixture(source: &Path, destination: &Path) {
+        fs::create_dir_all(destination).unwrap();
+        for entry in fs::read_dir(source).unwrap() {
+            let entry = entry.unwrap();
+            let target = destination.join(entry.file_name());
+            if entry.file_type().unwrap().is_dir() {
+                copy_fixture(&entry.path(), &target);
+            } else {
+                fs::copy(entry.path(), target).unwrap();
+            }
+        }
+    }
+
+    fn assert_installed_domains_equal(
+        left: &InstalledIdentityDomains,
+        right: &InstalledIdentityDomains,
+    ) {
+        assert_eq!(left.engine, right.engine);
+        assert_eq!(left.schema_set, right.schema_set);
+        assert_eq!(left.template_catalog, right.template_catalog);
+        assert_eq!(left.provider_catalog, right.provider_catalog);
+        assert_eq!(left.toolchain, right.toolchain);
+        assert_eq!(left.external_runtime, right.external_runtime);
+        assert_eq!(left.standards, right.standards);
+        assert_eq!(left.execution, right.execution);
+    }
+
+    #[test]
+    fn installed_membership_is_exhaustive_and_relocation_stable() {
+        let embedded = project_installed_identities(
+            &EngineResources::embedded(),
+            IdentityInspectionContext::default(),
+        )
+        .unwrap();
+        assert_eq!(embedded.engine.member_count, 3);
+        assert_eq!(embedded.schema_set.member_count, 40);
+        assert_eq!(embedded.template_catalog.member_count, 3);
+        assert_eq!(embedded.provider_catalog.member_count, 16);
+        assert_eq!(embedded.migration.legacy_resource_count, 240);
+        assert!(embedded.corpus_definition.is_none());
+        assert!(embedded.external_runtime.is_empty());
+        assert!(matches!(
+            classify_member("future/unclassified-resource.json"),
+            Err(IdentityProjectionError::UnclassifiedMember(_))
+        ));
+
+        let snapshot = EngineResources::embedded().snapshot().unwrap();
+        let explicit_resources = EngineResources::explicit(snapshot.root().to_path_buf()).unwrap();
+        let explicit =
+            project_installed_identities(&explicit_resources, IdentityInspectionContext::default())
+                .unwrap();
+        assert_installed_domains_equal(&embedded, &explicit);
+        assert_eq!(
+            embedded.migration.legacy_resource_origin,
+            EngineResourceOrigin::Embedded
+        );
+        assert_eq!(
+            explicit.migration.legacy_resource_origin,
+            EngineResourceOrigin::Explicit
+        );
+    }
+
+    #[test]
+    fn verified_corpus_perturbation_changes_only_corpus_identity() {
+        let fixture = Path::new("tests/fixtures/corpus-definition/minimal");
+        let original_bundle = CorpusDefinitionBundle::load(fixture).unwrap();
+        let changed_root = unique_temp_root("corpus-perturbation");
+        copy_fixture(fixture, &changed_root);
+
+        let evidence_path = changed_root.join("evidence/minimal.md");
+        let mut evidence = fs::read(&evidence_path).unwrap();
+        evidence.extend_from_slice(b"\nIdentity perturbation fixture.\n");
+        fs::write(&evidence_path, &evidence).unwrap();
+        let manifest_path = changed_root.join("corpus-definition.json");
+        let mut manifest: serde_json::Value =
+            serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+        manifest["evidence"][0]["size_bytes"] = serde_json::json!(evidence.len());
+        manifest["evidence"][0]["sha256"] = serde_json::json!(crate::sha256_hex(&evidence));
+        fs::write(
+            &manifest_path,
+            serde_json::to_vec_pretty(&manifest).unwrap(),
+        )
+        .unwrap();
+        let changed_bundle = CorpusDefinitionBundle::load(&changed_root).unwrap();
+
+        let resources = EngineResources::embedded();
+        let original = project_installed_identities(
+            &resources,
+            IdentityInspectionContext {
+                corpus_definition: Some(&original_bundle),
+            },
+        )
+        .unwrap();
+        let changed = project_installed_identities(
+            &resources,
+            IdentityInspectionContext {
+                corpus_definition: Some(&changed_bundle),
+            },
+        )
+        .unwrap();
+        assert_installed_domains_equal(&original, &changed);
+        assert_ne!(original.corpus_definition, changed.corpus_definition);
+        assert_eq!(
+            original.migration.corpus_identity_status,
+            "verified_bundle_loaded"
+        );
+        assert_eq!(
+            changed.migration.corpus_identity_status,
+            "verified_bundle_loaded"
+        );
+        fs::remove_dir_all(changed_root).unwrap();
+    }
+}

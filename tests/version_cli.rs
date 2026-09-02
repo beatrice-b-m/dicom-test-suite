@@ -40,7 +40,7 @@ fn version_json_is_clean_schema_valid_and_resource_bound_outside_the_checkout() 
     );
     let envelope: Value = serde_json::from_slice(&output.stdout).unwrap();
     assert!(compile_schema("schemas/cli-success-envelope.schema.json").is_valid(&envelope));
-    assert!(compile_schema("schemas/version-result.schema.json").is_valid(&envelope["result"]));
+    assert!(compile_schema("schemas/version-result-v2.schema.json").is_valid(&envelope["result"]));
     assert_eq!(envelope["command"], "version");
     assert_eq!(
         envelope["result"]["product"]["version"],
@@ -56,6 +56,32 @@ fn version_json_is_clean_schema_valid_and_resource_bound_outside_the_checkout() 
             .as_array()
             .is_some_and(|resources| !resources.is_empty())
     );
+    let identities = &envelope["result"]["identity_domains"];
+    assert_eq!(envelope["result"]["version_result_schema_version"], "2.0.0");
+    assert!(identities["corpus_definition"].is_null());
+    assert_eq!(identities["external_runtime"], serde_json::json!([]));
+    assert_eq!(
+        identities["migration"]["corpus_identity_status"],
+        "absent_without_verified_bundle"
+    );
+    assert_eq!(
+        identities["migration"]["legacy_resource_origin"],
+        "embedded"
+    );
+    assert_eq!(identities["migration"]["legacy_resource_count"], 240);
+    assert_eq!(
+        identities["migration"]["legacy_resource_set_sha256"],
+        "dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410"
+    );
+}
+
+#[test]
+fn version_v1_fixture_remains_readable_without_invented_split_identities() {
+    let fixture: Value =
+        serde_json::from_slice(&fs::read("tests/fixtures/cli/version-result-v1.json").unwrap())
+            .unwrap();
+    assert!(compile_schema("schemas/version-result.schema.json").is_valid(&fixture));
+    assert!(fixture.get("identity_domains").is_none());
 }
 
 #[test]

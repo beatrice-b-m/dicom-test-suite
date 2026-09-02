@@ -11,6 +11,23 @@ fn compile_schema(path: &str) -> jsonschema::Validator {
         .unwrap()
 }
 
+fn compile_v2_capabilities_schema() -> jsonschema::Validator {
+    let schema: Value =
+        serde_json::from_slice(&fs::read("schemas/capabilities-result-v2.schema.json").unwrap())
+            .unwrap();
+    let version_schema: Value =
+        serde_json::from_slice(&fs::read("schemas/version-result-v2.schema.json").unwrap())
+            .unwrap();
+    jsonschema::options()
+        .with_draft(jsonschema::Draft::Draft202012)
+        .with_resource(
+            "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json",
+            jsonschema::Resource::from_contents(version_schema).unwrap(),
+        )
+        .build(&schema)
+        .unwrap()
+}
+
 #[test]
 fn capabilities_json_is_live_schema_valid_and_conservative_outside_the_checkout() {
     let cwd = std::env::temp_dir().join(format!(
@@ -40,10 +57,33 @@ fn capabilities_json_is_live_schema_valid_and_conservative_outside_the_checkout(
     );
     let envelope: Value = serde_json::from_slice(&output.stdout).unwrap();
     assert!(compile_schema("schemas/cli-success-envelope.schema.json").is_valid(&envelope));
-    assert!(
-        compile_schema("schemas/capabilities-result.schema.json").is_valid(&envelope["result"])
-    );
+    assert!(compile_v2_capabilities_schema().is_valid(&envelope["result"]));
     assert_eq!(envelope["command"], "capabilities");
+    assert_eq!(
+        envelope["result"]["capabilities_result_schema_version"],
+        "2.0.0"
+    );
+    assert_eq!(
+        envelope["result"]["supported_versions"]["result_schemas"]["version"],
+        serde_json::json!(["2.0.0"])
+    );
+    assert_eq!(
+        envelope["result"]["supported_versions"]["result_schemas"]["capabilities"],
+        serde_json::json!(["2.0.0"])
+    );
+    assert_eq!(
+        envelope["result"]["supported_versions"]["result_schema_validation"]["version"],
+        serde_json::json!(["1.0.0", "2.0.0"])
+    );
+    assert_eq!(
+        envelope["result"]["supported_versions"]["result_schema_validation"]["capabilities"],
+        serde_json::json!(["1.0.0", "2.0.0"])
+    );
+    assert!(envelope["result"]["identity_domains"]["corpus_definition"].is_null());
+    assert_eq!(
+        envelope["result"]["identity_domains"]["external_runtime"],
+        serde_json::json!([])
+    );
     assert_eq!(
         envelope["result"]["supported_versions"]["result_schemas"]["composition"][0],
         "1.0.0"
@@ -107,6 +147,16 @@ fn capabilities_json_is_live_schema_valid_and_conservative_outside_the_checkout(
             .iter()
             .all(|runtime| runtime["availability"] != "available")
     );
+}
+
+#[test]
+fn capabilities_v1_fixture_remains_readable_without_invented_split_identities() {
+    let fixture: Value = serde_json::from_slice(
+        &fs::read("tests/fixtures/cli/capabilities-result-v1.json").unwrap(),
+    )
+    .unwrap();
+    assert!(compile_schema("schemas/capabilities-result.schema.json").is_valid(&fixture));
+    assert!(fixture.get("identity_domains").is_none());
 }
 
 #[test]

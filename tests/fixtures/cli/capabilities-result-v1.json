@@ -1,0 +1,87 @@
+{
+  "capabilities_result_schema_version": "1.0.0",
+  "product_version": "0.1.0",
+  "cli_api_version": "1.0.0",
+  "enabled_features": [],
+  "product_resources": {
+    "resource_set_version": "1.0.0",
+    "origin": "embedded",
+    "resource_count": 1,
+    "resource_set_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "resources": [
+      {
+        "logical_path": "legacy/resource.json",
+        "size_bytes": 1,
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ]
+  },
+  "supported_versions": {
+    "cli_api": ["1.0.0"],
+    "result_schemas": { "version": ["1.0.0"] },
+    "composition_request": ["0.1.0"],
+    "assembly_request": ["1.0.0"],
+    "assembly_manifest": ["1.0.0"],
+    "release_manifest": ["1.0.0"],
+    "curated_manifest": ["1.0.0"],
+    "composition_manifest": ["1.0.0"],
+    "coverage_report": ["1.0.0"],
+    "template_catalog": ["1.0.0"],
+    "case_registry": ["1.0.0"],
+    "composition_provider_protocol": ["1.0.0"],
+    "generation_backend_protocol": ["1.0.0"]
+  },
+  "qualified_templates": [
+    {
+      "template_id": "legacy/fixture",
+      "template_version": "1.0.0",
+      "qualification_status": "qualified",
+      "artifact_kind": "dicom_part10",
+      "transfer_syntax_uids": ["1.2.840.10008.1.2.1"]
+    }
+  ],
+  "transfer_syntaxes": [
+    {
+      "uid": "1.2.840.10008.1.2.1",
+      "keyword": "ExplicitVRLittleEndian",
+      "name": "Explicit VR Little Endian",
+      "determinism": "byte_stable",
+      "write_dataset": true,
+      "encode_pixel": true,
+      "declared_status": "available",
+      "availability": "available",
+      "required_features": [],
+      "unavailable_reasons": []
+    }
+  ],
+  "optional_runtimes": [],
+  "resource_ceilings": {
+    "max_spec_bytes": 1,
+    "max_instances": 1,
+    "max_input_files": 1,
+    "max_file_bytes": 1,
+    "max_total_input_bytes": 1,
+    "max_total_output_bytes": 1,
+    "max_attributes_per_instance": 1,
+    "max_sequence_items": 1,
+    "max_value_multiplicity": 1,
+    "max_content_assignments_per_instance": 1,
+    "max_references_per_instance": 1,
+    "max_parameter_nodes": 1,
+    "max_parameter_depth": 1
+  },
+  "assembly_resource_ceilings": {
+    "max_instances": 1,
+    "max_elements_per_instance": 1,
+    "max_sequence_depth": 1,
+    "max_parallelism": 1,
+    "max_value_bytes": 1,
+    "max_output_bytes": 1
+  },
+  "structural_assembly": {
+    "availability": "available",
+    "reason_code": null,
+    "supported_content_kinds": ["fixture"],
+    "supported_transfer_syntax_uids": ["1.2.840.10008.1.2.1"]
+  }
+}

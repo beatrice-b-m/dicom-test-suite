@@ -80,8 +80,9 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
                 ["release_candidate"],
             ),
             "src/manifest_contract.rs": (
-                ["schema", "sdk"],
+                ["assembly", "schema", "sdk"],
                 [
+                    "cargo test --locked --no-default-features --test assembly__subsystem",
                     "cargo test --locked --no-default-features --test cli_sdk__nonfast sdk_facade::",
                     "cargo test --locked --no-default-features --test schema_resources__subsystem",
                 ],
@@ -221,6 +222,45 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
                     "cargo test --locked --no-default-features --test schema_resources__subsystem",
                     commands,
                 )
+
+    def test_assembly_contract_fixtures_route_byte_plan_cli_and_reader_coverage(self):
+        for fixture in [
+            "tests/fixtures/cli/assembly-request-seed5.json",
+            "tests/fixtures/cli/assembly-manifest-v1.json",
+            "tests/fixtures/cli/assembly-result-v1.json",
+        ]:
+            with self.subTest(fixture=fixture):
+                result = self.select(fixture)
+                self.assertEqual(result["bundle_ids"], ["assembly", "schema", "sdk"])
+                self.assertEqual(
+                    result["matched_rules"][fixture],
+                    ["assembly-contract-fixtures", "schema-fixtures"],
+                )
+                commands = self.commands(result)
+                self.assertIn(
+                    "cargo test --locked --no-default-features --test assembly__subsystem",
+                    commands,
+                )
+                self.assertIn(
+                    "cargo test --locked --no-default-features --test cli_sdk__nonfast sdk_facade::",
+                    commands,
+                )
+                self.assertIn(
+                    "cargo test --locked --no-default-features --test schema_resources__subsystem",
+                    commands,
+                )
+
+    def test_shared_manifest_contract_routes_assembly_readers_and_semantics(self):
+        result = self.select("src/manifest_contract.rs")
+        self.assertEqual(result["bundle_ids"], ["assembly", "schema", "sdk"])
+        self.assertEqual(
+            result["matched_rules"]["src/manifest_contract.rs"],
+            ["manifest-contract"],
+        )
+        self.assertIn(
+            "cargo test --locked --no-default-features --test assembly__subsystem",
+            self.commands(result),
+        )
 
     def test_structured_report_qualification_is_explicitly_deferred(self):
         result = self.select("tests/composition_structured_reports.rs")

@@ -171,7 +171,7 @@
     {
       "id": "manifest-contract",
       "exact": ["src/manifest_contract.rs"],
-      "bundles": ["sdk", "schema"]
+      "bundles": ["assembly", "sdk", "schema"]
     },
     {
       "id": "identity-discovery",
@@ -200,6 +200,15 @@
         "schemas/structural-assembly-manifest-v2.schema.json"
       ],
       "bundles": ["assembly", "identity", "sdk"]
+    },
+    {
+      "id": "assembly-contract-fixtures",
+      "exact": [
+        "tests/fixtures/cli/assembly-request-seed5.json",
+        "tests/fixtures/cli/assembly-manifest-v1.json",
+        "tests/fixtures/cli/assembly-result-v1.json"
+      ],
+      "bundles": ["assembly"]
     },
     {
       "id": "embedded-corpus",

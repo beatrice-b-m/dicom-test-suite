@@ -56,30 +56,38 @@ fn generate_embedded_engine_resources() {
     ] {
         let source = root.join(path);
         require_regular_engine_resource(&source);
-        resources.push((path.to_string(), source));
+        resources.push((path.to_string(), source, true));
     }
     let color_profile = root.join("src/assets/dcmtk_srgb_input_profile.hex");
     require_regular_engine_resource(&color_profile);
     resources.push((
         "assets/dcmtk_srgb_input_profile.hex".to_string(),
         color_profile,
+        true,
     ));
     resources.sort_by(|left, right| left.0.cmp(&right.0));
     resources.dedup_by(|left, right| left.0 == right.0);
 
     let mut generated =
         String::from("pub(crate) static EMBEDDED_ENGINE_RESOURCES: &[(&str, &[u8])] = &[\n");
-    for (logical_path, source_path) in resources {
+    for (logical_path, source_path, _) in &resources {
         println!("cargo:rerun-if-changed={}", source_path.display());
         generated.push_str(&format!(
             "    ({logical_path:?}, include_bytes!({source_path:?})),\n",
         ));
     }
     generated.push_str("];\n");
+    generated.push_str("pub(crate) static LEGACY_ENGINE_RESOURCE_PATHS_V1: &[&str] = &[\n");
+    for (logical_path, _, legacy_v1) in &resources {
+        if *legacy_v1 {
+            generated.push_str(&format!("    {logical_path:?},\n"));
+        }
+    }
+    generated.push_str("];\n");
     fs::write(output, generated).expect("write embedded engine resource table");
 }
 
-fn collect_json_files(root: &Path, relative: &Path, resources: &mut Vec<(String, PathBuf)>) {
+fn collect_json_files(root: &Path, relative: &Path, resources: &mut Vec<(String, PathBuf, bool)>) {
     let directory = root.join(relative);
     require_engine_resource_path(&directory, EngineResourcePathKind::Directory);
     println!("cargo:rerun-if-changed={}", directory.display());
@@ -107,16 +115,15 @@ fn collect_json_files(root: &Path, relative: &Path, resources: &mut Vec<(String,
                 .expect("resource beneath root")
                 .to_string_lossy()
                 .replace('\\', "/");
-            if is_transitional_engine_resource(&logical) {
-                resources.push((logical, path));
-            }
+            let legacy_v1 = is_transitional_engine_resource(&logical);
+            resources.push((logical, path, legacy_v1));
         }
     }
 }
 
-/// Newly versioned identity-domain schemas are embedded directly by their
-/// owning modules without perturbing the locked transitional v1 engine
-/// inventory before R4.4 removes that compatibility oracle.
+/// Identify the exact paths that belonged to the frozen v1 resource oracle.
+/// R4.4 embeds every schema in the current v2 table while this predicate keeps
+/// the legacy 240-member compatibility identity reconstructable.
 pub(crate) fn is_transitional_engine_resource(logical_path: &str) -> bool {
     !matches!(
         logical_path,

@@ -45,7 +45,7 @@ fn embedded_resources_separate_current_identity_from_legacy_physical_closure() {
     let identity = resources.verify_integrity().unwrap();
     assert_eq!(identity.resource_set_version, ENGINE_RESOURCE_SET_VERSION);
     assert_eq!(identity.resource_count, ENGINE_RESOURCE_COUNT_V2);
-    assert_eq!(identity.resource_count, 60);
+    assert_eq!(identity.resource_count, 74);
     assert_eq!(identity.resource_set_sha256, ENGINE_RESOURCE_SHA256_V2);
     assert_eq!(
         identity
@@ -60,6 +60,21 @@ fn embedded_resources_separate_current_identity_from_legacy_physical_closure() {
             |item| item.logical_path == "Cargo.lock" || item.logical_path.starts_with("cases/")
         )
     );
+    for schema in [
+        "schemas/corpus-definition-bundle.schema.json",
+        "schemas/version-result-v2.schema.json",
+        "schemas/capabilities-result-v2.schema.json",
+        "schemas/manifest-v1.schema.json",
+        "schemas/release-manifest-v2.schema.json",
+    ] {
+        assert!(
+            identity
+                .resources
+                .iter()
+                .any(|item| item.logical_path == schema),
+            "current engine identity omits direct schema {schema}"
+        );
+    }
 }
 
 #[test]

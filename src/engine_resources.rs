@@ -12,10 +12,10 @@ use serde::{Deserialize, Serialize};
 include!(concat!(env!("OUT_DIR"), "/embedded_engine_resources.rs"));
 
 pub const ENGINE_RESOURCE_SET_VERSION: &str = "2.0.0";
-pub const ENGINE_RESOURCE_COUNT_V2: usize = 60;
-pub const ENGINE_RESOURCE_TOTAL_BYTES_V2: u64 = 1_169_381;
+pub const ENGINE_RESOURCE_COUNT_V2: usize = 74;
+pub const ENGINE_RESOURCE_TOTAL_BYTES_V2: u64 = 1_251_116;
 pub const ENGINE_RESOURCE_SHA256_V2: &str =
-    "b489c5f5b427f6417aff230ad57e983b7d9277696d007d7d0c0b2f44b147787f";
+    "a54f1c1e897162dfaca6c3bc9264b45d2e2ddc77258fe3c6263f7a285a675c17";
 pub const TRANSITIONAL_ENGINE_RESOURCE_COUNT_V1: usize = 240;
 pub const TRANSITIONAL_ENGINE_RESOURCE_SHA256_V1: &str =
     "dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410";
@@ -260,7 +260,7 @@ impl EngineResources {
     }
 
     pub(crate) fn legacy_identity_v1(&self) -> Result<EngineResourceIdentity, EngineResourceError> {
-        self.identity_for_paths(self.logical_paths(), "1.0.0")
+        self.identity_for_paths(LEGACY_ENGINE_RESOURCE_PATHS_V1.iter().copied(), "1.0.0")
     }
 
     fn identity_for_paths<'a>(

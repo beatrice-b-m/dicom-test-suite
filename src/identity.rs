@@ -339,65 +339,6 @@ struct Member {
     bytes: Vec<u8>,
 }
 
-const DIRECT_SCHEMA_MEMBERS: &[(&str, &[u8])] = &[
-    (
-        "schemas/assembly-result-v2.schema.json",
-        include_bytes!("../schemas/assembly-result-v2.schema.json"),
-    ),
-    (
-        "schemas/capabilities-result-v2.schema.json",
-        include_bytes!("../schemas/capabilities-result-v2.schema.json"),
-    ),
-    (
-        "schemas/corpus-definition-bundle.schema.json",
-        include_bytes!("../schemas/corpus-definition-bundle.schema.json"),
-    ),
-    (
-        "schemas/composition-manifest-v1.schema.json",
-        include_bytes!("../schemas/composition-manifest-v1.schema.json"),
-    ),
-    (
-        "schemas/composition-result-v2.schema.json",
-        include_bytes!("../schemas/composition-result-v2.schema.json"),
-    ),
-    (
-        "schemas/composition-report.schema.json",
-        include_bytes!("../schemas/composition-report.schema.json"),
-    ),
-    (
-        "schemas/composition-report-v1.schema.json",
-        include_bytes!("../schemas/composition-report-v1.schema.json"),
-    ),
-    (
-        "schemas/coverage-report-v1.schema.json",
-        include_bytes!("../schemas/coverage-report-v1.schema.json"),
-    ),
-    (
-        "schemas/generation-result-v2.schema.json",
-        include_bytes!("../schemas/generation-result-v2.schema.json"),
-    ),
-    (
-        "schemas/manifest-v1.schema.json",
-        include_bytes!("../schemas/manifest-v1.schema.json"),
-    ),
-    (
-        "schemas/release-manifest-v2.schema.json",
-        include_bytes!("../schemas/release-manifest-v2.schema.json"),
-    ),
-    (
-        "schemas/structural-assembly-manifest-v2.schema.json",
-        include_bytes!("../schemas/structural-assembly-manifest-v2.schema.json"),
-    ),
-    (
-        "schemas/structural-assembly-report-v2.schema.json",
-        include_bytes!("../schemas/structural-assembly-report-v2.schema.json"),
-    ),
-    (
-        "schemas/version-result-v2.schema.json",
-        include_bytes!("../schemas/version-result-v2.schema.json"),
-    ),
-];
-
 pub fn project_installed_identities(
     resources: &EngineResources,
     context: IdentityInspectionContext<'_>,
@@ -428,13 +369,6 @@ fn project_members(
     legacy: EngineResourceIdentity,
     cargo_lock: Vec<u8>,
 ) -> Result<InstalledIdentityDomains, IdentityProjectionError> {
-    members
-        .entry(InstalledMemberDomain::SchemaSet)
-        .or_default()
-        .extend(DIRECT_SCHEMA_MEMBERS.iter().map(|(path, bytes)| Member {
-            logical_path: (*path).to_string(),
-            bytes: bytes.to_vec(),
-        }));
     for records in members.values_mut() {
         records.sort_by(|left, right| left.logical_path.cmp(&right.logical_path));
     }

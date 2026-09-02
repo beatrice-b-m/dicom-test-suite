@@ -53,8 +53,10 @@ fn assemble_cli_publish_and_dry_run_share_the_typed_machine_shape() {
         String::from_utf8_lossy(&dry.stderr)
     );
     let dry: serde_json::Value = serde_json::from_slice(&dry.stdout).unwrap();
-    let schema: serde_json::Value =
-        serde_json::from_slice(&fs::read("schemas/assembly-result.schema.json").unwrap()).unwrap();
+    let schema: serde_json::Value = serde_json::from_slice(
+        &fs::read("schemas/assembly-result-v2.schema.json").unwrap(),
+    )
+    .unwrap();
     let validator = jsonschema::options()
         .with_draft(jsonschema::Draft::Draft202012)
         .build(&schema)
@@ -63,6 +65,8 @@ fn assemble_cli_publish_and_dry_run_share_the_typed_machine_shape() {
     assert!(validator.is_valid(&dry["result"]));
     assert_eq!(published["result"]["published"], true);
     assert_eq!(dry["result"]["published"], false);
+    assert_eq!(published["result"]["assembly_result_schema_version"], "2.0.0");
+    assert_eq!(published["result"]["manifest_schema_version"], "2.0.0");
     assert_eq!(
         published["result"]["corpus_plan_sha256"],
         dry["result"]["corpus_plan_sha256"]
@@ -82,6 +86,133 @@ fn assemble_cli_publish_and_dry_run_share_the_typed_machine_shape() {
     assert!(!dry_root.exists());
     fs::remove_dir_all(workspace).unwrap();
     fs::remove_dir_all(published_root).unwrap();
+}
+
+#[test]
+fn cli_validate_and_report_read_both_assembly_manifest_versions() {
+    let workspace = root("manifest-readers-workspace");
+    fs::create_dir_all(&workspace).unwrap();
+    let request_path = workspace.join("request.json");
+    fs::write(
+        &request_path,
+        include_bytes!("fixtures/cli/assembly-request-v1-capture.json"),
+    )
+    .unwrap();
+    let output_root = root("manifest-readers");
+    let assembled = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
+        .args(["assemble", "--request"])
+        .arg(&request_path)
+        .arg("--out")
+        .arg(&output_root)
+        .args(["--seed", "5"])
+        .output()
+        .unwrap();
+    assert!(assembled.status.success(), "{}", String::from_utf8_lossy(&assembled.stderr));
+    let manifest_path = output_root.join("manifest.json");
+    let current = fs::read(&manifest_path).unwrap();
+    for (version, bytes) in [
+        ("2.0.0", current.as_slice()),
+        (
+            "1.0.0",
+            include_bytes!("fixtures/cli/assembly-manifest-v1.json").as_slice(),
+        ),
+    ] {
+        fs::write(&manifest_path, bytes).unwrap();
+        for args in [
+            vec!["validate", output_root.to_str().unwrap()],
+            vec!["report", output_root.to_str().unwrap(), "--format", "json"],
+        ] {
+            let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
+                .args(args)
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "assembly manifest {version} reader failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+    }
+    fs::remove_dir_all(workspace).unwrap();
+    fs::remove_dir_all(output_root).unwrap();
+}
+
+#[test]
+fn cli_validate_and_report_reject_invalid_assembly_identity_contracts() {
+    let workspace = root("manifest-rejections-workspace");
+    fs::create_dir_all(&workspace).unwrap();
+    let request_path = workspace.join("request.json");
+    fs::write(
+        &request_path,
+        include_bytes!("fixtures/cli/assembly-request-v1-capture.json"),
+    )
+    .unwrap();
+    let output_root = root("manifest-rejections");
+    let assembled = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
+        .args(["assemble", "--request"])
+        .arg(&request_path)
+        .arg("--out")
+        .arg(&output_root)
+        .args(["--seed", "5"])
+        .output()
+        .unwrap();
+    assert!(assembled.status.success());
+    let manifest_path = output_root.join("manifest.json");
+    let current: serde_json::Value =
+        serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+    let runtime = serde_json::json!({
+        "runtime_id": "provider/primary/fixture",
+        "runtime_kind": "generation_provider",
+        "executable_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "version": "1.0.0",
+        "invocation_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    });
+    let mut changed_runtime = runtime.clone();
+    changed_runtime["invocation_sha256"] = serde_json::json!(
+        "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    );
+    for (label, manifest, diagnostic) in [
+        ("unknown-version", {
+            let mut value = current.clone();
+            value["manifest_schema_version"] = "9.0.0".into();
+            value
+        }, "unsupported assembly manifest schema version"),
+        ("missing-identity", {
+            let mut value = current.clone();
+            value.as_object_mut().unwrap().remove("identity_projection");
+            value
+        }, "identity_projection"),
+        ("malformed-digest", {
+            let mut value = current.clone();
+            value["identity_projection"]["engine"]["engine_sha256"] = "short".into();
+            value
+        }, "short"),
+        ("duplicate-runtime", {
+            let mut value = current.clone();
+            value["identity_projection"]["external_runtime"] =
+                serde_json::json!([runtime, changed_runtime]);
+            value
+        }, "duplicate runtime_id"),
+    ] {
+        fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest).unwrap()).unwrap();
+        for args in [
+            vec!["validate", output_root.to_str().unwrap()],
+            vec!["report", output_root.to_str().unwrap(), "--format", "json"],
+        ] {
+            let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
+                .args(args)
+                .output()
+                .unwrap();
+            assert!(!output.status.success(), "{label} unexpectedly succeeded");
+            assert!(
+                String::from_utf8_lossy(&output.stderr).contains(diagnostic),
+                "{label} diagnostic: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+    }
+    fs::remove_dir_all(workspace).unwrap();
+    fs::remove_dir_all(output_root).unwrap();
 }
 
 #[test]

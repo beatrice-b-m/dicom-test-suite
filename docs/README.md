@@ -105,6 +105,10 @@ These are dated evidence records for implemented vertical slices:
 
 ## Planning And Decision Records
 
+- [Generator/corpus repository separation plan](synth-dicom-gen-dcmview-corpus-separation-plan.md):
+  proposed dependency-ordered plan to rename the reusable product to
+  `synth-dicom-gen`, move the dcmview corpus into `dcmview-test-corpus`, add a
+  supported external corpus contract, and bound ordinary build and CI cost.
 - [Standalone product boundary ADR](adr/0002-standalone-product-boundary.md):
   accepted CLI-primary, SDK-secondary, workflow/evidence, compatibility-surface,
   distribution, and non-goal decisions for productization.

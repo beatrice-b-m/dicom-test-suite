@@ -98,6 +98,11 @@
       "covered_by_fast": ["release_ci__fast", "schema_resources__fast"],
       "deferred": ["release_candidate"]
     },
+    "resource_cache": {
+      "commands": [
+        {"kind": "lib", "module": "engine_resources::snapshot_cache_tests", "source": "src/engine_resources.rs", "list_count": 6}
+      ]
+    },
     "schema": {
       "commands": [{"target": "schema_resources__subsystem"}],
       "covered_by_fast": ["schema_resources__fast"]
@@ -173,8 +178,12 @@
       "bundles": ["provider"]
     },
     {
-      "id": "schema",
+      "id": "resource-cache",
       "exact": ["src/engine_resources.rs"],
+      "bundles": ["resource_cache", "schema"]
+    },
+    {
+      "id": "schema",
       "prefixes": ["schemas/"],
       "bundles": ["schema"]
     },

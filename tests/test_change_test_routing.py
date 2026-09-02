@@ -66,6 +66,14 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
                 ],
                 ["native_provider_contract", "release_candidate"],
             ),
+            "src/engine_resources.rs": (
+                ["resource_cache", "schema"],
+                [
+                    "cargo test --locked --no-default-features --lib engine_resources::snapshot_cache_tests::",
+                    "cargo test --locked --no-default-features --test schema_resources__subsystem",
+                ],
+                ["release_candidate"],
+            ),
             "schemas/manifest.schema.json": (
                 ["schema"],
                 ["cargo test --locked --no-default-features --test schema_resources__subsystem"],

@@ -3,10 +3,10 @@
   "scope": {
     "rust_test_targets": 22,
     "integration_test_targets": 20,
-    "rust_test_entry_groups": 266,
-    "rust_test_entries": 1423,
+    "rust_test_entry_groups": 267,
+    "rust_test_entries": 1430,
     "integration_source_groups": 187,
-    "integration_test_entries": 900,
+    "integration_test_entries": 901,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
   },
   "enums": {
@@ -3116,9 +3116,10 @@
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 35,
+      "entry_count": 36,
       "entries": [
         "validate_command_accepts_generated_smoke_root",
+        "validate_command_honors_verified_explicit_resources_and_rejects_tampering",
         "validate_command_accepts_generated_extended_root",
         "validate_command_accepts_references_to_same_run_sources",
         "validate_command_reports_unresolved_reference_identity",
@@ -3154,7 +3155,7 @@
         "validate_command_reports_missing_rt_dose_grid_scaling",
         "validate_command_reports_missing_encapsulated_pdf_mime_type"
       ],
-      "entry_digest": "004ad914fe226e2af958b50751e5b6f4576385cb53e5ff8145149ea964c362f1"
+      "entry_digest": "c166cbd40eaa25b7a0664c1aac4350f6d1d1f6d6fb6cc002eeaef19a6989bbe0"
     },
     {
       "source": "tests/version_cli.rs",
@@ -3740,6 +3741,23 @@
         "rejects_empty_frame_list_and_invalid_fragment_layouts"
       ],
       "entry_digest": "6698ab907a2b096aef43dcf50c94ca4ce9fb082ee310bc87dd531da3e44a7dac"
+    },
+    {
+      "source": "src/engine_resources.rs",
+      "target": "synth_dicom_gen",
+      "domain": "schema_resources",
+      "verification_class": "subsystem",
+      "cost_tier": "ordinary",
+      "entry_count": 6,
+      "entries": [
+        "snapshot_cache_is_lazy_and_reuses_one_complete_copy_across_clones",
+        "concurrent_snapshot_acquisition_materializes_once_per_handle",
+        "separately_constructed_handles_remain_isolated",
+        "materialized_root_lives_until_the_last_resource_or_snapshot_handle",
+        "failed_or_corrupt_materialization_is_not_published_and_can_retry",
+        "mutation_of_an_internal_shared_root_fails_closed_on_reuse"
+      ],
+      "entry_digest": "9787e13cf9370cad2304fc5d0945bb47b6c756de309d4a09afb355d114d8b251"
     },
     {
       "source": "src/executor/evidence.rs",

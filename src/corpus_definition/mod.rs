@@ -860,8 +860,10 @@ fn validate_closure(
                 && (dependency_is_legacy || dependency_is_stress || dependency_is_invalid))
                 || (owner_is_legacy && (dependency_is_stress || dependency_is_invalid))
                 || (owner_is_stress && (dependency_is_legacy || dependency_is_invalid))
-                || (owner_negative && dependency_fuzz)
-                || (owner_fuzz && dependency_negative)
+                || (owner_negative
+                    && (dependency_is_legacy || dependency_is_stress || dependency_fuzz))
+                || (owner_fuzz
+                    && (dependency_is_legacy || dependency_is_stress || dependency_negative))
             {
                 return Err(CorpusDefinitionError::Closure(format!(
                     "dependency scope leakage from {} to {dependency}",

@@ -348,7 +348,12 @@ fn deterministic_current_source_assembly_loads_all_registry_cases() {
         .as_array()
         .unwrap()
         .iter()
-        .map(|row| (row["case_id"].as_str().unwrap(), row["profiles"].as_array().unwrap()))
+        .map(|row| {
+            (
+                row["case_id"].as_str().unwrap(),
+                row["profiles"].as_array().unwrap(),
+            )
+        })
         .collect::<std::collections::BTreeMap<_, _>>();
     let invalid_to_ordinary_dependencies = bundle
         .manifest()
@@ -356,11 +361,13 @@ fn deterministic_current_source_assembly_loads_all_registry_cases() {
         .iter()
         .filter(|case| {
             let owner = profile_by_case[case.case_id.as_str()];
-            owner.iter().any(|value| matches!(value.as_str(), Some("negative" | "fuzz")))
+            owner
+                .iter()
+                .any(|value| matches!(value.as_str(), Some("negative" | "fuzz")))
                 && case.dependencies.iter().any(|dependency| {
-                    profile_by_case[dependency.as_str()].iter().any(|value| {
-                        matches!(value.as_str(), Some("smoke" | "core" | "extended"))
-                    })
+                    profile_by_case[dependency.as_str()]
+                        .iter()
+                        .any(|value| matches!(value.as_str(), Some("smoke" | "core" | "extended")))
                 })
         })
         .count();
@@ -536,6 +543,86 @@ fn ordinary_dependency_cannot_cross_into_negative_scope() {
 fn ordinary_dependency_cannot_cross_into_legacy_or_stress_scope() {
     assert_dependency_scope_rejected("legacy");
     assert_dependency_scope_rejected("stress");
+}
+
+fn assert_invalid_dependency_scope_rejected(owner_scope: &str, dependency_scope: &str) {
+    let root = temp(&format!(
+        "{owner_scope}-dependency-cannot-enter-{dependency_scope}"
+    ));
+    fs::remove_dir(&root).unwrap();
+    assert!(
+        Command::new("python3")
+            .arg("scripts/build-current-corpus-definition-bundle.py")
+            .arg(&root)
+            .status()
+            .unwrap()
+            .success()
+    );
+    let manifest_path = root.join("corpus-definition.json");
+    let mut manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+    let mut registry: serde_json::Value =
+        serde_json::from_slice(&fs::read(root.join("cases/registry.json")).unwrap()).unwrap();
+    let owner_ids = registry["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|row| {
+            row["profiles"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|profile| profile == owner_scope)
+        })
+        .map(|row| row["case_id"].as_str().unwrap().to_string())
+        .collect::<std::collections::BTreeSet<_>>();
+    let owner = manifest["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| {
+            owner_ids.contains(case["case_id"].as_str().unwrap())
+                && !case["dependencies"].as_array().unwrap().is_empty()
+        })
+        .unwrap();
+    let dependency = owner["dependencies"][0].as_str().unwrap().to_string();
+    let dependency_row = registry["cases"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|row| row["case_id"] == dependency)
+        .unwrap();
+    dependency_row["profiles"] = serde_json::json!([dependency_scope]);
+    for profile in manifest["profiles"].as_array_mut().unwrap() {
+        let is_dependency_scope = profile["profile_id"] == dependency_scope;
+        let Some(members) = profile
+            .get_mut("members")
+            .and_then(serde_json::Value::as_array_mut)
+        else {
+            continue;
+        };
+        members.retain(|member| member.as_str() != Some(&dependency));
+        if is_dependency_scope {
+            members.push(dependency.clone().into());
+            members.sort_by_key(|value| value.as_str().unwrap().to_string());
+        }
+    }
+    rewrite_registry(&root, &registry, &mut manifest);
+    let error = CorpusDefinitionBundle::load(&root).unwrap_err();
+    assert!(
+        matches!(&error, CorpusDefinitionError::Closure(message) if message.contains("dependency scope leakage")),
+        "{error}"
+    );
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn negative_and_fuzz_dependencies_cannot_cross_legacy_or_stress_boundaries() {
+    for owner_scope in ["negative", "fuzz"] {
+        for dependency_scope in ["legacy", "stress"] {
+            assert_invalid_dependency_scope_rejected(owner_scope, dependency_scope);
+        }
+    }
 }
 
 #[test]

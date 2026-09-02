@@ -87,9 +87,9 @@ cases are allowed only outside `smoke` and `core` and must include a reason.
 CI and local release checks must include a two-run smoke reproducibility check:
 
 ```sh
-dicom-test-suite generate --profile smoke --out /tmp/dts-a --seed 1
-dicom-test-suite generate --profile smoke --out /tmp/dts-b --seed 1
-diff -r /tmp/dts-a /tmp/dts-b
+synth-dicom-gen generate --profile smoke --out /tmp/synth-dicom-gen-a --seed 1
+synth-dicom-gen generate --profile smoke --out /tmp/synth-dicom-gen-b --seed 1
+diff -r /tmp/synth-dicom-gen-a /tmp/synth-dicom-gen-b
 ```
 
 Compressed or feature-gated cases declared `semantic_stable` must be compared by

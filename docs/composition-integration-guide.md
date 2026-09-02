@@ -79,7 +79,7 @@ The file API is `compose`. `compose_from_bytes` accepts the exact JSON bytes and
 an explicit root for relative local assets:
 
 ```rust,no_run
-use dicom_test_suite::composition::{ComposeBytesOptions, compose_from_bytes};
+use synth_dicom_gen::composition::{ComposeBytesOptions, compose_from_bytes};
 
 let spec = br#"{
   "composition_spec_schema_version":"0.1.0",
@@ -151,11 +151,11 @@ and typed provider parameters are part of the request contract:
 ```
 
 The runner allocates all UIDs before invocation and writes a canonical request
-to `DTS_COMPOSITION_PROVIDER_REQUEST`. It also sets:
+to `SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_REQUEST`. It also sets:
 
-- `DTS_COMPOSITION_PROVIDER_RESPONSE` for the response JSON;
-- `DTS_COMPOSITION_PROVIDER_OUTPUTS` for the one declared regular file; and
-- `DTS_COMPOSITION_PROVIDER_NETWORK=disabled`.
+- `SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_RESPONSE` for the response JSON;
+- `SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_OUTPUTS` for the one declared regular file; and
+- `SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_NETWORK=disabled`.
 
 The inherited environment is cleared, stdin is closed, diagnostics and
 response size are bounded, the working/output directories are private, and a

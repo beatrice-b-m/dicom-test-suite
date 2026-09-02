@@ -85,12 +85,12 @@ fn readme_leads_with_installed_product_and_isolates_contributor_commands() {
     let contributor = &readme[development..];
     for required in [
         "shasum -a 256 -c",
-        "DTS=",
-        "\"$DTS\" version --format json",
-        "\"$DTS\" capabilities --format json",
-        "\"$DTS\" generate",
-        "\"$DTS\" compose",
-        "\"$DTS\" assemble",
+        "GENERATOR=",
+        "\"$GENERATOR\" version --format json",
+        "\"$GENERATOR\" capabilities --format json",
+        "\"$GENERATOR\" generate",
+        "\"$GENERATOR\" compose",
+        "\"$GENERATOR\" assemble",
     ] {
         assert!(
             consumer.contains(required),

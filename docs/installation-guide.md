@@ -1,29 +1,33 @@
-# Install and upgrade dicom-test-suite
+# Install and upgrade synth-dicom-gen
 
-The supported primary channel is the target-specific native release archive.
-It contains one relocatable executable, project and dependency license notices,
+The intended primary channel is a target-specific native release archive. It
+contains one relocatable executable, project and dependency license notices,
 machine-readable version/capability documents, operating guides, and a
 schema-bound release manifest. A source checkout, Rust toolchain, and repository
-working directory are not runtime dependencies.
+working directory are not runtime dependencies. No renamed `0.2.0` archive is
+qualified yet, so this guide documents the install contract without claiming a
+currently downloadable release.
 
 ## Choose a qualified archive
 
-Use only an archive whose target has a dated qualification row in the current
-[standalone product status](standalone-product-status-2026-08-31.md). A builder
-existing for another target is not evidence that its artifact works. At the
-current gate, macOS arm64 and Linux x86_64 are independently qualified against
-the same exact release candidate.
+Use only an archive whose exact renamed product, revision, target, and checksum
+have a new dated qualification row. The historical
+[standalone product status](standalone-product-status-2026-08-31.md) qualifies
+only named `dicom-test-suite 0.1.0` artifacts; it is not qualification for a
+`synth-dicom-gen 0.2.0` archive. A builder existing for a target is not evidence
+that its artifact works.
 
-Set the downloaded filenames, verify the published checksum from the directory
-containing both files, and extract the archive:
+After such qualification exists, set the downloaded filenames, verify the
+published checksum from the directory containing both files, and extract the
+archive:
 
 ```sh
-ARCHIVE=dicom-test-suite-0.1.0-aarch64-apple-darwin.tar.gz
+ARCHIVE=synth-dicom-gen-0.2.0-aarch64-apple-darwin.tar.gz
 shasum -a 256 -c "$ARCHIVE.sha256"
 tar -xzf "$ARCHIVE"
-DTS="$PWD/dicom-test-suite-0.1.0-aarch64-apple-darwin/bin/dicom-test-suite"
-"$DTS" version --format json
-"$DTS" capabilities --format json
+GENERATOR="$PWD/synth-dicom-gen-0.2.0-aarch64-apple-darwin/bin/synth-dicom-gen"
+"$GENERATOR" version --format json
+"$GENERATOR" capabilities --format json
 ```
 
 On Linux, use `sha256sum -c` for a Linux archive that has actually been

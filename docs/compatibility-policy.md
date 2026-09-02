@@ -2,9 +2,11 @@
 
 **Effective:** 2026-08-31
 
-**Applies to:** the supported black-box CLI, `dicom_test_suite::sdk`, versioned
+**Updated:** 2026-09-02
+
+**Applies to:** the supported black-box CLI, `synth_dicom_gen::sdk`, versioned
 schemas and catalogs, qualified template behavior, product resources, and
-release archives identified by ADR 0002
+release archives under the ADR 0003 rename decision
 
 ## 1. Version domains
 
@@ -13,7 +15,7 @@ necessarily change every other contract.
 
 | Domain | Current pre-release line | Identity and compatibility boundary |
 | --- | --- | --- |
-| Product and crate | `0.1.x` | Cargo package and release archive; follows Semantic Versioning, including the pre-1.0 rules below. |
+| Product and crate | `0.2.x` | Cargo package and release archive; follows Semantic Versioning, including the pre-1.0 rules below. The unpublished `0.1.0` candidate remains historical evidence only. |
 | CLI API | `1.0.0` | JSON envelopes, command result objects, error codes, exit classes, and stdout/stderr rules. Human output is excluded. |
 | Composition request | `0.1.0` | `composition_spec_schema_version` and its accepted document semantics. |
 | Structural-assembly request | `1.0.0` when introduced | `assembly_request_schema_version` and its accepted document semantics. |

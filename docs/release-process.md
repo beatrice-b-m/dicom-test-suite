@@ -19,8 +19,8 @@ Use a new clone and an explicit signed/tagged revision. The example target is
 macOS arm64; substitute only a target that will run the complete target gate:
 
 ```sh
-git clone https://github.com/beatrice-b-m/dicom-test-suite.git dts-release
-cd dts-release
+git clone https://github.com/beatrice-b-m/synth-dicom-gen.git synth-dicom-gen-release
+cd synth-dicom-gen-release
 git checkout --detach RELEASE_REVISION
 test -z "$(git status --porcelain)"
 rustc --version
@@ -95,13 +95,13 @@ default features, confirms the binary's reported target/features, and writes a
 
 ```sh
 scripts/build-release-archive.sh "$TARGET" "$DIST"
-ARCHIVE="$DIST/dicom-test-suite-$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')-$TARGET.tar.gz"
+ARCHIVE="$DIST/synth-dicom-gen-$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')-$TARGET.tar.gz"
 scripts/verify-release-archive.sh "$ARCHIVE"
 ```
 
-Do not set `DTS_RELEASE_ALLOW_DIRTY` or `DTS_RELEASE_BINARY` for a public
+Do not set `SYNTH_DICOM_GEN_RELEASE_ALLOW_DIRTY` or `SYNTH_DICOM_GEN_RELEASE_BINARY` for a public
 candidate; those hooks exist only for isolated qualification tests. Select
-`DTS_RELEASE_FEATURES` only when the target's exact feature matrix will be
+`SYNTH_DICOM_GEN_RELEASE_FEATURES` only when the target's exact feature matrix will be
 qualified and published.
 
 The verifier checks the adjacent checksum, safe single-root extraction,

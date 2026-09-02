@@ -37,14 +37,7 @@
     ["dts-release-verify.", "synth-dicom-gen-release-verify."],
     ["$RUNNER_TEMP/dts-", "$RUNNER_TEMP/synth-dicom-gen-"]
   ],
-  "allowed_removed_occurrences": [
-    {
-      "token": "DTS_COMPOSITION_PROVIDER_NETWORK",
-      "path": "tests/composition_docs.rs",
-      "class": "pending_current_documentation_assertion",
-      "reason": "R3.3 owns the current Markdown rewrite; this test-only expected string neither consumes nor emits the removed runtime variable."
-    }
-  ],
+  "allowed_removed_occurrences": [],
   "retained_adapter_environment": [
     "DTS_BACKEND_DEPENDENCY_LOCK_SHA256",
     "DTS_BACKEND_ENVIRONMENT_FINGERPRINT",
@@ -67,13 +60,12 @@
     "legacy_payload_schema_fixture_or_evidence": "The bare dicom-test-suite spelling remains only in payload/schema compatibility fixtures, qualified adapter metadata, migration metadata, or historical evidence; R3.3 separately owns Markdown history/current-doc treatment."
   },
   "retained_snapshot": {
-    "match_count": 885,
-    "sha256": "612851628b24905811c07c5cd5b9494df58243a2e87adb30f42a74f19805673e",
+    "match_count": 884,
+    "sha256": "997a86933b6e326a26751b1ec48d018b49e166972fe40af0d74109ddb7a4b0d6",
     "by_class": {
       "dicom_payload_identifier": 188,
       "legacy_payload_schema_fixture_or_evidence": 271,
       "locked_python_module_or_backend": 127,
-      "pending_current_documentation_assertion": 1,
       "qualified_adapter_environment": 145,
       "qualified_adapter_or_test_fixture": 153
     }

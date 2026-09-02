@@ -756,7 +756,7 @@
         "p7_integration_guide_documents_every_external_boundary",
         "p8_docs_record_promotion_and_remaining_scope_without_coverage_inflation"
       ],
-      "entry_digest": "845de333763a3c2a993c001b80e21dececa70ffcdfc8cf74b0e2f1de619e88d3"
+      "entry_digest": "49828714b08c1a71785dbb35399eb837d6ae1f983f4b3084562882e2c24aa8fa"
     },
     {
       "source": "tests/composition_enhanced.rs",
@@ -2280,7 +2280,7 @@
         "enhanced_pet_registry_evidence_resolves_to_a_source_note",
         "nonsquare_registry_evidence_resolves_to_a_source_note"
       ],
-      "entry_digest": "ba1a0432daab9ac24bc95faeec217070dccc71dd7ddc4dace5d484c728205743"
+      "entry_digest": "93fee1afef5b76118023068c0f75d2e4cba5bbed1792415f9bce69f108fb1e33"
     },
     {
       "source": "tests/protocol_baseline.rs",
@@ -2785,7 +2785,7 @@
         "installed_examples_are_neutral_self_contained_and_documented",
         "readme_leads_with_installed_product_and_isolates_contributor_commands"
       ],
-      "entry_digest": "bc81856d70f82ea48c7d1aa7d932d10efea3c9a7c40fbe03d9c652c9a4eec4ff",
+      "entry_digest": "808ecfa7a8f7e59a3c1cb6572f5b4b57677067d83b295ddd71dbc88d368e5c51",
       "fast_cost_exemption": "Static documentation inspection; external-consumer names launch no process."
     },
     {

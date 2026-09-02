@@ -1,7 +1,7 @@
 # Automation and agent integration
 
 This guide is the black-box contract for scripts, CI jobs, side projects, and
-agents. Use the installed `dicom-test-suite` executable (`$DTS` below). Never
+agents. Use the installed `synth-dicom-gen` executable (`$GENERATOR` below). Never
 discover artifacts by repository layout, assumed counts, or filename guesses.
 
 ## Choose the workflow
@@ -9,8 +9,8 @@ discover artifacts by repository layout, assumed counts, or filename guesses.
 Start every integration session with:
 
 ```sh
-"$DTS" version --format json
-"$DTS" capabilities --format json
+"$GENERATOR" version --format json
+"$GENERATOR" capabilities --format json
 ```
 
 Use `generate` for curated registry cases and profiles, `compose` for qualified
@@ -26,11 +26,11 @@ is the current machine envelope report its CLI API directly. `report` retains a
 historical raw-JSON mode, so select CLI API `1.0.0` explicitly there:
 
 ```sh
-"$DTS" list-cases --profile smoke --format json
-"$DTS" generate --profile smoke \
+"$GENERATOR" list-cases --profile smoke --format json
+"$GENERATOR" generate --profile smoke \
   --out "$RUN_ROOT" --seed 1 --format json
-"$DTS" validate "$RUN_ROOT" --format json
-"$DTS" report "$RUN_ROOT" --format json --cli-api 1.0.0
+"$GENERATOR" validate "$RUN_ROOT" --format json
+"$GENERATOR" report "$RUN_ROOT" --format json --cli-api 1.0.0
 ```
 
 Success writes one JSON envelope to stdout and nothing to stderr. Failure writes

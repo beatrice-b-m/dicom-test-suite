@@ -67,7 +67,7 @@ fn p7_integration_guide_documents_every_external_boundary() {
         "compose_from_bytes",
         "ComposeCancellationToken",
         "composition-provider-request.schema.json",
-        "DTS_COMPOSITION_PROVIDER_NETWORK=disabled",
+        "SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_NETWORK=disabled",
         "argument_sha256",
         "portable OS-level socket sandbox",
         "same-project evidence",

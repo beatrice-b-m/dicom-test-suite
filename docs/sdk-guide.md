@@ -1,6 +1,6 @@
 # Rust SDK guide
 
-The supported Rust integration is the narrow `dicom_test_suite::sdk` facade.
+The supported Rust integration is the narrow `synth_dicom_gen::sdk` facade.
 Other public modules remain available during migration but are not part of the
 standalone compatibility commitment. The command-line JSON API remains the
 primary language-neutral integration.
@@ -11,7 +11,7 @@ Normal use selects the immutable embedded product resources and verifies their
 identity before returning a handle:
 
 ```rust
-use dicom_test_suite::sdk::DicomTestSuite;
+use synth_dicom_gen::sdk::DicomTestSuite;
 
 let product = DicomTestSuite::embedded()?;
 let version = product.version()?;
@@ -31,7 +31,7 @@ request derives its caller-asset root from the request file's parent unless it
 is overridden explicitly:
 
 ```rust
-use dicom_test_suite::sdk::{ComposeRequest, DicomTestSuite};
+use synth_dicom_gen::sdk::{ComposeRequest, DicomTestSuite};
 
 let product = DicomTestSuite::embedded()?;
 let request = ComposeRequest::from_file("request.json", "generated/result")
@@ -47,7 +47,7 @@ println!("{}", manifest.path().display());
 Byte requests require the caller-asset root as a constructor argument:
 
 ```rust
-# use dicom_test_suite::sdk::{ComposeRequest, DicomTestSuite};
+# use synth_dicom_gen::sdk::{ComposeRequest, DicomTestSuite};
 # let product = DicomTestSuite::embedded()?;
 # let spec = br#"{"composition_spec_schema_version":"0.1.0","instances":[]}"#;
 let request = ComposeRequest::from_json_bytes(spec, "caller-assets", "generated/result");
@@ -67,7 +67,7 @@ manifest kind is `StructuralAssembly` and never represents qualified IOD or
 curated coverage evidence:
 
 ```rust
-use dicom_test_suite::sdk::{AssembleRequest, DicomTestSuite, ManifestKind};
+use synth_dicom_gen::sdk::{AssembleRequest, DicomTestSuite, ManifestKind};
 
 let product = DicomTestSuite::embedded()?;
 let request = br#"{
@@ -95,7 +95,7 @@ content kinds, transfer syntaxes, and ceilings.
 Published roots are consumed through typed requests and results:
 
 ```rust
-# use dicom_test_suite::sdk::{DicomTestSuite, ReportRequest, ValidateRequest};
+# use synth_dicom_gen::sdk::{DicomTestSuite, ReportRequest, ValidateRequest};
 # let product = DicomTestSuite::embedded()?;
 let validation = product.validate(ValidateRequest::new("generated/result"))?;
 if !validation.is_valid() {
@@ -119,7 +119,7 @@ operation returns `serde_json::Value` as its primary result.
 Long-running composition and structural assembly accept a cooperative token:
 
 ```rust
-# use dicom_test_suite::sdk::{CancellationToken, ComposeRequest, DicomTestSuite};
+# use synth_dicom_gen::sdk::{CancellationToken, ComposeRequest, DicomTestSuite};
 # let product = DicomTestSuite::embedded()?;
 # let request = ComposeRequest::from_json_bytes(b"{}", ".", "generated/result");
 let cancellation = CancellationToken::new();

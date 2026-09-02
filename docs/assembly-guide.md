@@ -12,8 +12,8 @@ coverage matrices.
 Inspect the installed product before constructing a request:
 
 ```sh
-dicom-test-suite version --format json
-dicom-test-suite capabilities --format json
+synth-dicom-gen version --format json
+synth-dicom-gen capabilities --format json
 ```
 
 The capability result lists supported assembly request, result, and manifest
@@ -82,12 +82,12 @@ Save this synthetic request as `assembly.json`:
 Dry-run and publication use the same result schema:
 
 ```sh
-dicom-test-suite assemble --request assembly.json \
+synth-dicom-gen assemble --request assembly.json \
   --out generated/assembly-preview --dry-run --format json
-dicom-test-suite assemble --request assembly.json \
+synth-dicom-gen assemble --request assembly.json \
   --out generated/assembly --seed 1 --format json
-dicom-test-suite validate generated/assembly --format json
-dicom-test-suite report generated/assembly --format json --cli-api 1.0.0
+synth-dicom-gen validate generated/assembly --format json
+synth-dicom-gen report generated/assembly --format json --cli-api 1.0.0
 ```
 
 Every output root must be new. Dry-run creates no requested root. Publication

@@ -1,7 +1,7 @@
 # Corpus Consumption Guide
 
 This guide defines how another project or agent obtains a complete, validated,
-and traceable corpus from `dicom-test-suite`. It does not define how a viewer
+and traceable corpus from `synth-dicom-gen`. It does not define how a viewer
 must render the files, how a user interface must behave, or how downstream
 results must be graded.
 

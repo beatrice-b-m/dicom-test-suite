@@ -1,6 +1,6 @@
-# dicom-test-suite
+# synth-dicom-gen
 
-`dicom-test-suite` deterministically generates synthetic DICOM corpora for
+`synth-dicom-gen` deterministically generates synthetic DICOM corpora for
 viewer, parser, decoder, and interoperability testing. It produces DICOM Part
 10 files together with a machine-readable manifest that states what each file
 is intended to exercise, how it was generated, what it references, and which
@@ -18,19 +18,21 @@ committed; write them beneath an ignored path such as `generated/` or `out/`.
 
 ## Quick Start
 
-Download a target whose archive is qualified in the current
-[standalone product status](docs/standalone-product-status-2026-08-31.md), keep
-its adjacent `.sha256` file, and extract it. Linux x86_64 and macOS arm64 are
-qualified at the current release-candidate revision. This example uses the
-macOS arm64 artifact; do not infer support for another target from its name:
+The renamed `0.2.0` product does not yet have a qualified release archive.
+The dated [standalone product status](docs/standalone-product-status-2026-08-31.md)
+applies only to the immutable historical `0.1.0` candidate and must not be
+reused as evidence for this name. Once a target-specific `0.2.0` archive has a
+new dated qualification row, keep its adjacent `.sha256` file and use the
+following naming and verification flow; do not infer support from the example
+target:
 
 ```sh
-ARCHIVE=dicom-test-suite-0.1.0-aarch64-apple-darwin.tar.gz
+ARCHIVE=synth-dicom-gen-0.2.0-aarch64-apple-darwin.tar.gz
 shasum -a 256 -c "$ARCHIVE.sha256"
 tar -xzf "$ARCHIVE"
-DTS="$PWD/${ARCHIVE%.tar.gz}/bin/dicom-test-suite"
-"$DTS" version --format json
-"$DTS" capabilities --format json
+GENERATOR="$PWD/${ARCHIVE%.tar.gz}/bin/synth-dicom-gen"
+"$GENERATOR" version --format json
+"$GENERATOR" capabilities --format json
 ```
 
 The default installed binary needs no external codec executable or Python
@@ -38,17 +40,17 @@ environment for the smoke workflow:
 
 ```sh
 # Inspect the cases selected by a profile.
-"$DTS" list-cases --profile smoke
+"$GENERATOR" list-cases --profile smoke
 
 # Generate a small, byte-stable corpus into a new directory.
-"$DTS" generate \
+"$GENERATOR" generate \
   --profile smoke --out generated/smoke --seed 1
 
 # Verify the files against their manifest contracts.
-"$DTS" validate generated/smoke
+"$GENERATOR" validate generated/smoke
 
 # Summarize exactly what was generated and skipped.
-"$DTS" report \
+"$GENERATOR" report \
   generated/smoke --format markdown > generated/smoke/coverage.md
 ```
 
@@ -58,9 +60,9 @@ as a complete directory, and the result always includes `manifest.json`.
 For automation, discover the versioned contract and request JSON explicitly:
 
 ```sh
-"$DTS" version --format json
-"$DTS" capabilities --format json
-"$DTS" generate \
+"$GENERATOR" version --format json
+"$GENERATOR" capabilities --format json
+"$GENERATOR" generate \
   --profile smoke --out generated/smoke-machine --seed 1 --format json
 ```
 
@@ -69,7 +71,7 @@ error envelope on stderr and exit class `2` through `6`. Human output is not an
 automation contract. Historical report JSON stays raw unless the caller adds
 `--cli-api 1.0.0`, which wraps the unchanged report at `result.report`.
 
-Rust consumers should use the narrow supported `dicom_test_suite::sdk` facade;
+Rust consumers should use the narrow supported `synth_dicom_gen::sdk` facade;
 see the [Rust SDK guide](docs/sdk-guide.md). Existing public implementation
 modules remain visible during migration but are not standalone compatibility
 surfaces, as recorded by the
@@ -92,12 +94,12 @@ currently implemented valid DICOM SOP Class through a template or deterministic
 bundle, with bounded typed content models:
 
 ```sh
-"$DTS" templates list
-"$DTS" templates reference --format markdown
-"$DTS" compose \
+"$GENERATOR" templates list
+"$GENERATOR" templates reference --format markdown
+"$GENERATOR" compose \
   --spec "${ARCHIVE%.tar.gz}/examples/compose-raw-grayscale.json" \
   --out generated/composition-sc --seed 1
-"$DTS" validate generated/composition-sc
+"$GENERATOR" validate generated/composition-sc
 ```
 
 `compose` is standards-aware but does not project curated registry coverage.
@@ -117,10 +119,10 @@ supported standard, explicit-VR unknown, managed private, recursive Sequence,
 and typed bulk values:
 
 ```sh
-"$DTS" assemble \
+"$GENERATOR" assemble \
   --request "${ARCHIVE%.tar.gz}/examples/assemble-structural.json" \
   --out generated/structural --seed 1
-"$DTS" validate generated/structural
+"$GENERATOR" validate generated/structural
 ```
 
 Structural output always records `iod_conformance = "not_assessed"`; it cannot
@@ -162,10 +164,10 @@ The implemented registry covers these representative families:
 The authoritative inventory is `cases/registry.json`, not this summary:
 
 ```sh
-"$DTS" list-cases
-"$DTS" list-cases --profile all
-"$DTS" list-cases --profile extended --status planned
-"$DTS" report gaps --format markdown
+"$GENERATOR" list-cases
+"$GENERATOR" list-cases --profile all
+"$GENERATOR" list-cases --profile extended --status planned
+"$GENERATOR" report gaps --format markdown
 ```
 
 Planned and unavailable cases stay visible in manifests and reports. This is an
@@ -228,10 +230,10 @@ every retained instance, checks file/meta identities, pixel and encapsulation
 contracts, references, profile isolation, and specialized object semantics.
 
 ```sh
-"$DTS" generate \
+"$GENERATOR" generate \
   --profile all --out generated/all --seed 1
-"$DTS" validate generated/all
-"$DTS" report \
+"$GENERATOR" validate generated/all
+"$GENERATOR" report \
   generated/all --format json > generated/all/coverage.json
 ```
 
@@ -239,10 +241,10 @@ These are strong same-project checks, not independent DICOM certification.
 Independent conformance collection uses pinned external validators:
 
 ```sh
-"$DTS" conformance check-tools
-"$DTS" conformance run \
+"$GENERATOR" conformance check-tools
+"$GENERATOR" conformance run \
   generated/all --out reports/conformance/all
-"$DTS" conformance verify reports/conformance/all
+"$GENERATOR" conformance verify reports/conformance/all
 ```
 
 Tool installation, exact-case routing, accepted-finding policy, and evidence
@@ -265,7 +267,7 @@ interoperate      Qualify DICOMDIR media or report protocol availability.
 standards         Check the standards lock and registry evidence gaps.
 ```
 
-Run `"$DTS" --help` and the relevant subcommand with `--help`
+Run `"$GENERATOR" --help` and the relevant subcommand with `--help`
 for the exact syntax. The complete examples and output interpretation are in
 [docs/generation-guide.md](docs/generation-guide.md).
 

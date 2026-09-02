@@ -142,6 +142,30 @@ fn capabilities_json_is_live_schema_valid_and_conservative_outside_the_checkout(
         serde_json::json!(["1.0.0", "2.0.0"])
     );
     assert_eq!(
+        envelope["result"]["supported_versions"]["coverage_report"],
+        serde_json::json!(["1.0.0"])
+    );
+    assert_eq!(
+        envelope["result"]["supported_versions"]["coverage_report_validation"],
+        serde_json::json!(["0.1.0", "1.0.0"])
+    );
+    assert_eq!(
+        envelope["result"]["supported_versions"]["composition_report"],
+        serde_json::json!(["1.0.0"])
+    );
+    assert_eq!(
+        envelope["result"]["supported_versions"]["composition_report_validation"],
+        serde_json::json!(["0.1.0", "1.0.0"])
+    );
+    assert_eq!(
+        envelope["result"]["supported_versions"]["assembly_report"],
+        serde_json::json!(["2.0.0"])
+    );
+    assert_eq!(
+        envelope["result"]["supported_versions"]["assembly_report_validation"],
+        serde_json::json!(["1.0.0", "2.0.0"])
+    );
+    assert_eq!(
         envelope["result"]["supported_versions"]["release_manifest"][0],
         "1.0.0"
     );

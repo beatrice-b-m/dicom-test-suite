@@ -95,6 +95,14 @@ pub struct SupportedVersions {
     /// Composition manifest versions covered by validate/report compatibility readers.
     pub composition_manifest_validation: Vec<&'static str>,
     pub coverage_report: Vec<&'static str>,
+    /// Coverage report versions covered by manifest-driven report readers.
+    pub coverage_report_validation: Vec<&'static str>,
+    pub composition_report: Vec<&'static str>,
+    /// Composition report versions covered by manifest-driven report readers.
+    pub composition_report_validation: Vec<&'static str>,
+    pub assembly_report: Vec<&'static str>,
+    /// Assembly report versions covered by manifest-driven report readers.
+    pub assembly_report_validation: Vec<&'static str>,
     pub template_catalog: Vec<String>,
     pub case_registry: Vec<&'static str>,
     pub composition_provider_protocol: Vec<&'static str>,
@@ -455,7 +463,12 @@ pub fn capabilities_result_with_context(
             curated_manifest_validation: vec!["0.2.0", "0.3.0", "1.0.0"],
             composition_manifest: vec!["1.0.0"],
             composition_manifest_validation: vec!["0.4.0", "0.5.0", "1.0.0"],
-            coverage_report: vec!["0.1.0"],
+            coverage_report: vec!["1.0.0"],
+            coverage_report_validation: vec!["0.1.0", "1.0.0"],
+            composition_report: vec!["1.0.0"],
+            composition_report_validation: vec!["0.1.0", "1.0.0"],
+            assembly_report: vec!["2.0.0"],
+            assembly_report_validation: vec!["1.0.0", "2.0.0"],
             template_catalog: vec![catalog.template_catalog_schema_version],
             case_registry: vec!["0.2.0"],
             composition_provider_protocol: vec!["1.0.0"],

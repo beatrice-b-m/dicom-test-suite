@@ -347,6 +347,29 @@ fn sdk_curated_validate_and_report_read_exact_supported_manifest_versions() {
     assert!(product.validate(ValidateRequest::new(&root)).is_err());
     assert!(product.report(ReportRequest::new(&root)).is_err());
 
+    let runtime = serde_json::json!({
+        "runtime_id": "provider/primary/fixture",
+        "runtime_kind": "generation_provider",
+        "executable_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "version": "1.0.0",
+        "invocation_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    });
+    let mut changed_runtime = runtime.clone();
+    changed_runtime["invocation_sha256"] =
+        "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".into();
+    let mut duplicate_runtime = current.clone();
+    duplicate_runtime["identity_projection"]["external_runtime"] =
+        serde_json::json!([runtime, changed_runtime]);
+    std::fs::write(
+        &manifest_path,
+        serde_json::to_vec_pretty(&duplicate_runtime).unwrap(),
+    )
+    .unwrap();
+    let validation = product.validate(ValidateRequest::new(&root)).unwrap_err();
+    assert!(validation.diagnostic().contains("duplicate runtime_id"));
+    let report = product.report(ReportRequest::new(&root)).unwrap_err();
+    assert!(report.diagnostic().contains("duplicate runtime_id"));
+
     let mut missing_identity = current;
     missing_identity
         .as_object_mut()

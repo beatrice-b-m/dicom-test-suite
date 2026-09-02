@@ -34,8 +34,10 @@
       "support_window": "every composition request, manifest, provider, template, and catalog version advertised by the exact product",
       "apis": ["compose", "templates"],
       "schemas": [
-        "composition-manifest.schema.json", "composition-provider-request.schema.json",
+        "composition-manifest.schema.json", "composition-manifest-v1.schema.json",
+        "composition-provider-request.schema.json",
         "composition-provider-response.schema.json", "composition-result.schema.json",
+        "composition-result-v2.schema.json",
         "composition-spec.schema.json", "template-catalog.schema.json",
         "templates-result.schema.json"
       ]

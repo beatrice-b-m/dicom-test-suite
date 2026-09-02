@@ -2616,6 +2616,9 @@ report version; the smoke comparison reproduces the exact R0 report bytes.
 
 All three current schemas reject unknown versions, missing identity,
 malformed digests, and duplicate runtime IDs with different fingerprints.
+The curated family now proves all four mutations through both public CLI
+`validate`/`report` commands and SDK `validate`/`report` methods; composition
+and assembly retain their equivalent public matrices.
 The two domain report producers now have explicit overlapping change routes:
 `src/composition/validation.rs` selects composition plus the focused report
 bundle, and `src/assembly/validation.rs` selects assembly plus that report
@@ -2635,8 +2638,8 @@ the transitional oracle remains exactly 240 members /
 Bounded ordinary verification after the slice:
 
 - report-contract unit route: 3 passed in 0.58 seconds;
-- report CLI route: 47 passed in 16.29 seconds;
-- SDK facade route: 12 passed in 3.18 seconds;
+- report CLI route: 48 passed in 16.69 seconds;
+- SDK facade route: 12 passed in 3.34 seconds;
 - composition subsystem: 84 passed and 5 explicitly ignored provider bodies
   in 14.29 seconds;
 - assembly subsystem: 25 passed in 3.11 seconds (20.31 seconds wall including
@@ -2645,7 +2648,7 @@ Bounded ordinary verification after the slice:
 - capabilities route: 4 passed in 1.30 seconds;
 - identity-domain route: 3 passed in 0.78 seconds;
 - compatibility ownership: 1 passed;
-- test ownership: 22 targets, 266 groups, and 1,418 entries passed;
+- test ownership: 22 targets, 266 groups, and 1,419 entries passed;
 - spelling inventory: 944 retained occurrences, SHA-256
   `8c59a643a5719e4690c9150cdfd632014e7996c6b8e2ad4b639d0e0cf4c88618`.
 

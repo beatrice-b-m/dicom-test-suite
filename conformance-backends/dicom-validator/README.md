@@ -51,6 +51,11 @@ export DTS_DICOM_VALIDATOR_PYTHON="$PWD/conformance-backends/dicom-validator/.ve
 export DTS_DICOM_VALIDATOR_STANDARD_HOME=/path/to/locked/dicom-validator-cache
 ```
 
+These two environment names and the `dts_dicom_validator_adapter` module path
+are retained qualified adapter provenance, not `synth-dicom-gen` aliases. They
+remain frozen until the external adapter and its definition-cache identity are
+independently renamed and requalified.
+
 ## Tests
 
 The adapter test suite uses the exact pytest version in `uv.lock`:

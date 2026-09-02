@@ -27,6 +27,12 @@ dynamically linked `liblcms2.2` implementation.
 
 ## Adapter decision matrix
 
+Names beginning with `DTS_`, `dts_`, or `dts-` in this matrix identify locked
+adapter runtimes and protocol entry points. They are retained qualification
+provenance, not aliases for `synth-dicom-gen`; changing them requires separate
+external-adapter qualification. Product-controlled runtime variables use the
+`SYNTH_DICOM_GEN_` prefix.
+
 | Role | Adapter | Initial command | Requirement | Acquisition and constraints |
 | --- | --- | --- | --- | --- |
 | Per-instance IOD | `dicom3tools-dciodvfy` | `dciodvfy -new` | Required | dicom3tools BSD license; pin source snapshot/package and executable hash. Homebrew does not currently provide it on this host. Debian packages both validator commands; upstream publishes source and platform builds. Validator definitions evolve, so the snapshot/definition baseline must remain visible. |
@@ -315,7 +321,7 @@ independently of the project-owned encoder, then `dcmdump +W` extracts native
 Pixel Data. The adapter preserves DCMTK's decompressed little-endian sample byte
 order and normalizes planar color to the manifest's interleaved frame-hash
 convention before comparison. This makes the independent check sensitive to
-incorrect RLE byte-plane ordering. Set `DTS_REAL_CONFORMANCE=1` to exercise the
+incorrect RLE byte-plane ordering. Set `SYNTH_DICOM_GEN_REAL_CONFORMANCE=1` to exercise the
 conditional integration test across all RLE files.
 
 Native pixel coverage remains case-scoped rather than implied for every native

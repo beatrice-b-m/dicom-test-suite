@@ -20,6 +20,13 @@ dimension indices, explicit positions, macro placement, occupancy, payload,
 or hash drift. It is a payload validator, not the corpus generator or the
 independent IOD authority.
 
+The `dts_wsi_reconstruction` module, `dts-wsi-reconstruct` command, and
+`DTS_WSI_RECONSTRUCTION_PYTHON` environment name are retained qualified
+adapter provenance. They are not aliases for `synth-dicom-gen` and remain
+frozen until this external adapter is independently renamed and requalified.
+The `/private/tmp/dts-uv-cache` path below is an adapter-local disposable cache
+label, not a product staging prefix or supported installation path.
+
 Provision and test offline after the pinned artifacts have been cached:
 
 ```sh

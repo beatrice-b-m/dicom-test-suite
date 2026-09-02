@@ -106,7 +106,7 @@ absent. Cleanup targets only the exact staging directory created by this run.
 Generation performs no network fetch for content, templates, standards data,
 dependencies, codecs, validators, or providers. A provider receives a cleared
 environment, no credentials or network source, and
-`DTS_COMPOSITION_PROVIDER_NETWORK=disabled`. This is a protocol prohibition,
+`SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_NETWORK=disabled`. This is a protocol prohibition,
 not a portable OS socket sandbox. A prepared provider must operate offline; an
 operator running code that is not trusted to honor the contract must add an
 external platform sandbox. The project does not describe protocol-level

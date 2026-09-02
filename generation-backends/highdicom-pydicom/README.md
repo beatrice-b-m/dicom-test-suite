@@ -33,6 +33,11 @@ ABI, locked distribution versions and installed files, backend entrypoint bytes,
 and executable bytes before invocation. Absolute environment paths are not part
 of the deterministic identity.
 
+`DTS_HIGHDICOM_PYTHON` and the `dts_highdicom_backend` module name are retained
+qualified adapter identities, not aliases for the renamed product. Their
+spelling remains frozen until this external runtime is independently renamed
+and requalified.
+
 ## Supported Recipes
 
 The backend supports the paired CT-derived Parametric Map recipes below. Both

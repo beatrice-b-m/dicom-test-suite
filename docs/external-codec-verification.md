@@ -35,10 +35,10 @@ when the run revalidates its claims.
 command -v ojph_compress
 cargo test --locked --all-targets --features htj2k_openjph
 cargo run --locked --features htj2k_openjph -- generate \
-  --profile extended --out /tmp/dts-htj2k --seed 1
-cargo run --locked --features htj2k_openjph -- validate /tmp/dts-htj2k
+  --profile extended --out /tmp/synth-dicom-gen-htj2k --seed 1
+cargo run --locked --features htj2k_openjph -- validate /tmp/synth-dicom-gen-htj2k
 cargo run --locked --features htj2k_openjph -- report \
-  /tmp/dts-htj2k --format json
+  /tmp/synth-dicom-gen-htj2k --format json
 ```
 
 The run passes only if the HTJ2K case is generated rather than skipped,
@@ -51,11 +51,11 @@ the manifest contains the executable fingerprint.
 command -v dcmcjpeg
 cargo test --locked --all-targets --features legacy_jpeg_dcmtk
 cargo run --locked --features legacy_jpeg_dcmtk -- generate \
-  --profile extended --out /tmp/dts-legacy-jpeg --seed 1
+  --profile extended --out /tmp/synth-dicom-gen-legacy-jpeg --seed 1
 cargo run --locked --features legacy_jpeg_dcmtk -- validate \
-  /tmp/dts-legacy-jpeg
+  /tmp/synth-dicom-gen-legacy-jpeg
 cargo run --locked --features legacy_jpeg_dcmtk -- report \
-  /tmp/dts-legacy-jpeg --format json
+  /tmp/synth-dicom-gen-legacy-jpeg --format json
 ```
 
 The run passes only if both legacy JPEG Lossless cases are generated rather

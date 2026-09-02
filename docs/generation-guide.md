@@ -227,6 +227,34 @@ installed files, or entrypoint does not match the lock. If the backend is not
 prepared, generation still completes and records an
 `external_backend_unavailable` skipped row.
 
+### Qualified adapter spellings retained during the product rename
+
+The following 13 environment names belong to locked external adapters, not to
+the product CLI. Their exact spellings remain part of qualified runtime and
+fingerprint provenance until each adapter is independently renamed and
+requalified:
+
+- `DTS_BACKEND_DEPENDENCY_LOCK_SHA256`
+- `DTS_BACKEND_ENVIRONMENT_FINGERPRINT`
+- `DTS_BACKEND_EXECUTABLE_FINGERPRINT`
+- `DTS_BACKEND_OUTPUTS`
+- `DTS_BACKEND_REQUEST`
+- `DTS_BACKEND_RESPONSE`
+- `DTS_DICOM_VALIDATOR_PYTHON`
+- `DTS_DICOM_VALIDATOR_STANDARD_HOME`
+- `DTS_HIGHDICOM_PYTHON`
+- `DTS_LCMS_HOME`
+- `DTS_M6_SEGMENTATION_FIXTURE`
+- `DTS_PIXELMED_HOME`
+- `DTS_WSI_RECONSTRUCTION_PYTHON`
+
+Likewise, locked module and command identities such as
+`dts_highdicom_backend`, `dts_dicom_validator_adapter`,
+`dts_wsi_reconstruction`, and `dts-wsi-reconstruct` are retained adapter
+provenance. They are not aliases for the `synth-dicom-gen` executable. Missing
+adapter qualification remains unavailable evidence; the rename does not imply
+that those runtimes have been requalified.
+
 ## 5. Generate
 
 The command requires a profile and a new output directory:

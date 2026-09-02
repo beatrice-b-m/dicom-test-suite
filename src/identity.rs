@@ -773,8 +773,11 @@ mod identity_domain_tests {
     }
 
     #[test]
-    fn external_provider_identity_requires_successful_typed_execution_evidence() {
-        use crate::executor::evidence::{ProviderEvidence, ResultStatus};
+    fn external_runtime_identity_requires_successful_typed_execution_evidence() {
+        use crate::executor::evidence::{
+            CodecEvidence, EvidenceIndependence, MaterializationServiceEvidence, ObligationResult,
+            ProviderEvidence, ResultStatus, ToolEvidence,
+        };
 
         let digest = "a".repeat(64);
         let provider = ProviderEvidence {
@@ -802,5 +805,106 @@ mod identity_domain_tests {
         let mut internal = provider;
         internal.executable_sha256 = None;
         assert!(crate::provider_external_runtime_identity("case/one", &internal).is_none());
+
+        let tool = ToolEvidence {
+            tool_id: "codec_tool".into(),
+            version: "2.0.0".into(),
+            executable_sha256: "f".repeat(64),
+        };
+        let codec = CodecEvidence {
+            backend_id: "external_codec".into(),
+            backend_version: "2.0.0".into(),
+            backend_kind: "external_command".into(),
+            display_name: "External Codec".into(),
+            feature_gate: None,
+            slot: "primary".into(),
+            request_sha256: "1".repeat(64),
+            transfer_syntax_uid: "1.2.840.10008.1.2.4.50".into(),
+            status: ResultStatus::Passed,
+            determinism: "byte_stable".into(),
+            encoded_frame_sha256: vec![],
+            decoded_frame_sha256: vec![],
+            metrics: BTreeMap::new(),
+            claims: BTreeMap::new(),
+            tool: Some(tool.clone()),
+        };
+        let codec_identity = crate::codec_external_runtime_identity("case/one", &codec).unwrap();
+        assert_eq!(codec_identity.runtime_kind, "frame_codec");
+        let mut failed_codec = codec.clone();
+        failed_codec.status = ResultStatus::Failed;
+        assert!(crate::codec_external_runtime_identity("case/one", &failed_codec).is_none());
+        let mut internal_codec = codec;
+        internal_codec.tool = None;
+        assert!(crate::codec_external_runtime_identity("case/one", &internal_codec).is_none());
+
+        let obligation = ObligationResult {
+            obligation_id: "independent_check".into(),
+            route_id: "external_tool".into(),
+            independence: EvidenceIndependence::IndependentTool,
+            required: true,
+            status: ResultStatus::Passed,
+            message: "passed".into(),
+            tool: Some(tool),
+        };
+        let evidence_identity =
+            crate::obligation_external_runtime_identity("case/one", &obligation).unwrap();
+        assert_eq!(evidence_identity.runtime_kind, "evidence_tool");
+        let mut failed_obligation = obligation.clone();
+        failed_obligation.status = ResultStatus::Failed;
+        assert!(
+            crate::obligation_external_runtime_identity("case/one", &failed_obligation).is_none()
+        );
+        let mut internal_obligation = obligation;
+        internal_obligation.tool = None;
+        assert!(
+            crate::obligation_external_runtime_identity("case/one", &internal_obligation).is_none()
+        );
+
+        let service = MaterializationServiceEvidence {
+            evidence_id: "renderer".into(),
+            evidence_kind: "materialization".into(),
+            producer_id: "external_renderer".into(),
+            producer_version: "3.0.0".into(),
+            producer_executable_sha256: Some("9".repeat(64)),
+            claims: BTreeMap::from([("mode".into(), serde_json::json!("strict"))]),
+        };
+        let materialization_identity =
+            crate::materialization_external_runtime_identity("case/one", &service)
+                .unwrap()
+                .unwrap();
+        assert_eq!(
+            materialization_identity.runtime_kind,
+            "materialization_service"
+        );
+        let mut internal_service = service;
+        internal_service.producer_executable_sha256 = None;
+        assert!(
+            crate::materialization_external_runtime_identity("case/one", &internal_service)
+                .unwrap()
+                .is_none()
+        );
+
+        let resources = EngineResources::embedded();
+        let duplicate = ExternalRuntimeIdentity {
+            runtime_id: "duplicate".into(),
+            runtime_kind: "frame_codec".into(),
+            executable_sha256: "a".repeat(64),
+            version: "1.0.0".into(),
+            invocation_sha256: "b".repeat(64),
+        };
+        assert!(matches!(
+            project_curated_manifest_identities(
+                &resources,
+                None,
+                vec![duplicate.clone(), duplicate.clone()]
+            ),
+            Err(IdentityProjectionError::InvalidExternalRuntime(_))
+        ));
+        let mut malformed = duplicate;
+        malformed.executable_sha256 = "A".repeat(64);
+        assert!(matches!(
+            project_curated_manifest_identities(&resources, None, vec![malformed]),
+            Err(IdentityProjectionError::InvalidExternalRuntime(_))
+        ));
     }
 }

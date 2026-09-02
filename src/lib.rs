@@ -987,85 +987,27 @@ fn curated_external_runtime_identities(
             }
         }
         for codec in &artifact.execution.codecs {
-            let Some(tool) = &codec.tool else {
-                continue;
-            };
-            if codec.status != ResultStatus::Passed {
-                continue;
+            if let Some(identity) =
+                codec_external_runtime_identity(&artifact.execution.logical_id, codec)
+            {
+                identities.push(identity);
             }
-            identities.push(identity::ExternalRuntimeIdentity {
-                runtime_id: format!(
-                    "codec/{}/{}/{}",
-                    artifact.execution.logical_id, codec.backend_id, codec.slot
-                ),
-                runtime_kind: "frame_codec".into(),
-                executable_sha256: tool.executable_sha256.clone(),
-                version: tool.version.clone(),
-                invocation_sha256: sha256_hex(
-                    format!(
-                        "artifact={}\nbackend={}\nslot={}\nrequest={}\n",
-                        artifact.execution.logical_id,
-                        codec.backend_id,
-                        codec.slot,
-                        codec.request_sha256,
-                    )
-                    .as_bytes(),
-                ),
-            });
         }
         for obligation in &artifact.execution.obligations {
-            let Some(tool) = &obligation.tool else {
-                continue;
-            };
-            if obligation.status != ResultStatus::Passed {
-                continue;
+            if let Some(identity) =
+                obligation_external_runtime_identity(&artifact.execution.logical_id, obligation)
+            {
+                identities.push(identity);
             }
-            identities.push(identity::ExternalRuntimeIdentity {
-                runtime_id: format!(
-                    "evidence/{}/{}",
-                    artifact.execution.logical_id, obligation.obligation_id
-                ),
-                runtime_kind: "evidence_tool".into(),
-                executable_sha256: tool.executable_sha256.clone(),
-                version: tool.version.clone(),
-                invocation_sha256: sha256_hex(
-                    format!(
-                        "artifact={}\nobligation={}\nroute={}\ntool={}\n",
-                        artifact.execution.logical_id,
-                        obligation.obligation_id,
-                        obligation.route_id,
-                        tool.tool_id,
-                    )
-                    .as_bytes(),
-                ),
-            });
         }
         if let Some(materialization) = &artifact.execution.materialization {
             for evidence in &materialization.service_evidence {
-                let Some(executable_sha256) = &evidence.producer_executable_sha256 else {
-                    continue;
-                };
-                let claims = serde_json::to_vec(&evidence.claims)
-                    .map_err(|error| ManifestProjectionError(error.to_string()))?;
-                identities.push(identity::ExternalRuntimeIdentity {
-                    runtime_id: format!(
-                        "materialization/{}/{}",
-                        artifact.execution.logical_id, evidence.evidence_id
-                    ),
-                    runtime_kind: "materialization_service".into(),
-                    executable_sha256: executable_sha256.clone(),
-                    version: evidence.producer_version.clone(),
-                    invocation_sha256: sha256_hex(
-                        format!(
-                            "artifact={}\nevidence={}\nproducer={}\nclaims={}\n",
-                            artifact.execution.logical_id,
-                            evidence.evidence_id,
-                            evidence.producer_id,
-                            sha256_hex(&claims),
-                        )
-                        .as_bytes(),
-                    ),
-                });
+                if let Some(identity) = materialization_external_runtime_identity(
+                    &artifact.execution.logical_id,
+                    evidence,
+                )? {
+                    identities.push(identity);
+                }
             }
         }
     }
@@ -1096,6 +1038,78 @@ fn provider_external_runtime_identity(
             .as_bytes(),
         ),
     })
+}
+
+fn codec_external_runtime_identity(
+    artifact_id: &str,
+    codec: &crate::executor::evidence::CodecEvidence,
+) -> Option<identity::ExternalRuntimeIdentity> {
+    let tool = codec.tool.as_ref()?;
+    if codec.status != ResultStatus::Passed {
+        return None;
+    }
+    Some(identity::ExternalRuntimeIdentity {
+        runtime_id: format!("codec/{artifact_id}/{}/{}", codec.backend_id, codec.slot),
+        runtime_kind: "frame_codec".into(),
+        executable_sha256: tool.executable_sha256.clone(),
+        version: tool.version.clone(),
+        invocation_sha256: sha256_hex(
+            format!(
+                "artifact={artifact_id}\nbackend={}\nslot={}\nrequest={}\n",
+                codec.backend_id, codec.slot, codec.request_sha256,
+            )
+            .as_bytes(),
+        ),
+    })
+}
+
+fn obligation_external_runtime_identity(
+    artifact_id: &str,
+    obligation: &crate::executor::evidence::ObligationResult,
+) -> Option<identity::ExternalRuntimeIdentity> {
+    let tool = obligation.tool.as_ref()?;
+    if obligation.status != ResultStatus::Passed {
+        return None;
+    }
+    Some(identity::ExternalRuntimeIdentity {
+        runtime_id: format!("evidence/{artifact_id}/{}", obligation.obligation_id),
+        runtime_kind: "evidence_tool".into(),
+        executable_sha256: tool.executable_sha256.clone(),
+        version: tool.version.clone(),
+        invocation_sha256: sha256_hex(
+            format!(
+                "artifact={artifact_id}\nobligation={}\nroute={}\ntool={}\n",
+                obligation.obligation_id, obligation.route_id, tool.tool_id,
+            )
+            .as_bytes(),
+        ),
+    })
+}
+
+fn materialization_external_runtime_identity(
+    artifact_id: &str,
+    evidence: &crate::executor::evidence::MaterializationServiceEvidence,
+) -> Result<Option<identity::ExternalRuntimeIdentity>, ManifestProjectionError> {
+    let Some(executable_sha256) = &evidence.producer_executable_sha256 else {
+        return Ok(None);
+    };
+    let claims = serde_json::to_vec(&evidence.claims)
+        .map_err(|error| ManifestProjectionError(error.to_string()))?;
+    Ok(Some(identity::ExternalRuntimeIdentity {
+        runtime_id: format!("materialization/{artifact_id}/{}", evidence.evidence_id),
+        runtime_kind: "materialization_service".into(),
+        executable_sha256: executable_sha256.clone(),
+        version: evidence.producer_version.clone(),
+        invocation_sha256: sha256_hex(
+            format!(
+                "artifact={artifact_id}\nevidence={}\nproducer={}\nclaims={}\n",
+                evidence.evidence_id,
+                evidence.producer_id,
+                sha256_hex(&claims),
+            )
+            .as_bytes(),
+        ),
+    }))
 }
 
 pub fn write_generation_run(

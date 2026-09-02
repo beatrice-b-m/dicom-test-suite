@@ -3,9 +3,9 @@
   "scope": {
     "rust_test_targets": 22,
     "integration_test_targets": 20,
-    "rust_test_entry_groups": 264,
-    "rust_test_entries": 1400,
-    "integration_source_groups": 186,
+    "rust_test_entry_groups": 265,
+    "rust_test_entries": 1401,
+    "integration_source_groups": 187,
     "integration_test_entries": 882,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
   },
@@ -248,7 +248,7 @@
       "entries": [
         "advanced_blending_vertical_slice_is_byte_deterministic_and_closed"
       ],
-      "entry_digest": "bc46d4ba5fa521f9ce666cbb9f5e9f0795991a758ce9451cd6775782270e1889"
+      "entry_digest": "e93133d2e9900b2092c377e4f22a5d82922a3962e4edca69667be72b143abb49"
     },
     {
       "source": "tests/advanced_provider_contract.rs",
@@ -370,7 +370,7 @@
       "entries": [
         "blending_presentation_state_vertical_slice_is_byte_deterministic_and_closed"
       ],
-      "entry_digest": "86188b37cad3c82424f6b7f983a89b005f7c2cd4a895f28ab415af1763bf25a0"
+      "entry_digest": "b6c6e34f8f7a140dac91697cafabe156a5a09f6662949ec6ddb101800715da98"
     },
     {
       "source": "tests/caller_content_consumer.rs",
@@ -603,7 +603,7 @@
       "entries": [
         "color_softcopy_presentation_state_vertical_slice_is_byte_deterministic_and_closed"
       ],
-      "entry_digest": "3dbeeec7063e53bb299a48c382055205a69893ca2e9cfd417fc084d81bb856c7"
+      "entry_digest": "3791cd2ebf79b1725fde33faf1a5c3f0f520c6a4ec74cbb23ca4074b65b57be4"
     },
     {
       "source": "tests/compatibility_ownership.rs",
@@ -1292,7 +1292,7 @@
         "core_generates_duplicate_and_empty_type2_instance_numbers",
         "core_generates_two_series_in_one_study_and_frame_of_reference"
       ],
-      "entry_digest": "23371ecbef8e05086c59cde2966ae98b349b021149f3a1f27dbc893c575823a8"
+      "entry_digest": "8b41d9340178d99b58776086bfe9a8eba8ab528f1eadc98002523d390c6b6694"
     },
     {
       "source": "tests/curated_advanced_plan.rs",
@@ -1405,7 +1405,7 @@
         "public_planning_and_preparation_leave_the_destination_absent",
         "failed_ordinary_run_leaves_no_destination_or_private_staging"
       ],
-      "entry_digest": "abd5029bad9965bea9b8a27715a3025192dc3b69a3e136fa2b663514123e23f4"
+      "entry_digest": "3e2c33f2ff83129ada5e87413910c86432cca31d1506ff594c73287dcad223d2"
     },
     {
       "source": "tests/curated_locked_full_file_execution.rs",
@@ -1447,6 +1447,16 @@
         "production_projector_is_filesystem_and_generator_free"
       ],
       "entry_digest": "4a184a7ec76cf529133e3d3d9cd55038c7887a1e385708a42330c569c118e6ba"
+    },
+    {
+      "source": "tests/curated_manifest_contract_support.rs",
+      "target": "corpus_generation__subsystem",
+      "domain": "corpus_generation",
+      "verification_class": "subsystem",
+      "cost_tier": "ordinary",
+      "entry_count": 0,
+      "entries": [],
+      "entry_digest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
     },
     {
       "source": "tests/curated_negative_plan.rs",
@@ -1609,7 +1619,7 @@
       "entries": [
         "deformable_registration_vertical_slice_is_byte_deterministic_and_closed"
       ],
-      "entry_digest": "d43514196b11a79d379d47ce1c18a9735dea5527836069d92068aa771c501f8e"
+      "entry_digest": "281dbd9ddab9651411400b0fc591b1dfb715429d16580c2f770ed7b2301fd36c"
     },
     {
       "source": "tests/engine_resource_lookup_audit.rs",
@@ -1652,7 +1662,7 @@
       "entries": [
         "enhanced_mr_temporal_position_vertical_slice_is_self_consistent"
       ],
-      "entry_digest": "a3562e8b51d6e6ac448e98eb934ebcd987386c91f696bfd5ece928792226508c"
+      "entry_digest": "1cd8cf6f46f954d4959d3823b01c4861c72496e992da8555ac7805c6045d4988"
     },
     {
       "source": "tests/enhanced_pet_multiframe.rs",
@@ -1666,7 +1676,7 @@
         "validator_rejects_tampered_enhanced_pet_manifest_contracts",
         "validator_rejects_tampered_enhanced_pet_dicom_semantics"
       ],
-      "entry_digest": "55c4e1761374cc070dbaf7a4945ac79da204c49007b026352f063190524f1f04"
+      "entry_digest": "40fc16627e904f194fdc5f753fcb3696964e2af693bb6f996e1edb2e9dbc0053"
     },
     {
       "source": "tests/enhanced_plan_provider.rs",
@@ -1793,7 +1803,7 @@
       "entries": [
         "general_ecg_vertical_slice_is_byte_deterministic_and_closed"
       ],
-      "entry_digest": "e93b4b535c2b8aad2eab25a19e4383782b2dc5c4c5090e83ed636671d7e0037a"
+      "entry_digest": "42d94d9ea6c8e4b79d61a6d9c45d4c04f72c3b96c048b337c75acdf5dd42d67f"
     },
     {
       "source": "tests/generate_cli.rs",
@@ -1986,7 +1996,7 @@
         "empty_type2_vertical_slice_is_exact_byte_stable_and_reported",
         "validator_rejects_tampered_empty_type2_contract"
       ],
-      "entry_digest": "b3c0a68c25336ece4edfc87a4f96b7986f54809c6b6d02d110aa6f5e6891e1dc"
+      "entry_digest": "a85e3c2195c02805be96e4cf59b1f9cf04d36f4dab49bdba222ed68224ce5e2c"
     },
     {
       "source": "tests/metadata_iso2022.rs",
@@ -2013,7 +2023,7 @@
         "validator_rejects_tampered_private_creator_contract",
         "schema_and_validator_require_private_metadata_and_block_count"
       ],
-      "entry_digest": "23040ab6af6e260f998abc838e39a403c889a9cbe77d17737483910a569ae6f6"
+      "entry_digest": "686512312dbcfb900a8571d7e3ff258b4af2d1cf2f480cfd5e73fdc18230462e"
     },
     {
       "source": "tests/metadata_sc_recipe_planner.rs",
@@ -2040,7 +2050,7 @@
         "sequence_length_vertical_slice_is_exact_byte_stable_and_reported",
         "validator_rejects_tampered_sequence_length_contract"
       ],
-      "entry_digest": "f553ce5b88a3aa96a285b4679adfc1d2d060c02e9d1b7112d7859ec66af042dc"
+      "entry_digest": "e9e783d3574b4643fc70c861a412b20d197242c70754f3d46cd6a10ab33d94c7"
     },
     {
       "source": "tests/metadata_string_boundaries.rs",
@@ -2053,7 +2063,7 @@
         "string_boundary_vertical_slice_is_exact_byte_stable_and_reported",
         "validator_rejects_tampered_string_boundary_contract"
       ],
-      "entry_digest": "0354d3820c32f575c2ad9e1562ef0178b4e22f1f77a499993766de96f9e109f4"
+      "entry_digest": "b9bc5e2071d3bb0a2db859710171a0ac7a481157c98bab2a5e6b8aa21811076d"
     },
     {
       "source": "tests/metadata_timezone.rs",
@@ -2066,7 +2076,7 @@
         "timezone_boundaries_are_deterministic_strict_and_reported",
         "validator_rejects_tampered_timezone_contract_and_boundary_set"
       ],
-      "entry_digest": "0f7dd3b84a580f2461592cdb61ef1d7187d0352f8ac01477d228518e78896ac0"
+      "entry_digest": "c4a210718e4f355643f198cf9f7be918ec7e6412f9c955431d68a7e0fdab54d2"
     },
     {
       "source": "tests/metadata_utf8.rs",
@@ -2079,7 +2089,7 @@
         "utf8_person_name_vertical_slice_is_exact_and_byte_stable",
         "validator_rejects_tampered_utf8_metadata_expectations"
       ],
-      "entry_digest": "0b3530e3e86deef20218f855b5d9aa1f4415e5b96bf4429dda4fa472d3f27fba"
+      "entry_digest": "2d53dcf1c5e41991e19746fb6e06979a8daec80fb7bc06b7dc8ad7eefe540189"
     },
     {
       "source": "tests/native_pixel_factory.rs",
@@ -2143,7 +2153,7 @@
         "nm_multiframe_vertical_slice_is_exact_byte_stable_and_reported",
         "validator_rejects_tampered_nm_dimension_contract"
       ],
-      "entry_digest": "483de2f8da0e4b08cb560f9b434f5f99172fe3124680b76383e12a858dbf8f48"
+      "entry_digest": "f7558064c8f4004c9a4d37663efb86afef2933a377daa65a5a4bbfeba9b73418"
     },
     {
       "source": "tests/non_rust_cli_consumer.rs",
@@ -2180,7 +2190,7 @@
         "pet_rescaled_activity_vertical_slice_is_exact_byte_stable_and_reported",
         "validator_rejects_tampered_pet_activity_contract"
       ],
-      "entry_digest": "4e3c9c7b4cc0c5b0cc91e5678bf3d5ca8fa0022fce590463634f7a0aa35ae45d"
+      "entry_digest": "8bb7c344b44b810fa4a6d7373402d777d3fc25ee5a3e2d63cd3e27fac579e4d4"
     },
     {
       "source": "tests/planning_contracts.rs",
@@ -2773,7 +2783,7 @@
       "entries": [
         "spatial_registration_vertical_slice_is_byte_deterministic_and_strictly_validated"
       ],
-      "entry_digest": "94e5c2f01c94e447a1ad1621391a635cc8fe2f29c55f3c1e521a9699b7ef1814"
+      "entry_digest": "3282b4d0f8f486fde718cf4394cb85c7abb6fd0923a43ddb14e6915ebeff80a0"
     },
     {
       "source": "tests/sr_rt_evidence.rs",
@@ -2943,7 +2953,7 @@
       "entries": [
         "twelve_lead_ecg_vertical_slice_is_byte_deterministic_and_closed"
       ],
-      "entry_digest": "1be97bf1c7fdc65058b7eb75918370fa1b3db1d2b5dc5efa2cdcca1b84f4689c"
+      "entry_digest": "ee17383f0cec0dacdc66d03568582b0d525c9e80842246eacf3445d5320d4b21"
     },
     {
       "source": "tests/typed_bulk_compatibility.rs",
@@ -3080,7 +3090,7 @@
         "us_multiframe_vertical_slice_is_exact_byte_stable_and_reported",
         "validator_rejects_tampered_us_multiframe_contract"
       ],
-      "entry_digest": "f0118d49ec2795f4c41ffb51020752723235802af9dd9c85e56060db0bd1f6b2"
+      "entry_digest": "f939cf6b6637a0ca8cd9084f4704917cd341f646f3c21e259ef9b13ca7b65000"
     },
     {
       "source": "tests/validate_cli.rs",
@@ -4045,7 +4055,7 @@
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 75,
+      "entry_count": 76,
       "entries": [
         "strict_eot_contract_compares_ov_values_and_padding_sensitive_offsets",
         "eot_report_projection_requires_the_exact_case_scoped_oracle",
@@ -4104,6 +4114,7 @@
         "write_generation_run_creates_missing_parent_and_promotes_once",
         "validate_generated_root_rejects_parent_traversal",
         "validate_generated_root_reports_undeclared_files",
+        "schema_locked_manifest_fields_retain_downstream_semantic_guards",
         "coverage_report_exposes_key_object_selection_labels",
         "skipped_cases_use_registry_status_and_skip_metadata",
         "backend_unavailability_overrides_generic_missing_generator_status",
@@ -4123,7 +4134,7 @@
         "encapsulated_stl_manifest_contract_is_exact_and_case_scoped",
         "encapsulated_stl_report_projects_payload_geometry_and_grouped_evidence"
       ],
-      "entry_digest": "8cb9f9bc1cdcb7fe89c2cf71690601742f560b501bfc178f67fcdae6a3e3564c"
+      "entry_digest": "cbda585bf09bb45fe22abc602be8144e16cceb280a822f1d8b12586807dd5131"
     },
     {
       "source": "src/media.rs",

@@ -35,7 +35,7 @@ FAST_TARGETS = {
     "standalone_docs",
 }
 EXPECTED_INTEGRATION_TARGETS = 20
-EXPECTED_INTEGRATION_SOURCES = 186
+EXPECTED_INTEGRATION_SOURCES = 187
 EXPECTED_INTEGRATION_ENTRIES = 882
 HARNESS_MODULE = re.compile(
     r'^#\[path = "\.\./([^"/]+\.rs)"\]\s*\nmod ([A-Za-z_][A-Za-z0-9_]*);$',
@@ -486,7 +486,7 @@ def verify(root: Path, manifest: dict[str, object]) -> dict[str, object]:
     if len(integration_targets) != EXPECTED_INTEGRATION_TARGETS:
         errors.append("R2.2 integration target count must be exactly 20")
     if expected_counts["integration_source_groups"] != EXPECTED_INTEGRATION_SOURCES:
-        errors.append("R2.2 integration source count must be exactly 186")
+        errors.append("R2.2 integration source count must be exactly 187")
     if expected_counts["integration_test_entries"] != EXPECTED_INTEGRATION_ENTRIES:
         errors.append("R2.2 integration entry count must be exactly 880")
     for target in integration_targets:

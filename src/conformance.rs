@@ -42,14 +42,14 @@ pub fn verify_conformance(
     verify_conformance_with_resources(
         evidence_root,
         allowlist_path,
-        &crate::product_resources::ProductResources::embedded(),
+        &crate::engine_resources::EngineResources::embedded(),
     )
 }
 
 pub fn verify_conformance_with_resources(
     evidence_root: impl AsRef<Path>,
     allowlist_path: impl AsRef<Path>,
-    resources: &crate::product_resources::ProductResources,
+    resources: &crate::engine_resources::EngineResources,
 ) -> Result<Value, String> {
     let snapshot = resources.snapshot().map_err(|error| error.to_string())?;
     verify_conformance_with_schema_root(evidence_root, allowlist_path, snapshot.root())

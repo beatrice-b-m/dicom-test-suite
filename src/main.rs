@@ -65,9 +65,10 @@ fn run() -> Result<(), String> {
         let root = args
             .next()
             .ok_or_else(|| "--resource-root requires a path".to_string())?;
-        synth_dicom_gen::product_resources::ProductResources::explicit(root)
+        synth_dicom_gen::engine_resources::EngineResources::explicit(root)
+            .map_err(|error| error.to_string())?
     } else {
-        synth_dicom_gen::product_resources::ProductResources::embedded()
+        synth_dicom_gen::engine_resources::EngineResources::embedded()
     };
     let Some(command) = args.next() else {
         println!("{}", synth_dicom_gen::version_banner());

@@ -11,6 +11,7 @@ use super::{ASSEMBLY_REQUEST_SCHEMA_VERSION, AssemblyError};
 use crate::composition::CompositionUidRole;
 use crate::composition::executor_adapter::CompositionExecutionServiceFactory;
 use crate::corpus_plan::{PlannedArtifact, PlannedAuxiliaryArtifact};
+use crate::engine_resources::{EngineResourceIdentity, EngineResources};
 use crate::executor::adapters::ManifestProjectionInput;
 use crate::executor::cancellation::CancellationToken;
 use crate::executor::engine::{CorpusExecutor, ManifestProjectionError, ManifestProjector};
@@ -18,7 +19,6 @@ use crate::executor::materialization::{
     AuxiliaryMaterializationHandler, AuxiliaryPayload, MaterializationError,
 };
 use crate::executor::services::{ArtifactExecutionBindings, StagedAssetRegistry};
-use crate::product_resources::{ProductResourceIdentity, ProductResources};
 
 pub const ASSEMBLY_MANIFEST_SCHEMA_VERSION: &str = "1.0.0";
 
@@ -46,7 +46,7 @@ pub struct AssembleSummary {
 pub fn assemble(
     options: &AssembleOptions,
     cancellation: &CancellationToken,
-    resources: &ProductResources,
+    resources: &EngineResources,
 ) -> Result<AssembleSummary, AssemblyRunError> {
     if options.output_root.exists() {
         return Err(AssemblyRunError::OutputExists(options.output_root.clone()));
@@ -154,7 +154,7 @@ impl AuxiliaryMaterializationHandler for RejectAux {
 struct AssemblyManifestProjector {
     request_sha256: String,
     seed: u64,
-    product_resources: ProductResourceIdentity,
+    product_resources: EngineResourceIdentity,
     identity_evidence: BTreeMap<String, serde_json::Value>,
 }
 
@@ -224,7 +224,7 @@ impl ManifestProjector for AssemblyManifestProjector {
 #[non_exhaustive]
 pub enum AssemblyRunError {
     Request(AssemblyError),
-    Resources(crate::product_resources::ProductResourceError),
+    Resources(crate::engine_resources::EngineResourceError),
     OutputExists(PathBuf),
     Io {
         path: PathBuf,
@@ -238,8 +238,8 @@ impl From<AssemblyError> for AssemblyRunError {
         Self::Request(value)
     }
 }
-impl From<crate::product_resources::ProductResourceError> for AssemblyRunError {
-    fn from(value: crate::product_resources::ProductResourceError) -> Self {
+impl From<crate::engine_resources::EngineResourceError> for AssemblyRunError {
+    fn from(value: crate::engine_resources::EngineResourceError) -> Self {
         Self::Resources(value)
     }
 }

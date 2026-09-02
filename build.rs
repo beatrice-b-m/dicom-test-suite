@@ -19,13 +19,13 @@ fn main() {
     println!("cargo:rustc-env=SYNTH_DICOM_GEN_RUSTC_VERSION={rustc_version}");
     println!("cargo:rustc-env=SYNTH_DICOM_GEN_TARGET={target}");
 
-    generate_embedded_product_resources();
+    generate_embedded_engine_resources();
 }
 
-fn generate_embedded_product_resources() {
+fn generate_embedded_engine_resources() {
     let root = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").expect("manifest directory"));
     let output = PathBuf::from(std::env::var_os("OUT_DIR").expect("build output directory"))
-        .join("embedded_product_resources.rs");
+        .join("embedded_engine_resources.rs");
     let mut resources = Vec::new();
 
     for directory in [
@@ -54,17 +54,21 @@ fn generate_embedded_product_resources() {
         "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/tid1500.py",
         "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/wsi_tile_segmentation.py",
     ] {
-        resources.push((path.to_string(), root.join(path)));
+        let source = root.join(path);
+        require_regular_engine_resource(&source);
+        resources.push((path.to_string(), source));
     }
+    let color_profile = root.join("src/assets/dcmtk_srgb_input_profile.hex");
+    require_regular_engine_resource(&color_profile);
     resources.push((
         "assets/dcmtk_srgb_input_profile.hex".to_string(),
-        root.join("src/assets/dcmtk_srgb_input_profile.hex"),
+        color_profile,
     ));
     resources.sort_by(|left, right| left.0.cmp(&right.0));
     resources.dedup_by(|left, right| left.0 == right.0);
 
     let mut generated =
-        String::from("pub(crate) static EMBEDDED_PRODUCT_RESOURCES: &[(&str, &[u8])] = &[\n");
+        String::from("pub(crate) static EMBEDDED_ENGINE_RESOURCES: &[(&str, &[u8])] = &[\n");
     for (logical_path, source_path) in resources {
         println!("cargo:rerun-if-changed={}", source_path.display());
         generated.push_str(&format!(
@@ -72,7 +76,7 @@ fn generate_embedded_product_resources() {
         ));
     }
     generated.push_str("];\n");
-    fs::write(output, generated).expect("write embedded product resource table");
+    fs::write(output, generated).expect("write embedded engine resource table");
 }
 
 fn collect_json_files(root: &Path, relative: &Path, resources: &mut Vec<(String, PathBuf)>) {
@@ -84,10 +88,19 @@ fn collect_json_files(root: &Path, relative: &Path, resources: &mut Vec<(String,
         .collect::<Vec<_>>();
     entries.sort();
     for path in entries {
-        if path.is_dir() {
+        let metadata = fs::symlink_metadata(&path)
+            .unwrap_or_else(|error| panic!("inspect engine resource {}: {error}", path.display()));
+        assert!(
+            !metadata.file_type().is_symlink(),
+            "engine resource tree contains a symbolic link: {}",
+            path.display()
+        );
+        if metadata.is_dir() {
             let child = path.strip_prefix(root).expect("resource beneath root");
             collect_json_files(root, child, resources);
-        } else if path.extension().and_then(|value| value.to_str()) == Some("json") {
+        } else if metadata.is_file()
+            && path.extension().and_then(|value| value.to_str()) == Some("json")
+        {
             let logical = path
                 .strip_prefix(root)
                 .expect("resource beneath root")
@@ -96,4 +109,14 @@ fn collect_json_files(root: &Path, relative: &Path, resources: &mut Vec<(String,
             resources.push((logical, path));
         }
     }
+}
+
+fn require_regular_engine_resource(path: &Path) {
+    let metadata = fs::symlink_metadata(path)
+        .unwrap_or_else(|error| panic!("inspect engine resource {}: {error}", path.display()));
+    assert!(
+        metadata.is_file() && !metadata.file_type().is_symlink(),
+        "engine resource is not a regular non-symlink file: {}",
+        path.display()
+    );
 }

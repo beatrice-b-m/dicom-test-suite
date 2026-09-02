@@ -41,6 +41,7 @@ use super::{
     ResolvedInstancePlan, TemplateCatalog, TemplateDescriptor, default_family_pixels,
     resolve_family_attributes, resolve_raw_native_pixels, resolved_sc_plan, sc_default_pixels,
 };
+use crate::engine_resources::{EngineResourceIdentity, EngineResources};
 use crate::executor::engine::{CorpusExecutor, CorpusExecutorError};
 use crate::executor::materialization::{
     AuxiliaryMaterializationHandler, AuxiliaryPayload, MaterializationError,
@@ -50,7 +51,6 @@ use crate::executor::services::{
     ProviderOutputExpectation, ProviderRequest as ExecutorProviderRequest, SlotExecutionBinding,
     StagedAssetHandle, StagedAssetRegistry, StagingRelativePath,
 };
-use crate::product_resources::{ProductResourceIdentity, ProductResources};
 use crate::recipes::{AdvancedProviderLimits, RecipeCatalog};
 use crate::{PACKAGE_NAME, PACKAGE_VERSION, RUSTC_VERSION, TARGET_TRIPLE, sha256_hex};
 
@@ -108,12 +108,12 @@ impl ComposeCancellationToken {
 }
 
 pub fn compose(options: &ComposeOptions) -> Result<(ComposeSummary, Value), ComposeError> {
-    compose_with_resources(options, &ProductResources::embedded())
+    compose_with_resources(options, &EngineResources::embedded())
 }
 
 pub fn compose_with_resources(
     options: &ComposeOptions,
-    resources: &ProductResources,
+    resources: &EngineResources,
 ) -> Result<(ComposeSummary, Value), ComposeError> {
     compose_with_cancellation_and_resources(options, &ComposeCancellationToken::new(), resources)
 }
@@ -122,26 +122,26 @@ pub fn compose_with_cancellation(
     options: &ComposeOptions,
     cancellation: &ComposeCancellationToken,
 ) -> Result<(ComposeSummary, Value), ComposeError> {
-    compose_with_cancellation_and_resources(options, cancellation, &ProductResources::embedded())
+    compose_with_cancellation_and_resources(options, cancellation, &EngineResources::embedded())
 }
 
 pub fn compose_with_cancellation_and_resources(
     options: &ComposeOptions,
     cancellation: &ComposeCancellationToken,
-    resources: &ProductResources,
+    resources: &EngineResources,
 ) -> Result<(ComposeSummary, Value), ComposeError> {
     check_cancelled(cancellation)?;
     let snapshot = resources
         .snapshot()
-        .map_err(|error| ComposeError::ProductResources(error.to_string()))?;
+        .map_err(|error| ComposeError::EngineResources(error.to_string()))?;
     let product_resource_identity = resources
         .verify_integrity()
-        .map_err(|error| ComposeError::ProductResources(error.to_string()))?;
+        .map_err(|error| ComposeError::EngineResources(error.to_string()))?;
     let catalog_path =
-        if options.catalog_path == Path::new(crate::product_resources::TEMPLATE_CATALOG_RESOURCE) {
+        if options.catalog_path == Path::new(crate::engine_resources::TEMPLATE_CATALOG_RESOURCE) {
             snapshot
-                .path(crate::product_resources::TEMPLATE_CATALOG_RESOURCE)
-                .map_err(|error| ComposeError::ProductResources(error.to_string()))?
+                .path(crate::engine_resources::TEMPLATE_CATALOG_RESOURCE)
+                .map_err(|error| ComposeError::EngineResources(error.to_string()))?
         } else {
             options.catalog_path.clone()
         };
@@ -167,13 +167,13 @@ pub fn compose_from_bytes(
     spec_bytes: &[u8],
     options: &ComposeBytesOptions,
 ) -> Result<(ComposeSummary, Value), ComposeError> {
-    compose_from_bytes_with_resources(spec_bytes, options, &ProductResources::embedded())
+    compose_from_bytes_with_resources(spec_bytes, options, &EngineResources::embedded())
 }
 
 pub fn compose_from_bytes_with_resources(
     spec_bytes: &[u8],
     options: &ComposeBytesOptions,
-    resources: &ProductResources,
+    resources: &EngineResources,
 ) -> Result<(ComposeSummary, Value), ComposeError> {
     compose_from_bytes_with_cancellation_and_resources(
         spec_bytes,
@@ -192,7 +192,7 @@ pub fn compose_from_bytes_with_cancellation(
         spec_bytes,
         options,
         cancellation,
-        &ProductResources::embedded(),
+        &EngineResources::embedded(),
     )
 }
 
@@ -200,19 +200,19 @@ pub fn compose_from_bytes_with_cancellation_and_resources(
     spec_bytes: &[u8],
     options: &ComposeBytesOptions,
     cancellation: &ComposeCancellationToken,
-    resources: &ProductResources,
+    resources: &EngineResources,
 ) -> Result<(ComposeSummary, Value), ComposeError> {
     check_cancelled(cancellation)?;
     let snapshot = resources
         .snapshot()
-        .map_err(|error| ComposeError::ProductResources(error.to_string()))?;
+        .map_err(|error| ComposeError::EngineResources(error.to_string()))?;
     let product_resource_identity = resources
         .verify_integrity()
-        .map_err(|error| ComposeError::ProductResources(error.to_string()))?;
+        .map_err(|error| ComposeError::EngineResources(error.to_string()))?;
     let catalog_path = if options.catalog_path == Path::new("templates/catalog.json") {
         snapshot
             .path("templates/catalog.json")
-            .map_err(|error| ComposeError::ProductResources(error.to_string()))?
+            .map_err(|error| ComposeError::EngineResources(error.to_string()))?
     } else {
         options.catalog_path.clone()
     };
@@ -236,7 +236,7 @@ fn compose_loaded(
     seed: u64,
     catalog_path: &Path,
     resource_root: &Path,
-    product_resources: &ProductResourceIdentity,
+    product_resources: &EngineResourceIdentity,
     dry_run: bool,
     cancellation: &ComposeCancellationToken,
 ) -> Result<(ComposeSummary, Value), ComposeError> {
@@ -382,7 +382,7 @@ fn resolve_execution_bundle(
     _scratch_parent: &Path,
     spec_root: &Path,
     resource_root: &Path,
-    product_resources: &ProductResourceIdentity,
+    product_resources: &EngineResourceIdentity,
     cancellation: &ComposeCancellationToken,
 ) -> Result<PlannedCompositionExecution, ComposeError> {
     let bundle_resolution = BundleResolver.resolve(spec.clone(), catalog)?;
@@ -2603,7 +2603,7 @@ pub enum ComposeError {
         size: u64,
         limit: u64,
     },
-    ProductResources(String),
+    EngineResources(String),
 }
 
 macro_rules! from_error {
@@ -2821,7 +2821,7 @@ impl fmt::Display for ComposeError {
                 formatter,
                 "composition resource limit exceeded: planned {size} output bytes exceeds {limit}"
             ),
-            Self::ProductResources(message) => {
+            Self::EngineResources(message) => {
                 write!(
                     formatter,
                     "composition product resource integrity failed: {message}"
@@ -2902,7 +2902,7 @@ mod tests {
             &root,
             &root,
             Path::new("."),
-            &ProductResources::embedded().identity().unwrap(),
+            &EngineResources::embedded().identity().unwrap(),
             &ComposeCancellationToken::new(),
         )
         .unwrap();
@@ -2947,7 +2947,7 @@ mod tests {
             Path::new("tests/fixtures/composition/valid"),
             Path::new("tests/fixtures/composition/valid"),
             Path::new("."),
-            &ProductResources::embedded().identity().unwrap(),
+            &EngineResources::embedded().identity().unwrap(),
             &ComposeCancellationToken::new(),
         )
         .unwrap();

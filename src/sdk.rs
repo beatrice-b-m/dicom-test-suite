@@ -29,18 +29,18 @@ use std::path::{Path, PathBuf};
 use serde::de::DeserializeOwned;
 
 use crate::discovery::{CapabilitiesResult, VersionResult};
-use crate::product_resources::ProductResources;
+use crate::engine_resources::EngineResources;
 
 /// A relocatable product handle backed by an integrity-checked resource set.
 #[derive(Debug, Clone)]
 pub struct DicomTestSuite {
-    resources: ProductResources,
+    resources: EngineResources,
 }
 
 impl DicomTestSuite {
     /// Construct a product using the immutable resources embedded in the crate.
     pub fn embedded() -> Result<Self, SdkError> {
-        Self::from_resources(ProductResources::embedded())
+        Self::from_resources(EngineResources::embedded())
     }
 
     /// Construct a product from an explicit resource root.
@@ -48,10 +48,12 @@ impl DicomTestSuite {
     /// The root must contain the complete, byte-identical product resource set.
     /// There is no fallback to embedded or repository-relative resources.
     pub fn explicit_resource_root(root: impl AsRef<Path>) -> Result<Self, SdkError> {
-        Self::from_resources(ProductResources::explicit(root.as_ref().to_path_buf()))
+        let resources = EngineResources::explicit(root.as_ref().to_path_buf())
+            .map_err(|error| SdkError::classify("capabilities", error))?;
+        Self::from_resources(resources)
     }
 
-    fn from_resources(resources: ProductResources) -> Result<Self, SdkError> {
+    fn from_resources(resources: EngineResources) -> Result<Self, SdkError> {
         resources
             .verify_integrity()
             .map_err(|error| SdkError::classify("capabilities", error))?;
@@ -97,7 +99,7 @@ impl DicomTestSuite {
             spec_root: request.caller_asset_root,
             out_dir: request.output_root,
             seed: request.seed,
-            catalog_path: PathBuf::from(crate::product_resources::TEMPLATE_CATALOG_RESOURCE),
+            catalog_path: PathBuf::from(crate::engine_resources::TEMPLATE_CATALOG_RESOURCE),
             dry_run: request.dry_run,
         };
         let (summary, document) =
@@ -495,7 +497,7 @@ pub struct SchemaBoundManifest {
 impl SchemaBoundManifest {
     fn load(
         output_root: &Path,
-        resources: &ProductResources,
+        resources: &EngineResources,
         command: &str,
     ) -> Result<Self, SdkError> {
         let path = output_root.join("manifest.json");

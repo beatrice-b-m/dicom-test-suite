@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use super::{CompositionUidRole, ResolvedInstancePlan};
-use crate::product_resources::ProductResourceIdentity;
+use crate::engine_resources::EngineResourceIdentity;
 use crate::sha256_hex;
 
 const MANIFEST_SCHEMA: &str = include_str!("../../schemas/composition-manifest.schema.json");
@@ -20,7 +20,7 @@ pub struct CompositionManifestInputs {
     pub generator: Value,
     pub standards: Value,
     pub dependencies: Value,
-    pub product_resources: ProductResourceIdentity,
+    pub product_resources: EngineResourceIdentity,
     pub seed: u64,
     pub composition_spec_schema_version: String,
     pub input_spec_sha256: String,
@@ -1031,7 +1031,7 @@ mod tests {
             generator: json!({"name": "synth-dicom-gen"}),
             standards: json!({"dicom_base_edition": "2026b"}),
             dependencies: json!({}),
-            product_resources: crate::product_resources::ProductResources::embedded()
+            product_resources: crate::engine_resources::EngineResources::embedded()
                 .identity()
                 .unwrap(),
             seed: 7,

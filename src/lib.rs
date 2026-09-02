@@ -76,6 +76,7 @@ pub mod curated_validation;
 pub mod discovery;
 pub mod encapsulation;
 pub mod encoded_content;
+pub mod engine_resources;
 pub mod executor;
 pub mod fuzz;
 pub mod generation_backends;
@@ -92,7 +93,6 @@ pub mod negative_plan;
 pub mod part10_locator;
 pub mod planning;
 pub mod planning_preview;
-pub mod product_resources;
 pub mod protocol;
 pub mod protocol_baseline;
 pub mod qualification_plan;
@@ -244,7 +244,7 @@ pub enum StandardsError {
 
 #[derive(Debug)]
 pub enum ReportError {
-    ProductResources(String),
+    EngineResources(String),
     ReadMetadata {
         path: PathBuf,
         source: std::io::Error,
@@ -502,7 +502,7 @@ impl Error for ValidateError {
 impl fmt::Display for ReportError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::ProductResources(message) => write!(f, "invalid product resources: {message}"),
+            Self::EngineResources(message) => write!(f, "invalid product resources: {message}"),
             Self::ReadMetadata { path, source } => {
                 write!(
                     f,
@@ -531,7 +531,7 @@ impl fmt::Display for ReportError {
 impl Error for ReportError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            Self::ProductResources(_) => None,
+            Self::EngineResources(_) => None,
             Self::ReadMetadata { source, .. } => Some(source),
             Self::ParseMetadata { source, .. } => Some(source),
             Self::MetadataShape { .. } => None,
@@ -897,7 +897,7 @@ struct CuratedGenerationManifestProjector {
     standards_lock_bytes: Vec<u8>,
     cargo_lock: Vec<u8>,
     registry: Value,
-    product_resources: product_resources::ProductResourceIdentity,
+    product_resources: engine_resources::EngineResourceIdentity,
 }
 
 impl ManifestProjector for CuratedGenerationManifestProjector {
@@ -936,12 +936,12 @@ impl ManifestProjector for CuratedGenerationManifestProjector {
 pub fn write_generation_run(
     run: &PreparedGenerationRun,
 ) -> Result<GenerationSummary, GenerateError> {
-    write_generation_run_with_resources(run, &product_resources::ProductResources::embedded())
+    write_generation_run_with_resources(run, &engine_resources::EngineResources::embedded())
 }
 
 pub fn write_generation_run_with_resources(
     run: &PreparedGenerationRun,
-    resources: &product_resources::ProductResources,
+    resources: &engine_resources::EngineResources,
 ) -> Result<GenerationSummary, GenerateError> {
     write_generation_selection_with_resources(run, None, resources)
 }
@@ -955,7 +955,7 @@ pub fn write_generation_run_with_resources(
 pub fn write_selected_generation_run_with_resources(
     run: &PreparedGenerationRun,
     case_ids: Vec<String>,
-    resources: &product_resources::ProductResources,
+    resources: &engine_resources::EngineResources,
 ) -> Result<GenerationSummary, GenerateError> {
     write_generation_selection_with_resources(run, Some(case_ids), resources)
 }
@@ -963,7 +963,7 @@ pub fn write_selected_generation_run_with_resources(
 fn write_generation_selection_with_resources(
     run: &PreparedGenerationRun,
     case_ids: Option<Vec<String>>,
-    resources: &product_resources::ProductResources,
+    resources: &engine_resources::EngineResources,
 ) -> Result<GenerationSummary, GenerateError> {
     if fs::symlink_metadata(&run.out_dir).is_ok() {
         return Err(GenerateError::OutputPathExists(run.out_dir.clone()));
@@ -17984,16 +17984,16 @@ fn trim_uid(uid: &str) -> String {
 }
 
 pub fn build_coverage_report(root_dir: impl AsRef<Path>) -> Result<Value, ReportError> {
-    build_coverage_report_with_resources(root_dir, &product_resources::ProductResources::embedded())
+    build_coverage_report_with_resources(root_dir, &engine_resources::EngineResources::embedded())
 }
 
 pub fn build_coverage_report_with_resources(
     root_dir: impl AsRef<Path>,
-    resources: &product_resources::ProductResources,
+    resources: &engine_resources::EngineResources,
 ) -> Result<Value, ReportError> {
     let snapshot = resources
         .snapshot()
-        .map_err(|error| ReportError::ProductResources(error.to_string()))?;
+        .map_err(|error| ReportError::EngineResources(error.to_string()))?;
     build_coverage_report_with_registry(root_dir, &snapshot.root().join("cases/registry.json"))
 }
 
@@ -34515,7 +34515,7 @@ fn build_generation_manifest(
     standards_lock_bytes: &[u8],
     cargo_lock: &[u8],
     registry: &Value,
-    product_resources: &product_resources::ProductResourceIdentity,
+    product_resources: &engine_resources::EngineResourceIdentity,
     generated_files: Vec<GeneratedFile>,
     qualifications: Vec<Value>,
     generated_case_ids: &[String],

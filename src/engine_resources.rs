@@ -6,59 +6,76 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde::{Deserialize, Serialize};
 
-include!(concat!(env!("OUT_DIR"), "/embedded_product_resources.rs"));
+include!(concat!(env!("OUT_DIR"), "/embedded_engine_resources.rs"));
 
-pub const PRODUCT_RESOURCE_SET_VERSION: &str = "1.0.0";
+pub const ENGINE_RESOURCE_SET_VERSION: &str = "1.0.0";
+/// R4.1 preserves the existing digest membership until R4.3/R4.4 split its
+/// independently versioned identity domains.
+pub const ENGINE_RESOURCE_SET_MEMBERSHIP: EngineResourceSetMembership =
+    EngineResourceSetMembership::TransitionalMonolithic;
 pub const TEMPLATE_CATALOG_RESOURCE: &str = "templates/catalog.json";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EngineResourceSetMembership {
+    TransitionalMonolithic,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ProductResourceOrigin {
+pub enum EngineResourceOrigin {
     Embedded,
     Explicit,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ProductResourceRecord {
+pub struct EngineResourceRecord {
     pub logical_path: String,
     pub size_bytes: u64,
     pub sha256: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ProductResourceIdentity {
+pub struct EngineResourceIdentity {
     pub resource_set_version: String,
-    pub origin: ProductResourceOrigin,
+    pub origin: EngineResourceOrigin,
     pub resource_count: usize,
     pub resource_set_sha256: String,
-    pub resources: Vec<ProductResourceRecord>,
+    pub resources: Vec<EngineResourceRecord>,
 }
 
 #[derive(Debug, Clone)]
-enum ProductResourceSource {
+enum EngineResourceSource {
     Embedded,
     Explicit(PathBuf),
 }
 
 #[derive(Debug, Clone)]
-pub struct ProductResources {
-    source: ProductResourceSource,
+pub struct EngineResources {
+    source: EngineResourceSource,
 }
 
 #[derive(Debug)]
-pub struct ProductResourceSnapshot {
+pub struct EngineResourceSnapshot {
     root: PathBuf,
 }
 
 #[derive(Debug)]
 #[non_exhaustive]
-pub enum ProductResourceError {
+pub enum EngineResourceError {
     UnsafeLogicalPath(String),
     UnknownResource(String),
     Read {
         logical_path: String,
         path: PathBuf,
         source: std::io::Error,
+    },
+    Symlink {
+        logical_path: String,
+        path: PathBuf,
+    },
+    NotRegular {
+        logical_path: String,
+        path: PathBuf,
     },
     NonUtf8(String),
     Integrity {
@@ -76,7 +93,7 @@ pub enum ProductResourceError {
     },
 }
 
-impl fmt::Display for ProductResourceError {
+impl fmt::Display for EngineResourceError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::UnsafeLogicalPath(path) => {
@@ -90,6 +107,16 @@ impl fmt::Display for ProductResourceError {
             } => write!(
                 formatter,
                 "read product resource {logical_path} at {}: {source}",
+                path.display()
+            ),
+            Self::Symlink { logical_path, path } => write!(
+                formatter,
+                "engine resource {logical_path} resolves through a symbolic link at {}",
+                path.display()
+            ),
+            Self::NotRegular { logical_path, path } => write!(
+                formatter,
+                "engine resource {logical_path} is not a regular file at {}",
                 path.display()
             ),
             Self::NonUtf8(path) => write!(formatter, "product resource is not UTF-8: {path}"),
@@ -120,30 +147,32 @@ impl fmt::Display for ProductResourceError {
     }
 }
 
-impl std::error::Error for ProductResourceError {}
+impl std::error::Error for EngineResourceError {}
 
-impl ProductResources {
+impl EngineResources {
     pub fn embedded() -> Self {
         Self {
-            source: ProductResourceSource::Embedded,
+            source: EngineResourceSource::Embedded,
         }
     }
 
-    pub fn explicit(root: impl Into<PathBuf>) -> Self {
-        Self {
-            source: ProductResourceSource::Explicit(root.into()),
-        }
+    pub fn explicit(root: impl Into<PathBuf>) -> Result<Self, EngineResourceError> {
+        let resources = Self {
+            source: EngineResourceSource::Explicit(root.into()),
+        };
+        resources.verify_integrity()?;
+        Ok(resources)
     }
 
-    pub fn origin(&self) -> ProductResourceOrigin {
+    pub fn origin(&self) -> EngineResourceOrigin {
         match self.source {
-            ProductResourceSource::Embedded => ProductResourceOrigin::Embedded,
-            ProductResourceSource::Explicit(_) => ProductResourceOrigin::Explicit,
+            EngineResourceSource::Embedded => EngineResourceOrigin::Embedded,
+            EngineResourceSource::Explicit(_) => EngineResourceOrigin::Explicit,
         }
     }
 
     pub fn logical_paths(&self) -> Vec<&'static str> {
-        EMBEDDED_PRODUCT_RESOURCES
+        EMBEDDED_ENGINE_RESOURCES
             .iter()
             .map(|(path, _)| *path)
             .collect()
@@ -151,25 +180,23 @@ impl ProductResources {
 
     pub fn contains(&self, logical_path: &str) -> bool {
         validate_logical_path(logical_path).is_ok()
-            && EMBEDDED_PRODUCT_RESOURCES
+            && EMBEDDED_ENGINE_RESOURCES
                 .binary_search_by_key(&logical_path, |(path, _)| *path)
                 .is_ok()
     }
 
-    pub fn bytes(&self, logical_path: &str) -> Result<Cow<'static, [u8]>, ProductResourceError> {
+    pub fn bytes(&self, logical_path: &str) -> Result<Cow<'static, [u8]>, EngineResourceError> {
         validate_logical_path(logical_path)?;
-        let index = EMBEDDED_PRODUCT_RESOURCES
+        let index = EMBEDDED_ENGINE_RESOURCES
             .binary_search_by_key(&logical_path, |(path, _)| *path)
-            .map_err(|_| ProductResourceError::UnknownResource(logical_path.to_string()))?;
+            .map_err(|_| EngineResourceError::UnknownResource(logical_path.to_string()))?;
         match &self.source {
-            ProductResourceSource::Embedded => {
-                Ok(Cow::Borrowed(EMBEDDED_PRODUCT_RESOURCES[index].1))
-            }
-            ProductResourceSource::Explicit(root) => {
-                let path = root.join(logical_path);
+            EngineResourceSource::Embedded => Ok(Cow::Borrowed(EMBEDDED_ENGINE_RESOURCES[index].1)),
+            EngineResourceSource::Explicit(root) => {
+                let path = explicit_resource_path(root, logical_path)?;
                 fs::read(&path)
                     .map(Cow::Owned)
-                    .map_err(|source| ProductResourceError::Read {
+                    .map_err(|source| EngineResourceError::Read {
                         logical_path: logical_path.to_string(),
                         path,
                         source,
@@ -178,19 +205,19 @@ impl ProductResources {
         }
     }
 
-    pub fn text(&self, logical_path: &str) -> Result<Cow<'static, str>, ProductResourceError> {
+    pub fn text(&self, logical_path: &str) -> Result<Cow<'static, str>, EngineResourceError> {
         match self.bytes(logical_path)? {
             Cow::Borrowed(bytes) => std::str::from_utf8(bytes)
                 .map(Cow::Borrowed)
-                .map_err(|_| ProductResourceError::NonUtf8(logical_path.to_string())),
+                .map_err(|_| EngineResourceError::NonUtf8(logical_path.to_string())),
             Cow::Owned(bytes) => String::from_utf8(bytes)
                 .map(Cow::Owned)
-                .map_err(|_| ProductResourceError::NonUtf8(logical_path.to_string())),
+                .map_err(|_| EngineResourceError::NonUtf8(logical_path.to_string())),
         }
     }
 
-    pub fn identity(&self) -> Result<ProductResourceIdentity, ProductResourceError> {
-        let mut records = Vec::with_capacity(EMBEDDED_PRODUCT_RESOURCES.len());
+    pub fn identity(&self) -> Result<EngineResourceIdentity, EngineResourceError> {
+        let mut records = Vec::with_capacity(EMBEDDED_ENGINE_RESOURCES.len());
         let mut identity_bytes = Vec::new();
         for logical_path in self.logical_paths() {
             let bytes = self.bytes(logical_path)?;
@@ -201,14 +228,14 @@ impl ProductResources {
             identity_bytes.push(0);
             identity_bytes.extend_from_slice(bytes.len().to_string().as_bytes());
             identity_bytes.push(b'\n');
-            records.push(ProductResourceRecord {
+            records.push(EngineResourceRecord {
                 logical_path: logical_path.to_string(),
                 size_bytes: bytes.len() as u64,
                 sha256,
             });
         }
-        Ok(ProductResourceIdentity {
-            resource_set_version: PRODUCT_RESOURCE_SET_VERSION.to_string(),
+        Ok(EngineResourceIdentity {
+            resource_set_version: ENGINE_RESOURCE_SET_VERSION.to_string(),
             origin: self.origin(),
             resource_count: records.len(),
             resource_set_sha256: crate::sha256_hex(&identity_bytes),
@@ -216,14 +243,14 @@ impl ProductResources {
         })
     }
 
-    pub fn verify_integrity(&self) -> Result<ProductResourceIdentity, ProductResourceError> {
+    pub fn verify_integrity(&self) -> Result<EngineResourceIdentity, EngineResourceError> {
         let actual = self.identity()?;
-        if self.origin() == ProductResourceOrigin::Embedded {
+        if self.origin() == EngineResourceOrigin::Embedded {
             return Ok(actual);
         }
         let expected = Self::embedded().identity()?;
         if actual.resource_set_sha256 != expected.resource_set_sha256 {
-            return Err(ProductResourceError::Integrity {
+            return Err(EngineResourceError::Integrity {
                 expected_resource_set_sha256: expected.resource_set_sha256,
                 actual_resource_set_sha256: actual.resource_set_sha256,
             });
@@ -231,7 +258,7 @@ impl ProductResources {
         Ok(actual)
     }
 
-    pub fn snapshot(&self) -> Result<ProductResourceSnapshot, ProductResourceError> {
+    pub fn snapshot(&self) -> Result<EngineResourceSnapshot, EngineResourceError> {
         self.verify_integrity()?;
         static NEXT_SNAPSHOT: AtomicU64 = AtomicU64::new(0);
         let parent = std::env::temp_dir();
@@ -245,14 +272,14 @@ impl ProductResources {
                 match create_private_directory(&candidate) {
                     Ok(()) => Some(Ok(candidate)),
                     Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => None,
-                    Err(source) => Some(Err(ProductResourceError::CreateSnapshot {
+                    Err(source) => Some(Err(EngineResourceError::CreateSnapshot {
                         path: candidate,
                         source,
                     })),
                 }
             })
             .transpose()?
-            .ok_or_else(|| ProductResourceError::CreateSnapshot {
+            .ok_or_else(|| EngineResourceError::CreateSnapshot {
                 path: parent,
                 source: std::io::Error::new(
                     std::io::ErrorKind::AlreadyExists,
@@ -264,7 +291,7 @@ impl ProductResources {
             let path = root.join(logical_path);
             if let Some(parent) = path.parent() {
                 fs::create_dir_all(parent).map_err(|source| {
-                    ProductResourceError::WriteSnapshot {
+                    EngineResourceError::WriteSnapshot {
                         logical_path: logical_path.to_string(),
                         path: parent.to_path_buf(),
                         source,
@@ -272,22 +299,24 @@ impl ProductResources {
                 })?;
             }
             let bytes = self.bytes(logical_path)?;
-            fs::write(&path, &bytes).map_err(|source| ProductResourceError::WriteSnapshot {
+            fs::write(&path, &bytes).map_err(|source| EngineResourceError::WriteSnapshot {
                 logical_path: logical_path.to_string(),
                 path,
                 source,
             })?;
         }
-        Ok(ProductResourceSnapshot { root })
+        Ok(EngineResourceSnapshot { root })
     }
 }
 
-impl ProductResourceError {
+impl EngineResourceError {
     pub fn code(&self) -> &'static str {
         match self {
-            Self::UnsafeLogicalPath(_) | Self::UnknownResource(_) | Self::NonUtf8(_) => {
-                "resource.document.invalid"
-            }
+            Self::UnsafeLogicalPath(_)
+            | Self::UnknownResource(_)
+            | Self::NonUtf8(_)
+            | Self::Symlink { .. }
+            | Self::NotRegular { .. } => "resource.document.invalid",
             Self::Integrity { .. } => "evidence.integrity.failed",
             Self::Read { .. } => "io.read.failed",
             Self::CreateSnapshot { .. } | Self::WriteSnapshot { .. } => "io.write.failed",
@@ -295,18 +324,18 @@ impl ProductResourceError {
     }
 }
 
-impl ProductResourceSnapshot {
+impl EngineResourceSnapshot {
     pub fn root(&self) -> &Path {
         &self.root
     }
 
-    pub fn path(&self, logical_path: &str) -> Result<PathBuf, ProductResourceError> {
+    pub fn path(&self, logical_path: &str) -> Result<PathBuf, EngineResourceError> {
         validate_logical_path(logical_path)?;
         Ok(self.root.join(logical_path))
     }
 }
 
-impl Drop for ProductResourceSnapshot {
+impl Drop for EngineResourceSnapshot {
     fn drop(&mut self) {
         let _ = fs::remove_dir_all(&self.root);
     }
@@ -323,7 +352,7 @@ fn create_private_directory(path: &Path) -> std::io::Result<()> {
     fs::create_dir(path)
 }
 
-fn validate_logical_path(path: &str) -> Result<(), ProductResourceError> {
+fn validate_logical_path(path: &str) -> Result<(), EngineResourceError> {
     let parsed = Path::new(path);
     let safe = !path.is_empty()
         && !path.contains('\\')
@@ -334,6 +363,55 @@ fn validate_logical_path(path: &str) -> Result<(), ProductResourceError> {
     if safe {
         Ok(())
     } else {
-        Err(ProductResourceError::UnsafeLogicalPath(path.to_string()))
+        Err(EngineResourceError::UnsafeLogicalPath(path.to_string()))
     }
+}
+
+fn explicit_resource_path(root: &Path, logical_path: &str) -> Result<PathBuf, EngineResourceError> {
+    let mut path = root.to_path_buf();
+    let root_metadata = fs::symlink_metadata(root).map_err(|source| EngineResourceError::Read {
+        logical_path: logical_path.to_string(),
+        path: root.to_path_buf(),
+        source,
+    })?;
+    if root_metadata.file_type().is_symlink() {
+        return Err(EngineResourceError::Symlink {
+            logical_path: logical_path.to_string(),
+            path,
+        });
+    }
+    if !root_metadata.is_dir() {
+        return Err(EngineResourceError::NotRegular {
+            logical_path: logical_path.to_string(),
+            path,
+        });
+    }
+    let components = Path::new(logical_path).components().collect::<Vec<_>>();
+    for (index, component) in components.iter().enumerate() {
+        let Component::Normal(component) = component else {
+            return Err(EngineResourceError::UnsafeLogicalPath(
+                logical_path.to_string(),
+            ));
+        };
+        path.push(component);
+        let metadata = fs::symlink_metadata(&path).map_err(|source| EngineResourceError::Read {
+            logical_path: logical_path.to_string(),
+            path: path.clone(),
+            source,
+        })?;
+        if metadata.file_type().is_symlink() {
+            return Err(EngineResourceError::Symlink {
+                logical_path: logical_path.to_string(),
+                path,
+            });
+        }
+        let is_last = index + 1 == components.len();
+        if (is_last && !metadata.is_file()) || (!is_last && !metadata.is_dir()) {
+            return Err(EngineResourceError::NotRegular {
+                logical_path: logical_path.to_string(),
+                path,
+            });
+        }
+    }
+    Ok(path)
 }

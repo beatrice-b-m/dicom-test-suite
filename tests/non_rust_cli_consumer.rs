@@ -4,7 +4,7 @@ use std::process::Command;
 fn python_consumer_integrates_through_schemas_and_exit_classes() {
     let output = Command::new("python3")
         .arg("tests/black_box_cli_consumer.py")
-        .arg(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        .arg(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .arg(env!("CARGO_MANIFEST_DIR"))
         .output()
         .expect("python3 must run the black-box consumer");

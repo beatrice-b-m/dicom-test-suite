@@ -22,7 +22,7 @@ fn version_json_is_clean_schema_valid_and_resource_bound_outside_the_checkout() 
             .as_nanos()
     ));
     fs::create_dir(&cwd).unwrap();
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .current_dir(&cwd)
         .args(["version", "--format", "json"])
         .output()
@@ -63,7 +63,7 @@ fn version_json_is_clean_schema_valid_and_resource_bound_outside_the_checkout() 
 
 #[test]
 fn version_human_output_preserves_the_existing_banner() {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .arg("version")
         .output()
         .unwrap();
@@ -71,20 +71,20 @@ fn version_human_output_preserves_the_existing_banner() {
     assert!(output.stderr.is_empty());
     assert_eq!(
         String::from_utf8(output.stdout).unwrap(),
-        format!("dicom-test-suite {}\n", env!("CARGO_PKG_VERSION"))
+        format!("synth-dicom-gen {}\n", env!("CARGO_PKG_VERSION"))
     );
 }
 
 #[test]
 fn version_machine_resource_drift_is_a_stable_integrity_error() {
-    let snapshot = dicom_test_suite::product_resources::ProductResources::embedded()
+    let snapshot = synth_dicom_gen::product_resources::ProductResources::embedded()
         .snapshot()
         .unwrap();
     let registry = snapshot.root().join("cases/registry.json");
     let mut bytes = fs::read(&registry).unwrap();
     bytes.push(b'\n');
     fs::write(registry, bytes).unwrap();
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "--resource-root",
             snapshot.root().to_str().unwrap(),

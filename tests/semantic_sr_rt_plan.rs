@@ -1,15 +1,15 @@
 use std::collections::BTreeMap;
 
-use dicom_test_suite::composition::{
+use synth_dicom_gen::composition::{
     CompositionUidRole, IdentityPlan, MaterializedReference, TemplateVersion,
 };
-use dicom_test_suite::corpus_plan::{
+use synth_dicom_gen::corpus_plan::{
     ArtifactResourceEstimate, EncodingPlan, FileMetaPolicy, FragmentationPolicy,
     ImplementationIdentityPlan, ItemLengthPolicy, OffsetTablePolicy, OutputPlan,
     OutputRelativePath, PreamblePolicy, SequenceLengthPolicy,
 };
-use dicom_test_suite::planning::RecipeIdentity;
-use dicom_test_suite::recipes::{
+use synth_dicom_gen::planning::RecipeIdentity;
+use synth_dicom_gen::recipes::{
     CodedConcept, CompletionFlag, ContentProviderRequest, DoseParameters,
     HIGH_DICOM_SR_IMPORT_PROVIDER_ID, RecipeCatalog, RtDocumentParameters, RtObjectParameters,
     RtPlanInput, RtPlanProvider, RtSourceDeclaration, SR_PLAN_PROVIDER_ID, SemanticPlanContext,
@@ -133,7 +133,7 @@ fn native_sr_plan_is_deterministic_and_rejects_source_role_drift() {
                 observation_text: "Synthetic observation".into(),
             },
             sources: vec![SrSourceDeclaration {
-                recipe: dicom_test_suite::recipes::RecipeReference {
+                recipe: synth_dicom_gen::recipes::RecipeReference {
                     recipe_id: "source_recipe".into(),
                     recipe_version: "0.1.0".into(),
                 },
@@ -171,7 +171,7 @@ fn rt_dose_plan_uses_neutral_pixels_and_checked_dimensions() {
     let declarations = sources
         .iter()
         .map(|source| RtSourceDeclaration {
-            recipe: dicom_test_suite::recipes::RecipeReference {
+            recipe: synth_dicom_gen::recipes::RecipeReference {
                 recipe_id: source.recipe.recipe_id.clone(),
                 recipe_version: source.recipe.recipe_version.clone(),
             },
@@ -215,7 +215,7 @@ fn rt_dose_plan_uses_neutral_pixels_and_checked_dimensions() {
     assert_eq!(output.artifact.instance.content[0].size_bytes, 16);
     assert!(matches!(
         output.artifact.instance.content[0].materialization,
-        Some(dicom_test_suite::composition::ContentMaterialization::Inline(_))
+        Some(synth_dicom_gen::composition::ContentMaterialization::Inline(_))
     ));
 
     let mut invalid = input;
@@ -323,7 +323,7 @@ fn rt_recipe_documents_form_one_typed_ordered_reference_dag() {
     let recipes = catalog
         .recipes()
         .values()
-        .filter(|recipe| recipe.plan_provider_id == dicom_test_suite::recipes::RT_PLAN_PROVIDER_ID)
+        .filter(|recipe| recipe.plan_provider_id == synth_dicom_gen::recipes::RT_PLAN_PROVIDER_ID)
         .collect::<Vec<_>>();
     assert!(!recipes.is_empty());
     assert_eq!(

@@ -47,7 +47,7 @@ fn strict_verification_rejects_native_float32_hash_mismatch() {
     )
     .unwrap();
     let result =
-        dicom_test_suite::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
+        synth_dicom_gen::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
             .unwrap();
     assert_eq!(result["valid"], false);
     assert!(
@@ -100,7 +100,7 @@ fn strict_verification_rejects_native_float64_hash_mismatch() {
     )
     .unwrap();
     let result =
-        dicom_test_suite::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
+        synth_dicom_gen::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
             .unwrap();
     assert_eq!(result["valid"], false);
     assert!(
@@ -157,7 +157,7 @@ fn strict_verification_rejects_native_u32_hash_mismatch() {
     )
     .unwrap();
     let result =
-        dicom_test_suite::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
+        synth_dicom_gen::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
             .unwrap();
     assert_eq!(result["valid"], false);
     assert!(
@@ -187,14 +187,14 @@ fn strict_verification_rejects_semantically_relinked_u32_sidecar() {
     let encoded = serde_json::to_vec_pretty(&sidecar).unwrap();
     fs::write(&target, &encoded).unwrap();
     fixture.run["instances"][0]["pixel"]["evidence"]["sha256"] =
-        json!(dicom_test_suite::sha256_hex(&encoded));
+        json!(synth_dicom_gen::sha256_hex(&encoded));
     fs::write(
         fixture.evidence.join("conformance-run.json"),
         serde_json::to_vec_pretty(&fixture.run).unwrap(),
     )
     .unwrap();
     let result =
-        dicom_test_suite::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
+        synth_dicom_gen::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
             .unwrap();
     assert_eq!(result["valid"], false);
     assert!(
@@ -242,7 +242,7 @@ fn strict_verification_rejects_relinked_nonsquare_spatial_sidecar() {
     )
     .unwrap();
     let clean =
-        dicom_test_suite::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
+        synth_dicom_gen::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
             .unwrap();
     assert_eq!(clean["valid"], true, "{}", clean["failures"]);
 
@@ -256,7 +256,7 @@ fn strict_verification_rejects_relinked_nonsquare_spatial_sidecar() {
     let encoded = serde_json::to_vec_pretty(&sidecar).unwrap();
     fs::write(&target, &encoded).unwrap();
     fixture.run["instances"][0]["pixel"]["evidence"]["sha256"] =
-        json!(dicom_test_suite::sha256_hex(&encoded));
+        json!(synth_dicom_gen::sha256_hex(&encoded));
     fs::write(
         fixture.evidence.join("conformance-run.json"),
         serde_json::to_vec_pretty(&fixture.run).unwrap(),
@@ -264,7 +264,7 @@ fn strict_verification_rejects_relinked_nonsquare_spatial_sidecar() {
     .unwrap();
 
     let verified =
-        dicom_test_suite::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
+        synth_dicom_gen::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
             .unwrap();
     assert_eq!(verified["valid"], false);
     assert!(
@@ -312,14 +312,14 @@ fn strict_verification_rejects_semantically_relinked_u1_sidecar() {
     let encoded = serde_json::to_vec_pretty(&sidecar).unwrap();
     fs::write(&target, &encoded).unwrap();
     fixture.run["instances"][0]["pixel"]["evidence"]["sha256"] =
-        json!(dicom_test_suite::sha256_hex(&encoded));
+        json!(synth_dicom_gen::sha256_hex(&encoded));
     fs::write(
         fixture.evidence.join("conformance-run.json"),
         serde_json::to_vec_pretty(&fixture.run).unwrap(),
     )
     .unwrap();
     let result =
-        dicom_test_suite::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
+        synth_dicom_gen::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
             .unwrap();
     assert_eq!(result["valid"], false);
     assert!(
@@ -373,7 +373,7 @@ fn strict_verification_binds_rt_image_pixels_to_tools_and_manifest() {
     )
     .unwrap();
     let clean =
-        dicom_test_suite::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
+        synth_dicom_gen::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
             .unwrap();
     assert_eq!(clean["valid"], true, "{}", clean["failures"]);
 
@@ -387,14 +387,14 @@ fn strict_verification_binds_rt_image_pixels_to_tools_and_manifest() {
     let encoded = serde_json::to_vec_pretty(&sidecar).unwrap();
     fs::write(&target, &encoded).unwrap();
     fixture.run["instances"][0]["pixel"]["evidence"]["sha256"] =
-        json!(dicom_test_suite::sha256_hex(&encoded));
+        json!(synth_dicom_gen::sha256_hex(&encoded));
     fs::write(
         fixture.evidence.join("conformance-run.json"),
         serde_json::to_vec_pretty(&fixture.run).unwrap(),
     )
     .unwrap();
     let tampered =
-        dicom_test_suite::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
+        synth_dicom_gen::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
             .unwrap();
     assert_eq!(tampered["valid"], false);
     assert!(
@@ -464,7 +464,7 @@ fn real_dcmtk_rle_adapter_matches_all_manifest_frame_hashes_when_enabled() {
     let generated = root.join("generated");
     let evidence = root.join("evidence");
     assert!(
-        Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
             .args(["generate", "--profile", "all", "--out"])
             .arg(&generated)
             .status()
@@ -472,7 +472,7 @@ fn real_dcmtk_rle_adapter_matches_all_manifest_frame_hashes_when_enabled() {
             .success()
     );
     assert!(
-        Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
             .args(["conformance", "run"])
             .arg(&generated)
             .args(["--out"])
@@ -563,7 +563,7 @@ impl RtImageFixture {
         let pixels = [
             0_u8, 17, 34, 51, 68, 85, 102, 119, 136, 153, 170, 187, 204, 221, 238, 255,
         ];
-        let pixel_hash = dicom_test_suite::sha256_hex(&pixels);
+        let pixel_hash = synth_dicom_gen::sha256_hex(&pixels);
         assert_eq!(
             pixel_hash,
             "a8faed6abbf35c12a4b26e40f6feb19d736d90045c83b9f9a31f638d323e6811"
@@ -575,7 +575,7 @@ impl RtImageFixture {
             "files": [{
                 "case_id": "non-image/rt/image_linked",
                 "path": "rt-image.dcm",
-                "sha256": dicom_test_suite::sha256_hex(source),
+                "sha256": synth_dicom_gen::sha256_hex(source),
                 "dicom": {
                     "sop_class_uid": "1.2.840.10008.5.1.4.1.1.481.1",
                     "transfer_syntax_uid": "1.2.840.10008.1.2.1"
@@ -645,7 +645,7 @@ impl RtImageFixture {
         )
         .unwrap();
         let run =
-            dicom_test_suite::conformance::run_conformance(&generated, &evidence, &config).unwrap();
+            synth_dicom_gen::conformance::run_conformance(&generated, &evidence, &config).unwrap();
         let allowlist = root.join("allowlist.json");
         fs::write(
             &allowlist,
@@ -673,15 +673,15 @@ impl U1Fixture {
         let frame_one = [1_u8, 0, 1, 0, 1, 0, 1, 0, 1];
         let frame_two = [0_u8, 1, 0, 1, 0, 1, 0, 1, 0];
         let expected_hashes = json!([
-            dicom_test_suite::sha256_hex(&frame_one),
+            synth_dicom_gen::sha256_hex(&frame_one),
             if mismatch {
                 "0".repeat(64)
             } else {
-                dicom_test_suite::sha256_hex(&frame_two)
+                synth_dicom_gen::sha256_hex(&frame_two)
             }
         ]);
         let pixel_bytes = [0x55_u8, 0x55, 0x01, 0x00];
-        let pixel_hash = dicom_test_suite::sha256_hex(&pixel_bytes);
+        let pixel_hash = synth_dicom_gen::sha256_hex(&pixel_bytes);
         let manifest = json!({
             "run": {"seed": 1, "profile": "test"},
             "generator": {"name": "u1-fixture", "version": "1", "feature_flags": []},
@@ -689,7 +689,7 @@ impl U1Fixture {
             "files": [{
                 "case_id": "classic/sc/mono2_u1_native",
                 "path": "u1.dcm",
-                "sha256": dicom_test_suite::sha256_hex(source),
+                "sha256": synth_dicom_gen::sha256_hex(source),
                 "dicom": {
                     "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7.1",
                     "transfer_syntax_uid": "1.2.840.10008.1.2.1"
@@ -701,8 +701,8 @@ impl U1Fixture {
                     "frame_boundary_policy": "continuous_without_per_frame_padding",
                     "stored_values": [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0],
                     "decoded_frame_sha256": [
-                        dicom_test_suite::sha256_hex(&frame_one),
-                        dicom_test_suite::sha256_hex(&frame_two)
+                        synth_dicom_gen::sha256_hex(&frame_one),
+                        synth_dicom_gen::sha256_hex(&frame_two)
                     ],
                     "pixel_data_sha256": pixel_hash
                 }
@@ -745,7 +745,7 @@ impl U1Fixture {
         )
         .unwrap();
         let run =
-            dicom_test_suite::conformance::run_conformance(&generated, &evidence, &config).unwrap();
+            synth_dicom_gen::conformance::run_conformance(&generated, &evidence, &config).unwrap();
         let allowlist = root.join("allowlist.json");
         fs::write(
             &allowlist,
@@ -773,7 +773,7 @@ impl NonsquareFixture {
             0_u8, 255, 0, 255, 0, 255, 255, 0, 255, 0, 255, 0, 0, 255, 0, 255, 0, 255, 255, 0, 255,
             0, 255, 0,
         ];
-        let pixel_hash = dicom_test_suite::sha256_hex(&pixels);
+        let pixel_hash = synth_dicom_gen::sha256_hex(&pixels);
         let spacing_contract = json!({
             "variant_id": "pixel_spacing",
             "pixel_spacing": {"tag":"0028,0030","keyword":"PixelSpacing","vr":"DS","vm":2,"lexical_value":"0.6\\0.3","row_spacing_mm":0.6,"column_spacing_mm":0.3},
@@ -800,7 +800,7 @@ impl NonsquareFixture {
             fs::write(generated.join(path), source.as_bytes()).unwrap();
             json!({
                 "case_id": "classic/sc/nonsquare_pixel_spacing", "path": path,
-                "sha256": dicom_test_suite::sha256_hex(source.as_bytes()),
+                "sha256": synth_dicom_gen::sha256_hex(source.as_bytes()),
                 "dicom": {"sop_class_uid":"1.2.840.10008.5.1.4.1.1.7","transfer_syntax_uid":"1.2.840.10008.1.2.1"},
                 "image": {"rows":4,"columns":6,"frames":1,"samples_per_pixel":1,"photometric_interpretation":"MONOCHROME2","bits_allocated":8,"bits_stored":8,"high_bit":7,"pixel_representation":0},
                 "pixel_data": {"vr":"OB","native_or_encapsulated":"native","value_length":24,"frame_count":1,"frame_hashes":[pixel_hash]},
@@ -847,7 +847,7 @@ impl NonsquareFixture {
         )
         .unwrap();
         let run =
-            dicom_test_suite::conformance::run_conformance(&generated, &evidence, &config).unwrap();
+            synth_dicom_gen::conformance::run_conformance(&generated, &evidence, &config).unwrap();
         let allowlist = root.join("allowlist.json");
         fs::write(
             &allowlist,
@@ -901,7 +901,7 @@ impl U32Fixture {
         ]);
         source.extend_from_slice(&raw_bytes);
         fs::write(generated.join("u32.dcm"), &source).unwrap();
-        let pixel_hash = dicom_test_suite::sha256_hex(&raw_bytes);
+        let pixel_hash = synth_dicom_gen::sha256_hex(&raw_bytes);
         let expected_hashes = json!([pixel_hash]);
         let manifest = json!({
             "run": { "seed": 1, "profile": "test" },
@@ -910,7 +910,7 @@ impl U32Fixture {
             "files": [{
                 "case_id": "classic/sc/mono2_u32_explicit_le",
                 "path": "u32.dcm",
-                "sha256": dicom_test_suite::sha256_hex(&source),
+                "sha256": synth_dicom_gen::sha256_hex(&source),
                 "dicom": {
                     "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
                     "transfer_syntax_uid": "1.2.840.10008.1.2.1"
@@ -985,7 +985,7 @@ impl U32Fixture {
         )
         .unwrap();
         let run =
-            dicom_test_suite::conformance::run_conformance(&generated, &evidence, &config).unwrap();
+            synth_dicom_gen::conformance::run_conformance(&generated, &evidence, &config).unwrap();
         let allowlist = root.join("allowlist.json");
         fs::write(
             &allowlist,
@@ -1053,8 +1053,8 @@ impl FloatFixture {
                 )
             };
         let expected_hashes = json!([
-            dicom_test_suite::sha256_hex(&raw_bytes[..frame_length]),
-            dicom_test_suite::sha256_hex(&raw_bytes[frame_length..])
+            synth_dicom_gen::sha256_hex(&raw_bytes[..frame_length]),
+            synth_dicom_gen::sha256_hex(&raw_bytes[frame_length..])
         ]);
         let mut manifest_hashes = expected_hashes.clone();
         if mismatch {
@@ -1112,7 +1112,7 @@ impl FloatFixture {
         )
         .unwrap();
         let run =
-            dicom_test_suite::conformance::run_conformance(&generated, &evidence, &config).unwrap();
+            synth_dicom_gen::conformance::run_conformance(&generated, &evidence, &config).unwrap();
         let allowlist = root.join("allowlist.json");
         fs::write(
             &allowlist,

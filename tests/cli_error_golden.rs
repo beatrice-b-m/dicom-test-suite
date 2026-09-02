@@ -1,11 +1,11 @@
 use std::fs;
 use std::process::{Command, Output};
 
-use dicom_test_suite::cli_protocol::CliFailure;
+use synth_dicom_gen::cli_protocol::CliFailure;
 use serde_json::Value;
 
 fn binary() -> &'static str {
-    env!("CARGO_BIN_EXE_dicom-test-suite")
+    env!("CARGO_BIN_EXE_synth-dicom-gen")
 }
 
 fn assert_error(output: Output, exit: i32, command: &str, code: &str) {
@@ -84,7 +84,7 @@ fn machine_exit_classes_are_stable_end_to_end() {
     );
     fs::remove_dir(&existing).unwrap();
 
-    let snapshot = dicom_test_suite::product_resources::ProductResources::embedded()
+    let snapshot = synth_dicom_gen::product_resources::ProductResources::embedded()
         .snapshot()
         .unwrap();
     let registry = snapshot.root().join("cases/registry.json");

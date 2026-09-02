@@ -36,7 +36,7 @@
   },
   "targets": [
     {
-      "name": "dicom-test-suite",
+      "name": "synth-dicom-gen",
       "path": "src/main.rs",
       "kind": "bin",
       "domain": "cli_sdk",
@@ -227,7 +227,7 @@
       ]
     },
     {
-      "name": "dicom_test_suite",
+      "name": "synth_dicom_gen",
       "path": "src/lib.rs",
       "kind": "lib",
       "domain": "engine",
@@ -248,7 +248,7 @@
       "entries": [
         "advanced_blending_vertical_slice_is_byte_deterministic_and_closed"
       ],
-      "entry_digest": "7732fe9fe97eff7427985d86c646454e97ea97792f7f5ea99292546d57970d30"
+      "entry_digest": "bc46d4ba5fa521f9ce666cbb9f5e9f0795991a758ce9451cd6775782270e1889"
     },
     {
       "source": "tests/advanced_provider_contract.rs",
@@ -266,7 +266,7 @@
         "contract_source_has_no_filesystem_or_output_root_channel",
         "family_roles_and_resource_bounds_are_closed_and_checked"
       ],
-      "entry_digest": "1ac96492488defe953811388cefbece6f8357032dd0e6e071cc372a4a8f7ba0d"
+      "entry_digest": "93ee62528f481642bfd288543fc6289956451aa3aaddf0b6c97170ea85b1b89b"
     },
     {
       "source": "tests/advanced_recipe_catalog.rs",
@@ -294,7 +294,7 @@
         "assemble_cli_adversarial_inputs_use_stable_exit_classes",
         "assemble_cli_destination_and_resource_failures_publish_nothing"
       ],
-      "entry_digest": "9ffafa7df01bebcf08054db359b69ce3299a4fb160f88caa6682d28a5150c901"
+      "entry_digest": "19e026d89b57eb6ee74ed6b4fc842dd834433e56583fbb16553ff99676981a33"
     },
     {
       "source": "tests/assembly_plan.rs",
@@ -311,7 +311,7 @@
         "assembly_rejects_invalid_document_signatures_before_publication",
         "assembly_rejects_symlinks_in_any_caller_asset_path_component"
       ],
-      "entry_digest": "73e30f2f63df8543bdce8a3170883be5c0fba6a3199f982eb9857892a25d29d7"
+      "entry_digest": "d027d921b3e4bc038002c5c0cadeba603f64667025dc839683adb8ebc2be9ade"
     },
     {
       "source": "tests/assembly_qualification.rs",
@@ -358,7 +358,7 @@
         "structural_cancellation_publishes_nothing",
         "structural_destination_race_preserves_one_valid_winner_and_cleans_staging"
       ],
-      "entry_digest": "ed38c02ed36dde3e80aed7a4df1007e6094f612586383c01a4a1112df0948232"
+      "entry_digest": "5a7f33dc5c65dac0c98a54cd0c215ea3ee9abe6c967f940031866c254b54c44d"
     },
     {
       "source": "tests/blending_presentation_state.rs",
@@ -370,7 +370,7 @@
       "entries": [
         "blending_presentation_state_vertical_slice_is_byte_deterministic_and_closed"
       ],
-      "entry_digest": "dd658a153ecc08c812052c7d1bfbe3523ea1efbdc489b0b3cbfc358379fbc15e"
+      "entry_digest": "86188b37cad3c82424f6b7f983a89b005f7c2cd4a895f28ab415af1763bf25a0"
     },
     {
       "source": "tests/caller_content_consumer.rs",
@@ -382,7 +382,7 @@
       "entries": [
         "installed_style_consumer_uses_external_pixels_and_typed_attributes"
       ],
-      "entry_digest": "1fc61392026276a5c610dcfda524438e17283143a0fc8cd945f99982ddba8aa3"
+      "entry_digest": "d4b680196694b31f95a769b5a5c2fdc29ca13790fa3a35fe06633721d0a4f77b"
     },
     {
       "source": "tests/capabilities_cli.rs",
@@ -396,7 +396,7 @@
         "capabilities_requires_an_explicit_machine_format",
         "capabilities_machine_syntax_failure_is_one_schema_valid_stderr_envelope"
       ],
-      "entry_digest": "199c1bd0220bc149457fd7aeec06a17b8d71fd249d1563d48e9f837fab89ace6"
+      "entry_digest": "c397292800e10b36a61c6a915f25f385053eae20755034cbf7175031865cc168"
     },
     {
       "source": "tests/case_recipe_catalog.rs",
@@ -420,7 +420,7 @@
         "schema_rejects_parent_traversal_output_path",
         "schema_rejects_kind_payload_mismatch"
       ],
-      "entry_digest": "1c5997e98ac7f858a85464388b92f01370372ceaa7d2246145a4c94e310cd6a7",
+      "entry_digest": "901857bedb2c5d534f02fdaecbff5b66359c85913c0dcefd933eb74ee055ddfc",
       "heavy_entries": [
         "data_first_sc_and_metadata_values_and_hashes_match_current_generator_bytes"
       ]
@@ -455,7 +455,7 @@
         "planning_is_filesystem_free_and_rejects_corrupt_contracts",
         "direct_ct_plans_are_byte_identical_to_current_generator"
       ],
-      "entry_digest": "9346ee6f47ca56220afc17127cb05bb5f4e286cae5e16d738e9b6f591d6dd854"
+      "entry_digest": "b7bb68a10fa3f9e0997141aa482b3f2f785cc85121e8d6a0f5fc7951e7b3b6de"
     },
     {
       "source": "tests/classic_dx_mg_plan.rs",
@@ -470,7 +470,7 @@
         "dx_mg_parameters_are_strict_and_semantic_corruption_is_rejected",
         "dx_mg_recipe_documents_are_resolved_and_schema_strict"
       ],
-      "entry_digest": "b2dd5f7a556a0ac7e8087b2b239c800195a5b304bcb1f63b22c4016632853aad"
+      "entry_digest": "64dc6c27b9ef7cc874aea83a892b65d5318c5ef87c2497f34aeda762bc760d18"
     },
     {
       "source": "tests/classic_first_wave_part10_parity.rs",
@@ -513,7 +513,7 @@
         "nuclear_planning_is_output_free_strict_and_excludes_enhanced_pet",
         "direct_nuclear_plans_match_current_bytes_and_manifest_facts"
       ],
-      "entry_digest": "4d034f8171154080268d41c32b8fb8944a396fb9855cdfc37395850a8f09e8f5"
+      "entry_digest": "fef21a62c296c8ed41f968d6c8070fa76aa8199fc29fff5348e6f7e2440b088e"
     },
     {
       "source": "tests/classic_plan_contracts.rs",
@@ -548,7 +548,7 @@
         "direct_plans_match_current_part10_bytes_and_manifest_facts",
         "provider_source_has_no_execution_or_filesystem_dependency"
       ],
-      "entry_digest": "9483547365d4f881fde6132b957badbae3a1711942967d01321c41244916158b"
+      "entry_digest": "bb2209333c87421962eff13ac8f02747cc32b6ebebe47376aa08e52ef3d77bc7"
     },
     {
       "source": "tests/cli_contract_schema.rs",
@@ -576,7 +576,7 @@
         "machine_exit_classes_are_stable_end_to_end",
         "workflow_error_classification_matches_the_append_only_registry"
       ],
-      "entry_digest": "152b72d1707d26d8173b1ec522336c67e6f406168cefd4fd1be57a9268dd4a47"
+      "entry_digest": "7db78d8bdcf2fcc3c9b23547b643a110e23bbcc6ba1d67875fbe5ef1ac53f979"
     },
     {
       "source": "tests/codec_backend_registry.rs",
@@ -591,7 +591,7 @@
         "only_the_locked_dcmtk_boundary_accepts_a_full_part10_source",
         "malformed_or_incomplete_capability_matrices_fail_closed"
       ],
-      "entry_digest": "654a11d1e4ba91600c55f61f0ea3ebf059528c24f9aa658b7bc1a4af82b96461"
+      "entry_digest": "db742f772fd9e3dc777698fecd067f91eea8a70b8f7ff30f217458aad44ecca5"
     },
     {
       "source": "tests/color_softcopy_presentation_state.rs",
@@ -603,7 +603,7 @@
       "entries": [
         "color_softcopy_presentation_state_vertical_slice_is_byte_deterministic_and_closed"
       ],
-      "entry_digest": "67ae864ca69042d51a13543cf96209242c2fcc5759e0bdf361cc8780b1591703"
+      "entry_digest": "3dbeeec7063e53bb299a48c382055205a69893ca2e9cfd417fc084d81bb856c7"
     },
     {
       "source": "tests/compatibility_ownership.rs",
@@ -615,7 +615,7 @@
       "entries": [
         "every_public_schema_and_api_has_exactly_one_owner_and_window"
       ],
-      "entry_digest": "f14a74a4d22aa8b2bc88948297e8e5e0ac38031170fb6018e347fbacbc2c9665"
+      "entry_digest": "ec84fe27caf20b2e635bc392af5913d0d505e09dbf185c42775a620cfca1f8ee"
     },
     {
       "source": "tests/compose_cli.rs",
@@ -672,7 +672,7 @@
         "committed_sc_catalog_is_locked_and_qualified",
         "sc_catalog_separates_monochrome_and_rgb_pixel_contracts"
       ],
-      "entry_digest": "b1570616728968b9b4392818d50feeb79bc6c385990130494b3fbceb0279f2cb"
+      "entry_digest": "1e1ea1cceb621b781caae8962e249a92b13803ec55d268f52325a3353f2110ce"
     },
     {
       "source": "tests/composition_classic_iod.rs",
@@ -727,7 +727,7 @@
       "entries": [
         "migrated_curated_recipes_record_shared_plan_materialization"
       ],
-      "entry_digest": "c5456d7a135f916bb7bca6c990692daa091c78055235a5f8475fb7c96511afd3"
+      "entry_digest": "ea7f532c4e3379efdfd2f090772cffa9f41a1b2cf3513136418d096523539e40"
     },
     {
       "source": "tests/composition_derived_references.rs",
@@ -800,7 +800,7 @@
         "every_p2_identity_shape_syntax_and_content_contradiction_blocks_promotion",
         "unsafe_local_content_path_fails_before_any_output_root_exists"
       ],
-      "entry_digest": "5f8a03a1efb5db6554543237fd7a68b7d49a7867600fe5d6b52075f3ad62fce2"
+      "entry_digest": "8f99709602b14f51eefcb77f885cca2045341bb821b295e90ea20d73270ab9d4"
     },
     {
       "source": "tests/composition_p3_gate.rs",
@@ -882,7 +882,7 @@
         "caller_segmentation_and_parametric_values_round_trip_at_fixed_shape",
         "non_finite_or_wrong_length_quantitative_values_fail_before_publication"
       ],
-      "entry_digest": "a192c8786efed8ba15fe7cc6275cf15190c6906c193c3cecfd113b4440bc2303"
+      "entry_digest": "5e7b75dfe4f9692dd82052c438541b5632aada1d714415c74fea1218da47d5e8"
     },
     {
       "source": "tests/composition_quantitative_plan_first.rs",
@@ -934,7 +934,7 @@
       "entries": [
         "default_sc_templates_pass_the_pinned_independent_iod_route_when_available"
       ],
-      "entry_digest": "ce86b40225b6ee2fceed44a7c2751e570464efef6a8cac7ea58c3e5eea19670b"
+      "entry_digest": "9fe3841eb1f8dbd23faaa082d5c4a2f9ce974875135df2fd24c8e3bae6481f02"
     },
     {
       "source": "tests/composition_schema.rs",
@@ -975,7 +975,7 @@
       "entries": [
         "large_native_pixels_use_the_hash_checked_streaming_writer"
       ],
-      "entry_digest": "dc69021c13058041cd4ba3460d0dc9956e9e3faac2b0482498816883ad43826e"
+      "entry_digest": "980f1cdeca17756091290ecb24e5bb41f9b569ad3f1cae3ba436d2809fb91b3e"
     },
     {
       "source": "tests/composition_structured_reports.rs",
@@ -1018,7 +1018,7 @@
         "check_tools_captures_nonzero_version_and_versionless_commands",
         "check_tools_reports_timeout_and_fingerprint_mismatch"
       ],
-      "entry_digest": "7bbc3857902bf5a96581cb78a39321d2bcaef870b19c465c1dc3bc0343b81c33"
+      "entry_digest": "34be8adb2d49b3779cc19f3739d3e05a244d72d263c9a489e612ef81a726c621"
     },
     {
       "source": "tests/conformance_entity.rs",
@@ -1032,7 +1032,7 @@
         "u32_entity_projection_is_byte_preserving_hash_linked_and_tamper_evident",
         "u32_entity_projection_rejects_ineligible_manifest_shape"
       ],
-      "entry_digest": "a48c976d5b5e9d8349e37b21e4c7eb7d9eea5cf2f3330c8d67b2f84c3f427292"
+      "entry_digest": "100a9444efc5eab4e9b334cff1f381b7974e0d2ec366ba59112888d0098e9753"
     },
     {
       "source": "tests/conformance_icc.rs",
@@ -1046,7 +1046,7 @@
         "strict_verification_rejects_semantically_relinked_icc_sidecar",
         "unavailable_icc_adapter_does_not_silently_pass"
       ],
-      "entry_digest": "d00af0ba5e260b269ca449bb030cc90b5a65fd13395ad6fb33412083ed425978"
+      "entry_digest": "673d90d6cd47b8dbc4bfae129cbde9eeaf773c3f6d3b872db01b17f7af227e34"
     },
     {
       "source": "tests/conformance_iod_routing.rs",
@@ -1058,7 +1058,7 @@
       "entries": [
         "case_specific_primary_validator_uses_locked_environment_runtime_and_artifacts"
       ],
-      "entry_digest": "24a8c7fa7d9485fb6769abf55a741c851f80da19ecac6b10a3cad69f92a17096"
+      "entry_digest": "64929ffd1dbab851e7fd55b7e21ee5b0e294ed10853382f42ac45a57f13e6866"
     },
     {
       "source": "tests/conformance_parser.rs",
@@ -1070,7 +1070,7 @@
       "entries": [
         "parser_records_success_failure_timeout_and_unsupported_syntax"
       ],
-      "entry_digest": "11c0d186ab40057a77f8a9bb8e7c9702fbd0ebd2713c0e4bbf63052700e11dff"
+      "entry_digest": "37041a6dbe20939b9e97f1e2e0aeb45cf5a215274a7f32254c06f77487917ea3"
     },
     {
       "source": "tests/conformance_pixel.rs",
@@ -1096,7 +1096,7 @@
         "rt_image_decoder_policy_is_exact_case_scoped_and_reuses_locked_dcmtk",
         "real_dcmtk_rle_adapter_matches_all_manifest_frame_hashes_when_enabled"
       ],
-      "entry_digest": "5a97c5f5b223bc0f83f9dd84ead157bc4bcb7bd7381e5ed9b86c43014b5bdf12"
+      "entry_digest": "9cc83d9e197a1aef535f67cede437e73063c6f00a62e26288c238ea5b7a295b6"
     },
     {
       "source": "tests/conformance_rt.rs",
@@ -1108,7 +1108,7 @@
       "entries": [
         "linked_rt_cases_require_clean_locked_additive_secondary_iod_results"
       ],
-      "entry_digest": "67e0fe7e240f51c8a520c7848ddcbb3f51345b59891fe857eb7d741cb801aa73"
+      "entry_digest": "382ab9b43dcd286025cd2160f56bf65835945077455bfffaccd0f727dc200bca"
     },
     {
       "source": "tests/conformance_run.rs",
@@ -1121,7 +1121,7 @@
         "run_collects_deterministic_manifest_driven_instance_evidence",
         "run_records_timeout_and_malformed_nonzero_output"
       ],
-      "entry_digest": "fe1996b72cc90d14be7116ee192cf4257fbf0abf082da1395fd223cf9b0b0b6a"
+      "entry_digest": "e96f6fcd578f6bcfba2d437d1307f64eeec30f4e864ba2fac452936819b12d22"
     },
     {
       "source": "tests/conformance_schema.rs",
@@ -1148,7 +1148,7 @@
       "entries": [
         "sr_adapter_runs_only_for_supported_sop_classes_and_hashes_its_classpath"
       ],
-      "entry_digest": "8af343f8c7b30630aa0b1155f857d42d29a76735b87dc80fad017a675b8feecb"
+      "entry_digest": "e5a6929213f28abbabd8b03a3bf874d971576e20f76dbb7ad4b8b5af91b36a49"
     },
     {
       "source": "tests/conformance_verify.rs",
@@ -1164,7 +1164,7 @@
         "verify_requires_locked_presentation_state_secondary_iod_evidence",
         "verify_rejects_unknown_warnings_stale_dispositions_and_wildcards"
       ],
-      "entry_digest": "0e7d8decdf8ae755865f6984ff24c734914dc7fa9cad967a9334bfc802d1acab"
+      "entry_digest": "1051bd6e262a86bfd4eb106cdf1d5c7b57d26e9abf9c4fc3ba3f24e050b54ecf"
     },
     {
       "source": "tests/conformance_visible_light.rs",
@@ -1191,7 +1191,7 @@
         "waveform_route_requires_locked_secondary_iod_and_payload_evidence",
         "general_waveform_sidecar_rejects_group_and_aggregate_tampering"
       ],
-      "entry_digest": "54f788a0a59b292e398faa189bb59c4a145d6c50259bddc30cfec4e98fadf866"
+      "entry_digest": "05383c1bac2bc0c2e6d7191f569c62d4b39852b5ec15a15a4f2521cb4343cdc9"
     },
     {
       "source": "tests/conformance_wsi.rs",
@@ -1246,7 +1246,7 @@
         "report_gaps_validates_against_the_committed_schema",
         "report_gaps_wraps_only_at_the_explicit_cli_api_boundary"
       ],
-      "entry_digest": "a087ac37e63d151b4cd41f962ec3a798b8fa72342c7a316f168df59732960362"
+      "entry_digest": "17c1e9a91b8bc3a703450d1722407d0dd0d0e90b47f31ee7e9ffaa0a753895e4"
     },
     {
       "source": "tests/ct_geometry.rs",
@@ -1262,7 +1262,7 @@
         "core_generates_duplicate_and_empty_type2_instance_numbers",
         "core_generates_two_series_in_one_study_and_frame_of_reference"
       ],
-      "entry_digest": "b77fdf1c73fde0844e9a0dcd6c00a0567ed4528861ac926ebd070c5116248d2d"
+      "entry_digest": "23371ecbef8e05086c59cde2966ae98b349b021149f3a1f27dbc893c575823a8"
     },
     {
       "source": "tests/curated_advanced_plan.rs",
@@ -1276,7 +1276,7 @@
         "stress_advanced_selection_preserves_requested_provenance_and_bounded_resources",
         "curated_executor_records_typed_enhanced_and_wsi_validation_evidence"
       ],
-      "entry_digest": "5636683498d7f2801bd2537bf8b7879cb2b67e8e9d1ebbbab980cc87320ab238"
+      "entry_digest": "8c39b630d45a783ec24cccc95e00c0af318c9d6833498a38599958b309371ee1"
     },
     {
       "source": "tests/curated_classic_validation.rs",
@@ -1315,7 +1315,7 @@
         "execution_command_inventory_mismatch_fails_before_binding_or_invocation",
         "execution_inventory_does_not_change_the_bundle_wire_contract"
       ],
-      "entry_digest": "34ff16bdc6897dc0b758ecc250f3b5a7dc8ac0ecb8e15441b05711fda1c830a9"
+      "entry_digest": "1ba5f86211c3e36804b3cce7ded70ac4283ad82830d4a7209b37964d979781f8"
     },
     {
       "source": "tests/curated_exceptional_matrix.rs",
@@ -1345,7 +1345,7 @@
         "metadata_validator_rejects_corrupted_encoded_person_name",
         "curated_eot_validation_is_evidence_backed_and_rejects_corrupted_ov_words"
       ],
-      "entry_digest": "f0699b94039d013e8150dbdcfb387f7e2e6500bc71730b70739acbbe1849ba6c"
+      "entry_digest": "36371283bea2b2621963cdf8b32de532610b93aabf55b8808c8a9107218bfdf9"
     },
     {
       "source": "tests/curated_external_import_plan.rs",
@@ -1375,7 +1375,7 @@
         "public_planning_and_preparation_leave_the_destination_absent",
         "failed_ordinary_run_leaves_no_destination_or_private_staging"
       ],
-      "entry_digest": "1d1e38bdaba81be8da960aff832d26ec022d645f4346376d7e222cb0b0d8dbe2"
+      "entry_digest": "aecb3de99faca5aef45ec2054bcfd1f402ece3aac5e8f2c595ed50b3f1c4de68"
     },
     {
       "source": "tests/curated_locked_full_file_execution.rs",
@@ -1504,7 +1504,7 @@
         "explicit_metadata_selection_uses_the_exported_neutral_planner",
         "mixed_sc_and_every_classic_provider_share_one_ordered_artifact_set"
       ],
-      "entry_digest": "df3048e59aeff99cce8f7b3162712b19f0bcb1ce5cb10ee7c953062fb273a715"
+      "entry_digest": "fe24bd56565463a95a6b21eda5da39f7f894e11f1e20758ffdaa77e7b87ec127"
     },
     {
       "source": "tests/curated_stress_ct_execution.rs",
@@ -1564,7 +1564,7 @@
         "all_stress_sc_cases_execute_through_private_streaming_services",
         "cancelled_stress_execution_never_publishes_destination"
       ],
-      "entry_digest": "1faef91a82a2a4090a73854e008c3d3fc245202a777e1df97877645c5d511ae3",
+      "entry_digest": "d5bb8b5516dc76cbcfb181c77dbcd0019b9bec8a2cab93ec8460db82235400cf",
       "heavy_entries": [
         "all_stress_sc_cases_execute_through_private_streaming_services"
       ]
@@ -1579,7 +1579,7 @@
       "entries": [
         "deformable_registration_vertical_slice_is_byte_deterministic_and_closed"
       ],
-      "entry_digest": "6fc9a37ee950a2980df0b2365ded289055bfb8e36fd68279ca773ef938d1fb84"
+      "entry_digest": "d43514196b11a79d379d47ce1c18a9735dea5527836069d92068aa771c501f8e"
     },
     {
       "source": "tests/enhanced_mr_temporal.rs",
@@ -1591,7 +1591,7 @@
       "entries": [
         "enhanced_mr_temporal_position_vertical_slice_is_self_consistent"
       ],
-      "entry_digest": "67f90b44917566b67e7eae08f4601a37ee323738e34f80d5f3f193aa544ecb1a"
+      "entry_digest": "a3562e8b51d6e6ac448e98eb934ebcd987386c91f696bfd5ece928792226508c"
     },
     {
       "source": "tests/enhanced_pet_multiframe.rs",
@@ -1605,7 +1605,7 @@
         "validator_rejects_tampered_enhanced_pet_manifest_contracts",
         "validator_rejects_tampered_enhanced_pet_dicom_semantics"
       ],
-      "entry_digest": "976485455e785f9d41b6218ef1c921c3f5bae4826bd0cfdbb6081a650a05ed81"
+      "entry_digest": "55c4e1761374cc070dbaf7a4945ac79da204c49007b026352f063190524f1f04"
     },
     {
       "source": "tests/enhanced_plan_provider.rs",
@@ -1622,7 +1622,7 @@
         "provider_source_has_no_legacy_or_filesystem_bridge",
         "provider_preserves_caller_owned_artifact_context"
       ],
-      "entry_digest": "daac3e82c9dbc58b3d82c2d650528d61811ee03bf893ffc63a91e37e4119c412"
+      "entry_digest": "8c97ba366eef4a825ca3459b6c28b0623717474c2f2f37acdac39b1eb528cdc5"
     },
     {
       "source": "tests/eot_arithmetic_qualification.rs",
@@ -1665,7 +1665,7 @@
         "publication_transitions_are_plan_bound_and_deterministic",
         "adapter_retains_outputless_qualification_materialization_evidence_only"
       ],
-      "entry_digest": "63dd3ff0918fbdf26a625e29811d1453f015e6976f980a89d03b365f22522aa4"
+      "entry_digest": "ac96f721bc2b85294fcae9a4e06da27474d870b081b21e4baf9645c314f718b4"
     },
     {
       "source": "tests/executor_engine.rs",
@@ -1732,7 +1732,7 @@
       "entries": [
         "general_ecg_vertical_slice_is_byte_deterministic_and_closed"
       ],
-      "entry_digest": "07abcad10e92c2b42e606d9da644884d423a13e9ea2c669bdcf103e9a9fb25c2"
+      "entry_digest": "e93b4b535c2b8aad2eab25a19e4383782b2dc5c4c5090e83ed636671d7e0037a"
     },
     {
       "source": "tests/generate_cli.rs",
@@ -1753,7 +1753,7 @@
         "generate_command_writes_legacy_explicit_big_endian_secondary_capture_case",
         "generate_command_requires_output_path"
       ],
-      "entry_digest": "4798e28c764d10de70957b13b5f6dca9b7a21e11bae9563e3528898616ace198",
+      "entry_digest": "bbb7448d01b40c217afb782581da40ba430118e7c1ece2039a76ef81330a135f",
       "heavy_entries": [
         "generate_command_writes_all_profile_union_and_skips_planned_cases"
       ]
@@ -1770,7 +1770,7 @@
         "core_generation_is_byte_stable_across_two_output_roots",
         "extended_generation_honors_declared_determinism_across_two_output_roots"
       ],
-      "entry_digest": "dc84f60e9562c1c7ffb3d4f684c691685c00e6d82ec046760ca57e44ee9c0d08"
+      "entry_digest": "5cb10ac73af3abcd832c04b3756758888940bb72171fd05554acaedc0b58ea2b"
     },
     {
       "source": "tests/generation_backend_artifacts.rs",
@@ -1821,7 +1821,7 @@
       "entries": [
         "installed_artifact_runs_every_resource_backed_workflow_from_three_directories"
       ],
-      "entry_digest": "31ba828e47e5002ee62d3b726f2005053641ceb001a3cce31b60b8b8f66d87d6"
+      "entry_digest": "c5aedecb0af848620bdca653a978b2c00d496fa81783a51c8e7cf8389e37f9fd"
     },
     {
       "source": "tests/interoperability_schema.rs",
@@ -1847,7 +1847,7 @@
         "protocol_baseline_cli_emits_separate_explicit_unavailable_report",
         "media_cli_requires_explicit_optional_tool_paths"
       ],
-      "entry_digest": "859a29d725ed05ad301b3fbc4b94783ab5ebd6243c785be13293b4a9a0d57405"
+      "entry_digest": "0b707d221872cfc62a6550315506cf883998c5ff50af1d341e19740edf49b50f"
     },
     {
       "source": "tests/legacy_jpeg_dcmtk_wrapper.rs",
@@ -1860,7 +1860,7 @@
         "dcmtk_wrapper_encodes_lossless_sv1_and_reports_runtime_identity",
         "dcmtk_wrapper_encodes_lossless_process_14_and_reports_runtime_identity"
       ],
-      "entry_digest": "5c5d67666d8f527f8845f49098b153cebdef5506eb7ecadf1cd2dc86aacec6c7"
+      "entry_digest": "f79f3d040e6b0a199e5c71fbac6a04f67fa45583958ea4a3b6c0e235c283cdd9"
     },
     {
       "source": "tests/legacy_jpeg_spike.rs",
@@ -1874,7 +1874,7 @@
         "dcmtk_dcmcjpeg_lossless_process_14_spike_preserves_metadata_and_pixels",
         "dcmtk_dcmcjpeg_extended_12bit_spike_records_decode_blocker"
       ],
-      "entry_digest": "c913e784797be42990376964c23f52b34d62242e98f356c7a5867597f93e0e07"
+      "entry_digest": "1b602e4681d267bf34e3b43b7df7c3c9bc45220097d4afffda562d397876fbb8"
     },
     {
       "source": "tests/list_cases_cli.rs",
@@ -1899,7 +1899,7 @@
         "list_cases_command_shows_rle_lossless_as_implemented",
         "list_cases_command_rejects_unknown_status"
       ],
-      "entry_digest": "dfffab1cf44dd89fde9bf5d1687576af9dd0d0145b548303358faec8af8b7c4c"
+      "entry_digest": "3b497fac7ac3028d1a90b74b1a1ebe83018133436442129b2b2c4eb74fe6adb0"
     },
     {
       "source": "tests/media_sources.rs",
@@ -1925,7 +1925,7 @@
         "empty_type2_vertical_slice_is_exact_byte_stable_and_reported",
         "validator_rejects_tampered_empty_type2_contract"
       ],
-      "entry_digest": "cd3c8fe10feb7b9dfa3a92b61e2cb5f24b8c230bd84be720edbf1e6b0839efdf"
+      "entry_digest": "b3c0a68c25336ece4edfc87a4f96b7986f54809c6b6d02d110aa6f5e6891e1dc"
     },
     {
       "source": "tests/metadata_iso2022.rs",
@@ -1938,7 +1938,7 @@
         "iso2022_person_name_is_byte_stable_strictly_valid_and_reported",
         "validator_rejects_tampered_iso2022_byte_contract"
       ],
-      "entry_digest": "f1db60552f71f0828263d29b1975bb832988349432ef13e036bfbcafc32b03bc"
+      "entry_digest": "7ddaf8a83cebeab338c8cda0dfaa443d6ee963a01c64ea9e253e3d9d5bf8423d"
     },
     {
       "source": "tests/metadata_private_creators.rs",
@@ -1952,7 +1952,7 @@
         "validator_rejects_tampered_private_creator_contract",
         "schema_and_validator_require_private_metadata_and_block_count"
       ],
-      "entry_digest": "b608c535f3a0153c4494a6056aa4775a30efdb816abbfd7c189143ed8afe2bab"
+      "entry_digest": "23040ab6af6e260f998abc838e39a403c889a9cbe77d17737483910a569ae6f6"
     },
     {
       "source": "tests/metadata_sc_recipe_planner.rs",
@@ -1966,7 +1966,7 @@
         "every_typed_metadata_sc_artifact_is_byte_identical_to_the_current_generator",
         "metadata_planner_rejects_ordinary_sc_recipes_explicitly"
       ],
-      "entry_digest": "8faf16e38f303b8f08597f0bea97ec834f458b17c9918fb3aac7f2df7742d553"
+      "entry_digest": "20c9da0ac5448c330e299dbc24dd6616f3d93975df2f14e0c66fdfbeff7647a4"
     },
     {
       "source": "tests/metadata_sequence_lengths.rs",
@@ -1979,7 +1979,7 @@
         "sequence_length_vertical_slice_is_exact_byte_stable_and_reported",
         "validator_rejects_tampered_sequence_length_contract"
       ],
-      "entry_digest": "a2c200b4eca894a523aa3742202f048b713102515434a9cb68063a001bc6bf03"
+      "entry_digest": "f553ce5b88a3aa96a285b4679adfc1d2d060c02e9d1b7112d7859ec66af042dc"
     },
     {
       "source": "tests/metadata_string_boundaries.rs",
@@ -1992,7 +1992,7 @@
         "string_boundary_vertical_slice_is_exact_byte_stable_and_reported",
         "validator_rejects_tampered_string_boundary_contract"
       ],
-      "entry_digest": "2fe7b91ab152aafd06ebca6bee0a7de54911fd9f17dbc72da964afc4ae545d1b"
+      "entry_digest": "0354d3820c32f575c2ad9e1562ef0178b4e22f1f77a499993766de96f9e109f4"
     },
     {
       "source": "tests/metadata_timezone.rs",
@@ -2005,7 +2005,7 @@
         "timezone_boundaries_are_deterministic_strict_and_reported",
         "validator_rejects_tampered_timezone_contract_and_boundary_set"
       ],
-      "entry_digest": "667751133a2a357cb2b3eaf6dbae65cbbabf0ec5094dd50e3a955b09cfa1ea03"
+      "entry_digest": "0f7dd3b84a580f2461592cdb61ef1d7187d0352f8ac01477d228518e78896ac0"
     },
     {
       "source": "tests/metadata_utf8.rs",
@@ -2018,7 +2018,7 @@
         "utf8_person_name_vertical_slice_is_exact_and_byte_stable",
         "validator_rejects_tampered_utf8_metadata_expectations"
       ],
-      "entry_digest": "8d417fbae14ee8c8321d9ee17bbf69e137c00cee54a7d5dc9475e6e300b30a12"
+      "entry_digest": "0b3530e3e86deef20218f855b5d9aa1f4415e5b96bf4429dda4fa472d3f27fba"
     },
     {
       "source": "tests/native_pixel_factory.rs",
@@ -2039,7 +2039,7 @@
         "rejects_adversarial_sizes_before_allocation_under_typed_limits",
         "neutral_module_has_no_frontend_writer_or_filesystem_dependencies"
       ],
-      "entry_digest": "26c910e880c43c22243504fc71280c1287119c8f4ed0e4602b0ccfbf436e7087"
+      "entry_digest": "1e07836dba60b29d064ab0f28ab948ad0429daeb9cacdbfb069fbd39190268b5"
     },
     {
       "source": "tests/negative_plan.rs",
@@ -2082,7 +2082,7 @@
         "nm_multiframe_vertical_slice_is_exact_byte_stable_and_reported",
         "validator_rejects_tampered_nm_dimension_contract"
       ],
-      "entry_digest": "85408715ea39c7592686cb3859006777eceb607f0896e6fb9f424a4b36b66228"
+      "entry_digest": "483de2f8da0e4b08cb560f9b434f5f99172fe3124680b76383e12a858dbf8f48"
     },
     {
       "source": "tests/non_rust_cli_consumer.rs",
@@ -2094,7 +2094,7 @@
       "entries": [
         "python_consumer_integrates_through_schemas_and_exit_classes"
       ],
-      "entry_digest": "4dcd4cfd915004728075adeb9b27609a6a7891ace5754fd0165d31d451250003"
+      "entry_digest": "54f4a8f7af22445c0576d273fabde9ab5c0b7493ab6e525369848d5ed5f71a02"
     },
     {
       "source": "tests/parametric_map.rs",
@@ -2106,7 +2106,7 @@
       "entries": [
         "promoted_float32_parametric_map_satisfies_external_proof_contract"
       ],
-      "entry_digest": "d7548ade8d515583c0b2893352e7db3c53b38dc0cb289ba5ceb0d0529d3f5a2c"
+      "entry_digest": "84edef41fdb9e7e0cd62935b4774f8b08facd64e992ec243c53ec833b318524b"
     },
     {
       "source": "tests/pet_rescaled_activity.rs",
@@ -2119,7 +2119,7 @@
         "pet_rescaled_activity_vertical_slice_is_exact_byte_stable_and_reported",
         "validator_rejects_tampered_pet_activity_contract"
       ],
-      "entry_digest": "616807ee113f15e43b57f4bb3c4c0944b7b2d1b5ffa35fb579a721ad99238815"
+      "entry_digest": "4e3c9c7b4cc0c5b0cc91e5678bf3d5ca8fa0022fce590463634f7a0aa35ae45d"
     },
     {
       "source": "tests/planning_contracts.rs",
@@ -2135,7 +2135,7 @@
         "planning_context_and_projector_are_data_only_contracts",
         "neutral_planning_module_has_no_filesystem_or_writer_escape_hatch"
       ],
-      "entry_digest": "b908eb80f265e99869ebb50abbe2cab43d09a00ee09df92323b204056621da14"
+      "entry_digest": "10f6f0238ecdd6a2faddaed0580d12bc90145f83976ae3f602ee9d03cd444566"
     },
     {
       "source": "tests/planning_preview.rs",
@@ -2151,7 +2151,7 @@
         "preview_enforces_resources_and_cancellation",
         "preview_module_has_no_filesystem_or_concrete_executor_dependency"
       ],
-      "entry_digest": "0f7a759ff0241ee85a55853a4e56b5af46daf47a223850e6f2ae414879054a8a"
+      "entry_digest": "ede34987976e9fd0b309355772660f479644da685f6e62f8f77d1d01876bce59"
     },
     {
       "source": "tests/presentation_direct_plan.rs",
@@ -2280,7 +2280,7 @@
         "enhanced_pet_registry_evidence_resolves_to_a_source_note",
         "nonsquare_registry_evidence_resolves_to_a_source_note"
       ],
-      "entry_digest": "8dca920d1344daf10225d23d31ed332857cd3115e6aa04713db8020d5cdf8bf6"
+      "entry_digest": "ba1a0432daab9ac24bc95faeec217070dccc71dd7ddc4dace5d484c728205743"
     },
     {
       "source": "tests/protocol_baseline.rs",
@@ -2335,7 +2335,7 @@
       "entries": [
         "installed_style_consumer_discovers_and_reproduces_every_qualified_template"
       ],
-      "entry_digest": "21d112339a553ce3299445ca38e8a4bcdcb0b8dd63eb4a747d6aa506264afee2"
+      "entry_digest": "332ad2058a1a3732331bca71474cbf5a0e6fc89755eb337aa4fdf7ae6fdd04b5"
     },
     {
       "source": "tests/quantitative_direct_parity.rs",
@@ -2438,7 +2438,7 @@
       "entries": [
         "current_target_archive_is_manifest_bound_and_relocatable"
       ],
-      "entry_digest": "ba54903050add771d4f8d741a5bd9b4624ce703f1620c2e3c7c67d169d3b22dd"
+      "entry_digest": "d2e301549c5c657145a70cad7bbfce2814a6126a1e2633d7ed2b487f7b146950"
     },
     {
       "source": "tests/release_process.rs",
@@ -2453,7 +2453,7 @@
         "release_scripts_default_to_clean_locked_target_bound_artifacts",
         "release_binary_override_contract_rejects_unbound_candidates"
       ],
-      "entry_digest": "b4ea860c12515bdb6f591a1a9230bf26c90b16a5d80ae321df478f579a7f377a"
+      "entry_digest": "9ee42206537b5b7defcc37c4496af96f93340f32f96bbab96e059620cebd6f41"
     },
     {
       "source": "tests/report_cli.rs",
@@ -2514,7 +2514,7 @@
         "report_locks_rt_radiation_pair_contracts_and_markdown",
         "report_rejects_malformed_rt_radiation_pair_manifests"
       ],
-      "entry_digest": "d8a7337345c3e91f000ea7c0d5f15e172047e89cdee90df31e5a83099b96e29b"
+      "entry_digest": "00a7a943fc0be05a05bcf1ceb4c3530b56ae01dc26b8259a9f0fabd7702f293e"
     },
     {
       "source": "tests/robustness_qualification_api.rs",
@@ -2540,7 +2540,7 @@
         "fuzz_rejects_reordered_missing_extra_public_and_drifted_sources",
         "eot_plan_is_source_free_evidence_only_and_profile_empty"
       ],
-      "entry_digest": "3a05e2b88d96362858fa7970a202af800cfa26924a862a2003ff8d884dcaddb5"
+      "entry_digest": "a71e0d5056a9bb929933a0ae16c58fa293bdd57d24135b3134c0c20b442da2f5"
     },
     {
       "source": "tests/robustness_recipe_catalog.rs",
@@ -2587,7 +2587,7 @@
         "ordinary_sc_plans_are_byte_identical_to_current_generator_outputs",
         "eot_plan_locks_pre_encoding_bytes_uids_and_fixed_multiframe_attributes"
       ],
-      "entry_digest": "c32752aad9bcd70f3a03e42f44666cbc96e6fc141485c52740c9a78d97b18032"
+      "entry_digest": "4b9ef0e9cc8ee8f1cc8e1cb1065a5c44d859276572066b09bc3f1d7feaf4f67d"
     },
     {
       "source": "tests/schema_artifacts.rs",
@@ -2684,7 +2684,7 @@
       "entries": [
         "scoord3d_vertical_slice_is_byte_deterministic_and_strictly_validated"
       ],
-      "entry_digest": "6abbf8758e950799a87b56874f43aa1fbd2bb10290e9aa141a37e2630b467257"
+      "entry_digest": "76a7578733667ffb8b8158fccf807d88cf656498a4ee0b5c62ff276597c15617"
     },
     {
       "source": "tests/sdk_external_consumer.rs",
@@ -2696,7 +2696,7 @@
       "entries": [
         "external_side_project_uses_only_the_supported_sdk_facade"
       ],
-      "entry_digest": "cfe3e73c8d6fbeff27313711e780a8356a465c5532d54a4b1fea74a8fca3c327"
+      "entry_digest": "37a3007c55f9c4f92d3078d37f9fc1caa8164714f73dd7544e75062e411b225e"
     },
     {
       "source": "tests/sdk_facade.rs",
@@ -2730,7 +2730,7 @@
         "sr_recipe_documents_are_typed_ordered_and_dependency_complete",
         "rt_recipe_documents_form_one_typed_ordered_reference_dag"
       ],
-      "entry_digest": "e5abe15ec65a5e7018a2a6257d7538878d2ef938670cbb4bf7eb6bb6614fa869"
+      "entry_digest": "144e2572d09bafe6f63b9c8e2e330bdeb75ed1fc9b0449fb6eea88a1c753f3c1"
     },
     {
       "source": "tests/spatial_registration.rs",
@@ -2742,7 +2742,7 @@
       "entries": [
         "spatial_registration_vertical_slice_is_byte_deterministic_and_strictly_validated"
       ],
-      "entry_digest": "50ea98f1e7ae3305b8f094257cc1392e40fc054e5541a4d926630810e1426c2e"
+      "entry_digest": "22764f2162923679dad9797c9ce921cc17cb1680210c9d4c54f84e9f1ff18302"
     },
     {
       "source": "tests/sr_rt_evidence.rs",
@@ -2770,7 +2770,7 @@
       "entries": [
         "compose_uses_embedded_catalogs_from_an_unrelated_working_directory"
       ],
-      "entry_digest": "392be93c97eed9f35ba27436a4d541ba8c6e2394701490ed8020aacaf0e69b88"
+      "entry_digest": "23b0e68652ca671608ccb29306b6247944323355de81ebcedc4458006fb412d2"
     },
     {
       "source": "tests/standalone_docs.rs",
@@ -2798,7 +2798,7 @@
       "entries": [
         "generate_uses_embedded_resources_from_an_unrelated_working_directory"
       ],
-      "entry_digest": "1bbfe07e1880c2b97ca2d4971de0e587d28ae53430813b30a783147ccc89870f"
+      "entry_digest": "9058a17ad083aa524eef0f6759fdda49e2112331cead563f444bb5f7d2529c54"
     },
     {
       "source": "tests/standards_cli.rs",
@@ -2817,7 +2817,7 @@
         "standards_verify_kb_reports_unavailable_without_runtime_mcp",
         "standards_verify_kb_rejects_unsupported_edition"
       ],
-      "entry_digest": "27b927215babe9357498dc6178341d2e49515f3b784fd2277a94ffb5169b95e4"
+      "entry_digest": "716d0fd1b33c93aaf0ffe836344639d1b75e2704270e7278f227e82415eb06a3"
     },
     {
       "source": "tests/stress_ct_plan.rs",
@@ -2832,7 +2832,7 @@
         "stress_ct_planning_is_filesystem_free_and_rejects_corruption",
         "stress_ct_registry_preserves_frozen_public_standards_evidence"
       ],
-      "entry_digest": "8cc324428a71b7a7a58a19ccef509529eb39d072658ca5799773546738e16ae3"
+      "entry_digest": "d315f565829d142fb50315ed527b4ada264cbe5667314f0ef7533a8147704536"
     },
     {
       "source": "tests/stress_sc_plan.rs",
@@ -2858,7 +2858,7 @@
       "entries": [
         "installed_style_consumer_exercises_every_structural_content_kind"
       ],
-      "entry_digest": "1274faa2008fcf9362f4990e3a9df059e7405788685bde303c544b027582753c"
+      "entry_digest": "a55aaf43f44efa99dcd0286724bdfc8f837092a3e5f41330243dd3bf6fc511e1"
     },
     {
       "source": "tests/template_default_recipes.rs",
@@ -2873,7 +2873,7 @@
         "recipe_catalog_rejects_dangling_and_template_mismatched_defaults",
         "default_recipe_bindings_are_exposed_by_exact_template_identity"
       ],
-      "entry_digest": "583bd1993d248924c7b7b548bdc8b6d007a524cbc49f556ee2bc45c6fb684d58"
+      "entry_digest": "3314bdc994d10fdab758348423ed4466f2718a8a850d47d9058b0ccf2479d470"
     },
     {
       "source": "tests/templates_cli.rs",
@@ -2888,7 +2888,7 @@
         "templates_describe_returns_the_complete_versioned_descriptor",
         "templates_describe_rejects_unknown_or_unqualified_identity"
       ],
-      "entry_digest": "45c64a73d8ed57bb31f7dad658b3718ea100a4b26530bb4827d41f9d55c868a2"
+      "entry_digest": "ecab29916ffee2abaaff2f0f93a8f8ad34665b018041ed63a7a1327745952b38"
     },
     {
       "source": "tests/tid1500.rs",
@@ -2900,7 +2900,7 @@
       "entries": [
         "tid1500_vertical_slice_is_byte_deterministic_and_strictly_validated"
       ],
-      "entry_digest": "5bcaf6cf777494d08e0a7ca4b7b85d9162bde93e07ac8a550dd1edff65f8fd53"
+      "entry_digest": "1ab72bdecc09f427a7d4ac064716501c5c989fcf7ae4a50756e9a03168614ccc"
     },
     {
       "source": "tests/twelve_lead_ecg_waveform.rs",
@@ -2912,7 +2912,7 @@
       "entries": [
         "twelve_lead_ecg_vertical_slice_is_byte_deterministic_and_closed"
       ],
-      "entry_digest": "1c38dbe9a4b87cd808aca41e285876865aefc89a5944bf707fe62fb14e4f740b"
+      "entry_digest": "26114745962700cd742b74072ddfc48fb195e4af6e919eff308de4f766cbb7f9"
     },
     {
       "source": "tests/typed_bulk_compatibility.rs",
@@ -2953,7 +2953,7 @@
         "every_u4_plan_matches_fresh_legacy_part10_and_identity_facts",
         "global_classic_output_order_is_derived_from_recipe_and_artifact_ordinals"
       ],
-      "entry_digest": "6cb0720f89aa03786e5a126512faa36769037a088ad811a0bb09050e9e7eeae7"
+      "entry_digest": "4114abba07c3639e9cdec7582fa61a608e50928fcf9bf4d5084bf546ae211d24"
     },
     {
       "source": "tests/u4_classic_qualification.rs",
@@ -3034,7 +3034,7 @@
       "entries": [
         "installed_style_consumer_accepts_supported_versions_and_guides_rejection"
       ],
-      "entry_digest": "821a82ae9747ae4d7b641ab7f2bfcd4bb2998d05ae01ef19f85d9e622cbfbfcd"
+      "entry_digest": "93504b75dc72c685e478559d623d7a544c4b236500318091838a01e63a3bd0bb"
     },
     {
       "source": "tests/us_multiframe.rs",
@@ -3047,7 +3047,7 @@
         "us_multiframe_vertical_slice_is_exact_byte_stable_and_reported",
         "validator_rejects_tampered_us_multiframe_contract"
       ],
-      "entry_digest": "552072120667d8e05b6289c1d7251e37aeb13580c4bc114be8e73face2dfe9b9"
+      "entry_digest": "f0118d49ec2795f4c41ffb51020752723235802af9dd9c85e56060db0bd1f6b2"
     },
     {
       "source": "tests/validate_cli.rs",
@@ -3093,7 +3093,7 @@
         "validate_command_reports_missing_rt_dose_grid_scaling",
         "validate_command_reports_missing_encapsulated_pdf_mime_type"
       ],
-      "entry_digest": "52b603be2643c309332f03cea2b59680a4112e4c04742a1774ebfd739dbd089b"
+      "entry_digest": "b5f01ecfe23a81d326a08f530954cf473c795b5dcb9ed253dd41e2a490647aad"
     },
     {
       "source": "tests/version_cli.rs",
@@ -3107,7 +3107,7 @@
         "version_human_output_preserves_the_existing_banner",
         "version_machine_resource_drift_is_a_stable_integrity_error"
       ],
-      "entry_digest": "08c0b4392d7791458481f776b6d78bdcf365ddb630deeb59df896200cecd835a"
+      "entry_digest": "12a5a034506d9e93de41bc0327219473c8f82e796101c2199bd06ac34460e6a5"
     },
     {
       "source": "tests/waveform_document_mesh_plan.rs",
@@ -3122,7 +3122,7 @@
         "providers_are_output_free_bounded_and_reject_declared_hash_drift",
         "provider_sources_have_no_frontend_writer_or_filesystem_dependency"
       ],
-      "entry_digest": "b4948f1c87d02c39deb232fdf51342a0a08e9478b87e9d29d04951e609d19a87"
+      "entry_digest": "3f21f0aca13ee60891da2da508602e8a33b4d3bc859344674b62d764248bacdd"
     },
     {
       "source": "tests/wsi_direct_plan.rs",
@@ -3153,7 +3153,7 @@
       "entries": [
         "stress_profile_emits_complete_three_instance_wsi_pyramid"
       ],
-      "entry_digest": "e668db30959a9a3aedd4785aa74c9fb567379d0d651a35e96c6ae68af537acb3",
+      "entry_digest": "cf108cda91446d1122b9177d80b77abaf1213bc31a7c37dc133735437f7b5878",
       "heavy_entries": [
         "stress_profile_emits_complete_three_instance_wsi_pyramid"
       ]
@@ -3169,7 +3169,7 @@
         "xa_monoplane_vertical_slice_is_exact_byte_stable_and_reported",
         "validator_rejects_tampered_xa_projection_contract"
       ],
-      "entry_digest": "c865d722cfb86dffbb5c2086f12c73da5c1daa3d0bbd9900d65be7684655d0fd"
+      "entry_digest": "8dc87d8691b6a7bb6859217648e9e886d85ba410b9d0483a3e84a0bea726547b"
     },
     {
       "source": "tests/xrf_monoplane.rs",
@@ -3182,11 +3182,11 @@
         "xrf_monoplane_vertical_slice_is_exact_byte_stable_and_reported",
         "validator_rejects_tampered_xrf_projection_contract"
       ],
-      "entry_digest": "3b2a404ea4ba9d22a87dc628e548ece264c09a91d7d4f9fb8ade49ba631ca671"
+      "entry_digest": "b68fc364700dcd970d7a0a5bfbeaf91bd2f98a5a6a4f4c7230d1618319193c5a"
     },
     {
       "source": "src/codecs.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "codec",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3233,7 +3233,7 @@
     },
     {
       "source": "src/composition/advanced_family.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3245,7 +3245,7 @@
     },
     {
       "source": "src/composition/advanced_semantic_defaults.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3257,7 +3257,7 @@
     },
     {
       "source": "src/composition/attribute.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3279,7 +3279,7 @@
     },
     {
       "source": "src/composition/bulk.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3292,7 +3292,7 @@
     },
     {
       "source": "src/composition/bundle.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3306,7 +3306,7 @@
     },
     {
       "source": "src/composition/classic.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3320,7 +3320,7 @@
     },
     {
       "source": "src/composition/content.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3336,7 +3336,7 @@
     },
     {
       "source": "src/composition/corpus_adapter.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3349,7 +3349,7 @@
     },
     {
       "source": "src/composition/defaults.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3362,7 +3362,7 @@
     },
     {
       "source": "src/composition/enhanced.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3375,7 +3375,7 @@
     },
     {
       "source": "src/composition/family.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3388,7 +3388,7 @@
     },
     {
       "source": "src/composition/identity.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3403,7 +3403,7 @@
     },
     {
       "source": "src/composition/manifest.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3417,7 +3417,7 @@
     },
     {
       "source": "src/composition/materializer.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3444,7 +3444,7 @@
     },
     {
       "source": "src/composition/modules.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3456,7 +3456,7 @@
     },
     {
       "source": "src/composition/native_content.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3472,7 +3472,7 @@
     },
     {
       "source": "src/composition/pixel.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "codec",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3489,7 +3489,7 @@
     },
     {
       "source": "src/composition/plan.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3504,7 +3504,7 @@
     },
     {
       "source": "src/composition/reference.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3519,7 +3519,7 @@
     },
     {
       "source": "src/composition/run.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3551,7 +3551,7 @@
     },
     {
       "source": "src/composition/spec.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3566,7 +3566,7 @@
     },
     {
       "source": "src/composition/template.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3585,7 +3585,7 @@
     },
     {
       "source": "src/composition/validation.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "standards_validation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3597,7 +3597,7 @@
     },
     {
       "source": "src/conformance.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "conformance_interoperability",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3624,7 +3624,7 @@
     },
     {
       "source": "src/coverage_gaps.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3636,7 +3636,7 @@
     },
     {
       "source": "src/curated_execution.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3649,7 +3649,7 @@
     },
     {
       "source": "src/curated_manifest/qualification.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "nightly",
       "cost_tier": "ordinary",
@@ -3663,7 +3663,7 @@
     },
     {
       "source": "src/encapsulation.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3682,7 +3682,7 @@
     },
     {
       "source": "src/executor/evidence.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3696,7 +3696,7 @@
     },
     {
       "source": "src/executor/materialization.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3723,7 +3723,7 @@
     },
     {
       "source": "src/executor/native_codec.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "codec",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3735,7 +3735,7 @@
     },
     {
       "source": "src/executor/scheduler.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3755,7 +3755,7 @@
     },
     {
       "source": "src/executor/services.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3771,7 +3771,7 @@
     },
     {
       "source": "src/executor/stress_content.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "nightly",
       "cost_tier": "heavy",
@@ -3785,7 +3785,7 @@
     },
     {
       "source": "src/executor/transaction.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3806,7 +3806,7 @@
     },
     {
       "source": "src/fuzz.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3834,7 +3834,7 @@
     },
     {
       "source": "src/generation_backends/discovery.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3848,7 +3848,7 @@
     },
     {
       "source": "src/generation_backends/mod.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3864,7 +3864,7 @@
     },
     {
       "source": "src/generation_backends/parametric_map.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3880,7 +3880,7 @@
     },
     {
       "source": "src/generation_backends/process.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "heavy",
@@ -3901,7 +3901,7 @@
     },
     {
       "source": "src/generation_backends/scoord3d.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3916,7 +3916,7 @@
     },
     {
       "source": "src/generation_backends/staging.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3935,7 +3935,7 @@
     },
     {
       "source": "src/generation_backends/tid1500.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3947,7 +3947,7 @@
     },
     {
       "source": "src/generation_backends/wsi_tile_segmentation.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "nightly",
       "cost_tier": "heavy",
@@ -3963,7 +3963,7 @@
     },
     {
       "source": "src/geometry.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3982,7 +3982,7 @@
     },
     {
       "source": "src/hashing.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3994,7 +3994,7 @@
     },
     {
       "source": "src/lib.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4080,7 +4080,7 @@
     },
     {
       "source": "src/media.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "conformance_interoperability",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4103,7 +4103,7 @@
     },
     {
       "source": "src/media_runner.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "conformance_interoperability",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4119,7 +4119,7 @@
     },
     {
       "source": "src/metadata.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4133,7 +4133,7 @@
     },
     {
       "source": "src/mutation.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4149,7 +4149,7 @@
     },
     {
       "source": "src/negative.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4165,7 +4165,7 @@
     },
     {
       "source": "src/part10_locator.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4181,7 +4181,7 @@
     },
     {
       "source": "src/recipes/loader.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4198,7 +4198,7 @@
     },
     {
       "source": "src/rt_manifest.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4211,7 +4211,7 @@
     },
     {
       "source": "src/rt_radiation_manifest.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4224,7 +4224,7 @@
     },
     {
       "source": "src/stress.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "nightly",
       "cost_tier": "heavy",
@@ -4243,7 +4243,7 @@
     },
     {
       "source": "src/uid.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4258,7 +4258,7 @@
     },
     {
       "source": "src/validation_advanced_blending_presentation_state_tests.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "standards_validation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4273,7 +4273,7 @@
     },
     {
       "source": "src/validation_blending_presentation_state_tests.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "standards_validation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4287,7 +4287,7 @@
     },
     {
       "source": "src/validation_color_softcopy_presentation_state_tests.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "standards_validation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4306,7 +4306,7 @@
     },
     {
       "source": "src/validation_deformable_spatial_registration_tests.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "standards_validation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4324,7 +4324,7 @@
     },
     {
       "source": "src/validation_general_ecg_tests.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "standards_validation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4338,7 +4338,7 @@
     },
     {
       "source": "src/validation_rt_image_tests.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "standards_validation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4353,7 +4353,7 @@
     },
     {
       "source": "src/validation_rt_plan_tests.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "standards_validation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4368,7 +4368,7 @@
     },
     {
       "source": "src/validation_rt_radiation_tests.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "standards_validation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4383,7 +4383,7 @@
     },
     {
       "source": "src/validation_spatial_registration_tests.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "standards_validation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4400,7 +4400,7 @@
     },
     {
       "source": "src/validation_twelve_lead_ecg_tests.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "standards_validation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4417,7 +4417,7 @@
     },
     {
       "source": "src/validation_vl_single_frame_tests.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "standards_validation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4431,7 +4431,7 @@
     },
     {
       "source": "src/validation_wsi_multiple_optical_paths_tests.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "standards_validation",
       "verification_class": "nightly",
       "cost_tier": "heavy",
@@ -4446,7 +4446,7 @@
     },
     {
       "source": "src/validation_wsi_pyramid_tests.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "standards_validation",
       "verification_class": "nightly",
       "cost_tier": "heavy",
@@ -4460,7 +4460,7 @@
     },
     {
       "source": "src/validation_wsi_tile_segmentation_tests.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "standards_validation",
       "verification_class": "nightly",
       "cost_tier": "heavy",
@@ -4476,7 +4476,7 @@
     },
     {
       "source": "src/validation_wsi_tiled_full_tests.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "standards_validation",
       "verification_class": "nightly",
       "cost_tier": "heavy",
@@ -4490,7 +4490,7 @@
     },
     {
       "source": "src/validation_wsi_tiled_sparse_tests.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "standards_validation",
       "verification_class": "nightly",
       "cost_tier": "heavy",
@@ -4505,7 +4505,7 @@
     },
     {
       "source": "src/waveform_manifest.rs",
-      "target": "dicom_test_suite",
+      "target": "synth_dicom_gen",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",

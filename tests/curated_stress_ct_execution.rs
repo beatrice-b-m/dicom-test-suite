@@ -2,16 +2,16 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use dicom_test_suite::curated_execution::CuratedExecutionServiceFactory;
-use dicom_test_suite::curated_plan::{
+use synth_dicom_gen::curated_execution::CuratedExecutionServiceFactory;
+use synth_dicom_gen::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
 };
-use dicom_test_suite::executor::adapters::ManifestProjectionInput;
-use dicom_test_suite::executor::cancellation::CancellationToken;
-use dicom_test_suite::executor::engine::{
+use synth_dicom_gen::executor::adapters::ManifestProjectionInput;
+use synth_dicom_gen::executor::cancellation::CancellationToken;
+use synth_dicom_gen::executor::engine::{
     CorpusExecutor, ManifestProjectionError, ManifestProjector,
 };
-use dicom_test_suite::executor::evidence::{ExecutionStatus, ResultStatus};
+use synth_dicom_gen::executor::evidence::{ExecutionStatus, ResultStatus};
 
 const CASE_ID: &str = "stress/study/high_instance_count_ct";
 static NEXT: AtomicU64 = AtomicU64::new(0);

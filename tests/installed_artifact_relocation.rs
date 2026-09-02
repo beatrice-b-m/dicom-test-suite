@@ -15,8 +15,8 @@ fn installed_artifact_runs_every_resource_backed_workflow_from_three_directories
     fs::create_dir_all(&isolated_home).unwrap();
     fs::create_dir_all(&isolated_tmp).unwrap();
 
-    let installed_binary = install_root.join("dicom-test-suite");
-    fs::copy(env!("CARGO_BIN_EXE_dicom-test-suite"), &installed_binary).unwrap();
+    let installed_binary = install_root.join("synth-dicom-gen");
+    fs::copy(env!("CARGO_BIN_EXE_synth-dicom-gen"), &installed_binary).unwrap();
     make_executable(&installed_binary);
 
     let spec_bytes = fs::read("tests/fixtures/composition/valid/template-only.json").unwrap();
@@ -157,7 +157,7 @@ fn assert_success(output: Output) {
 
 fn unique_root(label: &str) -> PathBuf {
     std::env::temp_dir().join(format!(
-        "dicom-test-suite-{label}-{}-{}",
+        "synth-dicom-gen-{label}-{}-{}",
         std::process::id(),
         SystemTime::now()
             .duration_since(UNIX_EPOCH)

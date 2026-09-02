@@ -1,11 +1,11 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use dicom_test_suite::corpus_plan::{ArtifactProvenance, PlannedArtifact};
-use dicom_test_suite::curated_plan::{
+use synth_dicom_gen::corpus_plan::{ArtifactProvenance, PlannedArtifact};
+use synth_dicom_gen::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
 };
-use dicom_test_suite::executor::services::SlotExecutionBinding;
-use dicom_test_suite::runtime_capabilities::{CapabilityInventory, QualifiedExecutableIdentity};
+use synth_dicom_gen::executor::services::SlotExecutionBinding;
+use synth_dicom_gen::runtime_capabilities::{CapabilityInventory, QualifiedExecutableIdentity};
 
 fn set(values: &[&str]) -> BTreeSet<String> {
     values.iter().map(|value| (*value).into()).collect()

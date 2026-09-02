@@ -1,4 +1,4 @@
-use dicom_test_suite::recipes::{
+use synth_dicom_gen::recipes::{
     EOT_ARITHMETIC_PLAN_PROVIDER_ID, FUZZ_PLAN_PROVIDER_ID, QualificationParameters, RecipeCatalog,
     qualification_parameters,
 };

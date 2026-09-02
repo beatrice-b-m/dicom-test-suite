@@ -10,7 +10,7 @@ use serde_json::json;
 #[test]
 fn report_command_isolates_bounded_fuzz_qualification() {
     let out_dir = unique_temp_dir("report-fuzz-json");
-    let generated = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let generated = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "generate",
             "--profile",
@@ -28,7 +28,7 @@ fn report_command_isolates_bounded_fuzz_qualification() {
         String::from_utf8_lossy(&generated.stderr)
     );
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -63,7 +63,7 @@ fn report_command_isolates_bounded_fuzz_qualification() {
     hidden_timeout["fuzz_coverage"][0]["outcomes"]["timeout"] = Value::from(1);
     assert!(!validator.is_valid(&hidden_timeout));
 
-    let markdown = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let markdown = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -83,7 +83,7 @@ fn report_command_writes_json_coverage_for_core_root() {
     let out_dir = unique_temp_dir("report-core-json");
     generate_core(&out_dir);
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -1022,7 +1022,7 @@ fn report_command_writes_json_coverage_for_core_root() {
         );
     }
 
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     assert!(markdown.contains("## Geometry Sorting Expectations"));
     assert!(markdown.contains("Instance Number state"));
     assert!(markdown.contains("Adjacent spacing (mm)"));
@@ -1049,7 +1049,7 @@ fn markdown_report_renders_cross_series_organization_expectations() {
         "gaps": []
     });
 
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     assert!(markdown.contains("## Cross-Series Organization Expectations"));
     assert!(markdown.contains(
         "| geometry/ct/multiseries_shared_frame_of_reference | shared-study-frame-of-reference | 2 | 1 | 3 | true | true | true |"
@@ -1071,7 +1071,7 @@ fn markdown_report_renders_metadata_and_vr_expectations() {
         "gaps": []
     });
 
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     assert!(markdown.contains("## Metadata and VR Expectations"));
     assert!(markdown.contains("Specific Character Set"));
     assert!(markdown.contains("alphabetic:Wang^XiaoDong \\| ideographic:王^小東"));
@@ -1085,7 +1085,7 @@ fn report_command_writes_enhanced_mr_per_frame_coverage_for_extended_root() {
     let out_dir = unique_temp_dir("report-enhanced-mr-per-frame-json");
     generate_extended(&out_dir);
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -1206,7 +1206,7 @@ fn report_command_writes_enhanced_mr_per_frame_coverage_for_extended_root() {
         Some(1)
     );
 
-    let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let markdown_output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -1300,7 +1300,7 @@ fn report_rejects_incomplete_or_inconsistent_enhanced_mr_temporal_contracts() {
         )
         .expect("malformed manifest fixture should be writable");
 
-        let error = dicom_test_suite::build_coverage_report(&out_dir)
+        let error = synth_dicom_gen::build_coverage_report(&out_dir)
             .expect_err("malformed temporal report contract should be rejected")
             .to_string();
         assert!(
@@ -1317,7 +1317,7 @@ fn report_command_writes_enhanced_ct_concatenation_coverage_for_extended_root() 
     let out_dir = unique_temp_dir("report-enhanced-ct-concat-json");
     generate_extended(&out_dir);
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -1462,7 +1462,7 @@ fn report_command_writes_enhanced_ct_concatenation_coverage_for_extended_root() 
         Some(1)
     );
 
-    let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let markdown_output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -1496,7 +1496,7 @@ fn report_command_writes_segmentation_content_coverage_for_extended_root() {
     let out_dir = unique_temp_dir("report-segmentation-content-json");
     generate_extended(&out_dir);
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -1580,7 +1580,7 @@ fn report_command_writes_segmentation_content_coverage_for_extended_root() {
         Some(1 + u64::from(wsi_tile_segmentation_generated))
     );
 
-    let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let markdown_output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -1628,7 +1628,7 @@ fn report_command_writes_gsps_content_coverage_for_extended_root() {
     let out_dir = unique_temp_dir("report-gsps-content-json");
     generate_extended(&out_dir);
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -1725,7 +1725,7 @@ fn report_command_writes_gsps_content_coverage_for_extended_root() {
         Some(1)
     );
 
-    let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let markdown_output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -1765,7 +1765,7 @@ fn report_command_writes_color_softcopy_coverage_for_extended_root() {
     let out_dir = unique_temp_dir("report-color-softcopy-json");
     generate_extended(&out_dir);
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -1895,7 +1895,7 @@ fn report_command_writes_color_softcopy_coverage_for_extended_root() {
         "coverage schema must reject Color Softcopy fields on other cases"
     );
 
-    let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let markdown_output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -1930,7 +1930,7 @@ fn report_command_writes_rt_dose_content_coverage_for_extended_root() {
     let out_dir = unique_temp_dir("report-rt-dose-content-json");
     generate_extended(&out_dir);
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -1986,7 +1986,7 @@ fn report_command_writes_rt_dose_content_coverage_for_extended_root() {
         Some(1)
     );
 
-    let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let markdown_output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -2020,7 +2020,7 @@ fn report_command_writes_rt_structure_set_content_coverage_for_extended_root() {
     let out_dir = unique_temp_dir("report-rt-structure-set-content-json");
     generate_extended(&out_dir);
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -2100,7 +2100,7 @@ fn report_command_writes_rt_structure_set_content_coverage_for_extended_root() {
         Some(1)
     );
 
-    let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let markdown_output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -2138,7 +2138,7 @@ fn report_command_writes_encapsulated_document_content_coverage_for_extended_roo
     let out_dir = unique_temp_dir("report-encapsulated-document-content-json");
     generate_extended(&out_dir);
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -2217,7 +2217,7 @@ fn report_command_writes_encapsulated_document_content_coverage_for_extended_roo
         Some(1)
     );
 
-    let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let markdown_output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -2252,7 +2252,7 @@ fn report_command_writes_rwvm_content_coverage_for_extended_root() {
     let out_dir = unique_temp_dir("report-rwvm-content-json");
     generate_extended(&out_dir);
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -2448,7 +2448,7 @@ fn report_command_writes_rwvm_content_coverage_for_extended_root() {
         Some(1)
     );
 
-    let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let markdown_output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -2494,7 +2494,7 @@ fn report_command_writes_structured_report_content_coverage_for_extended_root() 
     let out_dir = unique_temp_dir("report-structured-report-content-json");
     generate_extended(&out_dir);
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -2679,7 +2679,7 @@ fn report_command_writes_structured_report_content_coverage_for_extended_root() 
         tid1500_generated.then_some(1)
     );
 
-    let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let markdown_output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -2728,7 +2728,7 @@ fn report_command_writes_markdown_coverage_for_core_root() {
     let out_dir = unique_temp_dir("report-core-markdown");
     generate_core(&out_dir);
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -2861,7 +2861,7 @@ fn report_command_counts_generated_rgb_rle_lossless_row() {
     let out_dir = unique_temp_dir("report-rgb-rle-json");
     generate_extended(&out_dir);
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -4213,7 +4213,7 @@ fn report_command_counts_generated_multifragment_jpeg_baseline_row() {
     let out_dir = unique_temp_dir("report-jpeg-multifragment-json");
     generate_extended(&out_dir);
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -4253,7 +4253,7 @@ fn report_command_counts_generated_htj2k_lossless_row() {
     let out_dir = unique_temp_dir("report-htj2k-json");
     generate_extended(&out_dir);
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -4290,7 +4290,7 @@ fn report_command_counts_generated_deflated_image_frame_seg_row() {
     let out_dir = unique_temp_dir("report-deflated-image-frame-json");
     generate_extended(&out_dir);
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -4330,7 +4330,7 @@ fn report_command_counts_generated_legacy_jpeg_lossless_rows() {
     let out_dir = unique_temp_dir("report-legacy-jpeg-lossless-json");
     generate_extended(&out_dir);
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -4429,7 +4429,7 @@ fn report_projects_manifest_references_for_non_image_rows() {
     )
     .expect("manifest should be writable");
 
-    let report = dicom_test_suite::build_coverage_report(&out_dir)
+    let report = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect("report should accept non-image manifest rows");
     let row = coverage_row(&report, "derived/rwvm/linear_ct_mapping_explicit_le");
     assert_eq!(
@@ -4640,7 +4640,7 @@ fn report_summarizes_compressed_codec_coverage() {
     )
     .expect("manifest should be writable");
 
-    let report = dicom_test_suite::build_coverage_report(&out_dir)
+    let report = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect("report should summarize compressed coverage");
     let generated = coverage_row(&report, "classic/sc/rgb_planar0_rle_lossless");
     assert_eq!(
@@ -5042,7 +5042,7 @@ fn report_summarizes_compressed_codec_coverage() {
     );
     assert_eq!(unavailable.get("extended_offset_table"), Some(&Value::Null));
 
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     assert!(markdown.contains("### Codec Families"));
     assert!(markdown.contains("| RLE Lossless | 1 |"));
     assert!(markdown.contains("### SOP Classes"));
@@ -5143,7 +5143,7 @@ fn report_counts_feature_gated_planned_cases_as_planned() {
     )
     .expect("manifest should be writable");
 
-    let report = dicom_test_suite::build_coverage_report(&out_dir)
+    let report = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect("report should accept feature-gated planned rows");
     assert_eq!(
         report.pointer("/counts/planned").and_then(Value::as_u64),
@@ -5230,7 +5230,7 @@ fn report_exposes_external_generation_backend_provenance() {
     )
     .expect("manifest should be writable");
 
-    let report = dicom_test_suite::build_coverage_report(&out_dir)
+    let report = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect("report should accept external generation backend provenance");
     let row = coverage_row(
         &report,
@@ -5272,7 +5272,7 @@ fn report_exposes_external_generation_backend_provenance() {
         "provenance coverage report must match its schema: {errors:?}"
     );
 
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     assert!(markdown.contains("### Generation Backends"));
     assert!(markdown.contains("| highdicom_pydicom | 1 |"));
     assert!(markdown.contains("| highdicom_pydicom | 0.27.0 | semantic_stable | passed |"));
@@ -5310,7 +5310,7 @@ fn report_counts_feature_gated_implemented_cases_as_unavailable() {
     )
     .expect("manifest should be writable");
 
-    let report = dicom_test_suite::build_coverage_report(&out_dir)
+    let report = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect("report should accept feature-gated unavailable rows");
     assert_eq!(
         report.pointer("/counts/planned").and_then(Value::as_u64),
@@ -5438,7 +5438,7 @@ fn report_summarizes_lossy_image_compression_method() {
     )
     .expect("manifest should be writable");
 
-    let report = dicom_test_suite::build_coverage_report(&out_dir)
+    let report = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect("report should summarize lossy compression method coverage");
     let row = coverage_row(&report, "classic/sc/rgb_planar0_jpeg_baseline_8bit");
     assert_eq!(
@@ -5463,7 +5463,7 @@ fn report_summarizes_lossy_image_compression_method() {
             .and_then(Value::as_u64),
         Some(1)
     );
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     assert!(markdown.contains("### Lossy Image Compression Ratios"));
     assert!(markdown.contains("| 1.500000 | 1 |"));
     assert!(markdown.contains("### Lossy Image Compression Methods"));
@@ -5477,7 +5477,7 @@ fn report_command_rejects_missing_manifest() {
     let out_dir = unique_temp_dir("report-missing-manifest");
     fs::create_dir_all(&out_dir).expect("temporary output root should be created");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -5501,7 +5501,7 @@ fn report_command_rejects_missing_manifest() {
 fn report_surfaces_complete_unsigned_u32_pixel_contract() {
     let out_dir = unique_temp_dir("report-u32-pixels");
     generate_extended(&out_dir);
-    let json_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let json_output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["report"])
         .arg(&out_dir)
         .args(["--format", "json"])
@@ -5530,7 +5530,7 @@ fn report_surfaces_complete_unsigned_u32_pixel_contract() {
     let report_validator = jsonschema::validator_for(&schema).unwrap();
     assert!(report_validator.is_valid(&report));
 
-    let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let markdown_output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["report"])
         .arg(&out_dir)
         .args(["--format", "markdown"])
@@ -5558,7 +5558,7 @@ fn report_surfaces_complete_unsigned_u32_pixel_contract() {
         serde_json::to_vec_pretty(&manifest).unwrap(),
     )
     .unwrap();
-    let rejected = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let rejected = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["report"])
         .arg(&out_dir)
         .args(["--format", "json"])
@@ -5574,7 +5574,7 @@ fn report_surfaces_complete_unsigned_u32_pixel_contract() {
 fn report_surfaces_complete_one_bit_pixel_contract() {
     let out_dir = unique_temp_dir("report-u1-pixels");
     generate_extended(&out_dir);
-    let json_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let json_output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["report"])
         .arg(&out_dir)
         .args(["--format", "json"])
@@ -5616,7 +5616,7 @@ fn report_surfaces_complete_one_bit_pixel_contract() {
     let report_validator = jsonschema::validator_for(&schema).unwrap();
     assert!(report_validator.is_valid(&report));
 
-    let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let markdown_output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["report"])
         .arg(&out_dir)
         .args(["--format", "markdown"])
@@ -5644,7 +5644,7 @@ fn report_surfaces_complete_one_bit_pixel_contract() {
         serde_json::to_vec_pretty(&manifest).unwrap(),
     )
     .unwrap();
-    let rejected = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let rejected = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["report"])
         .arg(&out_dir)
         .args(["--format", "json"])
@@ -5660,7 +5660,7 @@ fn report_surfaces_complete_one_bit_pixel_contract() {
 fn report_surfaces_complete_icc_profile_contract() {
     let out_dir = unique_temp_dir("report-icc-profile");
     generate_extended(&out_dir);
-    let json_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let json_output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["report"])
         .arg(&out_dir)
         .args(["--format", "json"])
@@ -5708,7 +5708,7 @@ fn report_surfaces_complete_icc_profile_contract() {
         serde_json::from_slice(&fs::read("schemas/coverage-report.schema.json").unwrap()).unwrap();
     let report_validator = jsonschema::validator_for(&schema).unwrap();
     assert!(report_validator.is_valid(&report));
-    let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let markdown_output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["report"])
         .arg(&out_dir)
         .args(["--format", "markdown"])
@@ -5738,7 +5738,7 @@ fn report_surfaces_complete_icc_profile_contract() {
         serde_json::to_vec_pretty(&missing_contract).unwrap(),
     )
     .unwrap();
-    let rejected = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let rejected = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["report"])
         .arg(&out_dir)
         .args(["--format", "json"])
@@ -5759,7 +5759,7 @@ fn report_surfaces_complete_icc_profile_contract() {
         serde_json::to_vec_pretty(&malformed_contract).unwrap(),
     )
     .unwrap();
-    let rejected = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let rejected = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["report"])
         .arg(&out_dir)
         .args(["--format", "json"])
@@ -5777,7 +5777,7 @@ fn report_surfaces_complete_icc_profile_contract() {
 fn report_surfaces_both_nonsquare_spatial_variants() {
     let out_dir = unique_temp_dir("report-nonsquare-spacing");
     generate_core(&out_dir);
-    let json_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let json_output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["report"])
         .arg(&out_dir)
         .args(["--format", "json"])
@@ -5867,7 +5867,7 @@ fn report_surfaces_both_nonsquare_spatial_variants() {
         "coverage schema must reject non-square fields on another case"
     );
 
-    let markdown_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let markdown_output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["report"])
         .arg(&out_dir)
         .args(["--format", "markdown"])
@@ -5907,7 +5907,7 @@ fn report_surfaces_both_nonsquare_spatial_variants() {
         serde_json::to_vec_pretty(&manifest).unwrap(),
     )
     .unwrap();
-    let rejected = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let rejected = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["report"])
         .arg(&out_dir)
         .args(["--format", "json"])
@@ -5926,7 +5926,7 @@ fn spatial_registration_report_exposes_strict_json_groups_and_compact_markdown()
     let out_dir = unique_temp_dir("report-spatial-registration");
     generate_extended(&out_dir);
 
-    let report = dicom_test_suite::build_coverage_report(&out_dir)
+    let report = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect("Spatial Registration coverage report should build");
     let schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
@@ -5994,7 +5994,7 @@ fn spatial_registration_report_exposes_strict_json_groups_and_compact_markdown()
         "schema must reject registration fields on unrelated rows"
     );
 
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     assert!(markdown.contains("## Spatial Registration Expectations"));
     assert!(markdown.contains("Matrix direction"));
     assert!(markdown.contains("registered_target; moving_source"));
@@ -6056,7 +6056,7 @@ fn deformable_registration_report_exposes_exact_grid_contract() {
         .expect("write report fixture manifest");
     }
 
-    let report = dicom_test_suite::build_coverage_report(&out_dir)
+    let report = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect("Deformable Spatial Registration coverage report should build");
     let schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
@@ -6136,7 +6136,7 @@ fn deformable_registration_report_exposes_exact_grid_contract() {
         "schema must reject deformable registration fields on unrelated rows"
     );
 
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     assert!(markdown.contains("## Deformable Spatial Registration Expectations"));
     assert!(markdown.contains("registered_to_source"));
     assert!(markdown.contains("0.75\\0.75\\2.5"));
@@ -6238,7 +6238,7 @@ fn advanced_blending_report_exposes_exact_topology_and_unresolved_findings() {
         .expect("write report fixture manifest");
     }
 
-    let report = dicom_test_suite::build_coverage_report(&out_dir)
+    let report = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect("Advanced Blending coverage report should build");
     let schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
@@ -6327,7 +6327,7 @@ fn advanced_blending_report_exposes_exact_topology_and_unresolved_findings() {
     )["advanced_blending_blending_mode"] = json!("EQUAL");
     assert!(!validator.is_valid(&leaked));
 
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     for expected in [
         "## Advanced Blending Presentation State Expectations",
         "2 series / 4 images",
@@ -6471,7 +6471,7 @@ fn blending_report_exposes_palette_rescale_and_source_closure() {
     }
 
     let report =
-        dicom_test_suite::build_coverage_report(&out_dir).expect("Blending coverage report");
+        synth_dicom_gen::build_coverage_report(&out_dir).expect("Blending coverage report");
     let schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
     )
@@ -6537,7 +6537,7 @@ fn blending_report_exposes_palette_rescale_and_source_closure() {
     )["blending_relative_opacity"] = json!("0.5");
     assert!(!validator.is_valid(&leaked));
 
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     for expected in [
         "## Blending Softcopy Presentation State Expectations",
         "UNDERLYING; SUPERIMPOSED",
@@ -6563,7 +6563,7 @@ fn report_command_exposes_promoted_ecg_waveform_contracts() {
     )
     .expect("write report fixture manifest");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "report",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -6724,7 +6724,7 @@ fn report_command_exposes_promoted_ecg_waveform_contracts() {
         "coverage schema must reject waveform coverage hidden on another case"
     );
 
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     for expected in [
         "## Waveform Expectations",
         "RESTING_12_LEAD:12x500@500Hz",
@@ -6813,7 +6813,7 @@ fn report_locks_general_ecg_group_contract() {
     )
     .expect("write report fixture manifest");
 
-    let report = dicom_test_suite::build_coverage_report(&out_dir).expect("General ECG report");
+    let report = synth_dicom_gen::build_coverage_report(&out_dir).expect("General ECG report");
     let schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
     )
@@ -6916,7 +6916,7 @@ fn report_locks_general_ecg_group_contract() {
         "General waveform fields require the General ECG IOD kind"
     );
 
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     for expected in [
         "12x1000@250Hz; 4x4000@1000Hz",
         "STD12_250HZ[I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6]",
@@ -6941,7 +6941,7 @@ fn report_locks_linked_rt_plan_contract_and_markdown() {
     )
     .expect("write RT Plan manifest");
 
-    let report = dicom_test_suite::build_coverage_report(&out_dir).expect("RT Plan report");
+    let report = synth_dicom_gen::build_coverage_report(&out_dir).expect("RT Plan report");
     let schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
     )
@@ -7027,7 +7027,7 @@ fn report_locks_linked_rt_plan_contract_and_markdown() {
     leaked_row["case_id"] = Value::from("non-image/rt/dose_grid_u16_explicit_le");
     assert!(!validator.is_valid(&leaked), "Plan coverage must not leak");
 
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     for expected in [
         "## Linked RT Plan Expectations",
         "DTS_PLAN",
@@ -7068,7 +7068,7 @@ fn report_keeps_planned_rt_plan_coverage_null() {
         .expect("serialize planned fixture"),
     )
     .expect("write planned fixture");
-    let report = dicom_test_suite::build_coverage_report(&out_dir).expect("planned Plan report");
+    let report = synth_dicom_gen::build_coverage_report(&out_dir).expect("planned Plan report");
     let row = coverage_row(&report, "non-image/rt/plan_linked");
     assert_eq!(row["status"], "planned");
     for field in RT_PLAN_REPORT_FIELDS {
@@ -7087,7 +7087,7 @@ fn report_locks_linked_rt_image_contract_and_markdown() {
     )
     .expect("write RT Image manifest");
 
-    let report = dicom_test_suite::build_coverage_report(&out_dir).expect("RT Image report");
+    let report = synth_dicom_gen::build_coverage_report(&out_dir).expect("RT Image report");
     let schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
     )
@@ -7173,7 +7173,7 @@ fn report_locks_linked_rt_image_contract_and_markdown() {
         Value::from("non-image/rt/plan_linked");
     assert!(!validator.is_valid(&leaked), "Image coverage must not leak");
 
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     for expected in [
         "## Linked RT Image Expectations",
         "DERIVED\\SECONDARY\\DRR",
@@ -7214,7 +7214,7 @@ fn report_keeps_planned_rt_image_coverage_null() {
         .expect("serialize planned fixture"),
     )
     .expect("write planned fixture");
-    let report = dicom_test_suite::build_coverage_report(&out_dir).expect("planned Image report");
+    let report = synth_dicom_gen::build_coverage_report(&out_dir).expect("planned Image report");
     let row = coverage_row(&report, "non-image/rt/image_linked");
     assert_eq!(row["status"], "planned");
     for field in RT_IMAGE_REPORT_FIELDS {
@@ -7250,7 +7250,7 @@ fn report_exposes_locked_single_frame_vl_rows_and_markdown() {
     )
     .expect("write VL report manifest");
 
-    let report = dicom_test_suite::build_coverage_report(&out_dir)
+    let report = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect("single-frame VL coverage report should build");
     let schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
@@ -7333,7 +7333,7 @@ fn report_exposes_locked_single_frame_vl_rows_and_markdown() {
         "non-milestone row must not leak the locked VL Laterality"
     );
 
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     for expected in [
         "### Lateralities",
         "| R | 2 |",
@@ -7374,7 +7374,7 @@ fn report_exposes_locked_single_frame_vl_planned_rows() {
     )
     .expect("write planned VL manifest");
 
-    let report = dicom_test_suite::build_coverage_report(&out_dir)
+    let report = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect("planned VL coverage report should build");
     let schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
@@ -7444,7 +7444,7 @@ fn report_exposes_locked_tiled_full_wsi_plan_without_claiming_generation() {
     )
     .expect("write planned WSI manifest");
 
-    let report = dicom_test_suite::build_coverage_report(&out_dir)
+    let report = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect("planned WSI coverage report should build");
     let schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
@@ -7516,7 +7516,7 @@ fn report_exposes_locked_tiled_full_wsi_plan_without_claiming_generation() {
         "schema must reject WSI report fields outside the locked case"
     );
 
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     for expected in [
         "## Whole Slide Microscopy Expectations",
         "vl/wsi/tiled_full_small",
@@ -7538,7 +7538,7 @@ fn report_exposes_generated_tiled_sparse_wsi_and_rejects_field_leakage() {
     let out_dir = unique_temp_dir("report-wsi-tiled-sparse-generated");
     generate_extended(&out_dir);
 
-    let report = dicom_test_suite::build_coverage_report(&out_dir)
+    let report = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect("generated sparse WSI coverage report should build");
     let schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
@@ -7600,7 +7600,7 @@ fn report_exposes_generated_tiled_sparse_wsi_and_rejects_field_leakage() {
         "schema must reject sparse WSI report fields on the tiled-full case"
     );
 
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     for expected in [
         "vl/wsi/tiled_sparse_small",
         "TILED_SPARSE",
@@ -7622,7 +7622,7 @@ fn report_exposes_generated_wsi_tile_segmentation_closure() {
     let out_dir = unique_temp_dir("report-wsi-tile-segmentation-generated");
     generate_extended(&out_dir);
 
-    let report = dicom_test_suite::build_coverage_report(&out_dir)
+    let report = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect("generated WSI tile segmentation coverage report should build");
     let schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
@@ -7682,7 +7682,7 @@ fn report_exposes_generated_wsi_tile_segmentation_closure() {
         "schema must reject WSI tile segmentation fields on another case"
     );
 
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     for expected in [
         "## WSI Tile Segmentation Expectations",
         "derived/seg/wsi_tile_reference",
@@ -7716,7 +7716,7 @@ fn report_exposes_generated_wsi_tile_segmentation_closure() {
         serde_json::to_vec_pretty(&manifest).expect("serialize mutated manifest"),
     )
     .expect("write mutated manifest");
-    let error = dicom_test_suite::build_coverage_report(&out_dir)
+    let error = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect_err("report must not claim closure without strict graph evidence")
         .to_string();
     assert!(
@@ -7740,7 +7740,7 @@ fn report_rejects_partial_and_wrong_case_single_frame_vl_contracts() {
         )
         .expect("write malformed VL manifest");
         assert!(
-            dicom_test_suite::build_coverage_report(&out_dir).is_err(),
+            synth_dicom_gen::build_coverage_report(&out_dir).is_err(),
             "report must reject {label}"
         );
     };
@@ -7763,7 +7763,7 @@ fn report_rejects_partial_and_wrong_case_single_frame_vl_contracts() {
 fn report_locks_rt_radiation_pair_contracts_and_markdown() {
     let out_dir = unique_temp_dir("report-rt-radiation-pair");
     generate_extended(&out_dir);
-    let report = dicom_test_suite::build_coverage_report(&out_dir)
+    let report = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect("RT Radiation pair coverage report should build");
     let schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
@@ -7968,7 +7968,7 @@ fn report_locks_rt_radiation_pair_contracts_and_markdown() {
         assert_eq!(report["grouped_coverage"][group][&key], 1, "{group}");
     }
 
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     assert!(markdown.contains("## RT Radiation Expectations"));
     assert!(markdown.contains("## RT Radiation Set Expectations"));
     assert!(markdown.contains("DTS_RADIATION"));
@@ -8053,7 +8053,7 @@ fn report_rejects_malformed_rt_radiation_pair_manifests() {
         )
         .expect("write mutated manifest");
         assert!(
-            dicom_test_suite::build_coverage_report(&out_dir).is_err(),
+            synth_dicom_gen::build_coverage_report(&out_dir).is_err(),
             "report must reject {label}"
         );
     };
@@ -8902,7 +8902,7 @@ fn waveform_report_manifest() -> Value {
 }
 
 fn generate_core(out_dir: &Path) {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "generate",
             "--profile",
@@ -8923,7 +8923,7 @@ fn generate_core(out_dir: &Path) {
 }
 
 fn generate_extended(out_dir: &Path) {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "generate",
             "--profile",

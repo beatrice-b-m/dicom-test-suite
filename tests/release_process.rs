@@ -88,7 +88,7 @@ fn release_scripts_default_to_clean_locked_target_bound_artifacts() {
 #[test]
 fn release_binary_override_contract_rejects_unbound_candidates() {
     let binary = std::env::current_exe().unwrap().canonicalize().unwrap();
-    let binary_sha256 = dicom_test_suite::sha256_hex(&fs::read(&binary).unwrap());
+    let binary_sha256 = synth_dicom_gen::sha256_hex(&fs::read(&binary).unwrap());
     let revision = String::from_utf8(
         Command::new("git")
             .args(["rev-parse", "HEAD"])

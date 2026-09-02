@@ -95,7 +95,7 @@ fn run(
     )
     .unwrap();
     let evidence = root.join(format!("{label}-evidence"));
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["conformance", "run"])
         .arg(generated)
         .args(["--out"])
@@ -123,7 +123,7 @@ fn adapter(id: &str, role: &str, path: &Path, timeout: u64) -> Value {
 
 fn generate_smoke(root: &Path) {
     assert!(
-        Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
             .args(["generate", "--profile", "smoke", "--out"])
             .arg(root)
             .status()

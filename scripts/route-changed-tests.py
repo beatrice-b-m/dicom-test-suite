@@ -94,7 +94,7 @@ def validate_command(command: dict[str, Any], targets: dict[str, dict[str, Any]]
         ):
             raise RoutingError(f"lib route requires an explicit filter/source and no integration target: {command}")
         group = groups.get(command["source"])
-        if not group or group.get("target") != "dicom_test_suite":
+        if not group or group.get("target") != "synth_dicom_gen":
             raise RoutingError(f"lib route source is not owned by the library target: {command['source']}")
         ignored_exception = command.get("ignored_heavy_skipped") is True
         if ignored_exception and command["source"] != "src/generation_backends/process.rs":

@@ -7,22 +7,22 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use dicom_core::value::Value as DicomValue;
 use dicom_dictionary_std::tags;
 use dicom_object::open_file;
-use dicom_test_suite::codecs::{FrameEncodeInput, FrameEncoder, NativeRleLosslessEncoder};
-use dicom_test_suite::corpus_plan::{FragmentationPolicy, PlannedArtifact};
-use dicom_test_suite::curated_plan::{
+use synth_dicom_gen::codecs::{FrameEncodeInput, FrameEncoder, NativeRleLosslessEncoder};
+use synth_dicom_gen::corpus_plan::{FragmentationPolicy, PlannedArtifact};
+use synth_dicom_gen::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlan, CuratedScCorpusPlanProvider, CuratedScPlanRequest,
     CuratedScSelection,
 };
-use dicom_test_suite::executor::materialization::{
+use synth_dicom_gen::executor::materialization::{
     AuxiliaryMaterializationHandler, AuxiliaryPayload, MaterializationDispatcher,
     MaterializationError,
 };
-use dicom_test_suite::executor::services::{
+use synth_dicom_gen::executor::services::{
     ArtifactExecutionBindings, ByteBinding, CodecRequest, EncodedFrameResult,
     MaterializationRequest, SlotExecutionBinding, StagedAssetRegistry,
 };
-use dicom_test_suite::recipes::RecipeCatalog;
-use dicom_test_suite::{GenerateOptions, prepare_generation_run, sha256_hex, write_generation_run};
+use synth_dicom_gen::recipes::RecipeCatalog;
+use synth_dicom_gen::{GenerateOptions, prepare_generation_run, sha256_hex, write_generation_run};
 use serde_json::{Value, json};
 
 const SEED: u64 = 7;
@@ -53,7 +53,7 @@ struct NoAuxiliary;
 impl AuxiliaryMaterializationHandler for NoAuxiliary {
     fn render(
         &self,
-        _: &dicom_test_suite::corpus_plan::PlannedAuxiliaryArtifact,
+        _: &synth_dicom_gen::corpus_plan::PlannedAuxiliaryArtifact,
         _: &ArtifactExecutionBindings,
         _: &StagedAssetRegistry,
     ) -> Result<AuxiliaryPayload, MaterializationError> {

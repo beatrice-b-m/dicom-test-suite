@@ -5,7 +5,7 @@ use std::process::Command;
 use dicom_core::Tag;
 use dicom_dictionary_std::{tags, uids};
 use dicom_object::open_file;
-use dicom_test_suite::sha256_hex;
+use synth_dicom_gen::sha256_hex;
 use serde_json::{Value, json};
 
 const CASE_ID: &str = "enhanced/mr/multiframe_temporal_position_explicit_le";
@@ -372,7 +372,7 @@ fn item_f64(obj: &dicom_object::InMemDicomObject, tag: Tag) -> f64 {
 }
 
 fn generate_extended(out_dir: &Path) {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "generate",
             "--profile",

@@ -1,15 +1,15 @@
 use std::fs;
 
-use dicom_test_suite::composition::{CompositionUidRole, Part10Materializer};
-use dicom_test_suite::corpus_plan::{OutputRelativePath, PublicationPlan, PublicationTransaction};
-use dicom_test_suite::recipes::{
+use synth_dicom_gen::composition::{CompositionUidRole, Part10Materializer};
+use synth_dicom_gen::corpus_plan::{OutputRelativePath, PublicationPlan, PublicationTransaction};
+use synth_dicom_gen::recipes::{
     AdvancedPlanProviderRequest, AdvancedProviderFamily, AdvancedProviderLimits,
     ENHANCED_CONCATENATION_PREDECESSOR_RELATIONSHIP, EnhancedCommonInput, EnhancedCtInput,
     EnhancedCtPartInput, EnhancedFrameGeometry, EnhancedMrFrameAxis, EnhancedMrInput,
     EnhancedNativePixels, EnhancedPetInput, EnhancedPlanProvider, EnhancedProviderInput,
     RecipeIdentity,
 };
-use dicom_test_suite::sha256_hex;
+use synth_dicom_gen::sha256_hex;
 
 const LOCK: &str = "823230c5932b81b504434330d118fba286d5ff41d4e2f7766372633f4a49e559";
 
@@ -432,7 +432,7 @@ fn reduced_many_frame_stress_plan_is_bounded_and_complete() {
             .find(|attribute| attribute.address.normalized_tag() == "5200,9230")
             .and_then(|attribute| attribute.value.as_ref())
             .and_then(|value| match value {
-                dicom_test_suite::composition::AttributeValue::Sequence(items) => Some(items.len()),
+                synth_dicom_gen::composition::AttributeValue::Sequence(items) => Some(items.len()),
                 _ => None,
             }),
         Some(256)

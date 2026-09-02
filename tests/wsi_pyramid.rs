@@ -10,7 +10,7 @@ const CASE_ID: &str = "vl/wsi/pyramid_multiresolution";
 #[ignore = "R2.3 explicit heavy qualification; run through scripts/run-heavy-qualification.sh"]
 fn stress_profile_emits_complete_three_instance_wsi_pyramid() {
     let root = unique_temp_dir("wsi-pyramid-stress");
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "generate",
             "--profile",
@@ -66,7 +66,7 @@ fn stress_profile_emits_complete_three_instance_wsi_pyramid() {
         "stress profile must retain reduced/full-scale evidence"
     );
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["report", root.to_str().unwrap(), "--format", "json"])
         .output()
         .expect("coverage report must run");

@@ -1,21 +1,21 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use dicom_test_suite::corpus_plan::PlannedArtifact;
-use dicom_test_suite::curated_execution::CuratedExecutionServiceFactory;
-use dicom_test_suite::curated_plan::{
+use synth_dicom_gen::corpus_plan::PlannedArtifact;
+use synth_dicom_gen::curated_execution::CuratedExecutionServiceFactory;
+use synth_dicom_gen::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
 };
-use dicom_test_suite::executor::adapters::ManifestProjectionInput;
-use dicom_test_suite::executor::cancellation::CancellationToken;
-use dicom_test_suite::executor::engine::{
+use synth_dicom_gen::executor::adapters::ManifestProjectionInput;
+use synth_dicom_gen::executor::cancellation::CancellationToken;
+use synth_dicom_gen::executor::engine::{
     CorpusExecutor, ManifestProjectionError, ManifestProjector,
 };
-use dicom_test_suite::executor::services::{SlotExecutionBinding, StagedAssetHandle};
-use dicom_test_suite::planning_preview::{
+use synth_dicom_gen::executor::services::{SlotExecutionBinding, StagedAssetHandle};
+use synth_dicom_gen::planning_preview::{
     PlanningPreviewError, PlanningPreviewLimits, preview_planned_dicom,
 };
 
-fn bundle(case_id: &str) -> dicom_test_suite::curated_plan::CuratedScCorpusPlan {
+fn bundle(case_id: &str) -> synth_dicom_gen::curated_plan::CuratedScCorpusPlan {
     CuratedScCorpusPlanProvider::load(CuratedCatalogPaths::from_repository_root("."))
         .unwrap()
         .plan(&CuratedScPlanRequest {
@@ -27,10 +27,10 @@ fn bundle(case_id: &str) -> dicom_test_suite::curated_plan::CuratedScCorpusPlan 
 }
 
 fn dicom_and_bindings(
-    bundle: &dicom_test_suite::curated_plan::CuratedScCorpusPlan,
+    bundle: &synth_dicom_gen::curated_plan::CuratedScCorpusPlan,
 ) -> (
-    &dicom_test_suite::corpus_plan::PlannedDicomArtifact,
-    &dicom_test_suite::executor::services::ArtifactExecutionBindings,
+    &synth_dicom_gen::corpus_plan::PlannedDicomArtifact,
+    &synth_dicom_gen::executor::services::ArtifactExecutionBindings,
 ) {
     let artifact = bundle
         .plan
@@ -58,7 +58,7 @@ fn native_preview_matches_the_existing_exact_part10_bytes() {
     let expected = execute_actual(&bundle, artifact, "native");
     assert_eq!(actual.bytes, expected);
     assert_eq!(actual.size_bytes, expected.len() as u64);
-    assert_eq!(actual.sha256, dicom_test_suite::sha256_hex(&expected));
+    assert_eq!(actual.sha256, synth_dicom_gen::sha256_hex(&expected));
 }
 
 struct NoManifest;
@@ -69,8 +69,8 @@ impl ManifestProjector for NoManifest {
 }
 
 fn execute_actual(
-    bundle: &dicom_test_suite::curated_plan::CuratedScCorpusPlan,
-    artifact: &dicom_test_suite::corpus_plan::PlannedDicomArtifact,
+    bundle: &synth_dicom_gen::curated_plan::CuratedScCorpusPlan,
+    artifact: &synth_dicom_gen::corpus_plan::PlannedDicomArtifact,
     suffix: &str,
 ) -> Vec<u8> {
     let root = std::env::temp_dir().join(format!(

@@ -25,7 +25,7 @@ fn assemble_cli_publish_and_dry_run_share_the_typed_machine_shape() {
     request(&request_path);
     let published_root = root("published");
     let run = |out: &std::path::Path, dry: bool| {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"));
+        let mut command = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"));
         command
             .args(["assemble", "--request"])
             .arg(&request_path)
@@ -90,7 +90,7 @@ fn assemble_cli_schema_failure_uses_stable_machine_error() {
     fs::create_dir_all(&workspace).unwrap();
     let request_path = workspace.join("request.json");
     fs::write(&request_path, b"{}").unwrap();
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["assemble", "--request"])
         .arg(&request_path)
         .arg("--out")
@@ -139,7 +139,7 @@ fn assemble_cli_adversarial_inputs_use_stable_exit_classes() {
     for (label, request, exit, code) in fixtures {
         let request_path = workspace.join(format!("{label}.json"));
         fs::write(&request_path, request).unwrap();
-        let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
             .args(["assemble", "--request"])
             .arg(&request_path)
             .arg("--out")
@@ -170,7 +170,7 @@ fn assemble_cli_destination_and_resource_failures_publish_nothing() {
     let existing = root("existing");
     fs::create_dir_all(&existing).unwrap();
     fs::write(existing.join("sentinel"), b"preserve").unwrap();
-    let existing_result = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let existing_result = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["assemble", "--request"])
         .arg(&request_path)
         .arg("--out")
@@ -190,7 +190,7 @@ fn assemble_cli_destination_and_resource_failures_publish_nothing() {
     )
     .unwrap();
     let limited = root("limited");
-    let limited_result = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let limited_result = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["assemble", "--request"])
         .arg(&limited_path)
         .arg("--out")

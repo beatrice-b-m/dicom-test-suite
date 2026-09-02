@@ -8,7 +8,7 @@ use dicom_core::value::Value as DicomValue;
 use dicom_dictionary_std::{tags, uids};
 use dicom_encoding::{Codec, adapters::PixelDataReader};
 use dicom_object::open_file;
-use dicom_test_suite::codecs::{
+use synth_dicom_gen::codecs::{
     CodecBackendKind, CodecDeterminism, DcmtkDcmcjpegLosslessProcess,
     DcmtkDcmcjpegLosslessSv1Encoder, JPEG_LOSSLESS_PROCESS_14_TRANSFER_SYNTAX_UID,
     JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID,
@@ -45,7 +45,7 @@ fn dcmtk_wrapper_encodes_lossless_sv1_and_reports_runtime_identity() {
         Err(err)
             if matches!(
                 err,
-                dicom_test_suite::codecs::CodecError::Unavailable { .. }
+                synth_dicom_gen::codecs::CodecError::Unavailable { .. }
             ) =>
         {
             eprintln!("skipping DCMTK wrapper test because dcmcjpeg is unavailable: {err}");
@@ -145,8 +145,8 @@ fn dcmtk_wrapper_encodes_lossless_sv1_and_reports_runtime_identity() {
         .to_bytes()
         .expect("source Pixel Data should be readable");
     assert_eq!(
-        dicom_test_suite::sha256_hex(&decoded),
-        dicom_test_suite::sha256_hex(&source_pixels)
+        synth_dicom_gen::sha256_hex(&decoded),
+        synth_dicom_gen::sha256_hex(&source_pixels)
     );
 }
 
@@ -179,7 +179,7 @@ fn dcmtk_wrapper_encodes_lossless_process_14_and_reports_runtime_identity() {
         Err(err)
             if matches!(
                 err,
-                dicom_test_suite::codecs::CodecError::Unavailable { .. }
+                synth_dicom_gen::codecs::CodecError::Unavailable { .. }
             ) =>
         {
             eprintln!("skipping DCMTK wrapper test because dcmcjpeg is unavailable: {err}");
@@ -271,7 +271,7 @@ fn dcmtk_wrapper_encodes_lossless_process_14_and_reports_runtime_identity() {
 }
 
 fn generate_source(out_dir: &Path) -> PathBuf {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "generate",
             "--profile",

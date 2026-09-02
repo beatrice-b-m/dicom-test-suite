@@ -64,7 +64,7 @@ fn assert_profile_is_reproducible(profile: &str) {
             fs::read(first_out.join(path)).expect("generated DICOM file should be readable");
         assert_eq!(
             first_manifest.pointer(&format!("/files/{index}/sha256")),
-            Some(&Value::String(dicom_test_suite::sha256_hex(&dcm_bytes))),
+            Some(&Value::String(synth_dicom_gen::sha256_hex(&dcm_bytes))),
             "manifest hash should match generated DICOM bytes"
         );
     }
@@ -80,7 +80,7 @@ fn assert_profile_is_reproducible(profile: &str) {
     );
 
     for root in [&first_out, &second_out] {
-        let validation = dicom_test_suite::validate_generated_root(root)
+        let validation = synth_dicom_gen::validate_generated_root(root)
             .expect("generated root should validate");
         assert!(validation.failures.is_empty(), "{:?}", validation.failures);
     }
@@ -113,7 +113,7 @@ fn deterministic_manifest_projection(manifest: &Value) -> Value {
 }
 
 fn run_generate(out_dir: &Path, profile: &str) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "generate",
             "--profile",

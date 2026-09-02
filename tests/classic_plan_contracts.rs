@@ -1,14 +1,14 @@
 use std::path::PathBuf;
 
-use dicom_test_suite::composition::{
+use synth_dicom_gen::composition::{
     AttributeAddress, AttributeOperation, AttributeValue, DicomVr, PrimitiveValue, TemplateCatalog,
 };
-use dicom_test_suite::corpus_plan::OutputRelativePath;
-use dicom_test_suite::native_pixel::{
+use synth_dicom_gen::corpus_plan::OutputRelativePath;
+use synth_dicom_gen::native_pixel::{
     ByteOrder, ChromaSubsampling, ColorOrganization, NativePixelLimits, NativePixelRequest,
     PhotometricInterpretation, PixelDataVr, PixelPadding, PixelShape, StoredValueType,
 };
-use dicom_test_suite::recipes::{
+use synth_dicom_gen::recipes::{
     ClassicInstanceRequest, ClassicPixelProvider, ClassicPixelRequest, ClassicPlanError,
     ClassicResolvedPlanInput, CommonModuleProvider, CommonModuleRequest, DeclaredVrException,
     ElementPresence, EquipmentModuleInput, FamilyModuleFragment, FrameOfReferenceModuleInput,

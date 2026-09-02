@@ -5,24 +5,24 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use dicom_test_suite::composition::{
+use synth_dicom_gen::composition::{
     CompositionUidRole, IdentityPlan, ResolvedInstancePlan, TemplateId, TemplateVersion,
 };
-use dicom_test_suite::corpus_plan::{
+use synth_dicom_gen::corpus_plan::{
     ArtifactProvenance, ArtifactResourceEstimate, EncodingPlan, EvidencePlan, FileMetaPolicy,
     FragmentationPolicy, ImplementationIdentityPlan, ItemLengthPolicy, OffsetTablePolicy,
     OutputPlan, OutputRelativePath, PlannedArtifact, PlannedDicomArtifact, PreamblePolicy,
     SequenceLengthPolicy, ValidationPlan, ValidationRequirement, ValidationRule,
 };
-use dicom_test_suite::executor::materialization::{
+use synth_dicom_gen::executor::materialization::{
     AuxiliaryMaterializationHandler, AuxiliaryPayload, MaterializationDispatcher,
     MaterializationError,
 };
-use dicom_test_suite::executor::services::{
+use synth_dicom_gen::executor::services::{
     ArtifactExecutionBindings, MaterializationRequest, StagedAssetRegistry,
 };
-use dicom_test_suite::planning::RecipeIdentity;
-use dicom_test_suite::recipes::{
+use synth_dicom_gen::planning::RecipeIdentity;
+use synth_dicom_gen::recipes::{
     AdvancedArtifactPlanningContext, AdvancedBlendingPresentationParameters, AdvancedPlanProvider,
     AdvancedPlanProviderRequest, AdvancedProviderFamily, AdvancedProviderLimits,
     AdvancedSourceRole, BlendingPresentationParameters, ColorPresentationParameters,
@@ -30,7 +30,7 @@ use dicom_test_suite::recipes::{
     PresentationKind, PresentationPlanInput, PresentationPlanProvider, PresentationRecipe,
     PresentationSourceInput,
 };
-use dicom_test_suite::{GenerateOptions, prepare_generation_run, sha256_hex, write_generation_run};
+use synth_dicom_gen::{GenerateOptions, prepare_generation_run, sha256_hex, write_generation_run};
 use serde_json::Value;
 
 const SEED: u64 = 1;
@@ -67,7 +67,7 @@ struct NoAuxiliary;
 impl AuxiliaryMaterializationHandler for NoAuxiliary {
     fn render(
         &self,
-        _: &dicom_test_suite::corpus_plan::PlannedAuxiliaryArtifact,
+        _: &synth_dicom_gen::corpus_plan::PlannedAuxiliaryArtifact,
         _: &ArtifactExecutionBindings,
         _: &StagedAssetRegistry,
     ) -> Result<AuxiliaryPayload, MaterializationError> {

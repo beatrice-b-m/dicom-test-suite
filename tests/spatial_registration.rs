@@ -40,7 +40,7 @@ fn spatial_registration_vertical_slice_is_byte_deterministic_and_strictly_valida
         "seed-7 Spatial Registration manifests must match"
     );
     assert_eq!(first_bytes, second_bytes, "seed-7 REG bytes must match");
-    assert_eq!(first["sha256"], dicom_test_suite::sha256_hex(&first_bytes));
+    assert_eq!(first["sha256"], synth_dicom_gen::sha256_hex(&first_bytes));
     assert_eq!(first["determinism"], "byte_stable");
     assert!(
         jsonschema::validator_for(&read_json("schemas/manifest.schema.json"))
@@ -52,7 +52,7 @@ fn spatial_registration_vertical_slice_is_byte_deterministic_and_strictly_valida
     assert_manifest_contract(&first_root, &first_manifest, first);
     assert_dicom_contract(&first_root, first);
     for root in [&first_root, &second_root] {
-        let validation = dicom_test_suite::validate_generated_root(root)
+        let validation = synth_dicom_gen::validate_generated_root(root)
             .expect("generated extended root should validate");
         assert!(
             validation.failures.is_empty(),
@@ -83,7 +83,7 @@ fn assert_manifest_closure_mutation_is_rejected(root: &Path, pristine_manifest: 
     )
     .unwrap();
 
-    let validation = dicom_test_suite::validate_generated_root(root)
+    let validation = synth_dicom_gen::validate_generated_root(root)
         .expect("mutated manifest should remain structurally readable");
     assert!(
         validation
@@ -399,7 +399,7 @@ fn assert_matrix_mutation_is_rejected(root: &Path, pristine_manifest: &Value) {
         .iter_mut()
         .find(|file| file["case_id"] == CASE_ID)
         .expect("manifest entry");
-    file["sha256"] = Value::String(dicom_test_suite::sha256_hex(&bytes));
+    file["sha256"] = Value::String(synth_dicom_gen::sha256_hex(&bytes));
     file["size_bytes"] = Value::from(bytes.len() as u64);
     fs::write(
         root.join("manifest.json"),
@@ -407,7 +407,7 @@ fn assert_matrix_mutation_is_rejected(root: &Path, pristine_manifest: &Value) {
     )
     .unwrap();
 
-    let validation = dicom_test_suite::validate_generated_root(root).expect("mutated validation");
+    let validation = synth_dicom_gen::validate_generated_root(root).expect("mutated validation");
     assert!(
         validation.failures.iter().any(|failure| {
             failure.contains("spatial_registration")
@@ -449,7 +449,7 @@ fn item_text(object: &InMemDicomObject, tag: Tag) -> String {
 }
 
 fn generate_extended(root: &Path) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "generate",
             "--profile",

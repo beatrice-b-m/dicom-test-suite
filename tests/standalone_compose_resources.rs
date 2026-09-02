@@ -26,7 +26,7 @@ fn compose_uses_embedded_catalogs_from_an_unrelated_working_directory() {
     )
     .unwrap();
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .current_dir(&working)
         .args([
             "compose",

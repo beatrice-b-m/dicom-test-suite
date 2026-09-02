@@ -1,6 +1,6 @@
 // The typed-bulk compatibility source path-includes product projection modules
 // that retain their integration-crate imports of these public product items.
-pub use dicom_test_suite::{curated_validation, recipes, sha256_hex};
+pub use synth_dicom_gen::{curated_validation, recipes, sha256_hex};
 
 #[path = "../caller_content_consumer.rs"]
 mod caller_content_consumer;

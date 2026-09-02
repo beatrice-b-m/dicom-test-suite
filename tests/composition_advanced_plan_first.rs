@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use dicom_test_suite::composition::{ComposeOptions, compose};
+use synth_dicom_gen::composition::{ComposeOptions, compose};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 

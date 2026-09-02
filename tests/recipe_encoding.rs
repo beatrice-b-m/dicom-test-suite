@@ -1,8 +1,8 @@
-use dicom_test_suite::corpus_plan::{
+use synth_dicom_gen::corpus_plan::{
     FileMetaPolicy, FragmentationPolicy, ImplementationIdentityPlan, ItemLengthPolicy,
     OffsetTablePolicy, PreamblePolicy, SequenceLengthPolicy,
 };
-use dicom_test_suite::recipes::{
+use synth_dicom_gen::recipes::{
     EncodingPolicy, RecipeCatalog, RecipeEncodingError, encoding_plan_from_recipe,
 };
 

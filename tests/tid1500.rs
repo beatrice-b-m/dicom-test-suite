@@ -27,7 +27,7 @@ fn tid1500_vertical_slice_is_byte_deterministic_and_strictly_validated() {
     let second_manifest = generate_extended(&second_root);
 
     for root in [&first_root, &second_root] {
-        let validation = dicom_test_suite::validate_generated_root(root)
+        let validation = synth_dicom_gen::validate_generated_root(root)
             .expect("generated extended root should validate");
         assert!(
             validation.failures.is_empty(),
@@ -55,7 +55,7 @@ fn tid1500_vertical_slice_is_byte_deterministic_and_strictly_validated() {
             );
             assert_eq!(
                 first["sha256"].as_str(),
-                Some(dicom_test_suite::sha256_hex(&first_bytes).as_str())
+                Some(synth_dicom_gen::sha256_hex(&first_bytes).as_str())
             );
             assert_generated_manifest_contract(&first_root, first);
             assert_generated_dicom_contract(&first_root, first);
@@ -501,7 +501,7 @@ fn assert_semantic_mutation_is_rejected(root: &Path, pristine_manifest: &Value) 
         .iter_mut()
         .find(|file| file["case_id"].as_str() == Some(CASE_ID))
         .expect("TID 1500 manifest entry");
-    file["sha256"] = Value::String(dicom_test_suite::sha256_hex(&bytes));
+    file["sha256"] = Value::String(synth_dicom_gen::sha256_hex(&bytes));
     file["size_bytes"] = Value::from(bytes.len() as u64);
     fs::write(
         root.join("manifest.json"),
@@ -509,7 +509,7 @@ fn assert_semantic_mutation_is_rejected(root: &Path, pristine_manifest: &Value) 
     )
     .expect("mutated manifest should write");
 
-    let validation = dicom_test_suite::validate_generated_root(root)
+    let validation = synth_dicom_gen::validate_generated_root(root)
         .expect("strict validator should complete over semantic mutation");
     assert!(
         validation
@@ -639,7 +639,7 @@ fn assert_sha256(value: &Value, label: &str) {
 }
 
 fn generate_extended(root: &Path) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "generate",
             "--profile",

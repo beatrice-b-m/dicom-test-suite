@@ -22,7 +22,7 @@ fn capabilities_json_is_live_schema_valid_and_conservative_outside_the_checkout(
             .as_nanos()
     ));
     fs::create_dir(&cwd).unwrap();
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .current_dir(&cwd)
         .args(["capabilities", "--format", "json"])
         .output()
@@ -111,7 +111,7 @@ fn capabilities_json_is_live_schema_valid_and_conservative_outside_the_checkout(
 
 #[test]
 fn capabilities_requires_an_explicit_machine_format() {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .arg("capabilities")
         .output()
         .unwrap();
@@ -126,7 +126,7 @@ fn capabilities_requires_an_explicit_machine_format() {
 
 #[test]
 fn capabilities_machine_syntax_failure_is_one_schema_valid_stderr_envelope() {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["capabilities", "--format", "json", "--unknown"])
         .output()
         .unwrap();

@@ -7,7 +7,7 @@ fn main() -> ExitCode {
     match run() {
         Ok(()) => ExitCode::SUCCESS,
         Err(message) => {
-            let failure = dicom_test_suite::cli_protocol::CliFailure::classify(command, message);
+            let failure = synth_dicom_gen::cli_protocol::CliFailure::classify(command, message);
             if machine {
                 match serde_json::to_string(&failure.envelope()) {
                     Ok(envelope) => eprintln!("{envelope}"),
@@ -65,12 +65,12 @@ fn run() -> Result<(), String> {
         let root = args
             .next()
             .ok_or_else(|| "--resource-root requires a path".to_string())?;
-        dicom_test_suite::product_resources::ProductResources::explicit(root)
+        synth_dicom_gen::product_resources::ProductResources::explicit(root)
     } else {
-        dicom_test_suite::product_resources::ProductResources::embedded()
+        synth_dicom_gen::product_resources::ProductResources::embedded()
     };
     let Some(command) = args.next() else {
-        println!("{}", dicom_test_suite::version_banner());
+        println!("{}", synth_dicom_gen::version_banner());
         return Ok(());
     };
     let resource_snapshot = resources.snapshot().map_err(|error| error.to_string())?;
@@ -89,19 +89,19 @@ fn run() -> Result<(), String> {
                 match argument.as_str() {
                     "--format" => format = Some(required_value(&mut args, "--format")?),
                     "--help" | "-h" => {
-                        println!("Usage: dicom-test-suite version [--format json]");
+                        println!("Usage: synth-dicom-gen version [--format json]");
                         return Ok(());
                     }
                     unknown => return Err(format!("unknown version argument: {unknown}")),
                 }
             }
             match format.as_deref() {
-                None => println!("{}", dicom_test_suite::version_banner()),
+                None => println!("{}", synth_dicom_gen::version_banner()),
                 Some("json") => {
-                    let result = dicom_test_suite::discovery::version_result(&resources)
+                    let result = synth_dicom_gen::discovery::version_result(&resources)
                         .map_err(|error| error.to_string())?;
                     let envelope =
-                        dicom_test_suite::cli_protocol::SuccessEnvelope::new("version", result);
+                        synth_dicom_gen::cli_protocol::SuccessEnvelope::new("version", result);
                     println!(
                         "{}",
                         serde_json::to_string_pretty(&envelope)
@@ -118,7 +118,7 @@ fn run() -> Result<(), String> {
                 match argument.as_str() {
                     "--format" => format = Some(required_value(&mut args, "--format")?),
                     "--help" | "-h" => {
-                        println!("Usage: dicom-test-suite capabilities --format json");
+                        println!("Usage: synth-dicom-gen capabilities --format json");
                         return Ok(());
                     }
                     unknown => return Err(format!("unknown capabilities argument: {unknown}")),
@@ -126,9 +126,9 @@ fn run() -> Result<(), String> {
             }
             match format.as_deref() {
                 Some("json") => {
-                    let result = dicom_test_suite::discovery::capabilities_result(&resources)
+                    let result = synth_dicom_gen::discovery::capabilities_result(&resources)
                         .map_err(|error| error.to_string())?;
-                    let envelope = dicom_test_suite::cli_protocol::SuccessEnvelope::new(
+                    let envelope = synth_dicom_gen::cli_protocol::SuccessEnvelope::new(
                         "capabilities",
                         result,
                     );
@@ -150,7 +150,7 @@ fn run() -> Result<(), String> {
             match subcommand.as_str() {
                 "check-tools" => {
                     let mut config =
-                        resource_path(dicom_test_suite::conformance::DEFAULT_VALIDATOR_CONFIG);
+                        resource_path(synth_dicom_gen::conformance::DEFAULT_VALIDATOR_CONFIG);
                     let mut format = None;
                     while let Some(arg) = args.next() {
                         match arg.as_str() {
@@ -162,7 +162,7 @@ fn run() -> Result<(), String> {
                             "--format" => format = Some(required_value(&mut args, "--format")?),
                             "--help" | "-h" => {
                                 println!(
-                                    "Usage: dicom-test-suite conformance check-tools [--config PATH] [--format json]"
+                                    "Usage: synth-dicom-gen conformance check-tools [--config PATH] [--format json]"
                                 );
                                 return Ok(());
                             }
@@ -173,7 +173,7 @@ fn run() -> Result<(), String> {
                             }
                         }
                     }
-                    let report = dicom_test_suite::conformance::check_tools_path(config)?;
+                    let report = synth_dicom_gen::conformance::check_tools_path(config)?;
                     match format.as_deref() {
                         None => println!(
                             "{}",
@@ -181,7 +181,7 @@ fn run() -> Result<(), String> {
                         ),
                         Some("json") => write_machine_success(
                             "conformance check-tools",
-                            dicom_test_suite::cli_protocol::ConformanceResult::new(
+                            synth_dicom_gen::cli_protocol::ConformanceResult::new(
                                 "check_tools",
                                 report,
                             ),
@@ -198,7 +198,7 @@ fn run() -> Result<(), String> {
                     })?;
                     let mut out = None;
                     let mut config =
-                        resource_path(dicom_test_suite::conformance::DEFAULT_VALIDATOR_CONFIG);
+                        resource_path(synth_dicom_gen::conformance::DEFAULT_VALIDATOR_CONFIG);
                     let mut format = None;
                     while let Some(arg) = args.next() {
                         match arg.as_str() {
@@ -216,7 +216,7 @@ fn run() -> Result<(), String> {
                             "--format" => format = Some(required_value(&mut args, "--format")?),
                             "--help" | "-h" => {
                                 println!(
-                                    "Usage: dicom-test-suite conformance run GENERATED_ROOT --out EVIDENCE_ROOT [--config PATH] [--format json]"
+                                    "Usage: synth-dicom-gen conformance run GENERATED_ROOT --out EVIDENCE_ROOT [--config PATH] [--format json]"
                                 );
                                 return Ok(());
                             }
@@ -226,7 +226,7 @@ fn run() -> Result<(), String> {
                         }
                     }
                     let out = out.ok_or_else(|| "conformance run requires --out".to_string())?;
-                    let evidence = dicom_test_suite::conformance::run_conformance(
+                    let evidence = synth_dicom_gen::conformance::run_conformance(
                         generated_root,
                         &out,
                         config,
@@ -248,7 +248,7 @@ fn run() -> Result<(), String> {
                         }
                         Some("json") => write_machine_success(
                             "conformance run",
-                            dicom_test_suite::cli_protocol::ConformanceResult::new("run", outcome),
+                            synth_dicom_gen::cli_protocol::ConformanceResult::new("run", outcome),
                         )?,
                         Some(other) => {
                             return Err(format!("unsupported conformance format: {other}"));
@@ -261,7 +261,7 @@ fn run() -> Result<(), String> {
                         "conformance verify requires an evidence root path".to_string()
                     })?;
                     let mut allowlist =
-                        resource_path(dicom_test_suite::conformance::DEFAULT_ACCEPTED_FINDINGS);
+                        resource_path(synth_dicom_gen::conformance::DEFAULT_ACCEPTED_FINDINGS);
                     let mut format = None;
                     while let Some(arg) = args.next() {
                         match arg.as_str() {
@@ -273,7 +273,7 @@ fn run() -> Result<(), String> {
                             "--format" => format = Some(required_value(&mut args, "--format")?),
                             "--help" | "-h" => {
                                 println!(
-                                    "Usage: dicom-test-suite conformance verify EVIDENCE_ROOT [--allowlist PATH] [--format json]"
+                                    "Usage: synth-dicom-gen conformance verify EVIDENCE_ROOT [--allowlist PATH] [--format json]"
                                 );
                                 return Ok(());
                             }
@@ -284,7 +284,7 @@ fn run() -> Result<(), String> {
                             }
                         }
                     }
-                    let result = dicom_test_suite::conformance::verify_conformance_with_resources(
+                    let result = synth_dicom_gen::conformance::verify_conformance_with_resources(
                         evidence_root,
                         allowlist,
                         &resources,
@@ -303,7 +303,7 @@ fn run() -> Result<(), String> {
                         }
                         Some("json") if failures.is_empty() => write_machine_success(
                             "conformance verify",
-                            dicom_test_suite::cli_protocol::ConformanceResult::new(
+                            synth_dicom_gen::cli_protocol::ConformanceResult::new(
                                 "verify", result,
                             ),
                         )?,
@@ -319,7 +319,7 @@ fn run() -> Result<(), String> {
                     }
                 }
                 "--help" | "-h" => {
-                    println!("Usage: dicom-test-suite conformance <check-tools|run|verify>");
+                    println!("Usage: synth-dicom-gen conformance <check-tools|run|verify>");
                     Ok(())
                 }
                 unknown => Err(format!("unknown conformance subcommand: {unknown}")),
@@ -371,7 +371,7 @@ fn run() -> Result<(), String> {
             let profile = profile.ok_or_else(|| "generate requires --profile".to_string())?;
             let out_dir = out_dir.ok_or_else(|| "generate requires --out".to_string())?;
             let prepared =
-                dicom_test_suite::prepare_generation_run(dicom_test_suite::GenerateOptions {
+                synth_dicom_gen::prepare_generation_run(synth_dicom_gen::GenerateOptions {
                     profile,
                     out_dir: out_dir.into(),
                     seed,
@@ -379,9 +379,9 @@ fn run() -> Result<(), String> {
                 })
                 .map_err(|err| err.to_string())?;
             let summary = if case_ids.is_empty() {
-                dicom_test_suite::write_generation_run_with_resources(&prepared, &resources)
+                synth_dicom_gen::write_generation_run_with_resources(&prepared, &resources)
             } else {
-                dicom_test_suite::write_selected_generation_run_with_resources(
+                synth_dicom_gen::write_selected_generation_run_with_resources(
                     &prepared, case_ids, &resources,
                 )
             }
@@ -452,11 +452,11 @@ fn run() -> Result<(), String> {
                         return Err("--timeout-seconds must be non-zero".to_string());
                     }
                     let sources =
-                        dicom_test_suite::media_sources::load_mixed_media_sources(&generated_root)
+                        synth_dicom_gen::media_sources::load_mixed_media_sources(&generated_root)
                             .map_err(|error| error.to_string())?;
-                    let qualification = dicom_test_suite::media_runner::run_dicomdir_qualification(
-                        &dicom_test_suite::media_runner::DicomDirRunRequest {
-                            tools: dicom_test_suite::media_runner::MediaToolPaths {
+                    let qualification = synth_dicom_gen::media_runner::run_dicomdir_qualification(
+                        &synth_dicom_gen::media_runner::DicomDirRunRequest {
+                            tools: synth_dicom_gen::media_runner::MediaToolPaths {
                                 dcmmkdir: required_path(dcmmkdir, "--dcmmkdir")?,
                                 dcmdump: required_path(dcmdump, "--dcmdump")?,
                                 dciodvfy: required_path(dciodvfy, "--dciodvfy")?,
@@ -472,7 +472,7 @@ fn run() -> Result<(), String> {
                     match format.as_str() {
                         "json" => write_machine_success(
                             "interoperate media-dicomdir",
-                            dicom_test_suite::cli_protocol::InteroperabilityResult::new(
+                            synth_dicom_gen::cli_protocol::InteroperabilityResult::new(
                                 "media_dicomdir",
                                 qualification,
                             ),
@@ -506,7 +506,7 @@ fn run() -> Result<(), String> {
                         }
                     }
                     let selected =
-                        dicom_test_suite::media_sources::load_mixed_media_sources(&generated_root)
+                        synth_dicom_gen::media_sources::load_mixed_media_sources(&generated_root)
                             .map_err(|error| error.to_string())?;
                     let source_links = selected
                         .into_iter()
@@ -519,7 +519,7 @@ fn run() -> Result<(), String> {
                                         "selected protocol source escaped generated root"
                                             .to_string()
                                     })?;
-                            Ok(dicom_test_suite::protocol::SourceCaseLink {
+                            Ok(synth_dicom_gen::protocol::SourceCaseLink {
                                 case_id: source.member.case_id,
                                 path: path.to_string_lossy().replace('\\', "/"),
                                 sha256: source.member.sha256,
@@ -532,13 +532,13 @@ fn run() -> Result<(), String> {
                     let executable_bytes = std::fs::read(&executable)
                         .map_err(|error| format!("read {}: {error}", executable.display()))?;
                     let report =
-                        dicom_test_suite::protocol_baseline::build_unavailable_protocol_baseline(
-                            dicom_test_suite::protocol_baseline::ProtocolBaselineInput {
+                        synth_dicom_gen::protocol_baseline::build_unavailable_protocol_baseline(
+                            synth_dicom_gen::protocol_baseline::ProtocolBaselineInput {
                                 run_seed: seed,
-                                harness: dicom_test_suite::protocol::ToolFingerprint {
-                                    id: "dicom-test-suite-protocol-baseline".to_string(),
+                                harness: synth_dicom_gen::protocol::ToolFingerprint {
+                                    id: "synth-dicom-gen-protocol-baseline".to_string(),
                                     version: env!("CARGO_PKG_VERSION").to_string(),
-                                    executable_sha256: dicom_test_suite::sha256_hex(
+                                    executable_sha256: synth_dicom_gen::sha256_hex(
                                         &executable_bytes,
                                     ),
                                 },
@@ -551,14 +551,14 @@ fn run() -> Result<(), String> {
                     match format.as_str() {
                         "json" => write_machine_success(
                             "interoperate protocol-baseline",
-                            dicom_test_suite::cli_protocol::InteroperabilityResult::new(
+                            synth_dicom_gen::cli_protocol::InteroperabilityResult::new(
                                 "protocol_baseline",
                                 report,
                             ),
                         )?,
                         "markdown" => print!(
                             "{}",
-                            dicom_test_suite::protocol_baseline::protocol_report_markdown(&report)
+                            synth_dicom_gen::protocol_baseline::protocol_report_markdown(&report)
                         ),
                         other => return Err(format!("unsupported interoperate format: {other}")),
                     }
@@ -595,8 +595,8 @@ fn run() -> Result<(), String> {
             }
             let spec_path = spec_path.ok_or_else(|| "compose requires --spec".to_string())?;
             let out_dir = out_dir.ok_or_else(|| "compose requires --out".to_string())?;
-            let (summary, output) = dicom_test_suite::composition::compose_with_resources(
-                &dicom_test_suite::composition::ComposeOptions {
+            let (summary, output) = synth_dicom_gen::composition::compose_with_resources(
+                &synth_dicom_gen::composition::ComposeOptions {
                     spec_path: spec_path.clone().into(),
                     out_dir: out_dir.into(),
                     seed,
@@ -675,8 +675,8 @@ fn run() -> Result<(), String> {
                     .unwrap_or_else(|| std::path::Path::new("."))
                     .to_path_buf()
             });
-            let summary = dicom_test_suite::assembly::assemble(
-                &dicom_test_suite::assembly::AssembleOptions {
+            let summary = synth_dicom_gen::assembly::assemble(
+                &synth_dicom_gen::assembly::AssembleOptions {
                     request_bytes,
                     caller_asset_root,
                     output_root: out_dir,
@@ -684,7 +684,7 @@ fn run() -> Result<(), String> {
                     parallelism,
                     dry_run,
                 },
-                &dicom_test_suite::executor::cancellation::CancellationToken::new(),
+                &synth_dicom_gen::executor::cancellation::CancellationToken::new(),
                 &resources,
             )
             .map_err(|error| error.to_string())?;
@@ -724,12 +724,12 @@ fn run() -> Result<(), String> {
                         }
                     }
                     let catalog =
-                        dicom_test_suite::composition::TemplateCatalog::load(catalog_path)
+                        synth_dicom_gen::composition::TemplateCatalog::load(catalog_path)
                             .map_err(|error| error.to_string())?;
                     match format.as_str() {
                         "json" => write_machine_success(
                             "templates list",
-                            dicom_test_suite::cli_protocol::TemplatesResult::new(
+                            synth_dicom_gen::cli_protocol::TemplatesResult::new(
                                 "list",
                                 catalog.templates,
                             ),
@@ -763,7 +763,7 @@ fn run() -> Result<(), String> {
                             "--version" => {
                                 version =
                                     Some(required_value(&mut args, "--version")?.parse().map_err(
-                                        |error: dicom_test_suite::composition::TemplateError| {
+                                        |error: synth_dicom_gen::composition::TemplateError| {
                                             error.to_string()
                                         },
                                     )?)
@@ -781,15 +781,15 @@ fn run() -> Result<(), String> {
                         }
                     }
                     let catalog =
-                        dicom_test_suite::composition::TemplateCatalog::load(catalog_path)
+                        synth_dicom_gen::composition::TemplateCatalog::load(catalog_path)
                             .map_err(|error| error.to_string())?;
                     let descriptor = catalog
-                        .resolve_qualified(&dicom_test_suite::composition::TemplateId(id), version)
+                        .resolve_qualified(&synth_dicom_gen::composition::TemplateId(id), version)
                         .map_err(|error| error.to_string())?;
                     match format.as_str() {
                         "json" => write_machine_success(
                             "templates describe",
-                            dicom_test_suite::cli_protocol::TemplatesResult::new(
+                            synth_dicom_gen::cli_protocol::TemplatesResult::new(
                                 "describe",
                                 vec![descriptor.clone()],
                             ),
@@ -825,13 +825,13 @@ fn run() -> Result<(), String> {
                         }
                     }
                     let catalog =
-                        dicom_test_suite::composition::TemplateCatalog::load(catalog_path)
+                        synth_dicom_gen::composition::TemplateCatalog::load(catalog_path)
                             .map_err(|error| error.to_string())?;
                     match format.as_str() {
                         "markdown" => print!("{}", catalog.render_reference_markdown()),
                         "json" => write_machine_success(
                             "templates reference",
-                            dicom_test_suite::cli_protocol::TemplatesResult::new(
+                            synth_dicom_gen::cli_protocol::TemplatesResult::new(
                                 "reference",
                                 catalog.templates,
                             ),
@@ -887,7 +887,7 @@ fn run() -> Result<(), String> {
 
             match format.as_deref() {
                 None => {
-                    let output = dicom_test_suite::list_cases_from_registry_path(
+                    let output = synth_dicom_gen::list_cases_from_registry_path(
                         registry_path,
                         profile_filter.as_deref(),
                         status_filter.as_deref(),
@@ -896,7 +896,7 @@ fn run() -> Result<(), String> {
                     print!("{output}");
                 }
                 Some("json") => {
-                    let cases = dicom_test_suite::case_list_entries_from_registry_path(
+                    let cases = synth_dicom_gen::case_list_entries_from_registry_path(
                         registry_path,
                         profile_filter.as_deref(),
                         status_filter.as_deref(),
@@ -904,9 +904,9 @@ fn run() -> Result<(), String> {
                     .map_err(|err| err.to_string())?;
                     write_machine_success(
                         "list-cases",
-                        dicom_test_suite::cli_protocol::CaseListResult {
+                        synth_dicom_gen::cli_protocol::CaseListResult {
                             case_list_result_schema_version:
-                                dicom_test_suite::cli_protocol::CASE_LIST_RESULT_SCHEMA_VERSION,
+                                synth_dicom_gen::cli_protocol::CASE_LIST_RESULT_SCHEMA_VERSION,
                             profile_filter,
                             status_filter,
                             case_count: cases.len(),
@@ -935,7 +935,7 @@ fn run() -> Result<(), String> {
             }
 
             let summary =
-                dicom_test_suite::validate_generated_root(&root).map_err(|err| err.to_string())?;
+                synth_dicom_gen::validate_generated_root(&root).map_err(|err| err.to_string())?;
             match format.as_deref() {
                 None => {
                     println!("generated_root\t{root}");
@@ -948,9 +948,9 @@ fn run() -> Result<(), String> {
                 }
                 Some("json") if summary.failures.is_empty() => write_machine_success(
                     "validate",
-                    dicom_test_suite::cli_protocol::ValidationResult {
+                    synth_dicom_gen::cli_protocol::ValidationResult {
                         validation_result_schema_version:
-                            dicom_test_suite::cli_protocol::VALIDATION_RESULT_SCHEMA_VERSION,
+                            synth_dicom_gen::cli_protocol::VALIDATION_RESULT_SCHEMA_VERSION,
                         generated_root: root.clone(),
                         manifest_path: summary.manifest_path.display().to_string(),
                         files_checked: summary.files_checked,
@@ -1006,7 +1006,7 @@ fn run() -> Result<(), String> {
             }
             let format = format.ok_or_else(|| "report requires --format".to_string())?;
             if let Some(version) = cli_api.as_deref() {
-                if version != dicom_test_suite::cli_protocol::CLI_API_VERSION {
+                if version != synth_dicom_gen::cli_protocol::CLI_API_VERSION {
                     return Err(format!("unsupported CLI API version: {version}"));
                 }
                 if format != "json" {
@@ -1015,7 +1015,7 @@ fn run() -> Result<(), String> {
             }
             if gap_report {
                 let report =
-                    dicom_test_suite::build_coverage_gap_report(registry_path, standards_lock_path)
+                    synth_dicom_gen::build_coverage_gap_report(registry_path, standards_lock_path)
                         .map_err(|err| err.to_string())?;
                 return match format.as_str() {
                     "json" => {
@@ -1036,7 +1036,7 @@ fn run() -> Result<(), String> {
                     "markdown" => {
                         print!(
                             "{}",
-                            dicom_test_suite::render_coverage_gap_report_markdown(&report)
+                            synth_dicom_gen::render_coverage_gap_report_markdown(&report)
                         );
                         Ok(())
                     }
@@ -1046,7 +1046,7 @@ fn run() -> Result<(), String> {
             match format.as_str() {
                 "json" => {
                     let report =
-                        dicom_test_suite::build_coverage_report_with_resources(&root, &resources)
+                        synth_dicom_gen::build_coverage_report_with_resources(&root, &resources)
                             .map_err(|err| err.to_string())?;
                     if cli_api.is_some() {
                         write_machine_success("report", report_result("coverage", &report)?)?;
@@ -1060,11 +1060,11 @@ fn run() -> Result<(), String> {
                 }
                 "markdown" => {
                     let report =
-                        dicom_test_suite::build_coverage_report_with_resources(&root, &resources)
+                        synth_dicom_gen::build_coverage_report_with_resources(&root, &resources)
                             .map_err(|err| err.to_string())?;
                     print!(
                         "{}",
-                        dicom_test_suite::render_coverage_report_markdown(&report)
+                        synth_dicom_gen::render_coverage_report_markdown(&report)
                     );
                     Ok(())
                 }
@@ -1098,16 +1098,16 @@ fn run() -> Result<(), String> {
                             }
                         }
                     }
-                    let summary = dicom_test_suite::check_standards_lock_path(&lock_path)
+                    let summary = synth_dicom_gen::check_standards_lock_path(&lock_path)
                         .map_err(|err| err.to_string())?;
                     match format.as_deref() {
                         None => print!(
                             "{}",
-                            dicom_test_suite::format_standards_lock_summary(&summary)
+                            synth_dicom_gen::format_standards_lock_summary(&summary)
                         ),
                         Some("json") => write_machine_success(
                             "standards check-lock",
-                            dicom_test_suite::cli_protocol::StandardsResult::new(
+                            synth_dicom_gen::cli_protocol::StandardsResult::new(
                                 "check_lock",
                                 vec![summary],
                             ),
@@ -1149,7 +1149,7 @@ fn run() -> Result<(), String> {
                         profile.ok_or_else(|| "standards gaps requires --profile".to_string())?;
                     match format.as_deref() {
                         None => {
-                            let output = dicom_test_suite::standards_gaps_from_registry_path(
+                            let output = synth_dicom_gen::standards_gaps_from_registry_path(
                                 &registry_path,
                                 &profile,
                             )
@@ -1157,14 +1157,14 @@ fn run() -> Result<(), String> {
                             print!("{output}");
                         }
                         Some("json") => {
-                            let gaps = dicom_test_suite::standards_gap_entries_from_registry_path(
+                            let gaps = synth_dicom_gen::standards_gap_entries_from_registry_path(
                                 &registry_path,
                                 &profile,
                             )
                             .map_err(|err| err.to_string())?;
                             write_machine_success(
                                 "standards gaps",
-                                dicom_test_suite::cli_protocol::StandardsResult::new("gaps", gaps),
+                                synth_dicom_gen::cli_protocol::StandardsResult::new("gaps", gaps),
                             )?;
                         }
                         Some(other) => {
@@ -1240,7 +1240,7 @@ fn write_machine_success<T: serde::Serialize>(
     command: &'static str,
     result: T,
 ) -> Result<(), String> {
-    let envelope = dicom_test_suite::cli_protocol::SuccessEnvelope::new(command, result);
+    let envelope = synth_dicom_gen::cli_protocol::SuccessEnvelope::new(command, result);
     println!(
         "{}",
         serde_json::to_string_pretty(&envelope).map_err(|error| error.to_string())?
@@ -1249,18 +1249,18 @@ fn write_machine_success<T: serde::Serialize>(
 }
 
 fn generation_result(
-    prepared: &dicom_test_suite::PreparedGenerationRun,
-    summary: &dicom_test_suite::GenerationSummary,
-) -> Result<dicom_test_suite::cli_protocol::GenerationResult, String> {
+    prepared: &synth_dicom_gen::PreparedGenerationRun,
+    summary: &synth_dicom_gen::GenerationSummary,
+) -> Result<synth_dicom_gen::cli_protocol::GenerationResult, String> {
     let manifest_bytes = std::fs::read(&prepared.manifest_path)
         .map_err(|error| format!("read {}: {error}", prepared.manifest_path.display()))?;
     let manifest: serde_json::Value =
         serde_json::from_slice(&manifest_bytes).map_err(|error| error.to_string())?;
     let unavailable = unavailable_summaries(&manifest["skipped_cases"], "generation");
-    Ok(dicom_test_suite::cli_protocol::GenerationResult {
+    Ok(synth_dicom_gen::cli_protocol::GenerationResult {
         generation_result_schema_version:
-            dicom_test_suite::cli_protocol::GENERATION_RESULT_SCHEMA_VERSION,
-        outcome: dicom_test_suite::cli_protocol::FileProducingOutcome {
+            synth_dicom_gen::cli_protocol::GENERATION_RESULT_SCHEMA_VERSION,
+        outcome: synth_dicom_gen::cli_protocol::FileProducingOutcome {
             requested_output_root: prepared.out_dir.display().to_string(),
             manifest_path: Some(prepared.manifest_path.display().to_string()),
             run_kind: "curated_generation",
@@ -1270,7 +1270,7 @@ fn generation_result(
                 .as_str()
                 .ok_or_else(|| "generation manifest has no schema version".to_string())?
                 .to_string(),
-            product_version: dicom_test_suite::PACKAGE_VERSION,
+            product_version: synth_dicom_gen::PACKAGE_VERSION,
             emitted_artifact_count: summary.files_written,
             output_bytes: summary.output_bytes,
             unavailable_capability_count: unavailable.len(),
@@ -1285,10 +1285,10 @@ fn generation_result(
 }
 
 fn composition_result(
-    summary: &dicom_test_suite::composition::ComposeSummary,
+    summary: &synth_dicom_gen::composition::ComposeSummary,
     output: &serde_json::Value,
     seed: u64,
-) -> Result<dicom_test_suite::cli_protocol::CompositionResult, String> {
+) -> Result<synth_dicom_gen::cli_protocol::CompositionResult, String> {
     let request_schema_version = if summary.dry_run {
         output["composition_spec_schema_version"].as_str()
     } else {
@@ -1317,17 +1317,17 @@ fn composition_result(
                     .ok_or_else(|| "composition dry-run plan has no instance ID".to_string())
             })
             .collect::<Result<Vec<_>, _>>()?;
-        Some(dicom_test_suite::cli_protocol::CanonicalPlanPreview {
+        Some(synth_dicom_gen::cli_protocol::CanonicalPlanPreview {
             artifact_count: artifact_ids.len(),
             artifact_ids,
         })
     } else {
         None
     };
-    Ok(dicom_test_suite::cli_protocol::CompositionResult {
+    Ok(synth_dicom_gen::cli_protocol::CompositionResult {
         composition_result_schema_version:
-            dicom_test_suite::cli_protocol::COMPOSITION_RESULT_SCHEMA_VERSION,
-        outcome: dicom_test_suite::cli_protocol::FileProducingOutcome {
+            synth_dicom_gen::cli_protocol::COMPOSITION_RESULT_SCHEMA_VERSION,
+        outcome: synth_dicom_gen::cli_protocol::FileProducingOutcome {
             requested_output_root: summary.out_dir.display().to_string(),
             manifest_path: (!summary.dry_run).then(|| summary.manifest_path.display().to_string()),
             run_kind: "qualified_composition",
@@ -1341,7 +1341,7 @@ fn composition_result(
                     .ok_or_else(|| "composition manifest has no schema version".to_string())?
                     .to_string()
             },
-            product_version: dicom_test_suite::PACKAGE_VERSION,
+            product_version: synth_dicom_gen::PACKAGE_VERSION,
             emitted_artifact_count: summary.instances_written,
             output_bytes: summary.output_bytes,
             unavailable_capability_count: unavailable.len(),
@@ -1360,13 +1360,13 @@ fn composition_result(
 }
 
 fn assembly_result(
-    summary: &dicom_test_suite::assembly::AssembleSummary,
+    summary: &synth_dicom_gen::assembly::AssembleSummary,
     seed: u64,
-) -> dicom_test_suite::cli_protocol::AssemblyResult {
-    dicom_test_suite::cli_protocol::AssemblyResult {
+) -> synth_dicom_gen::cli_protocol::AssemblyResult {
+    synth_dicom_gen::cli_protocol::AssemblyResult {
         assembly_result_schema_version:
-            dicom_test_suite::cli_protocol::ASSEMBLY_RESULT_SCHEMA_VERSION,
-        outcome: dicom_test_suite::cli_protocol::FileProducingOutcome {
+            synth_dicom_gen::cli_protocol::ASSEMBLY_RESULT_SCHEMA_VERSION,
+        outcome: synth_dicom_gen::cli_protocol::FileProducingOutcome {
             requested_output_root: summary.output_root.display().to_string(),
             manifest_path: summary
                 .manifest_path
@@ -1374,11 +1374,11 @@ fn assembly_result(
                 .map(|path| path.display().to_string()),
             run_kind: "structural_assembly",
             seed,
-            request_schema_version: dicom_test_suite::assembly::ASSEMBLY_REQUEST_SCHEMA_VERSION
+            request_schema_version: synth_dicom_gen::assembly::ASSEMBLY_REQUEST_SCHEMA_VERSION
                 .into(),
-            manifest_schema_version: dicom_test_suite::assembly::ASSEMBLY_MANIFEST_SCHEMA_VERSION
+            manifest_schema_version: synth_dicom_gen::assembly::ASSEMBLY_MANIFEST_SCHEMA_VERSION
                 .into(),
-            product_version: dicom_test_suite::PACKAGE_VERSION,
+            product_version: synth_dicom_gen::PACKAGE_VERSION,
             emitted_artifact_count: summary.artifacts_written,
             output_bytes: summary.output_bytes,
             unavailable_capability_count: 0,
@@ -1396,7 +1396,7 @@ fn assembly_result(
                 "not_run"
             },
             plan_preview: (!summary.published).then(|| {
-                dicom_test_suite::cli_protocol::CanonicalPlanPreview {
+                synth_dicom_gen::cli_protocol::CanonicalPlanPreview {
                     artifact_count: summary.artifact_ids.len(),
                     artifact_ids: summary.artifact_ids.clone(),
                 }
@@ -1408,7 +1408,7 @@ fn assembly_result(
 fn unavailable_summaries(
     value: &serde_json::Value,
     namespace: &str,
-) -> Vec<dicom_test_suite::cli_protocol::UnavailableCapabilitySummary> {
+) -> Vec<synth_dicom_gen::cli_protocol::UnavailableCapabilitySummary> {
     let mut summaries = value
         .as_array()
         .into_iter()
@@ -1425,7 +1425,7 @@ fn unavailable_summaries(
                 format!("{namespace}.{reason}")
             };
             Some(
-                dicom_test_suite::cli_protocol::UnavailableCapabilitySummary {
+                synth_dicom_gen::cli_protocol::UnavailableCapabilitySummary {
                     capability_id: capability_id.to_string(),
                     reason_code,
                 },
@@ -1442,7 +1442,7 @@ fn unavailable_summaries(
 fn report_result(
     fallback_kind: &str,
     report: &serde_json::Value,
-) -> Result<dicom_test_suite::cli_protocol::ReportResult<serde_json::Value>, String> {
+) -> Result<synth_dicom_gen::cli_protocol::ReportResult<serde_json::Value>, String> {
     let report_kind = report
         .get("report_kind")
         .and_then(serde_json::Value::as_str)
@@ -1456,7 +1456,7 @@ fn report_result(
     .into_iter()
     .find_map(|field| report.get(field).and_then(serde_json::Value::as_str))
     .ok_or_else(|| "report has no supported schema version".to_string())?;
-    Ok(dicom_test_suite::cli_protocol::ReportResult::new(
+    Ok(synth_dicom_gen::cli_protocol::ReportResult::new(
         report_kind,
         report_schema_version,
         report.clone(),
@@ -1464,40 +1464,40 @@ fn report_result(
 }
 
 fn print_usage() {
-    println!("{}", dicom_test_suite::version_banner());
+    println!("{}", synth_dicom_gen::version_banner());
     println!("usage:");
-    println!("  dicom-test-suite version [--format json]");
-    println!("  dicom-test-suite capabilities --format json");
+    println!("  synth-dicom-gen version [--format json]");
+    println!("  synth-dicom-gen capabilities --format json");
     println!(
-        "  dicom-test-suite generate --profile PROFILE --out PATH [--seed SEED] [--include-stress] [--format json]"
+        "  synth-dicom-gen generate --profile PROFILE --out PATH [--seed SEED] [--include-stress] [--format json]"
     );
     println!(
-        "  dicom-test-suite compose --spec PATH --out PATH [--seed SEED] [--dry-run] [--format json]"
+        "  synth-dicom-gen compose --spec PATH --out PATH [--seed SEED] [--dry-run] [--format json]"
     );
     println!(
-        "  dicom-test-suite assemble --request PATH --out PATH [--asset-root PATH] [--seed SEED] [--parallelism N] [--dry-run] [--format json]"
+        "  synth-dicom-gen assemble --request PATH --out PATH [--asset-root PATH] [--seed SEED] [--parallelism N] [--dry-run] [--format json]"
     );
     println!(
-        "  dicom-test-suite list-cases [--profile PROFILE] [--status STATUS] [--registry PATH] [--format json]"
+        "  synth-dicom-gen list-cases [--profile PROFILE] [--status STATUS] [--registry PATH] [--format json]"
     );
-    println!("  dicom-test-suite templates <list|describe|reference> ...");
-    println!("  dicom-test-suite interoperate <media-dicomdir|protocol-baseline> ...");
-    println!("  dicom-test-suite validate GENERATED_ROOT [--format json]");
-    println!("  dicom-test-suite report GENERATED_ROOT --format json|markdown [--cli-api 1.0.0]");
-    println!("  dicom-test-suite standards check-lock [--lock PATH] [--format json]");
+    println!("  synth-dicom-gen templates <list|describe|reference> ...");
+    println!("  synth-dicom-gen interoperate <media-dicomdir|protocol-baseline> ...");
+    println!("  synth-dicom-gen validate GENERATED_ROOT [--format json]");
+    println!("  synth-dicom-gen report GENERATED_ROOT --format json|markdown [--cli-api 1.0.0]");
+    println!("  synth-dicom-gen standards check-lock [--lock PATH] [--format json]");
     println!(
-        "  dicom-test-suite standards gaps --profile PROFILE [--registry PATH] [--format json]"
+        "  synth-dicom-gen standards gaps --profile PROFILE [--registry PATH] [--format json]"
     );
-    println!("  dicom-test-suite standards verify-kb --edition 2026b [--format json]");
+    println!("  synth-dicom-gen standards verify-kb --edition 2026b [--format json]");
 }
 
 fn print_interoperate_usage() {
     println!("usage:");
     println!(
-        "  dicom-test-suite interoperate media-dicomdir GENERATED_ROOT --dcmmkdir PATH --dcmdump PATH --dciodvfy PATH [--dcentvfy PATH] --format json|markdown [--timeout-seconds N]"
+        "  synth-dicom-gen interoperate media-dicomdir GENERATED_ROOT --dcmmkdir PATH --dcmdump PATH --dciodvfy PATH [--dcentvfy PATH] --format json|markdown [--timeout-seconds N]"
     );
     println!(
-        "  dicom-test-suite interoperate protocol-baseline GENERATED_ROOT --format json|markdown [--seed SEED] [--fixtures PATH]"
+        "  synth-dicom-gen interoperate protocol-baseline GENERATED_ROOT --format json|markdown [--seed SEED] [--fixtures PATH]"
     );
 }
 
@@ -1521,7 +1521,7 @@ fn required_format(value: Option<String>) -> Result<String, String> {
 }
 
 fn print_media_qualification_markdown(
-    qualification: &dicom_test_suite::media::DicomDirQualification,
+    qualification: &synth_dicom_gen::media::DicomDirQualification,
 ) {
     println!("# DICOMDIR interoperability qualification\n");
     println!("- File-set ID: `{}`", qualification.file_set_id);
@@ -1545,68 +1545,68 @@ fn print_media_qualification_markdown(
 
 fn print_generate_usage() {
     println!(
-        "usage: dicom-test-suite generate --profile PROFILE --out PATH [--seed SEED] [--include-stress] [--case-id CASE_ID ...] [--format json]"
+        "usage: synth-dicom-gen generate --profile PROFILE --out PATH [--seed SEED] [--include-stress] [--case-id CASE_ID ...] [--format json]"
     );
 }
 
 fn print_compose_usage() {
     println!(
-        "usage: dicom-test-suite compose --spec PATH --out PATH [--seed SEED] [--dry-run] [--catalog PATH] [--format json]"
+        "usage: synth-dicom-gen compose --spec PATH --out PATH [--seed SEED] [--dry-run] [--catalog PATH] [--format json]"
     );
 }
 
 fn print_assemble_usage() {
     println!(
-        "usage: dicom-test-suite assemble --request PATH --out PATH [--asset-root PATH] [--seed SEED] [--parallelism N] [--dry-run] [--format json]"
+        "usage: synth-dicom-gen assemble --request PATH --out PATH [--asset-root PATH] [--seed SEED] [--parallelism N] [--dry-run] [--format json]"
     );
 }
 
 fn print_list_cases_usage() {
     println!(
-        "usage: dicom-test-suite list-cases [--profile PROFILE] [--status STATUS] [--registry PATH] [--format json]"
+        "usage: synth-dicom-gen list-cases [--profile PROFILE] [--status STATUS] [--registry PATH] [--format json]"
     );
 }
 
 fn print_templates_usage() {
     println!("usage:");
-    println!("  dicom-test-suite templates list [--format table|json] [--catalog PATH]");
+    println!("  synth-dicom-gen templates list [--format table|json] [--catalog PATH]");
     println!(
-        "  dicom-test-suite templates describe TEMPLATE_ID [--version VERSION] [--format json|text] [--catalog PATH]"
+        "  synth-dicom-gen templates describe TEMPLATE_ID [--version VERSION] [--format json|text] [--catalog PATH]"
     );
-    println!("  dicom-test-suite templates reference [--format markdown|json] [--catalog PATH]");
+    println!("  synth-dicom-gen templates reference [--format markdown|json] [--catalog PATH]");
 }
 
 fn print_validate_usage() {
-    println!("usage: dicom-test-suite validate GENERATED_ROOT [--format json]");
+    println!("usage: synth-dicom-gen validate GENERATED_ROOT [--format json]");
 }
 
 fn print_report_usage() {
     println!("usage:");
-    println!("  dicom-test-suite report GENERATED_ROOT --format json|markdown [--cli-api 1.0.0]");
+    println!("  synth-dicom-gen report GENERATED_ROOT --format json|markdown [--cli-api 1.0.0]");
     println!(
-        "  dicom-test-suite report gaps --format json|markdown [--registry PATH] [--standards-lock PATH] [--cli-api 1.0.0]"
+        "  synth-dicom-gen report gaps --format json|markdown [--registry PATH] [--standards-lock PATH] [--cli-api 1.0.0]"
     );
 }
 
 fn print_standards_usage() {
     println!("usage:");
-    println!("  dicom-test-suite standards check-lock [--lock PATH]");
-    println!("  dicom-test-suite standards gaps --profile PROFILE [--registry PATH]");
-    println!("  dicom-test-suite standards verify-kb --edition 2026b");
+    println!("  synth-dicom-gen standards check-lock [--lock PATH]");
+    println!("  synth-dicom-gen standards gaps --profile PROFILE [--registry PATH]");
+    println!("  synth-dicom-gen standards verify-kb --edition 2026b");
 }
 
 fn print_standards_check_lock_usage() {
-    println!("usage: dicom-test-suite standards check-lock [--lock PATH] [--format json]");
+    println!("usage: synth-dicom-gen standards check-lock [--lock PATH] [--format json]");
 }
 
 fn print_standards_gaps_usage() {
     println!(
-        "usage: dicom-test-suite standards gaps --profile PROFILE [--registry PATH] [--format json]"
+        "usage: synth-dicom-gen standards gaps --profile PROFILE [--registry PATH] [--format json]"
     );
 }
 
 fn print_standards_verify_kb_usage() {
-    println!("usage: dicom-test-suite standards verify-kb --edition 2026b [--format json]");
+    println!("usage: synth-dicom-gen standards verify-kb --edition 2026b [--format json]");
 }
 
 fn parse_seed(seed: String) -> Result<u64, String> {

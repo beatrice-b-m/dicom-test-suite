@@ -253,7 +253,7 @@ def discovered_groups(root: Path, targets: list[dict[str, object]]) -> list[dict
         rel = path.relative_to(root).as_posix()
         if not entries and not rel.startswith("tests/"):
             continue
-        target = target_by_path.get(rel, "dicom_test_suite")
+        target = target_by_path.get(rel, "synth_dicom_gen")
         groups.append(
             {
                 "source": rel,

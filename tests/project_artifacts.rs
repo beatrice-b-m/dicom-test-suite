@@ -35,7 +35,7 @@ fn synthetic_pki_lock_matches_intentionally_public_fixture_bytes() {
                 .expect("fixture path must be a string");
             let bytes = fs::read(root.join(relative)).expect("locked fixture must be readable");
             assert_eq!(
-                dicom_test_suite::sha256_hex(&bytes),
+                synth_dicom_gen::sha256_hex(&bytes),
                 identity[hash_field]
                     .as_str()
                     .expect("fixture SHA-256 must be a string")
@@ -6064,7 +6064,7 @@ fn registry_cases(registry: &Value) -> Vec<&Value> {
 }
 
 fn generator_recipe_case_ids() -> BTreeSet<String> {
-    let catalog = dicom_test_suite::recipes::RecipeCatalog::load(
+    let catalog = synth_dicom_gen::recipes::RecipeCatalog::load(
         "cases/recipes",
         "cases/registry.json",
         "templates/catalog.json",

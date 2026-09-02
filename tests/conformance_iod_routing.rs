@@ -52,7 +52,7 @@ fn case_specific_primary_validator_uses_locked_environment_runtime_and_artifacts
     )
     .unwrap();
     let evidence_root = root.join("evidence");
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["conformance", "run"])
         .arg(&generated)
         .args(["--out"])
@@ -106,7 +106,7 @@ fn case_specific_primary_validator_uses_locked_environment_runtime_and_artifacts
     duplicate["adapters"].as_array_mut().unwrap().push(second);
     let duplicate_config = root.join("duplicate-validators.json");
     fs::write(&duplicate_config, serde_json::to_vec(&duplicate).unwrap()).unwrap();
-    let duplicate_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let duplicate_output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["conformance", "run"])
         .arg(&generated)
         .args(["--out"])
@@ -139,7 +139,7 @@ fn adapter(id: &str, role: &str, executable: &Path) -> Value {
 }
 
 fn generate_smoke(root: &Path) {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["generate", "--profile", "smoke", "--out"])
         .arg(root)
         .args(["--seed", "1"])

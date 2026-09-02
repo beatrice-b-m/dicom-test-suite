@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Component, Path};
 
-use dicom_test_suite::sha256_hex;
+use synth_dicom_gen::sha256_hex;
 use serde_json::Value;
 
 #[test]

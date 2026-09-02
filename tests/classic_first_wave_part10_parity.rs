@@ -3,25 +3,25 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use dicom_test_suite::codecs::{NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID};
-use dicom_test_suite::composition::{
+use synth_dicom_gen::codecs::{NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID};
+use synth_dicom_gen::composition::{
     CompositionUidRole, ContentMaterialization, Part10Materializer, TemplateCatalog, TemplateId,
 };
-use dicom_test_suite::corpus_plan::{ImplementationIdentityPlan, OffsetTablePolicy};
-use dicom_test_suite::encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData};
-use dicom_test_suite::executor::cancellation::CancellationToken;
-use dicom_test_suite::executor::native_codec::execute_native_rle;
-use dicom_test_suite::executor::services::{ByteBinding, CodecRequest, NativeFrameBinding};
-use dicom_test_suite::native_pixel::PhotometricInterpretation;
-use dicom_test_suite::recipes::classic_ct::plan_ct_recipe;
-use dicom_test_suite::recipes::classic_dx_mg::plan_dx_mg_recipe;
-use dicom_test_suite::recipes::classic_mr_cr::plan_mr_cr_recipe;
-use dicom_test_suite::recipes::{
+use synth_dicom_gen::corpus_plan::{ImplementationIdentityPlan, OffsetTablePolicy};
+use synth_dicom_gen::encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData};
+use synth_dicom_gen::executor::cancellation::CancellationToken;
+use synth_dicom_gen::executor::native_codec::execute_native_rle;
+use synth_dicom_gen::executor::services::{ByteBinding, CodecRequest, NativeFrameBinding};
+use synth_dicom_gen::native_pixel::PhotometricInterpretation;
+use synth_dicom_gen::recipes::classic_ct::plan_ct_recipe;
+use synth_dicom_gen::recipes::classic_dx_mg::plan_dx_mg_recipe;
+use synth_dicom_gen::recipes::classic_mr_cr::plan_mr_cr_recipe;
+use synth_dicom_gen::recipes::{
     CLASSIC_PIXEL_SLOT, CaseRecipe, ClassicInstanceRequest, ClassicResolvedPlanInput,
     OrderedSeriesProvider, RecipeCatalog, encoding_plan_from_recipe,
     resolved_classic_instance_plan,
 };
-use dicom_test_suite::{GenerateOptions, prepare_generation_run, sha256_hex, write_generation_run};
+use synth_dicom_gen::{GenerateOptions, prepare_generation_run, sha256_hex, write_generation_run};
 use serde_json::{Value, json};
 
 const SEED: u64 = 7;
@@ -116,8 +116,8 @@ fn photometric(value: PhotometricInterpretation) -> &'static str {
 }
 
 fn apply_registered_rle(
-    plan: &mut dicom_test_suite::composition::ResolvedInstancePlan,
-    planned: &dicom_test_suite::recipes::ClassicPlannedInstance,
+    plan: &mut synth_dicom_gen::composition::ResolvedInstancePlan,
+    planned: &synth_dicom_gen::recipes::ClassicPlannedInstance,
     offset_table: OffsetTablePolicy,
 ) {
     let native = &planned.pixels.content;
@@ -186,7 +186,7 @@ fn apply_registered_rle(
     let encoded = encoded_frames.concat();
     let content = &mut plan.content[0];
     content.kind = "encapsulated_pixels".into();
-    content.vr = dicom_test_suite::composition::DicomVr::OB;
+    content.vr = synth_dicom_gen::composition::DicomVr::OB;
     content.size_bytes = encoded.len() as u64;
     content.sha256 = sha256_hex(&encoded);
     content.materialization = Some(ContentMaterialization::Encapsulated {
@@ -206,7 +206,7 @@ fn manifest_uid_facts(entry: &Value) -> Value {
     })
 }
 
-fn planned_uid_facts(plan: &dicom_test_suite::composition::ResolvedInstancePlan) -> Value {
+fn planned_uid_facts(plan: &synth_dicom_gen::composition::ResolvedInstancePlan) -> Value {
     let identity = |role| {
         plan.identities
             .get(&role, 0)

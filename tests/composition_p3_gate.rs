@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 use std::fs;
 
-use dicom_test_suite::composition::{TemplateCatalog, TemplateId, TemplateStatus};
+use synth_dicom_gen::composition::{TemplateCatalog, TemplateId, TemplateStatus};
 
 #[test]
 fn every_p3_inventory_mapping_is_a_qualified_evidenced_descriptor() {

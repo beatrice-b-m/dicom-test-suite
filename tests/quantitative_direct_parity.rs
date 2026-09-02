@@ -4,29 +4,29 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use dicom_core::Tag;
-use dicom_test_suite::composition::{
+use synth_dicom_gen::composition::{
     AttributeAddress, CompositionUidRole, IdentityPlan, ResolvedInstancePlan, TemplateId,
     TemplateVersion,
 };
-use dicom_test_suite::corpus_plan::{
+use synth_dicom_gen::corpus_plan::{
     ArtifactProvenance, ArtifactResourceEstimate, CaseBinding, EncodingPlan, EvidencePlan,
     FileMetaPolicy, FragmentationPolicy, ImplementationIdentityPlan, ItemLengthPolicy,
     OffsetTablePolicy, OutputPlan, OutputRelativePath, PlannedArtifact, PlannedDicomArtifact,
     PreamblePolicy, SequenceLengthPolicy, ValidationPlan,
 };
-use dicom_test_suite::executor::materialization::{
+use synth_dicom_gen::executor::materialization::{
     AuxiliaryMaterializationHandler, AuxiliaryPayload, MaterializationDispatcher,
     MaterializationError,
 };
-use dicom_test_suite::executor::services::{
+use synth_dicom_gen::executor::services::{
     ArtifactExecutionBindings, MaterializationRequest, StagedAssetRegistry,
 };
-use dicom_test_suite::recipes::{
+use synth_dicom_gen::recipes::{
     QUANTITATIVE_NATIVE_PROVIDER_ID, QuantitativeArtifactContext, QuantitativePlanOutput,
     QuantitativePlanProvider, QuantitativeProviderLimits, QuantitativeSourceInput,
     QuantitativeSourceRole, RecipeCatalog, quantitative_input_from_recipe,
 };
-use dicom_test_suite::sha256_hex;
+use synth_dicom_gen::sha256_hex;
 use serde_json::Value;
 
 struct NoAuxiliary;
@@ -34,7 +34,7 @@ struct NoAuxiliary;
 impl AuxiliaryMaterializationHandler for NoAuxiliary {
     fn render(
         &self,
-        _: &dicom_test_suite::corpus_plan::PlannedAuxiliaryArtifact,
+        _: &synth_dicom_gen::corpus_plan::PlannedAuxiliaryArtifact,
         _: &ArtifactExecutionBindings,
         _: &StagedAssetRegistry,
     ) -> Result<AuxiliaryPayload, MaterializationError> {

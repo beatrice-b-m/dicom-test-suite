@@ -1,8 +1,8 @@
 use std::collections::BTreeSet;
 use std::path::Path;
 
-use dicom_test_suite::corpus_plan::PlannedArtifact;
-use dicom_test_suite::curated_plan::{
+use synth_dicom_gen::corpus_plan::PlannedArtifact;
+use synth_dicom_gen::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
 };
 
@@ -15,7 +15,7 @@ const CASES: [&str; 6] = [
     "derived/presentation-state/grayscale_softcopy_ct_window_explicit_le",
 ];
 
-fn reference_plan() -> dicom_test_suite::curated_plan::CuratedScCorpusPlan {
+fn reference_plan() -> synth_dicom_gen::curated_plan::CuratedScCorpusPlan {
     CuratedScCorpusPlanProvider::load(CuratedCatalogPaths::from_repository_root("."))
         .unwrap()
         .plan(&CuratedScPlanRequest {

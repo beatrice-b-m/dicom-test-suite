@@ -3,17 +3,17 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use dicom_test_suite::corpus_plan::{FragmentationPolicy, PlannedArtifact};
-use dicom_test_suite::curated_execution::CuratedExecutionServiceFactory;
-use dicom_test_suite::curated_plan::{
+use synth_dicom_gen::corpus_plan::{FragmentationPolicy, PlannedArtifact};
+use synth_dicom_gen::curated_execution::CuratedExecutionServiceFactory;
+use synth_dicom_gen::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
 };
-use dicom_test_suite::executor::adapters::ManifestProjectionInput;
-use dicom_test_suite::executor::cancellation::CancellationToken;
-use dicom_test_suite::executor::engine::{
+use synth_dicom_gen::executor::adapters::ManifestProjectionInput;
+use synth_dicom_gen::executor::cancellation::CancellationToken;
+use synth_dicom_gen::executor::engine::{
     CorpusExecutor, ManifestProjectionError, ManifestProjector,
 };
-use dicom_test_suite::executor::services::SlotExecutionBinding;
+use synth_dicom_gen::executor::services::SlotExecutionBinding;
 
 const CASES: [&str; 4] = [
     "stress/sc/large_bulk_data",
@@ -57,7 +57,7 @@ impl ManifestProjector for Projector {
 fn plan(
     case_ids: Vec<String>,
     parallelism: u32,
-) -> dicom_test_suite::curated_plan::CuratedScCorpusPlan {
+) -> synth_dicom_gen::curated_plan::CuratedScCorpusPlan {
     CuratedScCorpusPlanProvider::load(CuratedCatalogPaths::from_repository_root("."))
         .unwrap()
         .plan(&CuratedScPlanRequest {
@@ -117,7 +117,7 @@ fn all_stress_sc_cases_plan_lazily_with_explicit_structure_and_resources() {
     assert_eq!(nested.instance.content.len(), 2);
     assert!(nested.instance.content.iter().any(|content| matches!(
         &content.placement,
-        dicom_test_suite::composition::ContentPlacement::Nested { sequence_path }
+        synth_dicom_gen::composition::ContentPlacement::Nested { sequence_path }
             if sequence_path.len() == 32
     )));
 
@@ -148,7 +148,7 @@ fn stress_sc_order_is_independent_of_case_input_and_parallelism() {
     let mut reversed_ids = CASES.map(str::to_owned).to_vec();
     reversed_ids.reverse();
     let reversed = plan(reversed_ids, 8);
-    let signature = |bundle: &dicom_test_suite::curated_plan::CuratedScCorpusPlan| {
+    let signature = |bundle: &synth_dicom_gen::curated_plan::CuratedScCorpusPlan| {
         bundle
             .plan
             .artifacts

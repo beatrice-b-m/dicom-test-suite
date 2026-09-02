@@ -18,7 +18,7 @@ fn installed_style_consumer_discovers_and_reproduces_every_qualified_template() 
         std::env::current_dir().unwrap().join(backend)
     };
     let binary = std::env::var_os("DTS_QUALIFIED_CATALOG_BINARY")
-        .unwrap_or_else(|| env!("CARGO_BIN_EXE_dicom-test-suite").into());
+        .unwrap_or_else(|| env!("CARGO_BIN_EXE_synth-dicom-gen").into());
     let output = Command::new("python3")
         .arg("tests/qualified_catalog_consumer.py")
         .arg(binary)

@@ -4,10 +4,10 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use dicom_test_suite::curated_plan::{
+use synth_dicom_gen::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
 };
-use dicom_test_suite::{GenerateOptions, prepare_generation_run, sha256_hex};
+use synth_dicom_gen::{GenerateOptions, prepare_generation_run, sha256_hex};
 use serde_json::Value;
 
 const SEED: u64 = 7;
@@ -60,7 +60,7 @@ fn migrated_paths(profile: &str) -> BTreeSet<String> {
 }
 
 fn run_generate(profile: &str, output: &Path) -> Value {
-    let result = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let result = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .env_remove("DTS_HIGHDICOM_PYTHON")
         .args([
             "generate",
@@ -243,7 +243,7 @@ fn failed_ordinary_run_leaves_no_destination_or_private_staging() {
     // the current directory. The non-directory parent then forces a failure
     // at the publication boundary, before any transaction can be created.
     let destination = blocked_parent.join("failed-output");
-    let result = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let result = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .current_dir(&workspace.0)
         .args([
             "generate",

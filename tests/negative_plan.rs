@@ -2,20 +2,20 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use dicom_test_suite::corpus_plan::{
+use synth_dicom_gen::corpus_plan::{
     ArtifactProvenance, CORPUS_PLAN_SCHEMA_VERSION, CaseBinding, CorpusPlan, OutputPlan,
     OutputRelativePath, PlannedArtifact, PublicationPlan, PublicationTransaction, ResourcePlan,
 };
-use dicom_test_suite::curated_plan::{
+use synth_dicom_gen::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
 };
-use dicom_test_suite::negative::NEGATIVE_RECIPE_VERSION;
-use dicom_test_suite::negative::NegativeError;
-use dicom_test_suite::negative_plan::{
+use synth_dicom_gen::negative::NEGATIVE_RECIPE_VERSION;
+use synth_dicom_gen::negative::NegativeError;
+use synth_dicom_gen::negative_plan::{
     NEGATIVE_PARSER_RULE_ID, NegativePlanProvider, NegativePlanProviderError,
     NegativePlanProviderRequest,
 };
-use dicom_test_suite::recipes::RecipeCatalog;
+use synth_dicom_gen::recipes::RecipeCatalog;
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
@@ -28,8 +28,8 @@ fn absent_root() -> PathBuf {
 }
 
 fn source() -> (
-    dicom_test_suite::corpus_plan::PlannedDicomArtifact,
-    dicom_test_suite::executor::services::ArtifactExecutionBindings,
+    synth_dicom_gen::corpus_plan::PlannedDicomArtifact,
+    synth_dicom_gen::executor::services::ArtifactExecutionBindings,
 ) {
     let bundle = CuratedScCorpusPlanProvider::load(CuratedCatalogPaths::from_repository_root("."))
         .unwrap()

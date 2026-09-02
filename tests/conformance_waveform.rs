@@ -189,7 +189,7 @@ fn run_fixture(label: &str, case_id: &str, expected: Value) -> Fixture {
     )
     .unwrap();
     let evidence_root = root.join("evidence");
-    let run = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let run = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["conformance", "run"])
         .arg(&generated)
         .args(["--out"])
@@ -234,7 +234,7 @@ fn write_sidecar_and_link(fixture: &Fixture, sidecar: &Value) {
     fs::write(&fixture.sidecar_path, &bytes).unwrap();
     let mut evidence = fixture.baseline.clone();
     evidence["instances"][0]["waveform"]["evidence"]["sha256"] =
-        json!(dicom_test_suite::sha256_hex(&bytes));
+        json!(synth_dicom_gen::sha256_hex(&bytes));
     write_json(&fixture.evidence_path, &evidence);
 }
 
@@ -511,7 +511,7 @@ fn write_waveform_manifest(root: &Path, case_id: &str, expected: Value) {
             "files": [{
                 "case_id": case_id,
                 "path": relative,
-                "sha256": dicom_test_suite::sha256_hex(bytes),
+                "sha256": synth_dicom_gen::sha256_hex(bytes),
                 "dicom": {
                     "sop_class_uid": expected["sop_class_uid"],
                     "transfer_syntax_uid": "1.2.840.10008.1.2.1"
@@ -525,7 +525,7 @@ fn write_waveform_manifest(root: &Path, case_id: &str, expected: Value) {
 }
 
 fn verify(evidence: &Path, allowlist: &Path) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["conformance", "verify"])
         .arg(evidence)
         .args(["--allowlist"])

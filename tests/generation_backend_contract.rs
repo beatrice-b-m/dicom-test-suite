@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 
-use dicom_test_suite::generation_backends::{
+use synth_dicom_gen::generation_backends::{
     backend_policy, load_backend_lock, validate_request, validate_response_for_request,
 };
 use serde_json::{Value, json};

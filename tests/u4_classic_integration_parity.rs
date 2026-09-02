@@ -9,22 +9,22 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use dicom_test_suite::codecs::{FrameEncodeInput, FrameEncoder, NativeRleLosslessEncoder};
-use dicom_test_suite::composition::{
+use synth_dicom_gen::codecs::{FrameEncodeInput, FrameEncoder, NativeRleLosslessEncoder};
+use synth_dicom_gen::composition::{
     ContentMaterialization, DicomVr, Part10Materializer, TemplateCatalog,
 };
-use dicom_test_suite::encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData};
-use dicom_test_suite::native_pixel::PhotometricInterpretation;
-use dicom_test_suite::recipes::classic_ct::plan_ct_recipe;
-use dicom_test_suite::recipes::classic_dx_mg::plan_dx_mg_recipe;
-use dicom_test_suite::recipes::classic_mr_cr::plan_mr_cr_recipe;
-use dicom_test_suite::recipes::classic_nuclear::plan_nuclear_recipe;
-use dicom_test_suite::recipes::classic_vl_projection::plan_vl_projection_recipe;
-use dicom_test_suite::recipes::{
+use synth_dicom_gen::encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData};
+use synth_dicom_gen::native_pixel::PhotometricInterpretation;
+use synth_dicom_gen::recipes::classic_ct::plan_ct_recipe;
+use synth_dicom_gen::recipes::classic_dx_mg::plan_dx_mg_recipe;
+use synth_dicom_gen::recipes::classic_mr_cr::plan_mr_cr_recipe;
+use synth_dicom_gen::recipes::classic_nuclear::plan_nuclear_recipe;
+use synth_dicom_gen::recipes::classic_vl_projection::plan_vl_projection_recipe;
+use synth_dicom_gen::recipes::{
     CaseRecipe, ClassicInstanceRequest, ClassicResolvedPlanInput, OrderedSeriesProvider,
     RecipeCatalog, resolved_classic_instance_plan,
 };
-use dicom_test_suite::{GenerateOptions, prepare_generation_run, sha256_hex, write_generation_run};
+use synth_dicom_gen::{GenerateOptions, prepare_generation_run, sha256_hex, write_generation_run};
 use serde_json::{Value, json};
 
 const SEED: u64 = 7;
@@ -127,8 +127,8 @@ fn photometric_name(value: PhotometricInterpretation) -> &'static str {
 }
 
 fn install_rle_content(
-    plan: &mut dicom_test_suite::composition::ResolvedInstancePlan,
-    planned: &dicom_test_suite::recipes::ClassicPlannedInstance,
+    plan: &mut synth_dicom_gen::composition::ResolvedInstancePlan,
+    planned: &synth_dicom_gen::recipes::ClassicPlannedInstance,
 ) {
     let shape = &planned.pixels.content.plan.shape;
     let encoder = NativeRleLosslessEncoder::new();
@@ -177,7 +177,7 @@ fn manifest_files_by_path(manifest: &Value) -> BTreeMap<&str, &Value> {
 }
 
 fn expected_uids(
-    plan: &dicom_test_suite::composition::ResolvedInstancePlan,
+    plan: &synth_dicom_gen::composition::ResolvedInstancePlan,
     include_implementation_version_name: bool,
 ) -> Value {
     let mut object = serde_json::Map::from_iter([
@@ -258,7 +258,7 @@ fn every_u4_plan_matches_fresh_legacy_part10_and_identity_facts() {
             let template_ref = artifact.template.as_ref().unwrap();
             let template = templates
                 .resolve_qualified(
-                    &dicom_test_suite::composition::TemplateId(template_ref.template_id.clone()),
+                    &synth_dicom_gen::composition::TemplateId(template_ref.template_id.clone()),
                     Some(template_ref.template_version.parse().unwrap()),
                 )
                 .unwrap();

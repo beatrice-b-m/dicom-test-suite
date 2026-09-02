@@ -1,13 +1,13 @@
 use std::collections::BTreeSet;
 use std::fs;
 
-use dicom_test_suite::native_pixel::{
+use synth_dicom_gen::native_pixel::{
     ByteOrder, ChromaSubsampling, ColorOrganization, NativePixelError, NativePixelFactory,
     NativePixelLimits, NativePixelPatternRequest, NativePixelRequest, Palette,
     PhotometricInterpretation, PixelDataVr, PixelPadding, PixelShape, SignedStoredBitsPolicy,
     StoredValueType,
 };
-use dicom_test_suite::recipes::{RecipeCatalog, SecondaryCaptureParameters};
+use synth_dicom_gen::recipes::{RecipeCatalog, SecondaryCaptureParameters};
 use serde_json::Value;
 
 fn request(sc: &SecondaryCaptureParameters) -> NativePixelRequest {
@@ -445,7 +445,7 @@ fn rejects_overflow_ranges_hash_drift_and_invalid_organizations() {
         }),
     };
     assert_eq!(
-        dicom_test_suite::native_pixel::NativePixelPlan::plan(overflow),
+        synth_dicom_gen::native_pixel::NativePixelPlan::plan(overflow),
         Err(NativePixelError::ArithmeticOverflow)
     );
 
@@ -510,7 +510,7 @@ fn rejects_adversarial_sizes_before_allocation_under_typed_limits() {
         color: None,
     };
     assert!(matches!(
-        dicom_test_suite::native_pixel::NativePixelPlan::plan(default_bounded),
+        synth_dicom_gen::native_pixel::NativePixelPlan::plan(default_bounded),
         Err(NativePixelError::ResourceLimitExceeded {
             resource: "frames",
             requested,
@@ -539,7 +539,7 @@ fn rejects_adversarial_sizes_before_allocation_under_typed_limits() {
         max_value_bytes: 100,
     };
     assert_eq!(
-        dicom_test_suite::native_pixel::NativePixelPlan::plan_with_limits(many_frames, limits),
+        synth_dicom_gen::native_pixel::NativePixelPlan::plan_with_limits(many_frames, limits),
         Err(NativePixelError::ResourceLimitExceeded {
             resource: "frames",
             limit: 10,
@@ -563,7 +563,7 @@ fn rejects_adversarial_sizes_before_allocation_under_typed_limits() {
         color: None,
     };
     assert!(matches!(
-        dicom_test_suite::native_pixel::NativePixelPlan::plan_with_limits(too_many_values, limits),
+        synth_dicom_gen::native_pixel::NativePixelPlan::plan_with_limits(too_many_values, limits),
         Err(NativePixelError::ResourceLimitExceeded {
             resource: "stored_values",
             requested: 110,
@@ -608,7 +608,7 @@ fn rejects_adversarial_sizes_before_allocation_under_typed_limits() {
         max_value_bytes: 10,
     };
     assert_eq!(
-        dicom_test_suite::native_pixel::NativePixelPlan::plan_with_limits(
+        synth_dicom_gen::native_pixel::NativePixelPlan::plan_with_limits(
             too_many_bytes,
             byte_limits,
         ),

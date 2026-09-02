@@ -6,10 +6,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use dicom_core::value::Value as DicomValue;
 use dicom_dictionary_std::tags;
 use dicom_object::open_file;
-use dicom_test_suite::composition::{AttributeOperation, AttributeValue, PrimitiveValue};
-use dicom_test_suite::recipes::classic_dx_mg::{ClassicDxMgPlanError, plan_dx_mg_recipe};
-use dicom_test_suite::recipes::{OrderedSeriesProvider, RecipeCatalog};
-use dicom_test_suite::{GenerateOptions, prepare_generation_run, write_generation_run};
+use synth_dicom_gen::composition::{AttributeOperation, AttributeValue, PrimitiveValue};
+use synth_dicom_gen::recipes::classic_dx_mg::{ClassicDxMgPlanError, plan_dx_mg_recipe};
+use synth_dicom_gen::recipes::{OrderedSeriesProvider, RecipeCatalog};
+use synth_dicom_gen::{GenerateOptions, prepare_generation_run, write_generation_run};
 use serde_json::Value;
 
 const SEED: u64 = 7;
@@ -44,7 +44,7 @@ fn catalog() -> RecipeCatalog {
     .unwrap()
 }
 
-fn owned_recipes() -> Vec<dicom_test_suite::recipes::CaseRecipe> {
+fn owned_recipes() -> Vec<synth_dicom_gen::recipes::CaseRecipe> {
     let catalog = catalog();
     let mut recipes = catalog
         .recipes()
@@ -116,7 +116,7 @@ fn strings(operation: &AttributeOperation) -> Vec<&str> {
 #[test]
 fn dx_mg_recipes_plan_in_historical_order_with_exact_direct_facts() {
     assert_eq!(
-        dicom_test_suite::sha256_hex(&fs::read("standards.lock.json").unwrap()),
+        synth_dicom_gen::sha256_hex(&fs::read("standards.lock.json").unwrap()),
         STANDARDS_LOCK_SHA256
     );
     let recipes = owned_recipes();
@@ -212,9 +212,9 @@ fn dx_mg_recipes_plan_in_historical_order_with_exact_direct_facts() {
             assert_eq!(
                 planned.pixels.content.plan.shape.photometric_interpretation,
                 if presentation {
-                    dicom_test_suite::native_pixel::PhotometricInterpretation::Monochrome1
+                    synth_dicom_gen::native_pixel::PhotometricInterpretation::Monochrome1
                 } else {
-                    dicom_test_suite::native_pixel::PhotometricInterpretation::Monochrome2
+                    synth_dicom_gen::native_pixel::PhotometricInterpretation::Monochrome2
                 }
             );
             assert_eq!(

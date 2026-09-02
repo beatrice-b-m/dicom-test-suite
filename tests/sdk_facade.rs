@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use dicom_test_suite::sdk::{
+use synth_dicom_gen::sdk::{
     AssembleRequest, CancellationToken, ComposeRequest, DicomTestSuite, ManifestKind, ReportKind,
     ReportRequest, SdkErrorKind, ValidateRequest,
 };

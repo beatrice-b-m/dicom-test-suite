@@ -1,19 +1,19 @@
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 
-use dicom_test_suite::corpus_plan::{ArtifactProvenance, PlannedArtifact};
-use dicom_test_suite::curated_execution::CuratedExecutionServiceFactory;
-use dicom_test_suite::curated_manifest::project_curated_file_entries;
-use dicom_test_suite::curated_plan::{
+use synth_dicom_gen::corpus_plan::{ArtifactProvenance, PlannedArtifact};
+use synth_dicom_gen::curated_execution::CuratedExecutionServiceFactory;
+use synth_dicom_gen::curated_manifest::project_curated_file_entries;
+use synth_dicom_gen::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
 };
-use dicom_test_suite::executor::adapters::ManifestProjectionInput;
-use dicom_test_suite::executor::cancellation::CancellationToken;
-use dicom_test_suite::executor::engine::{
+use synth_dicom_gen::executor::adapters::ManifestProjectionInput;
+use synth_dicom_gen::executor::cancellation::CancellationToken;
+use synth_dicom_gen::executor::engine::{
     CorpusExecutor, ManifestProjectionError, ManifestProjector,
 };
-use dicom_test_suite::negative_plan::NEGATIVE_PARSER_RULE_ID;
-use dicom_test_suite::sha256_hex;
+use synth_dicom_gen::negative_plan::NEGATIVE_PARSER_RULE_ID;
+use synth_dicom_gen::sha256_hex;
 
 const FROZEN_NEGATIVE_FILES_SHA256: &str =
     "b3919444a5e9509df4049b04afb47f799e0d5791142520c75e490aefd6824dd2";
@@ -39,7 +39,7 @@ fn negative_inventory() -> BTreeSet<String> {
         .collect()
 }
 
-fn plan(parallelism: u32) -> dicom_test_suite::curated_plan::CuratedScCorpusPlan {
+fn plan(parallelism: u32) -> synth_dicom_gen::curated_plan::CuratedScCorpusPlan {
     provider()
         .plan(&CuratedScPlanRequest {
             selection: CuratedScSelection::Profile {

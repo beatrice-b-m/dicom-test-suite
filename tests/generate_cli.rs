@@ -47,7 +47,7 @@ fn compile_schema(path: &str) -> jsonschema::Validator {
 fn generate_command_writes_smoke_part10_files_and_manifest() {
     let out_dir = unique_temp_dir("generate-command");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "generate",
             "--profile",
@@ -211,7 +211,7 @@ fn generate_command_writes_smoke_part10_files_and_manifest() {
     );
     assert_eq!(
         file_entry.get("sha256").and_then(Value::as_str),
-        Some(dicom_test_suite::sha256_hex(&dcm_bytes).as_str())
+        Some(synth_dicom_gen::sha256_hex(&dcm_bytes).as_str())
     );
 
     let obj = open_file(&dcm_path).expect("generated DICOM file should parse");
@@ -266,7 +266,7 @@ fn generate_command_writes_smoke_part10_files_and_manifest() {
 #[test]
 fn generate_machine_result_is_clean_typed_and_manifest_bounded() {
     let out_dir = unique_temp_dir("generate-machine");
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "generate",
             "--profile",
@@ -313,7 +313,7 @@ fn generate_case_id_selection_is_profile_bounded_and_manifest_proven() {
         "classic/sc/rgb_planar0_explicit_le",
         "classic/sc/mono2_u8_explicit_le",
     ];
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["generate", "--profile", "smoke", "--out"])
         .arg(&out_dir)
         .args(["--case-id", requested[0], "--case-id", requested[1]])
@@ -357,7 +357,7 @@ fn generate_case_id_selection_is_profile_bounded_and_manifest_proven() {
     fs::remove_dir_all(out_dir).unwrap();
 
     let dependency_out = unique_temp_dir("generate-case-id-dependency");
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["generate", "--profile", "extended", "--out"])
         .arg(&dependency_out)
         .args(["--case-id", "derived/presentation-state/color_softcopy"])
@@ -405,7 +405,7 @@ fn generate_case_id_selection_rejects_unknown_duplicate_and_incompatible_request
     ];
     for (label, requested) in cases {
         let out_dir = unique_temp_dir(&format!("generate-case-id-{label}"));
-        let mut command = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"));
+        let mut command = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"));
         command
             .args(["generate", "--profile", "smoke", "--out"])
             .arg(&out_dir)
@@ -426,7 +426,7 @@ fn generate_case_id_selection_rejects_unknown_duplicate_and_incompatible_request
 fn generate_command_writes_core_u16_native_pixel_case() {
     let out_dir = unique_temp_dir("generate-core-command");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "generate",
             "--profile",
@@ -1874,7 +1874,7 @@ fn generate_command_writes_deterministic_nonsquare_spatial_variants() {
     let first_out = unique_temp_dir("generate-nonsquare-first");
     let second_out = unique_temp_dir("generate-nonsquare-second");
     for out_dir in [&first_out, &second_out] {
-        let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
             .args([
                 "generate",
                 "--profile",
@@ -1988,7 +1988,7 @@ fn generate_command_writes_deterministic_nonsquare_spatial_variants() {
         let second_bytes =
             fs::read(second_out.join(path)).expect("repeated DICOM should be readable");
         assert_eq!(first_bytes, second_bytes, "{path} must be byte stable");
-        assert_eq!(dicom_test_suite::sha256_hex(&first_bytes), file_sha256);
+        assert_eq!(synth_dicom_gen::sha256_hex(&first_bytes), file_sha256);
 
         let object = open_file(first_out.join(path)).expect("non-square DICOM should parse");
         assert_eq!(
@@ -1997,7 +1997,7 @@ fn generate_command_writes_deterministic_nonsquare_spatial_variants() {
                 .expect("Pixel Data must exist")
                 .value()
                 .to_bytes()
-                .map(|bytes| dicom_test_suite::sha256_hex(bytes.as_ref()))
+                .map(|bytes| synth_dicom_gen::sha256_hex(bytes.as_ref()))
                 .unwrap(),
             PIXEL_SHA256
         );
@@ -2170,7 +2170,7 @@ fn generate_command_writes_deterministic_nonsquare_spatial_variants() {
 fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     let out_dir = unique_temp_dir("generate-extended-command");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "generate",
             "--profile",
@@ -2383,7 +2383,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     assert_eq!(format!("{:?}", pixel_element.vr()), "OW");
     let pixel_bytes = pixel_element.value().to_bytes().unwrap();
     assert_eq!(
-        dicom_test_suite::sha256_hex(pixel_bytes.as_ref()),
+        synth_dicom_gen::sha256_hex(pixel_bytes.as_ref()),
         "56bca1a85c2838126b1d1a5fbedfe731839496d972df2c6ab33e1a1183392b41"
     );
     assert_eq!(
@@ -2482,7 +2482,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     let u1_pixel_bytes = u1_pixel_element.value().to_bytes().unwrap();
     assert_eq!(u1_pixel_bytes.as_ref(), &[0x55, 0x55, 0x01, 0x00]);
     assert_eq!(
-        dicom_test_suite::sha256_hex(u1_pixel_bytes.as_ref()),
+        synth_dicom_gen::sha256_hex(u1_pixel_bytes.as_ref()),
         "9d6baf87a79d40ef2b145f92945a05cf156a2741e2c2834a3a7721d52757594b"
     );
     let icc_file = file_entry_by_case_id(&manifest, "vl/photo/rgb_icc_profile_explicit_le");
@@ -2557,7 +2557,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
     assert_eq!(&icc_bytes[12..24], b"scnrRGB XYZ ");
     assert_eq!(&icc_bytes[36..40], b"acsp");
     assert_eq!(
-        dicom_test_suite::sha256_hex(icc_bytes.as_ref()),
+        synth_dicom_gen::sha256_hex(icc_bytes.as_ref()),
         "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef"
     );
     let enhanced_ct_file = file_entry_by_case_id(
@@ -8034,7 +8034,7 @@ fn generate_command_writes_extended_enhanced_ct_multiframe_case() {
 fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     let out_dir = unique_temp_dir("generate-all-command");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "generate",
             "--profile",
@@ -8490,7 +8490,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
     );
 
     let stress_out_dir = unique_temp_dir("generate-all-with-stress-command");
-    let stress_output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let stress_output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "generate",
             "--profile",
@@ -8622,7 +8622,7 @@ fn generate_command_writes_all_profile_union_and_skips_planned_cases() {
 fn generate_command_writes_legacy_explicit_big_endian_secondary_capture_case() {
     let out_dir = unique_temp_dir("generate-legacy-big-endian-command");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "generate",
             "--profile",
@@ -8735,7 +8735,7 @@ fn generate_command_writes_legacy_explicit_big_endian_secondary_capture_case() {
 
 #[test]
 fn generate_command_requires_output_path() {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["generate", "--profile", "smoke"])
         .output()
         .expect("generate command must run");

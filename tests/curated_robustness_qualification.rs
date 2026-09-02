@@ -2,22 +2,22 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use dicom_test_suite::corpus_plan::{
+use synth_dicom_gen::corpus_plan::{
     ArtifactProvenance, PlannedArtifact, QualificationPayloadPolicy,
 };
-use dicom_test_suite::curated_execution::CuratedExecutionServiceFactory;
-use dicom_test_suite::curated_manifest::project_curated_qualifications;
-use dicom_test_suite::curated_plan::{
+use synth_dicom_gen::curated_execution::CuratedExecutionServiceFactory;
+use synth_dicom_gen::curated_manifest::project_curated_qualifications;
+use synth_dicom_gen::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlan, CuratedScCorpusPlanProvider, CuratedScPlanRequest,
     CuratedScSelection,
 };
-use dicom_test_suite::executor::adapters::ManifestProjectionInput;
-use dicom_test_suite::executor::cancellation::CancellationToken;
-use dicom_test_suite::executor::engine::{
+use synth_dicom_gen::executor::adapters::ManifestProjectionInput;
+use synth_dicom_gen::executor::cancellation::CancellationToken;
+use synth_dicom_gen::executor::engine::{
     CorpusExecutor, ManifestProjectionError, ManifestProjector, StagedCorpusExecution,
 };
-use dicom_test_suite::executor::services::SlotExecutionBinding;
-use dicom_test_suite::sha256_hex;
+use synth_dicom_gen::executor::services::SlotExecutionBinding;
+use synth_dicom_gen::sha256_hex;
 
 const FUZZ_CASE: &str = "fuzz/parser/bounded_seed_corpus";
 const EOT_CASE: &str = "qualification/encapsulation/eot_u64_overflow";
@@ -87,7 +87,7 @@ fn fuzz(seed: u64, parallelism: u32) -> CuratedScCorpusPlan {
 
 fn qualification(
     bundle: &CuratedScCorpusPlan,
-) -> &dicom_test_suite::corpus_plan::PlannedQualification {
+) -> &synth_dicom_gen::corpus_plan::PlannedQualification {
     bundle
         .plan
         .artifacts

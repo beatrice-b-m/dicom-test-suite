@@ -5,10 +5,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use dicom_core::Tag;
 use dicom_dictionary_std::tags;
 use dicom_object::open_file;
-use dicom_test_suite::assembly::{AssembleOptions, assemble};
-use dicom_test_suite::executor::cancellation::CancellationToken;
-use dicom_test_suite::product_resources::ProductResources;
-use dicom_test_suite::validate_generated_root;
+use synth_dicom_gen::assembly::{AssembleOptions, assemble};
+use synth_dicom_gen::executor::cancellation::CancellationToken;
+use synth_dicom_gen::product_resources::ProductResources;
+use synth_dicom_gen::validate_generated_root;
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 

@@ -9,7 +9,7 @@ use dicom_dictionary_std::tags;
 use dicom_object::open_file;
 use serde_json::Value;
 
-use dicom_test_suite::recipes::{
+use synth_dicom_gen::recipes::{
     MetadataScParameters, PrivateElementValue, RecipeCatalog, RecipeCatalogError, RecipeIdentity,
     StringValueSource,
 };
@@ -77,7 +77,7 @@ fn fresh_generation_root(profile: &str) -> PathBuf {
 
 fn generate_profile(profile: &str, include_stress: bool) -> PathBuf {
     let root = fresh_generation_root(profile);
-    let mut command = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"));
     command.args([
         "generate",
         "--profile",
@@ -676,7 +676,7 @@ fn data_first_sc_and_metadata_values_and_hashes_match_current_generator_bytes() 
                         .to_bytes()
                         .unwrap();
                     assert_eq!(
-                        dicom_test_suite::sha256_hex(raw.as_ref()),
+                        synth_dicom_gen::sha256_hex(raw.as_ref()),
                         person_name.patient_name_raw_sha256
                     );
                     for (index, group) in person_name.component_groups.iter().enumerate() {
@@ -772,7 +772,7 @@ fn data_first_sc_and_metadata_values_and_hashes_match_current_generator_bytes() 
                             .unwrap();
                         assert_eq!(raw.len(), element.raw_value_byte_length as usize);
                         assert_eq!(
-                            dicom_test_suite::sha256_hex(raw.as_ref()),
+                            synth_dicom_gen::sha256_hex(raw.as_ref()),
                             element.raw_value_sha256
                         );
                         let decoded = match &element.source {

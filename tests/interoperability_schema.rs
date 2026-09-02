@@ -1,10 +1,10 @@
 use std::fs;
 
-use dicom_test_suite::media::{
+use synth_dicom_gen::media::{
     CheckStatus, DcmtkProviderFingerprint, DicomDirQualification, MediaDeterminism,
     MediaValidationEvidence,
 };
-use dicom_test_suite::protocol::{
+use synth_dicom_gen::protocol::{
     DicomwebSection, PeerFingerprint, ProtocolQualification, ProtocolQualificationInput,
     ProtocolReport, ProtocolSection, ProtocolStep, ProviderRelationship, SourceCaseLink,
     StepOutcome, ToolFingerprint,

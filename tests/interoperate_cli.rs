@@ -21,7 +21,7 @@ fn protocol_baseline_cli_emits_separate_explicit_unavailable_report() {
     write_manifest(&root);
     let fixtures =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("security/fixtures/fixtures.lock.json");
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "interoperate",
             "protocol-baseline",
@@ -68,7 +68,7 @@ fn protocol_baseline_cli_emits_separate_explicit_unavailable_report() {
 fn media_cli_requires_explicit_optional_tool_paths() {
     let root = fixture_root();
     write_manifest(&root);
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "interoperate",
             "media-dicomdir",

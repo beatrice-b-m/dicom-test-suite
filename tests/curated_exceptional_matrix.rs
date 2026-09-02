@@ -1,14 +1,14 @@
 use std::collections::BTreeSet;
 
-use dicom_test_suite::corpus_plan::PlannedArtifact;
-use dicom_test_suite::curated_plan::{
+use synth_dicom_gen::corpus_plan::PlannedArtifact;
+use synth_dicom_gen::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
 };
-use dicom_test_suite::executor::services::SlotExecutionBinding;
-use dicom_test_suite::recipes::{
+use synth_dicom_gen::executor::services::SlotExecutionBinding;
+use synth_dicom_gen::recipes::{
     BackendBoundary, QUANTITATIVE_NATIVE_PROVIDER_ID, RecipeCatalog, TransferSyntaxBackendRegistry,
 };
-use dicom_test_suite::runtime_capabilities::{CapabilityInventory, QualifiedExecutableIdentity};
+use synth_dicom_gen::runtime_capabilities::{CapabilityInventory, QualifiedExecutableIdentity};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]

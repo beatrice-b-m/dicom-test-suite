@@ -88,7 +88,7 @@ fn timezone_boundaries_are_deterministic_strict_and_reported() {
         manifest_validator.is_valid(&first_manifest),
         "generated timezone manifest must satisfy the committed schema"
     );
-    let summary = dicom_test_suite::validate_generated_root(&first_root)
+    let summary = synth_dicom_gen::validate_generated_root(&first_root)
         .expect("timezone corpus must be inspectable");
     assert!(
         summary.failures.is_empty(),
@@ -109,7 +109,7 @@ fn timezone_boundaries_are_deterministic_strict_and_reported() {
         report.pointer("/grouped_coverage/metadata_timezone_offsets_from_utc/+1400"),
         Some(&Value::from(1))
     );
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     assert!(markdown.contains("## Temporal Metadata Expectations"));
     assert!(markdown.contains("20240229235959.999999+1400"));
     assert!(markdown.contains("2024-03-01T12:00:00.000000Z"));
@@ -148,7 +148,7 @@ fn validator_rejects_tampered_timezone_contract_and_boundary_set() {
     )
     .expect("tampered manifest must be writable");
 
-    let summary = dicom_test_suite::validate_generated_root(&root)
+    let summary = synth_dicom_gen::validate_generated_root(&root)
         .expect("tampered corpus must remain inspectable");
     for failure_key in [
         "metadata_temporal_timezone_offset_minutes",
@@ -212,7 +212,7 @@ fn assert_boundary(
 }
 
 fn generate_core(out_dir: &Path) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["generate", "--profile", "core", "--out"])
         .arg(out_dir)
         .args(["--seed", "37"])
@@ -227,7 +227,7 @@ fn generate_core(out_dir: &Path) -> Value {
 }
 
 fn report_json(root: &Path) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .arg("report")
         .arg(root)
         .args(["--format", "json"])

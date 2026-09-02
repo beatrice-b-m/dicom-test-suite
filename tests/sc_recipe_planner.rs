@@ -5,15 +5,15 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use dicom_core::value::Value as DicomValue;
 use dicom_dictionary_std::tags;
 use dicom_object::open_file;
-use dicom_test_suite::codecs::{FrameEncodeInput, FrameEncoder, NativeRleLosslessEncoder};
-use dicom_test_suite::composition::{
+use synth_dicom_gen::codecs::{FrameEncodeInput, FrameEncoder, NativeRleLosslessEncoder};
+use synth_dicom_gen::composition::{
     CompositionUidRole, ContentMaterialization, Part10Materializer, TemplateCatalog,
 };
-use dicom_test_suite::recipes::{
+use synth_dicom_gen::recipes::{
     RecipeCatalog, ScPlanError, SecondaryCapturePlanInput, native_pixel_content_from_recipe,
     resolved_secondary_capture_plan,
 };
-use dicom_test_suite::{GenerateOptions, prepare_generation_run, sha256_hex, write_generation_run};
+use synth_dicom_gen::{GenerateOptions, prepare_generation_run, sha256_hex, write_generation_run};
 use serde_json::Value;
 
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -44,7 +44,7 @@ fn plan_for<'a>(
     lock_hash: &str,
     case_id: &str,
     role: &str,
-) -> dicom_test_suite::composition::ResolvedInstancePlan {
+) -> synth_dicom_gen::composition::ResolvedInstancePlan {
     let identity = recipes.binding_for_case(case_id).unwrap();
     let recipe = recipes.recipes().get(identity).unwrap();
     let artifact = recipe
@@ -58,7 +58,7 @@ fn plan_for<'a>(
     let reference = artifact.template.as_ref().unwrap();
     let template = templates
         .resolve_qualified(
-            &dicom_test_suite::composition::TemplateId(reference.template_id.clone()),
+            &synth_dicom_gen::composition::TemplateId(reference.template_id.clone()),
             Some(reference.template_version.parse().unwrap()),
         )
         .unwrap();
@@ -102,7 +102,7 @@ fn ordinary_sc_entry_point_keeps_provider_and_metadata_boundaries_strict() {
     let reference = artifact.template.as_ref().unwrap();
     let template = templates
         .resolve_qualified(
-            &dicom_test_suite::composition::TemplateId(reference.template_id.clone()),
+            &synth_dicom_gen::composition::TemplateId(reference.template_id.clone()),
             Some(reference.template_version.parse().unwrap()),
         )
         .unwrap();
@@ -127,7 +127,7 @@ fn ordinary_sc_entry_point_keeps_provider_and_metadata_boundaries_strict() {
     let reference = artifact.template.as_ref().unwrap();
     let template = templates
         .resolve_qualified(
-            &dicom_test_suite::composition::TemplateId(reference.template_id.clone()),
+            &synth_dicom_gen::composition::TemplateId(reference.template_id.clone()),
             Some(reference.template_version.parse().unwrap()),
         )
         .unwrap();
@@ -328,7 +328,7 @@ fn eot_plan_locks_pre_encoding_bytes_uids_and_fixed_multiframe_attributes() {
 
     let string = |tag: &str| {
         let address =
-            dicom_test_suite::composition::AttributeAddress::from_normalized_tag(tag).unwrap();
+            synth_dicom_gen::composition::AttributeAddress::from_normalized_tag(tag).unwrap();
         plan.attributes
             .iter()
             .find(|attribute| attribute.address == address)

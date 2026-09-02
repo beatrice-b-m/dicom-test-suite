@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use dicom_core::header::Header;
 use dicom_dictionary_std::tags;
 use dicom_object::{InMemDicomObject, open_file};
-use dicom_test_suite::composition::{ComposeOptions, compose};
+use synth_dicom_gen::composition::{ComposeOptions, compose};
 use serde_json::{Value, json};
 
 #[path = "support/prepared_backend.rs"]
@@ -77,7 +77,7 @@ fn quantitative_default_bundles_are_closed_provenanced_and_reproducible() {
         }
     };
     assert_eq!(
-        dicom_test_suite::sha256_hex(&manifest_bytes),
+        synth_dicom_gen::sha256_hex(&manifest_bytes),
         expected_manifest_sha256
     );
     let manifest: Value = serde_json::from_slice(&manifest_bytes).unwrap();

@@ -1,6 +1,6 @@
 use std::fs;
 
-use dicom_test_suite::product_resources::{
+use synth_dicom_gen::product_resources::{
     PRODUCT_RESOURCE_SET_VERSION, ProductResourceError, ProductResourceOrigin, ProductResources,
 };
 

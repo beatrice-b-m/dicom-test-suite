@@ -99,7 +99,7 @@ fn string_boundary_vertical_slice_is_exact_byte_stable_and_reported() {
             .expect("manifest schema must compile")
             .is_valid(&first_manifest)
     );
-    let summary = dicom_test_suite::validate_generated_root(&first_root)
+    let summary = synth_dicom_gen::validate_generated_root(&first_root)
         .expect("generated corpus must be inspectable");
     assert!(summary.failures.is_empty(), "{:?}", summary.failures);
     assert!(
@@ -147,7 +147,7 @@ fn string_boundary_vertical_slice_is_exact_byte_stable_and_reported() {
         report.pointer("/grouped_coverage/metadata_string_vrs/LO"),
         Some(&Value::from(1))
     );
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     assert!(markdown.contains("## String VR Boundary Expectations"));
     assert!(markdown.contains("0018,1020; 0020,0012; 0020,4000; 0028,0030"));
 }
@@ -175,7 +175,7 @@ fn validator_rejects_tampered_string_boundary_contract() {
     )
     .expect("tampered manifest must be writable");
 
-    let summary = dicom_test_suite::validate_generated_root(&root)
+    let summary = synth_dicom_gen::validate_generated_root(&root)
         .expect("tampered corpus must remain inspectable");
     for failure_key in [
         "metadata_string_vm_lengths",
@@ -232,7 +232,7 @@ fn decoded_values(
 }
 
 fn generate_extended(out_dir: &Path) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["generate", "--profile", "extended", "--out"])
         .arg(out_dir)
         .args(["--seed", "1"])
@@ -247,7 +247,7 @@ fn generate_extended(out_dir: &Path) -> Value {
 }
 
 fn report_json(root: &Path) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .arg("report")
         .arg(root)
         .args(["--format", "json"])

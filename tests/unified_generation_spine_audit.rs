@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use dicom_test_suite::composition::{TemplateCatalog, TemplateStatus};
+use synth_dicom_gen::composition::{TemplateCatalog, TemplateStatus};
 use serde_json::Value;
 
 fn json(path: &str) -> Value {

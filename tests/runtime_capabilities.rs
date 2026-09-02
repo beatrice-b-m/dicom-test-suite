@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
-use dicom_test_suite::recipes::CODEC_BACKENDS;
-use dicom_test_suite::runtime_capabilities::{
+use synth_dicom_gen::recipes::CODEC_BACKENDS;
+use synth_dicom_gen::runtime_capabilities::{
     CapabilityEvaluationRequest, CapabilityInventory, CapabilityKind, RegistryRuntimeRequirements,
     RuntimeCapabilityEvaluator, UnavailableReason,
 };

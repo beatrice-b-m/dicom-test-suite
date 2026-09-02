@@ -31,7 +31,7 @@ esac"#,
     );
     let config = config(&root, &validator, 2);
     let evidence_root = root.join("evidence");
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["conformance", "run"])
         .arg(&generated)
         .args(["--out"])
@@ -85,7 +85,7 @@ esac"#,
             let bytes = fs::read(evidence_root.join(relative)).unwrap();
             assert_eq!(
                 result[stream]["sha256"],
-                dicom_test_suite::sha256_hex(&bytes)
+                synth_dicom_gen::sha256_hex(&bytes)
             );
         }
     }
@@ -130,7 +130,7 @@ fn run_records_timeout_and_malformed_nonzero_output() {
 }
 
 fn run(generated: &Path, evidence: &Path, config: &Path) {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["conformance", "run"])
         .arg(generated)
         .args(["--out"])
@@ -147,7 +147,7 @@ fn run(generated: &Path, evidence: &Path, config: &Path) {
 }
 
 fn generate_smoke(root: &Path) {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["generate", "--profile", "smoke", "--out"])
         .arg(root)
         .args(["--seed", "1"])

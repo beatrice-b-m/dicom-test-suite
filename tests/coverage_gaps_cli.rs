@@ -354,7 +354,7 @@ fn report_gaps_wraps_only_at_the_explicit_cli_api_boundary() {
     let raw: Value = serde_json::from_slice(&raw.stdout).unwrap();
     assert!(raw.get("cli_api_version").is_none());
 
-    let wrapped = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let wrapped = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["report", "gaps", "--format", "json", "--cli-api", "1.0.0"])
         .output()
         .unwrap();
@@ -367,7 +367,7 @@ fn report_gaps_wraps_only_at_the_explicit_cli_api_boundary() {
 }
 
 fn run_gap_report(format: &str) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["report", "gaps", "--format", format])
         .output()
         .expect("report gaps command must run")

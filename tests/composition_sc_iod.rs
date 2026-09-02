@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use dicom_test_suite::composition::{ComposeOptions, compose};
+use synth_dicom_gen::composition::{ComposeOptions, compose};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
@@ -72,7 +72,7 @@ fn default_sc_templates_pass_the_pinned_independent_iod_route_when_available() {
     };
     let executable = fs::canonicalize(executable).unwrap();
     assert_eq!(
-        dicom_test_suite::sha256_hex(&fs::read(&executable).unwrap()),
+        synth_dicom_gen::sha256_hex(&fs::read(&executable).unwrap()),
         locked_dciodvfy_sha256(),
         "the independent validator must match conformance/validator-lock.json"
     );

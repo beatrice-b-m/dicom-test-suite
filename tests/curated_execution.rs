@@ -4,22 +4,22 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use dicom_object::open_file;
-use dicom_test_suite::curated_execution::CuratedExecutionServiceFactory;
-use dicom_test_suite::curated_plan::{
+use synth_dicom_gen::curated_execution::CuratedExecutionServiceFactory;
+use synth_dicom_gen::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
 };
-use dicom_test_suite::curated_validation::{
+use synth_dicom_gen::curated_validation::{
     ExtendedOffsetTableValidationSpec, ScPart10ValidationInput, ScPixelLengthFormula,
     validate_extended_offset_table_round_trip, validate_metadata_round_trip, validate_sc_part10,
 };
-use dicom_test_suite::executor::adapters::ManifestProjectionInput;
-use dicom_test_suite::executor::cancellation::CancellationToken;
-use dicom_test_suite::executor::engine::{
+use synth_dicom_gen::executor::adapters::ManifestProjectionInput;
+use synth_dicom_gen::executor::cancellation::CancellationToken;
+use synth_dicom_gen::executor::engine::{
     CorpusExecutor, ManifestProjectionError, ManifestProjector,
 };
-use dicom_test_suite::executor::evidence::{ExecutionStatus, PublicationState, ResultStatus};
-use dicom_test_suite::executor::transaction::OutputTransaction;
-use dicom_test_suite::recipes::RecipeCatalog;
+use synth_dicom_gen::executor::evidence::{ExecutionStatus, PublicationState, ResultStatus};
+use synth_dicom_gen::executor::transaction::OutputTransaction;
+use synth_dicom_gen::recipes::RecipeCatalog;
 
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -125,7 +125,7 @@ fn corpus_executor_runs_a_production_curated_sc_plan_end_to_end() {
     assert_eq!(rle.codecs.len(), 1);
     assert_eq!(
         rle.codecs[0].backend_id,
-        dicom_test_suite::codecs::NativeRleLosslessEncoder::BACKEND_ID
+        synth_dicom_gen::codecs::NativeRleLosslessEncoder::BACKEND_ID
     );
 }
 
@@ -209,7 +209,7 @@ fn native_sr_and_rt_execute_with_typed_evidence_and_frozen_bytes() {
             .artifacts
             .iter()
             .find_map(|candidate| match candidate {
-                dicom_test_suite::corpus_plan::PlannedArtifact::Dicom(planned)
+                synth_dicom_gen::corpus_plan::PlannedArtifact::Dicom(planned)
                     if planned.logical_id == artifact.logical_id =>
                 {
                     Some(planned)
@@ -355,7 +355,7 @@ fn shared_part10_validator_rejects_corrupted_rows() {
     .execute(&bundle.plan, &destination.0, 1, &CancellationToken::new())
     .unwrap();
     let evidence = &result.evidence.artifacts[0];
-    let dicom_test_suite::corpus_plan::PlannedArtifact::Dicom(planned) = &bundle.plan.artifacts[0]
+    let synth_dicom_gen::corpus_plan::PlannedArtifact::Dicom(planned) = &bundle.plan.artifacts[0]
     else {
         panic!("curated SC plan must contain DICOM");
     };
@@ -374,7 +374,7 @@ fn shared_part10_validator_rejects_corrupted_rows() {
         .instance
         .identities
         .get(
-            &dicom_test_suite::composition::CompositionUidRole::SopInstance,
+            &synth_dicom_gen::composition::CompositionUidRole::SopInstance,
             0,
         )
         .unwrap();

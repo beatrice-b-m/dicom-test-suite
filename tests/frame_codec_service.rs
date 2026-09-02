@@ -1,18 +1,18 @@
 use std::collections::BTreeMap;
 
 #[cfg(feature = "deflate")]
-use dicom_test_suite::codecs::DicomRsDeflatedImageFrameEncoder;
+use synth_dicom_gen::codecs::DicomRsDeflatedImageFrameEncoder;
 #[cfg(feature = "jpeg")]
-use dicom_test_suite::codecs::DicomRsJpegBaselineEncoder;
-use dicom_test_suite::codecs::NativeRleLosslessEncoder;
-use dicom_test_suite::executor::cancellation::CancellationToken;
-use dicom_test_suite::executor::frame_codec::{
+use synth_dicom_gen::codecs::DicomRsJpegBaselineEncoder;
+use synth_dicom_gen::codecs::NativeRleLosslessEncoder;
+use synth_dicom_gen::executor::cancellation::CancellationToken;
+use synth_dicom_gen::executor::frame_codec::{
     ExternalFrameCodecCommands, FrameCodecLimits, RegisteredFrameCodecService,
 };
-use dicom_test_suite::executor::services::{
+use synth_dicom_gen::executor::services::{
     ByteBinding, CodecRequest, NativeFrameBinding, StagedAssetRegistry,
 };
-use dicom_test_suite::sha256_hex;
+use synth_dicom_gen::sha256_hex;
 use serde_json::Value;
 
 fn request(
@@ -50,7 +50,7 @@ fn request(
 
 fn resolve(
     binding: &ByteBinding,
-) -> Result<Vec<u8>, dicom_test_suite::executor::engine::ServiceInvocationError> {
+) -> Result<Vec<u8>, synth_dicom_gen::executor::engine::ServiceInvocationError> {
     let ByteBinding::Inline { bytes, .. } = binding else {
         panic!("fixture uses inline bytes")
     };

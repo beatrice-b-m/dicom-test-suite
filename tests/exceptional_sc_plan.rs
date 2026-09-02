@@ -2,14 +2,14 @@ use std::collections::BTreeSet;
 use std::fs;
 
 #[cfg(feature = "deflate")]
-use dicom_test_suite::composition::Part10Materializer;
-use dicom_test_suite::composition::{TemplateCatalog, TemplateId};
-use dicom_test_suite::recipes::{
+use synth_dicom_gen::composition::Part10Materializer;
+use synth_dicom_gen::composition::{TemplateCatalog, TemplateId};
+use synth_dicom_gen::recipes::{
     BackendBoundary, CodecEvidenceRequirement, ExceptionalScEncodingRequest,
     ExceptionalScPlanError, ExceptionalScPlanInput, RecipeCatalog, TransferSyntaxBackendRegistry,
     plan_exceptional_sc,
 };
-use dicom_test_suite::sha256_hex;
+use synth_dicom_gen::sha256_hex;
 use serde_json::Value;
 
 fn loaded() -> (RecipeCatalog, TemplateCatalog, String) {

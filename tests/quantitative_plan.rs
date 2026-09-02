@@ -1,18 +1,18 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use dicom_test_suite::composition::{
+use synth_dicom_gen::composition::{
     CompositionUidRole, IdentityPlan, ResolvedInstancePlan, TemplateId, TemplateVersion,
 };
-use dicom_test_suite::corpus_plan::{
+use synth_dicom_gen::corpus_plan::{
     ArtifactProvenance, ArtifactResourceEstimate, CaseBinding, EncodingPlan, EvidencePlan,
     FileMetaPolicy, FragmentationPolicy, ImplementationIdentityPlan, ItemLengthPolicy,
     OffsetTablePolicy, OutputPlan, OutputRelativePath, PlannedDicomArtifact, PreamblePolicy,
     SequenceLengthPolicy, ValidationPlan,
 };
-use dicom_test_suite::executor::services::{
+use synth_dicom_gen::executor::services::{
     ArtifactExecutionBindings, ByteBinding, SlotExecutionBinding,
 };
-use dicom_test_suite::recipes::{
+use synth_dicom_gen::recipes::{
     ExternalDependencyContract, ExternalImportBoundary, ExternalImportKind,
     ExternalSemanticEvidence, QUANTITATIVE_EXTERNAL_PROVIDER_ID, QUANTITATIVE_NATIVE_PROVIDER_ID,
     QuantitativeArtifactContext, QuantitativePlanInput, QuantitativePlanOutput,

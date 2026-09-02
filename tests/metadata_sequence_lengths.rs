@@ -93,7 +93,7 @@ fn sequence_length_vertical_slice_is_exact_byte_stable_and_reported() {
             .unwrap()
             .is_valid(&first_manifest)
     );
-    let summary = dicom_test_suite::validate_generated_root(&first_root).unwrap();
+    let summary = synth_dicom_gen::validate_generated_root(&first_root).unwrap();
     assert!(summary.failures.is_empty(), "{:?}", summary.failures);
 
     let report = report_json(&first_root);
@@ -130,7 +130,7 @@ fn sequence_length_vertical_slice_is_exact_byte_stable_and_reported() {
         report.pointer("/grouped_coverage/metadata_sequence_item_length_encodings/undefined"),
         Some(&Value::from(2))
     );
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     assert!(markdown.contains("## Sequence Length Encoding Expectations"));
     assert!(markdown.contains("69536005\\|SCT\\|Head"));
 }
@@ -154,7 +154,7 @@ fn validator_rejects_tampered_sequence_length_contract() {
         Value::from("defined");
     write_manifest(&root, &manifest);
 
-    let summary = dicom_test_suite::validate_generated_root(&root).unwrap();
+    let summary = synth_dicom_gen::validate_generated_root(&root).unwrap();
     for key in [
         "metadata_sequence_length_manifest_contract",
         "metadata_sequence_length_variant",
@@ -185,7 +185,7 @@ fn case_files(manifest: &Value) -> Vec<&Value> {
 }
 
 fn generate_extended(out_dir: &Path) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["generate", "--profile", "extended", "--out"])
         .arg(out_dir)
         .args(["--seed", "1"])
@@ -200,7 +200,7 @@ fn generate_extended(out_dir: &Path) -> Value {
 }
 
 fn report_json(root: &Path) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .arg("report")
         .arg(root)
         .args(["--format", "json"])

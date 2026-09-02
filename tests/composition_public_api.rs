@@ -2,7 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use dicom_test_suite::composition::{
+use synth_dicom_gen::composition::{
     ComposeBytesOptions, ComposeOptions, compose, compose_from_bytes,
 };
 

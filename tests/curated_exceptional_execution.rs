@@ -4,19 +4,19 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 #[cfg(feature = "jpegxl")]
-use dicom_test_suite::codecs::CjxlJpegXlLossyEncoder;
+use synth_dicom_gen::codecs::CjxlJpegXlLossyEncoder;
 #[cfg(feature = "htj2k_openjph")]
-use dicom_test_suite::codecs::OpenJphHtj2kLosslessEncoder;
+use synth_dicom_gen::codecs::OpenJphHtj2kLosslessEncoder;
 #[cfg(feature = "deflate")]
-use dicom_test_suite::corpus_plan::PlannedArtifact;
-use dicom_test_suite::curated_execution::CuratedExecutionServiceFactory;
-use dicom_test_suite::curated_plan::{
+use synth_dicom_gen::corpus_plan::PlannedArtifact;
+use synth_dicom_gen::curated_execution::CuratedExecutionServiceFactory;
+use synth_dicom_gen::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlan, CuratedScCorpusPlanProvider, CuratedScPlanRequest,
     CuratedScSelection,
 };
-use dicom_test_suite::executor::adapters::ManifestProjectionInput;
-use dicom_test_suite::executor::cancellation::CancellationToken;
-use dicom_test_suite::executor::engine::{
+use synth_dicom_gen::executor::adapters::ManifestProjectionInput;
+use synth_dicom_gen::executor::cancellation::CancellationToken;
+use synth_dicom_gen::executor::engine::{
     CorpusExecutor, ManifestProjectionError, ManifestProjector,
 };
 #[cfg(any(
@@ -27,15 +27,15 @@ use dicom_test_suite::executor::engine::{
     feature = "jpegxl",
     feature = "htj2k_openjph"
 ))]
-use dicom_test_suite::executor::evidence::ResultStatus;
-use dicom_test_suite::executor::frame_codec::{
+use synth_dicom_gen::executor::evidence::ResultStatus;
+use synth_dicom_gen::executor::frame_codec::{
     ExternalFrameCodecCommands, FrameCodecLimits, RegisteredFrameCodecService,
 };
 #[cfg(feature = "deflate")]
-use dicom_test_suite::executor::services::{ByteBinding, SlotExecutionBinding};
-use dicom_test_suite::runtime_capabilities::CapabilityInventory;
+use synth_dicom_gen::executor::services::{ByteBinding, SlotExecutionBinding};
+use synth_dicom_gen::runtime_capabilities::CapabilityInventory;
 #[cfg(any(feature = "htj2k_openjph", feature = "jpegxl"))]
-use dicom_test_suite::runtime_capabilities::QualifiedExecutableIdentity;
+use synth_dicom_gen::runtime_capabilities::QualifiedExecutableIdentity;
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
@@ -250,7 +250,7 @@ fn qualified_deflated_seg_executes_per_frame_with_reference_closure() {
             panic!("Deflated Image Frame native payloads must be inline")
         };
         assert_eq!(bytes.len(), 1);
-        assert_eq!(sha256, &dicom_test_suite::sha256_hex(bytes));
+        assert_eq!(sha256, &synth_dicom_gen::sha256_hex(bytes));
     }
     assert!(bundle.plan.dependencies.iter().any(|dependency| {
         dependency.artifact_id == target.logical_id()

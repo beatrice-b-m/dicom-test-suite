@@ -1,5 +1,5 @@
-use dicom_test_suite::corpus_plan::CapabilityKind;
-use dicom_test_suite::curated_plan::{
+use synth_dicom_gen::corpus_plan::CapabilityKind;
+use synth_dicom_gen::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
 };
 

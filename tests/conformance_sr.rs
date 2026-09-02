@@ -13,7 +13,7 @@ fn sr_adapter_runs_only_for_supported_sop_classes_and_hashes_its_classpath() {
     let root = temp_dir("pixelmed");
     let generated = root.join("generated");
     assert!(
-        Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
             .args(["generate", "--profile", "extended", "--out"])
             .arg(&generated)
             .args(["--seed", "1"])
@@ -115,7 +115,7 @@ esac"#,
     )
     .unwrap();
     let evidence_root = root.join("evidence");
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["conformance", "run"])
         .arg(&generated)
         .args(["--out"])
@@ -207,7 +207,7 @@ esac"#,
             let bytes = fs::read(evidence_root.join(relative)).unwrap();
             assert_eq!(
                 result[stream]["sha256"],
-                dicom_test_suite::sha256_hex(&bytes)
+                synth_dicom_gen::sha256_hex(&bytes)
             );
         }
     }
@@ -239,7 +239,7 @@ esac"#,
         b"{\"schema_version\":\"0.1.0\",\"findings\":[]}",
     )
     .unwrap();
-    let verify = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let verify = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["conformance", "verify"])
         .arg(&evidence_root)
         .args(["--allowlist"])
@@ -282,7 +282,7 @@ esac"#,
         serde_json::to_vec_pretty(&optional).unwrap(),
     )
     .unwrap();
-    let verify = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let verify = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["conformance", "verify"])
         .arg(&evidence_root)
         .args(["--allowlist"])
@@ -326,7 +326,7 @@ esac"#,
         serde_json::to_vec_pretty(&required).unwrap(),
     )
     .unwrap();
-    let verify = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let verify = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["conformance", "verify"])
         .arg(&evidence_root)
         .args(["--allowlist"])

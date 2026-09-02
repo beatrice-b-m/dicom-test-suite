@@ -2,9 +2,9 @@ use std::fs;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use dicom_test_suite::assembly::plan_assembly;
-use dicom_test_suite::composition::CompositionUidRole;
-use dicom_test_suite::corpus_plan::PlannedArtifact;
+use synth_dicom_gen::assembly::plan_assembly;
+use synth_dicom_gen::composition::CompositionUidRole;
+use synth_dicom_gen::corpus_plan::PlannedArtifact;
 
 const RESOURCE_HASH: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -172,7 +172,7 @@ fn assembly_rejects_symlinks_in_any_caller_asset_path_component() {
     let error = plan_assembly(&request[..], &root, 1, 1, RESOURCE_HASH).unwrap_err();
     assert!(matches!(
         error,
-        dicom_test_suite::assembly::AssemblyError::UnsafePath(_)
+        synth_dicom_gen::assembly::AssemblyError::UnsafePath(_)
     ));
     fs::remove_dir_all(root).unwrap();
     fs::remove_dir_all(outside).unwrap();

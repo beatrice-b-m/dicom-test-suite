@@ -72,7 +72,7 @@ fn promoted_float32_parametric_map_satisfies_external_proof_contract() {
             );
 
             for root in [&first_root, &second_root] {
-                let validation = dicom_test_suite::validate_generated_root(root)
+                let validation = synth_dicom_gen::validate_generated_root(root)
                     .expect("generated extended root should validate");
                 assert!(
                     validation.failures.is_empty(),
@@ -138,7 +138,7 @@ fn assert_generated_float64_contract(root: &Path, file: &Value) {
     );
     let hashes = bytes
         .chunks_exact(32)
-        .map(dicom_test_suite::sha256_hex)
+        .map(synth_dicom_gen::sha256_hex)
         .collect::<Vec<_>>();
     let expected_hashes = file["pixel_data"]["frame_hashes"]
         .as_array()
@@ -288,7 +288,7 @@ fn assert_generated_contract(root: &Path, file: &Value) {
     assert_eq!(
         file["sha256"].as_str(),
         Some(
-            dicom_test_suite::sha256_hex(&fs::read(&path).expect("PM bytes should read")).as_str()
+            synth_dicom_gen::sha256_hex(&fs::read(&path).expect("PM bytes should read")).as_str()
         )
     );
 
@@ -311,7 +311,7 @@ fn assert_generated_contract(root: &Path, file: &Value) {
         .collect::<Vec<_>>();
     let actual_hashes = float_bytes
         .chunks_exact(16)
-        .map(dicom_test_suite::sha256_hex)
+        .map(synth_dicom_gen::sha256_hex)
         .collect::<Vec<_>>();
     assert_eq!(actual_hashes, manifest_hashes);
 
@@ -679,7 +679,7 @@ fn double_float_bytes(path: &Path) -> Vec<u8> {
 }
 
 fn generate_extended(root: &Path) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "generate",
             "--profile",

@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 use std::fs;
 
-use dicom_test_suite::recipes::{
+use synth_dicom_gen::recipes::{
     BackendBoundary, CODEC_BACKENDS, CodecDispatchRequest, CodecEvidenceRequirement,
     CodecRegistryError, CodecSourceRequest, TransferSyntaxBackendRegistry,
 };
@@ -163,7 +163,7 @@ fn malformed_or_incomplete_capability_matrices_fail_closed() {
         Err(CodecRegistryError::MatrixMismatch(_))
     ));
 
-    let duplicate = dicom_test_suite::recipes::CAPABILITY_MATRIX_JSON.replacen(
+    let duplicate = synth_dicom_gen::recipes::CAPABILITY_MATRIX_JSON.replacen(
         "\"entries\": [",
         "\"entries\": [{\"uid\":\"1.2.840.10008.1.2\",\"status\":\"available\",\"read_dataset\":true,\"decode_pixel\":true,\"write_dataset\":true,\"encode_pixel\":true,\"feature_flags\":[],\"external_libraries\":[],\"determinism\":\"byte_stable\"},",
         1,

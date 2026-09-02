@@ -37,7 +37,7 @@ fn littlecms_transicc_collects_case_scoped_icc_evidence() {
     let sidecar_bytes = fs::read(fixture.evidence.join(relative)).unwrap();
     assert_eq!(
         icc["evidence"]["sha256"],
-        dicom_test_suite::sha256_hex(&sidecar_bytes)
+        synth_dicom_gen::sha256_hex(&sidecar_bytes)
     );
     let sidecar: Value = serde_json::from_slice(&sidecar_bytes).unwrap();
     assert_eq!(sidecar["adapter_id"], "littlecms-transicc-icc");
@@ -77,11 +77,11 @@ fn strict_verification_rejects_semantically_relinked_icc_sidecar() {
     let encoded = serde_json::to_vec_pretty(&sidecar).unwrap();
     fs::write(&target, &encoded).unwrap();
     fixture.run["instances"][0]["icc"]["evidence"]["sha256"] =
-        json!(dicom_test_suite::sha256_hex(&encoded));
+        json!(synth_dicom_gen::sha256_hex(&encoded));
     write_run(&fixture.evidence, &fixture.run);
 
     let verified =
-        dicom_test_suite::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
+        synth_dicom_gen::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
             .unwrap();
     assert_eq!(verified["valid"], false);
     assert!(failures(&verified).iter().any(|failure| {
@@ -107,7 +107,7 @@ fn unavailable_icc_adapter_does_not_silently_pass() {
     assert_ne!(result["status"], "completed");
 
     let verified =
-        dicom_test_suite::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
+        synth_dicom_gen::conformance::verify_conformance(&fixture.evidence, &fixture.allowlist)
             .unwrap();
     assert_eq!(verified["valid"], false);
     assert!(failures(&verified).iter().any(|failure| {
@@ -131,7 +131,7 @@ impl IccFixture {
 
         let profile = embedded_icc_profile();
         assert_eq!(profile.len(), 736);
-        assert_eq!(dicom_test_suite::sha256_hex(&profile), ICC_PROFILE_SHA256);
+        assert_eq!(synth_dicom_gen::sha256_hex(&profile), ICC_PROFILE_SHA256);
         let profile_source = root.join("profile.icc");
         fs::write(&profile_source, &profile).unwrap();
 
@@ -145,7 +145,7 @@ impl IccFixture {
             "files": [{
                 "case_id": ICC_CASE_ID,
                 "path": "icc.dcm",
-                "sha256": dicom_test_suite::sha256_hex(source),
+                "sha256": synth_dicom_gen::sha256_hex(source),
                 "dicom": {
                     "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.4",
                     "transfer_syntax_uid": "1.2.840.10008.1.2.1"
@@ -159,7 +159,7 @@ impl IccFixture {
                 "pixel_data": {
                     "vr": "OB", "native_or_encapsulated": "native", "value_length": 12,
                     "frame_count": 1,
-                    "frame_hashes": [dicom_test_suite::sha256_hex(&frame)]
+                    "frame_hashes": [synth_dicom_gen::sha256_hex(&frame)]
                 },
                 "expected_icc_profile": {
                     "tag": "(0028,2000)", "vr": "OB",
@@ -218,7 +218,7 @@ impl IccFixture {
         )
         .unwrap();
         let run =
-            dicom_test_suite::conformance::run_conformance(&generated, &evidence, &config).unwrap();
+            synth_dicom_gen::conformance::run_conformance(&generated, &evidence, &config).unwrap();
         let allowlist = root.join("allowlist.json");
         fs::write(
             &allowlist,

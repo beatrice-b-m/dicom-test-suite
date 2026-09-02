@@ -3,8 +3,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use dicom_test_suite::composition::{TemplateCatalog, TemplateId};
-use dicom_test_suite::recipes::{
+use synth_dicom_gen::composition::{TemplateCatalog, TemplateId};
+use synth_dicom_gen::recipes::{
     PRESENTATION_ADVANCED_PROVIDER_ID, REGISTRATION_PLAN_PROVIDER_ID, RecipeCatalog,
     WSI_ADVANCED_PROVIDER_ID,
 };
@@ -82,7 +82,7 @@ fn every_committed_advanced_template_has_one_exact_default_recipe_artifact() {
             binding.recipe_version.as_str(),
             binding.artifact_logical_id.as_str(),
         )));
-        let identity = dicom_test_suite::planning::RecipeIdentity {
+        let identity = synth_dicom_gen::planning::RecipeIdentity {
             recipe_id: binding.recipe_id.clone(),
             recipe_version: binding.recipe_version.clone(),
         };

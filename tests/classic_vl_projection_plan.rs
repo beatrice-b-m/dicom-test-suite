@@ -2,20 +2,20 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use dicom_test_suite::codecs::{FrameEncodeInput, FrameEncoder, NativeRleLosslessEncoder};
-use dicom_test_suite::composition::{
+use synth_dicom_gen::codecs::{FrameEncodeInput, FrameEncoder, NativeRleLosslessEncoder};
+use synth_dicom_gen::composition::{
     ContentMaterialization, DicomVr, Part10Materializer, TemplateCatalog,
 };
-use dicom_test_suite::encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData};
-use dicom_test_suite::recipes::classic_vl_projection::{
+use synth_dicom_gen::encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData};
+use synth_dicom_gen::recipes::classic_vl_projection::{
     ClassicVlProjectionPlanError, ProjectionArtifactParameters, VlArtifactParameters,
     plan_vl_projection_recipe,
 };
-use dicom_test_suite::recipes::{
+use synth_dicom_gen::recipes::{
     CLASSIC_PIXEL_SLOT, ClassicResolvedPlanInput, OrderedSeriesProvider, RecipeCatalog,
     resolved_classic_instance_plan,
 };
-use dicom_test_suite::{GenerateOptions, prepare_generation_run, sha256_hex, write_generation_run};
+use synth_dicom_gen::{GenerateOptions, prepare_generation_run, sha256_hex, write_generation_run};
 use serde_json::Value;
 
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -41,7 +41,7 @@ fn load() -> (RecipeCatalog, TemplateCatalog, String) {
     )
 }
 
-fn owned(catalog: &RecipeCatalog) -> Vec<&dicom_test_suite::recipes::CaseRecipe> {
+fn owned(catalog: &RecipeCatalog) -> Vec<&synth_dicom_gen::recipes::CaseRecipe> {
     let mut recipes = catalog
         .recipes()
         .values()
@@ -135,7 +135,7 @@ fn planning_is_output_free_uses_shared_slot_and_rejects_corruption() {
 }
 
 fn make_rle_content(
-    plan: &mut dicom_test_suite::composition::ResolvedInstancePlan,
+    plan: &mut synth_dicom_gen::composition::ResolvedInstancePlan,
     native: &[u8],
     rows: u32,
     columns: u32,
@@ -199,7 +199,7 @@ fn direct_plans_match_current_part10_bytes_and_manifest_facts() {
         let reference = artifact.template.as_ref().unwrap();
         let template = templates
             .resolve_qualified(
-                &dicom_test_suite::composition::TemplateId(reference.template_id.clone()),
+                &synth_dicom_gen::composition::TemplateId(reference.template_id.clone()),
                 Some(reference.template_version.parse().unwrap()),
             )
             .unwrap();
@@ -215,7 +215,7 @@ fn direct_plans_match_current_part10_bytes_and_manifest_facts() {
         })
         .unwrap();
         if artifact.encoding.transfer_syntax_uid
-            == dicom_test_suite::codecs::RLE_LOSSLESS_TRANSFER_SYNTAX_UID
+            == synth_dicom_gen::codecs::RLE_LOSSLESS_TRANSFER_SYNTAX_UID
         {
             make_rle_content(
                 &mut resolved,
@@ -224,8 +224,8 @@ fn direct_plans_match_current_part10_bytes_and_manifest_facts() {
                 shape.columns,
                 shape.samples_per_pixel,
                 match shape.photometric_interpretation {
-                    dicom_test_suite::native_pixel::PhotometricInterpretation::Rgb => "RGB",
-                    dicom_test_suite::native_pixel::PhotometricInterpretation::PaletteColor => {
+                    synth_dicom_gen::native_pixel::PhotometricInterpretation::Rgb => "RGB",
+                    synth_dicom_gen::native_pixel::PhotometricInterpretation::PaletteColor => {
                         "PALETTE COLOR"
                     }
                     _ => unreachable!(),

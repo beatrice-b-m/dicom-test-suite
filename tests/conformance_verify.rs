@@ -117,7 +117,7 @@ fn verify_requires_locked_registration_secondary_iod_evidence() {
         &manifest_bytes,
     )
     .unwrap();
-    evidence["source"]["manifest_sha256"] = json!(dicom_test_suite::sha256_hex(&manifest_bytes));
+    evidence["source"]["manifest_sha256"] = json!(synth_dicom_gen::sha256_hex(&manifest_bytes));
     fixture.write_evidence(&evidence);
     assert!(fixture.verify(&fixture.allowlist).status.success());
 
@@ -181,7 +181,7 @@ fn verify_requires_locked_presentation_state_secondary_iod_evidence() {
         &manifest_bytes,
     )
     .unwrap();
-    evidence["source"]["manifest_sha256"] = json!(dicom_test_suite::sha256_hex(&manifest_bytes));
+    evidence["source"]["manifest_sha256"] = json!(synth_dicom_gen::sha256_hex(&manifest_bytes));
     fixture.write_evidence(&evidence);
     assert!(fixture.verify(&fixture.allowlist).status.success());
 
@@ -213,7 +213,7 @@ fn verify_rejects_unknown_warnings_stale_dispositions_and_wildcards() {
         "severity": "warning",
         "rule_id": null,
         "message": message,
-        "message_fingerprint": dicom_test_suite::sha256_hex(message.as_bytes()),
+        "message_fingerprint": synth_dicom_gen::sha256_hex(message.as_bytes()),
         "dicom_path": null,
         "disposition": "unresolved"
     }]);
@@ -293,7 +293,7 @@ impl Fixture {
         )
         .unwrap();
         let evidence = root.join("evidence");
-        let run = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        let run = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
             .args(["conformance", "run"])
             .arg(&generated)
             .args(["--out"])
@@ -362,7 +362,7 @@ impl Fixture {
     }
 
     fn verify(&self, allowlist: &Path) -> Output {
-        Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
             .args(["conformance", "verify"])
             .arg(&self.evidence)
             .args(["--allowlist"])
@@ -403,7 +403,7 @@ fn adapter(id: &str, role: &str, path: &Path) -> Value {
 
 fn generate_smoke(root: &Path) {
     assert!(
-        Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
             .args(["generate", "--profile", "smoke", "--out"])
             .arg(root)
             .status()

@@ -1,14 +1,14 @@
-use dicom_test_suite::composition::{
+use synth_dicom_gen::composition::{
     AttributeAddress, AttributeOperation, ContentMaterialization, DicomVr,
 };
-use dicom_test_suite::recipes::{
+use synth_dicom_gen::recipes::{
     BytePayloadContract, CodedConcept, CompletionFlag, ContentByteOrder, ContentProviderError,
     ContentProviderLimits, ContentProviderRequest, ContentTarget, FloatPixelsContract,
     FloatSamples, IntegerPixelsContract, IntegerSamples, MeshContract, MeshFormat,
     NeutralContentProvider, RtObjectKind, RtSemanticContract, SemanticReference,
     SemanticReferenceRole, StructuredReportContract, VerificationFlag, WaveformContract,
 };
-use dicom_test_suite::sha256_hex;
+use synth_dicom_gen::sha256_hex;
 
 fn target(slot: &str, kind: &str, vr: DicomVr) -> ContentTarget {
     ContentTarget {

@@ -1,4 +1,4 @@
-pub use dicom_test_suite::{curated_validation, recipes, sha256_hex};
+pub use synth_dicom_gen::{curated_validation, recipes, sha256_hex};
 
 #[path = "../src/recipes/typed_bulk_compatibility.rs"]
 #[allow(dead_code, unused_imports)]
@@ -6,7 +6,7 @@ mod typed_bulk_compatibility;
 
 use std::collections::BTreeMap;
 
-use dicom_test_suite::recipes::{
+use synth_dicom_gen::recipes::{
     CaseRecipe, EncapsulatedPayload, encapsulated_payload_input_from_recipe,
     waveform_input_from_recipe,
 };

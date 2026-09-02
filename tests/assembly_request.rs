@@ -1,4 +1,4 @@
-use dicom_test_suite::assembly::{AssemblyError, AssemblyRequest, AssemblyValue};
+use synth_dicom_gen::assembly::{AssemblyError, AssemblyRequest, AssemblyValue};
 
 #[test]
 fn assembly_request_types_standard_unknown_private_sequence_and_bulk() {

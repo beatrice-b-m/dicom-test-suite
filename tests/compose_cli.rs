@@ -9,7 +9,7 @@ use serde_json::Value;
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
 fn binary() -> &'static str {
-    env!("CARGO_BIN_EXE_dicom-test-suite")
+    env!("CARGO_BIN_EXE_synth-dicom-gen")
 }
 
 fn output(label: &str) -> PathBuf {

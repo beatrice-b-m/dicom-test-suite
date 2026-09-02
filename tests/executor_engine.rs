@@ -6,18 +6,18 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
-use dicom_test_suite::composition::{
+use synth_dicom_gen::composition::{
     CompositionUidRole, IdentityPlan, ResolvedInstancePlan, TemplateId, TemplateVersion,
 };
-use dicom_test_suite::corpus_plan::*;
-use dicom_test_suite::executor::cancellation::CancellationToken;
-use dicom_test_suite::executor::engine::*;
-use dicom_test_suite::executor::evidence::{
+use synth_dicom_gen::corpus_plan::*;
+use synth_dicom_gen::executor::cancellation::CancellationToken;
+use synth_dicom_gen::executor::engine::*;
+use synth_dicom_gen::executor::evidence::{
     EvidenceIndependence as ExecutionIndependence, ObligationResult, PublicationState, ResultStatus,
 };
-use dicom_test_suite::executor::services::*;
-use dicom_test_suite::executor::transaction::TransactionError;
-use dicom_test_suite::sha256_hex;
+use synth_dicom_gen::executor::services::*;
+use synth_dicom_gen::executor::transaction::TransactionError;
+use synth_dicom_gen::sha256_hex;
 
 const TS: &str = "1.2.840.10008.1.2.1";
 static NEXT_REAL_TRANSACTION: AtomicU64 = AtomicU64::new(0);
@@ -802,7 +802,7 @@ struct Projector {
 impl ManifestProjector for Projector {
     fn project(
         &self,
-        input: &dicom_test_suite::executor::adapters::ManifestProjectionInput,
+        input: &synth_dicom_gen::executor::adapters::ManifestProjectionInput,
     ) -> Result<Vec<u8>, ManifestProjectionError> {
         if let Some(token) = &self.cancel {
             token.cancel_with_reason("projector requested stop");

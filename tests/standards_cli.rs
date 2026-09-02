@@ -18,7 +18,7 @@ fn standards_machine_results_and_unavailable_exit_are_stable() {
         vec!["standards", "check-lock", "--format", "json"],
         vec!["standards", "gaps", "--profile", "core", "--format", "json"],
     ] {
-        let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
             .args(arguments)
             .output()
             .unwrap();
@@ -31,7 +31,7 @@ fn standards_machine_results_and_unavailable_exit_are_stable() {
         );
     }
 
-    let unavailable = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let unavailable = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "standards",
             "verify-kb",
@@ -54,7 +54,7 @@ fn standards_machine_results_and_unavailable_exit_are_stable() {
 
 #[test]
 fn standards_check_lock_accepts_committed_lock_with_documented_warnings() {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["standards", "check-lock"])
         .output()
         .expect("standards check-lock command must run");
@@ -84,7 +84,7 @@ fn standards_check_lock_rejects_malformed_lock() {
     let lock_path = unique_temp_file("malformed-standards-lock.json");
     fs::write(&lock_path, "{}").expect("temporary lock should be writable");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "standards",
             "check-lock",
@@ -122,7 +122,7 @@ fn standards_check_lock_rejects_undocumented_nullable_pin() {
     )
     .expect("temporary lock should be writable");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "standards",
             "check-lock",
@@ -200,7 +200,7 @@ fn standards_gaps_reports_registry_evidence_gaps_for_profile() {
     )
     .expect("temporary registry should be writable");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "standards",
             "gaps",
@@ -244,7 +244,7 @@ fn standards_gaps_reports_registry_evidence_gaps_for_profile() {
 
 #[test]
 fn standards_gaps_requires_profile() {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["standards", "gaps"])
         .output()
         .expect("standards gaps command must run");
@@ -259,7 +259,7 @@ fn standards_gaps_requires_profile() {
 
 #[test]
 fn standards_verify_kb_reports_unavailable_without_runtime_mcp() {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["standards", "verify-kb", "--edition", "2026b"])
         .output()
         .expect("standards verify-kb command must run");
@@ -277,7 +277,7 @@ fn standards_verify_kb_reports_unavailable_without_runtime_mcp() {
 
 #[test]
 fn standards_verify_kb_rejects_unsupported_edition() {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["standards", "verify-kb", "--edition", "2025d"])
         .output()
         .expect("standards verify-kb command must run");

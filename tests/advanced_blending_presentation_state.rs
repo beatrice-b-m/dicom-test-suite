@@ -50,7 +50,7 @@ fn advanced_blending_vertical_slice_is_byte_deterministic_and_closed() {
             "seed-7 source bytes must match for {source_path}"
         );
     }
-    assert_eq!(first["sha256"], dicom_test_suite::sha256_hex(&first_bytes));
+    assert_eq!(first["sha256"], synth_dicom_gen::sha256_hex(&first_bytes));
     assert_eq!(first["determinism"], "byte_stable");
 
     let schema = read_repo_json("schemas/manifest.schema.json");
@@ -64,7 +64,7 @@ fn advanced_blending_vertical_slice_is_byte_deterministic_and_closed() {
     assert_manifest_contract(&first_root, &first_manifest, first);
     assert_dicom_contract(&first_root, first);
     for root in [&first_root, &second_root] {
-        let validation = dicom_test_suite::validate_generated_root(root)
+        let validation = synth_dicom_gen::validate_generated_root(root)
             .expect("generated extended root should validate");
         assert!(validation.failures.is_empty(), "{:?}", validation.failures);
         assert_eq!(
@@ -364,7 +364,7 @@ fn assert_dicom_contract(root: &Path, file: &Value) {
     let icc_bytes = icc.to_bytes().expect("ICC bytes");
     assert_eq!(icc_bytes.len(), 736);
     assert_eq!(
-        dicom_test_suite::sha256_hex(icc_bytes.as_ref()),
+        synth_dicom_gen::sha256_hex(icc_bytes.as_ref()),
         ICC_PROFILE_SHA256
     );
     assert_eq!(&icc_bytes[12..16], b"scnr");
@@ -386,7 +386,7 @@ fn assert_dicom_contract(root: &Path, file: &Value) {
     }
     assert_eq!(
         file["sha256"],
-        dicom_test_suite::sha256_hex(&fs::read(root.join(RELATIVE_PATH)).unwrap())
+        synth_dicom_gen::sha256_hex(&fs::read(root.join(RELATIVE_PATH)).unwrap())
     );
 }
 
@@ -400,7 +400,7 @@ fn case_file(manifest: &Value) -> &Value {
 }
 
 fn generate_extended(workspace: &Path, root: &Path) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .current_dir(workspace)
         .args([
             "generate",

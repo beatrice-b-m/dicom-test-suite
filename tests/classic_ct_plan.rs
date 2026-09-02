@@ -2,18 +2,18 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use dicom_test_suite::codecs::{FrameEncodeInput, FrameEncoder, NativeRleLosslessEncoder};
-use dicom_test_suite::composition::{
+use synth_dicom_gen::codecs::{FrameEncodeInput, FrameEncoder, NativeRleLosslessEncoder};
+use synth_dicom_gen::composition::{
     CompositionUidRole, ContentMaterialization, DicomVr, Part10Materializer, TemplateCatalog,
 };
-use dicom_test_suite::encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData};
-use dicom_test_suite::recipes::classic_ct::{
+use synth_dicom_gen::encapsulation::{BasicOffsetTablePolicy, EncapsulatedPixelData};
+use synth_dicom_gen::recipes::classic_ct::{
     ClassicCtArtifactParameters, ClassicCtPlanError, plan_ct_recipe,
 };
-use dicom_test_suite::recipes::{
+use synth_dicom_gen::recipes::{
     ClassicResolvedPlanInput, OrderedSeriesProvider, RecipeCatalog, resolved_classic_instance_plan,
 };
-use dicom_test_suite::{GenerateOptions, prepare_generation_run, sha256_hex, write_generation_run};
+use synth_dicom_gen::{GenerateOptions, prepare_generation_run, sha256_hex, write_generation_run};
 use serde_json::Value;
 
 const LOCK_HASH_PATH: &str = "standards.lock.json";
@@ -40,7 +40,7 @@ fn load() -> (RecipeCatalog, TemplateCatalog, String) {
     (recipes, templates, lock_hash)
 }
 
-fn owned<'a>(catalog: &'a RecipeCatalog) -> Vec<&'a dicom_test_suite::recipes::CaseRecipe> {
+fn owned<'a>(catalog: &'a RecipeCatalog) -> Vec<&'a synth_dicom_gen::recipes::CaseRecipe> {
     let mut recipes = catalog
         .recipes()
         .values()
@@ -55,7 +55,7 @@ fn owned<'a>(catalog: &'a RecipeCatalog) -> Vec<&'a dicom_test_suite::recipes::C
 }
 
 fn make_rle_content(
-    plan: &mut dicom_test_suite::composition::ResolvedInstancePlan,
+    plan: &mut synth_dicom_gen::composition::ResolvedInstancePlan,
     native: &[u8],
     rows: u32,
     columns: u32,
@@ -241,7 +241,7 @@ fn direct_ct_plans_are_byte_identical_to_current_generator() {
             let reference = artifact.template.as_ref().unwrap();
             let template = templates
                 .resolve_qualified(
-                    &dicom_test_suite::composition::TemplateId(reference.template_id.clone()),
+                    &synth_dicom_gen::composition::TemplateId(reference.template_id.clone()),
                     Some(reference.template_version.parse().unwrap()),
                 )
                 .unwrap();
@@ -260,7 +260,7 @@ fn direct_ct_plans_are_byte_identical_to_current_generator() {
             })
             .unwrap();
             if artifact.encoding.transfer_syntax_uid
-                == dicom_test_suite::codecs::RLE_LOSSLESS_TRANSFER_SYNTAX_UID
+                == synth_dicom_gen::codecs::RLE_LOSSLESS_TRANSFER_SYNTAX_UID
             {
                 make_rle_content(&mut resolved, &native, rows, columns);
             }

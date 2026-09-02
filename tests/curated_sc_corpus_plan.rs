@@ -2,14 +2,14 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use dicom_test_suite::composition::ContentMaterialization;
-use dicom_test_suite::corpus_plan::{OffsetTablePolicy, PlannedArtifact};
-use dicom_test_suite::curated_plan::{
+use synth_dicom_gen::composition::ContentMaterialization;
+use synth_dicom_gen::corpus_plan::{OffsetTablePolicy, PlannedArtifact};
+use synth_dicom_gen::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
 };
-use dicom_test_suite::executor::services::SlotExecutionBinding;
-use dicom_test_suite::native_pixel::ByteOrder;
-use dicom_test_suite::recipes::{CLASSIC_PIXEL_SLOT, RecipeCatalog};
+use synth_dicom_gen::executor::services::SlotExecutionBinding;
+use synth_dicom_gen::native_pixel::ByteOrder;
+use synth_dicom_gen::recipes::{CLASSIC_PIXEL_SLOT, RecipeCatalog};
 use serde_json::Value;
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -258,7 +258,7 @@ fn full_feature_free_slice_joins_registry_recipe_template_and_order_exactly() {
             unreachable!()
         };
         let binding = artifact.case_binding.as_ref().unwrap();
-        let identity = dicom_test_suite::planning::RecipeIdentity {
+        let identity = synth_dicom_gen::planning::RecipeIdentity {
             recipe_id: binding.recipe_id.clone(),
             recipe_version: binding.recipe_version.clone(),
         };
@@ -356,7 +356,7 @@ fn projection_context_is_lossless_ordered_and_one_to_one_with_plan() {
     }
 
     let encoded = serde_json::to_vec(&bundle.projection).unwrap();
-    let decoded: dicom_test_suite::curated_plan::CuratedScProjectionContext =
+    let decoded: synth_dicom_gen::curated_plan::CuratedScProjectionContext =
         serde_json::from_slice(&encoded).unwrap();
     assert_eq!(decoded, bundle.projection);
 }
@@ -397,7 +397,7 @@ fn native_and_rle_requests_preserve_be_and_all_bot_policy_boundaries() {
         };
         let binding = &bundle.bindings[&artifact.logical_id];
         binding
-            .validate(&dicom_test_suite::executor::services::StagedAssetRegistry::default())
+            .validate(&synth_dicom_gen::executor::services::StagedAssetRegistry::default())
             .unwrap();
         let Some(native) = native_requests.get(artifact.logical_id.as_str()) else {
             continue;
@@ -419,7 +419,7 @@ fn native_and_rle_requests_preserve_be_and_all_bot_policy_boundaries() {
             };
             assert_eq!(
                 artifact.instance.content[0].sha256,
-                dicom_test_suite::sha256_hex(bytes)
+                synth_dicom_gen::sha256_hex(bytes)
             );
             assert!(matches!(
                 binding.slots["pixels"],
@@ -444,7 +444,7 @@ fn native_and_rle_requests_preserve_be_and_all_bot_policy_boundaries() {
             assert!(request.frames.iter().all(|frame| {
                 matches!(
                     frame.bytes,
-                    dicom_test_suite::executor::services::ByteBinding::Inline { .. }
+                    synth_dicom_gen::executor::services::ByteBinding::Inline { .. }
                 )
             }));
         } else {
@@ -454,7 +454,7 @@ fn native_and_rle_requests_preserve_be_and_all_bot_policy_boundaries() {
             let bytes = frames
                 .iter()
                 .flat_map(|frame| match &frame.bytes {
-                    dicom_test_suite::executor::services::ByteBinding::Inline { bytes, .. } => {
+                    synth_dicom_gen::executor::services::ByteBinding::Inline { bytes, .. } => {
                         bytes.clone()
                     }
                     _ => panic!("native request is not inline"),

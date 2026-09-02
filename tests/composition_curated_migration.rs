@@ -19,7 +19,7 @@ fn output(label: &str) -> PathBuf {
 fn migrated_curated_recipes_record_shared_plan_materialization() {
     let root = output("classic-families");
     let prepared_backend = PathBuf::from("generation-backends/highdicom-pydicom/.venv/bin/python");
-    let mut command = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"));
     if prepared_backend.is_file() {
         command.env(
             "DTS_HIGHDICOM_PYTHON",
@@ -115,7 +115,7 @@ fn migrated_curated_recipes_record_shared_plan_materialization() {
         let bytes = fs::read(root.join(entry["path"].as_str().unwrap())).unwrap();
         assert_eq!(
             entry["sha256"],
-            dicom_test_suite::sha256_hex(&bytes),
+            synth_dicom_gen::sha256_hex(&bytes),
             "{case_id}"
         );
         assert_eq!(entry["size_bytes"], bytes.len(), "{case_id}");

@@ -7,7 +7,7 @@ static NEXT: AtomicU64 = AtomicU64::new(0);
 
 fn workspace() -> PathBuf {
     std::env::temp_dir().join(format!(
-        "dicom-test-suite-sdk-consumer-{}-{}",
+        "synth-dicom-gen-sdk-consumer-{}-{}",
         std::process::id(),
         NEXT.fetch_add(1, Ordering::Relaxed)
     ))
@@ -34,12 +34,12 @@ fn external_side_project_uses_only_the_supported_sdk_facade() {
         root.join("Cargo.toml"),
         format!(
             r#"[package]
-name = "dicom-test-suite-sdk-consumer"
+name = "synth-dicom-gen-sdk-consumer"
 version = "0.0.0"
 edition = "2024"
 
 [dependencies]
-dicom-test-suite = {{ path = "{}", default-features = false }}
+synth-dicom-gen = {{ path = "{}", default-features = false }}
 "#,
             toml_path(&dependency_root())
         ),
@@ -47,7 +47,7 @@ dicom-test-suite = {{ path = "{}", default-features = false }}
     .unwrap();
     fs::write(
         root.join("src/main.rs"),
-        r##"use dicom_test_suite::sdk::{
+        r##"use synth_dicom_gen::sdk::{
     AssembleRequest, CancellationToken, ComposeRequest, DicomTestSuite, ManifestKind, ReportKind,
     ReportRequest, SdkErrorKind, ValidateRequest,
 };

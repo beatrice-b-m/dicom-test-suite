@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use dicom_test_suite::generation_backends::{
+use synth_dicom_gen::generation_backends::{
     BackendDiscovery, backend_policy, discover_prepared_backend, load_backend_lock,
 };
 

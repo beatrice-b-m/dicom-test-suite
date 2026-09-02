@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use dicom_dictionary_std::tags;
 use dicom_object::open_file;
-use dicom_test_suite::composition::{ComposeOptions, compose};
+use synth_dicom_gen::composition::{ComposeOptions, compose};
 use serde_json::{Value, json};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -63,7 +63,7 @@ fn large_native_pixels_use_the_hash_checked_streaming_writer() {
         "stream_copy"
     );
     assert_eq!(content["size_bytes"], pixels.len());
-    assert_eq!(content["sha256"], dicom_test_suite::sha256_hex(&pixels));
+    assert_eq!(content["sha256"], synth_dicom_gen::sha256_hex(&pixels));
     let object = open_file(out.join("instances/large.dcm")).unwrap();
     assert_eq!(
         object

@@ -27,7 +27,7 @@ fn xa_monoplane_vertical_slice_is_exact_byte_stable_and_reported() {
     assert_eq!(first["sha256"], INSTANCE_SHA256);
     assert_eq!(second["sha256"], INSTANCE_SHA256);
     assert_eq!(
-        dicom_test_suite::sha256_hex(&fs::read(first_root.join(RELATIVE_PATH)).unwrap()),
+        synth_dicom_gen::sha256_hex(&fs::read(first_root.join(RELATIVE_PATH)).unwrap()),
         INSTANCE_SHA256
     );
     assert_eq!(
@@ -241,9 +241,9 @@ fn xa_monoplane_vertical_slice_is_exact_byte_stable_and_reported() {
     let pixel = object.element(tags::PIXEL_DATA).unwrap();
     assert_eq!(pixel.vr(), VR::OB);
     assert_eq!(pixel.value().to_bytes().unwrap().as_ref(), PIXELS);
-    assert_eq!(dicom_test_suite::sha256_hex(&PIXELS), PAYLOAD_SHA256);
+    assert_eq!(synth_dicom_gen::sha256_hex(&PIXELS), PAYLOAD_SHA256);
 
-    let summary = dicom_test_suite::validate_generated_root(&first_root).unwrap();
+    let summary = synth_dicom_gen::validate_generated_root(&first_root).unwrap();
     assert_eq!(summary.files_checked, 49);
     assert!(summary.failures.is_empty(), "{:?}", summary.failures);
 
@@ -313,7 +313,7 @@ fn xa_monoplane_vertical_slice_is_exact_byte_stable_and_reported() {
     ] {
         assert_eq!(report.pointer(pointer), Some(&Value::from(1)), "{pointer}");
     }
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     assert!(markdown.contains("## X-Ray Angiographic Projection Expectations"));
     assert!(markdown.contains(CASE_ID));
     assert!(markdown.contains("ORIGINAL; PRIMARY; SINGLE PLANE"));
@@ -461,7 +461,7 @@ fn validator_rejects_tampered_xa_projection_contract() {
         let mut tampered = manifest.clone();
         *case_file_mut(&mut tampered).pointer_mut(pointer).unwrap() = replacement;
         write_manifest(&root, &tampered);
-        let summary = dicom_test_suite::validate_generated_root(&root).unwrap();
+        let summary = synth_dicom_gen::validate_generated_root(&root).unwrap();
         assert!(
             summary
                 .failures
@@ -492,7 +492,7 @@ fn case_file_mut(manifest: &mut Value) -> &mut Value {
 }
 
 fn generate_core(out_dir: &Path) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["generate", "--profile", "core", "--out"])
         .arg(out_dir)
         .args(["--seed", "1"])
@@ -507,7 +507,7 @@ fn generate_core(out_dir: &Path) -> Value {
 }
 
 fn report_json(root: &Path) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .arg("report")
         .arg(root)
         .args(["--format", "json"])

@@ -79,7 +79,7 @@ fn iso2022_person_name_is_byte_stable_strictly_valid_and_reported() {
         RAW_PATIENT_NAME_HEX
     );
 
-    let summary = dicom_test_suite::validate_generated_root(&first_root)
+    let summary = synth_dicom_gen::validate_generated_root(&first_root)
         .expect("generated ISO 2022 corpus must be inspectable");
     assert!(
         summary.failures.is_empty(),
@@ -135,7 +135,7 @@ fn validator_rejects_tampered_iso2022_byte_contract() {
     )
     .expect("tampered manifest must be writable");
 
-    let summary = dicom_test_suite::validate_generated_root(&root)
+    let summary = synth_dicom_gen::validate_generated_root(&root)
         .expect("tampered corpus must remain inspectable");
     for expected_failure in [
         "metadata_person_name_raw_hex",
@@ -154,7 +154,7 @@ fn validator_rejects_tampered_iso2022_byte_contract() {
 }
 
 fn generate_extended(out_dir: &Path) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["generate", "--profile", "extended", "--out"])
         .arg(out_dir)
         .args(["--seed", "37"])
@@ -172,7 +172,7 @@ fn generate_extended(out_dir: &Path) -> Value {
 }
 
 fn report_json(root: &Path) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .arg("report")
         .arg(root)
         .args(["--format", "json"])

@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 
-use dicom_test_suite::recipes::RecipeCatalog;
+use synth_dicom_gen::recipes::RecipeCatalog;
 use serde_json::Value;
 
 fn catalog() -> RecipeCatalog {

@@ -1,8 +1,8 @@
 use std::collections::BTreeSet;
 
-use dicom_test_suite::composition::CompositionUidRole;
-use dicom_test_suite::corpus_plan::PlannedArtifact;
-use dicom_test_suite::curated_plan::{
+use synth_dicom_gen::composition::CompositionUidRole;
+use synth_dicom_gen::corpus_plan::PlannedArtifact;
+use synth_dicom_gen::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
 };
 

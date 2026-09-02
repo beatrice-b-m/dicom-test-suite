@@ -31,7 +31,7 @@ fn enhanced_pet_vertical_slice_is_deterministic_schema_valid_and_strictly_valida
     );
     assert_eq!(first["sha256"], second["sha256"]);
     assert_eq!(first["sha256"], INSTANCE_SHA256);
-    assert_eq!(first["sha256"], dicom_test_suite::sha256_hex(&first_bytes));
+    assert_eq!(first["sha256"], synth_dicom_gen::sha256_hex(&first_bytes));
     assert!(
         jsonschema::validator_for(&read_json("schemas/manifest.schema.json"))
             .unwrap()
@@ -161,9 +161,9 @@ fn enhanced_pet_vertical_slice_is_deterministic_schema_valid_and_strictly_valida
             .collect::<Vec<_>>(),
         vec![0, 100, 200, 400, 0, 100, 200, 400]
     );
-    assert_eq!(dicom_test_suite::sha256_hex(pixels.as_ref()), PIXEL_SHA256);
+    assert_eq!(synth_dicom_gen::sha256_hex(pixels.as_ref()), PIXEL_SHA256);
 
-    let summary = dicom_test_suite::validate_generated_root(&first_root).unwrap();
+    let summary = synth_dicom_gen::validate_generated_root(&first_root).unwrap();
     assert!(summary.failures.is_empty(), "{:?}", summary.failures);
 }
 
@@ -217,7 +217,7 @@ fn validator_rejects_tampered_enhanced_pet_manifest_contracts() {
         let mut tampered = manifest.clone();
         *case_file_mut(&mut tampered).pointer_mut(pointer).unwrap() = replacement;
         write_manifest(&root, &tampered);
-        let summary = dicom_test_suite::validate_generated_root(&root).unwrap();
+        let summary = synth_dicom_gen::validate_generated_root(&root).unwrap();
         assert!(
             summary
                 .failures
@@ -327,7 +327,7 @@ fn validator_rejects_tampered_enhanced_pet_dicom_semantics() {
         obj.apply(mutation).unwrap();
         obj.write_to_file(&path).unwrap();
 
-        let summary = dicom_test_suite::validate_generated_root(&root).unwrap();
+        let summary = synth_dicom_gen::validate_generated_root(&root).unwrap();
         assert!(
             summary
                 .failures
@@ -358,7 +358,7 @@ fn case_file_mut(manifest: &mut Value) -> &mut Value {
 }
 
 fn generate_extended(out_dir: &Path) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["generate", "--profile", "extended", "--out"])
         .arg(out_dir)
         .args(["--seed", "1"])

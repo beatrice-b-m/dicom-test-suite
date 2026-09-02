@@ -1,11 +1,11 @@
 use std::collections::BTreeMap;
 use std::fs;
 
-use dicom_test_suite::composition::{
+use synth_dicom_gen::composition::{
     CompositionUidRole, IdentityPlan, MaterializedReference, Part10Materializer,
     ResolvedInstancePlan, TemplateId, TemplateVersion,
 };
-use dicom_test_suite::corpus_plan::{
+use synth_dicom_gen::corpus_plan::{
     ArtifactProvenance, ArtifactResourceEstimate, CaseBinding, EncodingPlan, EvidenceIndependence,
     EvidenceObligation, EvidencePlan, FileMetaPolicy, FragmentationPolicy,
     ImplementationIdentityPlan, ItemLengthPolicy, OffsetTablePolicy, OutputPlan,
@@ -13,14 +13,14 @@ use dicom_test_suite::corpus_plan::{
     PublicationTransaction, SequenceLengthPolicy, ValidationPlan, ValidationRequirement,
     ValidationRule,
 };
-use dicom_test_suite::executor::services::ArtifactExecutionBindings;
-use dicom_test_suite::recipes::{
+use synth_dicom_gen::executor::services::ArtifactExecutionBindings;
+use synth_dicom_gen::recipes::{
     AdvancedPlanProviderRequest, AdvancedProviderFamily, AdvancedProviderLimits,
     AdvancedSourceRole, DeformableRegistrationParameters, REGISTRATION_PLAN_PROVIDER_ID,
     RecipeIdentity, RegistrationCommonInput, RegistrationKindInput, RegistrationPlanProvider,
     RegistrationProviderInput, RegistrationSourceInput, SpatialRegistrationParameters,
 };
-use dicom_test_suite::sha256_hex;
+use synth_dicom_gen::sha256_hex;
 
 const LOCK: &str = "823230c5932b81b504434330d118fba286d5ff41d4e2f7766372633f4a49e559";
 const IMPLEMENTATION: &str = "2.25.93442075376351194778596039619060852790";

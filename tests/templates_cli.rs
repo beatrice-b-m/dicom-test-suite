@@ -1,7 +1,7 @@
 use std::process::Command;
 
 fn binary() -> &'static str {
-    env!("CARGO_BIN_EXE_dicom-test-suite")
+    env!("CARGO_BIN_EXE_synth-dicom-gen")
 }
 
 fn compile_schema(path: &str) -> jsonschema::Validator {
@@ -34,7 +34,7 @@ fn templates_list_has_human_and_machine_readable_output() {
     assert!(compile_schema("schemas/templates-result.schema.json").is_valid(&value["result"]));
     assert_eq!(value["command"], "templates list");
     let catalog =
-        dicom_test_suite::composition::TemplateCatalog::load("templates/catalog.json").unwrap();
+        synth_dicom_gen::composition::TemplateCatalog::load("templates/catalog.json").unwrap();
     assert_eq!(
         value["result"]["templates"].as_array().unwrap().len(),
         catalog.templates.len()

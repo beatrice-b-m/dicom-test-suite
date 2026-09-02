@@ -1,5 +1,5 @@
 [package]
-name = "dicom-test-suite"
+name = "synth-dicom-gen"
 autotests = false
 version = "0.1.0"
 edition = "2024"
@@ -7,9 +7,9 @@ rust-version = "1.85"
 description = "Deterministic synthetic non-PHI DICOM generation and assembly toolkit"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-repository = "https://github.com/beatrice-b-m/dicom-test-suite"
-homepage = "https://github.com/beatrice-b-m/dicom-test-suite"
-documentation = "https://docs.rs/dicom-test-suite"
+repository = "https://github.com/beatrice-b-m/synth-dicom-gen"
+homepage = "https://github.com/beatrice-b-m/synth-dicom-gen"
+documentation = "https://docs.rs/synth-dicom-gen"
 keywords = ["dicom", "medical-imaging", "testing", "synthetic-data"]
 categories = ["command-line-utilities", "development-tools::testing"]
 include = [

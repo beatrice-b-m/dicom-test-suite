@@ -239,7 +239,7 @@ impl ProductResources {
             .find_map(|_| {
                 let sequence = NEXT_SNAPSHOT.fetch_add(1, Ordering::Relaxed);
                 let candidate = parent.join(format!(
-                    "dicom-test-suite-resources-{}-{sequence}",
+                    "synth-dicom-gen-resources-{}-{sequence}",
                     std::process::id()
                 ));
                 match create_private_directory(&candidate) {

@@ -24,7 +24,7 @@ fn check_tools_machine_result_is_clean_and_schema_bound() {
         &root,
         vec![adapter("available", available.to_str().unwrap(), 1)],
     );
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["conformance", "check-tools", "--config"])
         .arg(config)
         .args(["--format", "json"])
@@ -94,7 +94,7 @@ fn check_tools_reports_timeout_and_fingerprint_mismatch() {
     assert_eq!(report["tools"][0]["lock_status"], "mismatched");
     assert_eq!(
         report["tools"][0]["sha256"],
-        dicom_test_suite::sha256_hex(&fs::read(slow).unwrap())
+        synth_dicom_gen::sha256_hex(&fs::read(slow).unwrap())
     );
 }
 
@@ -132,7 +132,7 @@ fn fake_tool(root: &Path, name: &str, body: &str) -> PathBuf {
 }
 
 fn run_check(config: &Path) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["conformance", "check-tools", "--config"])
         .arg(config)
         .output()

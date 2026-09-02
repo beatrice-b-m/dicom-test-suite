@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
-use dicom_test_suite::recipes::{
+use synth_dicom_gen::recipes::{
     PRESENTATION_ADVANCED_PROVIDER_ID, REGISTRATION_PLAN_PROVIDER_ID, RecipeCatalog,
 };
 use serde_json::Value;

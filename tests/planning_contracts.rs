@@ -1,13 +1,13 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use dicom_test_suite::corpus_plan::{
+use synth_dicom_gen::corpus_plan::{
     ArtifactDependency, ArtifactProvenance, ArtifactResourceEstimate, EvidencePlan, OutputPlan,
     OutputRelativePath, PlannedArtifact, PlannedAuxiliaryArtifact, PlannedQualification,
     PublicationPlan, PublicationTransaction, QualificationPayloadPolicy, ResourcePlan,
     ValidationPlan, ValidationRequirement, ValidationRule,
 };
-use dicom_test_suite::planning::{
+use synth_dicom_gen::planning::{
     CapabilityAvailability, CapabilityRequirement, CapabilityService, CasePlanner,
     CasePlannerRegistry, ContentFactory, ContentFactoryOutput, ContentFactoryRegistry,
     ContentFactoryRequest, CorpusPlanAssembler, CuratedCaseRequest, DeterministicIdentityRequest,
@@ -454,7 +454,7 @@ impl ManifestProjector for FixedProjector {
 
     fn project(
         &self,
-        plan: &dicom_test_suite::corpus_plan::CorpusPlan,
+        plan: &synth_dicom_gen::corpus_plan::CorpusPlan,
         input: &ManifestProjectionInput,
     ) -> Result<Value, ProjectionError> {
         Ok(json!({
@@ -482,8 +482,8 @@ fn planning_context_and_projector_are_data_only_contracts() {
     assert_eq!(context.seed, 9);
     assert_eq!(context.standards_lock_sha256, "abc");
 
-    let plan = dicom_test_suite::corpus_plan::CorpusPlan {
-        schema_version: dicom_test_suite::corpus_plan::CORPUS_PLAN_SCHEMA_VERSION.into(),
+    let plan = synth_dicom_gen::corpus_plan::CorpusPlan {
+        schema_version: synth_dicom_gen::corpus_plan::CORPUS_PLAN_SCHEMA_VERSION.into(),
         seed: 9,
         artifacts: vec![qualification("one", 1, ArtifactProvenance::Requested)],
         dependencies: vec![],

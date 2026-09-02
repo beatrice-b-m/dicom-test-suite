@@ -4,31 +4,31 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use dicom_test_suite::corpus_plan::{
+use synth_dicom_gen::corpus_plan::{
     ArtifactProvenance, ArtifactResourceEstimate, CaseBinding, EvidenceIndependence,
     EvidenceObligation, EvidencePlan, PlannedArtifact, PlannedQualification,
     PlannedQualificationSource, QualificationPayloadPolicy, ValidationPlan, ValidationRequirement,
     ValidationRule,
 };
-use dicom_test_suite::curated_execution::CuratedExecutionServiceFactory;
-use dicom_test_suite::curated_plan::{
+use synth_dicom_gen::curated_execution::CuratedExecutionServiceFactory;
+use synth_dicom_gen::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
 };
-use dicom_test_suite::executor::adapters::ManifestProjectionInput;
-use dicom_test_suite::executor::cancellation::CancellationToken;
-use dicom_test_suite::executor::engine::{
+use synth_dicom_gen::executor::adapters::ManifestProjectionInput;
+use synth_dicom_gen::executor::cancellation::CancellationToken;
+use synth_dicom_gen::executor::engine::{
     CorpusExecutor, ManifestProjectionError, ManifestProjector,
 };
-use dicom_test_suite::executor::materialization::{
+use synth_dicom_gen::executor::materialization::{
     AuxiliaryMaterializationHandler, AuxiliaryPayload, MaterializationDispatcher,
     MaterializationError,
 };
-use dicom_test_suite::executor::services::{
+use synth_dicom_gen::executor::services::{
     ArtifactExecutionBindings, AssetDeclaration, AssetVisibility, MaterializationRequest,
     ProducedAsset, SlotExecutionBinding, StagedAssetHandle, StagedAssetRegistry,
     StagingRelativePath,
 };
-use dicom_test_suite::sha256_hex;
+use synth_dicom_gen::sha256_hex;
 use serde_json::Value;
 
 const FUZZ_CASE: &str = "fuzz/parser/bounded_seed_corpus";
@@ -74,7 +74,7 @@ struct NoAuxiliary;
 impl AuxiliaryMaterializationHandler for NoAuxiliary {
     fn render(
         &self,
-        _: &dicom_test_suite::corpus_plan::PlannedAuxiliaryArtifact,
+        _: &synth_dicom_gen::corpus_plan::PlannedAuxiliaryArtifact,
         _: &ArtifactExecutionBindings,
         _: &StagedAssetRegistry,
     ) -> Result<AuxiliaryPayload, MaterializationError> {

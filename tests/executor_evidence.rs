@@ -1,7 +1,7 @@
-use dicom_test_suite::executor::cancellation::{
+use synth_dicom_gen::executor::cancellation::{
     CancellationPoint, CancellationStage, CancellationToken,
 };
-use dicom_test_suite::executor::evidence::*;
+use synth_dicom_gen::executor::evidence::*;
 
 const HASH: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 

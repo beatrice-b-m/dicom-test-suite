@@ -9,7 +9,7 @@ fn validate_command_accepts_generated_smoke_root() {
     let out_dir = unique_temp_dir("validate-smoke");
     generate_smoke(&out_dir);
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -38,7 +38,7 @@ fn validate_command_accepts_generated_extended_root() {
     let out_dir = unique_temp_dir("validate-extended");
     generate_profile(&out_dir, "extended");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -76,7 +76,7 @@ fn validate_command_accepts_references_to_same_run_sources() {
     generate_smoke(&out_dir);
     append_reference_fixture(&out_dir, false);
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -102,7 +102,7 @@ fn validate_command_reports_unresolved_reference_identity() {
     generate_smoke(&out_dir);
     append_reference_fixture(&out_dir, true);
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -147,7 +147,7 @@ fn validate_command_reports_extended_offset_table_for_native_pixel_data() {
         );
     });
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -197,7 +197,7 @@ fn validate_command_reports_invalid_encapsulated_offset_table_combination() {
         );
     });
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -231,7 +231,7 @@ fn validate_command_reports_rle_decoded_frame_hash_mismatch() {
         );
     });
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -268,7 +268,7 @@ fn validate_command_reports_deflated_image_frame_decoded_frame_hash_mismatch() {
         },
     );
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -302,7 +302,7 @@ fn validate_command_reports_jpeg_ls_lossless_decoded_frame_hash_mismatch() {
         },
     );
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -336,7 +336,7 @@ fn validate_command_reports_jpeg_xl_lossless_decoded_frame_hash_mismatch() {
         },
     );
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -370,7 +370,7 @@ fn validate_command_reports_jpeg_2000_lossless_decoded_frame_hash_mismatch() {
         },
     );
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -404,7 +404,7 @@ fn validate_command_reports_htj2k_lossless_decoded_frame_hash_mismatch() {
         },
     );
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -438,7 +438,7 @@ fn validate_command_reports_jpeg_lossless_process_14_decoded_frame_hash_mismatch
         },
     );
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -472,7 +472,7 @@ fn validate_command_reports_jpeg_lossless_sv1_decoded_frame_hash_mismatch() {
         },
     );
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -495,7 +495,7 @@ fn validate_command_rejects_missing_manifest() {
     let out_dir = unique_temp_dir("validate-missing-manifest");
     fs::create_dir_all(&out_dir).expect("temporary output root should be created");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -522,7 +522,7 @@ fn validate_command_reports_corrupted_generated_file() {
     bytes.push(0);
     fs::write(&dcm_path, bytes).expect("generated DICOM should be corruptible");
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -552,7 +552,7 @@ fn validate_command_reports_nonzero_part10_preamble() {
         bytes[0] = 1;
     });
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -581,7 +581,7 @@ fn validate_command_reports_missing_file_meta_information_version() {
         bytes[offset] = 0x03;
     });
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -611,7 +611,7 @@ fn validate_command_reports_dataset_group_0002_after_file_meta() {
         bytes[offset + 1] = 0x00;
     });
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -642,7 +642,7 @@ fn validate_command_reports_inconsistent_high_bit() {
         bytes[value_offset + 1] = 0;
     });
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -672,7 +672,7 @@ fn validate_command_reports_missing_standard_type2_attribute() {
         bytes[offset + 1] = 0x00;
     });
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -702,7 +702,7 @@ fn validate_command_reports_missing_sc_conversion_type() {
         bytes[offset + 1] = 0x00;
     });
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -732,7 +732,7 @@ fn validate_command_reports_missing_ct_image_type() {
         bytes[offset + 1] = 0x00;
     });
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -763,7 +763,7 @@ fn validate_command_reports_missing_mg_positioner_type() {
         bytes[offset + 1] = 0x00;
     });
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -793,7 +793,7 @@ fn validate_command_reports_missing_dx_presentation_lut_shape() {
         bytes[offset + 1] = 0x20;
     });
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -823,7 +823,7 @@ fn validate_command_reports_missing_us_image_type() {
         bytes[offset + 1] = 0x00;
     });
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -853,7 +853,7 @@ fn validate_command_reports_missing_cr_body_part_examined() {
         bytes[offset + 1] = 0x00;
     });
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -883,7 +883,7 @@ fn validate_command_reports_missing_mr_scanning_sequence() {
         bytes[offset + 1] = 0x00;
     });
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -913,7 +913,7 @@ fn validate_command_reports_missing_enhanced_ct_shared_functional_groups() {
         bytes[offset + 1] = 0x52;
     });
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -943,7 +943,7 @@ fn validate_command_reports_missing_enhanced_mr_dimension_organization() {
         bytes[offset + 3] = 0x92;
     });
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -991,7 +991,7 @@ fn validate_command_reports_missing_enhanced_mr_conformance_elements() {
         }
     });
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -1045,7 +1045,7 @@ fn validate_command_reports_tampered_enhanced_mr_manifest_semantics() {
         },
     );
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -1088,7 +1088,7 @@ fn validate_command_reports_missing_rt_structure_set_roi_sequence() {
         bytes[offset + 1] = 0x30;
     });
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -1118,7 +1118,7 @@ fn validate_command_reports_missing_rt_dose_grid_scaling() {
         bytes[offset + 1] = 0x30;
     });
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -1149,7 +1149,7 @@ fn validate_command_reports_missing_encapsulated_pdf_mime_type() {
         bytes[offset + 1] = 0x00;
     });
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "validate",
             out_dir.to_str().expect("temp path should be valid UTF-8"),
@@ -1172,7 +1172,7 @@ fn generate_smoke(out_dir: &Path) {
 }
 
 fn generate_profile(out_dir: &Path, profile: &str) {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "generate",
             "--profile",

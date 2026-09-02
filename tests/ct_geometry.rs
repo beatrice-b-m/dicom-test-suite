@@ -20,7 +20,7 @@ const GANTRY_TILT_DEGREES: f64 = 11.309_932_47;
 #[test]
 fn core_generates_ct_series_with_conflicting_instance_number_order() {
     let out_dir = unique_temp_dir("ct-spatial-sort-conflict");
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["generate", "--profile", "core", "--out"])
         .arg(&out_dir)
         .args(["--seed", "17"])
@@ -159,7 +159,7 @@ fn core_generates_ct_series_with_conflicting_instance_number_order() {
         );
     }
 
-    let validation = dicom_test_suite::validate_generated_root(&out_dir)
+    let validation = synth_dicom_gen::validate_generated_root(&out_dir)
         .expect("generated CT geometry corpus must be validatable");
     assert!(
         validation.failures.is_empty(),
@@ -167,7 +167,7 @@ fn core_generates_ct_series_with_conflicting_instance_number_order() {
         validation.failures
     );
 
-    let report = dicom_test_suite::build_coverage_report(&out_dir)
+    let report = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect("coverage report should include geometry expectations");
     let report_schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
@@ -193,7 +193,7 @@ fn core_generates_ct_series_with_conflicting_instance_number_order() {
     assert_eq!(geometry_rows[0]["geometry_geometric_order_index"], 1);
     assert_eq!(geometry_rows[0]["geometry_instance_number"], 30);
     assert_eq!(geometry_rows[0]["geometry_sorting_conflict_expected"], true);
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     assert!(markdown.contains("## Geometry Sorting Expectations"));
     assert!(markdown.contains("| 0.0 | 1 | numeric | 30 | 3 | 5.0, 5.0 | true |"));
 
@@ -203,7 +203,7 @@ fn core_generates_ct_series_with_conflicting_instance_number_order() {
 #[test]
 fn core_generates_nonuniform_ct_spacing_without_scalar_spacing_claim() {
     let out_dir = unique_temp_dir("ct-nonuniform-spacing");
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["generate", "--profile", "core", "--out"])
         .arg(&out_dir)
         .args(["--seed", "23"])
@@ -277,7 +277,7 @@ fn core_generates_nonuniform_ct_spacing_without_scalar_spacing_claim() {
         );
     }
 
-    let validation = dicom_test_suite::validate_generated_root(&out_dir)
+    let validation = synth_dicom_gen::validate_generated_root(&out_dir)
         .expect("generated nonuniform CT corpus must be validatable");
     assert!(
         validation.failures.is_empty(),
@@ -285,7 +285,7 @@ fn core_generates_nonuniform_ct_spacing_without_scalar_spacing_claim() {
         validation.failures
     );
 
-    let report = dicom_test_suite::build_coverage_report(&out_dir)
+    let report = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect("coverage report should include nonuniform spacing expectations");
     let rows = report["coverage_matrix"]
         .as_array()
@@ -300,7 +300,7 @@ fn core_generates_nonuniform_ct_spacing_without_scalar_spacing_claim() {
     );
     assert_eq!(rows[0]["geometry_spacing_uniform"], false);
     assert_eq!(rows[0]["geometry_instance_number_state"], "numeric");
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     assert!(markdown.contains(NONUNIFORM_CASE_ID));
     assert!(markdown.contains("4.0, 6.0"));
     assert!(markdown.contains("false"));
@@ -311,7 +311,7 @@ fn core_generates_nonuniform_ct_spacing_without_scalar_spacing_claim() {
 #[test]
 fn core_generates_gantry_tilt_with_independent_sheared_geometry() {
     let out_dir = unique_temp_dir("ct-gantry-tilt");
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["generate", "--profile", "core", "--out"])
         .arg(&out_dir)
         .args(["--seed", "29"])
@@ -460,7 +460,7 @@ fn core_generates_gantry_tilt_with_independent_sheared_geometry() {
         );
     }
 
-    let validation = dicom_test_suite::validate_generated_root(&out_dir)
+    let validation = synth_dicom_gen::validate_generated_root(&out_dir)
         .expect("generated gantry tilt corpus must be validatable");
     assert!(
         validation.failures.is_empty(),
@@ -468,7 +468,7 @@ fn core_generates_gantry_tilt_with_independent_sheared_geometry() {
         validation.failures
     );
 
-    let report = dicom_test_suite::build_coverage_report(&out_dir)
+    let report = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect("coverage report should include gantry tilt expectations");
     let rows = report["coverage_matrix"]
         .as_array()
@@ -480,7 +480,7 @@ fn core_generates_gantry_tilt_with_independent_sheared_geometry() {
     assert!(rows.iter().all(|row| {
         row["geometry_gantry_detector_tilt_degrees"].as_f64() == Some(GANTRY_TILT_DEGREES)
     }));
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     assert!(markdown.contains(GANTRY_TILT_CASE_ID));
     assert!(markdown.contains("11.30993247"));
 
@@ -498,7 +498,7 @@ fn core_generates_gantry_tilt_with_independent_sheared_geometry() {
         serde_json::to_vec_pretty(&tampered_manifest).expect("tampered manifest must serialize"),
     )
     .expect("tampered manifest must be writable");
-    let validation = dicom_test_suite::validate_generated_root(&out_dir)
+    let validation = synth_dicom_gen::validate_generated_root(&out_dir)
         .expect("tampered gantry tilt corpus must still be inspectable");
     assert!(
         validation
@@ -515,7 +515,7 @@ fn core_generates_gantry_tilt_with_independent_sheared_geometry() {
 #[test]
 fn core_generates_duplicate_and_empty_type2_instance_numbers() {
     let out_dir = unique_temp_dir("ct-duplicate-empty-instance-number");
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["generate", "--profile", "core", "--out"])
         .arg(&out_dir)
         .args(["--seed", "31"])
@@ -609,7 +609,7 @@ fn core_generates_duplicate_and_empty_type2_instance_numbers() {
         }
     }
 
-    let validation = dicom_test_suite::validate_generated_root(&out_dir)
+    let validation = synth_dicom_gen::validate_generated_root(&out_dir)
         .expect("generated duplicate/empty Instance Number corpus must be validatable");
     assert!(
         validation.failures.is_empty(),
@@ -617,7 +617,7 @@ fn core_generates_duplicate_and_empty_type2_instance_numbers() {
         validation.failures
     );
 
-    let report = dicom_test_suite::build_coverage_report(&out_dir)
+    let report = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect("coverage report should include Instance Number states");
     let rows = report["coverage_matrix"]
         .as_array()
@@ -633,7 +633,7 @@ fn core_generates_duplicate_and_empty_type2_instance_numbers() {
     assert!(rows[2]["geometry_instance_number"].is_null());
     assert!(rows[2]["geometry_instance_number_order_index"].is_null());
     assert!(rows[2]["geometry_sorting_conflict_expected"].is_null());
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     assert!(markdown.contains(DUPLICATE_EMPTY_INSTANCE_NUMBER_CASE_ID));
     assert!(markdown.contains("| empty |  |  | 5.0, 5.0 | true |"));
 
@@ -656,7 +656,7 @@ fn core_generates_duplicate_and_empty_type2_instance_numbers() {
         serde_json::to_vec_pretty(&tampered_manifest).expect("tampered manifest must serialize"),
     )
     .expect("tampered manifest must be writable");
-    let validation = dicom_test_suite::validate_generated_root(&out_dir)
+    let validation = synth_dicom_gen::validate_generated_root(&out_dir)
         .expect("tampered Instance Number corpus must remain inspectable");
     assert!(
         validation
@@ -673,7 +673,7 @@ fn core_generates_duplicate_and_empty_type2_instance_numbers() {
 #[test]
 fn core_generates_two_series_in_one_study_and_frame_of_reference() {
     let out_dir = unique_temp_dir("ct-multiseries-shared-frame-of-reference");
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["generate", "--profile", "core", "--out"])
         .arg(&out_dir)
         .args(["--seed", "37"])
@@ -869,7 +869,7 @@ fn core_generates_two_series_in_one_study_and_frame_of_reference() {
     assert_eq!(series_members.len(), 2);
     assert!(series_members.values().all(|count| *count == 2));
 
-    let validation = dicom_test_suite::validate_generated_root(&out_dir)
+    let validation = synth_dicom_gen::validate_generated_root(&out_dir)
         .expect("generated multiseries CT corpus must be validatable");
     assert!(
         validation.failures.is_empty(),

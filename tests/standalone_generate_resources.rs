@@ -18,7 +18,7 @@ fn generate_uses_embedded_resources_from_an_unrelated_working_directory() {
     let output_root = base.join("published/smoke");
     fs::create_dir_all(&working).unwrap();
 
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .current_dir(&working)
         .args([
             "generate",
@@ -102,7 +102,7 @@ fn generate_uses_embedded_resources_from_an_unrelated_working_directory() {
         ],
         vec!["standards".to_string(), "check-lock".to_string()],
     ] {
-        let result = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        let result = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
             .current_dir(&working)
             .args(&arguments)
             .output()

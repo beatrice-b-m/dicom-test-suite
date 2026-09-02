@@ -1,10 +1,10 @@
 use std::collections::BTreeMap;
 
-use dicom_test_suite::composition::{
+use synth_dicom_gen::composition::{
     CompositionUidRole, IdentityPlan, MaterializedReference, ResolvedInstancePlan, TemplateId,
     TemplateVersion,
 };
-use dicom_test_suite::corpus_plan::{
+use synth_dicom_gen::corpus_plan::{
     ArtifactDependency, ArtifactProvenance, ArtifactResourceEstimate, EncodingPlan,
     EvidenceIndependence, EvidenceObligation, EvidencePlan, FileMetaPolicy, FragmentationPolicy,
     ImplementationIdentityPlan, ItemLengthPolicy, OffsetTablePolicy, OutputPlan,
@@ -12,8 +12,8 @@ use dicom_test_suite::corpus_plan::{
     PublicationTransaction, SequenceLengthPolicy, ValidationPlan, ValidationRequirement,
     ValidationRule,
 };
-use dicom_test_suite::executor::services::ArtifactExecutionBindings;
-use dicom_test_suite::recipes::{
+use synth_dicom_gen::executor::services::ArtifactExecutionBindings;
+use synth_dicom_gen::recipes::{
     AdvancedArtifactPlanningContext, AdvancedArtifactProvenance, AdvancedArtifactRole,
     AdvancedPlanProviderOutput, AdvancedPlanProviderRequest, AdvancedPlannedArtifact,
     AdvancedProviderContractError, AdvancedProviderFamily, AdvancedProviderLimits,
@@ -373,7 +373,7 @@ fn family_roles_and_resource_bounds_are_closed_and_checked() {
         AdvancedArtifactRole::EnhancedInstance { ordinal: 1 },
         AdvancedArtifactRole::WholeSlidePyramid {
             level: 0,
-            artifact_kind: dicom_test_suite::recipes::WholeSlideArtifactKind::Volume,
+            artifact_kind: synth_dicom_gen::recipes::WholeSlideArtifactKind::Volume,
         },
         AdvancedArtifactRole::Registration { ordinal: 1 },
         AdvancedArtifactRole::PresentationState { ordinal: 1 },

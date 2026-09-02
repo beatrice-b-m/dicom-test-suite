@@ -169,12 +169,12 @@ fn current_target_archive_is_manifest_bound_and_relocatable() {
     let binary = if supplied_candidate {
         PathBuf::from(std::env::var_os("DTS_RELEASE_BINARY").unwrap())
     } else {
-        PathBuf::from(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        PathBuf::from(env!("CARGO_BIN_EXE_synth-dicom-gen"))
             .canonicalize()
             .unwrap()
     };
     assert!(binary.is_absolute());
-    let binary_sha256 = dicom_test_suite::sha256_hex(&fs::read(&binary).unwrap());
+    let binary_sha256 = synth_dicom_gen::sha256_hex(&fs::read(&binary).unwrap());
     if supplied_candidate {
         assert_eq!(
             binary_sha256,
@@ -195,7 +195,7 @@ fn current_target_archive_is_manifest_bound_and_relocatable() {
     let product_version = version["result"]["product"]["version"].as_str().unwrap();
 
     let workspace = TempRoot::new("build");
-    let archive_name = format!("dicom-test-suite-{product_version}-{target}");
+    let archive_name = format!("synth-dicom-gen-{product_version}-{target}");
     let (archive, expected_revision) = if supplied_candidate {
         let archive = PathBuf::from(std::env::var_os("DTS_RELEASE_ARCHIVE").unwrap());
         assert!(archive.is_absolute());
@@ -204,7 +204,7 @@ fn current_target_archive_is_manifest_bound_and_relocatable() {
             format!("{archive_name}.tar.gz")
         );
         assert_eq!(
-            dicom_test_suite::sha256_hex(&fs::read(&archive).unwrap()),
+            synth_dicom_gen::sha256_hex(&fs::read(&archive).unwrap()),
             std::env::var("DTS_RELEASE_ARCHIVE_SHA256").unwrap(),
             "supplied archive does not match its immutable identity"
         );
@@ -247,7 +247,7 @@ fn current_target_archive_is_manifest_bound_and_relocatable() {
             .split_whitespace()
             .next()
             .unwrap(),
-        dicom_test_suite::sha256_hex(&fs::read(&archive).unwrap())
+        synth_dicom_gen::sha256_hex(&fs::read(&archive).unwrap())
     );
     let verified = Command::new("sh")
         .arg("scripts/verify-release-archive.sh")
@@ -286,7 +286,7 @@ fn current_target_archive_is_manifest_bound_and_relocatable() {
         PathBuf::from(format!("{}.sha256", tampered_archive.display())),
         format!(
             "{}  tampered.tar.gz\n",
-            dicom_test_suite::sha256_hex(&fs::read(&archive).unwrap())
+            synth_dicom_gen::sha256_hex(&fs::read(&archive).unwrap())
         ),
     )
     .unwrap();
@@ -350,7 +350,7 @@ fn current_target_archive_is_manifest_bound_and_relocatable() {
         assert!(!relative.split('/').any(|component| component == ".."));
         let bytes = fs::read(root.join(relative)).unwrap();
         assert_eq!(file["size_bytes"], bytes.len() as u64);
-        assert_eq!(file["sha256"], dicom_test_suite::sha256_hex(&bytes));
+        assert_eq!(file["sha256"], synth_dicom_gen::sha256_hex(&bytes));
     }
     let notices = read_json(root.join("THIRD_PARTY_LICENSES.json"));
     assert_eq!(notices["target"], target);
@@ -367,9 +367,9 @@ fn current_target_archive_is_manifest_bound_and_relocatable() {
 
     let unrelated = workspace.0.join("unrelated");
     fs::create_dir(&unrelated).unwrap();
-    let installed = root.join("bin/dicom-test-suite");
+    let installed = root.join("bin/synth-dicom-gen");
     assert_eq!(
-        dicom_test_suite::sha256_hex(&fs::read(&installed).unwrap()),
+        synth_dicom_gen::sha256_hex(&fs::read(&installed).unwrap()),
         binary_sha256,
         "installed archive binary differs from the single qualified candidate binary"
     );

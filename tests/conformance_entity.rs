@@ -38,7 +38,7 @@ fn entity_adapter_uses_file_list_and_normalizes_consistency_findings() {
     )
     .unwrap();
     let evidence_root = root.join("evidence");
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["conformance", "run"])
         .arg(&generated)
         .args(["--out"])
@@ -61,7 +61,7 @@ fn entity_adapter_uses_file_list_and_normalizes_consistency_findings() {
     assert!(evidence_root.join("entity/files.txt").is_file());
     assert_eq!(
         evidence["entity"]["stdout"]["sha256"],
-        dicom_test_suite::sha256_hex(
+        synth_dicom_gen::sha256_hex(
             &fs::read(evidence_root.join("entity/dcentvfy.stdout")).unwrap()
         )
     );
@@ -114,7 +114,7 @@ fn u32_entity_projection_is_byte_preserving_hash_linked_and_tamper_evident() {
     )
     .unwrap();
     let evidence_root = root.join("evidence");
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["conformance", "run"])
         .arg(&generated)
         .args(["--out"])
@@ -162,21 +162,21 @@ fn u32_entity_projection_is_byte_preserving_hash_linked_and_tamper_evident() {
     )
     .unwrap();
     let verified =
-        dicom_test_suite::conformance::verify_conformance(&evidence_root, &allowlist).unwrap();
+        synth_dicom_gen::conformance::verify_conformance(&evidence_root, &allowlist).unwrap();
     assert_eq!(verified["valid"], true, "{verified:#}");
 
     let mut tampered = fs::read(&projected).unwrap();
     tampered.push(0);
     fs::write(&projected, &tampered).unwrap();
     evidence["entity"]["input_projection"]["entries"][0]["projected_input"]["sha256"] =
-        json!(dicom_test_suite::sha256_hex(&tampered));
+        json!(synth_dicom_gen::sha256_hex(&tampered));
     fs::write(
         evidence_root.join("conformance-run.json"),
         serde_json::to_vec_pretty(&evidence).unwrap(),
     )
     .unwrap();
     let verified =
-        dicom_test_suite::conformance::verify_conformance(&evidence_root, &allowlist).unwrap();
+        synth_dicom_gen::conformance::verify_conformance(&evidence_root, &allowlist).unwrap();
     assert_eq!(verified["valid"], false);
     assert!(
         verified["failures"]
@@ -216,7 +216,7 @@ fn u32_entity_projection_rejects_ineligible_manifest_shape() {
         .unwrap(),
     )
     .unwrap();
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["conformance", "run"])
         .arg(&generated)
         .args(["--out"])
@@ -247,7 +247,7 @@ fn adapter(id: &str, role: &str, path: &Path) -> Value {
 }
 
 fn generate_smoke(root: &Path) {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["generate", "--profile", "smoke", "--out"])
         .arg(root)
         .output()
@@ -269,7 +269,7 @@ fn generate_u32(root: &Path) -> (PathBuf, Vec<u8>, Value) {
     ]);
     source.extend_from_slice(&pixel_bytes);
     fs::write(&source_path, &source).unwrap();
-    let pixel_hash = dicom_test_suite::sha256_hex(&pixel_bytes);
+    let pixel_hash = synth_dicom_gen::sha256_hex(&pixel_bytes);
     let manifest = json!({
         "run": { "seed": 1, "profile": "test" },
         "generator": { "name": "u32-entity-fixture", "version": "1", "feature_flags": [] },
@@ -277,7 +277,7 @@ fn generate_u32(root: &Path) -> (PathBuf, Vec<u8>, Value) {
         "files": [{
             "case_id": "classic/sc/mono2_u32_explicit_le",
             "path": relative.to_str().unwrap(),
-            "sha256": dicom_test_suite::sha256_hex(&source),
+            "sha256": synth_dicom_gen::sha256_hex(&source),
             "dicom": {
                 "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
                 "transfer_syntax_uid": "1.2.840.10008.1.2.1"

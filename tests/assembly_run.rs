@@ -5,10 +5,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use dicom_core::{DataElement, VR};
 use dicom_dictionary_std::tags;
 use dicom_object::open_file;
-use dicom_test_suite::assembly::{AssembleOptions, assemble};
-use dicom_test_suite::executor::cancellation::CancellationToken;
-use dicom_test_suite::product_resources::ProductResources;
-use dicom_test_suite::{build_coverage_report, validate_generated_root};
+use synth_dicom_gen::assembly::{AssembleOptions, assemble};
+use synth_dicom_gen::executor::cancellation::CancellationToken;
+use synth_dicom_gen::product_resources::ProductResources;
+use synth_dicom_gen::{build_coverage_report, validate_generated_root};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
@@ -168,7 +168,7 @@ fn structural_validation_compares_manifest_element_evidence() {
     let mut manifest: serde_json::Value =
         serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
     manifest["instances"][0]["size_bytes"] = serde_json::json!(bytes.len());
-    manifest["instances"][0]["sha256"] = serde_json::json!(dicom_test_suite::sha256_hex(&bytes));
+    manifest["instances"][0]["sha256"] = serde_json::json!(synth_dicom_gen::sha256_hex(&bytes));
     fs::write(
         &manifest_path,
         serde_json::to_vec_pretty(&manifest).unwrap(),

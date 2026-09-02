@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 
-use dicom_test_suite::composition::{TemplateCatalog, TemplateStatus};
+use synth_dicom_gen::composition::{TemplateCatalog, TemplateStatus};
 use serde_json::Value;
 
 fn read_json(path: &str) -> Value {

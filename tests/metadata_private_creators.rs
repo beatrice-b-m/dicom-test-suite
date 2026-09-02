@@ -77,7 +77,7 @@ fn private_creator_vertical_slice_is_exact_byte_stable_and_reported() {
             .expect("manifest schema must compile")
             .is_valid(&first_manifest)
     );
-    let summary = dicom_test_suite::validate_generated_root(&first_root)
+    let summary = synth_dicom_gen::validate_generated_root(&first_root)
         .expect("generated corpus must be inspectable");
     assert!(summary.failures.is_empty(), "{:?}", summary.failures);
     assert!(
@@ -150,7 +150,7 @@ fn private_creator_vertical_slice_is_exact_byte_stable_and_reported() {
         report.pointer("/grouped_coverage/metadata_private_element_vrs/LO"),
         Some(&Value::from(3))
     );
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     assert!(markdown.contains("## Private Creator Block Expectations"));
     assert!(markdown.contains("0011,0010; 0011,0012; 0013,0011"));
 }
@@ -179,7 +179,7 @@ fn validator_rejects_tampered_private_creator_contract() {
     )
     .expect("tampered manifest must be writable");
 
-    let summary = dicom_test_suite::validate_generated_root(&root)
+    let summary = synth_dicom_gen::validate_generated_root(&root)
         .expect("tampered corpus must remain inspectable");
     for failure_key in [
         "metadata_private_creator_contract",
@@ -212,7 +212,7 @@ fn schema_and_validator_require_private_metadata_and_block_count() {
     file["recipe"]["recipe_parameters"]["private_creator_block_count"] = Value::from(2);
     assert!(!validator.is_valid(&wrong_count));
     write_manifest(&root, &wrong_count);
-    let summary = dicom_test_suite::validate_generated_root(&root)
+    let summary = synth_dicom_gen::validate_generated_root(&root)
         .expect("wrong-count corpus must remain inspectable");
     assert!(
         summary
@@ -230,7 +230,7 @@ fn schema_and_validator_require_private_metadata_and_block_count() {
         .remove("expected_metadata");
     assert!(!validator.is_valid(&missing_metadata));
     write_manifest(&root, &missing_metadata);
-    let summary = dicom_test_suite::validate_generated_root(&root)
+    let summary = synth_dicom_gen::validate_generated_root(&root)
         .expect("missing-metadata corpus must remain inspectable");
     assert!(
         summary
@@ -243,7 +243,7 @@ fn schema_and_validator_require_private_metadata_and_block_count() {
 }
 
 fn generate_core(out_dir: &Path) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["generate", "--profile", "core", "--out"])
         .arg(out_dir)
         .args(["--seed", "1"])
@@ -258,7 +258,7 @@ fn generate_core(out_dir: &Path) -> Value {
 }
 
 fn report_json(root: &Path) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .arg("report")
         .arg(root)
         .args(["--format", "json"])

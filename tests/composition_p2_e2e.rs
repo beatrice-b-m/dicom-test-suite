@@ -10,7 +10,7 @@ use serde_json::{Value, json};
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
 fn binary() -> &'static str {
-    env!("CARGO_BIN_EXE_dicom-test-suite")
+    env!("CARGO_BIN_EXE_synth-dicom-gen")
 }
 
 fn root(label: &str) -> PathBuf {
@@ -49,7 +49,7 @@ fn local_pixel_spec(template: &str, bytes: &[u8], pixel: Value) -> Value {
                 "source": {
                     "kind": "local_file",
                     "path": "pixels.raw",
-                    "sha256": dicom_test_suite::sha256_hex(bytes),
+                    "sha256": synth_dicom_gen::sha256_hex(bytes),
                     "pixel": pixel
                 }
             }]
@@ -124,7 +124,7 @@ fn raw_monochrome_and_rgb_pixels_round_trip_exactly() {
             properties["frame_sha256"]
                 .as_str()
                 .unwrap()
-                .contains(&dicom_test_suite::sha256_hex(&bytes))
+                .contains(&synth_dicom_gen::sha256_hex(&bytes))
         );
         fs::remove_dir_all(root).unwrap();
     }

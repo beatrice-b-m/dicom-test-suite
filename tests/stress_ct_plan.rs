@@ -1,13 +1,13 @@
 use std::collections::BTreeSet;
 use std::fs;
 
-use dicom_test_suite::curated_plan::{
+use synth_dicom_gen::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
 };
-use dicom_test_suite::recipes::{
+use synth_dicom_gen::recipes::{
     OrderedSeriesProvider, RecipeCatalog, StressCtPlanError, plan_stress_ct_recipe,
 };
-use dicom_test_suite::sha256_hex;
+use synth_dicom_gen::sha256_hex;
 use serde_json::Value;
 
 fn load() -> (RecipeCatalog, String) {
@@ -63,7 +63,7 @@ fn high_instance_ct_plan_is_complete_ordered_and_dag_closed() {
         assert_eq!(request.pixels.pixels.declared_pixel_max, 2047);
         assert_eq!(
             request.common.equipment.manufacturer_model_name,
-            dicom_test_suite::recipes::ElementPresence::Value(
+            synth_dicom_gen::recipes::ElementPresence::Value(
                 "stress_high_instance_count_ct".into()
             )
         );

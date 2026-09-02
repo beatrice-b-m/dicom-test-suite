@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 
-use dicom_test_suite::composition::{
+use synth_dicom_gen::composition::{
     CompositionUidRole, IdentityPlan, ResolvedInstancePlan, TemplateId, TemplateVersion,
 };
-use dicom_test_suite::corpus_plan::{
+use synth_dicom_gen::corpus_plan::{
     ArtifactProvenance, ArtifactResourceEstimate, CORPUS_PLAN_SCHEMA_VERSION, CorpusPlan,
     EncodingPlan, EvidenceIndependence, EvidenceObligation, EvidencePlan, FileMetaPolicy,
     FragmentationPolicy, ImplementationIdentityPlan, ItemLengthPolicy, OffsetTablePolicy,
@@ -11,25 +11,25 @@ use dicom_test_suite::corpus_plan::{
     PreamblePolicy, PublicationPlan, PublicationTransaction, QualificationPayloadPolicy,
     ResourcePlan, SequenceLengthPolicy, ValidationPlan, ValidationRequirement, ValidationRule,
 };
-use dicom_test_suite::executor::adapters::{
+use synth_dicom_gen::executor::adapters::{
     ArtifactServiceOutputs, CodecExecutionRecord, ProviderExecutionRecord, PublicationTransition,
     RunEvidenceAdapterInput, assemble_run_evidence, manifest_projection_input,
 };
-use dicom_test_suite::executor::evidence::{
+use synth_dicom_gen::executor::evidence::{
     EvidenceIndependence as ExecutionIndependence, ExecutionStatus, ObligationResult,
     PublicationState, ResultStatus,
 };
-use dicom_test_suite::executor::scheduler::{
+use synth_dicom_gen::executor::scheduler::{
     ActualResourceUsage, ResourceAccounting, ScheduleOutcome, ScheduledArtifact,
 };
-use dicom_test_suite::executor::services::{
+use synth_dicom_gen::executor::services::{
     AssetVisibility, ByteBinding, CodecRequest, CodecResult, EncodedFrameResult,
     MaterializationResult, NativeFrameBinding, ProducedAsset, ProviderOutputExpectation,
     ProviderRequest, ProviderResult, RuleExecutionResult, ServiceEvidence, StagedAssetHandle,
     StagingRelativePath, ToolIdentity, ValidationResult as ServiceValidationResult,
     ValidationStatus,
 };
-use dicom_test_suite::sha256_hex;
+use synth_dicom_gen::sha256_hex;
 
 const TS: &str = "1.2.840.10008.1.2.1";
 
@@ -576,6 +576,6 @@ fn adapter_retains_outputless_qualification_materialization_evidence_only() {
     with_payload.output = Some(asset("unexpected", "unexpected.bin", b"payload"));
     let error = assemble_run_evidence(&plan, outcome(with_payload), input).unwrap_err();
     assert!(
-        matches!(error, dicom_test_suite::executor::adapters::AdapterError::UnexpectedMaterializedOutput(id) if id == "qualification")
+        matches!(error, synth_dicom_gen::executor::adapters::AdapterError::UnexpectedMaterializedOutput(id) if id == "qualification")
     );
 }

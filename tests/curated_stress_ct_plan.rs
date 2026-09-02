@@ -1,13 +1,13 @@
 use std::collections::BTreeSet;
 use std::fs;
 
-use dicom_test_suite::corpus_plan::PlannedArtifact;
-use dicom_test_suite::curated_plan::{
+use synth_dicom_gen::corpus_plan::PlannedArtifact;
+use synth_dicom_gen::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlan, CuratedScCorpusPlanProvider, CuratedScPlanRequest,
     CuratedScSelection,
 };
-use dicom_test_suite::recipes::{RecipeCatalog, plan_stress_ct_recipe};
-use dicom_test_suite::sha256_hex;
+use synth_dicom_gen::recipes::{RecipeCatalog, plan_stress_ct_recipe};
+use synth_dicom_gen::sha256_hex;
 
 const CASE_ID: &str = "stress/study/high_instance_count_ct";
 

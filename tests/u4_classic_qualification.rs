@@ -4,9 +4,9 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use dicom_test_suite::build_coverage_report;
-use dicom_test_suite::composition::TemplateCatalog;
-use dicom_test_suite::recipes::{ClassicProjectionFamily, RecipeCatalog};
+use synth_dicom_gen::build_coverage_report;
+use synth_dicom_gen::composition::TemplateCatalog;
+use synth_dicom_gen::recipes::{ClassicProjectionFamily, RecipeCatalog};
 use serde_json::Value;
 
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -33,7 +33,7 @@ impl Drop for TempRoot {
 }
 
 fn generate(profile: &str, root: &Path) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "generate",
             "--profile",

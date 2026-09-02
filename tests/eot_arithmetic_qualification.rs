@@ -1,12 +1,12 @@
 use std::collections::BTreeMap;
 use std::fs;
 
-use dicom_test_suite::encapsulation::{
+use synth_dicom_gen::encapsulation::{
     CheckedEotArithmeticQualificationService, EOT_ARITHMETIC_QUALIFICATION_KIND,
     EotArithmeticExpectedError, EotArithmeticQualificationRequest, EotArithmeticStep,
     EotQualificationError, EotQualificationLimits,
 };
-use dicom_test_suite::recipes::RecipeCatalog;
+use synth_dicom_gen::recipes::RecipeCatalog;
 use serde_json::Value;
 
 fn valid_request() -> EotArithmeticQualificationRequest {

@@ -95,7 +95,7 @@ fn utf8_person_name_vertical_slice_is_exact_and_byte_stable() {
         "R"
     );
 
-    let summary = dicom_test_suite::validate_generated_root(&first_root)
+    let summary = synth_dicom_gen::validate_generated_root(&first_root)
         .expect("generated UTF-8 corpus must be inspectable");
     assert!(
         summary.failures.is_empty(),
@@ -133,7 +133,7 @@ fn validator_rejects_tampered_utf8_metadata_expectations() {
     )
     .expect("tampered manifest must be writable");
 
-    let summary = dicom_test_suite::validate_generated_root(&root)
+    let summary = synth_dicom_gen::validate_generated_root(&root)
         .expect("tampered corpus must remain inspectable");
     for expected_failure in [
         "metadata_specific_character_sets",
@@ -155,7 +155,7 @@ fn validator_rejects_tampered_utf8_metadata_expectations() {
 }
 
 fn generate_core(out_dir: &Path) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["generate", "--profile", "core", "--out"])
         .arg(out_dir)
         .args(["--seed", "37"])

@@ -46,7 +46,7 @@ fn every_public_schema_and_api_has_exactly_one_owner_and_window() {
         "templates",
         "conformance",
         "interoperate",
-        "dicom_test_suite::sdk",
+        "synth_dicom_gen::sdk",
         "native_archive",
     ] {
         assert!(apis.contains(required), "unowned API: {required}");

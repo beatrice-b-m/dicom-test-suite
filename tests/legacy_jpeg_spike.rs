@@ -143,13 +143,13 @@ fn dcmtk_dcmcjpeg_lossless_sv1_spike_preserves_metadata_and_pixels() {
         .to_bytes()
         .expect("source Pixel Data should be readable");
     assert_eq!(
-        dicom_test_suite::sha256_hex(&decoded),
-        dicom_test_suite::sha256_hex(&source_pixels),
+        synth_dicom_gen::sha256_hex(&decoded),
+        synth_dicom_gen::sha256_hex(&source_pixels),
         "legacy JPEG SV1 decoded bytes must match the deterministic source frame"
     );
     assert_eq!(
-        dicom_test_suite::sha256_hex(&compressed_bytes),
-        dicom_test_suite::sha256_hex(&repeated),
+        synth_dicom_gen::sha256_hex(&compressed_bytes),
+        synth_dicom_gen::sha256_hex(&repeated),
         "dcmcjpeg should produce byte-identical files for fixed source and options"
     );
 }
@@ -274,13 +274,13 @@ fn dcmtk_dcmcjpeg_lossless_process_14_spike_preserves_metadata_and_pixels() {
         .to_bytes()
         .expect("source Pixel Data should be readable");
     assert_eq!(
-        dicom_test_suite::sha256_hex(&decoded),
-        dicom_test_suite::sha256_hex(&source_pixels),
+        synth_dicom_gen::sha256_hex(&decoded),
+        synth_dicom_gen::sha256_hex(&source_pixels),
         "legacy JPEG Process 14 decoded bytes must match the deterministic source frame"
     );
     assert_eq!(
-        dicom_test_suite::sha256_hex(&compressed_bytes),
-        dicom_test_suite::sha256_hex(&repeated),
+        synth_dicom_gen::sha256_hex(&compressed_bytes),
+        synth_dicom_gen::sha256_hex(&repeated),
         "dcmcjpeg should produce byte-identical Process 14 files for fixed source and options"
     );
 }
@@ -412,8 +412,8 @@ fn dcmtk_dcmcjpeg_extended_12bit_spike_records_decode_blocker() {
         "JPEG Extended blocker should identify the unsupported 12-bit decoder path, got {decode_error:?}"
     );
     assert_eq!(
-        dicom_test_suite::sha256_hex(&compressed_bytes),
-        dicom_test_suite::sha256_hex(&repeated),
+        synth_dicom_gen::sha256_hex(&compressed_bytes),
+        synth_dicom_gen::sha256_hex(&repeated),
         "dcmcjpeg should produce byte-identical JPEG Extended files for fixed source and options"
     );
 }
@@ -423,7 +423,7 @@ fn generate_source(out_dir: &Path) -> PathBuf {
 }
 
 fn generate_source_case(out_dir: &Path, case_id: &str) -> PathBuf {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "generate",
             "--profile",

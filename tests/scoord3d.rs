@@ -26,7 +26,7 @@ fn scoord3d_vertical_slice_is_byte_deterministic_and_strictly_validated() {
     let second_manifest = generate_extended(&second_root);
 
     for root in [&first_root, &second_root] {
-        let validation = dicom_test_suite::validate_generated_root(root)
+        let validation = synth_dicom_gen::validate_generated_root(root)
             .expect("generated extended root should validate");
         assert!(
             validation.failures.is_empty(),
@@ -278,14 +278,14 @@ fn assert_coordinate_mutation_is_rejected(root: &Path, pristine_manifest: &Value
         .iter_mut()
         .find(|file| file["case_id"] == CASE_ID)
         .expect("manifest entry");
-    file["sha256"] = Value::String(dicom_test_suite::sha256_hex(&bytes));
+    file["sha256"] = Value::String(synth_dicom_gen::sha256_hex(&bytes));
     file["size_bytes"] = Value::from(bytes.len() as u64);
     fs::write(
         root.join("manifest.json"),
         serde_json::to_vec_pretty(&manifest).unwrap(),
     )
     .unwrap();
-    let validation = dicom_test_suite::validate_generated_root(root).expect("mutated validation");
+    let validation = synth_dicom_gen::validate_generated_root(root).expect("mutated validation");
     assert!(
         validation
             .failures
@@ -338,7 +338,7 @@ fn text(object: &InMemDicomObject, tag: Tag) -> String {
 }
 
 fn generate_extended(root: &Path) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "generate",
             "--profile",

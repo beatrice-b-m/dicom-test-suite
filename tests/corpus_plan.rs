@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 
-use dicom_test_suite::composition::{
+use synth_dicom_gen::composition::{
     CompositionUidRole, IdentityPlan, ResolvedInstancePlan, TemplateId, TemplateVersion,
 };
-use dicom_test_suite::corpus_plan::{
+use synth_dicom_gen::corpus_plan::{
     ArtifactDependency, ArtifactProvenance, ArtifactResourceEstimate, CORPUS_PLAN_SCHEMA_VERSION,
     CapabilityKind, CaseBinding, CorpusPlan, CorpusPlanError, EncodingPlan, EvidenceIndependence,
     EvidenceObligation, EvidencePlan, FileMetaPolicy, FragmentationPolicy,

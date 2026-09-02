@@ -12,7 +12,7 @@ fn compile_schema(path: &str) -> jsonschema::Validator {
 
 #[test]
 fn list_cases_machine_result_is_typed_and_filtered() {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "list-cases",
             "--profile",
@@ -42,7 +42,7 @@ fn list_cases_machine_result_is_typed_and_filtered() {
 
 #[test]
 fn list_cases_command_shows_smoke_case_status_and_evidence() {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["list-cases", "--profile", "smoke"])
         .output()
         .expect("list-cases command must run");
@@ -70,7 +70,7 @@ fn list_cases_command_shows_smoke_case_status_and_evidence() {
 
 #[test]
 fn list_cases_command_exposes_planned_provider_and_blockers() {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["list-cases", "--status", "planned"])
         .output()
         .expect("list-cases command must run");
@@ -113,7 +113,7 @@ fn list_cases_command_exposes_planned_provider_and_blockers() {
 
 #[test]
 fn list_cases_command_exposes_implemented_opt_in_stress_inventory() {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "list-cases",
             "--status",
@@ -134,7 +134,7 @@ fn list_cases_command_exposes_implemented_opt_in_stress_inventory() {
 
 #[test]
 fn list_cases_command_exposes_implemented_parametric_map_provider() {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["list-cases", "--status", "implemented"])
         .output()
         .expect("list-cases command must run");
@@ -149,7 +149,7 @@ fn list_cases_command_exposes_implemented_parametric_map_provider() {
 
 #[test]
 fn list_cases_command_rejects_unknown_profile() {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["list-cases", "--profile", "unknown"])
         .output()
         .expect("list-cases command must run");
@@ -166,7 +166,7 @@ fn list_cases_command_rejects_unknown_profile() {
 
 #[test]
 fn list_cases_command_shows_core_case_status_and_evidence() {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["list-cases", "--profile", "core"])
         .output()
         .expect("list-cases command must run");
@@ -302,7 +302,7 @@ fn list_cases_command_shows_core_case_status_and_evidence() {
 
 #[test]
 fn list_cases_command_shows_legacy_big_endian_case_status_and_evidence() {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["list-cases", "--profile", "legacy"])
         .output()
         .expect("list-cases command must run");
@@ -324,7 +324,7 @@ fn list_cases_command_shows_legacy_big_endian_case_status_and_evidence() {
 
 #[test]
 fn list_cases_command_expands_all_profile_like_generation() {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["list-cases", "--profile", "all"])
         .output()
         .expect("list-cases command must run");
@@ -354,7 +354,7 @@ fn list_cases_command_expands_all_profile_like_generation() {
 
 #[test]
 fn list_cases_command_shows_extended_case_status_and_evidence() {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["list-cases", "--profile", "extended"])
         .output()
         .expect("list-cases command must run");
@@ -490,7 +490,7 @@ fn list_cases_command_shows_extended_case_status_and_evidence() {
 
 #[test]
 fn list_cases_command_filters_by_status_and_profile() {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["list-cases", "--profile", "extended", "--status", "planned"])
         .output()
         .expect("list-cases command must run");
@@ -578,7 +578,7 @@ fn list_cases_command_filters_by_status_and_profile() {
 
 #[test]
 fn list_cases_command_excludes_promoted_compressed_cases_from_skipped_rows() {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["list-cases", "--profile", "extended", "--status", "skipped"])
         .output()
         .expect("list-cases command must run");
@@ -610,7 +610,7 @@ fn list_cases_command_excludes_promoted_compressed_cases_from_skipped_rows() {
 
 #[test]
 fn list_cases_command_shows_rle_lossless_as_implemented() {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
             "list-cases",
             "--profile",
@@ -1022,7 +1022,7 @@ fn list_cases_command_shows_rle_lossless_as_implemented() {
 
 #[test]
 fn list_cases_command_rejects_unknown_status() {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["list-cases", "--status", "unknown"])
         .output()
         .expect("list-cases command must run");

@@ -208,7 +208,7 @@ fn nm_multiframe_vertical_slice_is_exact_byte_stable_and_reported() {
         180.0
     );
 
-    let summary = dicom_test_suite::validate_generated_root(&first_root).unwrap();
+    let summary = synth_dicom_gen::validate_generated_root(&first_root).unwrap();
     assert!(summary.failures.is_empty(), "{:?}", summary.failures);
 
     let report = report_json(&first_root);
@@ -247,7 +247,7 @@ fn nm_multiframe_vertical_slice_is_exact_byte_stable_and_reported() {
         report.pointer("/grouped_coverage/nm_frame_dimension_tuples/1:1:1; 2:1:2; 3:2:1; 4:2:2"),
         Some(&Value::from(1))
     );
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     assert!(markdown.contains("## Nuclear Medicine Multi-frame Expectations"));
     assert!(markdown.contains("Tc99m Photopeak; Tc99m Scatter"));
     assert!(markdown.contains("1:1:1; 2:1:2; 3:2:1; 4:2:2"));
@@ -302,7 +302,7 @@ fn validator_rejects_tampered_nm_dimension_contract() {
         let mut tampered = manifest.clone();
         *case_file_mut(&mut tampered).pointer_mut(pointer).unwrap() = replacement;
         write_manifest(&root, &tampered);
-        let summary = dicom_test_suite::validate_generated_root(&root).unwrap();
+        let summary = synth_dicom_gen::validate_generated_root(&root).unwrap();
         assert!(
             summary
                 .failures
@@ -333,7 +333,7 @@ fn case_file_mut(manifest: &mut Value) -> &mut Value {
 }
 
 fn generate_core(out_dir: &Path) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["generate", "--profile", "core", "--out"])
         .arg(out_dir)
         .args(["--seed", "1"])
@@ -348,7 +348,7 @@ fn generate_core(out_dir: &Path) -> Value {
 }
 
 fn report_json(root: &Path) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .arg("report")
         .arg(root)
         .args(["--format", "json"])

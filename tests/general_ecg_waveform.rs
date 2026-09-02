@@ -81,10 +81,10 @@ fn general_ecg_vertical_slice_is_byte_deterministic_and_closed() {
     assert_eq!(first, second, "General ECG entries");
     assert_eq!(first_bytes, second_bytes, "General ECG bytes");
     assert_eq!(
-        dicom_test_suite::sha256_hex(&first_bytes),
+        synth_dicom_gen::sha256_hex(&first_bytes),
         SEED_7_FILE_SHA256
     );
-    assert_eq!(first["sha256"], dicom_test_suite::sha256_hex(&first_bytes));
+    assert_eq!(first["sha256"], synth_dicom_gen::sha256_hex(&first_bytes));
     assert_eq!(first["determinism"], "byte_stable");
     assert_eq!(first_manifest["manifest_schema_version"], "0.3.0");
 
@@ -93,7 +93,7 @@ fn general_ecg_vertical_slice_is_byte_deterministic_and_closed() {
     assert_independent_dicom_parse(&first_root);
 
     for root in [&first_root, &second_root] {
-        let validation = dicom_test_suite::validate_generated_root(root)
+        let validation = synth_dicom_gen::validate_generated_root(root)
             .expect("generated extended root should validate");
         assert!(validation.failures.is_empty(), "{:?}", validation.failures);
         assert_eq!(
@@ -106,7 +106,7 @@ fn general_ecg_vertical_slice_is_byte_deterministic_and_closed() {
     }
 
     let report =
-        dicom_test_suite::build_coverage_report(&first_root).expect("coverage report should build");
+        synth_dicom_gen::build_coverage_report(&first_root).expect("coverage report should build");
     assert_schema_valid("schemas/coverage-report.schema.json", &report);
     assert_report_contract(&report);
     assert_registry_and_skip_closure(&first_manifest);
@@ -423,7 +423,7 @@ fn case_file(manifest: &Value) -> &Value {
 }
 
 fn generate_extended(workspace: &Path, root: &Path) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .current_dir(workspace)
         .args([
             "generate",

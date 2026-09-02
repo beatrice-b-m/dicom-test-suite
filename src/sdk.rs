@@ -4,7 +4,7 @@
 //! but only this facade is the supported Rust compatibility surface.
 //!
 //! ```no_run
-//! use dicom_test_suite::sdk::{ComposeRequest, DicomTestSuite, ValidateRequest};
+//! use synth_dicom_gen::sdk::{ComposeRequest, DicomTestSuite, ValidateRequest};
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let product = DicomTestSuite::embedded()?;
@@ -14,7 +14,7 @@
 //!     "id":"classic/secondary-capture/monochrome"
 //!   }}]
 //! }"#;
-//! let output = std::env::temp_dir().join("dicom-test-suite-sdk-example");
+//! let output = std::env::temp_dir().join("synth-dicom-gen-sdk-example");
 //! let outcome = product.compose(ComposeRequest::from_json_bytes(spec.as_slice(), ".", &output))?;
 //! let validation = product.validate(ValidateRequest::new(outcome.output_root()))?;
 //! assert!(validation.is_valid());

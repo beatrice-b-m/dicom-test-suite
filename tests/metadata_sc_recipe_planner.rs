@@ -3,12 +3,12 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use dicom_test_suite::composition::{CompositionUidRole, Part10Materializer, TemplateCatalog};
-use dicom_test_suite::corpus_plan::ImplementationIdentityPlan;
-use dicom_test_suite::recipes::{
+use synth_dicom_gen::composition::{CompositionUidRole, Part10Materializer, TemplateCatalog};
+use synth_dicom_gen::corpus_plan::ImplementationIdentityPlan;
+use synth_dicom_gen::recipes::{
     MetadataScPlanInput, RecipeCatalog, encoding_plan_from_recipe, resolved_metadata_sc_plan,
 };
-use dicom_test_suite::{GenerateOptions, prepare_generation_run, sha256_hex, write_generation_run};
+use synth_dicom_gen::{GenerateOptions, prepare_generation_run, sha256_hex, write_generation_run};
 
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 const IMPLEMENTATION_VERSION_NAME: &str = "DICOMTS010";
@@ -68,7 +68,7 @@ fn every_typed_metadata_sc_artifact_is_byte_identical_to_the_current_generator()
             let reference = artifact.template.as_ref().unwrap();
             let template = templates
                 .resolve_qualified(
-                    &dicom_test_suite::composition::TemplateId(reference.template_id.clone()),
+                    &synth_dicom_gen::composition::TemplateId(reference.template_id.clone()),
                     Some(reference.template_version.parse().unwrap()),
                 )
                 .unwrap();
@@ -145,7 +145,7 @@ fn metadata_planner_rejects_ordinary_sc_recipes_explicitly() {
     let reference = artifact.template.as_ref().unwrap();
     let template = templates
         .resolve_qualified(
-            &dicom_test_suite::composition::TemplateId(reference.template_id.clone()),
+            &synth_dicom_gen::composition::TemplateId(reference.template_id.clone()),
             Some(reference.template_version.parse().unwrap()),
         )
         .unwrap();

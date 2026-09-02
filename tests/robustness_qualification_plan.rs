@@ -1,14 +1,14 @@
 use std::collections::BTreeSet;
 
-use dicom_test_suite::corpus_plan::{ArtifactProvenance, PlannedArtifact};
-use dicom_test_suite::curated_plan::{
+use synth_dicom_gen::corpus_plan::{ArtifactProvenance, PlannedArtifact};
+use synth_dicom_gen::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
 };
-use dicom_test_suite::qualification_plan::{
+use synth_dicom_gen::qualification_plan::{
     PreparedQualificationSource, QualificationPlanError, QualificationPlanRequest,
     plan_qualification,
 };
-use dicom_test_suite::recipes::{RecipeCatalog, qualification_parameters};
+use synth_dicom_gen::recipes::{RecipeCatalog, qualification_parameters};
 
 const FUZZ_CASE: &str = "fuzz/parser/bounded_seed_corpus";
 const EOT_CASE: &str = "qualification/encapsulation/eot_u64_overflow";
@@ -17,7 +17,7 @@ const SOURCE_CASES: [&str; 2] = [
     "classic/sc/mono1_u8_rle_lossless",
 ];
 
-fn recipe(case_id: &str) -> dicom_test_suite::recipes::CaseRecipe {
+fn recipe(case_id: &str) -> synth_dicom_gen::recipes::CaseRecipe {
     let catalog = RecipeCatalog::load(
         "cases/recipes",
         "cases/registry.json",
@@ -39,7 +39,7 @@ fn fuzz_sources(target_id: &str) -> Vec<PreparedQualificationSource> {
             .unwrap();
     let fuzz = recipe(FUZZ_CASE);
     let parameters = qualification_parameters(&fuzz).unwrap();
-    let dicom_test_suite::recipes::QualificationParameters::BoundedDeterministicFuzz {
+    let synth_dicom_gen::recipes::QualificationParameters::BoundedDeterministicFuzz {
         sources,
         ..
     } = parameters
@@ -86,7 +86,7 @@ fn fuzz_sources(target_id: &str) -> Vec<PreparedQualificationSource> {
 }
 
 fn fuzz_request<'a>(
-    recipe: &'a dicom_test_suite::recipes::CaseRecipe,
+    recipe: &'a synth_dicom_gen::recipes::CaseRecipe,
     sources: Vec<PreparedQualificationSource>,
 ) -> QualificationPlanRequest<'a> {
     QualificationPlanRequest {
@@ -215,7 +215,7 @@ fn eot_plan_is_source_free_evidence_only_and_profile_empty() {
     assert!(planned.run_seed.is_none());
     assert_eq!(
         planned.payload_policy,
-        dicom_test_suite::corpus_plan::QualificationPayloadPolicy::EvidenceOnly
+        synth_dicom_gen::corpus_plan::QualificationPayloadPolicy::EvidenceOnly
     );
 
     let invalid = plan_qualification(QualificationPlanRequest {

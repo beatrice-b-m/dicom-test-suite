@@ -1,19 +1,19 @@
 use std::fs;
 
-use dicom_test_suite::composition::{CompositionUidRole, IdentityPlan, Part10Materializer};
-use dicom_test_suite::corpus_plan::{OutputPlan, OutputRelativePath};
-use dicom_test_suite::recipes::{
+use synth_dicom_gen::composition::{CompositionUidRole, IdentityPlan, Part10Materializer};
+use synth_dicom_gen::corpus_plan::{OutputPlan, OutputRelativePath};
+use synth_dicom_gen::recipes::{
     ContentProviderLimits, EncapsulatedPayload, EncapsulatedPayloadPlanProvider, RecipeIdentity,
     TypedBulkPlanningContext, WaveformPlanProvider, encapsulated_payload_input_from_recipe,
     waveform_input_from_recipe,
 };
-use dicom_test_suite::{
+use synth_dicom_gen::{
     DeterministicUidInput, PACKAGE_VERSION, UidRole, deterministic_uid, sha256_hex,
 };
 
 const LOCK: &str = "823230c5932b81b504434330d118fba286d5ff41d4e2f7766372633f4a49e559";
 
-fn recipe(path: &str) -> dicom_test_suite::recipes::CaseRecipe {
+fn recipe(path: &str) -> synth_dicom_gen::recipes::CaseRecipe {
     serde_json::from_slice(&fs::read(path).unwrap()).unwrap()
 }
 
@@ -163,7 +163,7 @@ fn pdf_and_stl_recipes_materialize_exact_historical_part10_bytes() {
         let content = &output.artifact.instance.content[0];
         assert!(matches!(
             content.materialization,
-            Some(dicom_test_suite::composition::ContentMaterialization::Inline(_))
+            Some(synth_dicom_gen::composition::ContentMaterialization::Inline(_))
         ));
         let file = root.join(format!("{index}.dcm"));
         Part10Materializer

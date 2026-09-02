@@ -1,9 +1,9 @@
 use std::path::{Path, PathBuf};
 
-use dicom_test_suite::composition::{AttributeOperation, AttributeValue, PrimitiveValue};
-use dicom_test_suite::recipes::classic_mr_cr::{ClassicMrCrPlanError, plan_mr_cr_recipe};
-use dicom_test_suite::recipes::{CaseRecipe, ClassicPlanError, OrderedSeriesProvider};
-use dicom_test_suite::uid::{DeterministicUidInput, UidRole, deterministic_uid};
+use synth_dicom_gen::composition::{AttributeOperation, AttributeValue, PrimitiveValue};
+use synth_dicom_gen::recipes::classic_mr_cr::{ClassicMrCrPlanError, plan_mr_cr_recipe};
+use synth_dicom_gen::recipes::{CaseRecipe, ClassicPlanError, OrderedSeriesProvider};
+use synth_dicom_gen::uid::{DeterministicUidInput, UidRole, deterministic_uid};
 
 const LOCK_HASH: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 

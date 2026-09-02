@@ -1,10 +1,10 @@
 use std::collections::BTreeSet;
 use std::fs;
 
-use dicom_test_suite::recipes::{
+use synth_dicom_gen::recipes::{
     RecipeCatalog, StressScContentRequest, StressScPlanError, plan_stress_sc_recipe,
 };
-use dicom_test_suite::sha256_hex;
+use synth_dicom_gen::sha256_hex;
 use serde_json::Value;
 
 fn load() -> (RecipeCatalog, String) {

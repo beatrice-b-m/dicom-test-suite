@@ -60,7 +60,7 @@ fn linked_rt_cases_require_clean_locked_additive_secondary_iod_results() {
             "severity": "error",
             "rule_id": null,
             "message": message,
-            "message_fingerprint": dicom_test_suite::sha256_hex(message.as_bytes()),
+            "message_fingerprint": synth_dicom_gen::sha256_hex(message.as_bytes()),
             "dicom_path": null,
             "disposition": "unresolved"
         }]);
@@ -121,7 +121,7 @@ impl Fixture {
         )
         .unwrap();
         let evidence = root.join("evidence");
-        let run = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        let run = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
             .args(["conformance", "run"])
             .arg(&generated)
             .args(["--out"])
@@ -178,7 +178,7 @@ impl Fixture {
         let manifest_bytes = serde_json::to_vec_pretty(&manifest).unwrap();
         fs::write(&manifest_path, &manifest_bytes).unwrap();
         baseline["source"]["manifest_sha256"] =
-            json!(dicom_test_suite::sha256_hex(&manifest_bytes));
+            json!(synth_dicom_gen::sha256_hex(&manifest_bytes));
         write_json(&evidence_path, &baseline);
 
         let allowlist = root.join("allowlist.json");
@@ -198,7 +198,7 @@ impl Fixture {
     }
 
     fn verify(&self) -> Output {
-        Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+        Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
             .args(["conformance", "verify"])
             .arg(&self.evidence)
             .args(["--allowlist"])
@@ -296,7 +296,7 @@ fn add_rt_image_pixel_evidence(evidence: &Path, baseline: &mut Value, manifest: 
     fs::create_dir_all(sidecar_path.parent().unwrap()).unwrap();
     fs::write(sidecar_path, &sidecar_bytes).unwrap();
     baseline["instances"][0]["pixel"]["evidence"]["sha256"] =
-        json!(dicom_test_suite::sha256_hex(&sidecar_bytes));
+        json!(synth_dicom_gen::sha256_hex(&sidecar_bytes));
 }
 
 fn adapter(id: &str, role: &str, path: &Path) -> Value {
@@ -314,7 +314,7 @@ fn adapter(id: &str, role: &str, path: &Path) -> Value {
 }
 
 fn generate_smoke(root: &Path) {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["generate", "--profile", "smoke", "--out"])
         .arg(root)
         .args(["--seed", "1"])

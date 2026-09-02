@@ -88,7 +88,7 @@ fn empty_type2_vertical_slice_is_exact_byte_stable_and_reported() {
     let manifest_validator =
         jsonschema::validator_for(&manifest_schema).expect("manifest schema must compile");
     assert!(manifest_validator.is_valid(&first_manifest));
-    let summary = dicom_test_suite::validate_generated_root(&first_root)
+    let summary = synth_dicom_gen::validate_generated_root(&first_root)
         .expect("generated corpus must be inspectable");
     assert!(summary.failures.is_empty(), "{:?}", summary.failures);
     assert!(
@@ -116,7 +116,7 @@ fn empty_type2_vertical_slice_is_exact_byte_stable_and_reported() {
         report.pointer("/grouped_coverage/metadata_empty_type2_attribute_counts/5"),
         Some(&Value::from(1))
     );
-    let markdown = dicom_test_suite::render_coverage_report_markdown(&report);
+    let markdown = synth_dicom_gen::render_coverage_report_markdown(&report);
     assert!(markdown.contains("## Empty Type 2 Metadata Expectations"));
     assert!(markdown.contains("0010,0010 PatientName PN VL=0"));
 }
@@ -140,7 +140,7 @@ fn validator_rejects_tampered_empty_type2_contract() {
     )
     .expect("tampered manifest must be writable");
 
-    let summary = dicom_test_suite::validate_generated_root(&root)
+    let summary = synth_dicom_gen::validate_generated_root(&root)
         .expect("tampered corpus must remain inspectable");
     for failure_key in [
         "metadata_empty_type2_attribute_set",
@@ -160,7 +160,7 @@ fn validator_rejects_tampered_empty_type2_contract() {
 }
 
 fn generate_core(out_dir: &Path) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["generate", "--profile", "core", "--out"])
         .arg(out_dir)
         .args(["--seed", "1"])
@@ -175,7 +175,7 @@ fn generate_core(out_dir: &Path) -> Value {
 }
 
 fn report_json(root: &Path) -> Value {
-    let output = Command::new(env!("CARGO_BIN_EXE_dicom-test-suite"))
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .arg("report")
         .arg(root)
         .args(["--format", "json"])

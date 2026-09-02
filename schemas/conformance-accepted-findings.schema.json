@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://synth-dicom-gen.local/schemas/conformance-accepted-findings.schema.json",
+  "$id": "https://dicom-test-suite.local/schemas/conformance-accepted-findings.schema.json",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "findings"],

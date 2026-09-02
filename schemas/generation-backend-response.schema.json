@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://synth-dicom-gen.local/schemas/generation-backend-response.schema.json",
+  "$id": "https://dicom-test-suite.local/schemas/generation-backend-response.schema.json",
   "title": "DICOM External Generation Backend Response",
   "type": "object",
   "required": [

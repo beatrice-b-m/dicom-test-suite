@@ -7,125 +7,174 @@ use serde_json::Value;
 
 const SCHEMAS: &[(&str, &str)] = &[
     (
+        "schemas/assembly-request.schema.json",
+        "https://dicom-test-suite.local/schemas/assembly-request.schema.json",
+    ),
+    (
+        "schemas/assembly-result.schema.json",
+        "https://dicom-test-suite.local/schemas/assembly-result.schema.json",
+    ),
+    (
         "schemas/version-result.schema.json",
-        "https://synth-dicom-gen.local/schemas/version-result.schema.json",
+        "https://dicom-test-suite.local/schemas/version-result.schema.json",
     ),
     (
         "schemas/capabilities-result.schema.json",
-        "https://synth-dicom-gen.local/schemas/capabilities-result.schema.json",
+        "https://dicom-test-suite.local/schemas/capabilities-result.schema.json",
     ),
     (
         "schemas/generation-result.schema.json",
-        "https://synth-dicom-gen.local/schemas/generation-result.schema.json",
+        "https://dicom-test-suite.local/schemas/generation-result.schema.json",
     ),
     (
         "schemas/composition-result.schema.json",
-        "https://synth-dicom-gen.local/schemas/composition-result.schema.json",
+        "https://dicom-test-suite.local/schemas/composition-result.schema.json",
     ),
     (
         "schemas/templates-result.schema.json",
-        "https://synth-dicom-gen.local/schemas/templates-result.schema.json",
+        "https://dicom-test-suite.local/schemas/templates-result.schema.json",
     ),
     (
         "schemas/validation-result.schema.json",
-        "https://synth-dicom-gen.local/schemas/validation-result.schema.json",
+        "https://dicom-test-suite.local/schemas/validation-result.schema.json",
     ),
     (
         "schemas/report-result.schema.json",
-        "https://synth-dicom-gen.local/schemas/report-result.schema.json",
+        "https://dicom-test-suite.local/schemas/report-result.schema.json",
     ),
     (
         "schemas/case-list-result.schema.json",
-        "https://synth-dicom-gen.local/schemas/case-list-result.schema.json",
+        "https://dicom-test-suite.local/schemas/case-list-result.schema.json",
+    ),
+    (
+        "schemas/case-recipe.schema.json",
+        "https://dicom-test-suite.local/schemas/case-recipe.schema.json",
     ),
     (
         "schemas/standards-result.schema.json",
-        "https://synth-dicom-gen.local/schemas/standards-result.schema.json",
+        "https://dicom-test-suite.local/schemas/standards-result.schema.json",
     ),
     (
         "schemas/conformance-result.schema.json",
-        "https://synth-dicom-gen.local/schemas/conformance-result.schema.json",
+        "https://dicom-test-suite.local/schemas/conformance-result.schema.json",
     ),
     (
         "schemas/interoperability-result.schema.json",
-        "https://synth-dicom-gen.local/schemas/interoperability-result.schema.json",
+        "https://dicom-test-suite.local/schemas/interoperability-result.schema.json",
     ),
     (
         "schemas/cli-success-envelope.schema.json",
-        "https://synth-dicom-gen.local/schemas/cli-success-envelope.schema.json",
+        "https://dicom-test-suite.local/schemas/cli-success-envelope.schema.json",
     ),
     (
         "schemas/cli-error-envelope.schema.json",
-        "https://synth-dicom-gen.local/schemas/cli-error-envelope.schema.json",
+        "https://dicom-test-suite.local/schemas/cli-error-envelope.schema.json",
     ),
     (
         "schemas/cli-error-code-registry.schema.json",
-        "https://synth-dicom-gen.local/schemas/cli-error-code-registry.schema.json",
+        "https://dicom-test-suite.local/schemas/cli-error-code-registry.schema.json",
     ),
     (
         "schemas/composition-spec.schema.json",
-        "https://synth-dicom-gen.local/schemas/composition-spec.schema.json",
+        "https://dicom-test-suite.local/schemas/composition-spec.schema.json",
     ),
     (
         "schemas/composition-manifest.schema.json",
-        "https://synth-dicom-gen.local/schemas/composition-manifest.schema.json",
+        "https://dicom-test-suite.local/schemas/composition-manifest.schema.json",
+    ),
+    (
+        "schemas/composition-provider-request.schema.json",
+        "https://dicom-test-suite.local/schemas/composition-provider-request.schema.json",
+    ),
+    (
+        "schemas/composition-provider-response.schema.json",
+        "https://dicom-test-suite.local/schemas/composition-provider-response.schema.json",
     ),
     (
         "schemas/template-catalog.schema.json",
-        "https://synth-dicom-gen.local/schemas/template-catalog.schema.json",
+        "https://dicom-test-suite.local/schemas/template-catalog.schema.json",
     ),
     (
         "schemas/conformance-run.schema.json",
-        "https://synth-dicom-gen.local/schemas/conformance-run.schema.json",
+        "https://dicom-test-suite.local/schemas/conformance-run.schema.json",
     ),
     (
         "schemas/conformance-accepted-findings.schema.json",
-        "https://synth-dicom-gen.local/schemas/conformance-accepted-findings.schema.json",
+        "https://dicom-test-suite.local/schemas/conformance-accepted-findings.schema.json",
     ),
     (
         "schemas/manifest.schema.json",
-        "https://synth-dicom-gen.local/schemas/manifest.schema.json",
+        "https://dicom-test-suite.local/schemas/manifest.schema.json",
     ),
     (
         "schemas/case-registry.schema.json",
-        "https://synth-dicom-gen.local/schemas/case-registry.schema.json",
+        "https://dicom-test-suite.local/schemas/case-registry.schema.json",
     ),
     (
         "schemas/coverage-report.schema.json",
-        "https://synth-dicom-gen.local/schemas/coverage-report.schema.json",
+        "https://dicom-test-suite.local/schemas/coverage-report.schema.json",
     ),
     (
         "schemas/coverage-gap-report.schema.json",
-        "https://synth-dicom-gen.local/schemas/coverage-gap-report.schema.json",
+        "https://dicom-test-suite.local/schemas/coverage-gap-report.schema.json",
     ),
     (
         "schemas/generation-backend-request.schema.json",
-        "https://synth-dicom-gen.local/schemas/generation-backend-request.schema.json",
+        "https://dicom-test-suite.local/schemas/generation-backend-request.schema.json",
     ),
     (
         "schemas/generation-backend-response.schema.json",
-        "https://synth-dicom-gen.local/schemas/generation-backend-response.schema.json",
+        "https://dicom-test-suite.local/schemas/generation-backend-response.schema.json",
     ),
     (
         "schemas/generation-backend-lock.schema.json",
-        "https://synth-dicom-gen.local/schemas/generation-backend-lock.schema.json",
+        "https://dicom-test-suite.local/schemas/generation-backend-lock.schema.json",
     ),
     (
         "schemas/viewer-report.schema.json",
-        "https://synth-dicom-gen.local/schemas/viewer-report.schema.json",
+        "https://dicom-test-suite.local/schemas/viewer-report.schema.json",
     ),
     (
         "schemas/media-report.schema.json",
-        "https://synth-dicom-gen.local/schemas/media-report.schema.json",
+        "https://dicom-test-suite.local/schemas/media-report.schema.json",
+    ),
+    (
+        "schemas/release-manifest.schema.json",
+        "https://dicom-test-suite.invalid/schemas/release-manifest.schema.json",
+    ),
+    (
+        "schemas/structural-assembly-manifest.schema.json",
+        "https://dicom-test-suite.local/schemas/structural-assembly-manifest.schema.json",
+    ),
+    (
+        "schemas/structural-assembly-report.schema.json",
+        "https://dicom-test-suite.local/schemas/structural-assembly-report.schema.json",
     ),
     (
         "schemas/transaction-report.schema.json",
-        "https://synth-dicom-gen.local/schemas/transaction-report.schema.json",
+        "https://dicom-test-suite.local/schemas/transaction-report.schema.json",
     ),
 ];
 
 #[test]
 fn committed_schema_files_are_parseable_json_schema_documents() {
+    let mut committed_paths = fs::read_dir("schemas")
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| path.extension().and_then(|value| value.to_str()) == Some("json"))
+        .map(|path| path.to_string_lossy().replace('\\', "/"))
+        .collect::<Vec<_>>();
+    committed_paths.sort();
+    let mut inventoried_paths = SCHEMAS
+        .iter()
+        .map(|(path, _)| (*path).to_string())
+        .collect::<Vec<_>>();
+    inventoried_paths.sort();
+    assert_eq!(
+        inventoried_paths, committed_paths,
+        "stable schema ID inventory must cover every committed schema"
+    );
+
     for (path, id) in SCHEMAS {
         let schema = read_json(path);
 
@@ -143,6 +192,66 @@ fn committed_schema_files_are_parseable_json_schema_documents() {
             schema.get("type").and_then(Value::as_str),
             Some("object"),
             "{path} must describe an object at the root"
+        );
+    }
+
+    assert_renamed_product_reader_compatibility();
+}
+
+fn assert_renamed_product_reader_compatibility() {
+    let cases = [
+        (
+            "schemas/manifest.schema.json",
+            "/$defs/generator/properties/name",
+        ),
+        (
+            "schemas/version-result.schema.json",
+            "/properties/product/properties/name",
+        ),
+        (
+            "schemas/release-manifest.schema.json",
+            "/properties/product/properties/name",
+        ),
+        (
+            "schemas/structural-assembly-manifest.schema.json",
+            "/properties/generator/properties/name",
+        ),
+    ];
+
+    for (path, pointer) in cases {
+        let schema = read_json(path);
+        let name_schema = schema
+            .pointer(pointer)
+            .unwrap_or_else(|| panic!("{path} lacks identity reader schema at {pointer}"));
+        let identity_schema = serde_json::json!({
+            "type": "object",
+            "required": ["name"],
+            "properties": {"name": name_schema},
+            "additionalProperties": false
+        });
+        let validator = jsonschema::validator_for(&identity_schema)
+            .unwrap_or_else(|error| panic!("{path} identity reader must compile: {error}"));
+
+        let current_document = serde_json::json!({"name": "synth-dicom-gen"});
+        validator
+            .validate(&current_document)
+            .unwrap_or_else(|error| {
+                panic!("{path} must accept the new producer identity: {error}")
+            });
+
+        let mut historical_document = current_document.clone();
+        historical_document["name"] = Value::String("dicom-test-suite".into());
+        validator
+            .validate(&historical_document)
+            .unwrap_or_else(|error| {
+                panic!("{path} must retain the supported historical reader identity: {error}")
+            });
+
+        let mut unrelated_document = current_document;
+        unrelated_document["name"] = Value::String("unrelated-generator".into());
+        assert!(
+            validator.validate(&unrelated_document).is_err(),
+            "{path} must not turn additive rename compatibility into an open product name"
         );
     }
 }

@@ -1,5 +1,5 @@
 {
-  "$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://synth-dicom-gen.local/schemas/case-recipe.schema.json","type":"object",
+  "$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://dicom-test-suite.local/schemas/case-recipe.schema.json","type":"object",
   "required":["case_recipe_schema_version","recipe_id","recipe_version","binding","kind","plan_provider_id","provider_parameters","dependencies","validation_rule_ids","projection_rule_ids"],
   "properties":{"case_recipe_schema_version":{"const":"0.1.0"},"recipe_id":{"$ref":"#/$defs/id"},"recipe_version":{"$ref":"#/$defs/semver"},"binding":{"$ref":"#/$defs/binding"},"kind":{"enum":["dicom","mutation","qualification"]},"plan_provider_id":{"$ref":"#/$defs/provider_id"},"planning_order":{"type":"integer","minimum":0},"projection_order":{"type":"integer","minimum":0},"provider_parameters":{"type":"object"},"dependencies":{"type":"array","items":{"$ref":"#/$defs/dependency"},"uniqueItems":true},"validation_rule_ids":{"$ref":"#/$defs/rules"},"projection_rule_ids":{"$ref":"#/$defs/rules"},"dicom":{"$ref":"#/$defs/dicom"},"mutation":{"$ref":"#/$defs/mutation"},"qualification":{"$ref":"#/$defs/qualification"}},
   "allOf":[

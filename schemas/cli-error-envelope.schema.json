@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://synth-dicom-gen.local/schemas/cli-error-envelope.schema.json",
+  "$id": "https://dicom-test-suite.local/schemas/cli-error-envelope.schema.json",
   "title": "DICOM Test Suite CLI Error Envelope",
   "type": "object",
   "required": ["cli_api_version", "command", "status", "error"],

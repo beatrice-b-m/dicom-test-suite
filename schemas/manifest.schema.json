@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://synth-dicom-gen.local/schemas/manifest.schema.json",
+  "$id": "https://dicom-test-suite.local/schemas/manifest.schema.json",
   "title": "DICOM Test Suite Run Manifest",
   "type": "object",
   "required": [
@@ -128,7 +128,7 @@
       ],
       "properties": {
         "name": {
-          "const": "synth-dicom-gen"
+          "enum": ["dicom-test-suite", "synth-dicom-gen"]
         },
         "version": {
           "type": "string"

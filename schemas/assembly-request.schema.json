@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://synth-dicom-gen.local/schemas/assembly-request.schema.json",
+  "$id": "https://dicom-test-suite.local/schemas/assembly-request.schema.json",
   "title": "DICOM Test Suite Structural Assembly Request",
   "type": "object",
   "required": ["assembly_request_schema_version", "instances"],

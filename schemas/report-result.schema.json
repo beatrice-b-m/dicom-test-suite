@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://synth-dicom-gen.local/schemas/report-result.schema.json",
+  "$id": "https://dicom-test-suite.local/schemas/report-result.schema.json",
   "title": "DICOM Test Suite Report Result",
   "type": "object",
   "required": ["report_result_schema_version", "report_kind", "report_schema_version", "report"],

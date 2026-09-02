@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://synth-dicom-gen.local/schemas/structural-assembly-report.schema.json",
+  "$id": "https://dicom-test-suite.local/schemas/structural-assembly-report.schema.json",
   "type": "object",
   "required": ["structural_assembly_report_schema_version","report_kind","iod_conformance","counts","bulk_kinds","instances","warnings"],
   "properties": {

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://synth-dicom-gen.local/schemas/conformance-result.schema.json",
+  "$id": "https://dicom-test-suite.local/schemas/conformance-result.schema.json",
   "title": "DICOM Test Suite Conformance Result",
   "type": "object",
   "required": ["conformance_result_schema_version", "operation", "outcome"],

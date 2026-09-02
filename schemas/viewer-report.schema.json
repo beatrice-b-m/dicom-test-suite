@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://synth-dicom-gen.local/schemas/viewer-report.schema.json",
+  "$id": "https://dicom-test-suite.local/schemas/viewer-report.schema.json",
   "title": "DICOM Test Suite Viewer Compatibility Report",
   "type": "object",
   "required": [

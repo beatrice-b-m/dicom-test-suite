@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://synth-dicom-gen.local/schemas/case-list-result.schema.json",
+  "$id": "https://dicom-test-suite.local/schemas/case-list-result.schema.json",
   "title": "DICOM Test Suite Case List Result",
   "type": "object",
   "required": ["case_list_result_schema_version", "profile_filter", "status_filter", "case_count", "cases"],

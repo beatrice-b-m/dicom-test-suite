@@ -2,7 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use synth_dicom_gen::{CorpusDefinitionBundle, CorpusDefinitionError, CorpusDefinitionLimits};
+use super::{BundleRoot, CorpusDefinitionBundle, CorpusDefinitionError, CorpusDefinitionLimits};
 
 fn fixture() -> PathBuf {
     PathBuf::from("tests/fixtures/corpus-definition/minimal")
@@ -50,6 +50,18 @@ fn temp(name: &str) -> PathBuf {
     path
 }
 
+fn rewrite_registry(root: &Path, registry: &serde_json::Value, manifest: &mut serde_json::Value) {
+    let bytes = serde_json::to_vec(registry).unwrap();
+    fs::write(root.join("cases/registry.json"), &bytes).unwrap();
+    manifest["registry"]["size_bytes"] = bytes.len().into();
+    manifest["registry"]["sha256"] = crate::sha256_hex(&bytes).into();
+    fs::write(
+        root.join("corpus-definition.json"),
+        serde_json::to_vec(manifest).unwrap(),
+    )
+    .unwrap();
+}
+
 #[test]
 fn minimal_bundle_loads_with_stable_exact_byte_identity() {
     let first = CorpusDefinitionBundle::load(fixture()).unwrap();
@@ -91,6 +103,7 @@ fn manifest_bytes_are_identity_bearing() {
 fn malformed_duplicate_unknown_bom_and_utf8_are_rejected() {
     for (name, bytes) in [
         ("duplicate", br#"{"corpus_definition_bundle_schema_version":"1.0.0","corpus_definition_bundle_schema_version":"1.0.0"}"#.to_vec()),
+        ("escaped-duplicate", br#"{"a":1,"\u0061":2}"#.to_vec()),
         ("unknown", br#"{"unknown":true}"#.to_vec()),
         ("bom", [vec![0xef,0xbb,0xbf], b"{}".to_vec()].concat()),
         ("utf8", vec![0xff]),
@@ -240,6 +253,31 @@ fn declared_size_mismatch_is_integrity_failure() {
 }
 
 #[test]
+fn reserved_engine_namespaces_and_unexpected_directories_are_rejected() {
+    let reserved = temp("reserved");
+    copy_bundle(&fixture(), &reserved);
+    let path = reserved.join("corpus-definition.json");
+    let mut manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    manifest["assets"] = serde_json::json!([{"asset_id":"override","media_type":"application/json","path":"templates/override.json","size_bytes":1,"sha256":"2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"}]);
+    fs::write(&path, serde_json::to_vec(&manifest).unwrap()).unwrap();
+    assert_eq!(
+        CorpusDefinitionBundle::load(&reserved).unwrap_err().code(),
+        "resource.document.invalid"
+    );
+    fs::remove_dir_all(reserved).unwrap();
+
+    let directory = temp("extra-directory");
+    copy_bundle(&fixture(), &directory);
+    fs::create_dir(directory.join("unexpected-empty")).unwrap();
+    assert!(matches!(
+        CorpusDefinitionBundle::load(&directory),
+        Err(CorpusDefinitionError::Closure(_))
+    ));
+    fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
 fn closure_rejects_binding_dependency_and_profile_inconsistency() {
     let root = temp("closure");
     copy_bundle(&fixture(), &root);
@@ -298,5 +336,165 @@ fn deterministic_current_source_assembly_loads_all_registry_cases() {
     assert_eq!(bundle.manifest().assets.len(), 0);
     assert_eq!(bundle.manifest().profiles.len(), 8);
     assert_eq!(bundle.identity().file_count, 214);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn json_depth_array_and_string_limits_have_limit_classification() {
+    for (name, limits) in [
+        (
+            "depth",
+            CorpusDefinitionLimits {
+                json_depth: 1,
+                ..CorpusDefinitionLimits::default()
+            },
+        ),
+        (
+            "array",
+            CorpusDefinitionLimits {
+                json_array_entries: 1,
+                ..CorpusDefinitionLimits::default()
+            },
+        ),
+        (
+            "string",
+            CorpusDefinitionLimits {
+                json_string_bytes: 4,
+                ..CorpusDefinitionLimits::default()
+            },
+        ),
+    ] {
+        let error = CorpusDefinitionBundle::load_with_limits(fixture(), limits).unwrap_err();
+        assert_eq!(error.code(), "resource.limit.exceeded", "{name}: {error}");
+    }
+}
+
+#[test]
+fn document_and_aggregate_limits_are_enforced() {
+    let document = CorpusDefinitionLimits {
+        document_bytes: 100,
+        ..CorpusDefinitionLimits::default()
+    };
+    assert_eq!(
+        CorpusDefinitionBundle::load_with_limits(fixture(), document)
+            .unwrap_err()
+            .code(),
+        "resource.limit.exceeded"
+    );
+    let aggregate = CorpusDefinitionLimits {
+        total_document_bytes: 1200,
+        ..CorpusDefinitionLimits::default()
+    };
+    assert_eq!(
+        CorpusDefinitionBundle::load_with_limits(fixture(), aggregate)
+            .unwrap_err()
+            .code(),
+        "resource.limit.exceeded"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn held_root_descriptor_cannot_switch_to_a_replacement_tree() {
+    let parent = temp("root-replacement");
+    let root = parent.join("bundle");
+    copy_bundle(&fixture(), &root);
+    let held = BundleRoot::open(&root).unwrap();
+    let moved = parent.join("moved");
+    fs::rename(&root, &moved).unwrap();
+    fs::create_dir(&root).unwrap();
+    fs::write(root.join("corpus-definition.json"), b"replacement").unwrap();
+    let bytes = held.capture("corpus-definition.json", 1024 * 1024).unwrap();
+    assert!(bytes.starts_with(b"{"));
+    assert_ne!(bytes, b"replacement");
+    fs::remove_dir_all(parent).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn hardlinks_fifo_and_nonregular_roots_are_rejected() {
+    let parent = temp("nonregular");
+    let file_root = parent.join("file-root");
+    fs::write(&file_root, b"x").unwrap();
+    assert!(matches!(
+        CorpusDefinitionBundle::load(&file_root),
+        Err(CorpusDefinitionError::NotRegular(_))
+    ));
+
+    let hardlink = parent.join("hardlink");
+    copy_bundle(&fixture(), &hardlink);
+    let recipe = hardlink.join("cases/recipes/minimal.json");
+    fs::hard_link(&recipe, hardlink.join("cases/recipes/alias.json")).unwrap();
+    assert!(matches!(
+        CorpusDefinitionBundle::load(&hardlink),
+        Err(CorpusDefinitionError::NotRegular(_))
+    ));
+
+    let fifo = parent.join("fifo");
+    copy_bundle(&fixture(), &fifo);
+    let recipe = fifo.join("cases/recipes/minimal.json");
+    fs::remove_file(&recipe).unwrap();
+    assert!(
+        Command::new("mkfifo")
+            .arg(&recipe)
+            .status()
+            .unwrap()
+            .success()
+    );
+    assert!(matches!(
+        CorpusDefinitionBundle::load(&fifo),
+        Err(CorpusDefinitionError::NotRegular(_))
+    ));
+    fs::remove_dir_all(parent).unwrap();
+}
+
+#[test]
+fn valid_dependency_cannot_cross_into_negative_scope() {
+    let root = temp("scope-leakage");
+    fs::remove_dir(&root).unwrap();
+    assert!(
+        Command::new("python3")
+            .arg("scripts/build-current-corpus-definition-bundle.py")
+            .arg(&root)
+            .status()
+            .unwrap()
+            .success()
+    );
+    let manifest_path = root.join("corpus-definition.json");
+    let mut manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+    let cases = manifest["cases"].as_array().unwrap();
+    let owner = cases
+        .iter()
+        .find(|case| !case["dependencies"].as_array().unwrap().is_empty())
+        .unwrap();
+    let dependency = owner["dependencies"][0].as_str().unwrap().to_string();
+    let mut registry: serde_json::Value =
+        serde_json::from_slice(&fs::read(root.join("cases/registry.json")).unwrap()).unwrap();
+    let row = registry["cases"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|row| row["case_id"] == dependency)
+        .unwrap();
+    row["profiles"] = serde_json::json!(["negative"]);
+    for profile in manifest["profiles"].as_array_mut().unwrap() {
+        if profile["profile_id"] == "all" {
+            continue;
+        }
+        let is_negative = profile["profile_id"] == "negative";
+        let members = profile["members"].as_array_mut().unwrap();
+        members.retain(|member| member.as_str() != Some(&dependency));
+        if is_negative {
+            members.push(dependency.clone().into());
+            members.sort_by_key(|value| value.as_str().unwrap().to_string());
+        }
+    }
+    rewrite_registry(&root, &registry, &mut manifest);
+    let error = CorpusDefinitionBundle::load(&root).unwrap_err();
+    assert!(
+        matches!(&error, CorpusDefinitionError::Closure(message) if message.contains("dependency scope leakage")),
+        "{error}"
+    );
     fs::remove_dir_all(root).unwrap();
 }

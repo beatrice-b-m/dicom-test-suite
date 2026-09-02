@@ -66,7 +66,14 @@ def main() -> None:
     scopes = {"smoke":"valid", "core":"valid", "extended":"valid", "legacy":"legacy", "stress":"stress", "negative":"expected_invalid", "fuzz":"fuzz"}
     profiles = [{"profile_id": profile, "scope": scopes[profile], "members": sorted(row["case_id"] for row in registry["cases"] if profile in row["profiles"])} for profile in direct]
     profiles.append({"profile_id":"all", "scope":"valid", "union_of":["smoke","core","extended"], "optional_profile":"stress"})
-    evidence = [{"evidence_id": evidence_id, "media_type":"text/markdown", **descriptor(source / path, path)} for path, evidence_id in sorted(evidence_by_path.items())]
+    evidence = [
+        {
+            "evidence_id": evidence_id,
+            "media_type": "text/markdown",
+            **descriptor(source / path, f"evidence/{Path(path).name}"),
+        }
+        for path, evidence_id in sorted(evidence_by_path.items())
+    ]
     manifest = {
         "corpus_definition_bundle_schema_version": "1.0.0",
         "definition_id": "dcmview.current-source",
@@ -77,11 +84,16 @@ def main() -> None:
         "evidence": evidence,
         "assets": [],
     }
-    files = [registry_path, *recipe_files, *(source / path for path in evidence_by_path)]
+    files = [registry_path, *recipe_files]
     for path in files:
         destination = output / path.relative_to(source)
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(path, destination)
+    for path in evidence_by_path:
+        source_path = source / path
+        destination = output / "evidence" / Path(path).name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source_path, destination)
     (output / "corpus-definition.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )

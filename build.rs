@@ -125,8 +125,10 @@ pub(crate) fn is_transitional_engine_resource(logical_path: &str) -> bool {
             | "schemas/capabilities-result-v2.schema.json"
             | "schemas/composition-manifest-v1.schema.json"
             | "schemas/composition-result-v2.schema.json"
+            | "schemas/assembly-result-v2.schema.json"
             | "schemas/generation-result-v2.schema.json"
             | "schemas/manifest-v1.schema.json"
+            | "schemas/structural-assembly-manifest-v2.schema.json"
     )
 }
 

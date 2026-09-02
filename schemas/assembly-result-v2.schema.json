@@ -1,0 +1,118 @@
+{
+  "$id": "https://synth-dicom-gen.local/schemas/assembly-result-v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "assembly_result_schema_version": {
+      "const": "2.0.0"
+    },
+    "corpus_plan_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "emitted_artifact_count": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "manifest_path": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "manifest_schema_version": {
+      "const": "2.0.0"
+    },
+    "output_bytes": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "plan_preview": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "artifact_count": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "artifact_ids": {
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "required": [
+            "artifact_count",
+            "artifact_ids"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "product_version": {
+      "type": "string"
+    },
+    "publication_status": {
+      "enum": [
+        "not_requested",
+        "published"
+      ]
+    },
+    "published": {
+      "type": "boolean"
+    },
+    "request_schema_version": {
+      "const": "1.0.0"
+    },
+    "requested_output_root": {
+      "type": "string"
+    },
+    "run_kind": {
+      "const": "structural_assembly"
+    },
+    "seed": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "unavailable_capabilities": {
+      "maxItems": 0,
+      "type": "array"
+    },
+    "unavailable_capability_count": {
+      "const": 0
+    },
+    "validation_status": {
+      "enum": [
+        "not_run",
+        "passed"
+      ]
+    }
+  },
+  "required": [
+    "assembly_result_schema_version",
+    "requested_output_root",
+    "manifest_path",
+    "run_kind",
+    "seed",
+    "request_schema_version",
+    "manifest_schema_version",
+    "product_version",
+    "emitted_artifact_count",
+    "output_bytes",
+    "unavailable_capability_count",
+    "unavailable_capabilities",
+    "corpus_plan_sha256",
+    "published",
+    "publication_status",
+    "validation_status",
+    "plan_preview"
+  ],
+  "title": "Synth DICOM Gen Assembly Result v2",
+  "type": "object"
+}

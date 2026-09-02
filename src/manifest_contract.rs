@@ -123,6 +123,10 @@ pub(crate) fn load_manifest_contract(
                     "schemas/structural-assembly-manifest.schema.json",
                 )?,
             ),
+            "2.0.0" => (
+                ManifestContractKind::StructuralAssembly,
+                include_bytes!("../schemas/structural-assembly-manifest-v2.schema.json").to_vec(),
+            ),
             _ => {
                 return Err(contract_error(format!(
                     "unsupported assembly manifest schema version {schema_version}"
@@ -163,12 +167,12 @@ pub(crate) fn load_manifest_contract(
             path.display()
         )));
     }
-    if schema_version == "1.0.0"
-        && matches!(
-            kind,
-            ManifestContractKind::CuratedGeneration | ManifestContractKind::QualifiedComposition
-        )
-    {
+    if matches!(
+        (kind, schema_version.as_str()),
+        (ManifestContractKind::CuratedGeneration, "1.0.0")
+            | (ManifestContractKind::QualifiedComposition, "1.0.0")
+            | (ManifestContractKind::StructuralAssembly, "2.0.0")
+    ) {
         validate_external_runtime_uniqueness(&value)?;
     }
     let seed = value

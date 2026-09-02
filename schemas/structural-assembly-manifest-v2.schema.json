@@ -1,0 +1,402 @@
+{
+  "$defs": {
+    "corpus_definition_projection": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "identity": {
+              "$ref": "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json#/$defs/corpus_definition_identity"
+            },
+            "state": {
+              "const": "verified_bundle"
+            }
+          },
+          "required": [
+            "state",
+            "identity"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "identity": {
+              "type": "null"
+            },
+            "state": {
+              "const": "transitional_embedded_unverified"
+            }
+          },
+          "required": [
+            "state",
+            "identity"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "identity": {
+      "additionalProperties": false,
+      "properties": {
+        "frame_of_reference_uid": {
+          "$ref": "#/$defs/uid"
+        },
+        "provenance": {
+          "additionalProperties": false,
+          "properties": {
+            "frame_of_reference": {
+              "enum": [
+                "deterministic",
+                "explicit"
+              ]
+            },
+            "series": {
+              "enum": [
+                "deterministic",
+                "explicit"
+              ]
+            },
+            "sop": {
+              "enum": [
+                "deterministic",
+                "explicit"
+              ]
+            },
+            "study": {
+              "enum": [
+                "deterministic",
+                "explicit"
+              ]
+            }
+          },
+          "required": [
+            "study",
+            "series",
+            "sop",
+            "frame_of_reference"
+          ],
+          "type": "object"
+        },
+        "series_instance_uid": {
+          "$ref": "#/$defs/uid"
+        },
+        "sop_instance_uid": {
+          "$ref": "#/$defs/uid"
+        },
+        "study_instance_uid": {
+          "$ref": "#/$defs/uid"
+        }
+      },
+      "required": [
+        "study_instance_uid",
+        "series_instance_uid",
+        "sop_instance_uid",
+        "frame_of_reference_uid",
+        "provenance"
+      ],
+      "type": "object"
+    },
+    "identity_projection": {
+      "additionalProperties": false,
+      "properties": {
+        "corpus_definition": {
+          "$ref": "#/$defs/corpus_definition_projection"
+        },
+        "engine": {
+          "$ref": "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json#/$defs/engine_identity"
+        },
+        "execution": {
+          "$ref": "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json#/$defs/execution_identity"
+        },
+        "external_runtime": {
+          "items": {
+            "$ref": "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json#/$defs/external_runtime_identity"
+          },
+          "type": "array"
+        },
+        "identity_projection_schema_version": {
+          "const": "1.0.0"
+        },
+        "legacy_provenance": {
+          "$ref": "#/$defs/legacy_provenance"
+        },
+        "projection_state": {
+          "const": "projected"
+        },
+        "provider_catalog": {
+          "$ref": "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json#/$defs/provider_catalog_identity"
+        },
+        "schema_set": {
+          "$ref": "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json#/$defs/schema_set_identity"
+        },
+        "standards": {
+          "$ref": "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json#/$defs/standards_identity"
+        },
+        "template_catalog": {
+          "$ref": "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json#/$defs/template_catalog_identity"
+        },
+        "toolchain": {
+          "$ref": "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json#/$defs/toolchain_identity"
+        }
+      },
+      "required": [
+        "identity_projection_schema_version",
+        "projection_state",
+        "engine",
+        "schema_set",
+        "template_catalog",
+        "provider_catalog",
+        "corpus_definition",
+        "toolchain",
+        "external_runtime",
+        "standards",
+        "execution",
+        "legacy_provenance"
+      ],
+      "type": "object"
+    },
+    "instance": {
+      "additionalProperties": false,
+      "properties": {
+        "bulk": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "elements": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "instance_id": {
+          "type": "string"
+        },
+        "iod_conformance": {
+          "const": "not_assessed"
+        },
+        "output_path": {
+          "type": "string"
+        },
+        "references": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "resolved_plan_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "sop_class_uid": {
+          "$ref": "#/$defs/uid"
+        },
+        "sop_instance_uid": {
+          "$ref": "#/$defs/uid"
+        },
+        "transfer_syntax_uid": {
+          "$ref": "#/$defs/uid"
+        },
+        "validation": {
+          "items": {
+            "type": "object"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "instance_id",
+        "output_path",
+        "size_bytes",
+        "sha256",
+        "resolved_plan_sha256",
+        "sop_class_uid",
+        "sop_instance_uid",
+        "identity",
+        "transfer_syntax_uid",
+        "iod_conformance",
+        "elements",
+        "bulk",
+        "references",
+        "validation"
+      ],
+      "type": "object"
+    },
+    "legacy_provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "origin": {
+          "enum": [
+            "embedded",
+            "explicit"
+          ]
+        },
+        "removal_phase": {
+          "const": "R4.4"
+        },
+        "resource_count": {
+          "const": 240
+        },
+        "resource_set_sha256": {
+          "const": "dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410"
+        },
+        "resource_set_version": {
+          "const": "1.0.0"
+        }
+      },
+      "required": [
+        "resource_set_version",
+        "origin",
+        "resource_count",
+        "resource_set_sha256",
+        "removal_phase"
+      ],
+      "type": "object"
+    },
+    "sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "uid": {
+      "maxLength": 64,
+      "pattern": "^[0-9]+(\\.[0-9]+)+$",
+      "type": "string"
+    }
+  },
+  "$id": "https://synth-dicom-gen.local/schemas/structural-assembly-manifest-v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "generated_at": {
+      "const": "2000-01-01T00:00:00Z"
+    },
+    "generator": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "enum": [
+            "dicom-test-suite",
+            "synth-dicom-gen"
+          ]
+        },
+        "rustc": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "target",
+        "rustc"
+      ],
+      "type": "object"
+    },
+    "identity_projection": {
+      "$ref": "#/$defs/identity_projection"
+    },
+    "instances": {
+      "items": {
+        "$ref": "#/$defs/instance"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "manifest_schema_version": {
+      "const": "2.0.0"
+    },
+    "product_resources": {
+      "type": "object"
+    },
+    "publication": {
+      "type": "object"
+    },
+    "resources": {
+      "type": "object"
+    },
+    "run": {
+      "additionalProperties": false,
+      "properties": {
+        "assembly_request_schema_version": {
+          "const": "1.0.0"
+        },
+        "caller_asset_root_policy": {
+          "const": "explicit_bounded_relative_paths"
+        },
+        "corpus_plan_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "iod_conformance": {
+          "const": "not_assessed"
+        },
+        "kind": {
+          "const": "structural_assembly"
+        },
+        "request_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "seed": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "assembly_request_schema_version",
+        "request_sha256",
+        "seed",
+        "corpus_plan_sha256",
+        "caller_asset_root_policy",
+        "iod_conformance"
+      ],
+      "type": "object"
+    },
+    "unavailable_capabilities": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "warnings": {
+      "contains": {
+        "const": "IOD conformance was not assessed"
+      },
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "manifest_schema_version",
+    "generated_at",
+    "generator",
+    "product_resources",
+    "run",
+    "instances",
+    "unavailable_capabilities",
+    "resources",
+    "publication",
+    "warnings",
+    "identity_projection"
+  ],
+  "title": "Synth DICOM Gen Structural Assembly Manifest v2",
+  "type": "object"
+}

@@ -341,6 +341,10 @@ struct Member {
 
 const DIRECT_SCHEMA_MEMBERS: &[(&str, &[u8])] = &[
     (
+        "schemas/assembly-result-v2.schema.json",
+        include_bytes!("../schemas/assembly-result-v2.schema.json"),
+    ),
+    (
         "schemas/capabilities-result-v2.schema.json",
         include_bytes!("../schemas/capabilities-result-v2.schema.json"),
     ),
@@ -363,6 +367,10 @@ const DIRECT_SCHEMA_MEMBERS: &[(&str, &[u8])] = &[
     (
         "schemas/manifest-v1.schema.json",
         include_bytes!("../schemas/manifest-v1.schema.json"),
+    ),
+    (
+        "schemas/structural-assembly-manifest-v2.schema.json",
+        include_bytes!("../schemas/structural-assembly-manifest-v2.schema.json"),
     ),
     (
         "schemas/version-result-v2.schema.json",
@@ -675,11 +683,11 @@ mod identity_domain_tests {
         )
         .unwrap();
         assert_eq!(embedded.engine.member_count, 3);
-        assert_eq!(embedded.schema_set.member_count, 44);
-        assert_eq!(embedded.schema_set.total_size_bytes, 826_625);
+        assert_eq!(embedded.schema_set.member_count, 46);
+        assert_eq!(embedded.schema_set.total_size_bytes, 839_053);
         assert_eq!(
             embedded.schema_set.schema_set_sha256,
-            "29f9c67a96302911a4ba38013deb0cafb8c6205eed53801f816e58728ebecba1"
+            "0983a809348e6bd4c1df52ec579a321fa34118609ffd51d4a8895aee176dcca0"
         );
         assert_eq!(embedded.template_catalog.member_count, 3);
         assert_eq!(embedded.provider_catalog.member_count, 16);

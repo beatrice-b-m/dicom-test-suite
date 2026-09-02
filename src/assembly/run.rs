@@ -20,7 +20,7 @@ use crate::executor::materialization::{
 };
 use crate::executor::services::{ArtifactExecutionBindings, StagedAssetRegistry};
 
-pub const ASSEMBLY_MANIFEST_SCHEMA_VERSION: &str = "1.0.0";
+pub const ASSEMBLY_MANIFEST_SCHEMA_VERSION: &str = "2.0.0";
 
 #[derive(Debug, Clone)]
 pub struct AssembleOptions {
@@ -52,6 +52,8 @@ pub fn assemble(
         return Err(AssemblyRunError::OutputExists(options.output_root.clone()));
     }
     let resource_identity = resources.verify_integrity()?;
+    let identity_projection =
+        crate::identity::project_manifest_identities(resources, None, Vec::new())?;
     let plan = plan_assembly(
         &options.request_bytes,
         &options.caller_asset_root,
@@ -117,6 +119,7 @@ pub fn assemble(
         request_sha256: plan.request_sha256,
         seed: options.seed,
         product_resources: resource_identity,
+        identity_projection,
         identity_evidence: plan.identity_evidence.clone(),
     };
     let execution = CorpusExecutor::new(services, projector)
@@ -155,11 +158,18 @@ struct AssemblyManifestProjector {
     request_sha256: String,
     seed: u64,
     product_resources: EngineResourceIdentity,
+    identity_projection: crate::identity::ManifestIdentityProjection,
     identity_evidence: BTreeMap<String, serde_json::Value>,
 }
 
 impl ManifestProjector for AssemblyManifestProjector {
     fn project(&self, input: &ManifestProjectionInput) -> Result<Vec<u8>, ManifestProjectionError> {
+        let external_runtime = crate::terminal_external_runtime_identities(input)?;
+        let identity_projection = crate::identity::finalize_manifest_runtime_identities(
+            self.identity_projection.clone(),
+            external_runtime,
+        )
+        .map_err(|error| ManifestProjectionError(error.to_string()))?;
         let instances = input
             .artifacts
             .iter()
@@ -208,6 +218,7 @@ impl ManifestProjector for AssemblyManifestProjector {
             "generated_at": "2000-01-01T00:00:00Z",
             "generator": { "name": crate::PACKAGE_NAME, "version": crate::PACKAGE_VERSION, "target": crate::TARGET_TRIPLE, "rustc": crate::RUSTC_VERSION },
             "product_resources": self.product_resources,
+            "identity_projection": identity_projection,
             "run": { "kind": "structural_assembly", "assembly_request_schema_version": ASSEMBLY_REQUEST_SCHEMA_VERSION, "request_sha256": self.request_sha256, "seed": self.seed, "corpus_plan_sha256": input.corpus_plan_sha256, "caller_asset_root_policy": "explicit_bounded_relative_paths", "iod_conformance": "not_assessed" },
             "instances": instances,
             "unavailable_capabilities": input.unavailable,
@@ -225,6 +236,7 @@ impl ManifestProjector for AssemblyManifestProjector {
 pub enum AssemblyRunError {
     Request(AssemblyError),
     Resources(crate::engine_resources::EngineResourceError),
+    Identity(crate::identity::IdentityProjectionError),
     OutputExists(PathBuf),
     Io {
         path: PathBuf,
@@ -243,11 +255,17 @@ impl From<crate::engine_resources::EngineResourceError> for AssemblyRunError {
         Self::Resources(value)
     }
 }
+impl From<crate::identity::IdentityProjectionError> for AssemblyRunError {
+    fn from(value: crate::identity::IdentityProjectionError) -> Self {
+        Self::Identity(value)
+    }
+}
 impl fmt::Display for AssemblyRunError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Request(error) => write!(f, "{error}"),
             Self::Resources(error) => write!(f, "product resources: {error}"),
+            Self::Identity(error) => write!(f, "identity projection: {error}"),
             Self::OutputExists(path) => {
                 write!(f, "assembly output path already exists: {}", path.display())
             }

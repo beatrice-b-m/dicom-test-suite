@@ -37,7 +37,7 @@ artifact.
 | R1 — contain CI and local build cost | Complete | R1.1, R1.2, R1.3, R1.4, R1.5, R1.6 | A disposable draft-PR probe proved superseded-run cancellation and single-event ownership. Replacement Fast run `33581809536` passed in 123 seconds of job time with only the declared Fast work, a 739,602,432-byte target, four smoke artifacts occupying 122,880 allocated bytes, and the 4-GiB ceiling enforced. The broad matrix remains separately scheduled/manually invocable. The R1 gate passes. |
 | R2 — reduce Rust test-linking amplification | Complete | R2.1, R2.2, R2.3, R2.4 | The fail-closed inventory maps 186 integration sources and all 879 integration entries into exactly 20 explicit harnesses. Six R0-measured heavy bodies have exact ignored qualification entry points, while deterministic change routing now selects bounded Fast/subsystem evidence and reports every deferred class without executing it. The aggregate R2 target-count, cost, heavy-isolation, and routing gates pass. |
 | R3 — rename reusable product | Complete | R3.1, R3.2, R3.3, R3.4 | Product, package, crate, library, sole binary, archives, discovery, package metadata, current operating guides, product-controlled environment, and production scratch paths use `synth-dicom-gen` / `synth_dicom_gen` at the breaking pre-1.0 product boundary `0.2.0`. Immutable dated evidence retains its exact old candidate identity, and 12 qualified-adapter variables retain provenance-bound spellings pending external requalification. The external-consumer audit found no supported `0.1.0` product consumer requiring an alias. A clean side project compiled and exercised only `synth_dicom_gen::sdk` from the extracted, verified `synth-dicom-gen-0.2.0.crate`, without the old repository path. The aggregate R3 gate passes. |
-| R4 — split immutable resources and corpus definitions | In progress | R4.1, R4.2, R4.3 | `EngineResources` owns the immutable product-resource boundary, `CorpusDefinitionBundle` 1.0.0 inspects integrity-checked caller corpus data, and discovery plus generation, composition, assembly, report, and release contracts project independent identity domains. Corpus/Cargo digest removal, reusable materialization, and the supported SDK/CLI generation route remain open. |
+| R4 — split immutable resources and corpus definitions | In progress | R4.1, R4.2, R4.3, R4.4 | `EngineResources` v2 owns a 74-member immutable engine-resource identity containing every current schema while excluding `cases/**` and `Cargo.lock`; the exact 240-member v1 identity remains reconstructable for compatibility. `CorpusDefinitionBundle` 1.0.0 and the split manifest/discovery identities remain unchanged. Reusable materialization in R4.5 and the supported SDK/CLI generation route in R5 remain open. |
 | R5 — add supported external corpus API | Not started | None | Requires the R4 resource and identity boundary. |
 | R6 — establish smoke corpus repository | Not started | None | No external repository has been created; authority and destination are still required before out-of-workspace mutation. |
 | R7 — migrate complete dcmview corpus | Not started | None | Requires R6 smoke parity and supported contracts. |
@@ -2708,6 +2708,106 @@ Actual archive construction, Cargo packaging, installed-consumer relocation,
 target binary equality, RC, publication, Heavy, Nightly, and external-provider
 bodies did not run.
 
+### R4.4 — separated runtime-resource identity
+
+R4.4 implementation commits:
+
+- `617670a` — `feat(resources): separate current engine identity`
+- `2d9989e` — `refactor(identity): isolate toolchain from engine resources`
+- `d75b763` — `feat(discovery): omit legacy resource identity from v2`
+- `423aac6` — `fix(manifests): preserve legacy resource provenance`
+- `2d3f619` — `chore(tests): route separated identity evidence`
+- `4c0a20b` — `fix(resources): include all current schemas in v2`
+- `38b8556` — `test(reports): use current coverage contract reader`
+- `7ee8a16` — `chore(tests): refresh report fixture ownership`
+- `9474faf` — `test(xray): migrate current manifest reader assertions`
+- `80561d8` — `fix(tests): keep manifest helper harness-local`
+- `ea1be6d` — `fix(tests): freeze historical direct-plan UID seed`
+- `d57a7f2` — `chore(tests): refresh byte-oracle ownership`
+- `99787c8` — `chore(spelling): classify legacy schema fixture ID`
+
+The authoritative `EngineResources` identity is now version `2.0.0`, 74
+members, 1,251,116 bytes, and SHA-256
+`a54f1c1e897162dfaca6c3bc9264b45d2e2ddc77258fe3c6263f7a285a675c17`.
+It excludes all `cases/**` paths and `Cargo.lock`, and includes all 51 current
+schemas, including the 14 schemas that had previously been embedded directly
+by their owners outside the transitional table. Those 14 paths now join the
+build-generated table exactly once; the schema-set projection consequently
+remains 51 files / 850,644 bytes /
+`365bf67eea8b161434f85e892cd49e273642e127a9af9fa77a57d3bfe71d9220`.
+
+Physical embedding, snapshots, explicit-root capture, and package membership
+temporarily remain a 254-file compatibility closure because R5 still owns the
+default curated/composition/report corpus reader migration. A generated
+legacy-path inventory reconstructs and verifies exactly the original resource
+identity version `1.0.0`, 240 members, and SHA-256
+`dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410`.
+Every explicit root is checked against that full legacy closure before the
+current v2 identity is accepted, so excluded corpus or Cargo bytes cannot act
+as an engine override. Curated, composition, and assembly manifests that still
+require `product_resources` receive only this named compatibility identity;
+the assembly UID salt remains `dc61cc...`. Current version/capabilities v2
+documents omit their optional monolithic field, and release v2 therefore uses
+the already-supported all-legacy-absent shape. Split identities remain
+authoritative.
+
+`Cargo.lock` is read separately for toolchain identity. A bounded isolation
+test proves a Cargo-only perturbation changes toolchain plus reconstructed
+legacy provenance and no engine, schema, template, provider, corpus,
+standards, execution, or runtime identity. Verified caller bundle perturbation
+continues to change only corpus identity. The default embedded generation path
+remains honestly `transitional_embedded_unverified` with null corpus identity;
+R5, not R4.4, owns the supported external-corpus execution route.
+
+Focused ordinary evidence after the membership settled:
+
+- `cargo test --locked --no-default-features --test schema_resources__subsystem
+  engine_resources::`: 7 passed; explicit relocation, tamper, symlink,
+  bounded-read, complete snapshot, direct-schema, and v1/v2 oracle checks.
+- `cargo test --locked --no-default-features --lib
+  identity::identity_domain_tests::`: 4 passed, including corpus-only and
+  Cargo-only isolation.
+- version CLI 3 passed; capabilities CLI 4 passed; SDK facade 12 passed;
+  release Fast manifest readers 2 passed.
+- assembly subsystem 25 passed; composition subsystem 84 passed and 5
+  explicitly ignored provider qualification bodies remained unrun; generation
+  CLI 9 passed and 1 explicit Heavy body remained ignored.
+- schema/resources subsystem 86 passed; corpus-generation subsystem 92 passed.
+  The first authoritative broad route exposed 10 stale vertical-slice tests
+  that validated current coverage-report 1.0 output against the frozen 0.1
+  schema. `38b8556` routes those exact tests through the shared version-aware
+  SDK reader; all 10 exact tests and the full 92-test subsystem then passed.
+- The continuing ordinary route exposed four XA/XRF tests with the same stale
+  frozen-schema assumption. Their current manifest/report assertions now use
+  the shared version-aware readers; schema-invalid const mutations prove
+  schema-first rejection and still-schema-valid mutations reach their original
+  semantic guards. Four exact tests passed. The route also exposed two direct
+  waveform/document byte tests whose local helper incorrectly coupled its
+  Implementation Class UID to package version `0.2.0`; production bytes were
+  unchanged. `ea1be6d` binds that helper to the historical `0.1.0` output
+  version, retains all four immutable hashes, and extends the static
+  product-version coupling guard. The two exact byte tests, guard, and full
+  136-test engine subsystem passed.
+- The final fail-closed ordinary route over `c0f888e..d57a7f2` passed every
+  selected command. It selected `all-ordinary`, assembly, composition,
+  identity, provider, routing-contract, schema, and exact changed-test bundles
+  under routing configuration SHA-256
+  `43e2c812edb319ecfa8acffb076816c18e5d0811be89325ba7778bd41b3db577`;
+  the router reported the Heavy, codec-feature, external-corpus,
+  native-provider, Nightly, release-candidate, and unrouted-library classes as
+  deferred rather than executing them.
+- `cargo check --locked --no-default-features`, `cargo fmt --all -- --check`,
+  `git diff --check`, 22 routing unit tests, and the 1,423-entry ownership
+  inventory passed. Spelling transition remained 945 classified occurrences
+  at SHA-256
+  `e5f5585a41c7003530c62019bff6cb6a8196dc345bd676ce618225a4ae5b9e3e`.
+
+No Heavy, Nightly, release-candidate, archive/package construction, external
+provider, remote, release, R4.5, or R5 body ran. `cases/**` and `Cargo.lock`
+remain packaged deliberately even though they are no longer members of the
+authoritative engine digest; their physical/default-reader removal belongs to
+later ordered phases.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |
@@ -2752,7 +2852,7 @@ baseline alone is not proof that those budgets have passed.
 | Repository boundary | Not run | Must prove no generator dependency on dcmview and no corpus use of unsupported modules or sibling paths. |
 | Naming and compatibility | Passed | R3.1-R3.4 prove package `synth-dicom-gen` `0.2.0`, library `synth_dicom_gen`, the sole binary and version-derived archive/discovery identities, clean no-alias product environment, renamed production scratch paths, dual readers only at the four approved compatibility boundaries, current operating guides under the new identity, immutable historical evidence under the old identity, and 12 explicitly evidence-bound retained adapter environments. The exact 2,500,992-byte packaged crate (`9bc4cdaa357ce6f87a8dcce61d2f554d45f7a795a5c5f09fbb93017e65f79fe6`) passed Cargo verification and a clean extracted-package SDK consumer without an old repository path. A qualified `0.2.0` release remains correctly separate in the packaging-and-release row. |
 | External corpus contract | In progress | R4.2 proves the versioned, bounded, integrity-checked definition schema and typed inspection loader. R5 must still expose supported CLI/SDK selection and generation without internal imports or sibling paths before this row can pass. |
-| Identity separation | In progress | R4.3 independently projects engine, toolchain, template, provider, schema, standards, execution, verified loaded-corpus, and invocation runtime identities through v2 discovery and current generation, composition, assembly, report, and release contracts. Embedded paths do not fabricate corpus or runtime identities; frozen legacy readers remain supported without inferred split identities. R4.4 still owns removal of the transitional monolithic inventory before this terminal row can pass. |
+| Identity separation | In progress | R4.3 independently projects engine, toolchain, template, provider, schema, standards, execution, verified loaded-corpus, and invocation runtime identities through v2 discovery and current generation, composition, assembly, report, and release contracts. R4.4 removes `cases/**` and `Cargo.lock` from the authoritative v2 engine digest while retaining exact named v1 reconstruction for required compatibility fields. Embedded paths do not fabricate corpus or runtime identities. The supported R5 external-corpus generation route and later physical/default-reader migration remain before the terminal cross-repository row can pass. |
 | Smoke migration | In progress | The R0 parity baseline passes for the current embedded smoke slice; R6 repository generation and comparison have not run. |
 | Complete migration | Not run | The current repository still owns the complete embedded corpus. |
 | Fast development | In progress | R1-R2 record the representative 123-second generator Fast PR, 739,602,432-byte target, bounded smoke artifacts, 20 integration harnesses, 84.28% comparable clean-tree size reduction, 91.19% bounded Fast-route reduction, and warm-invalidation evidence while preserving separately invocable heavy coverage. Representative corpus and viewer PR measurements remain absent, and R9.6 still owns terminal verification-class cost measurements, so this terminal row does not yet pass. |

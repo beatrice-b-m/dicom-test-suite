@@ -402,9 +402,13 @@ pub fn project_installed_identities(
     resources: &EngineResources,
     context: IdentityInspectionContext<'_>,
 ) -> Result<InstalledIdentityDomains, IdentityProjectionError> {
-    let legacy = resources.verify_integrity()?;
+    let _current = resources.verify_integrity()?;
+    let legacy = resources.legacy_identity_v1()?;
     let mut members = BTreeMap::<InstalledMemberDomain, Vec<Member>>::new();
     for logical_path in resources.logical_paths() {
+        if logical_path == "Cargo.lock" || logical_path.starts_with("cases/") {
+            continue;
+        }
         let bytes = resources.bytes(logical_path)?;
         members
             .entry(classify_member(logical_path)?)
@@ -414,13 +418,15 @@ pub fn project_installed_identities(
                 bytes: bytes.into_owned(),
             });
     }
-    project_members(members, context, legacy)
+    let cargo_lock = resources.bytes("Cargo.lock")?.into_owned();
+    project_members(members, context, legacy, cargo_lock)
 }
 
 fn project_members(
     mut members: BTreeMap<InstalledMemberDomain, Vec<Member>>,
     context: IdentityInspectionContext<'_>,
     legacy: EngineResourceIdentity,
+    cargo_lock: Vec<u8>,
 ) -> Result<InstalledIdentityDomains, IdentityProjectionError> {
     members
         .entry(InstalledMemberDomain::SchemaSet)
@@ -449,22 +455,12 @@ fn project_members(
         "provider_catalog",
         take_domain(&mut members, InstalledMemberDomain::ProviderCatalog)?,
     )?;
-    // The temporary embedded corpus remains in the legacy resource oracle but
-    // is intentionally not projected as CorpusDefinitionIdentity. Only a
-    // verified R4.2 bundle may populate that public identity domain.
-    let _transitional_corpus =
-        take_domain(&mut members, InstalledMemberDomain::TransitionalCorpus)?;
-    let toolchain_members = take_domain(&mut members, InstalledMemberDomain::Toolchain)?;
     let standards_members = take_domain(&mut members, InstalledMemberDomain::Standards)?;
     debug_assert!(
         members.is_empty(),
         "every installed member is classified once"
     );
 
-    let cargo_lock = toolchain_members
-        .iter()
-        .find(|member| member.logical_path == "Cargo.lock")
-        .ok_or(IdentityProjectionError::MissingMember("Cargo.lock"))?;
     let standards_lock = standards_members
         .iter()
         .find(|member| member.logical_path == "standards.lock.json")
@@ -478,7 +474,7 @@ fn project_members(
             crate::RUSTC_VERSION,
             crate::TARGET_TRIPLE,
             enabled_features.join(","),
-            crate::sha256_hex(&cargo_lock.bytes),
+            crate::sha256_hex(&cargo_lock),
         )
         .as_bytes(),
     );
@@ -528,7 +524,7 @@ fn project_members(
             rust_toolchain: crate::RUSTC_VERSION,
             target: crate::TARGET_TRIPLE,
             enabled_features: enabled_features.clone(),
-            cargo_lock_sha256: crate::sha256_hex(&cargo_lock.bytes),
+            cargo_lock_sha256: crate::sha256_hex(&cargo_lock),
             toolchain_sha256,
         },
         external_runtime: Vec::new(),
@@ -546,6 +542,8 @@ fn project_members(
             execution_sha256,
         },
         migration: IdentityMigrationContext {
+            // This context describes the reconstructed compatibility identity,
+            // not the authoritative v2 engine-resource membership.
             source: "transitional_monolithic_resource_set_v1",
             legacy_resource_set_version: legacy.resource_set_version,
             legacy_resource_origin: legacy.origin,
@@ -695,6 +693,25 @@ mod identity_domain_tests {
         assert_eq!(left.execution, right.execution);
     }
 
+    fn separated_members(
+        resources: &EngineResources,
+    ) -> BTreeMap<InstalledMemberDomain, Vec<Member>> {
+        let mut members = BTreeMap::<InstalledMemberDomain, Vec<Member>>::new();
+        for logical_path in resources.logical_paths() {
+            if logical_path == "Cargo.lock" || logical_path.starts_with("cases/") {
+                continue;
+            }
+            members
+                .entry(classify_member(logical_path).unwrap())
+                .or_default()
+                .push(Member {
+                    logical_path: logical_path.to_owned(),
+                    bytes: resources.bytes(logical_path).unwrap().into_owned(),
+                });
+        }
+        members
+    }
+
     #[test]
     fn installed_membership_is_exhaustive_and_relocation_stable() {
         let embedded = project_installed_identities(
@@ -832,6 +849,43 @@ mod identity_domain_tests {
         );
         assert!(embedded_manifest.corpus_definition.identity.is_none());
         fs::remove_dir_all(changed_root).unwrap();
+    }
+
+    #[test]
+    fn cargo_lock_perturbation_changes_only_toolchain_and_legacy_provenance() {
+        let resources = EngineResources::embedded();
+        let legacy = resources.legacy_identity_v1().unwrap();
+        let cargo_lock = resources.bytes("Cargo.lock").unwrap().into_owned();
+        let original = project_members(
+            separated_members(&resources),
+            IdentityInspectionContext::default(),
+            legacy.clone(),
+            cargo_lock.clone(),
+        )
+        .unwrap();
+
+        let mut changed_cargo_lock = cargo_lock;
+        changed_cargo_lock.push(b'\n');
+        let mut changed_legacy = legacy;
+        changed_legacy.resource_set_sha256 = "f".repeat(64);
+        let changed = project_members(
+            separated_members(&resources),
+            IdentityInspectionContext::default(),
+            changed_legacy,
+            changed_cargo_lock,
+        )
+        .unwrap();
+
+        assert_eq!(original.engine, changed.engine);
+        assert_eq!(original.schema_set, changed.schema_set);
+        assert_eq!(original.template_catalog, changed.template_catalog);
+        assert_eq!(original.provider_catalog, changed.provider_catalog);
+        assert_eq!(original.corpus_definition, changed.corpus_definition);
+        assert_eq!(original.external_runtime, changed.external_runtime);
+        assert_eq!(original.standards, changed.standards);
+        assert_eq!(original.execution, changed.execution);
+        assert_ne!(original.toolchain, changed.toolchain);
+        assert_ne!(original.migration, changed.migration);
     }
 
     #[test]

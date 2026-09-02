@@ -1304,7 +1304,7 @@
         "core_generates_duplicate_and_empty_type2_instance_numbers",
         "core_generates_two_series_in_one_study_and_frame_of_reference"
       ],
-      "entry_digest": "8b41d9340178d99b58776086bfe9a8eba8ab528f1eadc98002523d390c6b6694"
+      "entry_digest": "cba9f3e7c764d82feb90865b8806c6dc2e9318f6e0a45e748b0f30e54f9e03ff"
     },
     {
       "source": "tests/curated_advanced_plan.rs",
@@ -1662,7 +1662,7 @@
         "resource_lookup_rejects_unsafe_and_unknown_paths",
         "snapshot_materializes_and_cleans_the_complete_resource_tree"
       ],
-      "entry_digest": "b82e6786651e33c6dba69db2d7675ba8e64f0fb2956a301997f439163bb29697"
+      "entry_digest": "9de90162b5ce476174b59929bb861fb186680a279ef622e55439dd89599bcf7c"
     },
     {
       "source": "tests/enhanced_mr_temporal.rs",
@@ -1815,7 +1815,7 @@
       "entries": [
         "general_ecg_vertical_slice_is_byte_deterministic_and_closed"
       ],
-      "entry_digest": "42d94d9ea6c8e4b79d61a6d9c45d4c04f72c3b96c048b337c75acdf5dd42d67f"
+      "entry_digest": "d07b1b65ec1da2d47948f9aabf49554e02e4342d2ba33bb7bec3c26e0338f4b1"
     },
     {
       "source": "tests/generate_cli.rs",
@@ -2035,7 +2035,7 @@
         "validator_rejects_tampered_private_creator_contract",
         "schema_and_validator_require_private_metadata_and_block_count"
       ],
-      "entry_digest": "686512312dbcfb900a8571d7e3ff258b4af2d1cf2f480cfd5e73fdc18230462e"
+      "entry_digest": "c5dbf33d28504f6a9b67af4dbe69284feb72b6afaee37917dacd838dea5fb8d8"
     },
     {
       "source": "tests/metadata_sc_recipe_planner.rs",
@@ -2062,7 +2062,7 @@
         "sequence_length_vertical_slice_is_exact_byte_stable_and_reported",
         "validator_rejects_tampered_sequence_length_contract"
       ],
-      "entry_digest": "e9e783d3574b4643fc70c861a412b20d197242c70754f3d46cd6a10ab33d94c7"
+      "entry_digest": "2dd2b3fc5fbe8b989c58c2c2e8224e8854433f6c1213f3e4f884f4f0016f9935"
     },
     {
       "source": "tests/metadata_string_boundaries.rs",
@@ -2075,7 +2075,7 @@
         "string_boundary_vertical_slice_is_exact_byte_stable_and_reported",
         "validator_rejects_tampered_string_boundary_contract"
       ],
-      "entry_digest": "b9bc5e2071d3bb0a2db859710171a0ac7a481157c98bab2a5e6b8aa21811076d"
+      "entry_digest": "b0ba2f1bdec90e0c0a25ede2c1e8984106ac58b1839e664f49df6cc0411a7ce4"
     },
     {
       "source": "tests/metadata_timezone.rs",
@@ -2088,7 +2088,7 @@
         "timezone_boundaries_are_deterministic_strict_and_reported",
         "validator_rejects_tampered_timezone_contract_and_boundary_set"
       ],
-      "entry_digest": "c4a210718e4f355643f198cf9f7be918ec7e6412f9c955431d68a7e0fdab54d2"
+      "entry_digest": "199911dab232caf6cfdb203449d3fe56bd9ad48451c6dbbdc1230d86aea372a4"
     },
     {
       "source": "tests/metadata_utf8.rs",
@@ -2165,7 +2165,7 @@
         "nm_multiframe_vertical_slice_is_exact_byte_stable_and_reported",
         "validator_rejects_tampered_nm_dimension_contract"
       ],
-      "entry_digest": "f7558064c8f4004c9a4d37663efb86afef2933a377daa65a5a4bbfeba9b73418"
+      "entry_digest": "c77b045034bd68258667f0829d2fd7c667c4b66cbcae2de0da32dc0dbbbc48d9"
     },
     {
       "source": "tests/non_rust_cli_consumer.rs",
@@ -2202,7 +2202,7 @@
         "pet_rescaled_activity_vertical_slice_is_exact_byte_stable_and_reported",
         "validator_rejects_tampered_pet_activity_contract"
       ],
-      "entry_digest": "8bb7c344b44b810fa4a6d7373402d777d3fc25ee5a3e2d63cd3e27fac579e4d4"
+      "entry_digest": "75358cd1e57411b1690c3ab1ed27bd78d02875d1f6c6b17c83748cd17230084d"
     },
     {
       "source": "tests/planning_contracts.rs",
@@ -2971,7 +2971,7 @@
       "entries": [
         "twelve_lead_ecg_vertical_slice_is_byte_deterministic_and_closed"
       ],
-      "entry_digest": "ee17383f0cec0dacdc66d03568582b0d525c9e80842246eacf3445d5320d4b21"
+      "entry_digest": "4f43c8567e878c9d72d121de31b45cadb6f99e6363d7b12ceb382a1d05a5672c"
     },
     {
       "source": "tests/typed_bulk_compatibility.rs",
@@ -3108,7 +3108,7 @@
         "us_multiframe_vertical_slice_is_exact_byte_stable_and_reported",
         "validator_rejects_tampered_us_multiframe_contract"
       ],
-      "entry_digest": "f939cf6b6637a0ca8cd9084f4704917cd341f646f3c21e259ef9b13ca7b65000"
+      "entry_digest": "14c33bd9521c9ff87fa219da96471edf93e3057f11fad7cbfb64c27f48dda887"
     },
     {
       "source": "tests/validate_cli.rs",

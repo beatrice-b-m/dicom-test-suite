@@ -36,7 +36,7 @@ artifact.
 | R0 — freeze migration contract | Complete | R0.1, R0.2, R0.3, R0.4 | ADR 0003, the dated cost baseline, the exhaustive 801-path ownership inventory, and the seed-1 smoke parity manifest fix repository ownership, invalidated verification class, and the byte/normalized-semantic migration boundary. The R0 gate passes. |
 | R1 — contain CI and local build cost | Complete | R1.1, R1.2, R1.3, R1.4, R1.5, R1.6 | A disposable draft-PR probe proved superseded-run cancellation and single-event ownership. Replacement Fast run `33581809536` passed in 123 seconds of job time with only the declared Fast work, a 739,602,432-byte target, four smoke artifacts occupying 122,880 allocated bytes, and the 4-GiB ceiling enforced. The broad matrix remains separately scheduled/manually invocable. The R1 gate passes. |
 | R2 — reduce Rust test-linking amplification | Complete | R2.1, R2.2, R2.3, R2.4 | The fail-closed inventory maps 186 integration sources and all 879 integration entries into exactly 20 explicit harnesses. Six R0-measured heavy bodies have exact ignored qualification entry points, while deterministic change routing now selects bounded Fast/subsystem evidence and reports every deferred class without executing it. The aggregate R2 target-count, cost, heavy-isolation, and routing gates pass. |
-| R3 — rename reusable product | Not started | None | Requires the R0 gate; no current file, package, crate, binary, archive, or environment spelling has been migrated. |
+| R3 — rename reusable product | In progress | R3.1, R3.2 | Product, package, crate, library, binary, archive, discovery, and package metadata now use `synth-dicom-gen` / `synth_dicom_gen` at the breaking pre-1.0 product boundary `0.2.0`. The dated external-consumer audit found no supported `0.1.0` product consumer requiring an alias. R3.3 operating-versus-historical documentation and R3.4 environment/staging transition remain open. |
 | R4 — split immutable resources and corpus definitions | Not started | None | Requires the accepted naming decision and sequential resource/schema migration. |
 | R5 — add supported external corpus API | Not started | None | Requires the R4 resource and identity boundary. |
 | R6 — establish smoke corpus repository | Not started | None | No external repository has been created; authority and destination are still required before out-of-workspace mutation. |
@@ -1385,6 +1385,97 @@ R2.3 explicit heavy isolation, and this bounded routing/cost acceptance now
 close the aggregate R2 gate. Terminal qualification evidence remains owned by
 the later qualification phases and is not implied by this routing proof.
 
+### R3.2 — clean pre-1.0 compatibility boundary
+
+**State:** complete on 2026-09-02; R3 remains in progress
+
+**Commits:** `86d0298` (`feat(product): establish the 0.2.0 rename boundary`),
+`67efbe1` (`fix(release): derive packaged candidate version`), and the
+documentation commit containing this section
+
+**Audit evidence:** local Git/history/cache/project searches plus exact public
+GitHub and crates.io queries recorded below
+
+R3.2 applies ADR 0003's default breaking pre-1.0 decision. The Cargo package,
+lock entry, discovery result, executable banner, release naming, and packaged
+consumer now derive from `synth-dicom-gen 0.2.0`; no old package, Rust path,
+executable, archive, or environment alias was added. Changing `Cargo.lock`
+changed its SHA-256 from
+`6b924968e704a002780829a784f5f6c453766bcff4b5b3531f9626378be6086c`
+to `4aa4b6c94043fb2f236ec888ac9b253f2ff451b666464609f81f82aaac6d8a4d`,
+and the native provider dependency identity in
+`generation-backends.lock.json` was rebound to the latter exact bytes.
+
+The consumer audit found no local sibling consumer, cached crate, crates.io
+crate, GitHub tag, GitHub release, fork, dependency-graph repository/package,
+or supported `0.1.0` product consumer. The exact crates.io endpoints returned
+HTTP 404 and both name searches returned zero results. The public GitHub
+repository reported zero forks/network members/stars/watchers/open issues;
+its release, tag, and fork lists were empty, and its dependency graph reported
+zero repositories and packages.
+
+An exact old-URL commit search did find 18 commits in five TomeVault plugin
+repositories. Three representative commits were inspected at patch level:
+they copy repository agent guidance and record the old repository metadata,
+but contain no Cargo dependency, SDK import, executable/archive invocation, or
+`0.1.0` product-version binding. They are documented repository-metadata
+mirrors, not supported product consumers; shipping a product alias would not
+update their copied metadata. GitHub's documented old-URL redirect and those
+mirrors remain a post-authorization remote-rename check, not evidence claimed
+as already executed.
+
+The exact local inventory used `git remote -v`, `git tag --list`,
+`git for-each-ref refs/tags refs/remotes`, full-history `git log -S'cargo
+publish'` and release-pattern searches, exact `git grep` publication and
+dependency patterns, Cargo registry index/cache searches, and an `rg` search
+under `/Users/beatrice/AgentFiles/projects`. Public read-only queries covered
+[`beatrice-b-m/dicom-test-suite`](https://github.com/beatrice-b-m/dicom-test-suite),
+its API release/tag/fork endpoints, its
+[dependency graph](https://github.com/beatrice-b-m/dicom-test-suite/network/dependents),
+the exact crates.io API entries and searches for both product names, and
+GitHub repository/commit searches. The inspected TomeVault evidence is bound
+to Cursor commits
+[`9424888`](https://github.com/tomevault-io/cursor-plugins/commit/9424888ee1c04cb1bbce2847362e5cb293da2847),
+[`7474a5c`](https://github.com/tomevault-io/cursor-plugins/commit/7474a5ce30c7ffb5376864ff5c5e1f9c0379c3a2),
+and
+[`a932c00`](https://github.com/tomevault-io/cursor-plugins/commit/a932c00f2ec93d41ff0549d9476ed5c227776347).
+
+The audit limitation is explicit: authenticated GitHub code search was
+unavailable because the configured token was invalid and the unauthenticated
+API returned HTTP 401. Private, unindexed, out-of-root local, and arbitrary
+undiscoverable Git consumers cannot be ruled out. A later discovered product
+consumer requires a new compatibility decision and a tested, discovery-visible
+support window; it does not retroactively justify an untested alias now.
+
+Proportional verification passed. Locked Cargo metadata reported one package
+named `synth-dicom-gen` at `0.2.0`, library `synth_dicom_gen`, and binary
+`synth-dicom-gen`. The three exact `version_cli` tests and three exact
+`generation_backend_artifacts` tests passed. The built executable emitted
+machine and human version `0.2.0`, and the embedded resource inventory bound
+the new Cargo lock hash. `cargo package --locked --offline --no-verify
+--allow-dirty` packaged 830 files, 14.6 MiB uncompressed and 2.4 MiB
+compressed as `synth-dicom-gen 0.2.0`.
+
+The qualification workflow initially retained a literal
+`synth-dicom-gen-0.1.0.crate` path. R3.2 repaired that coupling by requiring a
+single locked Cargo metadata package, deriving `PACKAGE_STEM`, and using it for
+both the crate and extracted SDK-consumer root. YAML parsing, the ownership
+checker, single-file Rust formatting, and the focused
+`ci_release_gates::heavy_workflow_retains_nightly_matrix_and_immutable_release_gate`
+regression passed; the regression fails if the old literal returns or any
+metadata-derived path is removed. The first bounded target occupied 631,192
+KiB after version/provider/package checks; the isolated CI regression target
+occupied 554,976 KiB. Both exact temporary roots were removed.
+
+`git diff --check` passed. Repository-wide `cargo fmt --all -- --check`
+remains unavailable as clean evidence because it reports import-order and
+wrapping drift introduced by the preceding R3.1 rename across files outside
+this item's ownership. R3.2 did not rewrite those unrelated sources; this is
+an explicit hygiene blocker for the next owning repair, not an implied pass.
+No heavyweight body, provider timing qualification, codec matrix, broad
+all-target suite, Nightly, release-candidate, external runtime, conformance,
+interoperability, remote rename, remote workflow, or release ran.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |
@@ -1411,9 +1502,13 @@ baseline alone is not proof that those budgets have passed.
   not been supplied. No persistent corpus repository, release, or remote has
   been created. The authorized disposable R1 probe was closed and its branch
   deleted after evidence capture.
-- External-consumer inventory has not run. The clean rename remains the
-  default; a temporary alias may be introduced only if R3.2 discovers a real
-  consumer and records its tested support window.
+- The R3.2 external-consumer inventory is complete and supports the clean
+  `0.2.0` rename without a product alias. Public evidence found only five
+  TomeVault repository-metadata mirrors, not a supported package, SDK,
+  executable, or archive consumer. Authenticated GitHub code search was
+  unavailable, so private and unindexed consumers remain explicitly outside
+  the proven search scope; a later real product consumer requires a new tested
+  compatibility decision rather than an inferred alias.
 - No generator or corpus release target is currently qualified under the new
   names. Existing macOS arm64 and Linux x86_64 evidence remains scoped to the
   immutable historical candidate named above.

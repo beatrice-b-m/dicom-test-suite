@@ -2485,7 +2485,7 @@
       "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
     },
     {
-      "path": "src/sdk.rs",
+      "path": "src/manifest_contract.rs",
       "token": "dicom-test-suite",
       "class": "legacy_payload_schema_fixture_or_evidence",
       "count": 1,
@@ -4375,7 +4375,7 @@
   ],
   "retained_snapshot": {
     "match_count": 883,
-    "sha256": "24b8fcc5689520da605be409237661b4b15ae6c2c90858ab98f986ee9f29fa39",
+    "sha256": "6a56bdc8947beb4cddd1d4b250eee6f682c7cc15c221d57aff842a53357919fa",
     "by_class": {
       "dicom_payload_identifier": 188,
       "legacy_payload_schema_fixture_or_evidence": 283,

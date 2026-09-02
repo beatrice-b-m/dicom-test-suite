@@ -708,7 +708,11 @@ fn base_attributes(
     elements.push(empty(tags::INSTITUTION_ADDRESS, DicomVr::ST));
     s!(tags::MANUFACTURER_MODEL_NAME, LO, &value.model_name);
     s!(tags::DEVICE_SERIAL_NUMBER, LO, "DTS-WSI-001");
-    s!(tags::SOFTWARE_VERSIONS, LO, crate::PACKAGE_VERSION);
+    s!(
+        tags::SOFTWARE_VERSIONS,
+        LO,
+        crate::BYTE_STABLE_OUTPUT_VERSION
+    );
     s!(tags::INSTANCE_NUMBER, IS, &value.instance_number);
     s!(tags::CONTENT_DATE, DA, "20260101");
     s!(tags::CONTENT_TIME, TM, "000000");
@@ -1142,7 +1146,7 @@ fn implementation_uid(lock: &str) -> String {
     deterministic_uid(&DeterministicUidInput {
         standards_lock_sha256: lock,
         case_id: "dicom-test-suite/implementation",
-        recipe_version: crate::PACKAGE_VERSION,
+        recipe_version: crate::BYTE_STABLE_OUTPUT_VERSION,
         run_seed: 0,
         file_index: 0,
         frame_index: None,

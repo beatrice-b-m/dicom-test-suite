@@ -1,9 +1,15 @@
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 
 use synth_dicom_gen::engine_resources::{
     ENGINE_RESOURCE_SET_MEMBERSHIP, ENGINE_RESOURCE_SET_VERSION, EngineResourceError,
     EngineResourceOrigin, EngineResourceSetMembership, EngineResources,
+    TRANSITIONAL_ENGINE_RESOURCE_COUNT_V1, TRANSITIONAL_ENGINE_RESOURCE_SHA256_V1,
 };
+
+#[allow(dead_code)]
+#[path = "../build.rs"]
+mod engine_resource_build_script;
 
 #[test]
 fn embedded_resources_cover_engine_families_and_transitional_membership() {
@@ -36,6 +42,21 @@ fn embedded_resources_cover_engine_families_and_transitional_membership() {
     );
     assert!(resources.contains("cases/registry.json"));
     assert!(resources.contains("Cargo.lock"));
+    let identity = resources.verify_integrity().unwrap();
+    assert_eq!(identity.resource_set_version, "1.0.0");
+    assert_eq!(
+        identity.resource_count,
+        TRANSITIONAL_ENGINE_RESOURCE_COUNT_V1
+    );
+    assert_eq!(identity.resource_count, 240);
+    assert_eq!(
+        identity.resource_set_sha256,
+        TRANSITIONAL_ENGINE_RESOURCE_SHA256_V1
+    );
+    assert_eq!(
+        identity.resource_set_sha256,
+        "dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410"
+    );
 }
 
 #[test]
@@ -46,6 +67,79 @@ fn resource_build_tracks_directory_additions() {
     assert!(build.contains("embedded_engine_resources.rs"));
     assert!(build.contains("symlink_metadata"));
     assert!(build.contains("require_regular_engine_resource"));
+    assert!(build.contains("validate_engine_resource_path"));
+    let reader = fs::read_to_string("src/engine_resources.rs").unwrap();
+    for required in [
+        "libc::openat",
+        "libc::O_NOFOLLOW",
+        "libc::O_NONBLOCK",
+        "take(expected.len() as u64 + 1)",
+        "root_after.dev() != root_open.dev()",
+        "TRANSITIONAL_ENGINE_RESOURCE_COUNT_V1: usize = 240",
+        "dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410",
+    ] {
+        assert!(
+            reader.contains(required),
+            "missing hardening oracle {required}"
+        );
+    }
+
+    use engine_resource_build_script::{EngineResourcePathKind, validate_engine_resource_path};
+    assert!(
+        validate_engine_resource_path(
+            std::path::Path::new("schemas"),
+            EngineResourcePathKind::Directory,
+        )
+        .is_ok()
+    );
+    assert!(
+        validate_engine_resource_path(
+            std::path::Path::new("standards.lock.json"),
+            EngineResourcePathKind::File,
+        )
+        .is_ok()
+    );
+
+    let fixture = std::env::temp_dir().canonicalize().unwrap().join(format!(
+        "synth-dicom-gen-build-resource-test-{}",
+        std::process::id()
+    ));
+    fs::create_dir(&fixture).unwrap();
+    let nondirectory = fixture.join("not-a-directory");
+    fs::write(&nondirectory, b"file").unwrap();
+    assert!(
+        validate_engine_resource_path(&nondirectory, EngineResourcePathKind::Directory).is_err()
+    );
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::symlink;
+
+        let real = fixture.join("real");
+        fs::create_dir(&real).unwrap();
+        let scan_link = fixture.join("scan-link");
+        symlink(&real, &scan_link).unwrap();
+        assert!(
+            validate_engine_resource_path(&scan_link, EngineResourcePathKind::Directory).is_err()
+        );
+
+        let fixed_target = real.join("fixed-target.json");
+        fs::write(&fixed_target, b"{}").unwrap();
+        let fixed_link = real.join("fixed-link.json");
+        symlink(&fixed_target, &fixed_link).unwrap();
+        assert!(validate_engine_resource_path(&fixed_link, EngineResourcePathKind::File).is_err());
+
+        let ancestor_link = fixture.join("ancestor-link");
+        symlink(&real, &ancestor_link).unwrap();
+        assert!(
+            validate_engine_resource_path(
+                &ancestor_link.join("fixed-target.json"),
+                EngineResourcePathKind::File,
+            )
+            .is_err()
+        );
+    }
+    fs::remove_dir_all(fixture).unwrap();
 }
 
 #[test]
@@ -102,12 +196,81 @@ fn tampered_or_symlinked_explicit_resources_fail_before_materialization() {
     fs::write(&registry_path, registry).unwrap();
 
     let error = EngineResources::explicit(snapshot.root()).unwrap_err();
+    assert!(matches!(error, EngineResourceError::SizeMismatch { .. }));
+    assert_eq!(error.code(), "evidence.integrity.failed");
+
+    let oversized = embedded.snapshot().unwrap();
+    OpenOptions::new()
+        .append(true)
+        .open(oversized.root().join("Cargo.lock"))
+        .unwrap()
+        .write_all(b"x")
+        .unwrap();
+    let error = EngineResources::explicit(oversized.root()).unwrap_err();
+    assert!(matches!(error, EngineResourceError::SizeMismatch { .. }));
+    assert_eq!(error.code(), "evidence.integrity.failed");
+
+    let undersized = embedded.snapshot().unwrap();
+    OpenOptions::new()
+        .write(true)
+        .open(undersized.root().join("Cargo.lock"))
+        .unwrap()
+        .set_len(1)
+        .unwrap();
+    let error = EngineResources::explicit(undersized.root()).unwrap_err();
+    assert!(matches!(error, EngineResourceError::SizeMismatch { .. }));
+    assert_eq!(error.code(), "evidence.integrity.failed");
+
+    let sparse = embedded.snapshot().unwrap();
+    let cargo_lock = sparse.root().join("Cargo.lock");
+    let expected_size = fs::metadata(&cargo_lock).unwrap().len();
+    fs::remove_file(&cargo_lock).unwrap();
+    OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&cargo_lock)
+        .unwrap()
+        .set_len(expected_size)
+        .unwrap();
+    let error = EngineResources::explicit(sparse.root()).unwrap_err();
     assert!(matches!(error, EngineResourceError::Integrity { .. }));
     assert_eq!(error.code(), "evidence.integrity.failed");
 
+    let root_file = embedded.snapshot().unwrap();
+    let error = EngineResources::explicit(root_file.root().join("Cargo.lock")).unwrap_err();
+    assert!(matches!(error, EngineResourceError::NotRegular { .. }));
+    assert_eq!(error.code(), "resource.document.invalid");
+
+    let intermediate_file = embedded.snapshot().unwrap();
+    let templates = intermediate_file.root().join("templates");
+    fs::remove_dir_all(&templates).unwrap();
+    fs::write(&templates, b"not a directory").unwrap();
+    let error = EngineResources::explicit(intermediate_file.root()).unwrap_err();
+    assert!(matches!(error, EngineResourceError::NotRegular { .. }));
+    assert_eq!(error.code(), "resource.document.invalid");
+
+    let final_directory = embedded.snapshot().unwrap();
+    let cargo_lock = final_directory.root().join("Cargo.lock");
+    fs::remove_file(&cargo_lock).unwrap();
+    fs::create_dir(&cargo_lock).unwrap();
+    let error = EngineResources::explicit(final_directory.root()).unwrap_err();
+    assert!(matches!(error, EngineResourceError::NotRegular { .. }));
+    assert_eq!(error.code(), "resource.document.invalid");
+
     #[cfg(unix)]
     {
+        use std::ffi::CString;
+        use std::os::unix::ffi::OsStrExt;
         use std::os::unix::fs::symlink;
+
+        let fifo = embedded.snapshot().unwrap();
+        let cargo_lock = fifo.root().join("Cargo.lock");
+        fs::remove_file(&cargo_lock).unwrap();
+        let fifo_path = CString::new(cargo_lock.as_os_str().as_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(fifo_path.as_ptr(), 0o600) }, 0);
+        let error = EngineResources::explicit(fifo.root()).unwrap_err();
+        assert!(matches!(error, EngineResourceError::NotRegular { .. }));
+        assert_eq!(error.code(), "resource.document.invalid");
 
         let file_snapshot = embedded.snapshot().unwrap();
         let catalog = file_snapshot.root().join("templates/catalog.json");
@@ -124,7 +287,11 @@ fn tampered_or_symlinked_explicit_resources_fail_before_materialization() {
         fs::rename(&templates, &templates_target).unwrap();
         symlink(&templates_target, &templates).unwrap();
         let error = EngineResources::explicit(directory_snapshot.root()).unwrap_err();
-        assert!(matches!(error, EngineResourceError::Symlink { .. }));
+        assert!(matches!(
+            error,
+            EngineResourceError::Symlink { .. } | EngineResourceError::NotRegular { .. }
+        ));
+        assert_eq!(error.code(), "resource.document.invalid");
 
         let root_snapshot = embedded.snapshot().unwrap();
         let root_link = root_snapshot.root().with_extension("symlink");

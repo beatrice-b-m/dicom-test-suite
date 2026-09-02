@@ -12,6 +12,9 @@ use serde::{Deserialize, Serialize};
 include!(concat!(env!("OUT_DIR"), "/embedded_engine_resources.rs"));
 
 pub const ENGINE_RESOURCE_SET_VERSION: &str = "1.0.0";
+pub const TRANSITIONAL_ENGINE_RESOURCE_COUNT_V1: usize = 240;
+pub const TRANSITIONAL_ENGINE_RESOURCE_SHA256_V1: &str =
+    "dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410";
 /// R4.1 preserves the existing digest membership until R4.3/R4.4 split its
 /// independently versioned identity domains.
 pub const ENGINE_RESOURCE_SET_MEMBERSHIP: EngineResourceSetMembership =
@@ -139,7 +142,7 @@ impl fmt::Display for EngineResourceError {
                 actual,
             } => write!(
                 formatter,
-                "engine resource {logical_path} at {} has size {actual}, expected {expected}",
+                "product resource integrity failed: engine resource {logical_path} at {} has size {actual}, expected {expected}",
                 path.display()
             ),
             Self::Unstable { logical_path, path } => write!(
@@ -272,9 +275,10 @@ impl EngineResources {
     pub fn verify_integrity(&self) -> Result<EngineResourceIdentity, EngineResourceError> {
         let actual = self.identity()?;
         if self.origin() == EngineResourceOrigin::Embedded {
+            verify_transitional_oracle(&actual)?;
             return Ok(actual);
         }
-        let expected = Self::embedded().identity()?;
+        let expected = Self::embedded().verify_integrity()?;
         if actual.resource_set_sha256 != expected.resource_set_sha256 {
             return Err(EngineResourceError::Integrity {
                 expected_resource_set_sha256: expected.resource_set_sha256,
@@ -343,9 +347,8 @@ impl EngineResourceError {
             | Self::NonUtf8(_)
             | Self::Symlink { .. }
             | Self::NotRegular { .. }
-            | Self::SizeMismatch { .. }
             | Self::Unstable { .. } => "resource.document.invalid",
-            Self::Integrity { .. } => "evidence.integrity.failed",
+            Self::SizeMismatch { .. } | Self::Integrity { .. } => "evidence.integrity.failed",
             Self::Read { .. } => "io.read.failed",
             Self::CreateSnapshot { .. } | Self::WriteSnapshot { .. } => "io.write.failed",
         }
@@ -393,6 +396,26 @@ fn validate_logical_path(path: &str) -> Result<(), EngineResourceError> {
     } else {
         Err(EngineResourceError::UnsafeLogicalPath(path.to_string()))
     }
+}
+
+fn verify_transitional_oracle(
+    identity: &EngineResourceIdentity,
+) -> Result<(), EngineResourceError> {
+    if identity.resource_set_version == ENGINE_RESOURCE_SET_VERSION
+        && identity.resource_count == TRANSITIONAL_ENGINE_RESOURCE_COUNT_V1
+        && identity.resource_set_sha256 == TRANSITIONAL_ENGINE_RESOURCE_SHA256_V1
+    {
+        return Ok(());
+    }
+    Err(EngineResourceError::Integrity {
+        expected_resource_set_sha256: format!(
+            "version={ENGINE_RESOURCE_SET_VERSION};count={TRANSITIONAL_ENGINE_RESOURCE_COUNT_V1};sha256={TRANSITIONAL_ENGINE_RESOURCE_SHA256_V1}"
+        ),
+        actual_resource_set_sha256: format!(
+            "version={};count={};sha256={}",
+            identity.resource_set_version, identity.resource_count, identity.resource_set_sha256
+        ),
+    })
 }
 
 #[cfg(unix)]

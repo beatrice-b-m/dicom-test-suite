@@ -2418,7 +2418,7 @@ progress
 
 **Commits:** `23fbb3d`, `63ce3f3`, `cacaf6e`, `62b9158`, `e2eb787`,
 `60dccf6`, `11d77e5`, `8127b33`, `0d48a2e`, `9fa9be5`, `2b9a8ec`,
-`e6f8824`, `4016ff2`, `ba5e3c6`, and `bdd972f`.
+`e6f8824`, `4016ff2`, `ba5e3c6`, `bdd972f`, and `cb1668c`.
 
 The composition producer now emits manifest `1.0.0` and result `2.0.0`.
 Before the producer change, exact validation-only fixtures froze real manifest

@@ -37,7 +37,7 @@ artifact.
 | R1 — contain CI and local build cost | Complete | R1.1, R1.2, R1.3, R1.4, R1.5, R1.6 | A disposable draft-PR probe proved superseded-run cancellation and single-event ownership. Replacement Fast run `33581809536` passed in 123 seconds of job time with only the declared Fast work, a 739,602,432-byte target, four smoke artifacts occupying 122,880 allocated bytes, and the 4-GiB ceiling enforced. The broad matrix remains separately scheduled/manually invocable. The R1 gate passes. |
 | R2 — reduce Rust test-linking amplification | Complete | R2.1, R2.2, R2.3, R2.4 | The fail-closed inventory maps 186 integration sources and all 879 integration entries into exactly 20 explicit harnesses. Six R0-measured heavy bodies have exact ignored qualification entry points, while deterministic change routing now selects bounded Fast/subsystem evidence and reports every deferred class without executing it. The aggregate R2 target-count, cost, heavy-isolation, and routing gates pass. |
 | R3 — rename reusable product | Complete | R3.1, R3.2, R3.3, R3.4 | Product, package, crate, library, sole binary, archives, discovery, package metadata, current operating guides, product-controlled environment, and production scratch paths use `synth-dicom-gen` / `synth_dicom_gen` at the breaking pre-1.0 product boundary `0.2.0`. Immutable dated evidence retains its exact old candidate identity, and 12 qualified-adapter variables retain provenance-bound spellings pending external requalification. The external-consumer audit found no supported `0.1.0` product consumer requiring an alias. A clean side project compiled and exercised only `synth_dicom_gen::sdk` from the extracted, verified `synth-dicom-gen-0.2.0.crate`, without the old repository path. The aggregate R3 gate passes. |
-| R4 — split immutable resources and corpus definitions | Not started | None | Requires the accepted naming decision and sequential resource/schema migration. |
+| R4 — split immutable resources and corpus definitions | In progress | R4.1 | `EngineResources` now owns the embedded and explicit immutable engine-resource boundary without an old public alias. The serialized monolithic identity and its corpus/Cargo membership remain intentionally transitional until R4.3/R4.4. R4.2 externalizes the corpus definition next. |
 | R5 — add supported external corpus API | Not started | None | Requires the R4 resource and identity boundary. |
 | R6 — establish smoke corpus repository | Not started | None | No external repository has been created; authority and destination are still required before out-of-workspace mutation. |
 | R7 — migrate complete dcmview corpus | Not started | None | Requires R6 smoke parity and supported contracts. |
@@ -1649,6 +1649,90 @@ exact temporary root was removed after measurement and the Git worktree
 remained clean. No broad, heavyweight, provider, external-runtime, Nightly,
 release-candidate, remote, or release body ran; this package-and-consumer proof
 does not qualify a `0.2.0` release artifact or target.
+
+### R4.1 — immutable `EngineResources` boundary
+
+**State:** complete on 2026-09-02; aggregate R4 remains in progress
+
+**Commits:**
+
+- `262df91` — `refactor(resources): introduce EngineResources`
+- `46d8e96` — `test(resources): qualify the EngineResources boundary`
+- `d77f808` — `fix(resources): capture explicit resources immutably`
+
+The public `ProductResources` implementation and module were replaced by
+`EngineResources`, and the build-generated table is now
+`EMBEDDED_ENGINE_RESOURCES` in `embedded_engine_resources.rs`. Generation,
+composition, discovery, conformance, assembly, the SDK, and the CLI consume the
+new abstraction. A source audit rejects the old module, type, and module path;
+no compatibility alias was introduced.
+
+The embedded set covers schemas, templates, standards and capability locks,
+generic conformance and generation-provider resources, the security fixture
+lock, the CLI error registry, and the small color-profile asset. Build-time
+discovery rejects symbolic links and non-regular fixed inputs and tracks both
+directories and files for rebuilds. Logical lookup rejects empty, absolute,
+backslash, parent-traversal, and unknown paths. An explicit root rejects root,
+directory, and file symbolic links and non-regular components, verifies the
+complete set before returning a handle, and captures the verified bytes
+immutably. Later filesystem mutation therefore cannot cross the constructor
+integrity boundary or race snapshot materialization. Embedded operation and
+the captured explicit operation are independent of the checkout location.
+
+R4.1 deliberately preserves the existing machine-field spelling
+`product_resources`, resource-set version `1.0.0`, and the pre-R4 identity of
+240 resources with SHA-256
+`dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410`.
+An archived build of exact pre-R4 revision `e061108` produced that same
+version, count, and digest. `ENGINE_RESOURCE_SET_MEMBERSHIP` explicitly reports
+`TransitionalMonolithic`, and regression coverage requires both
+`cases/registry.json` and `Cargo.lock` to remain visible in this temporary set.
+Those corpus-definition and package-membership removals belong to R4.3/R4.4;
+the preserved serialized field and identity are compatibility evidence, not a
+claim that separation is already complete.
+
+Focused proportional verification passed after the final hardening change:
+
+```text
+cargo test --locked --no-default-features --test schema_resources__subsystem
+result: 86 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+cargo test --locked --no-default-features --test cli_sdk__nonfast sdk_facade::
+result: 7 passed; 0 failed; 0 ignored; 0 measured; 131 filtered out
+
+cargo test --locked --no-default-features --test cli_sdk__nonfast version_cli::
+result: 3 passed; 0 failed; 0 ignored; 0 measured; 135 filtered out
+
+cargo test --locked --no-default-features --test composition__subsystem standalone_compose_resources::
+result: 1 passed; 0 failed; 0 ignored; 0 measured; 83 filtered out
+
+cargo test --locked --no-default-features --test release_ci__fast ci_release_gates::heavy_workflow_retains_nightly_matrix_and_immutable_release_gate -- --exact
+result: 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out
+
+cargo check --locked --no-default-features --lib --bins
+result: passed
+
+python3 scripts/check-test-ownership.py
+result: passed; 22 targets; 262 entry groups; 1,375 entries
+
+python3 scripts/check-spelling-transition.py
+result: passed; 870 retained occurrences; snapshot SHA-256 ecff895f74165daa5d9d72ee145ee746f7f799a6028f12916fd7c010dfaa44b1
+
+python3 -m unittest tests/test_change_test_routing.py tests/test_spelling_transition.py
+result: 17 passed
+
+cargo fmt --all -- --check
+git diff --check
+result: passed
+```
+
+The routing dry run selected only the `schema_resources__subsystem` ordinary
+bundle plus unconditional Fast coverage and reported release-candidate
+packaging evidence as deferred. No schema or manifest identity split,
+external `CorpusDefinitionBundle`, corpus/Cargo removal, lazy materialization,
+heavy body, codec/provider runtime, external adapter, Nightly,
+release-candidate body, remote operation, or release ran. R4.2-R4.5 and the
+aggregate R4 gate remain open.
 
 ## Measurements
 

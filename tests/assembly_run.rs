@@ -287,7 +287,7 @@ fn structural_destination_race_preserves_one_valid_winner_and_cleans_staging() {
             .unwrap()
             .file_name()
             .to_string_lossy()
-            .starts_with(".dicom-test-suite-staging-")
+            .starts_with(".synth-dicom-gen-staging-")
     }));
     fs::remove_dir_all(parent).unwrap();
 }

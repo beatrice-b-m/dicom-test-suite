@@ -143,7 +143,7 @@ checksum_path="$archive_path.sha256"
     exit 4
 }
 
-staging_parent=$(mktemp -d "$dist_directory/.dts-release.XXXXXX")
+staging_parent=$(mktemp -d "$dist_directory/.synth-dicom-gen-release.XXXXXX")
 cleanup() {
     rm -rf "$staging_parent"
 }

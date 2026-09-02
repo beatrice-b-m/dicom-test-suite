@@ -358,7 +358,7 @@
         "structural_cancellation_publishes_nothing",
         "structural_destination_race_preserves_one_valid_winner_and_cleans_staging"
       ],
-      "entry_digest": "5a7f33dc5c65dac0c98a54cd0c215ea3ee9abe6c967f940031866c254b54c44d"
+      "entry_digest": "4ccda21e583298995b2d7261bc4fee7b86477f2b356fa592946927c3b5600642"
     },
     {
       "source": "tests/blending_presentation_state.rs",
@@ -1375,7 +1375,7 @@
         "public_planning_and_preparation_leave_the_destination_absent",
         "failed_ordinary_run_leaves_no_destination_or_private_staging"
       ],
-      "entry_digest": "aecb3de99faca5aef45ec2054bcfd1f402ece3aac5e8f2c595ed50b3f1c4de68"
+      "entry_digest": "67337da9f9c9761a5a752441041ac39087d4d11a66c29359d3e9a7c11b10f42b"
     },
     {
       "source": "tests/curated_locked_full_file_execution.rs",
@@ -4076,7 +4076,7 @@
         "encapsulated_stl_manifest_contract_is_exact_and_case_scoped",
         "encapsulated_stl_report_projects_payload_geometry_and_grouped_evidence"
       ],
-      "entry_digest": "ad20aaaf2f0b9531c4ca39841a8e644adf8f7d5d9d051d4edec9175a0bf40755"
+      "entry_digest": "beb15b6eaa8853910d5edcf152f65ddaccd69b4d271485fc70e271e6d8eef880"
     },
     {
       "source": "src/media.rs",

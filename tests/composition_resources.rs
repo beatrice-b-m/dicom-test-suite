@@ -44,7 +44,7 @@ fn assert_no_private_staging(root: &Path) {
             .unwrap()
             .file_name()
             .to_string_lossy()
-            .starts_with(".dts-compose-")
+            .contains(".synth-dicom-gen-staging-")
     }));
 }
 

@@ -179,27 +179,27 @@ jobs:
         run: cargo run --locked --no-default-features -- standards check-lock
       - name: Exercise default profiles
         run: |
-          cargo run --locked --no-default-features -- generate --profile smoke --out "$RUNNER_TEMP/dts-smoke" --seed 1
-          cargo run --locked --no-default-features -- validate "$RUNNER_TEMP/dts-smoke"
-          cargo run --locked --no-default-features -- generate --profile core --out "$RUNNER_TEMP/dts-core" --seed 1
-          cargo run --locked --no-default-features -- validate "$RUNNER_TEMP/dts-core"
-          cargo run --locked --no-default-features -- generate --profile extended --out "$RUNNER_TEMP/dts-extended" --seed 1
-          cargo run --locked --no-default-features -- validate "$RUNNER_TEMP/dts-extended"
-          cargo run --locked --no-default-features -- report "$RUNNER_TEMP/dts-extended" --format json > "$RUNNER_TEMP/dts-extended-report.json"
-          jq -e '.counts.generated >= 108 and .counts.blocked == 0' "$RUNNER_TEMP/dts-extended-report.json"
+          cargo run --locked --no-default-features -- generate --profile smoke --out "$RUNNER_TEMP/synth-dicom-gen-smoke" --seed 1
+          cargo run --locked --no-default-features -- validate "$RUNNER_TEMP/synth-dicom-gen-smoke"
+          cargo run --locked --no-default-features -- generate --profile core --out "$RUNNER_TEMP/synth-dicom-gen-core" --seed 1
+          cargo run --locked --no-default-features -- validate "$RUNNER_TEMP/synth-dicom-gen-core"
+          cargo run --locked --no-default-features -- generate --profile extended --out "$RUNNER_TEMP/synth-dicom-gen-extended" --seed 1
+          cargo run --locked --no-default-features -- validate "$RUNNER_TEMP/synth-dicom-gen-extended"
+          cargo run --locked --no-default-features -- report "$RUNNER_TEMP/synth-dicom-gen-extended" --format json > "$RUNNER_TEMP/synth-dicom-gen-extended-report.json"
+          jq -e '.counts.generated >= 108 and .counts.blocked == 0' "$RUNNER_TEMP/synth-dicom-gen-extended-report.json"
       - name: Verify smoke reproducibility
         run: |
-          cargo run --locked --no-default-features -- generate --profile smoke --out "$RUNNER_TEMP/dts-repro-a" --seed 1
-          cargo run --locked --no-default-features -- generate --profile smoke --out "$RUNNER_TEMP/dts-repro-b" --seed 1
-          diff -r "$RUNNER_TEMP/dts-repro-a" "$RUNNER_TEMP/dts-repro-b"
+          cargo run --locked --no-default-features -- generate --profile smoke --out "$RUNNER_TEMP/synth-dicom-gen-repro-a" --seed 1
+          cargo run --locked --no-default-features -- generate --profile smoke --out "$RUNNER_TEMP/synth-dicom-gen-repro-b" --seed 1
+          diff -r "$RUNNER_TEMP/synth-dicom-gen-repro-a" "$RUNNER_TEMP/synth-dicom-gen-repro-b"
       - name: Report Nightly build cost
         if: always()
         env:
           CI_COST_ENFORCE: "0"
         run: >-
           scripts/report-ci-cost.sh nightly "$CI_DISK_BUDGET_BYTES" "$CARGO_TARGET_DIR"
-          "$RUNNER_TEMP/dts-smoke" "$RUNNER_TEMP/dts-core" "$RUNNER_TEMP/dts-extended"
-          "$RUNNER_TEMP/dts-extended-report.json" "$RUNNER_TEMP/dts-repro-a" "$RUNNER_TEMP/dts-repro-b"
+          "$RUNNER_TEMP/synth-dicom-gen-smoke" "$RUNNER_TEMP/synth-dicom-gen-core" "$RUNNER_TEMP/synth-dicom-gen-extended"
+          "$RUNNER_TEMP/synth-dicom-gen-extended-report.json" "$RUNNER_TEMP/synth-dicom-gen-repro-a" "$RUNNER_TEMP/synth-dicom-gen-repro-b"
 
   standalone-release:
     name: Standalone release contract
@@ -366,7 +366,7 @@ jobs:
           fi
       - name: Exercise feature corpus
         run: |
-          root="$RUNNER_TEMP/dts-${{ matrix.feature }}"
+          root="$RUNNER_TEMP/synth-dicom-gen-${{ matrix.feature }}"
           case "${{ matrix.feature }}" in
             jpeg) cases=(classic/sc/rgb_planar0_jpeg_baseline_8bit) ;;
             charls) cases=(classic/sc/mono2_u8_jpeg_ls_lossless) ;;
@@ -404,7 +404,7 @@ jobs:
           CI_COST_ENFORCE: ${{ job.status == 'success' && '1' || '0' }}
         run: >-
           scripts/report-ci-cost.sh subsystem-codec "$CI_DISK_BUDGET_BYTES" "$CARGO_TARGET_DIR"
-          "$RUNNER_TEMP/dts-${{ matrix.feature }}" "$RUNNER_TEMP/dts-${{ matrix.feature }}-report.json"
+          "$RUNNER_TEMP/synth-dicom-gen-${{ matrix.feature }}" "$RUNNER_TEMP/synth-dicom-gen-${{ matrix.feature }}-report.json"
 
   external-codec-compile:
     name: External codec compile (${{ matrix.feature }})
@@ -444,7 +444,7 @@ jobs:
             --test cli_sdk__nonfast runtime_capabilities::
       - name: Exercise selected external codec cases
         run: |
-          root="$RUNNER_TEMP/dts-${{ matrix.feature }}"
+          root="$RUNNER_TEMP/synth-dicom-gen-${{ matrix.feature }}"
           case "${{ matrix.feature }}" in
             htj2k_openjph) cases=(classic/sc/mono2_u16_htj2k_lossless classic/sc/mono2_u16_htj2k_lossy) ;;
             legacy_jpeg_dcmtk) cases=(classic/sc/mono2_u16_jpeg_lossless_process_14 classic/sc/mono2_u16_jpeg_lossless_sv1) ;;
@@ -462,4 +462,4 @@ jobs:
         if: always()
         env:
           CI_COST_ENFORCE: ${{ job.status == 'success' && '1' || '0' }}
-        run: scripts/report-ci-cost.sh subsystem-external-codec "$CI_DISK_BUDGET_BYTES" "$CARGO_TARGET_DIR" "$RUNNER_TEMP/dts-${{ matrix.feature }}"
+        run: scripts/report-ci-cost.sh subsystem-external-codec "$CI_DISK_BUDGET_BYTES" "$CARGO_TARGET_DIR" "$RUNNER_TEMP/synth-dicom-gen-${{ matrix.feature }}"

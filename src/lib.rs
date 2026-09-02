@@ -38736,7 +38736,7 @@ mod tests {
             "the destination-race winner must remain untouched"
         );
         let prefix = format!(
-            ".{}.dicom-test-suite-staging-",
+            ".{}.synth-dicom-gen-staging-",
             out_dir.file_name().unwrap().to_string_lossy()
         );
         assert!(

@@ -38,7 +38,7 @@ actual_sha256=$(sha256_file "$archive")
     exit 4
 }
 
-verify_root=$(mktemp -d "${TMPDIR:-/tmp}/dts-release-verify.XXXXXX")
+verify_root=$(mktemp -d "${TMPDIR:-/tmp}/synth-dicom-gen-release-verify.XXXXXX")
 cleanup() {
     rm -rf "$verify_root"
 }

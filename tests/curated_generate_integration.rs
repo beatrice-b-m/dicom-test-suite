@@ -267,7 +267,7 @@ fn failed_ordinary_run_leaves_no_destination_or_private_staging() {
     let leaked = fs::read_dir(&workspace.0)
         .unwrap()
         .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
-        .filter(|name| name.contains(".dicom-test-suite-staging-"))
+        .filter(|name| name.contains(".synth-dicom-gen-staging-"))
         .collect::<Vec<_>>();
     assert!(leaked.is_empty(), "failed run leaked staging: {leaked:?}");
 }

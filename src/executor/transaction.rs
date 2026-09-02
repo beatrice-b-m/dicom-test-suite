@@ -224,7 +224,7 @@ impl<F: TransactionFs> OutputTransaction<F> {
             let mut name = OsString::from(".");
             name.push(filename);
             name.push(format!(
-                ".dicom-test-suite-staging-{}-{sequence}",
+                ".synth-dicom-gen-staging-{}-{sequence}",
                 std::process::id()
             ));
             let candidate = CreatedStaging::sibling(parent.join(name), parent)?;
@@ -583,7 +583,7 @@ mod tests {
     fn test_root(label: &str) -> PathBuf {
         let sequence = TEST_SEQUENCE.fetch_add(1, Ordering::Relaxed);
         std::env::temp_dir().join(format!(
-            "dicom-test-suite-transaction-{label}-{}-{sequence}",
+            "synth-dicom-gen-transaction-{label}-{}-{sequence}",
             std::process::id()
         ))
     }

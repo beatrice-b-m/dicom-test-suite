@@ -36,7 +36,7 @@ artifact.
 | R0 — freeze migration contract | Complete | R0.1, R0.2, R0.3, R0.4 | ADR 0003, the dated cost baseline, the exhaustive 801-path ownership inventory, and the seed-1 smoke parity manifest fix repository ownership, invalidated verification class, and the byte/normalized-semantic migration boundary. The R0 gate passes. |
 | R1 — contain CI and local build cost | Complete | R1.1, R1.2, R1.3, R1.4, R1.5, R1.6 | A disposable draft-PR probe proved superseded-run cancellation and single-event ownership. Replacement Fast run `33581809536` passed in 123 seconds of job time with only the declared Fast work, a 739,602,432-byte target, four smoke artifacts occupying 122,880 allocated bytes, and the 4-GiB ceiling enforced. The broad matrix remains separately scheduled/manually invocable. The R1 gate passes. |
 | R2 — reduce Rust test-linking amplification | Complete | R2.1, R2.2, R2.3, R2.4 | The fail-closed inventory maps 186 integration sources and all 879 integration entries into exactly 20 explicit harnesses. Six R0-measured heavy bodies have exact ignored qualification entry points, while deterministic change routing now selects bounded Fast/subsystem evidence and reports every deferred class without executing it. The aggregate R2 target-count, cost, heavy-isolation, and routing gates pass. |
-| R3 — rename reusable product | In progress | R3.1, R3.2, R3.3 | Product, package, crate, library, sole binary, archives, discovery, package metadata, and current operating guides use `synth-dicom-gen` / `synth_dicom_gen` at the breaking pre-1.0 product boundary `0.2.0`. Immutable dated evidence retains its exact old candidate identity, and 12 qualified-adapter variables retain provenance-bound spellings pending external requalification. The external-consumer audit found no supported `0.1.0` product consumer requiring an alias. R3.4 is reopened for remaining product-controlled `dts-*` path/checker repairs and the M6 qualification-fixture environment correction; the aggregate R3 gate remains open. |
+| R3 — rename reusable product | Complete | R3.1, R3.2, R3.3, R3.4 | Product, package, crate, library, sole binary, archives, discovery, package metadata, current operating guides, product-controlled environment, and production scratch paths use `synth-dicom-gen` / `synth_dicom_gen` at the breaking pre-1.0 product boundary `0.2.0`. Immutable dated evidence retains its exact old candidate identity, and 12 qualified-adapter variables retain provenance-bound spellings pending external requalification. The external-consumer audit found no supported `0.1.0` product consumer requiring an alias, and installed-consumer tests require no old repository path. The aggregate R3 gate passes. |
 | R4 — split immutable resources and corpus definitions | Not started | None | Requires the accepted naming decision and sequential resource/schema migration. |
 | R5 — add supported external corpus API | Not started | None | Requires the R4 resource and identity boundary. |
 | R6 — establish smoke corpus repository | Not started | None | No external repository has been created; authority and destination are still required before out-of-workspace mutation. |
@@ -1387,7 +1387,8 @@ the later qualification phases and is not implied by this routing proof.
 
 ### R3.2 — clean pre-1.0 compatibility boundary
 
-**State:** complete on 2026-09-02; R3 remains in progress
+**State:** complete on 2026-09-02; aggregate R3 subsequently completed through
+R3.3 and R3.4
 
 **Commits:** `86d0298` (`feat(product): establish the 0.2.0 rename boundary`),
 `67efbe1` (`fix(release): derive packaged candidate version`), and the
@@ -1478,8 +1479,7 @@ interoperability, remote rename, remote workflow, or release ran.
 
 ### R3.4 — environment and staging spelling transition
 
-**State:** reopened on 2026-09-02 after the initial bounded implementation;
-R3 remains in progress
+**State:** complete on 2026-09-02 after adversarial review and remediation
 
 **Commits:** `b232a06` (`refactor(build): rename compile-time product
 variables`), `2e114d7` (`refactor(runtime): rename product-controlled
@@ -1487,67 +1487,80 @@ environment`), `4b698d0` (`refactor(release): rename product environment
 contract`), `ea7ba22` (`refactor(staging): rename product temporary paths`),
 and `f86f60a` (`test(identity): enforce the spelling transition`). The focused
 `24d1085` version-assertion repair and separate R3.2 provider-lock repair
-`73a6ec9` preceded these slices and are not counted as R3.4 behavior.
+`73a6ec9` preceded these slices and are not counted as R3.4 behavior. Review
+remediation is recorded by `875d71f` (`fix(identity): finish scratch spelling
+transition`), `103719c` (`test(identity): require explicit legacy spelling
+review`), and the following status commit.
 
-The clean `0.2.0` transition now uses `SYNTH_DICOM_GEN_*` for all 25
+The clean `0.2.0` transition now uses `SYNTH_DICOM_GEN_*` for all 26
 product-controlled compile-time, runtime, test-consumer, SDK, CI, and release
 environment spellings inventoried at this boundary. No old-name environment
-alias is consumed or emitted. Transaction staging, release construction and
-verification scratch roots, and CI corpus roots use `synth-dicom-gen`
-prefixes; six removed prefix families are locked to their replacements.
+alias is consumed or emitted. The M6 generated-file qualification selector is
+now `SYNTH_DICOM_GEN_M6_SEGMENTATION_FIXTURE`. Transaction staging, release
+construction and verification scratch roots, CI corpus roots, optional-codec
+temporary directories, composition streaming files, conformance work roots,
+and media staging use `synth-dicom-gen` prefixes; 14 removed prefix families
+are locked to their replacements.
 
 `product/spelling-transition-2026-09-02.json` is the machine-readable
 transition contract. `scripts/check-spelling-transition.py` scans every
-tracked non-Markdown text file, rejects any removed environment or path
-spelling outside its single R3.3-owned documentation-test exception, requires
-every replacement to remain discoverable, and binds all retained spellings to
-an exact occurrence snapshot. The snapshot contains 885 occurrences with
+tracked non-Markdown text file outside its self-referential checker fixtures,
+rejects every removed environment or path spelling, requires every replacement
+to remain discoverable, and permits retained spellings only through 507 exact
+path, token, class, count, owner, and reason records. Independent detectors
+reject unapproved old-name environment access and old-name production
+path-building even if a summary snapshot is regenerated. `--bootstrap` prints
+a review-only record proposal and never mutates or authorizes the inventory.
+The accepted snapshot contains 871 occurrences with
 SHA-256
-`612851628b24905811c07c5cd5b9494df58243a2e87adb30f42a74f19805673e`:
+`086c5823091c9d8a50271401ca6c35613d618ef6590c59b94d918922e681525c`:
 188 DICOM payload identifiers, 271 payload/schema compatibility fixtures or
 historical evidence occurrences, 127 locked Python module/backend identities,
-145 qualified-adapter environment occurrences, 153 qualified-adapter or
-test-fixture labels, and one current-documentation assertion explicitly
-deferred to R3.3. The checker is called by the existing Fast workflow test and
-both new artifacts are routed through the unconditional Fast contract bundle.
+143 qualified-adapter environment occurrences, and 142 qualified-adapter or
+internal-test-fixture labels. Four focused Python regressions prove an
+arbitrary `DTS_NEW_PRODUCT_ROOT` access and `dts-new-product-staging` path stay
+rejected after ordinary summary regeneration, enforce exact retained counts,
+and prove bootstrap does not mutate the approved inventory. The checker and
+its tests run in the unconditional Fast workflow and route through the Fast
+contract bundle.
 
 The 12 retained qualified-adapter variables remain unchanged because their
 executable fingerprints, environment fingerprints, dependency locks, and
 external qualification evidence bind those exact interfaces. This includes
 the native generation backend, highdicom, dicom-validator, WSI reconstruction,
-LittleCMS, and PixelMed. A subsequent audit established that the M6
-segmentation-fixture selector is product-controlled, not an external adapter;
-current documentation uses `SYNTH_DICOM_GEN_M6_SEGMENTATION_FIXTURE`, while
-the owning R3.4 code/checker repair remains open. Renaming the 12 adapter
+LittleCMS, and PixelMed. Adversarial review established that the M6
+segmentation-fixture selector is product-controlled rather than an external
+adapter, so code, tests, inventory, and current documentation now use
+`SYNTH_DICOM_GEN_M6_SEGMENTATION_FIXTURE`. Renaming the 12 adapter
 interfaces remains explicitly unavailable until their scheduled external
 qualification is rerun; R3.4 does not infer equivalent evidence under a new
 name. DICOM payload/manufacturer/device/private-creator values, compatibility
 reader/schema identities, security fixture DNS, and locked Python
 package/module/backend identities likewise remain intentionally unchanged.
 
-Proportional verification passed: Python syntax compilation with a private
-bytecode cache; the exact spelling checker and SHA-256 snapshot; all 13
-change-routing fixtures and the two-artifact routing dry run; the R2 ownership
-checker at 22 targets, 262 entry groups, and 1,375 entries; shell syntax for
-release scripts; YAML parsing for both workflows; `cargo fmt --all -- --check`;
-`git diff --check`; ten focused transaction unit tests; the focused Fast
-workflow/storage assertions; the focused heavy-workflow static assertion; all
-four non-heavy `release_process` contract tests; seven composition-provider
-tests; and the exact conformance IOD-routing, conformance SR, version-banner,
-and version CLI tests affected by the renamed inputs. The final Fast spelling
-assertion passed in 1.19 seconds using the existing
-`/private/tmp/dts-r32-ci-target` compilation cache.
+The initial proportional verification remains recorded above. Remediation
+verification additionally passed: private-cache Python syntax compilation;
+all four spelling-checker adversarial tests; all 17 change-routing unit tests;
+the exact 871-occurrence checker and 507-record allowlist; the R2 ownership
+checker at 22 targets, 262 entry groups, and 1,375 entries; JSON parsing;
+Fast-workflow YAML parsing; `cargo fmt --all -- --check`; and
+`git diff --check`. Focused default-feature-independent Rust evidence passed
+15 codec unit tests, the composition streaming regression, five media-runner
+staging/cleanup tests, and the exact Fast workflow/spelling assertion in 1.29
+seconds. Routing maps the checker, inventory, and adversarial test to the
+unconditional Fast contract and defers release-candidate evidence explicitly.
 
 No heavyweight body, provider timing qualification, feature-specific codec
 body, broad all-target suite, Nightly, release-candidate body, external
 runtime, conformance tool, interoperability adapter, remote workflow, remote
-rename, or release ran. The initial R3.4 slice did not complete its gate:
-production `dts-*` path/checker findings and the M6 qualification-fixture
-environment correction remain assigned to R3.4 remediation.
+rename, or release ran. The remediation changes only scratch/interface names
+and checker evidence; it does not claim optional-codec, provider, independent
+conformance, Nightly, or release qualification. R3.4 and the aggregate R3 gate
+pass at this bounded evidence level.
 
 ### R3.3 — current documentation and historical evidence boundary
 
-**State:** complete on 2026-09-02; aggregate R3 remains open on R3.4
+**State:** complete on 2026-09-02; aggregate R3 is complete after R3.4
 
 **Commits:** `2548da8` (`docs(guides): migrate installed product usage`),
 `b6678cb` (`docs(adapters): distinguish retained qualified spellings`), and
@@ -1647,12 +1660,12 @@ baseline alone is not proof that those budgets have passed.
 | Gate | State | Required terminal evidence or current blocker |
 | --- | --- | --- |
 | Repository boundary | Not run | Must prove no generator dependency on dcmview and no corpus use of unsupported modules or sibling paths. |
-| Naming and compatibility | In progress | R3.1-R3.3 prove package `synth-dicom-gen` `0.2.0`, library `synth_dicom_gen`, the sole binary and version-derived archive/discovery identities, clean no-alias behavior, dual readers only at the four approved compatibility boundaries, current operating guides under the new identity, and immutable historical evidence under the old identity. R3.4 remains open for product-controlled path/checker and M6 fixture-environment remediation; a qualified `0.2.0` release remains a separate packaging-and-release gate. |
+| Naming and compatibility | Passed | R3.1-R3.4 prove package `synth-dicom-gen` `0.2.0`, library `synth_dicom_gen`, the sole binary and version-derived archive/discovery identities, clean no-alias product environment, renamed production scratch paths, dual readers only at the four approved compatibility boundaries, current operating guides under the new identity, immutable historical evidence under the old identity, and 12 explicitly evidence-bound retained adapter environments. A qualified `0.2.0` release remains correctly separate in the packaging-and-release row. |
 | External corpus contract | Not run | Versioned external definition loader and CLI/SDK generation contract are not implemented. |
 | Identity separation | Not run | Engine, toolchain, template/provider, schema, corpus, and external-runtime identities are not independently projected. |
 | Smoke migration | In progress | The R0 parity baseline passes for the current embedded smoke slice; R6 repository generation and comparison have not run. |
 | Complete migration | Not run | The current repository still owns the complete embedded corpus. |
-| Fast development | Not run | R0 measurements and representative post-change PR measurements are absent. |
+| Fast development | Passed | R1-R2 record the representative 123-second Fast PR, 739,602,432-byte target, bounded smoke artifacts, 20 integration harnesses, 84.28% comparable clean-tree size reduction, 91.19% bounded Fast-route reduction, and warm-invalidation evidence while preserving separately invocable heavy coverage. |
 | Heavy qualification | In progress | Nightly/manual/release routing now selects the six explicit heavy entries once, but no exact terminal Nightly or release-candidate run has executed at the separated-repository boundary. |
 | Artifact consumption | Not run | No keyed downstream corpus artifact or default viewer-consumption workflow exists. |
 | Packaging and release | Not run | Neither renamed repository has an independently qualified release procedure or exact candidate record. |

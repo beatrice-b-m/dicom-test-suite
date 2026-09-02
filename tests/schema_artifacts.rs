@@ -15,6 +15,10 @@ const SCHEMAS: &[(&str, &str)] = &[
         "https://dicom-test-suite.local/schemas/assembly-result.schema.json",
     ),
     (
+        "schemas/assembly-result-v2.schema.json",
+        "https://synth-dicom-gen.local/schemas/assembly-result-v2.schema.json",
+    ),
+    (
         "schemas/corpus-definition-bundle.schema.json",
         "https://synth-dicom-gen.local/schemas/corpus-definition-bundle.schema.json",
     ),
@@ -173,6 +177,10 @@ const SCHEMAS: &[(&str, &str)] = &[
     (
         "schemas/structural-assembly-manifest.schema.json",
         "https://dicom-test-suite.local/schemas/structural-assembly-manifest.schema.json",
+    ),
+    (
+        "schemas/structural-assembly-manifest-v2.schema.json",
+        "https://synth-dicom-gen.local/schemas/structural-assembly-manifest-v2.schema.json",
     ),
     (
         "schemas/structural-assembly-report.schema.json",

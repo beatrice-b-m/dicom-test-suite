@@ -49,7 +49,9 @@
       "apis": ["assemble"],
       "schemas": [
         "assembly-request.schema.json", "assembly-result.schema.json",
+        "assembly-result-v2.schema.json",
         "structural-assembly-manifest.schema.json",
+        "structural-assembly-manifest-v2.schema.json",
         "structural-assembly-report.schema.json"
       ]
     },

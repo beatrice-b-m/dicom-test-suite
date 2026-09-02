@@ -108,7 +108,7 @@ fn sdk_validation_and_report_return_typed_schema_bound_results() {
 
     let report = product.report(ReportRequest::new(&root)).unwrap();
     assert_eq!(report.kind(), ReportKind::QualifiedComposition);
-    assert_eq!(report.schema_version(), "0.1.0");
+    assert_eq!(report.schema_version(), "1.0.0");
     assert!(!report.json_bytes().is_empty());
 
     std::fs::remove_dir_all(root).unwrap();
@@ -158,6 +158,30 @@ fn sdk_composition_validate_and_report_read_exact_supported_manifest_versions() 
         );
         let report = product.report(ReportRequest::new(&root)).unwrap();
         assert_eq!(report.kind(), ReportKind::QualifiedComposition);
+        assert_eq!(
+            report.schema_version(),
+            if version == "1.0.0" { "1.0.0" } else { "0.1.0" }
+        );
+        let report_json: serde_json::Value = report.deserialize().unwrap();
+        let legacy_report: serde_json::Value =
+            serde_json::from_slice(include_bytes!("fixtures/cli/composition-report-v0.1.json"))
+                .unwrap();
+        if version == "1.0.0" {
+            assert_eq!(
+                report_json["identity_projection"],
+                manifest["identity_projection"]
+            );
+            let mut normalized = report_json;
+            normalized
+                .as_object_mut()
+                .unwrap()
+                .remove("identity_projection");
+            normalized["composition_report_schema_version"] = "0.1.0".into();
+            assert_eq!(normalized, legacy_report);
+        } else {
+            assert!(report_json.get("identity_projection").is_none());
+            assert_eq!(report_json, legacy_report);
+        }
     }
 
     std::fs::remove_dir_all(root).unwrap();
@@ -292,6 +316,19 @@ fn sdk_curated_validate_and_report_read_exact_supported_manifest_versions() {
         assert_eq!(validation.manifest().schema_version(), version);
         let report = product.report(ReportRequest::new(&root)).unwrap();
         assert_eq!(report.kind(), ReportKind::CuratedCoverage);
+        assert_eq!(
+            report.schema_version(),
+            if version == "1.0.0" { "1.0.0" } else { "0.1.0" }
+        );
+        let report_json: serde_json::Value = report.deserialize().unwrap();
+        if version == "1.0.0" {
+            assert_eq!(
+                report_json["identity_projection"],
+                manifest["identity_projection"]
+            );
+        } else {
+            assert!(report_json.get("identity_projection").is_none());
+        }
     }
 
     let mut unknown = current.clone();
@@ -422,6 +459,7 @@ fn sdk_structural_assembly_returns_no_claim_typed_manifest() {
     assert!(validation.is_valid());
     let report = product.report(ReportRequest::new(&root)).unwrap();
     assert_eq!(report.kind(), ReportKind::StructuralAssembly);
+    assert_eq!(report.schema_version(), "2.0.0");
     std::fs::remove_dir_all(root).unwrap();
 }
 
@@ -458,6 +496,32 @@ fn sdk_assembly_validate_and_report_read_exact_supported_manifest_versions() {
         );
         let report = product.report(ReportRequest::new(&root)).unwrap();
         assert_eq!(report.kind(), ReportKind::StructuralAssembly);
+        assert_eq!(
+            report.schema_version(),
+            if version == "2.0.0" { "2.0.0" } else { "1.0.0" }
+        );
+        let report_json: serde_json::Value = report.deserialize().unwrap();
+        let legacy_report: serde_json::Value = serde_json::from_slice(include_bytes!(
+            "fixtures/cli/structural-assembly-report-v1.json"
+        ))
+        .unwrap();
+        if version == "2.0.0" {
+            let manifest: serde_json::Value = serde_json::from_slice(bytes).unwrap();
+            assert_eq!(
+                report_json["identity_projection"],
+                manifest["identity_projection"]
+            );
+            let mut normalized = report_json;
+            normalized
+                .as_object_mut()
+                .unwrap()
+                .remove("identity_projection");
+            normalized["structural_assembly_report_schema_version"] = "1.0.0".into();
+            assert_eq!(normalized, legacy_report);
+        } else {
+            assert!(report_json.get("identity_projection").is_none());
+            assert_eq!(report_json, legacy_report);
+        }
     }
     std::fs::remove_dir_all(root).unwrap();
 }

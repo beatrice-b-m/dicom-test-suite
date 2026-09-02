@@ -7,6 +7,42 @@ use std::process::Command;
 use serde_json::Value;
 use serde_json::json;
 
+fn coverage_report_validator(report: &Value) -> jsonschema::Validator {
+    if report["coverage_report_schema_version"] == "0.1.0" {
+        let schema: Value =
+            serde_json::from_slice(&fs::read("schemas/coverage-report.schema.json").unwrap())
+                .unwrap();
+        return jsonschema::validator_for(&schema).unwrap();
+    }
+    let read_schema = |path: &str| {
+        let value: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+        jsonschema::Resource::from_contents(value).unwrap()
+    };
+    let schema: Value =
+        serde_json::from_slice(&fs::read("schemas/coverage-report-v1.schema.json").unwrap())
+            .unwrap();
+    jsonschema::options()
+        .with_draft(jsonschema::Draft::Draft202012)
+        .with_resource(
+            "https://dicom-test-suite.local/schemas/coverage-report.schema.json",
+            read_schema("schemas/coverage-report.schema.json"),
+        )
+        .with_resource(
+            "https://synth-dicom-gen.local/schemas/manifest-v1.schema.json",
+            read_schema("schemas/manifest-v1.schema.json"),
+        )
+        .with_resource(
+            "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json",
+            read_schema("schemas/version-result-v2.schema.json"),
+        )
+        .with_resource(
+            "https://dicom-test-suite.local/schemas/manifest.schema.json",
+            read_schema("schemas/manifest.schema.json"),
+        )
+        .build(&schema)
+        .unwrap()
+}
+
 macro_rules! schema_bound_report_manifest {
     ($($json:tt)+) => {{
         complete_report_fixture(json!($($json)+))
@@ -273,11 +309,11 @@ fn report_command_isolates_bounded_fuzz_qualification() {
         .expect("fuzz report command must run");
     assert!(output.status.success());
     let report: Value = serde_json::from_slice(&output.stdout).unwrap();
-    let schema: Value = serde_json::from_slice(
+    let _schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
     )
     .unwrap();
-    let validator = jsonschema::validator_for(&schema).unwrap();
+    let validator = coverage_report_validator(&report);
     assert!(
         validator.is_valid(&report),
         "fuzz report schema errors: {:?}",
@@ -334,13 +370,12 @@ fn report_command_writes_json_coverage_for_core_root() {
     );
     let report: Value =
         serde_json::from_slice(&output.stdout).expect("report stdout should be JSON");
-    let report_schema: Value = serde_json::from_slice(
+    let _report_schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json")
             .expect("coverage report schema should be readable"),
     )
     .expect("coverage report schema should be JSON");
-    let report_validator =
-        jsonschema::validator_for(&report_schema).expect("coverage schema should compile");
+    let report_validator = coverage_report_validator(&report);
     let report_errors = report_validator
         .iter_errors(&report)
         .map(|error| error.to_string())
@@ -369,7 +404,13 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .get("coverage_report_schema_version")
             .and_then(Value::as_str),
-        Some("0.1.0")
+        Some("1.0.0")
+    );
+    let manifest: Value = serde_json::from_slice(&fs::read(out_dir.join("manifest.json")).unwrap())
+        .expect("generated manifest should be JSON");
+    assert_eq!(
+        report["identity_projection"],
+        manifest["identity_projection"]
     );
     assert_eq!(
         report.pointer("/counts/generated").and_then(Value::as_u64),
@@ -1267,6 +1308,56 @@ fn report_command_writes_json_coverage_for_core_root() {
 }
 
 #[test]
+fn current_smoke_report_normalizes_to_the_frozen_r0_bytes() {
+    let out_dir = unique_temp_dir("report-r0-identity-projection");
+    let generated = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
+        .args([
+            "generate",
+            "--profile",
+            "smoke",
+            "--out",
+            out_dir.to_str().unwrap(),
+            "--seed",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        generated.status.success(),
+        "{}",
+        String::from_utf8_lossy(&generated.stderr)
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
+        .args(["report", out_dir.to_str().unwrap(), "--format", "json"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let mut current: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(current["coverage_report_schema_version"], "1.0.0");
+    assert_eq!(
+        current["identity_projection"],
+        serde_json::from_slice::<Value>(&fs::read(out_dir.join("manifest.json")).unwrap()).unwrap()
+            ["identity_projection"]
+    );
+    current
+        .as_object_mut()
+        .unwrap()
+        .remove("identity_projection");
+    current["coverage_report_schema_version"] = "0.1.0".into();
+    let mut normalized = serde_json::to_vec_pretty(&current).unwrap();
+    normalized.push(b'\n');
+    assert_eq!(
+        normalized,
+        include_bytes!("fixtures/cli/coverage-report-v0.1.json")
+    );
+    fs::remove_dir_all(out_dir).unwrap();
+}
+
+#[test]
 fn markdown_report_renders_cross_series_organization_expectations() {
     let report = json!({
         "coverage_matrix": [{
@@ -2099,13 +2190,12 @@ fn report_command_writes_color_softcopy_coverage_for_extended_root() {
         );
     }
 
-    let report_schema: Value = serde_json::from_slice(
+    let _report_schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json")
             .expect("coverage report schema should be readable"),
     )
     .expect("coverage report schema should be JSON");
-    let report_validator =
-        jsonschema::validator_for(&report_schema).expect("coverage schema should compile");
+    let report_validator = coverage_report_validator(&report);
     assert!(
         report_validator.is_valid(&report),
         "Color Softcopy coverage report must match its schema"
@@ -5490,13 +5580,12 @@ fn report_exposes_external_generation_backend_provenance() {
             .and_then(Value::as_u64),
         Some(1)
     );
-    let report_schema: Value = serde_json::from_slice(
+    let _report_schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json")
             .expect("coverage schema should be readable"),
     )
     .expect("coverage schema should be JSON");
-    let validator =
-        jsonschema::validator_for(&report_schema).expect("coverage schema should compile");
+    let validator = coverage_report_validator(&report);
     let errors = validator
         .iter_errors(&report)
         .map(|error| error.to_string())
@@ -5759,9 +5848,9 @@ fn report_surfaces_complete_unsigned_u32_pixel_contract() {
         report.pointer("/grouped_coverage/u32_full_unsigned_range_states/true"),
         Some(&json!(1))
     );
-    let schema: Value =
+    let _schema: Value =
         serde_json::from_slice(&fs::read("schemas/coverage-report.schema.json").unwrap()).unwrap();
-    let report_validator = jsonschema::validator_for(&schema).unwrap();
+    let report_validator = coverage_report_validator(&report);
     assert!(report_validator.is_valid(&report));
 
     let markdown_output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
@@ -5845,9 +5934,9 @@ fn report_surfaces_complete_one_bit_pixel_contract() {
         report.pointer("/grouped_coverage/u1_value_field_padding_byte_counts/1"),
         Some(&json!(1))
     );
-    let schema: Value =
+    let _schema: Value =
         serde_json::from_slice(&fs::read("schemas/coverage-report.schema.json").unwrap()).unwrap();
-    let report_validator = jsonschema::validator_for(&schema).unwrap();
+    let report_validator = coverage_report_validator(&report);
     assert!(report_validator.is_valid(&report));
 
     let markdown_output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
@@ -5938,9 +6027,9 @@ fn report_surfaces_complete_icc_profile_contract() {
         report.pointer("/grouped_coverage/icc_color_spaces/SRGB"),
         Some(&json!(1))
     );
-    let schema: Value =
+    let _schema: Value =
         serde_json::from_slice(&fs::read("schemas/coverage-report.schema.json").unwrap()).unwrap();
-    let report_validator = jsonschema::validator_for(&schema).unwrap();
+    let report_validator = coverage_report_validator(&report);
     assert!(report_validator.is_valid(&report));
     let markdown_output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args(["report"])
@@ -6071,9 +6160,9 @@ fn report_surfaces_both_nonsquare_spatial_variants() {
         )),
         Some(&json!(2))
     );
-    let schema: Value =
+    let _schema: Value =
         serde_json::from_slice(&fs::read("schemas/coverage-report.schema.json").unwrap()).unwrap();
-    let report_validator = jsonschema::validator_for(&schema).unwrap();
+    let report_validator = coverage_report_validator(&report);
     assert!(report_validator.is_valid(&report));
     let mut crossed_report = report.clone();
     crossed_report["coverage_matrix"]
@@ -6158,11 +6247,11 @@ fn spatial_registration_report_exposes_strict_json_groups_and_compact_markdown()
 
     let report = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect("Spatial Registration coverage report should build");
-    let schema: Value = serde_json::from_slice(
+    let _schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
     )
     .expect("coverage schema JSON");
-    let validator = jsonschema::validator_for(&schema).expect("coverage schema should compile");
+    let validator = coverage_report_validator(&report);
     let errors = validator
         .iter_errors(&report)
         .map(|error| error.to_string())
@@ -6288,11 +6377,11 @@ fn deformable_registration_report_exposes_exact_grid_contract() {
 
     let report = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect("Deformable Spatial Registration coverage report should build");
-    let schema: Value = serde_json::from_slice(
+    let _schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
     )
     .expect("coverage schema JSON");
-    let validator = jsonschema::validator_for(&schema).expect("coverage schema should compile");
+    let validator = coverage_report_validator(&report);
     let errors = validator
         .iter_errors(&report)
         .map(|error| error.to_string())
@@ -6470,11 +6559,11 @@ fn advanced_blending_report_exposes_exact_topology_and_unresolved_findings() {
 
     let report = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect("Advanced Blending coverage report should build");
-    let schema: Value = serde_json::from_slice(
+    let _schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
     )
     .expect("coverage schema JSON");
-    let validator = jsonschema::validator_for(&schema).expect("coverage schema should compile");
+    let validator = coverage_report_validator(&report);
     let errors = validator
         .iter_errors(&report)
         .map(|error| error.to_string())
@@ -6702,11 +6791,11 @@ fn blending_report_exposes_palette_rescale_and_source_closure() {
 
     let report =
         synth_dicom_gen::build_coverage_report(&out_dir).expect("Blending coverage report");
-    let schema: Value = serde_json::from_slice(
+    let _schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
     )
     .expect("coverage schema JSON");
-    let validator = jsonschema::validator_for(&schema).expect("coverage schema should compile");
+    let validator = coverage_report_validator(&report);
     let errors = validator
         .iter_errors(&report)
         .map(|error| error.to_string())
@@ -6803,11 +6892,11 @@ fn report_command_exposes_promoted_ecg_waveform_contracts() {
         String::from_utf8_lossy(&output.stderr)
     );
     let report: Value = serde_json::from_slice(&output.stdout).expect("report stdout JSON");
-    let schema: Value = serde_json::from_slice(
+    let _schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
     )
     .expect("coverage schema JSON");
-    let validator = jsonschema::validator_for(&schema).expect("coverage schema should compile");
+    let validator = coverage_report_validator(&report);
     let errors = validator
         .iter_errors(&report)
         .map(|error| error.to_string())
@@ -7039,11 +7128,11 @@ fn report_locks_general_ecg_group_contract() {
     .expect("write report fixture manifest");
 
     let report = synth_dicom_gen::build_coverage_report(&out_dir).expect("General ECG report");
-    let schema: Value = serde_json::from_slice(
+    let _schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
     )
     .expect("coverage schema JSON");
-    let validator = jsonschema::validator_for(&schema).expect("coverage schema should compile");
+    let validator = coverage_report_validator(&report);
     let errors = validator
         .iter_errors(&report)
         .map(|error| error.to_string())
@@ -7167,11 +7256,11 @@ fn report_locks_linked_rt_plan_contract_and_markdown() {
     .expect("write RT Plan manifest");
 
     let report = synth_dicom_gen::build_coverage_report(&out_dir).expect("RT Plan report");
-    let schema: Value = serde_json::from_slice(
+    let _schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
     )
     .expect("coverage schema JSON");
-    let validator = jsonschema::validator_for(&schema).expect("coverage schema should compile");
+    let validator = coverage_report_validator(&report);
     let errors = validator
         .iter_errors(&report)
         .map(|error| error.to_string())
@@ -7313,11 +7402,11 @@ fn report_locks_linked_rt_image_contract_and_markdown() {
     .expect("write RT Image manifest");
 
     let report = synth_dicom_gen::build_coverage_report(&out_dir).expect("RT Image report");
-    let schema: Value = serde_json::from_slice(
+    let _schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
     )
     .expect("coverage schema JSON");
-    let validator = jsonschema::validator_for(&schema).expect("coverage schema should compile");
+    let validator = coverage_report_validator(&report);
     let errors = validator
         .iter_errors(&report)
         .map(|error| error.to_string())
@@ -7445,11 +7534,11 @@ fn report_keeps_planned_rt_image_coverage_null() {
     for field in RT_IMAGE_REPORT_FIELDS {
         assert!(row[*field].is_null(), "planned row leaked {field}");
     }
-    let schema: Value = serde_json::from_slice(
+    let _schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
     )
     .expect("coverage schema JSON");
-    let validator = jsonschema::validator_for(&schema).expect("coverage schema should compile");
+    let validator = coverage_report_validator(&report);
     assert!(
         validator.is_valid(&report),
         "planned Image report must validate"
@@ -7477,11 +7566,11 @@ fn report_exposes_locked_single_frame_vl_rows_and_markdown() {
 
     let report = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect("single-frame VL coverage report should build");
-    let schema: Value = serde_json::from_slice(
+    let _schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
     )
     .expect("coverage schema JSON");
-    let validator = jsonschema::validator_for(&schema).expect("coverage schema compiles");
+    let validator = coverage_report_validator(&report);
     let errors = validator
         .iter_errors(&report)
         .map(|error| error.to_string())
@@ -7601,11 +7690,11 @@ fn report_exposes_locked_single_frame_vl_planned_rows() {
 
     let report = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect("planned VL coverage report should build");
-    let schema: Value = serde_json::from_slice(
+    let _schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
     )
     .expect("coverage schema JSON");
-    let validator = jsonschema::validator_for(&schema).expect("coverage schema compiles");
+    let validator = coverage_report_validator(&report);
     assert!(
         validator.is_valid(&report),
         "planned VL coverage report must match its schema"
@@ -7671,11 +7760,11 @@ fn report_exposes_locked_tiled_full_wsi_plan_without_claiming_generation() {
 
     let report = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect("planned WSI coverage report should build");
-    let schema: Value = serde_json::from_slice(
+    let _schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
     )
     .expect("coverage schema JSON");
-    let validator = jsonschema::validator_for(&schema).expect("coverage schema compiles");
+    let validator = coverage_report_validator(&report);
     let errors = validator
         .iter_errors(&report)
         .map(|error| error.to_string())
@@ -7765,11 +7854,11 @@ fn report_exposes_generated_tiled_sparse_wsi_and_rejects_field_leakage() {
 
     let report = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect("generated sparse WSI coverage report should build");
-    let schema: Value = serde_json::from_slice(
+    let _schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
     )
     .expect("coverage schema JSON");
-    let validator = jsonschema::validator_for(&schema).expect("coverage schema compiles");
+    let validator = coverage_report_validator(&report);
     assert!(
         validator.is_valid(&report),
         "generated sparse WSI coverage report must match its schema: {:?}",
@@ -7849,11 +7938,11 @@ fn report_exposes_generated_wsi_tile_segmentation_closure() {
 
     let report = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect("generated WSI tile segmentation coverage report should build");
-    let schema: Value = serde_json::from_slice(
+    let _schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
     )
     .expect("coverage schema JSON");
-    let validator = jsonschema::validator_for(&schema).expect("coverage schema compiles");
+    let validator = coverage_report_validator(&report);
     assert!(
         validator.is_valid(&report),
         "generated WSI tile segmentation report must match its schema: {:?}",
@@ -7990,11 +8079,11 @@ fn report_locks_rt_radiation_pair_contracts_and_markdown() {
     generate_extended(&out_dir);
     let report = synth_dicom_gen::build_coverage_report(&out_dir)
         .expect("RT Radiation pair coverage report should build");
-    let schema: Value = serde_json::from_slice(
+    let _schema: Value = serde_json::from_slice(
         &fs::read("schemas/coverage-report.schema.json").expect("coverage schema"),
     )
     .expect("coverage schema JSON");
-    let validator = jsonschema::validator_for(&schema).expect("coverage schema compiles");
+    let validator = coverage_report_validator(&report);
     let errors = validator
         .iter_errors(&report)
         .map(|error| error.to_string())

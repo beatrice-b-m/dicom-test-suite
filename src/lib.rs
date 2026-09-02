@@ -1161,11 +1161,17 @@ fn write_generation_selection_with_resources(
     if fs::symlink_metadata(&run.out_dir).is_ok() {
         return Err(GenerateError::OutputPathExists(run.out_dir.clone()));
     }
+    resources
+        .verify_integrity()
+        .map_err(|error| GenerateError::PlanFirst {
+            stage: "product resource integrity",
+            message: error.to_string(),
+        })?;
     let product_resource_identity =
         resources
-            .verify_integrity()
+            .legacy_identity_v1()
             .map_err(|error| GenerateError::PlanFirst {
-                stage: "product resource integrity",
+                stage: "legacy product resource reconstruction",
                 message: error.to_string(),
             })?;
     let resource_snapshot = resources

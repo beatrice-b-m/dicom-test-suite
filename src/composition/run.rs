@@ -134,8 +134,11 @@ pub fn compose_with_cancellation_and_resources(
     let snapshot = resources
         .snapshot()
         .map_err(|error| ComposeError::EngineResources(error.to_string()))?;
-    let product_resource_identity = resources
+    resources
         .verify_integrity()
+        .map_err(|error| ComposeError::EngineResources(error.to_string()))?;
+    let product_resource_identity = resources
+        .legacy_identity_v1()
         .map_err(|error| ComposeError::EngineResources(error.to_string()))?;
     let identity_projection =
         crate::identity::project_manifest_identities(resources, None, Vec::new())
@@ -210,8 +213,11 @@ pub fn compose_from_bytes_with_cancellation_and_resources(
     let snapshot = resources
         .snapshot()
         .map_err(|error| ComposeError::EngineResources(error.to_string()))?;
-    let product_resource_identity = resources
+    resources
         .verify_integrity()
+        .map_err(|error| ComposeError::EngineResources(error.to_string()))?;
+    let product_resource_identity = resources
+        .legacy_identity_v1()
         .map_err(|error| ComposeError::EngineResources(error.to_string()))?;
     let identity_projection =
         crate::identity::project_manifest_identities(resources, None, Vec::new())

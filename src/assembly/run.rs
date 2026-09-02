@@ -51,7 +51,8 @@ pub fn assemble(
     if options.output_root.exists() {
         return Err(AssemblyRunError::OutputExists(options.output_root.clone()));
     }
-    let resource_identity = resources.verify_integrity()?;
+    resources.verify_integrity()?;
+    let resource_identity = resources.legacy_identity_v1()?;
     let identity_projection =
         crate::identity::project_manifest_identities(resources, None, Vec::new())?;
     let plan = plan_assembly(

@@ -951,7 +951,7 @@ impl ManifestProjector for CuratedGenerationManifestProjector {
             .map(|file| file.case_id.clone())
             .collect::<Vec<_>>();
         generated_case_ids.extend(generated.completed_case_ids);
-        let external_runtime = curated_external_runtime_identities(input)?;
+        let external_runtime = terminal_external_runtime_identities(input)?;
         let identity_projection =
             identity::project_curated_manifest_identities(&self.resources, None, external_runtime)
                 .map_err(|error| ManifestProjectionError(error.to_string()))?;
@@ -976,7 +976,12 @@ impl ManifestProjector for CuratedGenerationManifestProjector {
     }
 }
 
-fn curated_external_runtime_identities(
+/// Extract invocation fingerprints from successful terminal execution evidence.
+///
+/// This is shared by manifest families. Planned capability declarations and
+/// failed, unused, or executable-free service records never become runtime
+/// identities.
+pub(crate) fn terminal_external_runtime_identities(
     input: &crate::executor::adapters::ManifestProjectionInput,
 ) -> Result<Vec<identity::ExternalRuntimeIdentity>, ManifestProjectionError> {
     let mut identities = Vec::new();

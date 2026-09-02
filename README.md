@@ -228,6 +228,10 @@ the same feature set used to generate its feature-gated compressed files.
 `validate` then reopens the root, validates `manifest.json`, hashes and parses
 every retained instance, checks file/meta identities, pixel and encapsulation
 contracts, references, profile isolation, and specialized object semantics.
+Manifest dispatch is fail closed before those semantic checks: curated
+manifest readers accept exactly `0.2.0`, `0.3.0`, and `1.0.0`, with a required
+schema-valid split identity projection in `1.0.0`; supported composition and
+structural-assembly manifests use the same version-aware loader.
 
 ```sh
 "$GENERATOR" generate \

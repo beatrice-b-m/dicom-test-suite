@@ -19,7 +19,7 @@ necessarily change every other contract.
 | CLI API | `1.0.0` | JSON envelopes, command result objects, error codes, exit classes, and stdout/stderr rules. Human output is excluded. |
 | Composition request | `0.1.0` | `composition_spec_schema_version` and its accepted document semantics. |
 | Structural-assembly request | `1.0.0` when introduced | `assembly_request_schema_version` and its accepted document semantics. |
-| Curated manifest | `0.3.0` (reader retains `0.2.0`) | `manifest_schema_version` for registry-led runs. Version `0.3.0` adds immutable product-resource identity. |
+| Curated manifest | `1.0.0` (reader retains `0.2.0` and `0.3.0`) | `manifest_schema_version` for registry-led runs. Version `1.0.0` adds split identity projection; older readers remain legacy-only and never synthesize split identities. |
 | Composition manifest | `0.5.0` (reader retains `0.4.0`) | `manifest_schema_version` plus `run.kind = "composition"`. Version `0.5.0` adds immutable product-resource identity. |
 | Structural-assembly manifest | `1.0.0` when introduced | Discriminated structural-assembly branch and its no-IOD-claim semantics. |
 | Coverage report | `0.1.0` | `coverage_report_schema_version` and report field meanings. |
@@ -111,6 +111,12 @@ When a supported older document is upgraded for internal processing, the
 original bytes and version remain the input identity; validation reports the
 reader/upgrade path. Unsupported versions receive a stable version error and a
 migration action rather than a generic parse failure.
+
+Every curated `validate` and `report` entry point uses the same fail-closed
+contract loader. It accepts exactly manifest `0.2.0`, `0.3.0`, and `1.0.0`;
+version `1.0.0` must contain a schema-valid split identity projection. The same
+loader dispatches the supported composition and structural-assembly manifest
+versions before their semantic validation or reporting begins.
 
 ## 5. Support windows and deprecation
 

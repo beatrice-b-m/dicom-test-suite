@@ -101,6 +101,13 @@ cargo run --locked -- compose --spec request.json --out generated/result \
 cargo run --locked -- validate generated/result --format json
 ```
 
+Validation and generated-root reporting first dispatch `manifest.json`
+through one schema/version-aware loader. Curated readers accept exactly
+`0.2.0`, `0.3.0`, and `1.0.0`; `1.0.0` requires its complete, schema-valid
+split identity projection. Unknown versions and malformed current identities
+fail before semantic validation or coverage reporting. The same loader
+recognizes the supported composition and structural-assembly manifest versions.
+
 Use `assemble --request assembly.json` when the requested data-element tree or
 typed bulk has no qualified template. Its manifest and report are intentionally
 separate from coverage and always state `iod_conformance = "not_assessed"`.

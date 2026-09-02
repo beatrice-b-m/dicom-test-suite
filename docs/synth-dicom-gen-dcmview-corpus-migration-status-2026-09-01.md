@@ -37,7 +37,7 @@ artifact.
 | R1 — contain CI and local build cost | Complete | R1.1, R1.2, R1.3, R1.4, R1.5, R1.6 | A disposable draft-PR probe proved superseded-run cancellation and single-event ownership. Replacement Fast run `33581809536` passed in 123 seconds of job time with only the declared Fast work, a 739,602,432-byte target, four smoke artifacts occupying 122,880 allocated bytes, and the 4-GiB ceiling enforced. The broad matrix remains separately scheduled/manually invocable. The R1 gate passes. |
 | R2 — reduce Rust test-linking amplification | Complete | R2.1, R2.2, R2.3, R2.4 | The fail-closed inventory maps 186 integration sources and all 879 integration entries into exactly 20 explicit harnesses. Six R0-measured heavy bodies have exact ignored qualification entry points, while deterministic change routing now selects bounded Fast/subsystem evidence and reports every deferred class without executing it. The aggregate R2 target-count, cost, heavy-isolation, and routing gates pass. |
 | R3 — rename reusable product | Complete | R3.1, R3.2, R3.3, R3.4 | Product, package, crate, library, sole binary, archives, discovery, package metadata, current operating guides, product-controlled environment, and production scratch paths use `synth-dicom-gen` / `synth_dicom_gen` at the breaking pre-1.0 product boundary `0.2.0`. Immutable dated evidence retains its exact old candidate identity, and 12 qualified-adapter variables retain provenance-bound spellings pending external requalification. The external-consumer audit found no supported `0.1.0` product consumer requiring an alias. A clean side project compiled and exercised only `synth_dicom_gen::sdk` from the extracted, verified `synth-dicom-gen-0.2.0.crate`, without the old repository path. The aggregate R3 gate passes. |
-| R4 — split immutable resources and corpus definitions | In progress | R4.1, R4.2 | `EngineResources` owns the immutable product-resource boundary and `CorpusDefinitionBundle` 1.0.0 now inspects integrity-checked caller corpus data. The supported SDK/CLI generation route, independent identity projection, corpus/Cargo digest removal, and reusable materialization remain R4.3-R5 work. |
+| R4 — split immutable resources and corpus definitions | In progress | R4.1, R4.2; first bounded R4.3 discovery slice | `EngineResources` owns the immutable product-resource boundary, `CorpusDefinitionBundle` 1.0.0 inspects integrity-checked caller corpus data, and version/capabilities discovery now projects independent installed identity domains. Later R4.3 manifest projections, corpus/Cargo digest removal, reusable materialization, and the supported SDK/CLI generation route remain open. |
 | R5 — add supported external corpus API | Not started | None | Requires the R4 resource and identity boundary. |
 | R6 — establish smoke corpus repository | Not started | None | No external repository has been created; authority and destination are still required before out-of-workspace mutation. |
 | R7 — migrate complete dcmview corpus | Not started | None | Requires R6 smoke parity and supported contracts. |
@@ -1776,6 +1776,112 @@ heavy body, codec/provider runtime, external adapter, Nightly,
 release-candidate body, remote operation, or release ran. R4.2-R4.5 and the
 aggregate R4 gate remain open.
 
+### R4.3 — first bounded identity-domain discovery slice
+
+**State:** discovery/version/capabilities slice complete on 2026-09-02;
+generated/composition/assembly/coverage/release manifest slices and aggregate
+R4.3 remain in progress
+
+**Commits:** `5a841cc`, `10ad60e`, `8d8e996`, `d6d52b2`, `97322b1`,
+`ff0e7db`, and `d052e5c`.
+
+Version and capabilities producers now emit schema `2.0.0`. Their shared
+identity projection has separately framed schema `1.0.0` domains for engine,
+schema set, template catalog, provider catalog, toolchain, standards, and
+execution. The canonical content-domain frame includes the identity-domain
+schema version, identity version, domain, and each path-sorted member's logical
+path, byte length, and SHA-256. The default inspection context emits an
+explicitly absent corpus identity. A corpus identity can be projected only
+from a successfully loaded `CorpusDefinitionBundle`; callers cannot fabricate
+one from public identity fields. External-runtime identities remain empty
+because capability declarations and environment-variable names are not
+per-invocation executable fingerprints.
+
+The installed default projection measured these exact content identities:
+
+| Domain | Members | Bytes | SHA-256 |
+| --- | ---: | ---: | --- |
+| engine | 3 | 20,643 | `4268d9216842aaaca8e9ea1d3fd8e8538d7d02124deccf8cd17b63c180b86276` |
+| schema set | 40 | 796,505 | `713c6d218810e6ea4a6ef62403fc0e94f5624b950e928257c452651afb661f46` |
+| template catalog | 3 | 145,871 | `ecd3875e89fbcba17e4d183b524237212674fd3c8ff7f20dc20900589926f5da` |
+| provider catalog | 16 | 229,788 | `a9241cab52ceee7332cb71a710e0fbb9680fcf6ca37e3111234bf317708cede5` |
+
+The default no-feature aarch64 macOS build measured Cargo.lock SHA-256
+`4aa4b6c94043fb2f236ec888ac9b253f2ff451b666464609f81f82aaac6d8a4d`,
+toolchain SHA-256
+`936108d136db532e6da0359975cfba3eb456e8cda12191cdf14fe0e6bc03c530`,
+standards-lock SHA-256
+`823230c5932b81b504434330d118fba286d5ff41d4e2f7766372633f4a49e559`,
+and execution SHA-256
+`162374c6231ba42c2453b04446b5bdccec5f0f04d1261db5f714ad24240e6bdd`.
+Toolchain and execution identities intentionally include target and enabled
+features and therefore are build-context identities rather than cross-target
+constants.
+
+The v2 producer temporarily retains top-level `product_resources` so this
+slice does not preempt the R4.4 removal boundary. The v2 schema makes that
+locked compatibility field optional: the current producer emits the exact
+240-resource, `dc61cc...` v1 snapshot, while R4.4 may stop emitting it without
+changing v2 meaning. Migration context separately retains its origin so an
+embedded versus explicit resource root remains observable while all content
+digests remain relocation-stable. The two new v2 schemas are directly embedded
+in the schema-set domain and excluded from the transitional 240-resource
+oracle.
+
+Capabilities advertises `result_schemas` as current producer versions: version
+and capabilities each list only `2.0.0`. Its separate
+`result_schema_validation` field lists `1.0.0` and `2.0.0` only where committed
+JSON Schema consumer fixtures exercise both. This is not a v1 producer
+selector and does not claim a typed Rust v1 reader or synthesize split
+subdigests from a legacy monolithic document. The v1 schemas remain unchanged;
+their fixtures validate without any `identity_domains` field.
+
+Adversarial tests prove that an unknown installed path fails classification,
+that every current installed member maps to one centralized domain, and that
+embedded and relocated explicit resources have identical content domains with
+only legacy origin differing. A second proof loads the committed corpus
+fixture through the fail-closed R4.2 loader, changes an evidence document and
+its verified descriptor, reloads it, and observes that only
+`corpus_definition` changes; engine, schema, template, provider, toolchain,
+runtime, standards, and execution identities remain equal.
+
+Focused verification passed:
+
+```text
+cargo test --locked --no-default-features --lib identity::identity_domain_tests::
+2 passed; 494 filtered
+
+cargo test --locked --no-default-features --test cli_sdk__nonfast version_cli::
+3 passed
+
+cargo test --locked --no-default-features --test cli_sdk__nonfast capabilities_cli::
+3 passed
+
+cargo test --locked --no-default-features --test schema_resources__subsystem
+86 passed
+
+cargo test --locked --no-default-features --test schema_resources__fast schema_artifacts::committed_schema_files_compile
+1 passed; 72 filtered
+
+python3 scripts/check-test-ownership.py
+passed: 22 targets; 264 groups; 1,396 entries; historical 20 integration targets, 186 sources, and 879 entries unchanged
+
+cargo check --locked --no-default-features
+cargo fmt --all -- --check
+git diff --check
+passed
+```
+
+The fail-closed route now owns `src/identity.rs` and `src/discovery.rs`
+through the identity bundle instead of routing discovery through embedded
+corpus. It selects the exact two-entry identity module, bounded version and
+capabilities CLI filters, schema subsystem, and unconditional Fast coverage.
+An earlier unnecessarily broad CLI/SDK harness run exposed the pre-existing
+nonsquare spatial hash mismatch; it is outside this slice and the focused
+affected filters pass. No manifest schema or producer, R4.4 removal, R4.5
+materialization, R5 generation API, feature/provider runtime, external adapter,
+heavy, Nightly, release-candidate, remote, or release body ran.
+
 ### R4.2 — versioned caller-owned corpus definition bundle
 
 **State:** complete on 2026-09-02; aggregate R4 remains in progress
@@ -1939,7 +2045,7 @@ baseline alone is not proof that those budgets have passed.
 | Repository boundary | Not run | Must prove no generator dependency on dcmview and no corpus use of unsupported modules or sibling paths. |
 | Naming and compatibility | Passed | R3.1-R3.4 prove package `synth-dicom-gen` `0.2.0`, library `synth_dicom_gen`, the sole binary and version-derived archive/discovery identities, clean no-alias product environment, renamed production scratch paths, dual readers only at the four approved compatibility boundaries, current operating guides under the new identity, immutable historical evidence under the old identity, and 12 explicitly evidence-bound retained adapter environments. The exact 2,500,992-byte packaged crate (`9bc4cdaa357ce6f87a8dcce61d2f554d45f7a795a5c5f09fbb93017e65f79fe6`) passed Cargo verification and a clean extracted-package SDK consumer without an old repository path. A qualified `0.2.0` release remains correctly separate in the packaging-and-release row. |
 | External corpus contract | In progress | R4.2 proves the versioned, bounded, integrity-checked definition schema and typed inspection loader. R5 must still expose supported CLI/SDK selection and generation without internal imports or sibling paths before this row can pass. |
-| Identity separation | Not run | Engine, toolchain, template/provider, schema, corpus, and external-runtime identities are not independently projected. |
+| Identity separation | In progress | The first R4.3 slice independently projects engine, toolchain, template, provider, schema, standards, execution, and verified loaded-corpus identities in v2 version/capabilities discovery; absent corpus and external runtime identities remain explicit. Generated/composition/assembly/coverage/release manifest projections remain sequential R4.3 work, and R4.4 still owns removal of the transitional monolithic inventory. |
 | Smoke migration | In progress | The R0 parity baseline passes for the current embedded smoke slice; R6 repository generation and comparison have not run. |
 | Complete migration | Not run | The current repository still owns the complete embedded corpus. |
 | Fast development | In progress | R1-R2 record the representative 123-second generator Fast PR, 739,602,432-byte target, bounded smoke artifacts, 20 integration harnesses, 84.28% comparable clean-tree size reduction, 91.19% bounded Fast-route reduction, and warm-invalidation evidence while preserving separately invocable heavy coverage. Representative corpus and viewer PR measurements remain absent, and R9.6 still owns terminal verification-class cost measurements, so this terminal row does not yet pass. |

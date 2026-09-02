@@ -6,8 +6,8 @@ use dicom_core::Tag;
 use dicom_dictionary_std::tags;
 use dicom_object::open_file;
 use synth_dicom_gen::assembly::{AssembleOptions, assemble};
+use synth_dicom_gen::engine_resources::EngineResources;
 use synth_dicom_gen::executor::cancellation::CancellationToken;
-use synth_dicom_gen::product_resources::ProductResources;
 use synth_dicom_gen::validate_generated_root;
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -31,7 +31,7 @@ fn run(request: &[u8], root: PathBuf, parallelism: u32) {
             dry_run: false,
         },
         &CancellationToken::new(),
-        &ProductResources::embedded(),
+        &EngineResources::embedded(),
     )
     .unwrap();
 }

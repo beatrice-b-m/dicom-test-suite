@@ -6,8 +6,8 @@ use dicom_core::{DataElement, VR};
 use dicom_dictionary_std::tags;
 use dicom_object::open_file;
 use synth_dicom_gen::assembly::{AssembleOptions, assemble};
+use synth_dicom_gen::engine_resources::EngineResources;
 use synth_dicom_gen::executor::cancellation::CancellationToken;
-use synth_dicom_gen::product_resources::ProductResources;
 use synth_dicom_gen::{build_coverage_report, validate_generated_root};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -54,7 +54,7 @@ fn structural_assembly_executes_through_shared_writer_and_manifest() {
             dry_run: false,
         },
         &CancellationToken::new(),
-        &ProductResources::embedded(),
+        &EngineResources::embedded(),
     )
     .unwrap();
     assert!(summary.published);
@@ -116,7 +116,7 @@ fn structural_validation_detects_post_publication_tampering() {
             dry_run: false,
         },
         &CancellationToken::new(),
-        &ProductResources::embedded(),
+        &EngineResources::embedded(),
     )
     .unwrap();
     let path = root.join("instances/primary.dcm");
@@ -148,7 +148,7 @@ fn structural_validation_compares_manifest_element_evidence() {
             dry_run: false,
         },
         &CancellationToken::new(),
-        &ProductResources::embedded(),
+        &EngineResources::embedded(),
     )
     .unwrap();
     let path = root.join("instances/primary.dcm");
@@ -202,13 +202,13 @@ fn structural_dry_run_has_same_plan_hash_and_creates_nothing() {
     let published = assemble(
         &options(published_root.clone(), false),
         &CancellationToken::new(),
-        &ProductResources::embedded(),
+        &EngineResources::embedded(),
     )
     .unwrap();
     let dry = assemble(
         &options(dry_root.clone(), true),
         &CancellationToken::new(),
-        &ProductResources::embedded(),
+        &EngineResources::embedded(),
     )
     .unwrap();
     assert_eq!(published.corpus_plan_sha256, dry.corpus_plan_sha256);
@@ -233,7 +233,7 @@ fn structural_cancellation_publishes_nothing() {
             dry_run: false,
         },
         &cancellation,
-        &ProductResources::embedded(),
+        &EngineResources::embedded(),
     )
     .unwrap_err();
     assert!(
@@ -265,7 +265,7 @@ fn structural_destination_race_preserves_one_valid_winner_and_cleans_staging() {
                         dry_run: false,
                     },
                     &CancellationToken::new(),
-                    &ProductResources::embedded(),
+                    &EngineResources::embedded(),
                 )
             })
         })

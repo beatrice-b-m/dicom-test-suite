@@ -358,7 +358,7 @@
         "structural_cancellation_publishes_nothing",
         "structural_destination_race_preserves_one_valid_winner_and_cleans_staging"
       ],
-      "entry_digest": "4ccda21e583298995b2d7261bc4fee7b86477f2b356fa592946927c3b5600642"
+      "entry_digest": "2a2f617e71cdc5a737e5a5f16720475040bab40efececcef591457b476aaa959"
     },
     {
       "source": "tests/blending_presentation_state.rs",
@@ -440,7 +440,7 @@
         "ci_build_storage_controls_cover_every_job_and_preserve_heavy_evidence",
         "ci_cost_reporter_handles_missing_and_spaced_paths_and_fails_closed"
       ],
-      "entry_digest": "7c5ea8ac6faa2b30f96de188bdea3ce492c140b284ca22c48ea3b32ad0b884bf",
+      "entry_digest": "eee9fb487048f4d5d57db0151f62f98d2fa3e0065e1b6c4ae68e7139a2d968ef",
       "fast_cost_exemption": "Static workflow and script inspection; no heavyweight command is executed."
     },
     {
@@ -576,7 +576,7 @@
         "machine_exit_classes_are_stable_end_to_end",
         "workflow_error_classification_matches_the_append_only_registry"
       ],
-      "entry_digest": "7db78d8bdcf2fcc3c9b23547b643a110e23bbcc6ba1d67875fbe5ef1ac53f979"
+      "entry_digest": "29de8c12e6e34d1a7a84654a1bbf19dbf46a6075f421f0fd3166b657de6a0a2e"
     },
     {
       "source": "tests/codec_backend_registry.rs",
@@ -1582,6 +1582,37 @@
       "entry_digest": "d43514196b11a79d379d47ce1c18a9735dea5527836069d92068aa771c501f8e"
     },
     {
+      "source": "tests/engine_resource_lookup_audit.rs",
+      "target": "schema_resources__subsystem",
+      "domain": "schema_resources",
+      "verification_class": "subsystem",
+      "cost_tier": "ordinary",
+      "entry_count": 2,
+      "entries": [
+        "production_has_no_uninventoried_ambient_resource_lookups",
+        "regression_tests_have_no_host_private_frozen_fixture_dependencies"
+      ],
+      "entry_digest": "d43dd07e87dc08815da180c9a86c236c91e73131c7d1aadfd280436bd77928be"
+    },
+    {
+      "source": "tests/engine_resources.rs",
+      "target": "schema_resources__subsystem",
+      "domain": "schema_resources",
+      "verification_class": "subsystem",
+      "cost_tier": "ordinary",
+      "entry_count": 7,
+      "entries": [
+        "embedded_resources_cover_engine_families_and_transitional_membership",
+        "resource_build_tracks_directory_additions",
+        "embedded_and_relocated_explicit_resources_have_identical_identity",
+        "tampered_or_symlinked_explicit_resources_fail_before_materialization",
+        "embedded_bytes_match_committed_sources",
+        "resource_lookup_rejects_unsafe_and_unknown_paths",
+        "snapshot_materializes_and_cleans_the_complete_resource_tree"
+      ],
+      "entry_digest": "0b030964e84d78a6268f4072b5fc1e0b848bc55061dbd8b5cec06fb169c2831c"
+    },
+    {
       "source": "tests/enhanced_mr_temporal.rs",
       "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
@@ -2167,37 +2198,6 @@
         "provider_preserves_caller_owned_target_context"
       ],
       "entry_digest": "1d01cabb25ad2582c166f2939e03a2f10fe457b08656d98bb3b861ab1f09f287"
-    },
-    {
-      "source": "tests/product_resource_lookup_audit.rs",
-      "target": "schema_resources__subsystem",
-      "domain": "schema_resources",
-      "verification_class": "subsystem",
-      "cost_tier": "ordinary",
-      "entry_count": 2,
-      "entries": [
-        "production_has_no_uninventoried_ambient_resource_lookups",
-        "regression_tests_have_no_host_private_frozen_fixture_dependencies"
-      ],
-      "entry_digest": "276c6c108599543e99eb53098bff243351d25a6cf77926982294e44db778b2e2"
-    },
-    {
-      "source": "tests/product_resources.rs",
-      "target": "schema_resources__subsystem",
-      "domain": "schema_resources",
-      "verification_class": "subsystem",
-      "cost_tier": "ordinary",
-      "entry_count": 7,
-      "entries": [
-        "embedded_resources_cover_all_first_party_product_families",
-        "resource_build_tracks_directory_additions",
-        "embedded_and_explicit_repository_resources_have_identical_identity",
-        "tampered_explicit_resources_fail_before_materialization_with_a_stable_code",
-        "embedded_bytes_match_committed_sources",
-        "resource_lookup_rejects_unsafe_and_unknown_paths",
-        "snapshot_materializes_and_cleans_the_complete_resource_tree"
-      ],
-      "entry_digest": "0c62894ab9526ad19fa446d4ed8bc8d09b0671153cc0b303052ccb70dfa1ccc1"
     },
     {
       "source": "tests/project_artifacts.rs",
@@ -3107,7 +3107,7 @@
         "version_human_output_preserves_the_existing_banner",
         "version_machine_resource_drift_is_a_stable_integrity_error"
       ],
-      "entry_digest": "b3daaf83f8b1e68d55c6525df663c6721bafa359d90d9d84089621f2536f8699"
+      "entry_digest": "f2cb89bf70c3be1771d36e5ec02b1e46828bf03349931709e8dfa47de9c2b0d9"
     },
     {
       "source": "tests/waveform_document_mesh_plan.rs",
@@ -3547,7 +3547,7 @@
         "encoded_rle_frames_are_hash_checked_decoded_and_preserved",
         "inline_small_fixture_is_hash_checked_and_resource_accounted"
       ],
-      "entry_digest": "a8aa5e1f938f0f7bcc97c9fc29b7c4fadef4a340b7cdeb89153da0773b34df25"
+      "entry_digest": "08fea3f63f67714575df2975d93cdabad390e5f97110fa8c54af8bfcf0a915e8"
     },
     {
       "source": "src/composition/spec.rs",

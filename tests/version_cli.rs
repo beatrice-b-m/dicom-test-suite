@@ -74,7 +74,7 @@ fn version_human_output_preserves_the_existing_banner() {
 
 #[test]
 fn version_machine_resource_drift_is_a_stable_integrity_error() {
-    let snapshot = synth_dicom_gen::product_resources::ProductResources::embedded()
+    let snapshot = synth_dicom_gen::engine_resources::EngineResources::embedded()
         .snapshot()
         .unwrap();
     let registry = snapshot.root().join("cases/registry.json");

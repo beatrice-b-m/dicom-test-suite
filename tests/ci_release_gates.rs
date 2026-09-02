@@ -493,7 +493,7 @@ fn heavy_workflow_retains_nightly_matrix_and_immutable_release_gate() {
         "cargo fmt --all -- --check",
         "git diff --check",
         "RUSTFLAGS='-D warnings' cargo check",
-        "product_resource_lookup_audit",
+        "engine_resource_lookup_audit",
         "non_rust_cli_consumer",
         "caller_content_consumer",
         "qualified_catalog_consumer",
@@ -515,7 +515,7 @@ fn heavy_workflow_retains_nightly_matrix_and_immutable_release_gate() {
     }
     assert!(release.contains("path: ${{ runner.temp }}/dist/*"));
     for selector in [
-        "--test schema_resources__subsystem product_resource_lookup_audit::",
+        "--test schema_resources__subsystem engine_resource_lookup_audit::",
         "--test schema_resources__fast",
         "--test release_ci__fast",
         "--test release_ci__nonfast \"$module::\"",
@@ -597,10 +597,7 @@ fn heavy_workflow_retains_nightly_matrix_and_immutable_release_gate() {
     assert!(archive_harness.contains("tampered.tar.gz"));
 
     let regression_sources = [
-        (
-            "tests/product_resource_lookup_audit.rs",
-            "findings.is_empty",
-        ),
+        ("tests/engine_resource_lookup_audit.rs", "findings.is_empty"),
         ("tests/schema_artifacts.rs", "reject"),
         ("tests/black_box_cli_consumer.py", "expected=0"),
         ("tests/release_archive.rs", "parallelism"),

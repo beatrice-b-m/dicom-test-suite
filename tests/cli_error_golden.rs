@@ -84,7 +84,7 @@ fn machine_exit_classes_are_stable_end_to_end() {
     );
     fs::remove_dir(&existing).unwrap();
 
-    let snapshot = synth_dicom_gen::product_resources::ProductResources::embedded()
+    let snapshot = synth_dicom_gen::engine_resources::EngineResources::embedded()
         .snapshot()
         .unwrap();
     let registry = snapshot.root().join("cases/registry.json");

@@ -133,7 +133,7 @@
     },
     {
       "id": "schema",
-      "exact": ["src/product_resources.rs"],
+      "exact": ["src/engine_resources.rs"],
       "prefixes": ["schemas/"],
       "bundles": ["schema"]
     },

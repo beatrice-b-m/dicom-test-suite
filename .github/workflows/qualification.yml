@@ -232,7 +232,7 @@ jobs:
           cargo fmt --all -- --check
           git diff --check
           RUSTFLAGS='-D warnings' cargo check --locked --all-targets --no-default-features
-          cargo test --locked --no-default-features --test schema_resources__subsystem product_resource_lookup_audit::
+          cargo test --locked --no-default-features --test schema_resources__subsystem engine_resource_lookup_audit::
           cargo test --locked --no-default-features --test schema_resources__fast
           cargo test --locked --no-default-features --test release_ci__fast
           for module in \

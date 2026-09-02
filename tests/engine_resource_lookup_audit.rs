@@ -52,7 +52,21 @@ fn production_has_no_uninventoried_ambient_resource_lookups() {
     findings.sort();
     assert!(
         findings.is_empty(),
-        "production first-party resources must resolve through ProductResources: {findings:#?}"
+        "production first-party resources must resolve through EngineResources: {findings:#?}"
+    );
+
+    assert!(!Path::new("src/product_resources.rs").exists());
+    let library = fs::read_to_string("src/lib.rs").unwrap();
+    assert!(!library.contains("pub mod product_resources"));
+    let mut old_implementation = Vec::new();
+    visit_rust_sources(Path::new("src"), &mut |path, source| {
+        if source.contains("ProductResources") || source.contains("product_resources::") {
+            old_implementation.push(path.display().to_string());
+        }
+    });
+    assert!(
+        old_implementation.is_empty(),
+        "old ProductResources implementation remains reachable: {old_implementation:#?}"
     );
 }
 

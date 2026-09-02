@@ -36,6 +36,8 @@ jobs:
         run: |
           cargo fmt --all -- --check
           jq empty cases/registry.json schemas/*.json transfer-syntax/*.json standards.lock.json
+          python3 scripts/check-test-ownership.py
+          python3 -m unittest tests/test_test_ownership_checker.py
       - name: Compile public library and CLI with warnings denied
         env:
           RUSTFLAGS: -D warnings

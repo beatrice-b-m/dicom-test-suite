@@ -35,7 +35,7 @@ artifact.
 | --- | --- | --- | --- |
 | R0 — freeze migration contract | Complete | R0.1, R0.2, R0.3, R0.4 | ADR 0003, the dated cost baseline, the exhaustive 801-path ownership inventory, and the seed-1 smoke parity manifest fix repository ownership, invalidated verification class, and the byte/normalized-semantic migration boundary. The R0 gate passes. |
 | R1 — contain CI and local build cost | Complete | R1.1, R1.2, R1.3, R1.4, R1.5, R1.6 | A disposable draft-PR probe proved superseded-run cancellation and single-event ownership. Replacement Fast run `33581809536` passed in 123 seconds of job time with only the declared Fast work, a 739,602,432-byte target, four smoke artifacts occupying 122,880 allocated bytes, and the 4-GiB ceiling enforced. The broad matrix remains separately scheduled/manually invocable. The R1 gate passes. |
-| R2 — reduce Rust test-linking amplification | Not started | None | Requires R1 routing and the R0 test-target baseline. |
+| R2 — reduce Rust test-linking amplification | In progress | R2.1 | A machine-readable inventory assigns all 188 Cargo harness targets and 1,375 direct Rust test entries to exactly one domain and verification class. The Fast metadata checker fails closed on target/entry drift, duplicate or missing ownership, unsupported generated-test attributes, and heavy or ignored Fast assignments. Harness consolidation, explicit heavy entry points, targeted routing, and the R2 gate remain. |
 | R3 — rename reusable product | Not started | None | Requires the R0 gate; no current file, package, crate, binary, archive, or environment spelling has been migrated. |
 | R4 — split immutable resources and corpus definitions | Not started | None | Requires the accepted naming decision and sequential resource/schema migration. |
 | R5 — add supported external corpus API | Not started | None | Requires the R4 resource and identity boundary. |
@@ -779,6 +779,88 @@ workflow gates; R1 does not require a release-candidate execution. The live
 probe above closes the phase gate only for the representative Fast class.
 Terminal Fast-development and heavy-qualification rows remain open until the
 later repository split and exact terminal runs.
+
+### R2.1 — exhaustive Rust test ownership metadata
+
+**State:** complete; R2 remains in progress
+
+**Commit:** the commit introducing this ownership contract, with subject
+`test(ci): require explicit test ownership metadata` (resolve the exact object
+with `git log --format='%H %s' -- product/test-ownership.json`)
+
+**Owned files:**
+
+- `product/test-ownership.json`
+- `scripts/check-test-ownership.py`
+- `tests/test_test_ownership_checker.py`
+- `.github/workflows/ci.yml`
+- `docs/synth-dicom-gen-dcmview-corpus-migration-status-2026-09-01.md`
+
+The manifest inventories all 186 integration targets plus the library and
+binary harnesses reported by locked Cargo metadata. Every top-level integration
+source, including a zero-entry harness if one exists, and every `src/**/*.rs`
+file containing a direct `#[test]` attribute has one source group. Each group
+owns the exact entry-name list and a digest of the discovered test
+segments, and assigns every entry one domain, verification class, and ordinary
+or heavy cost tier. Target keys and source groups are unique, so duplicate
+ownership is not representable without failing the checker.
+
+The accepted inventory contains 188 targets, 262 entry groups, and 1,375 test
+entries. Target classes are 4 Fast, 149 Subsystem, 26 Nightly, and 9 Release
+candidate; entry classes are 84 Fast, 1,151 Subsystem, 128 Nightly, and 12
+Release candidate. Entry ownership by domain is 24 assembly, 151 CLI/SDK, 88
+codec, 96 composition, 81 conformance/interoperability, 487 corpus generation,
+160 engine, 30 provider, 25 release/CI, 160 schema/resource, and 73
+standards/validation tests.
+
+The six exact heavyweight entries frozen by R0.2 remain explicitly named in
+their groups. Stress, WSI, full-file, and ignored-provider groups are
+conservatively marked heavy; no such group is Fast. Fast entry names carrying
+heavy-looking terms require a non-empty cost exemption. The three current
+exemptions are limited to static workflow/script inspection, static JSON Schema
+validation, and static documentation inspection; none executes the heavy work
+its strings describe. Process launches, sleeps, broad Cargo flags, full-profile
+selectors, and release-archive commands are also detected Fast cost markers.
+Fast assignment fails if a group is heavy or contains an ignored test even if
+an exemption is present.
+
+The checker derives the Cargo target set without compiling, rediscovers all
+direct Rust test attributes, compares exact targets, sources, names, counts,
+and digests, validates enum and target references, and rejects missing,
+duplicate, stale, conflicting, or accidentally heavy Fast ownership. Async or
+macro-generated test attributes are deliberately unsupported and fail closed
+until the checker is extended; no such attribute exists in the accepted
+inventory. This is a static ownership/routing contract, not evidence that the
+1,375 tests executed or passed.
+
+The Fast workflow runs the checker and its five negative/positive fixtures
+before Rust compilation. Fixtures prove the current inventory, exact six-entry
+heavy baseline, workflow hook, unowned target, duplicate target, entry drift,
+duplicate source ownership, heavy Fast assignment, and missing Fast exemption
+boundaries. No Rust integration target was added, no harness was consolidated,
+and no existing test assertion or test selection was changed.
+
+**Measurement and verification:** the checker completed in 0.35 seconds wall
+(0.29 user, 0.04 system), and the five fixtures completed in 2.23 seconds wall
+(2.184 seconds in `unittest`). The JSON manifest is 225,408 logical bytes and
+224 KiB allocated; checker and fixture sources are 18,357 and 3,257 logical
+bytes. `python3 scripts/check-test-ownership.py`, `python3 -m unittest
+tests/test_test_ownership_checker.py`, Python bytecode compilation in an exact
+disposable cache, workflow YAML parsing, `jq empty`, locked no-dependency Cargo
+metadata, `cargo fmt --all -- --check`, and `git diff --check` passed. The
+disposable bytecode cache was removed by exact path and confirmed absent. No
+corpus output, package, archive, heavyweight test, qualification workflow, or
+external state was created. The existing six-test `ci_release_gates` target
+also passed in an explicit fresh target to protect the changed Fast workflow;
+that focused compile/test took 26 seconds and occupied 567,877,632 allocated
+target bytes. Its cost was reported before the exact temporary root was
+removed and confirmed absent. This focused static target is not a broad Rust
+suite or qualification run.
+
+R2.2 still owns harness consolidation and the at-most-20 binary gate. R2.3
+still owns explicit heavy entry points, and R2.4 owns change-to-test routing.
+Therefore neither the R2 gate nor a reduction in linked harness count is
+claimed by R2.1.
 
 ## Measurements
 

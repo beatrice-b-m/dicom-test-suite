@@ -2105,6 +2105,66 @@ Nightly, release-candidate, or R7 terminal qualification ran. This repair is
 ordinary R3/R0 compatibility evidence only and does not promote any deferred
 R7 or terminal acceptance row.
 
+#### 2026-09-02 curated manifest 1.0 ordinary-debt closure
+
+Commits `263954e` through `1505f6a` close all 27 ordinary failures recorded
+above without changing a production schema or manifest producer. A shared
+test validator now selects the frozen curated `0.2.0`/`0.3.0` schema or the
+referenced curated `1.0.0` schema graph, including the frozen legacy manifest
+resource and version-result-v2 identity resource. The affected verticals now
+validate the version actually emitted, and the generation routing assertion
+names the supported `prepare_curated_plan_for_selection` seam.
+
+The seven locked-field mutations that cannot satisfy manifest 1.0 now assert
+the public schema-first `ManifestContract` rejection. A crate-internal-only
+semantic seam calls the unchanged post-schema validator directly; its focused
+test proves that the empty-Type-2, private-creator, sequence-length, NM, PET,
+US, and enhanced-PET semantic guards still fail closed. This seam is not a
+public API and does not bypass schema validation for CLI, library, or SDK
+consumers.
+
+Focused and terminal ordinary evidence passed:
+
+```text
+27 exact cargo test --locked --no-default-features --test
+  corpus_generation__subsystem <recorded-test-name> -- --exact invocations
+27 passed; 0 failed
+
+cargo test --locked --no-default-features --lib
+  tests::schema_locked_manifest_fields_retain_downstream_semantic_guards
+  -- --exact
+1 passed; seven schema-locked downstream guards exercised
+
+cargo test --locked --no-default-features --test
+  corpus_generation__subsystem -- --format terse
+92 passed; 0 failed; 0 ignored
+
+python3 scripts/check-test-ownership.py
+passed: 22 targets; 265 groups; 1,401 entries; 20 integration targets,
+187 integration sources, 882 integration entries
+
+python3 tests/test_change_test_routing.py
+15 passed
+
+python3 scripts/check-spelling-transition.py
+passed: 884 classified retained occurrences;
+SHA-256 08a12f22493fa0cbed591f3178e063330fe73d945649fe10f18db79bcf4293e0
+
+cargo fmt --all -- --check
+git diff --check
+passed
+```
+
+Every changed code, test, ownership, and spelling-inventory path was inspected
+with `route-changed-tests.py --dry-run` before its focused ordinary checks.
+The resulting routing config identity is
+`c5aaca6491ecdeba43497eea7502532b810d8ccf6ecddf30df32f5ac13b429c9`;
+the ownership identity is
+`e01309baff27d13cddf9ac2271dffd62a02ade5423ed93cafefeac656b64bb43`.
+No Heavy, ignored, feature-gated, external-provider, Nightly,
+release-candidate, composition/assembly/coverage/release identity, R4.4, or R5
+body ran or is claimed by this closure.
+
 The subsequent R3 review found that eight crate-internal validator fixture
 modules still constructed Software Versions with `PACKAGE_VERSION`, allowing
 their paired expectations to pass against release-coupled fixture bytes even

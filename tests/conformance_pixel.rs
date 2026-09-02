@@ -451,7 +451,7 @@ fn rt_image_decoder_policy_is_exact_case_scoped_and_reuses_locked_dcmtk() {
 
 #[test]
 fn real_dcmtk_rle_adapter_matches_all_manifest_frame_hashes_when_enabled() {
-    if std::env::var("DTS_REAL_CONFORMANCE").as_deref() != Ok("1") {
+    if std::env::var("SYNTH_DICOM_GEN_REAL_CONFORMANCE").as_deref() != Ok("1") {
         return;
     }
     for command in ["dcmdump", "dcmdrle"] {

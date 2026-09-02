@@ -194,10 +194,16 @@ pub(crate) fn invoke_content_provider_cancellable(
         .args(&invocation.arguments)
         .current_dir(staging_root)
         .env_clear()
-        .env("DTS_COMPOSITION_PROVIDER_REQUEST", &request_path)
-        .env("DTS_COMPOSITION_PROVIDER_RESPONSE", &response_path)
-        .env("DTS_COMPOSITION_PROVIDER_OUTPUTS", &output_root)
-        .env("DTS_COMPOSITION_PROVIDER_NETWORK", "disabled")
+        .env(
+            "SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_REQUEST",
+            &request_path,
+        )
+        .env(
+            "SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_RESPONSE",
+            &response_path,
+        )
+        .env("SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_OUTPUTS", &output_root)
+        .env("SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_NETWORK", "disabled")
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());

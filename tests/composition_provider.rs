@@ -63,17 +63,17 @@ fn request() -> ProviderRequest {
 
 fn success_script(extra_output: bool) -> String {
     let extra = if extra_output {
-        "printf 'undeclared' > \"$DTS_COMPOSITION_PROVIDER_OUTPUTS/extra.bin\""
+        "printf 'undeclared' > \"$SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_OUTPUTS/extra.bin\""
     } else {
         ""
     };
     format!(
         r#"#!/bin/sh
-request_id=$(/usr/bin/sed -n 's/.*"request_id": "\([^"]*\)".*/\1/p' "$DTS_COMPOSITION_PROVIDER_REQUEST")
-argument_sha256=$(/usr/bin/sed -n 's/.*"argument_sha256": "\([^"]*\)".*/\1/p' "$DTS_COMPOSITION_PROVIDER_REQUEST")
-printf 'abc' > "$DTS_COMPOSITION_PROVIDER_OUTPUTS/content.bin"
+request_id=$(/usr/bin/sed -n 's/.*"request_id": "\([^"]*\)".*/\1/p' "$SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_REQUEST")
+argument_sha256=$(/usr/bin/sed -n 's/.*"argument_sha256": "\([^"]*\)".*/\1/p' "$SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_REQUEST")
+printf 'abc' > "$SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_OUTPUTS/content.bin"
 {extra}
-printf '{{"protocol_version":"1.0.0","request_id":"%s","provider_id":"fixture.provider","provider_version":"1.2.3","executable_sha256":"%s","argument_sha256":"%s","output":{{"slot":"pixels","relative_path":"content.bin","size_bytes":3,"sha256":"{}"}}}}' "$request_id" "$1" "$argument_sha256" > "$DTS_COMPOSITION_PROVIDER_RESPONSE"
+printf '{{"protocol_version":"1.0.0","request_id":"%s","provider_id":"fixture.provider","provider_version":"1.2.3","executable_sha256":"%s","argument_sha256":"%s","output":{{"slot":"pixels","relative_path":"content.bin","size_bytes":3,"sha256":"{}"}}}}' "$request_id" "$1" "$argument_sha256" > "$SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_RESPONSE"
 "#,
         sha256_hex(b"abc")
     )
@@ -174,7 +174,7 @@ fn provider_crash_and_hang_are_bounded() {
     let flood = root.join("flood.sh");
     write_executable(
         &flood,
-        "#!/bin/sh\n/usr/bin/yes x | /usr/bin/head -c 1048576 > \"$DTS_COMPOSITION_PROVIDER_OUTPUTS/content.bin\"\n/bin/sleep 5\n",
+        "#!/bin/sh\n/usr/bin/yes x | /usr/bin/head -c 1048576 > \"$SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_OUTPUTS/content.bin\"\n/bin/sleep 5\n",
     );
     let flood_sha256 = sha256_hex(&fs::read(&flood).unwrap());
     assert!(matches!(
@@ -201,7 +201,7 @@ fn provider_rejects_malformed_mismatched_and_symlink_outputs() {
     let malformed = root.join("malformed.sh");
     write_executable(
         &malformed,
-        "#!/bin/sh\nprintf 'abc' > \"$DTS_COMPOSITION_PROVIDER_OUTPUTS/content.bin\"\nprintf 'not-json' > \"$DTS_COMPOSITION_PROVIDER_RESPONSE\"\n",
+        "#!/bin/sh\nprintf 'abc' > \"$SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_OUTPUTS/content.bin\"\nprintf 'not-json' > \"$SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_RESPONSE\"\n",
     );
     let malformed_sha256 = sha256_hex(&fs::read(&malformed).unwrap());
     assert!(matches!(
@@ -243,7 +243,7 @@ fn provider_rejects_malformed_mismatched_and_symlink_outputs() {
     let symlink_output = root.join("symlink-output.sh");
     write_executable(
         &symlink_output,
-        "#!/bin/sh\n/bin/ln -s /dev/null \"$DTS_COMPOSITION_PROVIDER_OUTPUTS/content.bin\"\n",
+        "#!/bin/sh\n/bin/ln -s /dev/null \"$SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_OUTPUTS/content.bin\"\n",
     );
     let symlink_output_sha256 = sha256_hex(&fs::read(&symlink_output).unwrap());
     assert!(matches!(
@@ -283,10 +283,10 @@ fn provider_rejects_malformed_mismatched_and_symlink_outputs() {
 fn composition_script(payload_sha256: &str) -> String {
     format!(
         r#"#!/bin/sh
-request_id=$(/usr/bin/sed -n 's/.*"request_id": "\([^"]*\)".*/\1/p' "$DTS_COMPOSITION_PROVIDER_REQUEST")
-argument_sha256=$(/usr/bin/sed -n 's/.*"argument_sha256": "\([^"]*\)".*/\1/p' "$DTS_COMPOSITION_PROVIDER_REQUEST")
-printf 'abcd' > "$DTS_COMPOSITION_PROVIDER_OUTPUTS/pixels.raw"
-printf '{{"protocol_version":"1.0.0","request_id":"%s","provider_id":"fixture.provider","provider_version":"1.2.3","executable_sha256":"%s","argument_sha256":"%s","output":{{"slot":"pixels","relative_path":"pixels.raw","size_bytes":4,"sha256":"{payload_sha256}"}}}}' "$request_id" "$1" "$argument_sha256" > "$DTS_COMPOSITION_PROVIDER_RESPONSE"
+request_id=$(/usr/bin/sed -n 's/.*"request_id": "\([^"]*\)".*/\1/p' "$SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_REQUEST")
+argument_sha256=$(/usr/bin/sed -n 's/.*"argument_sha256": "\([^"]*\)".*/\1/p' "$SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_REQUEST")
+printf 'abcd' > "$SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_OUTPUTS/pixels.raw"
+printf '{{"protocol_version":"1.0.0","request_id":"%s","provider_id":"fixture.provider","provider_version":"1.2.3","executable_sha256":"%s","argument_sha256":"%s","output":{{"slot":"pixels","relative_path":"pixels.raw","size_bytes":4,"sha256":"{payload_sha256}"}}}}' "$request_id" "$1" "$argument_sha256" > "$SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_RESPONSE"
 "#
     )
 }
@@ -392,10 +392,10 @@ fn compose_pipelines_provider_native_pixels_through_rle_without_planning_bytes()
         &executable,
         &format!(
             r#"#!/bin/sh
-request_id=$(/usr/bin/sed -n 's/.*"request_id": "\([^"]*\)".*/\1/p' "$DTS_COMPOSITION_PROVIDER_REQUEST")
-argument_sha256=$(/usr/bin/sed -n 's/.*"argument_sha256": "\([^"]*\)".*/\1/p' "$DTS_COMPOSITION_PROVIDER_REQUEST")
-/usr/bin/head -c 512 /dev/zero > "$DTS_COMPOSITION_PROVIDER_OUTPUTS/pixels.raw"
-printf '{{"protocol_version":"1.0.0","request_id":"%s","provider_id":"fixture.provider","provider_version":"1.2.3","executable_sha256":"%s","argument_sha256":"%s","output":{{"slot":"pixels","relative_path":"pixels.raw","size_bytes":512,"sha256":"{native_sha256}"}}}}' "$request_id" "$1" "$argument_sha256" > "$DTS_COMPOSITION_PROVIDER_RESPONSE"
+request_id=$(/usr/bin/sed -n 's/.*"request_id": "\([^"]*\)".*/\1/p' "$SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_REQUEST")
+argument_sha256=$(/usr/bin/sed -n 's/.*"argument_sha256": "\([^"]*\)".*/\1/p' "$SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_REQUEST")
+/usr/bin/head -c 512 /dev/zero > "$SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_OUTPUTS/pixels.raw"
+printf '{{"protocol_version":"1.0.0","request_id":"%s","provider_id":"fixture.provider","provider_version":"1.2.3","executable_sha256":"%s","argument_sha256":"%s","output":{{"slot":"pixels","relative_path":"pixels.raw","size_bytes":512,"sha256":"{native_sha256}"}}}}' "$request_id" "$1" "$argument_sha256" > "$SYNTH_DICOM_GEN_COMPOSITION_PROVIDER_RESPONSE"
 "#
         ),
     );

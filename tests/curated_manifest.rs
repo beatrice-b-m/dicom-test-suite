@@ -64,7 +64,7 @@ fn generate(profile: &str) -> Temp {
 #[test]
 fn production_projection_matches_every_historical_file_value() {
     let generated;
-    let (roots, seed) = if let Ok(root) = std::env::var("DTS_CLASSIC_BASELINE_ROOT") {
+    let (roots, seed) = if let Ok(root) = std::env::var("SYNTH_DICOM_GEN_CLASSIC_BASELINE_ROOT") {
         (
             vec![
                 PathBuf::from(&root).join("all"),

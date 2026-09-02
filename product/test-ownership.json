@@ -382,7 +382,7 @@
       "entries": [
         "installed_style_consumer_uses_external_pixels_and_typed_attributes"
       ],
-      "entry_digest": "d4b680196694b31f95a769b5a5c2fdc29ca13790fa3a35fe06633721d0a4f77b"
+      "entry_digest": "4a0122712cbfcd5a72018801e27c891d5d5a9d5963685ba08cf2c69e536db59f"
     },
     {
       "source": "tests/capabilities_cli.rs",
@@ -855,7 +855,7 @@
         "compose_pipelines_provider_native_pixels_through_rle_without_planning_bytes",
         "compose_provider_crash_cannot_publish_a_partial_corpus"
       ],
-      "entry_digest": "6973bf1dedcd46a7bd048cba9f6db36c4fdfb8654fc911393f01ab8849da517f"
+      "entry_digest": "620011fce6dbfbcf9ce949391737aeeb5b53a25f50880de6a463362d0d52ffc5"
     },
     {
       "source": "tests/composition_public_api.rs",
@@ -1058,7 +1058,7 @@
       "entries": [
         "case_specific_primary_validator_uses_locked_environment_runtime_and_artifacts"
       ],
-      "entry_digest": "64929ffd1dbab851e7fd55b7e21ee5b0e294ed10853382f42ac45a57f13e6866"
+      "entry_digest": "628d0510d7c47b88434dc07bd2287238b161e31048fb72bfee2664ce081bc026"
     },
     {
       "source": "tests/conformance_parser.rs",
@@ -1096,7 +1096,7 @@
         "rt_image_decoder_policy_is_exact_case_scoped_and_reuses_locked_dcmtk",
         "real_dcmtk_rle_adapter_matches_all_manifest_frame_hashes_when_enabled"
       ],
-      "entry_digest": "9cc83d9e197a1aef535f67cede437e73063c6f00a62e26288c238ea5b7a295b6"
+      "entry_digest": "e237f11046881dd619f6f2e1e91371d11b373f6f7c0d1a23df3a58d54a65e190"
     },
     {
       "source": "tests/conformance_rt.rs",
@@ -1148,7 +1148,7 @@
       "entries": [
         "sr_adapter_runs_only_for_supported_sop_classes_and_hashes_its_classpath"
       ],
-      "entry_digest": "e5a6929213f28abbabd8b03a3bf874d971576e20f76dbb7ad4b8b5af91b36a49"
+      "entry_digest": "f9293867f9173b156b16fe365dc2015a1ddc4eae234504a60dfa702d6cce05ce"
     },
     {
       "source": "tests/conformance_verify.rs",
@@ -1416,7 +1416,7 @@
         "projection_rejects_crossed_output_and_materialization_hashes",
         "production_projector_is_filesystem_and_generator_free"
       ],
-      "entry_digest": "ec16dadc586be90d6053cff2cb1d855e7fa449cd02630b105b1bd766b92b735b"
+      "entry_digest": "4a184a7ec76cf529133e3d3d9cd55038c7887a1e385708a42330c569c118e6ba"
     },
     {
       "source": "tests/curated_negative_plan.rs",
@@ -2335,7 +2335,7 @@
       "entries": [
         "installed_style_consumer_discovers_and_reproduces_every_qualified_template"
       ],
-      "entry_digest": "332ad2058a1a3732331bca71474cbf5a0e6fc89755eb337aa4fdf7ae6fdd04b5"
+      "entry_digest": "504975df5be39234369cb73fe3cd1a5bc99a23af03daab1580015564f16b13ba"
     },
     {
       "source": "tests/quantitative_direct_parity.rs",
@@ -2858,7 +2858,7 @@
       "entries": [
         "installed_style_consumer_exercises_every_structural_content_kind"
       ],
-      "entry_digest": "a55aaf43f44efa99dcd0286724bdfc8f837092a3e5f41330243dd3bf6fc511e1"
+      "entry_digest": "6b9073353bd1f9c0f341af7261a51683f8728a1aa84878d892ad2884be43087c"
     },
     {
       "source": "tests/template_default_recipes.rs",
@@ -3034,7 +3034,7 @@
       "entries": [
         "installed_style_consumer_accepts_supported_versions_and_guides_rejection"
       ],
-      "entry_digest": "93504b75dc72c685e478559d623d7a544c4b236500318091838a01e63a3bd0bb"
+      "entry_digest": "91a643b57e93c78d27bbaac52a45fe966cff516a99b3f3414036566fa4fe6b87"
     },
     {
       "source": "tests/us_multiframe.rs",

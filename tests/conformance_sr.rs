@@ -99,7 +99,7 @@ esac"#,
                     "timeout_seconds": 2,
                     "required": false,
                     "platforms": ["macos"],
-                    "artifact_root_env": "DTS_TEST_PIXELMED_HOME",
+                    "artifact_root_env": "SYNTH_DICOM_GEN_TEST_PIXELMED_HOME",
                     "classpath": ["pixelmed.jar"],
                     "supported_sop_class_uids": [
                         "1.2.840.10008.5.1.4.1.1.88.11",
@@ -122,7 +122,7 @@ esac"#,
         .arg(&evidence_root)
         .args(["--config"])
         .arg(&config)
-        .env("DTS_TEST_PIXELMED_HOME", &artifacts)
+        .env("SYNTH_DICOM_GEN_TEST_PIXELMED_HOME", &artifacts)
         .output()
         .unwrap();
     assert!(

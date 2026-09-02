@@ -2,7 +2,7 @@ use std::process::Command;
 
 #[test]
 fn installed_style_consumer_accepts_supported_versions_and_guides_rejection() {
-    let binary = std::env::var_os("DTS_UPGRADE_BINARY")
+    let binary = std::env::var_os("SYNTH_DICOM_GEN_UPGRADE_BINARY")
         .unwrap_or_else(|| env!("CARGO_BIN_EXE_synth-dicom-gen").into());
     let output = Command::new("python3")
         .arg("tests/upgrade_consumer.py")

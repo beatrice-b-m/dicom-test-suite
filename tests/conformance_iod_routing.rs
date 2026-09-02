@@ -27,10 +27,10 @@ fn case_specific_primary_validator_uses_locked_environment_runtime_and_artifacts
         "primary_iod_validator",
         Path::new("configured-through-environment"),
     );
-    routed_adapter["executable_env"] = json!("DTS_TEST_IOD_EXECUTABLE");
+    routed_adapter["executable_env"] = json!("SYNTH_DICOM_GEN_TEST_IOD_EXECUTABLE");
     routed_adapter["supported_case_ids"] = json!([ROUTED_CASE]);
     routed_adapter["artifacts"] = json!([{
-        "root_env": "DTS_TEST_IOD_ARTIFACT_ROOT",
+        "root_env": "SYNTH_DICOM_GEN_TEST_IOD_ARTIFACT_ROOT",
         "path": "definition.lock"
     }]);
     let mut secondary_adapter =
@@ -59,8 +59,8 @@ fn case_specific_primary_validator_uses_locked_environment_runtime_and_artifacts
         .arg(&evidence_root)
         .args(["--config"])
         .arg(&config)
-        .env("DTS_TEST_IOD_EXECUTABLE", &routed)
-        .env("DTS_TEST_IOD_ARTIFACT_ROOT", &artifact_root)
+        .env("SYNTH_DICOM_GEN_TEST_IOD_EXECUTABLE", &routed)
+        .env("SYNTH_DICOM_GEN_TEST_IOD_ARTIFACT_ROOT", &artifact_root)
         .output()
         .unwrap();
     assert!(
@@ -113,8 +113,8 @@ fn case_specific_primary_validator_uses_locked_environment_runtime_and_artifacts
         .arg(root.join("duplicate-evidence"))
         .args(["--config"])
         .arg(&duplicate_config)
-        .env("DTS_TEST_IOD_EXECUTABLE", &routed)
-        .env("DTS_TEST_IOD_ARTIFACT_ROOT", &artifact_root)
+        .env("SYNTH_DICOM_GEN_TEST_IOD_EXECUTABLE", &routed)
+        .env("SYNTH_DICOM_GEN_TEST_IOD_ARTIFACT_ROOT", &artifact_root)
         .output()
         .unwrap();
     assert!(!duplicate_output.status.success());

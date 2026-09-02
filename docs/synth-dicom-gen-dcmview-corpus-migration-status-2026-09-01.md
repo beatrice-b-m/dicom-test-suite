@@ -1659,6 +1659,9 @@ does not qualify a `0.2.0` release artifact or target.
 - `262df91` — `refactor(resources): introduce EngineResources`
 - `46d8e96` — `test(resources): qualify the EngineResources boundary`
 - `d77f808` — `fix(resources): capture explicit resources immutably`
+- `73a309a` — `fix(resources): bound explicit resource capture`
+- `de25d9a` — `fix(build): reject unsafe embedded resource paths`
+- `35c9456` — `test(resources): lock the transitional v1 oracle`
 
 The public `ProductResources` implementation and module were replaced by
 `EngineResources`, and the build-generated table is now
@@ -1679,6 +1682,35 @@ immutably. Later filesystem mutation therefore cannot cross the constructor
 integrity boundary or race snapshot materialization. Embedded operation and
 the captured explicit operation are independent of the checkout location.
 
+A post-completion adversarial review found that the first R4.1 implementation
+used path metadata checks followed by `fs::read`: it captured bytes only after
+verification but did not bound caller-controlled allocation and left metadata/
+open/read rename races. Commits `73a309a` and `35c9456` supersede that reader
+claim. On supported macOS and Linux, the constructor now opens the root once,
+checks the pre-open and descriptor device/inode identity, resolves every child
+with descriptor-relative `openat`, and uses `O_NOFOLLOW` on every component.
+Final inputs also use `O_NONBLOCK`, must be regular files, and must match their
+embedded expected lengths. The constructor checks every length and the exact
+total before content allocation or reading, then limits each read to expected
+length plus one and rechecks the open descriptor and root identity afterward.
+Oversized and undersized inputs retain the established
+`evidence.integrity.failed` classification; roots or components with invalid
+types, FIFO/special files, and unstable paths fail with stable invalid-resource
+codes. Exact-size sparse or otherwise altered content remains bounded and then
+fails the complete digest check.
+
+Build generation now validates each initial scan root as a real directory and
+each fixed input as a regular file while rejecting any symlinked or
+non-directory ancestor. Its testable validator is exercised with a symlinked
+scan root, symlinked fixed input, symlinked ancestor, and non-directory scan
+root. This is a trusted-checkout preflight rather than an atomic filesystem
+snapshot: a separate local process with write access could still mutate a
+build input after validation and before Rust evaluates `include_bytes!`.
+Runtime integrity remains fail-closed through the exact oracle below, but
+eliminating that trusted-build interval would require a descriptor-backed
+build staging design outside R4.1. No caller-controlled runtime read retains a
+known path-race or unbounded-read gap on the supported macOS/Linux targets.
+
 R4.1 deliberately preserves the existing machine-field spelling
 `product_resources`, resource-set version `1.0.0`, and the pre-R4 identity of
 240 resources with SHA-256
@@ -1690,6 +1722,12 @@ version, count, and digest. `ENGINE_RESOURCE_SET_MEMBERSHIP` explicitly reports
 Those corpus-definition and package-membership removals belong to R4.3/R4.4;
 the preserved serialized field and identity are compatibility evidence, not a
 claim that separation is already complete.
+
+The version, count, and digest are executable constants checked by
+`verify_integrity`, not documentation-only measurements. Embedded verification
+must satisfy all three before it can pass, and explicit verification first
+requires that exact embedded oracle. R4.3/R4.4 therefore must update or replace
+the v1 oracle deliberately when they project separate identity domains.
 
 Focused proportional verification passed after the final hardening change:
 
@@ -1726,9 +1764,13 @@ git diff --check
 result: passed
 ```
 
-The routing dry run selected only the `schema_resources__subsystem` ordinary
-bundle plus unconditional Fast coverage and reported release-candidate
-packaging evidence as deferred. No schema or manifest identity split,
+The source/test-only routing dry run selected the
+`schema_resources__subsystem` ordinary bundle plus unconditional Fast coverage
+and reported release-candidate packaging evidence as deferred. A combined dry
+run also classified `build.rs` under the conservative `global-build` rule and
+listed all configured ordinary commands plus their deferred classes. Per the
+R4.1 review scope, that broad list was inspected but not executed; the exact
+focused commands above were run instead. No schema or manifest identity split,
 external `CorpusDefinitionBundle`, corpus/Cargo removal, lazy materialization,
 heavy body, codec/provider runtime, external adapter, Nightly,
 release-candidate body, remote operation, or release ran. R4.2-R4.5 and the

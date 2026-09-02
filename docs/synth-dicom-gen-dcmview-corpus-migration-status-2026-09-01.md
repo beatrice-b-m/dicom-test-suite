@@ -2420,7 +2420,8 @@ progress
 `60dccf6`, `11d77e5`, `8127b33`, `0d48a2e`, `9fa9be5`, `2b9a8ec`,
 `e6f8824`, `4016ff2`, `ba5e3c6`, `bdd972f`, and `cb1668c`.
 Review remediation is recorded by `937d045`, `9fd275c`, `80e9d85`, and
-`3b73b49`.
+`3b73b49`; provider-cadence remediation is `2b034dc`, `def139b`, and
+`64ee40c`.
 
 The composition producer now emits manifest `1.0.0` and result `2.0.0`.
 Before the producer change, exact validation-only fixtures froze real manifest
@@ -2473,8 +2474,9 @@ composition CLI and SDK invalid-reader matrices: 2 passed; both validate and rep
 capabilities live/additive fixture tests: 2 passed
 schema compilation and transitional exclusion checks: 2 passed
 identity-domain isolation/evidence module: 3 passed
-python3 scripts/check-test-ownership.py: 22 targets, 265 groups, 1,408 entries
-python3 -m unittest tests.test_change_test_routing: 16 passed
+python3 scripts/check-test-ownership.py: 22 targets, 265 groups, 1,409 entries
+python3 -m unittest tests.test_change_test_routing: 17 passed
+cargo test --locked --no-default-features --test release_ci__fast: 11 passed
 cargo fmt --all -- --check; git diff --check: passed
 ```
 
@@ -2495,6 +2497,18 @@ provider evidence, and this slice did not install or run that backend. No
 feature matrix, external provider qualification, Heavy, Nightly,
 release-candidate, remote, assembly/coverage/release projection, R4.4, R4.5,
 or R5 body ran.
+
+The `native-provider-contract` workflow now prepares the exact locked
+highdicom project, exports its prepared interpreter, and then invokes each of
+the two structured-report bodies with an exact `--ignored --exact` command.
+The fail-closed `PROVIDER_IGNORED_TESTS` inventory contains all nine scheduled
+provider qualifications, discovers both structured-report functions in their
+own source, and statically proves preparation/export precede invocation. Those
+two commands were inspected but not executed locally because the required
+external backend is absent; their next evidence comes only from the scheduled
+provider job. Compatibility ownership also assigns the new manifest-v1 and
+result-v2 schemas exactly once to the qualified-composition contract while the
+frozen predecessor schemas retain the same owner and advertised reader window.
 
 ## Measurements
 

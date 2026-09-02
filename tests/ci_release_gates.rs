@@ -43,6 +43,22 @@ fn current_release_manifest_v2() -> Value {
     })
 }
 
+fn set_release_runtimes(document: &mut Value, runtimes: Value) {
+    document["identity_domains"]["external_runtime"] = runtimes.clone();
+    document["version_result"]["identity_domains"]["external_runtime"] = runtimes.clone();
+    document["capabilities_result"]["identity_domains"]["external_runtime"] = runtimes;
+}
+
+fn unique_runtime() -> Value {
+    json!([{
+        "runtime_id": "codec",
+        "runtime_kind": "codec",
+        "executable_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+        "version": "1.0.0",
+        "invocation_sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+    }])
+}
+
 #[test]
 fn release_manifest_reader_accepts_v1_and_current_v2() {
     let legacy: Value = serde_json::from_slice(
@@ -65,6 +81,27 @@ fn release_manifest_reader_accepts_v1_and_current_v2() {
             .unwrap()
             .is_empty()
     );
+
+    let mut without_legacy = current.clone();
+    without_legacy
+        .as_object_mut()
+        .unwrap()
+        .remove("legacy_product_resources");
+    without_legacy["version_result"]
+        .as_object_mut()
+        .unwrap()
+        .remove("product_resources");
+    without_legacy["capabilities_result"]
+        .as_object_mut()
+        .unwrap()
+        .remove("product_resources");
+    assert!(release_manifest_v2_schema().is_valid(&without_legacy));
+    assert!(validate_release_manifest(&without_legacy).status.success());
+
+    let mut with_runtime = current;
+    set_release_runtimes(&mut with_runtime, unique_runtime());
+    assert!(release_manifest_v2_schema().is_valid(&with_runtime));
+    assert!(validate_release_manifest(&with_runtime).status.success());
 }
 
 #[test]
@@ -91,6 +128,31 @@ fn release_manifest_v2_reader_rejects_identity_and_version_tampering() {
         json!("3333333333333333333333333333333333333333333333333333333333333333");
     cases.push(("domain mismatch", mismatch));
 
+    let mut top_domain = baseline.clone();
+    top_domain["identity_domains"]["engine"]["engine_sha256"] =
+        json!("3333333333333333333333333333333333333333333333333333333333333333");
+    cases.push(("top domain mismatch", top_domain));
+
+    let mut product = baseline.clone();
+    product["product"]["version"] = json!("9.0.0");
+    cases.push(("product mismatch", product));
+
+    let mut target = baseline.clone();
+    target["target"] = json!("different-target");
+    cases.push(("target mismatch", target));
+
+    let mut features = baseline.clone();
+    features["enabled_features"] = json!(["unexpected"]);
+    cases.push(("features mismatch", features));
+
+    let mut source_revision = baseline.clone();
+    source_revision["source"]["revision"] = json!("not-a-revision");
+    cases.push(("source revision", source_revision));
+
+    let mut source_dirty = baseline.clone();
+    source_dirty["source"]["dirty"] = json!("not-a-boolean");
+    cases.push(("source dirty type", source_dirty));
+
     let mut duplicate = baseline.clone();
     let runtimes = json!([
         {
@@ -108,9 +170,7 @@ fn release_manifest_v2_reader_rejects_identity_and_version_tampering() {
             "invocation_sha256": "7777777777777777777777777777777777777777777777777777777777777777"
         }
     ]);
-    duplicate["identity_domains"]["external_runtime"] = runtimes.clone();
-    duplicate["version_result"]["identity_domains"]["external_runtime"] = runtimes.clone();
-    duplicate["capabilities_result"]["identity_domains"]["external_runtime"] = runtimes;
+    set_release_runtimes(&mut duplicate, runtimes);
     cases.push(("duplicate runtime", duplicate));
 
     let mut legacy_presence = baseline.clone();
@@ -119,6 +179,23 @@ fn release_manifest_v2_reader_rejects_identity_and_version_tampering() {
         .unwrap()
         .remove("product_resources");
     cases.push(("legacy presence mismatch", legacy_presence));
+
+    let mut capability_presence = baseline.clone();
+    capability_presence["capabilities_result"]
+        .as_object_mut()
+        .unwrap()
+        .remove("product_resources");
+    cases.push(("capabilities legacy presence mismatch", capability_presence));
+
+    let mut legacy_value = baseline.clone();
+    legacy_value["legacy_product_resources"]["resource_set_sha256"] =
+        json!("8888888888888888888888888888888888888888888888888888888888888888");
+    cases.push(("top legacy value mismatch", legacy_value));
+
+    let mut capability_value = baseline.clone();
+    capability_value["capabilities_result"]["product_resources"]["resource_set_sha256"] =
+        json!("8888888888888888888888888888888888888888888888888888888888888888");
+    cases.push(("capabilities legacy value mismatch", capability_value));
 
     let mut inventory = baseline;
     let duplicate_file = inventory["files"][0].clone();
@@ -131,6 +208,22 @@ fn release_manifest_v2_reader_rejects_identity_and_version_tampering() {
     for (label, document) in cases {
         let validation = validate_release_manifest(&document);
         assert!(!validation.status.success(), "accepted {label}");
+    }
+}
+
+#[test]
+fn release_archive_harness_dispatches_frozen_and_current_schemas() {
+    let harness = fs::read_to_string("tests/release_archive.rs").unwrap();
+    for required in [
+        "validate_release_manifest_schema",
+        "schemas/release-manifest.schema.json",
+        "schemas/release-manifest-v2.schema.json",
+        "schemas/version-result-v2.schema.json",
+        "schemas/capabilities-result-v2.schema.json",
+        "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json",
+        "https://synth-dicom-gen.local/schemas/capabilities-result-v2.schema.json",
+    ] {
+        assert!(harness.contains(required), "RC harness omits {required}");
     }
 }
 

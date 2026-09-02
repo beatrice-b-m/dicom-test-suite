@@ -6,6 +6,12 @@ manifest=$1
 [ -f "$manifest" ] || { echo "release manifest is missing: $manifest" >&2; exit 3; }
 
 manifest_version=$(jq -er '.release_manifest_schema_version' "$manifest")
+jq -e '.source | type == "object" and
+       (.revision | type == "string" and test("^[0-9a-f]{40}$")) and
+       (.dirty | type == "boolean")' "$manifest" >/dev/null || {
+    echo "release manifest source provenance is invalid" >&2
+    exit 4
+}
 case "$manifest_version" in
     1.0.0)
         jq -e '.product.name == "synth-dicom-gen" and

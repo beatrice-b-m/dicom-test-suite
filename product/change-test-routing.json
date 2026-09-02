@@ -57,6 +57,15 @@
       ],
       "deferred": ["nightly"]
     },
+    "identity": {
+      "commands": [
+        {"kind": "lib", "module": "identity::tests", "source": "src/identity.rs", "list_count": 2},
+        {"target": "cli_sdk__nonfast", "module": "version_cli"},
+        {"target": "cli_sdk__nonfast", "module": "capabilities_cli"},
+        {"target": "schema_resources__subsystem", "module": "cli_contract_schema"}
+      ],
+      "covered_by_fast": ["schema_resources__fast"]
+    },
     "provider": {
       "commands": [
         {"kind": "lib", "module": "generation_backends::tests", "source": "src/generation_backends/mod.rs", "list_count": 5},
@@ -148,10 +157,15 @@
       "bundles": ["sdk"]
     },
     {
+      "id": "identity-discovery",
+      "exact": ["src/discovery.rs", "src/identity.rs"],
+      "bundles": ["identity"]
+    },
+    {
       "id": "embedded-corpus",
       "exact": [
         "src/curated_execution.rs", "src/curated_manifest.rs", "src/curated_plan.rs",
-        "src/curated_validation.rs", "src/discovery.rs", "src/geometry.rs",
+        "src/curated_validation.rs", "src/geometry.rs",
         "src/hashing.rs", "src/metadata.rs", "src/part10_locator.rs",
         "src/quantitative_evidence.rs", "src/rt_manifest.rs",
         "src/rt_radiation_manifest.rs", "src/sr_rt_manifest.rs",

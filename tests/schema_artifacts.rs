@@ -23,8 +23,16 @@ const SCHEMAS: &[(&str, &str)] = &[
         "https://dicom-test-suite.local/schemas/version-result.schema.json",
     ),
     (
+        "schemas/version-result-v2.schema.json",
+        "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json",
+    ),
+    (
         "schemas/capabilities-result.schema.json",
         "https://dicom-test-suite.local/schemas/capabilities-result.schema.json",
+    ),
+    (
+        "schemas/capabilities-result-v2.schema.json",
+        "https://synth-dicom-gen.local/schemas/capabilities-result-v2.schema.json",
     ),
     (
         "schemas/generation-result.schema.json",
@@ -262,9 +270,17 @@ fn assert_renamed_product_reader_compatibility() {
 
 #[test]
 fn committed_schema_files_compile() {
+    let version_v2 =
+        jsonschema::Resource::from_contents(read_json("schemas/version-result-v2.schema.json"))
+            .expect("version v2 schema resource");
     for (path, _) in SCHEMAS {
         let schema = read_json(path);
-        jsonschema::validator_for(&schema)
+        jsonschema::options()
+            .with_resource(
+                "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json",
+                version_v2.clone(),
+            )
+            .build(&schema)
             .unwrap_or_else(|error| panic!("{path} must compile as JSON Schema: {error}"));
     }
 }

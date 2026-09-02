@@ -3,8 +3,8 @@
   "scope": {
     "rust_test_targets": 22,
     "integration_test_targets": 20,
-    "rust_test_entry_groups": 263,
-    "rust_test_entries": 1394,
+    "rust_test_entry_groups": 264,
+    "rust_test_entries": 1396,
     "integration_source_groups": 186,
     "integration_test_entries": 879,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
@@ -396,7 +396,7 @@
         "capabilities_requires_an_explicit_machine_format",
         "capabilities_machine_syntax_failure_is_one_schema_valid_stderr_envelope"
       ],
-      "entry_digest": "c397292800e10b36a61c6a915f25f385053eae20755034cbf7175031865cc168"
+      "entry_digest": "13f91c29b1e588413e6769effd99639ffacb690d868fbee6369a5c3bbae078aa"
     },
     {
       "source": "tests/case_recipe_catalog.rs",
@@ -1640,7 +1640,7 @@
         "resource_lookup_rejects_unsafe_and_unknown_paths",
         "snapshot_materializes_and_cleans_the_complete_resource_tree"
       ],
-      "entry_digest": "d91ebeaba03695f835127657a27e1413ad0d9440dcbaa629fdfd1e1ac1f974d3"
+      "entry_digest": "1b53fd7cb7b3af8e324384ccb353ce9d33ad122330abef16e5bb4cfad440b782"
     },
     {
       "source": "tests/enhanced_mr_temporal.rs",
@@ -3137,7 +3137,7 @@
         "version_human_output_preserves_the_existing_banner",
         "version_machine_resource_drift_is_a_stable_integrity_error"
       ],
-      "entry_digest": "f2cb89bf70c3be1771d36e5ec02b1e46828bf03349931709e8dfa47de9c2b0d9"
+      "entry_digest": "a8f5e28fb24435966049b92c801760264e59187a7232da0e7a9d0222b8fa33e2"
     },
     {
       "source": "tests/waveform_document_mesh_plan.rs",
@@ -4021,6 +4021,19 @@
         "streaming_sha256_matches_one_shot_across_chunk_boundaries"
       ],
       "entry_digest": "cc1de05852094b0218b608b66ab2b0296ec57f8eeefccc73dc942acf228f2dee"
+    },
+    {
+      "source": "src/identity.rs",
+      "target": "synth_dicom_gen",
+      "domain": "corpus_generation",
+      "verification_class": "subsystem",
+      "cost_tier": "ordinary",
+      "entry_count": 2,
+      "entries": [
+        "installed_membership_is_exhaustive_and_relocation_stable",
+        "verified_corpus_perturbation_changes_only_corpus_identity"
+      ],
+      "entry_digest": "73069d889496ee63e7e3587a1fcaaaa996a3c5291a27025a0592a6cbe607e488"
     },
     {
       "source": "src/lib.rs",

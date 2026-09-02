@@ -7,11 +7,13 @@
       "support_window": "current CLI API major and immediately preceding major for at least one product minor after replacement",
       "apis": ["cli_json_envelopes", "cli_exit_classes", "cli_error_codes"],
       "schemas": [
-        "capabilities-result.schema.json", "case-list-result.schema.json",
+        "capabilities-result.schema.json", "capabilities-result-v2.schema.json",
+        "case-list-result.schema.json",
         "cli-error-code-registry.schema.json", "cli-error-envelope.schema.json",
         "cli-success-envelope.schema.json", "generation-result.schema.json",
         "report-result.schema.json", "standards-result.schema.json",
-        "validation-result.schema.json", "version-result.schema.json"
+        "validation-result.schema.json", "version-result.schema.json",
+        "version-result-v2.schema.json"
       ]
     },
     {

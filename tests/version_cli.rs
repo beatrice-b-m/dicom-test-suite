@@ -73,10 +73,6 @@ fn version_json_is_clean_schema_valid_and_resource_bound_outside_the_checkout() 
         identities["migration"]["legacy_resource_set_sha256"],
         "dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410"
     );
-}
-
-#[test]
-fn version_v1_fixture_remains_readable_without_invented_split_identities() {
     let fixture: Value =
         serde_json::from_slice(&fs::read("tests/fixtures/cli/version-result-v1.json").unwrap())
             .unwrap();

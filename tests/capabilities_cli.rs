@@ -147,10 +147,6 @@ fn capabilities_json_is_live_schema_valid_and_conservative_outside_the_checkout(
             .iter()
             .all(|runtime| runtime["availability"] != "available")
     );
-}
-
-#[test]
-fn capabilities_v1_fixture_remains_readable_without_invented_split_identities() {
     let fixture: Value = serde_json::from_slice(
         &fs::read("tests/fixtures/cli/capabilities-result-v1.json").unwrap(),
     )

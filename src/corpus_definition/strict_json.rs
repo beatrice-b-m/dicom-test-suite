@@ -22,7 +22,14 @@ pub(super) fn parse(
         depth: 0,
     }
     .deserialize(&mut de)
-    .map_err(|e| invalid(path, e.to_string()))?;
+    .map_err(|e| {
+        let message = e.to_string();
+        if message.contains("limit exceeded") {
+            CorpusDefinitionError::Limit(format!("{path}: {message}"))
+        } else {
+            invalid(path, message)
+        }
+    })?;
     de.end().map_err(|e| invalid(path, e.to_string()))?;
     Ok(value)
 }

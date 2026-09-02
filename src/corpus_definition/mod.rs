@@ -5,6 +5,10 @@
 
 mod strict_json;
 
+#[cfg(test)]
+#[path = "../../tests/corpus_definition_bundle.rs"]
+mod tests;
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::fs;
@@ -150,7 +154,6 @@ pub struct CorpusDefinitionIdentity {
 
 #[derive(Debug, Clone)]
 pub struct CorpusDefinitionBundle {
-    root: PathBuf,
     manifest: CorpusDefinitionManifest,
     identity: CorpusDefinitionIdentity,
     files: BTreeMap<String, Vec<u8>>,
@@ -166,8 +169,9 @@ impl CorpusDefinitionBundle {
         limits: CorpusDefinitionLimits,
     ) -> Result<Self, CorpusDefinitionError> {
         let root = root.as_ref();
-        validate_root(root)?;
-        let manifest_bytes = capture_file(root, CORPUS_DEFINITION_MANIFEST, limits.manifest_bytes)?;
+        let bundle_root = BundleRoot::open(root)?;
+        let manifest_bytes =
+            bundle_root.capture(CORPUS_DEFINITION_MANIFEST, limits.manifest_bytes)?;
         let manifest_value =
             strict_json::parse(&manifest_bytes, CORPUS_DEFINITION_MANIFEST, limits)?;
         preflight_version_and_paths(&manifest_value)?;
@@ -209,7 +213,7 @@ impl CorpusDefinitionBundle {
             if descriptor.size_bytes > per_file_limit {
                 return Err(limit(path, per_file_limit));
             }
-            let bytes = capture_file(root, path, per_file_limit)?;
+            let bytes = bundle_root.capture(path, per_file_limit)?;
             if bytes.len() as u64 != descriptor.size_bytes {
                 return Err(CorpusDefinitionError::Integrity(format!(
                     "{path}: size {} does not match declared {}",
@@ -242,7 +246,7 @@ impl CorpusDefinitionBundle {
             }
             files.insert(path.clone(), bytes);
         }
-        reject_undeclared(root, declared.keys().map(String::as_str))?;
+        bundle_root.reject_undeclared(declared.keys().map(String::as_str))?;
         validate_closure(&manifest, &files, limits)?;
 
         let manifest_sha256 = crate::sha256_hex(&manifest_bytes);
@@ -251,7 +255,6 @@ impl CorpusDefinitionBundle {
             - manifest_bytes.len() as u64
             + asset_total;
         Ok(Self {
-            root: root.to_path_buf(),
             identity: CorpusDefinitionIdentity {
                 schema_version: manifest.corpus_definition_bundle_schema_version.clone(),
                 definition_id: manifest.definition_id.clone(),
@@ -266,9 +269,6 @@ impl CorpusDefinitionBundle {
         })
     }
 
-    pub fn root(&self) -> &Path {
-        &self.root
-    }
     pub fn manifest(&self) -> &CorpusDefinitionManifest {
         &self.manifest
     }
@@ -429,6 +429,25 @@ fn insert_descriptor<'a>(
     d: &'a FileDescriptor,
 ) -> Result<(), CorpusDefinitionError> {
     validate_logical_path(&d.path)?;
+    let canonical_role_path = match role {
+        "registry" => d.path == "cases/registry.json",
+        "recipe" => d.path.starts_with("cases/recipes/") && d.path.ends_with(".json"),
+        "evidence" => d.path.starts_with("evidence/"),
+        "asset" => d.path.starts_with("assets/"),
+        _ => false,
+    };
+    if !canonical_role_path {
+        return Err(CorpusDefinitionError::Closure(format!(
+            "noncanonical {role} path {}",
+            d.path
+        )));
+    }
+    if is_reserved_engine_path(&d.path) {
+        return Err(CorpusDefinitionError::Closure(format!(
+            "caller file attempts engine resource override: {}",
+            d.path
+        )));
+    }
     validate_sha256(&d.sha256)?;
     if out.insert(d.path.clone(), (role, d)).is_some() {
         return Err(CorpusDefinitionError::Closure(format!(
@@ -442,6 +461,25 @@ fn insert_descriptor<'a>(
         )));
     }
     Ok(())
+}
+
+fn is_reserved_engine_path(path: &str) -> bool {
+    [
+        "schemas/",
+        "templates/",
+        "transfer-syntax/",
+        "conformance/",
+        "generation-backends/",
+        "security/",
+        "product/",
+    ]
+    .iter()
+    .any(|prefix| path.starts_with(prefix))
+        || matches!(
+            path,
+            "Cargo.lock" | "standards.lock.json" | "generation-backends.lock.json"
+        )
+        || path == "assets/dcmtk_srgb_input_profile.hex"
 }
 
 fn validate_logical_path(path: &str) -> Result<(), CorpusDefinitionError> {
@@ -651,19 +689,53 @@ fn validate_closure(
                 "registry/definition completeness mismatch for {id}"
             )));
         }
+        let row_profiles = row
+            .get("profiles")
+            .and_then(Value::as_array)
+            .expect("registry schema validated profiles")
+            .iter()
+            .filter_map(Value::as_str)
+            .collect::<BTreeSet<_>>();
+        let valid_scope = row_profiles.iter().any(|profile| {
+            matches!(
+                *profile,
+                "smoke" | "core" | "extended" | "legacy" | "stress"
+            )
+        });
+        if row_profiles.contains("all")
+            || (valid_scope && (row_profiles.contains("negative") || row_profiles.contains("fuzz")))
+            || (row_profiles.contains("negative") && row_profiles.contains("fuzz"))
+        {
+            return Err(CorpusDefinitionError::Closure(format!(
+                "profile scope leakage for {id}"
+            )));
+        }
     }
     let evidence = unique_ids(
         m.evidence.iter().map(|e| e.evidence_id.as_str()),
         "evidence",
     )?;
     let assets = unique_ids(m.assets.iter().map(|a| a.asset_id.as_str()), "asset")?;
-    let evidence_paths = m
-        .evidence
-        .iter()
-        .map(|record| (record.file.path.as_str(), record.evidence_id.as_str()))
-        .collect::<BTreeMap<_, _>>();
     let profiles = unique_ids(m.profiles.iter().map(|p| p.profile_id.as_str()), "profile")?;
     for profile in &m.profiles {
+        let expected_scope = match profile.profile_id.as_str() {
+            "smoke" | "core" | "extended" | "all" => CorpusScope::Valid,
+            "legacy" => CorpusScope::Legacy,
+            "stress" => CorpusScope::Stress,
+            "negative" => CorpusScope::ExpectedInvalid,
+            "fuzz" => CorpusScope::Fuzz,
+            other => {
+                return Err(CorpusDefinitionError::Closure(format!(
+                    "unknown profile {other}"
+                )));
+            }
+        };
+        if profile.scope != expected_scope {
+            return Err(CorpusDefinitionError::Closure(format!(
+                "scope mismatch for profile {}",
+                profile.profile_id
+            )));
+        }
         if profile.profile_id == "all" {
             let expected = ["smoke", "core", "extended"]
                 .into_iter()
@@ -748,6 +820,42 @@ fn validate_closure(
                     case.case_id
                 )));
             }
+            let owner_profiles = registry_cases[case.case_id.as_str()]["profiles"]
+                .as_array()
+                .expect("registry schema validated profiles");
+            let dependency_profiles = registry_cases[dependency.as_str()]["profiles"]
+                .as_array()
+                .expect("registry schema validated profiles");
+            let owner_is_valid = owner_profiles.iter().any(|value| {
+                matches!(
+                    value.as_str(),
+                    Some("smoke" | "core" | "extended" | "legacy" | "stress")
+                )
+            });
+            let dependency_is_invalid = dependency_profiles
+                .iter()
+                .any(|value| matches!(value.as_str(), Some("negative" | "fuzz")));
+            let owner_negative = owner_profiles
+                .iter()
+                .any(|value| value.as_str() == Some("negative"));
+            let owner_fuzz = owner_profiles
+                .iter()
+                .any(|value| value.as_str() == Some("fuzz"));
+            let dependency_negative = dependency_profiles
+                .iter()
+                .any(|value| value.as_str() == Some("negative"));
+            let dependency_fuzz = dependency_profiles
+                .iter()
+                .any(|value| value.as_str() == Some("fuzz"));
+            if (owner_is_valid && dependency_is_invalid)
+                || (owner_negative && dependency_fuzz)
+                || (owner_fuzz && dependency_negative)
+            {
+                return Err(CorpusDefinitionError::Closure(format!(
+                    "dependency scope leakage from {} to {dependency}",
+                    case.case_id
+                )));
+            }
         }
         for id in &case.evidence_ids {
             if !evidence.contains(id.as_str()) {
@@ -772,7 +880,8 @@ fn validate_closure(
                         case.case_id
                     ))
                 })?;
-                evidence_paths.get(path).copied().ok_or_else(|| {
+                let evidence_id = source_note_evidence_id(path)?;
+                evidence.get(evidence_id.as_str()).copied().ok_or_else(|| {
                     CorpusDefinitionError::Closure(format!(
                         "missing evidence descriptor for {path}"
                     ))
@@ -830,7 +939,8 @@ fn validate_closure(
         .filter(|record| record.get("source").and_then(Value::as_str) == Some("local-source-note"))
         .filter_map(|record| record.get("query").and_then(Value::as_str))
         .map(|path| {
-            evidence_paths.get(path).copied().ok_or_else(|| {
+            let evidence_id = source_note_evidence_id(path)?;
+            evidence.get(evidence_id.as_str()).copied().ok_or_else(|| {
                 CorpusDefinitionError::Closure(format!("missing evidence descriptor for {path}"))
             })
         })
@@ -857,6 +967,20 @@ fn validate_closure(
         }
     }
     Ok(())
+}
+
+fn source_note_evidence_id(path: &str) -> Result<String, CorpusDefinitionError> {
+    validate_logical_path(path)?;
+    let relative = path
+        .strip_prefix("standards/source-notes/")
+        .or_else(|| path.strip_prefix("evidence/"))
+        .ok_or_else(|| {
+            CorpusDefinitionError::Closure(format!(
+                "local source note is outside an evidence namespace: {path}"
+            ))
+        })?;
+    let stem = relative.strip_suffix(".md").unwrap_or(relative);
+    Ok(format!("source-note.{}", stem.replace('/', ".")))
 }
 
 fn collect_named_string_values<'a>(value: &'a Value, key: &str, output: &mut BTreeSet<&'a str>) {
@@ -950,6 +1074,82 @@ fn definition_digest(
     crate::sha256_hex(&framed)
 }
 
+struct BundleRoot {
+    path: PathBuf,
+    #[cfg(unix)]
+    file: fs::File,
+}
+
+impl BundleRoot {
+    fn open(root: &Path) -> Result<Self, CorpusDefinitionError> {
+        validate_root(root)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+            let before =
+                fs::symlink_metadata(root).map_err(|source| CorpusDefinitionError::Read {
+                    path: root.to_path_buf(),
+                    source,
+                })?;
+            let file = fs::OpenOptions::new()
+                .read(true)
+                .custom_flags(libc::O_CLOEXEC | libc::O_DIRECTORY | libc::O_NOFOLLOW)
+                .open(root)
+                .map_err(|source| CorpusDefinitionError::Read {
+                    path: root.to_path_buf(),
+                    source,
+                })?;
+            let opened = file
+                .metadata()
+                .map_err(|source| CorpusDefinitionError::Read {
+                    path: root.to_path_buf(),
+                    source,
+                })?;
+            if before.dev() != opened.dev() || before.ino() != opened.ino() {
+                return Err(CorpusDefinitionError::Unstable(root.to_path_buf()));
+            }
+            Ok(Self {
+                path: root.to_path_buf(),
+                file,
+            })
+        }
+        #[cfg(not(unix))]
+        {
+            Ok(Self {
+                path: root.to_path_buf(),
+            })
+        }
+    }
+
+    fn capture(&self, logical: &str, max: u64) -> Result<Vec<u8>, CorpusDefinitionError> {
+        #[cfg(unix)]
+        {
+            capture_file(&self.file, &self.path, logical, max)
+        }
+        #[cfg(not(unix))]
+        {
+            capture_file(&self.path, logical, max)
+        }
+    }
+
+    fn reject_undeclared<'a>(
+        &self,
+        declared: impl Iterator<Item = &'a str>,
+    ) -> Result<(), CorpusDefinitionError> {
+        let expected = declared
+            .chain(std::iter::once(CORPUS_DEFINITION_MANIFEST))
+            .collect::<BTreeSet<_>>();
+        #[cfg(unix)]
+        {
+            inventory_directory(&self.file, "", &expected)
+        }
+        #[cfg(not(unix))]
+        {
+            reject_undeclared(&self.path, expected.into_iter())
+        }
+    }
+}
+
 fn validate_root(root: &Path) -> Result<(), CorpusDefinitionError> {
     let meta = fs::symlink_metadata(root).map_err(|source| CorpusDefinitionError::Read {
         path: root.to_path_buf(),
@@ -1020,38 +1220,24 @@ fn capture_file(root: &Path, logical: &str, max: u64) -> Result<Vec<u8>, CorpusD
 }
 
 #[cfg(unix)]
-fn capture_file(root: &Path, logical: &str, max: u64) -> Result<Vec<u8>, CorpusDefinitionError> {
+fn capture_file(
+    root_file: &fs::File,
+    root: &Path,
+    logical: &str,
+    max: u64,
+) -> Result<Vec<u8>, CorpusDefinitionError> {
     use std::ffi::CString;
     use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
     use std::os::unix::ffi::OsStrExt;
-    use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+    use std::os::unix::fs::MetadataExt;
 
     validate_logical_path(logical)?;
-    let root_before = fs::symlink_metadata(root).map_err(|source| CorpusDefinitionError::Read {
-        path: root.to_path_buf(),
-        source,
-    })?;
-    if root_before.file_type().is_symlink() {
-        return Err(CorpusDefinitionError::Symlink(root.to_path_buf()));
-    }
-    let root_file = fs::OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_CLOEXEC | libc::O_DIRECTORY | libc::O_NOFOLLOW)
-        .open(root)
-        .map_err(|source| CorpusDefinitionError::Read {
-            path: root.to_path_buf(),
-            source,
-        })?;
     let root_open = root_file
         .metadata()
         .map_err(|source| CorpusDefinitionError::Read {
             path: root.to_path_buf(),
             source,
         })?;
-    if root_before.dev() != root_open.dev() || root_before.ino() != root_open.ino() {
-        return Err(CorpusDefinitionError::Unstable(root.to_path_buf()));
-    }
-
     let components = Path::new(logical).components().collect::<Vec<_>>();
     let mut parent: Option<OwnedFd> = None;
     let mut display = root.to_path_buf();
@@ -1102,6 +1288,9 @@ fn capture_file(root: &Path, logical: &str, max: u64) -> Result<Vec<u8>, CorpusD
         if !before.is_file() {
             return Err(CorpusDefinitionError::NotRegular(display));
         }
+        if before.nlink() != 1 {
+            return Err(CorpusDefinitionError::NotRegular(display));
+        }
         if before.len() > max {
             return Err(limit(logical, max));
         }
@@ -1141,6 +1330,130 @@ fn capture_file(root: &Path, logical: &str, max: u64) -> Result<Vec<u8>, CorpusD
     unreachable!("validated logical paths contain a component")
 }
 
+#[cfg(unix)]
+fn inventory_directory(
+    directory: &fs::File,
+    prefix: &str,
+    expected: &BTreeSet<&str>,
+) -> Result<(), CorpusDefinitionError> {
+    use std::ffi::{CStr, CString};
+    use std::os::fd::{AsRawFd, FromRawFd};
+    use std::os::unix::fs::MetadataExt;
+
+    let before = directory
+        .metadata()
+        .map_err(|source| CorpusDefinitionError::Read {
+            path: PathBuf::from(prefix),
+            source,
+        })?;
+    let duplicate = unsafe { libc::dup(directory.as_raw_fd()) };
+    if duplicate < 0 {
+        return Err(CorpusDefinitionError::Read {
+            path: PathBuf::from(prefix),
+            source: std::io::Error::last_os_error(),
+        });
+    }
+    let stream = unsafe { libc::fdopendir(duplicate) };
+    if stream.is_null() {
+        unsafe { libc::close(duplicate) };
+        return Err(CorpusDefinitionError::Read {
+            path: PathBuf::from(prefix),
+            source: std::io::Error::last_os_error(),
+        });
+    }
+    let mut names = Vec::new();
+    loop {
+        let entry = unsafe { libc::readdir(stream) };
+        if entry.is_null() {
+            break;
+        }
+        let name = unsafe { CStr::from_ptr((*entry).d_name.as_ptr()) }.to_bytes();
+        if name != b"." && name != b".." {
+            names.push(name.to_vec());
+        }
+    }
+    unsafe { libc::closedir(stream) };
+    names.sort();
+
+    for name_bytes in names {
+        let name = std::str::from_utf8(&name_bytes)
+            .map_err(|_| CorpusDefinitionError::UnsafePath(format!("{prefix}<non-UTF8>")))?;
+        let logical = if prefix.is_empty() {
+            name.to_string()
+        } else {
+            format!("{prefix}/{name}")
+        };
+        validate_logical_path(&logical)?;
+        let c_name = CString::new(name_bytes).expect("directory names contain no NUL");
+        let mut stat: libc::stat = unsafe { std::mem::zeroed() };
+        if unsafe {
+            libc::fstatat(
+                directory.as_raw_fd(),
+                c_name.as_ptr(),
+                &mut stat,
+                libc::AT_SYMLINK_NOFOLLOW,
+            )
+        } != 0
+        {
+            return Err(CorpusDefinitionError::Read {
+                path: PathBuf::from(&logical),
+                source: std::io::Error::last_os_error(),
+            });
+        }
+        let kind = stat.st_mode & libc::S_IFMT;
+        if kind == libc::S_IFLNK {
+            return Err(CorpusDefinitionError::Symlink(PathBuf::from(logical)));
+        }
+        if kind == libc::S_IFDIR {
+            let ancestor = format!("{logical}/");
+            if !expected.iter().any(|path| path.starts_with(&ancestor)) {
+                return Err(CorpusDefinitionError::Closure(format!(
+                    "undeclared directory {logical}"
+                )));
+            }
+            let raw = unsafe {
+                libc::openat(
+                    directory.as_raw_fd(),
+                    c_name.as_ptr(),
+                    libc::O_RDONLY | libc::O_CLOEXEC | libc::O_DIRECTORY | libc::O_NOFOLLOW,
+                )
+            };
+            if raw < 0 {
+                return Err(CorpusDefinitionError::Read {
+                    path: PathBuf::from(&logical),
+                    source: std::io::Error::last_os_error(),
+                });
+            }
+            let child = unsafe { fs::File::from_raw_fd(raw) };
+            inventory_directory(&child, &logical, expected)?;
+        } else if kind == libc::S_IFREG {
+            if !expected.contains(logical.as_str()) {
+                return Err(CorpusDefinitionError::Closure(format!(
+                    "undeclared file {logical}"
+                )));
+            }
+        } else {
+            return Err(CorpusDefinitionError::NotRegular(PathBuf::from(logical)));
+        }
+    }
+    let after = directory
+        .metadata()
+        .map_err(|source| CorpusDefinitionError::Read {
+            path: PathBuf::from(prefix),
+            source,
+        })?;
+    if before.dev() != after.dev()
+        || before.ino() != after.ino()
+        || before.mtime() != after.mtime()
+        || before.mtime_nsec() != after.mtime_nsec()
+        || before.len() != after.len()
+    {
+        return Err(CorpusDefinitionError::Unstable(PathBuf::from(prefix)));
+    }
+    Ok(())
+}
+
+#[cfg(not(unix))]
 fn reject_undeclared<'a>(
     root: &Path,
     declared: impl Iterator<Item = &'a str>,

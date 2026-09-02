@@ -65,7 +65,7 @@
       "contract_id": "corpus-definition-bundle",
       "owner": "corpus_definition_maintainers",
       "support_window": "every CorpusDefinitionBundle schema major advertised by the supported SDK or CLI",
-      "apis": ["synth_dicom_gen::corpus_definition"],
+      "apis": ["internal_typed_inspection_until_r5"],
       "schemas": ["corpus-definition-bundle.schema.json"]
     },
     {

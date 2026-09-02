@@ -11,8 +11,6 @@ mod advanced_recipe_catalog;
 mod blending_presentation_state;
 #[path = "../color_softcopy_presentation_state.rs"]
 mod color_softcopy_presentation_state;
-#[path = "../corpus_definition_bundle.rs"]
-mod corpus_definition_bundle;
 #[path = "../ct_geometry.rs"]
 mod ct_geometry;
 #[path = "../curated_exceptional_execution.rs"]

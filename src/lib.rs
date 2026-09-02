@@ -35763,6 +35763,46 @@ mod tests {
                 .contains("extended_offset_table_without_lengths"),
             "the downstream semantic guard remains fail closed even though the public schema rejects this shape first"
         );
+
+        let missing_u32 = serde_json::json!({"case_id": "classic/sc/mono2_u32_explicit_le"});
+        assert!(
+            u32_pixel_report_fields(Path::new("manifest.json"), &missing_u32)
+                .err()
+                .expect("missing u32 report contract must fail")
+                .to_string()
+                .contains("requires expected_u32_pixels")
+        );
+        let missing_u1 = serde_json::json!({"case_id": "classic/sc/mono2_u1_native"});
+        assert!(
+            u1_pixel_report_fields(Path::new("manifest.json"), &missing_u1)
+                .err()
+                .expect("missing u1 report contract must fail")
+                .to_string()
+                .contains("requires expected_u1_pixels")
+        );
+        let missing_icc = serde_json::json!({"case_id": "vl/photo/rgb_icc_profile_explicit_le"});
+        assert!(
+            icc_profile_report_fields(Path::new("manifest.json"), &missing_icc)
+                .err()
+                .expect("missing ICC report contract must fail")
+                .to_string()
+                .contains("requires expected_icc_profile")
+        );
+        let missing_nonsquare = serde_json::json!({
+            "case_id": "classic/sc/nonsquare_pixel_spacing",
+            "expected_nonsquare_spacing": {
+                "uncalibrated": true,
+                "patient_space_geometry_present": false,
+                "pixel_data_sha256": "e89b23efeade0dc3de624fc8982ea8b99adb35a3bb9a2fbf8b8ce675e10581a6"
+            }
+        });
+        assert!(
+            nonsquare_spacing_report_fields(Path::new("manifest.json"), &missing_nonsquare)
+                .err()
+                .expect("missing nonsquare report contract must fail")
+                .to_string()
+                .contains("requires one exact spatial variant")
+        );
     }
 
     #[test]

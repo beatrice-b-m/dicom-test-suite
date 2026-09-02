@@ -7,6 +7,240 @@ use std::process::Command;
 use serde_json::Value;
 use serde_json::json;
 
+macro_rules! schema_bound_report_manifest {
+    ($($json:tt)+) => {{
+        complete_report_fixture(json!($($json)+))
+    }};
+}
+
+fn complete_report_fixture(mut manifest: Value) -> Value {
+    let object = manifest
+        .as_object_mut()
+        .expect("report fixture manifest must be an object");
+    object.insert("manifest_schema_version".into(), json!("0.2.0"));
+    object.entry("generator").or_insert_with(|| {
+        json!({
+            "name": "synth-dicom-gen",
+            "version": "fixture",
+            "rustc_version": "fixture",
+            "target_triple": "fixture",
+            "cargo_lock_sha256": "0".repeat(64),
+            "feature_flags": []
+        })
+    });
+    object.entry("dependencies").or_insert_with(|| {
+        json!({
+            "dicom_rs_versions": {},
+            "codec_versions": {}
+        })
+    });
+    let standards = object
+        .entry("standards")
+        .or_insert_with(|| json!({}))
+        .as_object_mut()
+        .expect("report fixture standards must be an object");
+    standards
+        .entry("dicom_base_edition")
+        .or_insert_with(|| json!("2026b"));
+    standards
+        .entry("include_final_text_after_base")
+        .or_insert_with(|| json!(false));
+    standards
+        .entry("standards_lock_sha256")
+        .or_insert_with(|| json!("0".repeat(64)));
+    standards
+        .entry("dicom_standard_kb")
+        .or_insert_with(|| json!({"db_edition": "2026b"}));
+    let run = object
+        .entry("run")
+        .or_insert_with(|| json!({"profile": "extended"}))
+        .as_object_mut()
+        .expect("report fixture run must be an object");
+    run.entry("seed").or_insert_with(|| json!(1));
+    run.entry("include_stress").or_insert_with(|| json!(false));
+    object.entry("files").or_insert_with(|| json!([]));
+    object.entry("skipped_cases").or_insert_with(|| json!([]));
+    for (index, file) in object["files"]
+        .as_array_mut()
+        .expect("report fixture files must be an array")
+        .iter_mut()
+        .enumerate()
+    {
+        let file = file
+            .as_object_mut()
+            .expect("report fixture file must be an object");
+        file.entry("profile_membership")
+            .or_insert_with(|| json!(["extended"]));
+        let fixture_path = file
+            .remove("relative_path")
+            .unwrap_or_else(|| json!(format!("fixtures/instance-{index}.dcm")));
+        file.entry("path").or_insert(fixture_path);
+        file.entry("sha256")
+            .or_insert_with(|| json!("0".repeat(64)));
+        file.entry("size_bytes").or_insert_with(|| json!(0));
+        file.entry("determinism")
+            .or_insert_with(|| json!("byte_stable"));
+        file.entry("recipe").or_insert_with(|| {
+            json!({
+                "recipe_id": "report_fixture",
+                "recipe_version": "1",
+                "recipe_parameters": {}
+            })
+        });
+        file.entry("standards_evidence")
+            .or_insert_with(|| json!([]));
+        file.entry("expected_capabilities")
+            .or_insert_with(|| json!([]));
+        file.entry("expected_visual_checks")
+            .or_insert_with(|| json!({}));
+        file.entry("expected_semantics")
+            .or_insert_with(|| json!({}));
+        file.entry("references").or_insert_with(|| json!([]));
+        if let Some(references) = file.get_mut("references").and_then(Value::as_array_mut) {
+            for (reference_index, reference) in references.iter_mut().enumerate() {
+                if let Some(reference) = reference.as_object_mut() {
+                    reference.entry("source_path").or_insert_with(|| {
+                        json!(format!("fixtures/source-{index}-{reference_index}.dcm"))
+                    });
+                }
+            }
+        }
+        file.entry("uids").or_insert_with(|| {
+            json!({
+                "study_instance_uid": format!("2.25.100{index}"),
+                "series_instance_uid": format!("2.25.200{index}"),
+                "sop_instance_uid": format!("2.25.300{index}"),
+                "implementation_class_uid": "2.25.400"
+            })
+        });
+        if let Some(dicom) = file.get_mut("dicom").and_then(Value::as_object_mut) {
+            dicom
+                .entry("sop_class_uid")
+                .or_insert_with(|| json!("1.2.840.10008.5.1.4.1.1.7"));
+            dicom
+                .entry("sop_class_name")
+                .or_insert_with(|| json!("Secondary Capture Image Storage"));
+            dicom
+                .entry("iod_name")
+                .or_insert_with(|| json!("Secondary Capture Image"));
+            dicom.entry("modality").or_insert_with(|| json!("OT"));
+            dicom
+                .entry("transfer_syntax_uid")
+                .or_insert_with(|| json!("1.2.840.10008.1.2.1"));
+            dicom
+                .entry("transfer_syntax_name")
+                .or_insert_with(|| json!("Explicit VR Little Endian"));
+        }
+        if let Some(validation) = file.get_mut("validation").and_then(Value::as_object_mut) {
+            validation.entry("internal").or_insert_with(|| json!([]));
+            validation.entry("standards").or_insert_with(|| json!([]));
+            validation.entry("external").or_insert_with(|| json!([]));
+        }
+        if let Some(pixel_data) = file.get_mut("pixel_data").and_then(Value::as_object_mut) {
+            let encapsulated = pixel_data
+                .get("native_or_encapsulated")
+                .and_then(Value::as_str)
+                == Some("encapsulated");
+            pixel_data
+                .entry("value_length")
+                .or_insert_with(|| if encapsulated { Value::Null } else { json!(0) });
+            pixel_data.entry("frame_count").or_insert_with(|| json!(1));
+            pixel_data
+                .entry("frame_hashes")
+                .or_insert_with(|| json!(["0".repeat(64)]));
+            if let Some(codec) = pixel_data.get_mut("codec").and_then(Value::as_object_mut) {
+                if codec.get("backend_kind").and_then(Value::as_str) == Some("dicom-rs-adapter") {
+                    codec.insert("backend_kind".into(), json!("dicom_rs_feature"));
+                }
+                codec
+                    .entry("display_name")
+                    .or_insert_with(|| json!("report fixture codec"));
+                codec.entry("version").or_insert_with(|| json!("fixture"));
+                codec
+                    .entry("transfer_syntax_uid")
+                    .or_insert_with(|| json!("1.2.840.10008.1.2.5"));
+                codec
+                    .entry("determinism")
+                    .or_insert_with(|| json!("byte_stable"));
+            }
+        }
+        if let Some(image) = file.get_mut("image").and_then(Value::as_object_mut) {
+            image
+                .entry("planar_configuration")
+                .or_insert_with(|| Value::Null);
+        }
+        if let Some(waveform) = file
+            .get_mut("expected_waveform")
+            .and_then(Value::as_object_mut)
+        {
+            waveform
+                .entry("sop_class_uid")
+                .or_insert_with(|| json!("1.2.840.10008.5.1.4.1.1.9.1.1"));
+            waveform
+                .entry("iod_name")
+                .or_insert_with(|| json!("12-lead ECG Waveform"));
+            waveform.entry("modality").or_insert_with(|| json!("ECG"));
+            waveform
+                .entry("transfer_syntax_uid")
+                .or_insert_with(|| json!("1.2.840.10008.1.2.1"));
+            waveform
+                .entry("acquisition_context_items")
+                .or_insert_with(|| json!(0));
+            if let Some(groups) = waveform
+                .get_mut("multiplex_groups")
+                .and_then(Value::as_array_mut)
+            {
+                for group in groups {
+                    if let Some(channels) = group.get_mut("channels").and_then(Value::as_array_mut)
+                    {
+                        for channel in channels {
+                            let channel = channel.as_object_mut().expect("waveform channel object");
+                            channel.entry("sensitivity").or_insert_with(|| json!(1));
+                            channel.entry("sensitivity_units").or_insert_with(|| json!({"code_value":"uV","coding_scheme_designator":"UCUM","code_meaning":"microvolt"}));
+                            channel
+                                .entry("sensitivity_correction_factor")
+                                .or_insert_with(|| json!(1));
+                            channel.entry("baseline").or_insert_with(|| json!(0));
+                            channel
+                                .entry("time_skew_seconds")
+                                .or_insert_with(|| json!(0));
+                            channel
+                                .entry("sample_skew_absent")
+                                .or_insert_with(|| json!(true));
+                        }
+                    }
+                }
+            }
+        }
+        if let Some(backend) = file
+            .get_mut("generation_backend")
+            .and_then(Value::as_object_mut)
+        {
+            backend
+                .entry("protocol_version")
+                .or_insert_with(|| json!("0.1.0"));
+            backend
+                .entry("name")
+                .or_insert_with(|| json!("report fixture backend"));
+            for field in [
+                "dependency_lock_sha256",
+                "executable_fingerprint",
+                "entrypoint_fingerprint",
+                "environment_fingerprint",
+            ] {
+                backend
+                    .entry(field)
+                    .or_insert_with(|| json!("0".repeat(64)));
+            }
+            backend
+                .entry("runtime_identity")
+                .or_insert_with(|| json!({}));
+            backend.entry("warnings").or_insert_with(|| json!([]));
+        }
+    }
+    manifest
+}
+
 #[test]
 fn report_command_isolates_bounded_fuzz_qualification() {
     let out_dir = unique_temp_dir("report-fuzz-json");
@@ -4383,7 +4617,7 @@ fn report_command_counts_generated_legacy_jpeg_lossless_rows() {
 fn report_projects_manifest_references_for_non_image_rows() {
     let out_dir = unique_temp_dir("report-non-image-references");
     fs::create_dir_all(&out_dir).expect("temporary output root should be created");
-    let manifest = json!({
+    let manifest = schema_bound_report_manifest!({
         "generated_at": "19700101000000.000000+0000",
         "standards": {
             "standards_lock_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
@@ -4544,7 +4778,7 @@ fn report_projects_manifest_references_for_non_image_rows() {
 fn report_summarizes_compressed_codec_coverage() {
     let out_dir = unique_temp_dir("report-compressed-codec-summary");
     fs::create_dir_all(&out_dir).expect("temporary output root should be created");
-    let manifest = json!({
+    let manifest = schema_bound_report_manifest!({
         "generated_at": "19700101000000.000000+0000",
         "standards": {
             "standards_lock_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
@@ -5048,7 +5282,7 @@ fn report_summarizes_compressed_codec_coverage() {
     assert!(markdown.contains("### SOP Classes"));
     assert!(markdown.contains("| 1.2.840.10008.5.1.4.1.1.7 | 2 |"));
     assert!(markdown.contains("### SOP Class Names"));
-    assert!(markdown.contains("| Secondary Capture Image Storage | 1 |"));
+    assert!(markdown.contains("| Secondary Capture Image Storage | 2 |"));
     assert!(markdown.contains("### Modalities"));
     assert!(markdown.contains("| OT | 2 |"));
     assert!(markdown.contains("### Statuses"));
@@ -5117,7 +5351,7 @@ fn report_summarizes_compressed_codec_coverage() {
 fn report_counts_feature_gated_planned_cases_as_planned() {
     let out_dir = unique_temp_dir("report-feature-gated-planned");
     fs::create_dir_all(&out_dir).expect("temporary output root should be created");
-    let manifest = json!({
+    let manifest = schema_bound_report_manifest!({
         "generated_at": "19700101000000.000000+0000",
         "standards": {
             "standards_lock_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
@@ -5167,7 +5401,7 @@ fn report_counts_feature_gated_planned_cases_as_planned() {
 fn report_exposes_external_generation_backend_provenance() {
     let out_dir = unique_temp_dir("report-generation-backend");
     fs::create_dir_all(&out_dir).expect("temporary output root should be created");
-    let manifest = json!({
+    let manifest = schema_bound_report_manifest!({
         "generated_at": "19700101000000.000000+0000",
         "standards": {
             "standards_lock_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
@@ -5284,7 +5518,7 @@ fn report_exposes_external_generation_backend_provenance() {
 fn report_counts_feature_gated_implemented_cases_as_unavailable() {
     let out_dir = unique_temp_dir("report-feature-gated-implemented");
     fs::create_dir_all(&out_dir).expect("temporary output root should be created");
-    let manifest = json!({
+    let manifest = schema_bound_report_manifest!({
         "generated_at": "19700101000000.000000+0000",
         "standards": {
             "standards_lock_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
@@ -5352,7 +5586,7 @@ fn report_counts_feature_gated_implemented_cases_as_unavailable() {
 fn report_summarizes_lossy_image_compression_method() {
     let out_dir = unique_temp_dir("report-lossy-method");
     fs::create_dir_all(&out_dir).expect("temporary output root should be created");
-    let manifest = json!({
+    let manifest = schema_bound_report_manifest!({
         "generated_at": "19700101000000.000000+0000",
         "standards": {
             "standards_lock_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
@@ -5492,7 +5726,7 @@ fn report_command_rejects_missing_manifest() {
         "report should fail without a manifest"
     );
     let stderr = String::from_utf8(output.stderr).expect("report stderr must be UTF-8");
-    assert!(stderr.contains("failed to read report metadata"));
+    assert!(stderr.contains("failed to read manifest"));
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }
@@ -5565,7 +5799,7 @@ fn report_surfaces_complete_unsigned_u32_pixel_contract() {
         .output()
         .unwrap();
     assert!(!rejected.status.success());
-    assert!(String::from_utf8_lossy(&rejected.stderr).contains("requires expected_u32_pixels"));
+    assert!(String::from_utf8_lossy(&rejected.stderr).contains("manifest schema invalid"));
 
     fs::remove_dir_all(out_dir).unwrap();
 }
@@ -5651,7 +5885,7 @@ fn report_surfaces_complete_one_bit_pixel_contract() {
         .output()
         .unwrap();
     assert!(!rejected.status.success());
-    assert!(String::from_utf8_lossy(&rejected.stderr).contains("requires expected_u1_pixels"));
+    assert!(String::from_utf8_lossy(&rejected.stderr).contains("manifest schema invalid"));
 
     fs::remove_dir_all(out_dir).unwrap();
 }
@@ -5745,7 +5979,7 @@ fn report_surfaces_complete_icc_profile_contract() {
         .output()
         .unwrap();
     assert!(!rejected.status.success());
-    assert!(String::from_utf8_lossy(&rejected.stderr).contains("requires expected_icc_profile"));
+    assert!(String::from_utf8_lossy(&rejected.stderr).contains("manifest schema invalid"));
 
     let mut malformed_contract = original_manifest;
     malformed_contract["files"]
@@ -5766,9 +6000,7 @@ fn report_surfaces_complete_icc_profile_contract() {
         .output()
         .unwrap();
     assert!(!rejected.status.success());
-    assert!(
-        String::from_utf8_lossy(&rejected.stderr).contains("requires XYZ profile connection space")
-    );
+    assert!(String::from_utf8_lossy(&rejected.stderr).contains("manifest schema invalid"));
 
     fs::remove_dir_all(out_dir).unwrap();
 }
@@ -5914,9 +6146,7 @@ fn report_surfaces_both_nonsquare_spatial_variants() {
         .output()
         .unwrap();
     assert!(!rejected.status.success());
-    assert!(
-        String::from_utf8_lossy(&rejected.stderr).contains("requires one exact spatial variant")
-    );
+    assert!(String::from_utf8_lossy(&rejected.stderr).contains("manifest schema invalid"));
 
     fs::remove_dir_all(out_dir).unwrap();
 }
@@ -6556,12 +6786,7 @@ fn blending_report_exposes_palette_rescale_and_source_closure() {
 #[test]
 fn report_command_exposes_promoted_ecg_waveform_contracts() {
     let out_dir = unique_temp_dir("report-ecg-waveform-json");
-    fs::create_dir_all(&out_dir).expect("create report fixture root");
-    fs::write(
-        out_dir.join("manifest.json"),
-        serde_json::to_vec_pretty(&waveform_report_manifest()).expect("serialize report fixture"),
-    )
-    .expect("write report fixture manifest");
+    generate_extended(&out_dir);
 
     let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([
@@ -6687,7 +6912,7 @@ fn report_command_exposes_promoted_ecg_waveform_contracts() {
     }
 
     let planned = coverage_row(&report, "non-image/rt/dose_grid_u16_explicit_le");
-    assert_eq!(planned["status"], "planned");
+    assert_eq!(planned["status"], "generated");
     for field in [
         "waveform_iod_kind",
         "waveform_payload_sha256",
@@ -7053,7 +7278,7 @@ fn report_keeps_planned_rt_plan_coverage_null() {
     fs::create_dir_all(&out_dir).expect("create planned RT Plan root");
     fs::write(
         out_dir.join("manifest.json"),
-        serde_json::to_vec_pretty(&json!({
+        serde_json::to_vec_pretty(&schema_bound_report_manifest!({
             "generated_at": "20260101000000.000000+0000",
             "standards": { "standards_lock_sha256": "0".repeat(64) },
             "run": { "profile": "extended" },
@@ -7199,7 +7424,7 @@ fn report_keeps_planned_rt_image_coverage_null() {
     fs::create_dir_all(&out_dir).expect("create planned RT Image root");
     fs::write(
         out_dir.join("manifest.json"),
-        serde_json::to_vec_pretty(&json!({
+        serde_json::to_vec_pretty(&schema_bound_report_manifest!({
             "generated_at": "20260101000000.000000+0000",
             "standards": { "standards_lock_sha256": "0".repeat(64) },
             "run": { "profile": "extended" },
@@ -7360,7 +7585,7 @@ fn report_exposes_locked_single_frame_vl_planned_rows() {
     fs::create_dir_all(&out_dir).expect("create planned VL report root");
     fs::write(
         out_dir.join("manifest.json"),
-        serde_json::to_vec_pretty(&json!({
+        serde_json::to_vec_pretty(&schema_bound_report_manifest!({
             "generated_at": "20260101000000.000000+0000",
             "standards": { "standards_lock_sha256": "0".repeat(64) },
             "run": { "profile": "extended" },
@@ -7428,7 +7653,7 @@ fn report_exposes_locked_tiled_full_wsi_plan_without_claiming_generation() {
     fs::create_dir_all(&out_dir).expect("create planned WSI report root");
     fs::write(
         out_dir.join("manifest.json"),
-        serde_json::to_vec_pretty(&json!({
+        serde_json::to_vec_pretty(&schema_bound_report_manifest!({
             "generated_at": "20260101000000.000000+0000",
             "standards": { "standards_lock_sha256": "0".repeat(64) },
             "run": { "profile": "extended" },
@@ -8231,7 +8456,7 @@ fn linked_rt_image_report_manifest() -> Value {
         "sop_instance_uid": plan_sop_uid,
         "frame_of_reference_uid": frame_uid
     });
-    json!({
+    schema_bound_report_manifest!({
         "generated_at": "20260101000000.000000+0000",
         "standards": { "standards_lock_sha256": "0".repeat(64) },
         "run": { "profile": "extended" },
@@ -8401,7 +8626,7 @@ fn vl_single_frame_report_manifest() -> Value {
             "known_stressors": [storage_stressor, "vl_rgb_pixels", "native_ob_pixel_data"]
         })
     };
-    json!({
+    schema_bound_report_manifest!({
         "generated_at": "20260101000000.000000+0000",
         "standards": { "standards_lock_sha256": "0".repeat(64) },
         "run": { "profile": "extended" },
@@ -8494,7 +8719,7 @@ fn linked_rt_plan_report_manifest() -> Value {
             "sop_instance_uid": reference["sop_instance_uid"]
         })
     };
-    json!({
+    schema_bound_report_manifest!({
         "generated_at": "20260101000000.000000+0000",
         "standards": { "standards_lock_sha256": "0".repeat(64) },
         "run": { "profile": "extended" },
@@ -8656,7 +8881,7 @@ fn general_ecg_report_manifest() -> Value {
         })
         .collect::<Vec<_>>();
 
-    json!({
+    schema_bound_report_manifest!({
         "generated_at": "20260101000000.000000+0000",
         "standards": {
             "standards_lock_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
@@ -8784,6 +9009,7 @@ fn report_waveform_channel(ordinal: usize, label: &str, code: &str, meaning: &st
     })
 }
 
+#[allow(dead_code)] // Frozen handcrafted reader fixture retained for compatibility archaeology.
 fn waveform_report_manifest() -> Value {
     let labels = [
         "I", "II", "III", "aVR", "aVL", "aVF", "V1", "V2", "V3", "V4", "V5", "V6",
@@ -8823,7 +9049,7 @@ fn waveform_report_manifest() -> Value {
             })
         })
         .collect::<Vec<_>>();
-    let mut twelve_manifest = json!({
+    let mut twelve_manifest = schema_bound_report_manifest!({
         "generated_at": "20260101000000.000000+0000",
         "standards": {
             "standards_lock_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
@@ -8863,7 +9089,20 @@ fn waveform_report_manifest() -> Value {
                         "interleave_order": "channel_then_sample",
                         "payload_length_bytes": 12000,
                         "payload_sha256": "98b7a9b1be25d9d64ffa75bc6e16ea80f60deed1891aeed8dfb440c1c19e6713",
-                        "channel_sha256": vec!["unused"; 12]
+                        "channel_sha256": [
+                            "7b4aee068e05c2bdff3896937c78a4c7a32f9ed2bde64d91b1d925913bf29476", "bd775dc70f76ea153a25832ad622b0cc26fbe6a37cf3ec6548a30965c4d17fba",
+                            "19d26b694df281209aa1296abbfa8f7d360e24a03a091422aba6f67663e2f3b1", "bb4c99d7857dbfcee5ee620bcff09b7060b61c5f2432427affc6139cb8d3cf9b",
+                            "230f52ed2ac57624a9a35214d7867711008dd56014f4176ce258623e5b596d3a", "60e167db3c081ba5bca957aba820afb519b790d048b660634d49566df88105f2",
+                            "cf8c73bebf746b799b1fe8aa2c908ca69bc7acc72311c64cbf4131fc8976609f", "0f11e5fb5105dac699fa4bcfc01c79fbe696a81db04606f39a719de57b4c7c30",
+                            "a41d5962abceb6dbe25f8421091ce3df6a69202c45b24ab6b0736159d15e253b", "d655e2cbb23d70e229ed52fedba9c45573e22729fed0a794ab690df8d7f33804",
+                            "005c539f9f4256a86d9e0a212b3bfe73741f99942b0677fb483c0c48db9583cd", "f448df95acb226c5c992363e27707a42efc3ffb974ebeff38e2a81522b57d82c"
+                        ],
+                        "byte_order": "little_endian",
+                        "sample_value_formula": "((s * (c + 1) * 37 + c * 101) mod 2001) - 1000",
+                        "sample_min": -1000,
+                        "sample_max": 1000,
+                        "waveform_padding_value_absent": true,
+                        "value_field_padding_bytes": 0
                     }
                 }],
                 "aggregate": {

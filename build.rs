@@ -16,8 +16,8 @@ fn main() {
 
     let target = std::env::var("TARGET").unwrap_or_else(|_| "unknown-target".to_string());
 
-    println!("cargo:rustc-env=DICOM_TEST_SUITE_RUSTC_VERSION={rustc_version}");
-    println!("cargo:rustc-env=DICOM_TEST_SUITE_TARGET={target}");
+    println!("cargo:rustc-env=SYNTH_DICOM_GEN_RUSTC_VERSION={rustc_version}");
+    println!("cargo:rustc-env=SYNTH_DICOM_GEN_TARGET={target}");
 
     generate_embedded_product_resources();
 }

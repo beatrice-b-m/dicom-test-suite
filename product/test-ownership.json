@@ -3107,7 +3107,7 @@
         "version_human_output_preserves_the_existing_banner",
         "version_machine_resource_drift_is_a_stable_integrity_error"
       ],
-      "entry_digest": "12a5a034506d9e93de41bc0327219473c8f82e796101c2199bd06ac34460e6a5"
+      "entry_digest": "b3daaf83f8b1e68d55c6525df663c6721bafa359d90d9d84089621f2536f8699"
     },
     {
       "source": "tests/waveform_document_mesh_plan.rs",

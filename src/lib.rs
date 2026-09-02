@@ -118,8 +118,8 @@ type DatasetObject = InMemDicomObject<StandardDataDictionary>;
 
 pub const PACKAGE_NAME: &str = env!("CARGO_PKG_NAME");
 pub const PACKAGE_VERSION: &str = env!("CARGO_PKG_VERSION");
-pub const RUSTC_VERSION: &str = env!("DICOM_TEST_SUITE_RUSTC_VERSION");
-pub const TARGET_TRIPLE: &str = env!("DICOM_TEST_SUITE_TARGET");
+pub const RUSTC_VERSION: &str = env!("SYNTH_DICOM_GEN_RUSTC_VERSION");
+pub const TARGET_TRIPLE: &str = env!("SYNTH_DICOM_GEN_TARGET");
 pub(crate) const IMPLEMENTATION_VERSION_NAME: &str = "DICOMTS010";
 
 pub fn version_banner() -> String {

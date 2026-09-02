@@ -46,10 +46,7 @@ fn version_json_is_clean_schema_valid_and_resource_bound_outside_the_checkout() 
         envelope["result"]["product"]["version"],
         env!("CARGO_PKG_VERSION")
     );
-    assert_eq!(
-        envelope["result"]["target"],
-        env!("DICOM_TEST_SUITE_TARGET")
-    );
+    assert_eq!(envelope["result"]["target"], env!("SYNTH_DICOM_GEN_TARGET"));
     assert_eq!(
         envelope["result"]["product_resources"]["origin"],
         "embedded"

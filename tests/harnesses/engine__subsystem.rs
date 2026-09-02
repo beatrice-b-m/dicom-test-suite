@@ -18,8 +18,6 @@ mod coverage_report;
 mod curated_advanced_plan;
 #[path = "../curated_external_import_plan.rs"]
 mod curated_external_import_plan;
-#[path = "../curated_manifest_contract_support.rs"]
-mod curated_manifest_contract_support;
 #[path = "../curated_negative_plan.rs"]
 mod curated_negative_plan;
 #[path = "../curated_reference_plan.rs"]

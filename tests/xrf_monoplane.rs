@@ -34,7 +34,7 @@ fn xrf_monoplane_vertical_slice_is_exact_byte_stable_and_reported() {
         fs::read(first_root.join(RELATIVE_PATH)).unwrap(),
         fs::read(second_root.join(RELATIVE_PATH)).unwrap()
     );
-    crate::curated_manifest_contract_support::assert_curated_manifest_schema_valid(&first_manifest);
+    curated_manifest_contract_support::assert_curated_manifest_schema_valid(&first_manifest);
 
     assert_eq!(
         first["dicom"],
@@ -384,9 +384,7 @@ fn validator_rejects_tampered_xrf_projection_contract() {
     *case_file_mut(&mut schema_invalid)
         .pointer_mut("/expected_xrf_projection/image_type/2")
         .unwrap() = json!("BIPLANE A");
-    crate::curated_manifest_contract_support::assert_curated_manifest_schema_rejected(
-        &schema_invalid,
-    );
+    curated_manifest_contract_support::assert_curated_manifest_schema_rejected(&schema_invalid);
     write_manifest(&root, &schema_invalid);
     let error = synth_dicom_gen::validate_generated_root(&root).unwrap_err();
     assert!(error.to_string().contains("manifest schema invalid"));
@@ -536,7 +534,7 @@ fn validator_rejects_tampered_xrf_projection_contract() {
         let mut tampered = manifest.clone();
         *case_file_mut(&mut tampered).pointer_mut(pointer).unwrap() = replacement;
         write_manifest(&root, &tampered);
-        if !crate::curated_manifest_contract_support::curated_manifest_schema_is_valid(&tampered) {
+        if !curated_manifest_contract_support::curated_manifest_schema_is_valid(&tampered) {
             let error = synth_dicom_gen::validate_generated_root(&root).unwrap_err();
             assert!(
                 error.to_string().contains("manifest schema invalid"),
@@ -626,3 +624,5 @@ fn unique_temp_dir(label: &str) -> PathBuf {
         std::process::id()
     ))
 }
+#[path = "support/curated_manifest_contract.rs"]
+mod curated_manifest_contract_support;

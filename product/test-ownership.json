@@ -1405,7 +1405,7 @@
         "public_planning_and_preparation_leave_the_destination_absent",
         "failed_ordinary_run_leaves_no_destination_or_private_staging"
       ],
-      "entry_digest": "ccc8eaa11d3ebb4021d250242742f892046db6c37b05cf74d36854b2350bcb1e"
+      "entry_digest": "abd5029bad9965bea9b8a27715a3025192dc3b69a3e136fa2b663514123e23f4"
     },
     {
       "source": "tests/curated_locked_full_file_execution.rs",

@@ -4,9 +4,9 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 266,
-    "rust_test_entries": 1421,
+    "rust_test_entries": 1422,
     "integration_source_groups": 187,
-    "integration_test_entries": 899,
+    "integration_test_entries": 900,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
   },
   "enums": {
@@ -435,10 +435,11 @@
       "domain": "release_ci",
       "verification_class": "fast",
       "cost_tier": "ordinary",
-      "entry_count": 8,
+      "entry_count": 9,
       "entries": [
         "release_manifest_reader_accepts_v1_and_current_v2",
         "release_manifest_v2_reader_rejects_identity_and_version_tampering",
+        "release_archive_harness_dispatches_frozen_and_current_schemas",
         "fast_pr_cancels_superseded_runs_without_duplicate_pr_branch_ownership",
         "fast_pr_is_bounded_to_light_contracts_and_tiny_smoke",
         "heavy_workflow_retains_nightly_matrix_and_immutable_release_gate",
@@ -446,7 +447,7 @@
         "ci_build_storage_controls_cover_every_job_and_preserve_heavy_evidence",
         "ci_cost_reporter_handles_missing_and_spaced_paths_and_fails_closed"
       ],
-      "entry_digest": "307e01d2e5c87da42f351982ed0dff82c3d81205043ab23c7ae11df42d58a659",
+      "entry_digest": "48dff4078427a778ac383ae2eea4a0c81aff9b9b385bd015c60326de4e47d3a7",
       "fast_cost_exemption": "Static workflow and script inspection; no heavyweight command is executed."
     },
     {
@@ -2489,7 +2490,7 @@
       "entries": [
         "current_target_archive_is_manifest_bound_and_relocatable"
       ],
-      "entry_digest": "9fe3ac813623659639552a2369d19259c17c8a1b9092271166b5c64b4793ccbf"
+      "entry_digest": "5a227dfe7a79fd19d40cf2237ab7549fd3799c092730e8f79e3ad231330c8ffc"
     },
     {
       "source": "tests/release_process.rs",

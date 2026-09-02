@@ -36,7 +36,7 @@ artifact.
 | R0 — freeze migration contract | Complete | R0.1, R0.2, R0.3, R0.4 | ADR 0003, the dated cost baseline, the exhaustive 801-path ownership inventory, and the seed-1 smoke parity manifest fix repository ownership, invalidated verification class, and the byte/normalized-semantic migration boundary. The R0 gate passes. |
 | R1 — contain CI and local build cost | Complete | R1.1, R1.2, R1.3, R1.4, R1.5, R1.6 | A disposable draft-PR probe proved superseded-run cancellation and single-event ownership. Replacement Fast run `33581809536` passed in 123 seconds of job time with only the declared Fast work, a 739,602,432-byte target, four smoke artifacts occupying 122,880 allocated bytes, and the 4-GiB ceiling enforced. The broad matrix remains separately scheduled/manually invocable. The R1 gate passes. |
 | R2 — reduce Rust test-linking amplification | Complete | R2.1, R2.2, R2.3, R2.4 | The fail-closed inventory maps 186 integration sources and all 879 integration entries into exactly 20 explicit harnesses. Six R0-measured heavy bodies have exact ignored qualification entry points, while deterministic change routing now selects bounded Fast/subsystem evidence and reports every deferred class without executing it. The aggregate R2 target-count, cost, heavy-isolation, and routing gates pass. |
-| R3 — rename reusable product | Complete | R3.1, R3.2, R3.3, R3.4 | Product, package, crate, library, sole binary, archives, discovery, package metadata, current operating guides, product-controlled environment, and production scratch paths use `synth-dicom-gen` / `synth_dicom_gen` at the breaking pre-1.0 product boundary `0.2.0`. Immutable dated evidence retains its exact old candidate identity, and 12 qualified-adapter variables retain provenance-bound spellings pending external requalification. The external-consumer audit found no supported `0.1.0` product consumer requiring an alias, and installed-consumer tests require no old repository path. The aggregate R3 gate passes. |
+| R3 — rename reusable product | Complete | R3.1, R3.2, R3.3, R3.4 | Product, package, crate, library, sole binary, archives, discovery, package metadata, current operating guides, product-controlled environment, and production scratch paths use `synth-dicom-gen` / `synth_dicom_gen` at the breaking pre-1.0 product boundary `0.2.0`. Immutable dated evidence retains its exact old candidate identity, and 12 qualified-adapter variables retain provenance-bound spellings pending external requalification. The external-consumer audit found no supported `0.1.0` product consumer requiring an alias. A clean side project compiled and exercised only `synth_dicom_gen::sdk` from the extracted, verified `synth-dicom-gen-0.2.0.crate`, without the old repository path. The aggregate R3 gate passes. |
 | R4 — split immutable resources and corpus definitions | Not started | None | Requires the accepted naming decision and sequential resource/schema migration. |
 | R5 — add supported external corpus API | Not started | None | Requires the R4 resource and identity boundary. |
 | R6 — establish smoke corpus repository | Not started | None | No external repository has been created; authority and destination are still required before out-of-workspace mutation. |
@@ -1618,6 +1618,38 @@ documentation tests. No heavyweight body, provider or external-runtime
 qualification, feature matrix, broad all-target suite, Nightly, release-
 candidate body, remote operation, or release ran.
 
+### Final R3 gate — packaged external consumer
+
+**State:** passed on 2026-09-02
+
+The initial exact `cargo package --locked` attempt tried to access the package
+index and was interrupted after 97.95 seconds when sandbox DNS was
+unavailable; it is recorded as an unavailable attempt, not a pass. The bounded
+offline retry set `CARGO_TARGET_DIR` to
+`/private/tmp/sdg-r3-consumer.ygbBfY/target`, disabled incremental compilation
+and test debug information, and ran `cargo package --locked --offline`.
+Package construction and Cargo's package verification passed in 23.99 seconds,
+covering 833 packaged files (14.8 MiB uncompressed and 2.4 MiB compressed).
+
+The resulting `synth-dicom-gen-0.2.0.crate` was 2,500,992 bytes with SHA-256
+`9bc4cdaa357ce6f87a8dcce61d2f554d45f7a795a5c5f09fbb93017e65f79fe6`.
+It was extracted once into
+`/private/tmp/sdg-r3-consumer.ygbBfY/package/synth-dicom-gen-0.2.0`, with all
+833 package files present. With `SYNTH_DICOM_GEN_SDK_PACKAGE_ROOT` bound to
+that extracted package, the exact command
+`cargo test --locked --no-default-features --test release_ci__nonfast
+sdk_external_consumer::` compiled and ran the clean side project through only
+the supported `synth_dicom_gen::sdk` facade. Exactly one test passed, 13 were
+filtered, in 47.54 seconds total with 29.86 seconds reported for the test
+body. The side project used the extracted package path rather than this
+repository checkout, closing the R3 no-old-repository-path gate.
+
+The isolated target occupied 957,332 KiB (980,307,968 allocated bytes). The
+exact temporary root was removed after measurement and the Git worktree
+remained clean. No broad, heavyweight, provider, external-runtime, Nightly,
+release-candidate, remote, or release body ran; this package-and-consumer proof
+does not qualify a `0.2.0` release artifact or target.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |
@@ -1660,12 +1692,12 @@ baseline alone is not proof that those budgets have passed.
 | Gate | State | Required terminal evidence or current blocker |
 | --- | --- | --- |
 | Repository boundary | Not run | Must prove no generator dependency on dcmview and no corpus use of unsupported modules or sibling paths. |
-| Naming and compatibility | Passed | R3.1-R3.4 prove package `synth-dicom-gen` `0.2.0`, library `synth_dicom_gen`, the sole binary and version-derived archive/discovery identities, clean no-alias product environment, renamed production scratch paths, dual readers only at the four approved compatibility boundaries, current operating guides under the new identity, immutable historical evidence under the old identity, and 12 explicitly evidence-bound retained adapter environments. A qualified `0.2.0` release remains correctly separate in the packaging-and-release row. |
+| Naming and compatibility | Passed | R3.1-R3.4 prove package `synth-dicom-gen` `0.2.0`, library `synth_dicom_gen`, the sole binary and version-derived archive/discovery identities, clean no-alias product environment, renamed production scratch paths, dual readers only at the four approved compatibility boundaries, current operating guides under the new identity, immutable historical evidence under the old identity, and 12 explicitly evidence-bound retained adapter environments. The exact 2,500,992-byte packaged crate (`9bc4cdaa357ce6f87a8dcce61d2f554d45f7a795a5c5f09fbb93017e65f79fe6`) passed Cargo verification and a clean extracted-package SDK consumer without an old repository path. A qualified `0.2.0` release remains correctly separate in the packaging-and-release row. |
 | External corpus contract | Not run | Versioned external definition loader and CLI/SDK generation contract are not implemented. |
 | Identity separation | Not run | Engine, toolchain, template/provider, schema, corpus, and external-runtime identities are not independently projected. |
 | Smoke migration | In progress | The R0 parity baseline passes for the current embedded smoke slice; R6 repository generation and comparison have not run. |
 | Complete migration | Not run | The current repository still owns the complete embedded corpus. |
-| Fast development | Passed | R1-R2 record the representative 123-second Fast PR, 739,602,432-byte target, bounded smoke artifacts, 20 integration harnesses, 84.28% comparable clean-tree size reduction, 91.19% bounded Fast-route reduction, and warm-invalidation evidence while preserving separately invocable heavy coverage. |
+| Fast development | In progress | R1-R2 record the representative 123-second generator Fast PR, 739,602,432-byte target, bounded smoke artifacts, 20 integration harnesses, 84.28% comparable clean-tree size reduction, 91.19% bounded Fast-route reduction, and warm-invalidation evidence while preserving separately invocable heavy coverage. Representative corpus and viewer PR measurements remain absent, and R9.6 still owns terminal verification-class cost measurements, so this terminal row does not yet pass. |
 | Heavy qualification | In progress | Nightly/manual/release routing now selects the six explicit heavy entries once, but no exact terminal Nightly or release-candidate run has executed at the separated-repository boundary. |
 | Artifact consumption | Not run | No keyed downstream corpus artifact or default viewer-consumption workflow exists. |
 | Packaging and release | Not run | Neither renamed repository has an independently qualified release procedure or exact candidate record. |

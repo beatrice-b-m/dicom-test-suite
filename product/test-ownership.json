@@ -4,9 +4,9 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 264,
-    "rust_test_entries": 1398,
+    "rust_test_entries": 1400,
     "integration_source_groups": 186,
-    "integration_test_entries": 880,
+    "integration_test_entries": 882,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
   },
   "enums": {
@@ -1405,7 +1405,7 @@
         "public_planning_and_preparation_leave_the_destination_absent",
         "failed_ordinary_run_leaves_no_destination_or_private_staging"
       ],
-      "entry_digest": "67337da9f9c9761a5a752441041ac39087d4d11a66c29359d3e9a7c11b10f42b"
+      "entry_digest": "ccc8eaa11d3ebb4021d250242742f892046db6c37b05cf74d36854b2350bcb1e"
     },
     {
       "source": "tests/curated_locked_full_file_execution.rs",
@@ -2829,7 +2829,7 @@
       "entries": [
         "generate_uses_embedded_resources_from_an_unrelated_working_directory"
       ],
-      "entry_digest": "8d50f34cad89f28e46676c3d68c50c89ff3ec3f9fdedb7b3d021454fdc80aa66"
+      "entry_digest": "796c36e46856c3ecc239b81103d94c80c11d2720171a529a76e5fc3afb679178"
     },
     {
       "source": "tests/standards_cli.rs",
@@ -3031,15 +3031,17 @@
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 5,
+      "entry_count": 7,
       "entries": [
         "implemented_registry_recipe_identities_are_complete_and_unique",
         "valid_registry_sop_classes_resolve_to_qualified_template_families",
         "every_qualified_template_retains_validation_and_evidence_routes",
         "every_current_production_direct_writer_is_classified_for_removal",
-        "every_temporary_bridge_is_named_and_assigned_to_a_removal_task"
+        "every_temporary_bridge_is_named_and_assigned_to_a_removal_task",
+        "byte_stable_provider_inventory_is_complete_and_version_decoupled",
+        "every_direct_output_version_provider_family_has_an_exact_payload_plan"
       ],
-      "entry_digest": "50ee54eab35a32090d81db7575fbaeacad0df9e851217d37dfcd6a36e001d424"
+      "entry_digest": "0c9567a809679b0e8e97ec7f15046dd509396a2b74ac80eb30a9ea0d14b30ac4"
     },
     {
       "source": "tests/unified_spine_boundaries.rs",

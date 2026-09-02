@@ -128,6 +128,11 @@ pub const PACKAGE_NAME: &str = env!("CARGO_PKG_NAME");
 pub const PACKAGE_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const RUSTC_VERSION: &str = env!("SYNTH_DICOM_GEN_RUSTC_VERSION");
 pub const TARGET_TRIPLE: &str = env!("SYNTH_DICOM_GEN_TARGET");
+/// Version embedded in unchanged byte-stable DICOM payload contracts.
+///
+/// Product releases report [`PACKAGE_VERSION`] separately. Changing the
+/// product version must not silently rewrite an existing recipe's bytes.
+pub(crate) const BYTE_STABLE_OUTPUT_VERSION: &str = "0.1.0";
 pub(crate) const IMPLEMENTATION_VERSION_NAME: &str = "DICOMTS010";
 
 pub fn version_banner() -> String {

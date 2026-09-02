@@ -93,7 +93,7 @@ impl CommonModulePlans {
                 operations: vec![
                     set_string("0008,0070", DicomVr::LO, "OpenAI"),
                     set_string("0008,1090", DicomVr::LO, "DICOM Test Suite"),
-                    set_string("0018,1020", DicomVr::LO, env!("CARGO_PKG_VERSION")),
+                    set_string("0018,1020", DicomVr::LO, crate::BYTE_STABLE_OUTPUT_VERSION),
                 ],
             },
             general_image: ModulePlan {

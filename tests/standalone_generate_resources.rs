@@ -97,25 +97,32 @@ fn generate_uses_embedded_resources_from_an_unrelated_working_directory() {
     assert_eq!(manifest["files"].as_array().unwrap().len(), 3);
     for entry in manifest["files"].as_array().unwrap() {
         assert!(output_root.join(entry["path"].as_str().unwrap()).is_file());
+        assert_eq!(
+            entry["corpus_plan_sha256"],
+            "2a18d78c956c2873755c30e989e90c900ece38bfd5ca87947565c19cfed8127c"
+        );
     }
     let expected = [
         (
             "classic/sc/mono1_u8_explicit_le",
             926,
             "76dc5208b139899fcb87bbf7ec9edf1a323000a91c4015de9ef8bde7bd344ecc",
+            "71792e2a52c1bb1b0ef483324922a4c7c7613d0ae9535f088f84601c33eec32a",
         ),
         (
             "classic/sc/mono2_u8_explicit_le",
             926,
             "fce766bcbb4b4aa79cfb3fa0c3b5e4ef888b11c0708fad713b9cde8d41ec6a15",
+            "394035d0ae5aa616041b4c140d6e20b0861e5074efa3177059cd533e5c5060ef",
         ),
         (
             "classic/sc/rgb_planar0_explicit_le",
             938,
             "33de9448509431fda27005cbf83c79977f1c3ebadb669ae1dedf1a225742f3c5",
+            "aa32a98e6145116050f31d35739423619c84b096b65fa1d38e332396b888853e",
         ),
     ];
-    for (case_id, size, sha256) in expected {
+    for (case_id, size, sha256, resolved_plan_sha256) in expected {
         let file = manifest["files"]
             .as_array()
             .unwrap()
@@ -124,6 +131,7 @@ fn generate_uses_embedded_resources_from_an_unrelated_working_directory() {
             .unwrap();
         assert_eq!(file["size_bytes"], size);
         assert_eq!(file["sha256"], sha256);
+        assert_eq!(file["resolved_plan_sha256"], resolved_plan_sha256);
     }
 
     for arguments in [

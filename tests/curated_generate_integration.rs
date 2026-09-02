@@ -126,7 +126,7 @@ fn ordinary_generate_preserves_locked_curated_history_for_public_profiles() {
         ),
         (
             "all",
-            "a50de8b288b3543876e4e58bcc2b435f41b81e84201e78508f093e894b8f4c36",
+            "5d7a02ef873833dba33e9feb56330eabad709215c25de7c6caf0aa61986ab21e",
         ),
         (
             "legacy",

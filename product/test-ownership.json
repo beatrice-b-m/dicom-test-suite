@@ -1782,9 +1782,9 @@
       "entries": [
         "committed_generation_backend_lock_validates_and_has_unique_ids",
         "external_registry_providers_resolve_to_optional_locked_backends",
-        "native_backend_dependency_hash_matches_cargo_lock"
+        "cargo_dependency_hashes_match_cargo_lock"
       ],
-      "entry_digest": "05f6853111687513e285b3f5c67da1f9b3c375361766c3d6adf6c61fe7ef9e55"
+      "entry_digest": "8f434fdc2dce8f145bf16188591bcc1b5460427ce5c223f4a4a974b4f24278d8"
     },
     {
       "source": "tests/generation_backend_contract.rs",

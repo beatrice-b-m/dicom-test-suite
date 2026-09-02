@@ -102,23 +102,44 @@ fn external_registry_providers_resolve_to_optional_locked_backends() {
 }
 
 #[test]
-fn native_backend_dependency_hash_matches_cargo_lock() {
+fn cargo_dependency_hashes_match_cargo_lock() {
     let lock = read_json("generation-backends.lock.json");
-    let native = lock
+    let backends = lock
         .get("backends")
         .and_then(Value::as_array)
-        .and_then(|backends| {
-            backends.iter().find(|backend| {
-                backend.get("backend_id").and_then(Value::as_str) == Some("rust_native")
-            })
-        })
-        .expect("native backend must be locked");
-    let expected = native
-        .pointer("/dependency_lock/sha256")
-        .and_then(Value::as_str)
-        .expect("native dependency hash should be present");
+        .expect("generation backends must be present");
     let cargo_lock = fs::read("Cargo.lock").expect("Cargo.lock should be readable");
-    assert_eq!(expected, sha256_hex(&cargo_lock));
+    let cargo_lock_sha256 = sha256_hex(&cargo_lock);
+    let mut cargo_bound = 0;
+    for backend in backends {
+        if backend
+            .pointer("/dependency_lock/path")
+            .and_then(Value::as_str)
+            != Some("Cargo.lock")
+        {
+            continue;
+        }
+        cargo_bound += 1;
+        let backend_id = backend
+            .get("backend_id")
+            .and_then(Value::as_str)
+            .expect("backend id should be present");
+        assert_eq!(
+            backend
+                .pointer("/dependency_lock/format")
+                .and_then(Value::as_str),
+            Some("cargo-lock-v4"),
+            "Cargo-bound backend {backend_id} must declare the lock format"
+        );
+        assert_eq!(
+            backend
+                .pointer("/dependency_lock/sha256")
+                .and_then(Value::as_str),
+            Some(cargo_lock_sha256.as_str()),
+            "Cargo-bound backend {backend_id} must match Cargo.lock"
+        );
+    }
+    assert_eq!(cargo_bound, 3, "unexpected Cargo-bound backend inventory");
 }
 
 fn read_json(path: &str) -> Value {

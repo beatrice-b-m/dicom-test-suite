@@ -4256,7 +4256,7 @@ fn stress_sc_common_attributes(
         stress_string("0008,0064", DicomVr::CS, &common.conversion_type)?,
         stress_string("0008,0070", DicomVr::LO, &common.manufacturer)?,
         stress_string("0008,1090", DicomVr::LO, &common.manufacturer_model_name)?,
-        stress_string("0018,1020", DicomVr::LO, crate::PACKAGE_VERSION)?,
+        stress_string("0018,1020", DicomVr::LO, crate::BYTE_STABLE_OUTPUT_VERSION)?,
         stress_string("0020,0013", DicomVr::IS, &common.instance_number)?,
         stress_string("0020,0020", DicomVr::CS, "")?,
         stress_string("0008,0023", DicomVr::DA, "20260101")?,

@@ -222,7 +222,7 @@ pub fn plan_stress_sc_recipe(
         implementation_class_uid: deterministic_uid(&DeterministicUidInput {
             standards_lock_sha256,
             case_id: "dicom-test-suite/implementation",
-            recipe_version: crate::PACKAGE_VERSION,
+            recipe_version: crate::BYTE_STABLE_OUTPUT_VERSION,
             run_seed: 0,
             file_index: 0,
             frame_index: None,

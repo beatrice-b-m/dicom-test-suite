@@ -119,7 +119,7 @@ pub fn plan_stress_ct_recipe(
     let implementation_uid = deterministic_uid(&DeterministicUidInput {
         standards_lock_sha256,
         case_id: "dicom-test-suite/implementation",
-        recipe_version: crate::PACKAGE_VERSION,
+        recipe_version: crate::BYTE_STABLE_OUTPUT_VERSION,
         run_seed: 0,
         file_index: 0,
         frame_index: None,
@@ -297,7 +297,7 @@ fn common(
             manufacturer_model_name: ElementPresence::Value(
                 parameters.manufacturer_model_name.clone(),
             ),
-            software_versions: ElementPresence::Value(crate::PACKAGE_VERSION.into()),
+            software_versions: ElementPresence::Value(crate::BYTE_STABLE_OUTPUT_VERSION.into()),
         },
         image: ImageModuleInput {
             instance_number: ElementPresence::Value(instance_number.into()),

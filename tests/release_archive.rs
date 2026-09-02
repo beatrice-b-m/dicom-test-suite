@@ -33,6 +33,35 @@ fn read_json(path: impl AsRef<Path>) -> Value {
     serde_json::from_slice(&fs::read(path).unwrap()).unwrap()
 }
 
+fn validate_release_manifest_schema(manifest: &Value) {
+    match manifest["release_manifest_schema_version"].as_str() {
+        Some("1.0.0") => {
+            let schema = read_json("schemas/release-manifest.schema.json");
+            Validator::new(&schema).unwrap().validate(manifest).unwrap();
+        }
+        Some("2.0.0") => {
+            let schema = read_json("schemas/release-manifest-v2.schema.json");
+            let version = read_json("schemas/version-result-v2.schema.json");
+            let capabilities = read_json("schemas/capabilities-result-v2.schema.json");
+            jsonschema::options()
+                .with_draft(jsonschema::Draft::Draft202012)
+                .with_resource(
+                    "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json",
+                    jsonschema::Resource::from_contents(version).unwrap(),
+                )
+                .with_resource(
+                    "https://synth-dicom-gen.local/schemas/capabilities-result-v2.schema.json",
+                    jsonschema::Resource::from_contents(capabilities).unwrap(),
+                )
+                .build(&schema)
+                .unwrap()
+                .validate(manifest)
+                .unwrap();
+        }
+        version => panic!("unsupported release manifest schema version: {version:?}"),
+    }
+}
+
 fn normalized_outcome(bytes: &[u8]) -> Value {
     let mut value: Value = serde_json::from_slice(bytes).unwrap();
     let result = value["result"].as_object_mut().unwrap();
@@ -374,11 +403,7 @@ fn current_target_archive_is_manifest_bound_and_relocatable() {
         extracted.join(&archive_name)
     };
     let manifest = read_json(root.join("release-manifest.json"));
-    let schema = read_json("schemas/release-manifest.schema.json");
-    Validator::new(&schema)
-        .unwrap()
-        .validate(&manifest)
-        .unwrap();
+    validate_release_manifest_schema(&manifest);
     assert_eq!(manifest["target"], target);
     let expected_dirty = if Path::new(".git").exists() {
         !Command::new("git")

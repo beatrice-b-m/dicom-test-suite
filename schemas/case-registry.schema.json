@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://dicom-test-suite.local/schemas/case-registry.schema.json",
+  "$id": "https://synth-dicom-gen.local/schemas/case-registry.schema.json",
   "title": "DICOM Test Suite Case Registry",
   "type": "object",
   "required": ["case_registry_schema_version", "cases"],

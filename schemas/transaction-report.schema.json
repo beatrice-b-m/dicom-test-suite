@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://dicom-test-suite.local/schemas/transaction-report.schema.json",
+  "$id": "https://synth-dicom-gen.local/schemas/transaction-report.schema.json",
   "title": "DICOM Test Suite Protocol Transaction Report",
   "type": "object",
   "required": ["contract_version", "transactions", "summary"],

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://dicom-test-suite.local/schemas/structural-assembly-manifest.schema.json",
+  "$id": "https://synth-dicom-gen.local/schemas/structural-assembly-manifest.schema.json",
   "title": "DICOM Test Suite Structural Assembly Manifest",
   "type": "object",
   "required": ["manifest_schema_version","generated_at","generator","product_resources","run","instances","unavailable_capabilities","resources","publication","warnings"],
@@ -9,7 +9,7 @@
     "generated_at": { "const": "2000-01-01T00:00:00Z" },
     "generator": {
       "type": "object", "required": ["name","version","target","rustc"],
-      "properties": { "name": { "const": "dicom-test-suite" }, "version": { "type": "string" }, "target": { "type": "string" }, "rustc": { "type": "string" } },
+      "properties": { "name": { "const": "synth-dicom-gen" }, "version": { "type": "string" }, "target": { "type": "string" }, "rustc": { "type": "string" } },
       "additionalProperties": false
     },
     "product_resources": { "type": "object" },

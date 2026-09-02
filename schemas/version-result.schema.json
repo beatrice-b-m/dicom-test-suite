@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://dicom-test-suite.local/schemas/version-result.schema.json",
+  "$id": "https://synth-dicom-gen.local/schemas/version-result.schema.json",
   "title": "DICOM Test Suite Version Result",
   "type": "object",
   "required": [
@@ -18,7 +18,7 @@
       "type": "object",
       "required": ["name", "version"],
       "properties": {
-        "name": { "const": "dicom-test-suite" },
+        "name": { "const": "synth-dicom-gen" },
         "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$" }
       },
       "additionalProperties": false

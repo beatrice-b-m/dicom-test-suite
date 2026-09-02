@@ -1191,7 +1191,7 @@
         "waveform_route_requires_locked_secondary_iod_and_payload_evidence",
         "general_waveform_sidecar_rejects_group_and_aggregate_tampering"
       ],
-      "entry_digest": "05383c1bac2bc0c2e6d7191f569c62d4b39852b5ec15a15a4f2521cb4343cdc9"
+      "entry_digest": "181686e0027bf08d797b36540331d8491840bbdd79782fb4c19b9da82c4897e2"
     },
     {
       "source": "tests/conformance_wsi.rs",
@@ -2714,7 +2714,7 @@
         "sdk_precancelled_request_returns_typed_error_and_publishes_nothing",
         "sdk_structural_assembly_returns_no_claim_typed_manifest"
       ],
-      "entry_digest": "1d55f07b82253933b1f6dcd84870fdf0553778ad1a9f35baf1fe9fcac740618c"
+      "entry_digest": "11bfb8397efb8faa4434d759f3aa7c745ef3e5cc7cdbb6cb17d92d6da233ab66"
     },
     {
       "source": "tests/semantic_sr_rt_plan.rs",
@@ -3620,7 +3620,7 @@
         "pyramid_group_sidecar_rejects_incomplete_mutated_and_misbound_evidence",
         "wsi_is_exactly_scoped_into_the_visible_light_iod_route"
       ],
-      "entry_digest": "60c2d4d23555ae549e4159bea98cf8b1215ee1ab0b4d8e45763b9278b63c224f"
+      "entry_digest": "86e7f9bc035722b40fa7985d24fe583fedb07d6b462f577b1959ff0836f7c47e"
     },
     {
       "source": "src/coverage_gaps.rs",
@@ -4076,7 +4076,7 @@
         "encapsulated_stl_manifest_contract_is_exact_and_case_scoped",
         "encapsulated_stl_report_projects_payload_geometry_and_grouped_evidence"
       ],
-      "entry_digest": "0b88fbfe574acf223fd08123adfdfa8569e5177bab2db407848dc61fc3a9889d"
+      "entry_digest": "71949d6f07b7948f60e1bac1bfa1b2d7f19cbe2e7a74a167ccd73b67aa5379aa"
     },
     {
       "source": "src/media.rs",

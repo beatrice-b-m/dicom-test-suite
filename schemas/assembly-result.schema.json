@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://dicom-test-suite.local/schemas/assembly-result.schema.json",
+  "$id": "https://synth-dicom-gen.local/schemas/assembly-result.schema.json",
   "type": "object",
   "required": ["assembly_result_schema_version","requested_output_root","manifest_path","run_kind","seed","request_schema_version","manifest_schema_version","product_version","emitted_artifact_count","output_bytes","unavailable_capability_count","unavailable_capabilities","corpus_plan_sha256","published","publication_status","validation_status","plan_preview"],
   "properties": {

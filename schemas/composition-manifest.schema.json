@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://dicom-test-suite.local/schemas/composition-manifest.schema.json",
+  "$id": "https://synth-dicom-gen.local/schemas/composition-manifest.schema.json",
   "title": "DICOM Test Suite Composition Run Manifest",
   "type": "object",
   "required": ["manifest_schema_version", "generated_at", "generator", "standards", "dependencies", "run", "composition"],

@@ -65,7 +65,7 @@
       "contract_id": "rust-sdk",
       "owner": "sdk_maintainers",
       "support_window": "supported sdk facade for the product semantic-version line that introduced it",
-      "apis": ["dicom_test_suite::sdk"],
+      "apis": ["synth_dicom_gen::sdk"],
       "schemas": []
     },
     {

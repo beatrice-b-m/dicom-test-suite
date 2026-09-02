@@ -22,7 +22,7 @@ fn input(sources: Vec<SourceCaseLink>) -> ProtocolBaselineInput {
     ProtocolBaselineInput {
         run_seed: 0x5eed,
         harness: ToolFingerprint {
-            id: "dicom-test-suite-protocol-baseline".into(),
+            id: "synth-dicom-gen-protocol-baseline".into(),
             version: env!("CARGO_PKG_VERSION").into(),
             executable_sha256: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
                 .into(),

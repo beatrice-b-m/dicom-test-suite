@@ -2613,7 +2613,7 @@ pub fn run_conformance(
     let generator_name = manifest
         .pointer("/generator/name")
         .and_then(Value::as_str)
-        .unwrap_or("dicom-test-suite");
+        .unwrap_or("synth-dicom-gen");
     let generator_version = manifest
         .pointer("/generator/version")
         .and_then(Value::as_str)

@@ -505,7 +505,7 @@ fn write_waveform_manifest(root: &Path, case_id: &str, expected: Value) {
     write_json(
         root.join("manifest.json"),
         &json!({
-            "generator": {"name": "dicom-test-suite", "version": "test", "feature_flags": []},
+            "generator": {"name": "synth-dicom-gen", "version": "test", "feature_flags": []},
             "run": {"seed": 1, "profile": "extended"},
             "standards": {"standards_lock_sha256": "1".repeat(64)},
             "files": [{

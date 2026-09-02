@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://dicom-test-suite.local/schemas/media-report.schema.json",
+  "$id": "https://synth-dicom-gen.local/schemas/media-report.schema.json",
   "title": "DICOM Test Suite DICOMDIR Qualification Report",
   "type": "object",
   "required": [

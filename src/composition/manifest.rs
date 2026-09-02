@@ -1028,7 +1028,7 @@ mod tests {
     fn inputs() -> CompositionManifestInputs {
         CompositionManifestInputs {
             generated_at: "2026-08-28T00:00:00Z".into(),
-            generator: json!({"name": "dicom-test-suite"}),
+            generator: json!({"name": "synth-dicom-gen"}),
             standards: json!({"dicom_base_edition": "2026b"}),
             dependencies: json!({}),
             product_resources: crate::product_resources::ProductResources::embedded()

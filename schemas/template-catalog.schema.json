@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://dicom-test-suite.local/schemas/template-catalog.schema.json",
+  "$id": "https://synth-dicom-gen.local/schemas/template-catalog.schema.json",
   "title": "DICOM Test Suite Composition Template Catalog",
   "type": "object",
   "required": ["template_catalog_schema_version", "standards_lock_sha256", "templates"],

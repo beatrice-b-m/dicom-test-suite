@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://dicom-test-suite.local/schemas/composition-spec.schema.json",
+  "$id": "https://synth-dicom-gen.local/schemas/composition-spec.schema.json",
   "title": "DICOM Test Suite Composition Specification",
   "type": "object",
   "required": ["composition_spec_schema_version", "instances"],

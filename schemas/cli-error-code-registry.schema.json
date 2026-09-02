@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://dicom-test-suite.local/schemas/cli-error-code-registry.schema.json",
+  "$id": "https://synth-dicom-gen.local/schemas/cli-error-code-registry.schema.json",
   "title": "DICOM Test Suite CLI Error Code Registry",
   "type": "object",
   "required": ["registry_schema_version", "cli_api_version", "exit_classes", "errors", "current_failure_mappings"],

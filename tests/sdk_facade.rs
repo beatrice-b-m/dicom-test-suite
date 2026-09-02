@@ -9,7 +9,7 @@ static NEXT: AtomicU64 = AtomicU64::new(0);
 
 fn output(label: &str) -> std::path::PathBuf {
     std::env::temp_dir().join(format!(
-        "dicom-test-suite-sdk-{label}-{}-{}",
+        "synth-dicom-gen-sdk-{label}-{}-{}",
         std::process::id(),
         NEXT.fetch_add(1, Ordering::Relaxed)
     ))
@@ -21,7 +21,7 @@ fn sdk_embedded_discovery_is_typed_and_conservative() {
     let version = product.version().unwrap();
     let capabilities = product.capabilities().unwrap();
 
-    assert_eq!(version.product.name, "dicom-test-suite");
+    assert_eq!(version.product.name, "synth-dicom-gen");
     assert_eq!(version.cli_api_version, "1.0.0");
     assert_eq!(
         version.product_resources.resource_set_sha256,
@@ -33,7 +33,7 @@ fn sdk_embedded_discovery_is_typed_and_conservative() {
 #[test]
 fn sdk_explicit_resources_fail_closed_with_stable_error() {
     let root = std::env::temp_dir().join(format!(
-        "dicom-test-suite-sdk-resources-{}",
+        "synth-dicom-gen-sdk-resources-{}",
         std::process::id()
     ));
     std::fs::create_dir_all(&root).unwrap();

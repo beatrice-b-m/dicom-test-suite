@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://dicom-test-suite.local/schemas/generation-backend-lock.schema.json",
+  "$id": "https://synth-dicom-gen.local/schemas/generation-backend-lock.schema.json",
   "title": "DICOM Generation Backend Policy Lock",
   "type": "object",
   "required": ["backend_lock_schema_version", "protocol_version", "backends"],

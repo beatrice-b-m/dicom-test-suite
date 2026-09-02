@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://dicom-test-suite.local/schemas/coverage-report.schema.json",
+  "$id": "https://synth-dicom-gen.local/schemas/coverage-report.schema.json",
   "title": "DICOM Test Suite Coverage Report",
   "type": "object",
   "required": [

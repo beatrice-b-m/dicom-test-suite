@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://dicom-test-suite.local/schemas/generation-result.schema.json",
+  "$id": "https://synth-dicom-gen.local/schemas/generation-result.schema.json",
   "title": "DICOM Test Suite Generation Result",
   "type": "object",
   "$ref": "#/$defs/result",

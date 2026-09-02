@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://dicom-test-suite.local/schemas/interoperability-result.schema.json",
+  "$id": "https://synth-dicom-gen.local/schemas/interoperability-result.schema.json",
   "title": "DICOM Test Suite Interoperability Result",
   "type": "object",
   "required": ["interoperability_result_schema_version", "operation", "evidence"],

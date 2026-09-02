@@ -138,7 +138,9 @@ fn validate_command_reports_extended_offset_table_for_native_pixel_data() {
                     "present": true,
                     "lengths_present": true,
                     "offset_count": 1,
-                    "length_count": 1
+                    "length_count": 1,
+                    "offsets": [0],
+                    "lengths": [4]
                 },
                 "compressed_frame_hashes": [
                     "0000000000000000000000000000000000000000000000000000000000000000"
@@ -160,7 +162,11 @@ fn validate_command_reports_extended_offset_table_for_native_pixel_data() {
         "validate should reject Extended Offset Table metadata for native Pixel Data"
     );
     let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
-    assert!(stdout.contains("extended_offset_table_native_pixel_data"));
+    let stderr = String::from_utf8(output.stderr).expect("validate stderr must be UTF-8");
+    assert!(
+        stdout.contains("extended_offset_table_native_pixel_data"),
+        "unexpected validation output: stdout={stdout:?} stderr={stderr:?}"
+    );
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }
@@ -186,9 +192,11 @@ fn validate_command_reports_invalid_encapsulated_offset_table_combination() {
                 "fragments_per_frame": [2],
                 "extended_offset_table": {
                     "present": true,
-                    "lengths_present": false,
-                    "offset_count": 0,
-                    "length_count": 0
+                    "lengths_present": true,
+                    "offset_count": 1,
+                    "length_count": 1,
+                    "offsets": [0],
+                    "lengths": [4]
                 },
                 "compressed_frame_hashes": [
                     "0000000000000000000000000000000000000000000000000000000000000000"
@@ -210,12 +218,14 @@ fn validate_command_reports_invalid_encapsulated_offset_table_combination() {
         "validate should reject invalid encapsulated Pixel Data offset-table combinations"
     );
     let stdout = String::from_utf8(output.stdout).expect("validate stdout must be UTF-8");
-    assert!(stdout.contains("extended_offset_table_with_populated_basic_offset_table"));
+    assert!(
+        stdout.contains("extended_offset_table_with_populated_basic_offset_table"),
+        "unexpected validation output: {stdout}"
+    );
     assert!(
         !stdout.contains("extended_offset_table_multiple_fragments"),
         "EOT frames may span multiple fragments"
     );
-    assert!(stdout.contains("extended_offset_table_without_lengths"));
 
     fs::remove_dir_all(out_dir).expect("temporary output root should be removable");
 }
@@ -1294,9 +1304,12 @@ fn mutate_first_file_pixel_data(
         .get_mut("files")
         .and_then(Value::as_array_mut)
         .expect("manifest files should be an array");
-    let pixel_data = files
+    let file = files
         .first_mut()
-        .and_then(|file| file.get_mut("pixel_data"))
+        .expect("generated manifest should contain a file");
+    file["case_id"] = Value::String("internal/offset_table_semantic_fixture".to_string());
+    let pixel_data = file
+        .get_mut("pixel_data")
         .and_then(Value::as_object_mut)
         .expect("first generated file should have pixel_data metadata");
     mutate(pixel_data);

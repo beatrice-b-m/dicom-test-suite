@@ -7331,13 +7331,13 @@ fn validate_encapsulated_pixel_data_manifest(
     }
 
     if extended_offset_table_present {
-        if basic_offset_table_populated
-            || basic_offset_table.is_some_and(|offsets| !offsets.is_empty())
-        {
-            failures.push(format!(
-                "{relative_path}: extended_offset_table_with_populated_basic_offset_table: Extended Offset Table requires an empty Basic Offset Table"
-            ));
-        }
+        validate_extended_offset_table_manifest_semantics(
+            failures,
+            relative_path,
+            basic_offset_table_populated,
+            basic_offset_table.is_some_and(|offsets| !offsets.is_empty()),
+            extended_lengths_present,
+        );
         if extended_offset_count == 0 {
             failures.push(format!(
                 "{relative_path}: extended_offset_table_empty: Extended Offset Table must contain one offset per frame"
@@ -7350,11 +7350,6 @@ fn validate_encapsulated_pixel_data_manifest(
             extended_offset_count,
             frame_count,
         );
-        if !extended_lengths_present {
-            failures.push(format!(
-                "{relative_path}: extended_offset_table_without_lengths: Extended Offset Table requires Extended Offset Table Lengths"
-            ));
-        }
         validate_equal(
             failures,
             relative_path,
@@ -7428,6 +7423,25 @@ fn validate_encapsulated_pixel_data_manifest(
     }
 
     Ok(())
+}
+
+fn validate_extended_offset_table_manifest_semantics(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    basic_offset_table_populated: bool,
+    basic_offset_table_has_offsets: bool,
+    extended_lengths_present: bool,
+) {
+    if basic_offset_table_populated || basic_offset_table_has_offsets {
+        failures.push(format!(
+            "{relative_path}: extended_offset_table_with_populated_basic_offset_table: Extended Offset Table requires an empty Basic Offset Table"
+        ));
+    }
+    if !extended_lengths_present {
+        failures.push(format!(
+            "{relative_path}: extended_offset_table_without_lengths: Extended Offset Table requires Extended Offset Table Lengths"
+        ));
+    }
 }
 
 fn manifest_optional_u64_array(
@@ -35734,6 +35748,21 @@ mod tests {
         let failures = failures.join("\n");
         assert!(failures.contains("extended_offset_table_file_values"));
         assert!(failures.contains("extended_offset_table_recomputed_offset"));
+
+        let mut manifest_failures = Vec::new();
+        validate_extended_offset_table_manifest_semantics(
+            &mut manifest_failures,
+            "instance.dcm",
+            false,
+            false,
+            false,
+        );
+        assert!(
+            manifest_failures
+                .join("\n")
+                .contains("extended_offset_table_without_lengths"),
+            "the downstream semantic guard remains fail closed even though the public schema rejects this shape first"
+        );
     }
 
     #[test]

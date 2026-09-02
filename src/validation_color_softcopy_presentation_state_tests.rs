@@ -230,7 +230,11 @@ fn write_fixture(label: &str, mutation: Mutation, pristine_profile: &[u8]) -> Pa
             "Native Color Softcopy Presentation State",
         ),
         text(tags::DEVICE_SERIAL_NUMBER, VR::LO, "DTS-COLOR-PR-0001"),
-        text(tags::SOFTWARE_VERSIONS, VR::LO, crate::PACKAGE_VERSION),
+        text(
+            tags::SOFTWARE_VERSIONS,
+            VR::LO,
+            crate::BYTE_STABLE_OUTPUT_VERSION,
+        ),
         text(tags::INSTANCE_NUMBER, VR::IS, "1"),
         text(tags::PRESENTATION_CREATION_DATE, VR::DA, "20260101"),
         text(tags::PRESENTATION_CREATION_TIME, VR::TM, "000000"),

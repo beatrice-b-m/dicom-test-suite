@@ -238,7 +238,7 @@ fn radiation_expectations() -> RtRadiationExpectations<'static> {
             plan_series_instance_uid: PLAN_SERIES_UID,
             plan_sop_instance_uid: PLAN_SOP_UID,
             plan_sha256: HASH_A,
-            software_versions: crate::PACKAGE_VERSION,
+            software_versions: crate::BYTE_STABLE_OUTPUT_VERSION,
         }),
     }
 }
@@ -259,7 +259,7 @@ fn set_expectations() -> RtRadiationSetExpectations<'static> {
             radiation_series_instance_uid: RADIATION_SERIES_UID,
             radiation_sop_instance_uid: RADIATION_SOP_UID,
             radiation_sha256: HASH_B,
-            software_versions: crate::PACKAGE_VERSION,
+            software_versions: crate::BYTE_STABLE_OUTPUT_VERSION,
         }),
     }
 }
@@ -491,7 +491,11 @@ fn radiation_object() -> InMemDicomObject {
         (tags::MANUFACTURER_MODEL_VERSION, VR::LO, "1"),
         (tags::MANUFACTURER_DEVICE_CLASS_UID, VR::UI, ""),
         (tags::DEVICE_SERIAL_NUMBER, VR::LO, "DTS-LINAC-001"),
-        (tags::SOFTWARE_VERSIONS, VR::LO, crate::PACKAGE_VERSION),
+        (
+            tags::SOFTWARE_VERSIONS,
+            VR::LO,
+            crate::BYTE_STABLE_OUTPUT_VERSION,
+        ),
         (tags::DEVICE_ALTERNATE_IDENTIFIER, VR::UC, ""),
         (tags::DEVICE_LABEL, VR::LO, "DTS_LINAC"),
         (
@@ -707,7 +711,11 @@ fn base(class: &str, sop: &str, series: &str, number: &str, model: &str) -> InMe
         (tags::MANUFACTURER, VR::LO, "dicom-test-suite"),
         (tags::MANUFACTURER_MODEL_NAME, VR::LO, model),
         (tags::DEVICE_SERIAL_NUMBER, VR::LO, "DTS-LINAC-001"),
-        (tags::SOFTWARE_VERSIONS, VR::LO, crate::PACKAGE_VERSION),
+        (
+            tags::SOFTWARE_VERSIONS,
+            VR::LO,
+            crate::BYTE_STABLE_OUTPUT_VERSION,
+        ),
     ] {
         put_str(&mut object, tag, vr, value);
     }

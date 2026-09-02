@@ -287,7 +287,11 @@ fn valid_object() -> InMemDicomObject {
         (tags::INSTITUTION_ADDRESS, VR::ST, ""),
         (tags::MANUFACTURER_MODEL_NAME, VR::LO, "Native General ECG"),
         (tags::DEVICE_SERIAL_NUMBER, VR::LO, "DTS-GECG-001"),
-        (tags::SOFTWARE_VERSIONS, VR::LO, crate::PACKAGE_VERSION),
+        (
+            tags::SOFTWARE_VERSIONS,
+            VR::LO,
+            crate::BYTE_STABLE_OUTPUT_VERSION,
+        ),
         (tags::INSTANCE_NUMBER, VR::IS, "1"),
         (tags::CONTENT_DATE, VR::DA, "20260101"),
         (tags::CONTENT_TIME, VR::TM, "000000"),

@@ -410,7 +410,11 @@ fn valid_object() -> InMemDicomObject {
             "Native Linked RT Image",
         ),
         (tags::DEVICE_SERIAL_NUMBER, VR::LO, "DTS-RTIMAGE-001"),
-        (tags::SOFTWARE_VERSIONS, VR::LO, crate::PACKAGE_VERSION),
+        (
+            tags::SOFTWARE_VERSIONS,
+            VR::LO,
+            crate::BYTE_STABLE_OUTPUT_VERSION,
+        ),
         (tags::ACQUISITION_DATE, VR::DA, "20260101"),
         (tags::ACQUISITION_TIME, VR::TM, "000000"),
         (tags::IMAGE_TYPE, VR::CS, "DERIVED\\SECONDARY\\DRR"),

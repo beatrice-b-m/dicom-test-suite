@@ -259,7 +259,11 @@ fn valid_object() -> InMemDicomObject {
             "Native Linked RT Plan",
         ),
         (tags::DEVICE_SERIAL_NUMBER, VR::LO, "DTS-RTPLAN-001"),
-        (tags::SOFTWARE_VERSIONS, VR::LO, crate::PACKAGE_VERSION),
+        (
+            tags::SOFTWARE_VERSIONS,
+            VR::LO,
+            crate::BYTE_STABLE_OUTPUT_VERSION,
+        ),
         (tags::INSTANCE_NUMBER, VR::IS, "1"),
         (tags::RT_PLAN_LABEL, VR::SH, "DTS_PLAN"),
         (tags::RT_PLAN_DATE, VR::DA, "20260101"),

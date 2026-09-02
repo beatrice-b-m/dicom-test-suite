@@ -42,7 +42,7 @@
     },
     "corpus_definition_internal": {
       "commands": [
-        {"kind": "lib", "module": "corpus_definition::tests", "source": "tests/corpus_definition_bundle.rs", "list_count": 18}
+        {"kind": "lib", "module": "corpus_definition::tests", "source": "tests/corpus_definition_bundle.rs", "list_count": 19}
       ]
     },
     "engine": {

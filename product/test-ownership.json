@@ -4,7 +4,7 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 263,
-    "rust_test_entries": 1393,
+    "rust_test_entries": 1394,
     "integration_source_groups": 186,
     "integration_test_entries": 879,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
@@ -1213,7 +1213,7 @@
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 18,
+      "entry_count": 19,
       "entries": [
         "minimal_bundle_loads_with_stable_exact_byte_identity",
         "manifest_bytes_are_identity_bearing",
@@ -1232,9 +1232,10 @@
         "hardlinks_fifo_and_nonregular_roots_are_rejected",
         "ordinary_dependency_cannot_cross_into_negative_scope",
         "ordinary_dependency_cannot_cross_into_legacy_or_stress_scope",
+        "negative_and_fuzz_dependencies_cannot_cross_legacy_or_stress_boundaries",
         "excessive_undeclared_inventory_fails_without_buffering_all_names"
       ],
-      "entry_digest": "39636e032aaa8cee3ec19e4ef76c91d4807109bfd8cbc2b1e2811f09eda76f25"
+      "entry_digest": "3e47eef00271db000f64067612e9ceacfd816c5714084b299953d394fceebf35"
     },
     {
       "source": "tests/corpus_plan.rs",

@@ -2818,7 +2818,7 @@
       "entries": [
         "compose_uses_embedded_catalogs_from_an_unrelated_working_directory"
       ],
-      "entry_digest": "23b0e68652ca671608ccb29306b6247944323355de81ebcedc4458006fb412d2"
+      "entry_digest": "80499992fa8fc18a80eb2bc963ef0aa6bbf3d65b5916a304172caffe1761bd27"
     },
     {
       "source": "tests/standalone_docs.rs",

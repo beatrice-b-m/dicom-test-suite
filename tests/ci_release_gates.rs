@@ -1,6 +1,153 @@
 use std::collections::BTreeSet;
 use std::fs;
 use std::process::Command;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+use serde_json::{Value, json};
+
+static NEXT_RELEASE_MANIFEST_TEST: AtomicU64 = AtomicU64::new(0);
+
+fn current_discovery_result(command: &str) -> Value {
+    let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
+        .args([command, "--format", "json"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    serde_json::from_slice::<Value>(&output.stdout).unwrap()["result"].clone()
+}
+
+fn current_release_manifest_v2() -> Value {
+    let version = current_discovery_result("version");
+    let capabilities = current_discovery_result("capabilities");
+    assert_eq!(
+        version["identity_domains"],
+        capabilities["identity_domains"]
+    );
+    let identity_domains = version["identity_domains"].clone();
+    let legacy_product_resources = version["product_resources"].clone();
+    json!({
+        "release_manifest_schema_version": "2.0.0",
+        "product": version["product"],
+        "source": {"revision": "1111111111111111111111111111111111111111", "dirty": false},
+        "target": version["target"],
+        "enabled_features": version["enabled_features"],
+        "version_result": version,
+        "capabilities_result": capabilities,
+        "identity_domains": identity_domains,
+        "legacy_product_resources": legacy_product_resources,
+        "files": [{
+            "path": "bin/synth-dicom-gen",
+            "size_bytes": 1,
+            "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+        }]
+    })
+}
+
+#[test]
+fn release_manifest_reader_accepts_v1_and_current_v2() {
+    let legacy: Value = serde_json::from_slice(
+        &fs::read("tests/fixtures/release/release-manifest-v1.json").unwrap(),
+    )
+    .unwrap();
+    assert!(validate_release_manifest(&legacy).status.success());
+
+    let current = current_release_manifest_v2();
+    let validation = validate_release_manifest(&current);
+    assert!(
+        validation.status.success(),
+        "{}",
+        String::from_utf8_lossy(&validation.stderr)
+    );
+    assert!(
+        current["identity_domains"]["external_runtime"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[test]
+fn release_manifest_v2_reader_rejects_identity_and_version_tampering() {
+    let baseline = current_release_manifest_v2();
+    let mut cases = Vec::new();
+
+    let mut unknown = baseline.clone();
+    unknown["release_manifest_schema_version"] = json!("9.0.0");
+    cases.push(("unknown version", unknown));
+
+    let mut missing = baseline.clone();
+    missing.as_object_mut().unwrap().remove("identity_domains");
+    cases.push(("missing identity", missing));
+
+    let mut malformed = baseline.clone();
+    malformed["identity_domains"]["engine"]["engine_sha256"] = json!("not-a-digest");
+    malformed["version_result"]["identity_domains"] = malformed["identity_domains"].clone();
+    malformed["capabilities_result"]["identity_domains"] = malformed["identity_domains"].clone();
+    cases.push(("malformed digest", malformed));
+
+    let mut mismatch = baseline.clone();
+    mismatch["capabilities_result"]["identity_domains"]["engine"]["engine_sha256"] =
+        json!("3333333333333333333333333333333333333333333333333333333333333333");
+    cases.push(("domain mismatch", mismatch));
+
+    let mut duplicate = baseline.clone();
+    let runtimes = json!([
+        {
+            "runtime_id": "codec",
+            "runtime_kind": "codec",
+            "executable_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+            "version": "1.0.0",
+            "invocation_sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+        },
+        {
+            "runtime_id": "codec",
+            "runtime_kind": "codec",
+            "executable_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+            "version": "2.0.0",
+            "invocation_sha256": "7777777777777777777777777777777777777777777777777777777777777777"
+        }
+    ]);
+    duplicate["identity_domains"]["external_runtime"] = runtimes.clone();
+    duplicate["version_result"]["identity_domains"]["external_runtime"] = runtimes.clone();
+    duplicate["capabilities_result"]["identity_domains"]["external_runtime"] = runtimes;
+    cases.push(("duplicate runtime", duplicate));
+
+    let mut legacy_presence = baseline.clone();
+    legacy_presence["version_result"]
+        .as_object_mut()
+        .unwrap()
+        .remove("product_resources");
+    cases.push(("legacy presence mismatch", legacy_presence));
+
+    let mut inventory = baseline;
+    let duplicate_file = inventory["files"][0].clone();
+    inventory["files"]
+        .as_array_mut()
+        .unwrap()
+        .push(duplicate_file);
+    cases.push(("duplicate inventory path", inventory));
+
+    for (label, document) in cases {
+        let validation = validate_release_manifest(&document);
+        assert!(!validation.status.success(), "accepted {label}");
+    }
+}
+
+fn validate_release_manifest(document: &Value) -> std::process::Output {
+    let path = std::env::temp_dir().join(format!(
+        "synth-dicom-gen-release-manifest-{}-{}.json",
+        std::process::id(),
+        NEXT_RELEASE_MANIFEST_TEST.fetch_add(1, Ordering::Relaxed)
+    ));
+    fs::write(&path, serde_json::to_vec_pretty(document).unwrap()).unwrap();
+    let output = Command::new("sh")
+        .arg("scripts/validate-release-manifest.sh")
+        .arg(&path)
+        .output()
+        .unwrap();
+    fs::remove_file(path).unwrap();
+    output
+}
 
 fn workflow(path: &str) -> String {
     fs::read_to_string(path).unwrap_or_else(|error| panic!("cannot read {path}: {error}"))

@@ -675,7 +675,7 @@ fn project_rt_compatibility(
                     )?,
                     plan_sop_instance_uid: uid(plan_source.1, CompositionUidRole::SopInstance)?,
                     plan_sha256: &plan_source.2.sha256,
-                    software_versions: crate::PACKAGE_VERSION,
+                    software_versions: crate::BYTE_STABLE_OUTPUT_VERSION,
                 },
             );
             Ok((
@@ -737,7 +737,7 @@ fn project_rt_compatibility(
                     )?,
                     radiation_sop_instance_uid: uid(radiation.1, CompositionUidRole::SopInstance)?,
                     radiation_sha256: &radiation.2.sha256,
-                    software_versions: crate::PACKAGE_VERSION,
+                    software_versions: crate::BYTE_STABLE_OUTPUT_VERSION,
                 },
             );
             Ok((

@@ -4333,6 +4333,14 @@
       "reason": "The lower-case hyphen spelling is a qualified adapter identity or an internal-only test fixture label."
     },
     {
+      "path": "tests/support/curated_manifest_contract.rs",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
       "path": "tests/support/prepared_backend.rs",
       "token": "DTS_HIGHDICOM_PYTHON",
       "class": "qualified_adapter_environment",
@@ -4478,11 +4486,11 @@
     }
   ],
   "retained_snapshot": {
-    "match_count": 944,
-    "sha256": "8c59a643a5719e4690c9150cdfd632014e7996c6b8e2ad4b639d0e0cf4c88618",
+    "match_count": 945,
+    "sha256": "e5f5585a41c7003530c62019bff6cb6a8196dc345bd676ce618225a4ae5b9e3e",
     "by_class": {
       "dicom_payload_identifier": 189,
-      "legacy_payload_schema_fixture_or_evidence": 310,
+      "legacy_payload_schema_fixture_or_evidence": 311,
       "locked_python_module_or_backend": 148,
       "qualified_adapter_environment": 155,
       "qualified_adapter_or_test_fixture": 142

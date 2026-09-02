@@ -2785,7 +2785,7 @@
         "installed_examples_are_neutral_self_contained_and_documented",
         "readme_leads_with_installed_product_and_isolates_contributor_commands"
       ],
-      "entry_digest": "808ecfa7a8f7e59a3c1cb6572f5b4b57677067d83b295ddd71dbc88d368e5c51",
+      "entry_digest": "3aa1c340502372aad837437d1f75f52191f33514fd619dc86fd0cf33f444b7a7",
       "fast_cost_exemption": "Static documentation inspection; external-consumer names launch no process."
     },
     {

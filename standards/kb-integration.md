@@ -102,7 +102,7 @@ above.
 
 ## CLI Verification Status
 
-`dicom-test-suite standards verify-kb --edition 2026b` intentionally reports
+`synth-dicom-gen standards verify-kb --edition 2026b` intentionally reports
 `status\tunavailable` in the standalone binary. The binary does not have direct
 runtime access to the Codex `dicom-standard-kb` MCP server, repository checkout
 metadata, or local KB database hash. Use the configured MCP tools during agent

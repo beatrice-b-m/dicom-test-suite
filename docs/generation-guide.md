@@ -229,7 +229,7 @@ prepared, generation still completes and records an
 
 ### Qualified adapter spellings retained during the product rename
 
-The following 13 environment names belong to locked external adapters, not to
+The following 12 environment names belong to locked external adapters, not to
 the product CLI. Their exact spellings remain part of qualified runtime and
 fingerprint provenance until each adapter is independently renamed and
 requalified:
@@ -244,9 +244,11 @@ requalified:
 - `DTS_DICOM_VALIDATOR_STANDARD_HOME`
 - `DTS_HIGHDICOM_PYTHON`
 - `DTS_LCMS_HOME`
-- `DTS_M6_SEGMENTATION_FIXTURE`
 - `DTS_PIXELMED_HOME`
 - `DTS_WSI_RECONSTRUCTION_PYTHON`
+
+`SYNTH_DICOM_GEN_M6_SEGMENTATION_FIXTURE` is product-controlled and selects
+the M6 qualification fixture; it is not a retained adapter spelling.
 
 Likewise, locked module and command identities such as
 `dts_highdicom_backend`, `dts_dicom_validator_adapter`,

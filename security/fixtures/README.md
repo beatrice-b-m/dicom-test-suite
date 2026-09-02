@@ -1,7 +1,7 @@
 # Public synthetic PKI fixtures
 
 These certificates and private keys are intentionally public test fixtures for
-`dicom-test-suite`. They protect nothing, are trusted by no production system,
+`synth-dicom-gen`. They protect nothing, are trusted by no production system,
 and must never be reused outside this repository's synthetic tests.
 
 The fixture set contains a test root CA plus separate dataset-signing, TLS

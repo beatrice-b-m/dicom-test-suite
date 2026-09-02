@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-`dicom-test-suite` is a Rust project for generating deterministic, synthetic,
+`synth-dicom-gen` is a Rust project for generating deterministic, synthetic,
 non-PHI DICOM corpora for viewer, parser, codec, and interoperability testing.
 It emits DICOM Part 10 files, versioned manifests, coverage reports, and
 profile-specific qualification evidence. Generation is standards-led and must

@@ -1,4 +1,4 @@
-# System Specification: `dicom-test-suite`
+# System Specification: `synth-dicom-gen`
 
 **Status:** architecture baseline with unified generation spine promoted
 
@@ -11,7 +11,7 @@
 
 ## 1. Purpose
 
-`dicom-test-suite` generates a broad, deterministic, synthetic DICOM corpus for validating DICOM viewer compatibility and DICOM handling behavior. The initial downstream use case is `dcmview`, but this repository must remain viewer-agnostic. A failing viewer is useful signal; generated cases should reflect the DICOM standard, common interoperability risks, and real-world compatibility stressors rather than the current capabilities of any one implementation.
+`synth-dicom-gen` generates a broad, deterministic, synthetic DICOM corpus for validating DICOM viewer compatibility and DICOM handling behavior. The initial downstream use case is `dcmview`, but this repository must remain viewer-agnostic. A failing viewer is useful signal; generated cases should reflect the DICOM standard, common interoperability risks, and real-world compatibility stressors rather than the current capabilities of any one implementation.
 
 Generated DICOM payloads are build artifacts. They must not be committed. The repository commits code, case recipes, metadata schemas, expected results, validation logic, coverage reports, and compatibility report schemas.
 
@@ -192,9 +192,9 @@ Deterministic generation must control:
 CI shall include at least one two-run reproducibility check:
 
 ```sh
-dicom-test-suite generate --profile smoke --out /tmp/dts-a --seed 1
-dicom-test-suite generate --profile smoke --out /tmp/dts-b --seed 1
-diff -r /tmp/dts-a /tmp/dts-b
+synth-dicom-gen generate --profile smoke --out /tmp/synth-dicom-gen-a --seed 1
+synth-dicom-gen generate --profile smoke --out /tmp/synth-dicom-gen-b --seed 1
+diff -r /tmp/synth-dicom-gen-a /tmp/synth-dicom-gen-b
 ```
 
 For compressed cases declared `semantic_stable`, CI shall compare decoded frame hashes and manifest semantics rather than raw file bytes.
@@ -744,8 +744,8 @@ Recommended top-level shape:
   "manifest_schema_version": "0.2.0",
   "generated_at": "20000101T000000Z",
   "generator": {
-    "name": "dicom-test-suite",
-    "version": "0.1.0",
+    "name": "synth-dicom-gen",
+    "version": "0.2.0",
     "git_sha": "optional",
     "rustc_version": "1.xx.x",
     "target_triple": "x86_64-unknown-linux-gnu",
@@ -1048,43 +1048,43 @@ contracts above.
 Current command surface:
 
 ```sh
-dicom-test-suite generate --profile smoke --out generated/smoke
-dicom-test-suite generate --profile core --out generated/core --seed 1
-dicom-test-suite generate --profile all --out generated/all --seed 1
-dicom-test-suite generate --profile all --include-stress --out generated/all-plus-stress
-dicom-test-suite generate --profile legacy --out generated/legacy --seed 1
-dicom-test-suite generate --profile negative --out generated/negative --seed 1
-dicom-test-suite generate --profile fuzz --out generated/fuzz --seed 1
+synth-dicom-gen generate --profile smoke --out generated/smoke
+synth-dicom-gen generate --profile core --out generated/core --seed 1
+synth-dicom-gen generate --profile all --out generated/all --seed 1
+synth-dicom-gen generate --profile all --include-stress --out generated/all-plus-stress
+synth-dicom-gen generate --profile legacy --out generated/legacy --seed 1
+synth-dicom-gen generate --profile negative --out generated/negative --seed 1
+synth-dicom-gen generate --profile fuzz --out generated/fuzz --seed 1
 
-dicom-test-suite list-cases
-dicom-test-suite list-cases --profile extended
-dicom-test-suite list-cases --status blocked
+synth-dicom-gen list-cases
+synth-dicom-gen list-cases --profile extended
+synth-dicom-gen list-cases --status blocked
 
-dicom-test-suite validate generated/core
-dicom-test-suite report generated/core --format json
-dicom-test-suite report generated/core --format markdown
-dicom-test-suite report gaps --format markdown
+synth-dicom-gen validate generated/core
+synth-dicom-gen report generated/core --format json
+synth-dicom-gen report generated/core --format markdown
+synth-dicom-gen report gaps --format markdown
 
-dicom-test-suite conformance check-tools
-dicom-test-suite conformance run generated/all --out reports/conformance/all
-dicom-test-suite conformance verify reports/conformance/all
+synth-dicom-gen conformance check-tools
+synth-dicom-gen conformance run generated/all --out reports/conformance/all
+synth-dicom-gen conformance verify reports/conformance/all
 
-dicom-test-suite interoperate media-dicomdir GENERATED_ROOT --dcmmkdir PATH --dcmdump PATH --dciodvfy PATH --format json
-dicom-test-suite interoperate protocol-baseline GENERATED_ROOT --format markdown
+synth-dicom-gen interoperate media-dicomdir GENERATED_ROOT --dcmmkdir PATH --dcmdump PATH --dciodvfy PATH --format json
+synth-dicom-gen interoperate protocol-baseline GENERATED_ROOT --format markdown
 ```
 
 Standards-related commands:
 
 ```sh
-dicom-test-suite standards check-lock
-dicom-test-suite standards verify-kb --edition 2026b
-dicom-test-suite standards gaps --profile core
+synth-dicom-gen standards check-lock
+synth-dicom-gen standards verify-kb --edition 2026b
+synth-dicom-gen standards gaps --profile core
 ```
 
 An optional viewer-runner command remains unimplemented:
 
 ```sh
-dicom-test-suite run-viewer generated/core --viewer 'dcmview {file}' --report reports/dcmview.json
+synth-dicom-gen run-viewer generated/core --viewer 'dcmview {file}' --report reports/dcmview.json
 ```
 
 Viewer runners are adapters. They must not be required for corpus generation or validation.

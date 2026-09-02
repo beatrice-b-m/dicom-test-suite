@@ -46,4 +46,4 @@ change a CLI API, request, manifest, report, template, or provider version.
   unsupported version must produce its documented error and migration action;
   do not rewrite it silently.
 
-[Unreleased]: https://github.com/beatrice-b-m/dicom-test-suite/compare/HEAD...HEAD
+[Unreleased]: https://github.com/beatrice-b-m/synth-dicom-gen/compare/HEAD...HEAD

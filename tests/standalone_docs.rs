@@ -28,6 +28,7 @@ fn installed_product_guides_cover_the_complete_external_consumer_contract() {
             "missing guide contract: {required}"
         );
     }
+    assert_current_guides_use_the_renamed_product_and_history_stays_exact();
 }
 
 #[test]
@@ -100,4 +101,77 @@ fn readme_leads_with_installed_product_and_isolates_contributor_commands() {
     assert!(!consumer.contains("cargo run"));
     assert!(contributor.contains("cargo run --locked"));
     assert!(contributor.contains("cargo test --locked"));
+}
+
+fn assert_current_guides_use_the_renamed_product_and_history_stays_exact() {
+    let current_guides = [
+        "README.md",
+        "AGENTS.md",
+        "CHANGELOG.md",
+        "SYSTEM_SPEC.md",
+        "docs/assembly-guide.md",
+        "docs/automation-guide.md",
+        "docs/compatibility-policy.md",
+        "docs/composition-integration-guide.md",
+        "docs/composition-security-policy.md",
+        "docs/corpus-consumption.md",
+        "docs/deterministic-build-policy.md",
+        "docs/examples-guide.md",
+        "docs/external-codec-verification.md",
+        "docs/generation-guide.md",
+        "docs/installation-guide.md",
+        "docs/release-process.md",
+        "docs/sdk-guide.md",
+        "conformance/README.md",
+        "conformance-backends/dicom-validator/README.md",
+        "conformance-backends/wsi-reconstruction/README.md",
+        "generation-backends/highdicom-pydicom/README.md",
+        "security/fixtures/README.md",
+        "standards/kb-integration.md",
+    ];
+    let old_product = ["dicom-test", "suite"].join("-");
+    let old_crate = ["dicom", "test", "suite"].join("_");
+
+    for path in current_guides {
+        let contents = fs::read_to_string(path).unwrap();
+        assert!(
+            !contents.contains(&old_crate),
+            "current guide {path} retains the old Rust crate spelling"
+        );
+        for suffix in [
+            " generate",
+            " validate",
+            " report",
+            " compose",
+            " assemble",
+            "/compare/HEAD...HEAD",
+        ] {
+            assert!(
+                !contents.contains(&format!("{old_product}{suffix}")),
+                "current guide {path} retains an old product command or URL"
+            );
+        }
+        let old_mentions = contents.matches(&old_product).count();
+        if path == "docs/installation-guide.md" {
+            assert_eq!(old_mentions, 1, "historical candidate label drifted");
+            assert!(contents.contains(&format!("{old_product} 0.1.0")));
+        } else {
+            assert_eq!(old_mentions, 0, "current guide {path} retains old branding");
+        }
+    }
+
+    let generation = fs::read_to_string("docs/generation-guide.md").unwrap();
+    let old_m6 = ["DTS", "M6", "SEGMENTATION", "FIXTURE"].join("_");
+    assert!(!generation.contains(&old_m6));
+    assert!(generation.contains("SYNTH_DICOM_GEN_M6_SEGMENTATION_FIXTURE"));
+
+    let historical_status =
+        fs::read_to_string("docs/standalone-product-status-2026-08-31.md").unwrap();
+    assert!(
+        historical_status.contains(&format!("{old_product}-0.1.0-aarch64-apple-darwin.tar.gz"))
+    );
+    let adr =
+        fs::read_to_string("docs/adr/0003-synth-dicom-gen-dcmview-corpus-separation.md").unwrap();
+    assert!(adr.contains(&old_product));
+    assert!(adr.contains("synth-dicom-gen"));
 }

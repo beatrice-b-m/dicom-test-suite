@@ -1,0 +1,24 @@
+{
+  "corpus_definition_bundle_schema_version": "1.0.0",
+  "definition_id": "fixture.minimal",
+  "definition_version": "1.0.0",
+  "profiles": [
+    {"profile_id":"smoke","scope":"valid"},
+    {"profile_id":"core","scope":"valid"},
+    {"profile_id":"extended","scope":"valid"},
+    {"profile_id":"legacy","scope":"legacy"},
+    {"profile_id":"stress","scope":"stress"},
+    {"profile_id":"negative","scope":"expected_invalid"},
+    {"profile_id":"fuzz","scope":"fuzz"},
+    {"profile_id":"all","scope":"valid","union_of":["smoke","core","extended"],"optional_profile":"stress"}
+  ],
+  "registry": {"path":"cases/registry.json","size_bytes":748,"sha256":"b2452577091bdb36923f5ccd9bb5a3cd42dcdacf867e2214afe9917a8950d567"},
+  "cases": [{
+    "case_id":"classic/sc/minimal",
+    "recipe_id":"minimal",
+    "recipe_version":"1.0.0",
+    "recipe":{"path":"cases/recipes/minimal.json","size_bytes":633,"sha256":"70ecbd32cc496847afab0440c7f6a5a3be421f479eed16443fce11e1f86f2e74"},
+    "evidence_ids":["fixture.minimal"]
+  }],
+  "evidence":[{"evidence_id":"fixture.minimal","media_type":"text/markdown","path":"evidence/minimal.md","size_bytes":27,"sha256":"6b83b8a0b422cc293b5ba2ff63042a09b60ad715a4c01799db97c0ef09efcf9f"}]
+}

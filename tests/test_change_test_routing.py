@@ -189,6 +189,15 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
                     commands,
                 )
 
+    def test_structured_report_qualification_is_explicitly_deferred(self):
+        result = self.select("tests/composition_structured_reports.rs")
+        self.assertEqual(result["bundle_ids"], [])
+        self.assertEqual(self.commands(result), [])
+        self.assertIn(
+            "native_provider_contract",
+            [item["id"] for item in result["deferred_evidence"]],
+        )
+
     def test_native_validation_routes_all_byte_stable_fixture_contracts(self):
         validation_commands = [
             "cargo test --locked --no-default-features --lib validation::advanced_blending_presentation_state_tests::",

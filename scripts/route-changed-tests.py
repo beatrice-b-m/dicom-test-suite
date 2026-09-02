@@ -304,6 +304,7 @@ def select(paths: list[str], config: dict[str, Any], ownership: dict[str, Any], 
                 if path in {
                     "tests/composition_curated_migration.rs",
                     "tests/composition_quantitative.rs",
+                    "tests/composition_structured_reports.rs",
                 }:
                     deferred_ids.add("native_provider_contract")
                 elif group.get("verification_class") == "nightly":

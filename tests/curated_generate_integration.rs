@@ -8,7 +8,7 @@ use serde_json::Value;
 use synth_dicom_gen::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
 };
-use synth_dicom_gen::{GenerateOptions, prepare_generation_run, sha256_hex};
+use synth_dicom_gen::{GenerateOptions, PACKAGE_VERSION, prepare_generation_run, sha256_hex};
 
 const SEED: u64 = 7;
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -44,6 +44,13 @@ fn migrated_paths(profile: &str) -> BTreeSet<String> {
             max_parallelism: 4,
         })
         .unwrap();
+    if profile == "all" {
+        assert_eq!(
+            sha256_hex(&serde_json::to_vec_pretty(&bundle.plan).unwrap()),
+            "c85d84dc77197042e42bbe0ea072128853c7c185df3dcce5ef57cc17754b0bae",
+            "the repaired all-profile plan must remain byte-identical to R0 revision 65a296b"
+        );
+    }
     bundle
         .plan
         .artifacts
@@ -83,9 +90,16 @@ fn run_generate(profile: &str, output: &Path) -> Value {
 
 /// Locks the exact historical manifest values, their order, and the emitted
 /// payload bytes without checking generated payloads into the repository.
-fn migrated_slice_digest(root: &Path, manifest: &Value, selected: &BTreeSet<String>) -> String {
+fn migrated_slice_digests(
+    root: &Path,
+    manifest: &Value,
+    selected: &BTreeSet<String>,
+) -> (String, String, (usize, usize)) {
     let mut remaining = selected.clone();
-    let mut qualified = Vec::new();
+    let mut current = Vec::new();
+    let mut r0_compatible = Vec::new();
+    let mut normalized_codec_versions = 0;
+    let mut normalized_validation_messages = 0;
     for entry in manifest["files"].as_array().unwrap() {
         let path = entry["path"].as_str().unwrap();
         if !selected.contains(path) {
@@ -100,17 +114,55 @@ fn migrated_slice_digest(root: &Path, manifest: &Value, selected: &BTreeSet<Stri
             backend.remove("invocation_elapsed_milliseconds");
         }
         let manifest_bytes = serde_json::to_vec(&deterministic_entry).unwrap();
+        let mut historical_entry = deterministic_entry.clone();
+        if let Some(version) = historical_entry.pointer_mut("/pixel_data/codec/version") {
+            assert_eq!(
+                version.as_str(),
+                Some(PACKAGE_VERSION),
+                "built-in codec evidence must report the current product release"
+            );
+            *version = Value::String("0.1.0".into());
+            normalized_codec_versions += 1;
+        }
+        if let Some(checks) = historical_entry
+            .pointer_mut("/validation/internal")
+            .and_then(Value::as_array_mut)
+        {
+            for check in checks {
+                let Some(message) = check.get_mut("message") else {
+                    continue;
+                };
+                if message.as_str()
+                    == Some("Software Versions matches the byte-stable output contract.")
+                {
+                    *message = Value::String(
+                        "Software Versions matches the running generator version.".into(),
+                    );
+                    normalized_validation_messages += 1;
+                }
+            }
+        }
+        let historical_manifest_bytes = serde_json::to_vec(&historical_entry).unwrap();
         let payload_bytes = fs::read(root.join(path)).unwrap();
-        qualified.extend_from_slice(&(manifest_bytes.len() as u64).to_le_bytes());
-        qualified.extend_from_slice(&manifest_bytes);
-        qualified.extend_from_slice(&(payload_bytes.len() as u64).to_le_bytes());
-        qualified.extend_from_slice(&payload_bytes);
+        for (qualified, projected_manifest_bytes) in [
+            (&mut current, &manifest_bytes),
+            (&mut r0_compatible, &historical_manifest_bytes),
+        ] {
+            qualified.extend_from_slice(&(projected_manifest_bytes.len() as u64).to_le_bytes());
+            qualified.extend_from_slice(projected_manifest_bytes);
+            qualified.extend_from_slice(&(payload_bytes.len() as u64).to_le_bytes());
+            qualified.extend_from_slice(&payload_bytes);
+        }
     }
     assert!(
         remaining.is_empty(),
         "missing migrated outputs: {remaining:?}"
     );
-    sha256_hex(&qualified)
+    (
+        sha256_hex(&current),
+        sha256_hex(&r0_compatible),
+        (normalized_codec_versions, normalized_validation_messages),
+    )
 }
 
 #[test]
@@ -123,18 +175,24 @@ fn ordinary_generate_preserves_locked_curated_history_for_public_profiles() {
         (
             "smoke",
             "798319444e6a0cd0b34607ebee9f4b2d88987e9c8cd0bb2e4a95480aa4f6a68e",
+            "798319444e6a0cd0b34607ebee9f4b2d88987e9c8cd0bb2e4a95480aa4f6a68e",
+            (0, 0),
         ),
         (
             "all",
             "5d7a02ef873833dba33e9feb56330eabad709215c25de7c6caf0aa61986ab21e",
+            "a50de8b288b3543876e4e58bcc2b435f41b81e84201e78508f093e894b8f4c36",
+            (59, 1),
         ),
         (
             "legacy",
             "162112cb5b497bce5111a5f1a95d003f63b67ca444f37931b78f097fda86a864",
+            "162112cb5b497bce5111a5f1a95d003f63b67ca444f37931b78f097fda86a864",
+            (0, 0),
         ),
     ];
     let mut actual = Vec::new();
-    for (profile, _) in expected {
+    for (profile, _, _, _) in expected {
         let root = TempRoot::absent(profile);
         let manifest = run_generate(profile, &root.0);
         let selected = migrated_paths(profile);
@@ -144,14 +202,19 @@ fn ordinary_generate_preserves_locked_curated_history_for_public_profiles() {
         );
         actual.push((
             profile,
-            migrated_slice_digest(&root.0, &manifest, &selected),
+            migrated_slice_digests(&root.0, &manifest, &selected),
         ));
     }
     assert_eq!(
         actual,
         expected
             .into_iter()
-            .map(|(profile, digest)| (profile, digest.to_owned()))
+            .map(|(profile, current, historical, normalized)| {
+                (
+                    profile,
+                    (current.to_owned(), historical.to_owned(), normalized),
+                )
+            })
             .collect::<Vec<_>>()
     );
 }

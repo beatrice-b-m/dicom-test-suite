@@ -1,4 +1,4 @@
-name: CI
+name: Fast PR
 
 on:
   push:
@@ -15,206 +15,34 @@ permissions:
   contents: read
 
 jobs:
-  native-provider-contract:
-    name: Native provider contract
+  fast-pr:
+    name: Fast contracts and smoke
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-      - name: Prepare locked generation backend
-        run: |
-          uv python install 3.12.12
-          uv sync --project generation-backends/highdicom-pydicom --locked --no-editable --compile-bytecode --python 3.12.12
-          echo "DTS_HIGHDICOM_PYTHON=$PWD/generation-backends/highdicom-pydicom/.venv/bin/python" >> "$GITHUB_ENV"
-      - name: Verify cancellation and strict provider contracts
-        env:
-          RUST_TEST_THREADS: "1"
-        run: |
-          cargo test --locked --no-default-features --lib \
-            generation_backends::process::tests::fake_backend_cancellation_
-          cargo test --locked --no-default-features --test composition_curated_migration \
-            migrated_curated_recipes_record_shared_plan_materialization -- --exact
-          cargo test --locked --no-default-features --test composition_quantitative \
-            quantitative_default_bundles_are_closed_provenanced_and_reproducible -- --exact
-
-  default:
-    name: Default corpus
-    needs: native-provider-contract
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
-    steps:
-      - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-      - name: Prepare locked generation backend
-        run: |
-          uv python install 3.12.12
-          uv sync --project generation-backends/highdicom-pydicom --locked --no-editable --compile-bytecode --python 3.12.12
-          echo "DTS_HIGHDICOM_PYTHON=$PWD/generation-backends/highdicom-pydicom/.venv/bin/python" >> "$GITHUB_ENV"
       - name: Show toolchain
         run: rustc --version && cargo --version
-      - name: Check formatting and JSON artifacts
-        run: |
-          cargo fmt -- --check
-          jq empty cases/registry.json schemas/*.json transfer-syntax/*.json standards.lock.json
-      - name: Run default test suite
-        env:
-          # Corpus tests exercise product parallelism internally. Keep strict
-          # wall-clock provider contracts free from unrelated harness load.
-          RUST_TEST_THREADS: "1"
-        run: cargo test --locked --all-targets --no-default-features
-      - name: Check standards lock
-        run: cargo run --locked --no-default-features -- standards check-lock
-      - name: Exercise default profiles
-        run: |
-          cargo run --locked --no-default-features -- generate --profile smoke --out "$RUNNER_TEMP/dts-smoke" --seed 1
-          cargo run --locked --no-default-features -- validate "$RUNNER_TEMP/dts-smoke"
-          cargo run --locked --no-default-features -- generate --profile core --out "$RUNNER_TEMP/dts-core" --seed 1
-          cargo run --locked --no-default-features -- validate "$RUNNER_TEMP/dts-core"
-          cargo run --locked --no-default-features -- generate --profile extended --out "$RUNNER_TEMP/dts-extended" --seed 1
-          cargo run --locked --no-default-features -- validate "$RUNNER_TEMP/dts-extended"
-          cargo run --locked --no-default-features -- report "$RUNNER_TEMP/dts-extended" --format json > "$RUNNER_TEMP/dts-extended-report.json"
-          jq -e '.counts.generated >= 108 and .counts.blocked == 0' "$RUNNER_TEMP/dts-extended-report.json"
-      - name: Verify smoke reproducibility
-        run: |
-          cargo run --locked --no-default-features -- generate --profile smoke --out "$RUNNER_TEMP/dts-repro-a" --seed 1
-          cargo run --locked --no-default-features -- generate --profile smoke --out "$RUNNER_TEMP/dts-repro-b" --seed 1
-          diff -r "$RUNNER_TEMP/dts-repro-a" "$RUNNER_TEMP/dts-repro-b"
-
-  standalone-release:
-    name: Standalone release contract
-    needs: default
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-      - name: Prepare locked generation backend
-        run: |
-          uv python install 3.12.12
-          uv sync --project generation-backends/highdicom-pydicom --locked --no-editable --compile-bytecode --python 3.12.12
-          echo "DTS_HIGHDICOM_PYTHON=$PWD/generation-backends/highdicom-pydicom/.venv/bin/python" >> "$GITHUB_ENV"
-      - name: Verify mandatory contract gates
+      - name: Check formatting and JSON schemas
         run: |
           cargo fmt --all -- --check
-          git diff --check
-          RUSTFLAGS='-D warnings' cargo check --locked --all-targets --no-default-features
+          jq empty cases/registry.json schemas/*.json transfer-syntax/*.json standards.lock.json
+      - name: Compile public library and CLI with warnings denied
+        env:
+          RUSTFLAGS: -D warnings
+        run: cargo check --locked --no-default-features --lib --bins
+      - name: Run light contract and domain tests
+        run: |
           cargo test --locked --no-default-features \
-            --test product_resource_lookup_audit --test schema_artifacts \
-            --test compatibility_ownership --test standalone_docs \
-            --test non_rust_cli_consumer --test caller_content_consumer \
-            --test qualified_catalog_consumer --test structural_catalog_consumer \
-            --test upgrade_consumer --test release_process --test ci_release_gates
-      - name: Verify packaged crate and SDK consumer
+            --test schema_artifacts --test compatibility_ownership \
+            --test standalone_docs --test ci_release_gates
+      - name: Generate and validate tiny smoke corpus
         run: |
-          cargo package --locked
-          PACKAGE_ROOT="$RUNNER_TEMP/package"
-          mkdir -p "$PACKAGE_ROOT"
-          tar -xzf target/package/dicom-test-suite-0.1.0.crate -C "$PACKAGE_ROOT"
-          DTS_SDK_PACKAGE_ROOT="$PACKAGE_ROOT/dicom-test-suite-0.1.0" \
-            cargo test --locked --no-default-features --test sdk_external_consumer
-      - name: Build and qualify installed archive
-        run: |
-          TARGET=$(rustc -vV | sed -n 's/^host: //p')
-          DIST="$RUNNER_TEMP/dist"
-          scripts/build-release-archive.sh "$TARGET" "$DIST"
-          ARCHIVE=$(find "$DIST" -maxdepth 1 -name '*.tar.gz' -type f -print -quit)
-          scripts/verify-release-archive.sh "$ARCHIVE"
-          EXTRACTED="$RUNNER_TEMP/extracted"
-          mkdir -p "$EXTRACTED"
-          tar -xzf "$ARCHIVE" -C "$EXTRACTED"
-          BINARY=$(find "$EXTRACTED" -path '*/bin/dicom-test-suite' -type f -print -quit)
-          ROOT=$(dirname "$(dirname "$BINARY")")
-          python3 tests/black_box_cli_consumer.py "$BINARY" "$ROOT"
-          python3 tests/caller_content_consumer.py "$BINARY"
-          python3 tests/qualified_catalog_consumer.py "$BINARY"
-          python3 tests/structural_catalog_consumer.py "$BINARY"
-          python3 tests/upgrade_consumer.py "$BINARY"
-      - name: Verify archive harness and adversarial checksum fixture
-        run: cargo test --locked --no-default-features --test release_archive
-      - uses: actions/upload-artifact@v7
-        with:
-          name: dicom-test-suite-${{ runner.os }}-${{ runner.arch }}
-          path: ${{ runner.temp }}/dist/*
-
-  in-process-codecs:
-    name: Codec (${{ matrix.feature }})
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    strategy:
-      fail-fast: false
-      matrix:
-        feature:
-          - jpeg
-          - charls
-          - jpegxl
-          - jpeg2000
-          - deflate
-    steps:
-      - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-      - name: Prepare locked generation backend
-        run: |
-          uv python install 3.12.12
-          uv sync --project generation-backends/highdicom-pydicom --locked --no-editable --compile-bytecode --python 3.12.12
-          echo "DTS_HIGHDICOM_PYTHON=$PWD/generation-backends/highdicom-pydicom/.venv/bin/python" >> "$GITHUB_ENV"
-      - name: Compile every target with feature
-        run: cargo test --locked --all-targets --no-default-features --features "${{ matrix.feature }}" --no-run
-      - name: Test feature-sensitive surfaces
-        run: |
-          cargo test --locked --no-default-features --features "${{ matrix.feature }}" \
-            --lib codecs::tests::
-          cargo test --locked --no-default-features --features "${{ matrix.feature }}" \
-            --test codec_backend_registry \
-            --test curated_exceptional_execution --test curated_runtime_capabilities \
-            --test exceptional_sc_plan \
-            --test frame_codec_service --test project_artifacts --test runtime_capabilities
-      - name: Test feature-specific rejection boundary
-        run: |
-          case "${{ matrix.feature }}" in
-            charls) regression=validate_command_reports_jpeg_ls_lossless_decoded_frame_hash_mismatch ;;
-            jpegxl) regression=validate_command_reports_jpeg_xl_lossless_decoded_frame_hash_mismatch ;;
-            jpeg2000) regression=validate_command_reports_jpeg_2000_lossless_decoded_frame_hash_mismatch ;;
-            deflate) regression=validate_command_reports_deflated_image_frame_decoded_frame_hash_mismatch ;;
-            jpeg) regression= ;;
-          esac
-          if [ -n "$regression" ]; then
-            cargo test --locked --no-default-features --features "${{ matrix.feature }}" \
-              --test validate_cli "$regression" -- --exact
-          fi
-      - name: Exercise feature corpus
-        run: |
-          root="$RUNNER_TEMP/dts-${{ matrix.feature }}"
-          cargo run --locked --no-default-features --features "${{ matrix.feature }}" -- generate --profile extended --out "$root" --seed 1
-          cargo run --locked --no-default-features --features "${{ matrix.feature }}" -- validate "$root"
-          cargo run --locked --no-default-features --features "${{ matrix.feature }}" -- report "$root" --format json > "$root-report.json"
-          jq -e '.counts.generated > 115 and .counts.blocked == 0' "$root-report.json"
-          case "${{ matrix.feature }}" in
-            jpeg) expected_ts=1.2.840.10008.1.2.4.50 ;;
-            charls) expected_ts=1.2.840.10008.1.2.4.80 ;;
-            jpegxl) expected_ts=1.2.840.10008.1.2.4.110 ;;
-            jpeg2000) expected_ts=1.2.840.10008.1.2.4.90 ;;
-            deflate) expected_ts=1.2.840.10008.1.2.8.1 ;;
-          esac
-          jq --arg ts "$expected_ts" -e '[.files[].dicom.transfer_syntax_uid] | index($ts) != null' "$root/manifest.json"
-          if [ "${{ matrix.feature }}" = jpeg ]; then
-            jq -e '.files[] | select(.case_id == "classic/sc/rgb_planar0_jpeg_baseline_8bit") | .pixel_data.encapsulated_pixel_data.fragments_per_frame == [2]' "$root/manifest.json"
-          fi
-          if [ "${{ matrix.feature }}" = deflate ]; then
-            jq -e '.files[] | select(.case_id == "derived/seg/binary_multiframe_deflated_image_frame") | .pixel_data.native_or_encapsulated == "encapsulated" and .pixel_data.codec.backend_id == "dicom_rs_deflated_image_frame_writer" and .pixel_data.encapsulated_pixel_data.fragments_per_frame == [1,1]' "$root/manifest.json"
-          fi
-
-  external-codec-compile:
-    name: External codec compile (${{ matrix.feature }})
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        feature:
-          - htj2k_openjph
-          - legacy_jpeg_dcmtk
-    steps:
-      - uses: actions/checkout@v6
-      - name: Compile feature and tests
-        run: cargo test --locked --all-targets --features "${{ matrix.feature }}" --no-run
+          started=$SECONDS
+          root="$RUNNER_TEMP/dts-fast-smoke"
+          cargo run --locked --no-default-features -- generate --profile smoke --out "$root" --seed 1
+          cargo run --locked --no-default-features -- validate "$root"
+          echo "fast_pr_elapsed_seconds=$((SECONDS - started))"
+          echo "target_bytes=$(du -sk target | awk '{print $1 * 1024}')"
+          echo "output_bytes=$(du -sk "$root" | awk '{print $1 * 1024}')"
+          echo "output_artifact_count=$(find "$root" -type f | wc -l | tr -d ' ')"

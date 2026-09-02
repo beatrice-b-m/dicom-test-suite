@@ -61,12 +61,13 @@ fn synthetic_pki_lock_matches_intentionally_public_fixture_bytes() {
 
 #[test]
 fn ci_verifies_default_and_feature_gated_codec_paths() {
-    let workflow =
-        fs::read_to_string(".github/workflows/ci.yml").expect("CI workflow must be readable");
+    let fast =
+        fs::read_to_string(".github/workflows/ci.yml").expect("Fast workflow must be readable");
+    let qualification = fs::read_to_string(".github/workflows/qualification.yml")
+        .expect("heavy qualification workflow must be readable");
 
     for required in [
         "cargo test --locked --all-targets --no-default-features",
-        "generate --profile smoke",
         "generate --profile core",
         "generate --profile extended",
         "jpeg",
@@ -78,10 +79,17 @@ fn ci_verifies_default_and_feature_gated_codec_paths() {
         "legacy_jpeg_dcmtk",
     ] {
         assert!(
-            workflow.contains(required),
-            "CI workflow must cover {required}"
+            qualification.contains(required),
+            "heavy qualification workflow must retain {required}"
+        );
+        assert!(
+            !fast.contains(required),
+            "Fast workflow must not select heavy evidence {required}"
         );
     }
+
+    assert!(fast.contains("generate --profile smoke"));
+    assert!(qualification.contains("generate --profile smoke"));
 }
 
 #[test]

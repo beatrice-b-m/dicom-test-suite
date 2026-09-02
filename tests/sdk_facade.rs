@@ -417,10 +417,116 @@ fn sdk_structural_assembly_returns_no_claim_typed_manifest() {
     assert_eq!(outcome.artifacts_written(), 1);
     let manifest = outcome.manifest().unwrap();
     assert_eq!(manifest.kind(), ManifestKind::StructuralAssembly);
-    assert_eq!(manifest.schema_version(), "1.0.0");
+    assert_eq!(manifest.schema_version(), "2.0.0");
     let validation = product.validate(ValidateRequest::new(&root)).unwrap();
     assert!(validation.is_valid());
     let report = product.report(ReportRequest::new(&root)).unwrap();
     assert_eq!(report.kind(), ReportKind::StructuralAssembly);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn sdk_assembly_validate_and_report_read_exact_supported_manifest_versions() {
+    let product = DicomTestSuite::embedded().unwrap();
+    let root = output("assembly-readers");
+    product
+        .assemble(
+            AssembleRequest::from_json_bytes(
+                include_bytes!("fixtures/cli/assembly-request-v1-capture.json").as_slice(),
+                ".",
+                &root,
+            )
+            .with_seed(5),
+        )
+        .unwrap();
+    let manifest_path = root.join("manifest.json");
+    let current = std::fs::read(&manifest_path).unwrap();
+    for (version, bytes) in [
+        ("2.0.0", current.as_slice()),
+        (
+            "1.0.0",
+            include_bytes!("fixtures/cli/assembly-manifest-v1.json").as_slice(),
+        ),
+    ] {
+        std::fs::write(&manifest_path, bytes).unwrap();
+        let validation = product.validate(ValidateRequest::new(&root)).unwrap();
+        assert!(validation.is_valid());
+        assert_eq!(validation.manifest().schema_version(), version);
+        assert_eq!(validation.manifest().kind(), ManifestKind::StructuralAssembly);
+        let report = product.report(ReportRequest::new(&root)).unwrap();
+        assert_eq!(report.kind(), ReportKind::StructuralAssembly);
+    }
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn sdk_rejects_invalid_assembly_identity_contracts_before_semantics() {
+    let product = DicomTestSuite::embedded().unwrap();
+    let root = output("assembly-identity-rejections");
+    product
+        .assemble(
+            AssembleRequest::from_json_bytes(
+                include_bytes!("fixtures/cli/assembly-request-v1-capture.json").as_slice(),
+                ".",
+                &root,
+            )
+            .with_seed(5),
+        )
+        .unwrap();
+    let manifest_path = root.join("manifest.json");
+    let current: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&manifest_path).unwrap()).unwrap();
+    let runtime = serde_json::json!({
+        "runtime_id": "provider/primary/fixture",
+        "runtime_kind": "generation_provider",
+        "executable_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "version": "1.0.0",
+        "invocation_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    });
+    let mut changed_runtime = runtime.clone();
+    changed_runtime["invocation_sha256"] = serde_json::json!(
+        "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    );
+    for (label, manifest, diagnostic) in [
+        ("unknown-version", {
+            let mut value = current.clone();
+            value["manifest_schema_version"] = "9.0.0".into();
+            value
+        }, "unsupported assembly manifest schema version"),
+        ("missing-identity", {
+            let mut value = current.clone();
+            value.as_object_mut().unwrap().remove("identity_projection");
+            value
+        }, "identity_projection"),
+        ("malformed-digest", {
+            let mut value = current.clone();
+            value["identity_projection"]["engine"]["engine_sha256"] = "short".into();
+            value
+        }, "short"),
+        ("duplicate-runtime", {
+            let mut value = current.clone();
+            value["identity_projection"]["external_runtime"] =
+                serde_json::json!([runtime, changed_runtime]);
+            value
+        }, "duplicate runtime_id"),
+    ] {
+        std::fs::write(
+            &manifest_path,
+            serde_json::to_vec_pretty(&manifest).unwrap(),
+        )
+        .unwrap();
+        let validation = product.validate(ValidateRequest::new(&root)).unwrap_err();
+        assert!(
+            validation.diagnostic().contains(diagnostic),
+            "{label} validate diagnostic: {}",
+            validation.diagnostic()
+        );
+        let report = product.report(ReportRequest::new(&root)).unwrap_err();
+        assert!(
+            report.diagnostic().contains(diagnostic),
+            "{label} report diagnostic: {}",
+            report.diagnostic()
+        );
+    }
     std::fs::remove_dir_all(root).unwrap();
 }

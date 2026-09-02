@@ -52,6 +52,7 @@ fn release_manifest_reader_accepts_v1_and_current_v2() {
     assert!(validate_release_manifest(&legacy).status.success());
 
     let current = current_release_manifest_v2();
+    assert!(release_manifest_v2_schema().is_valid(&current));
     let validation = validate_release_manifest(&current);
     assert!(
         validation.status.success(),
@@ -147,6 +148,30 @@ fn validate_release_manifest(document: &Value) -> std::process::Output {
         .unwrap();
     fs::remove_file(path).unwrap();
     output
+}
+
+fn release_manifest_v2_schema() -> jsonschema::Validator {
+    let release: Value =
+        serde_json::from_slice(&fs::read("schemas/release-manifest-v2.schema.json").unwrap())
+            .unwrap();
+    let version: Value =
+        serde_json::from_slice(&fs::read("schemas/version-result-v2.schema.json").unwrap())
+            .unwrap();
+    let capabilities: Value =
+        serde_json::from_slice(&fs::read("schemas/capabilities-result-v2.schema.json").unwrap())
+            .unwrap();
+    jsonschema::options()
+        .with_draft(jsonschema::Draft::Draft202012)
+        .with_resource(
+            "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json",
+            jsonschema::Resource::from_contents(version).unwrap(),
+        )
+        .with_resource(
+            "https://synth-dicom-gen.local/schemas/capabilities-result-v2.schema.json",
+            jsonschema::Resource::from_contents(capabilities).unwrap(),
+        )
+        .build(&release)
+        .unwrap()
 }
 
 fn workflow(path: &str) -> String {

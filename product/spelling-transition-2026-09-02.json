@@ -1605,6 +1605,14 @@
       "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
     },
     {
+      "path": "schemas/structural-assembly-manifest-v2.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
       "path": "schemas/structural-assembly-report.schema.json",
       "token": "dicom-test-suite",
       "class": "legacy_payload_schema_fixture_or_evidence",
@@ -2893,7 +2901,23 @@
       "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
     },
     {
-      "path": "tests/assembly_run.rs",
+      "path": "tests/fixtures/cli/assembly-manifest-v1.json",
+      "token": "DTS_ASSEMBLY",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
+    },
+    {
+      "path": "tests/fixtures/cli/assembly-manifest-v1.json",
+      "token": "dts_highdicom_backend",
+      "class": "locked_python_module_or_backend",
+      "count": 7,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
+      "path": "tests/fixtures/cli/assembly-request-v1-capture.json",
       "token": "DTS_ASSEMBLY",
       "class": "dicom_payload_identifier",
       "count": 1,
@@ -4430,12 +4454,12 @@
     }
   ],
   "retained_snapshot": {
-    "match_count": 911,
-    "sha256": "dc9927ccb96a299a801c3b1a9169e7b3ffbcb772fbdbc57064b4eed4b556924f",
+    "match_count": 920,
+    "sha256": "da5ad53dc550e057db3490957df41bfa69cc488d09d3e542d03b5e417e5c2630",
     "by_class": {
-      "dicom_payload_identifier": 188,
-      "legacy_payload_schema_fixture_or_evidence": 285,
-      "locked_python_module_or_backend": 141,
+      "dicom_payload_identifier": 189,
+      "legacy_payload_schema_fixture_or_evidence": 286,
+      "locked_python_module_or_backend": 148,
       "qualified_adapter_environment": 155,
       "qualified_adapter_or_test_fixture": 142
     }

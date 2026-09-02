@@ -187,6 +187,10 @@ const SCHEMAS: &[(&str, &str)] = &[
         "https://dicom-test-suite.invalid/schemas/release-manifest.schema.json",
     ),
     (
+        "schemas/release-manifest-v2.schema.json",
+        "https://synth-dicom-gen.local/schemas/release-manifest-v2.schema.json",
+    ),
+    (
         "schemas/structural-assembly-manifest.schema.json",
         "https://dicom-test-suite.local/schemas/structural-assembly-manifest.schema.json",
     ),

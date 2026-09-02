@@ -200,14 +200,19 @@ jq -S -n \
     --slurpfile version_document "$archive_root/version.json" \
     --slurpfile capabilities_document "$archive_root/capabilities.json" \
     --slurpfile files "$file_inventory" \
-    '{release_manifest_schema_version:"1.0.0",
+    '({release_manifest_schema_version:"2.0.0",
       product:{name:"synth-dicom-gen",version:$version},
       source:{revision:$revision,dirty:$dirty},
       target:$target,
       enabled_features:($features | split(",") | map(select(length > 0))),
       version_result:$version_document[0].result,
       capabilities_result:$capabilities_document[0].result,
-      files:$files}' > "$archive_root/release-manifest.json"
+      identity_domains:$version_document[0].result.identity_domains,
+      files:$files}
+      + if ($version_document[0].result | has("product_resources"))
+        then {legacy_product_resources:$version_document[0].result.product_resources}
+        else {} end)' > "$archive_root/release-manifest.json"
+sh scripts/validate-release-manifest.sh "$archive_root/release-manifest.json"
 
 tar -C "$staging_parent" -czf "$archive_path" "$archive_name"
 archive_sha256=$(sha256_file "$archive_path")

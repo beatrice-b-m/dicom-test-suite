@@ -9,6 +9,7 @@ usage() {
 [ "$#" -eq 1 ] || usage
 
 archive=$1
+script_directory=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 checksum="$archive.sha256"
 [ -f "$archive" ] || { echo "release archive is missing: $archive" >&2; exit 3; }
 [ -f "$checksum" ] || { echo "release checksum is missing: $checksum" >&2; exit 3; }
@@ -54,14 +55,9 @@ find "$verify_root" -mindepth 1 -maxdepth 1 -type d | LC_ALL=C sort > "$archive_
 archive_root=$(sed -n '1p' "$archive_roots")
 manifest="$archive_root/release-manifest.json"
 [ -f "$manifest" ] || { echo "release-manifest.json is missing" >&2; exit 4; }
-jq -e '.product.name == "synth-dicom-gen" and
-       .version_result.product.name == "synth-dicom-gen"' "$manifest" >/dev/null || {
-    echo "release manifest product identity must be synth-dicom-gen" >&2
-    exit 4
-}
+sh "$script_directory/validate-release-manifest.sh" "$manifest"
 
 inventory="$verify_root/inventory.tsv"
-jq -er '.release_manifest_schema_version == "1.0.0"' "$manifest" >/dev/null
 jq -r '.files[] | [.path, (.size_bytes|tostring), .sha256] | @tsv' \
     "$manifest" > "$inventory"
 while IFS="$(printf '\t')" read -r relative size_bytes sha256; do
@@ -110,8 +106,8 @@ printf '%s' "$capabilities" | jq -e --slurpfile manifest "$manifest" \
     '.result == $manifest[0].capabilities_result' >/dev/null
 printf '%s' "$version" | jq -e --slurpfile manifest "$manifest" \
     '.result.target == $manifest[0].target and
-     .result.product_resources.resource_set_sha256 ==
-       $manifest[0].capabilities_result.product_resources.resource_set_sha256' >/dev/null
+     ((.result.product_resources.resource_set_sha256 // null) ==
+       ($manifest[0].capabilities_result.product_resources.resource_set_sha256 // null))' >/dev/null
 
 printf 'archive=%s\n' "$archive"
 printf 'sha256=%s\n' "$actual_sha256"

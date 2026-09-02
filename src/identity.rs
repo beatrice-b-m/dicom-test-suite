@@ -381,6 +381,10 @@ const DIRECT_SCHEMA_MEMBERS: &[(&str, &[u8])] = &[
         include_bytes!("../schemas/manifest-v1.schema.json"),
     ),
     (
+        "schemas/release-manifest-v2.schema.json",
+        include_bytes!("../schemas/release-manifest-v2.schema.json"),
+    ),
+    (
         "schemas/structural-assembly-manifest-v2.schema.json",
         include_bytes!("../schemas/structural-assembly-manifest-v2.schema.json"),
     ),
@@ -699,11 +703,11 @@ mod identity_domain_tests {
         )
         .unwrap();
         assert_eq!(embedded.engine.member_count, 3);
-        assert_eq!(embedded.schema_set.member_count, 50);
-        assert_eq!(embedded.schema_set.total_size_bytes, 848_317);
+        assert_eq!(embedded.schema_set.member_count, 51);
+        assert_eq!(embedded.schema_set.total_size_bytes, 850_644);
         assert_eq!(
             embedded.schema_set.schema_set_sha256,
-            "be3665f9a7a70182fde9c70bda7bdcada660a3d3c19545be1102a0a88a8ca98b"
+            "365bf67eea8b161434f85e892cd49e273642e127a9af9fa77a57d3bfe71d9220"
         );
         assert_eq!(embedded.template_catalog.member_count, 3);
         assert_eq!(embedded.provider_catalog.member_count, 16);

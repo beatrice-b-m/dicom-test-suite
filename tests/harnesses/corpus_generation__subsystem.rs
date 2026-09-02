@@ -3,6 +3,9 @@
 #[path = "../../src/sr_rt_validation.rs"]
 mod sr_rt_validation;
 
+#[path = "../curated_manifest_contract_support.rs"]
+mod curated_manifest_contract_support;
+
 #[path = "../advanced_blending_presentation_state.rs"]
 mod advanced_blending_presentation_state;
 #[path = "../advanced_recipe_catalog.rs"]

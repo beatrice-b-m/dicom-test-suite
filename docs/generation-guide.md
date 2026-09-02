@@ -495,6 +495,14 @@ codec—are checked against declared decoded or bounded numeric semantics rather
 than a universal compressed-byte promise. See
 `docs/deterministic-build-policy.md` for the formal policy.
 
+Do not infer the DICOM payload compatibility version from the package version.
+The current `0.2.0` product continues to emit `0.1.0` in unchanged built-in
+byte-stable DICOM Implementation Class UID and Software Versions derivations.
+Product discovery, manifests, runtime evidence, packages, and releases still
+report `0.2.0`. External highdicom SR and quantitative import providers remain
+semantic-stable and use the current product/backend version; their bytes are
+not silently promoted to the built-in byte-stable contract.
+
 ## 11. Interoperability Qualifications
 
 Media and protocol evidence is separate from ordinary file-conformance rows.

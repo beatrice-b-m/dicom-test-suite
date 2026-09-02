@@ -283,6 +283,14 @@ recorded inputs, toolchain, feature flags, and external backend identities are
 the same. Semantic-stable external codec cases record the bounded comparison
 appropriate to that codec instead of promising identical compressed bytes.
 
+The product release version and the byte-stable DICOM payload contract are
+separate identities. Release `0.2.0` reports `0.2.0` in discovery, manifests,
+runtime evidence, packages, and releases, while unchanged built-in
+`byte_stable` DICOM Implementation Class UIDs and Software Versions remain
+bound to payload contract `0.1.0`. Semantic-stable external highdicom SR and
+quantitative imports retain the current product/backend version because their
+external bytes are not part of the byte-stable promise.
+
 “All” means all cases selected from the implemented `smoke`, `core`, and
 `extended` registry entries that are available in the current build and
 runtime. It does not mean every DICOM Standard object, and it excludes legacy,

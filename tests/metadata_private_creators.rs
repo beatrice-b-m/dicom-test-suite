@@ -71,12 +71,7 @@ fn private_creator_vertical_slice_is_exact_byte_stable_and_reported() {
     assert_eq!(private_us.vr(), VR::US);
     assert_eq!(private_us.to_int::<u16>().expect("US must decode"), 4660);
 
-    let manifest_schema = read_json("schemas/manifest.schema.json");
-    assert!(
-        jsonschema::validator_for(&manifest_schema)
-            .expect("manifest schema must compile")
-            .is_valid(&first_manifest)
-    );
+    crate::curated_manifest_contract_support::assert_curated_manifest_schema_valid(&first_manifest);
     let summary = synth_dicom_gen::validate_generated_root(&first_root)
         .expect("generated corpus must be inspectable");
     assert!(summary.failures.is_empty(), "{:?}", summary.failures);
@@ -204,23 +199,16 @@ fn validator_rejects_tampered_private_creator_contract() {
 fn schema_and_validator_require_private_metadata_and_block_count() {
     let root = unique_temp_dir("private-creators-required-contract");
     let original = generate_core(&root);
-    let schema = read_json("schemas/manifest.schema.json");
-    let validator = jsonschema::validator_for(&schema).expect("manifest schema must compile");
-
     let mut wrong_count = original.clone();
     let file = case_file_mut(&mut wrong_count);
     file["recipe"]["recipe_parameters"]["private_creator_block_count"] = Value::from(2);
-    assert!(!validator.is_valid(&wrong_count));
+    crate::curated_manifest_contract_support::assert_curated_manifest_schema_rejected(&wrong_count);
     write_manifest(&root, &wrong_count);
-    let summary = synth_dicom_gen::validate_generated_root(&root)
-        .expect("wrong-count corpus must remain inspectable");
+    let error = synth_dicom_gen::validate_generated_root(&root)
+        .expect_err("wrong-count manifest must fail its schema first");
     assert!(
-        summary
-            .failures
-            .iter()
-            .any(|failure| failure.contains("metadata_private_creator_block_count")),
-        "{:?}",
-        summary.failures
+        error.to_string().contains("manifest schema invalid"),
+        "{error}"
     );
 
     let mut missing_metadata = original;
@@ -228,17 +216,15 @@ fn schema_and_validator_require_private_metadata_and_block_count() {
         .as_object_mut()
         .expect("file entry must be an object")
         .remove("expected_metadata");
-    assert!(!validator.is_valid(&missing_metadata));
+    crate::curated_manifest_contract_support::assert_curated_manifest_schema_rejected(
+        &missing_metadata,
+    );
     write_manifest(&root, &missing_metadata);
-    let summary = synth_dicom_gen::validate_generated_root(&root)
-        .expect("missing-metadata corpus must remain inspectable");
+    let error = synth_dicom_gen::validate_generated_root(&root)
+        .expect_err("missing required metadata must fail its schema first");
     assert!(
-        summary
-            .failures
-            .iter()
-            .any(|failure| failure.contains("metadata_expected_metadata")),
-        "{:?}",
-        summary.failures
+        error.to_string().contains("manifest schema invalid"),
+        "{error}"
     );
 }
 

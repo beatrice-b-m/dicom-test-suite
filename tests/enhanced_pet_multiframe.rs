@@ -32,12 +32,7 @@ fn enhanced_pet_vertical_slice_is_deterministic_schema_valid_and_strictly_valida
     assert_eq!(first["sha256"], second["sha256"]);
     assert_eq!(first["sha256"], INSTANCE_SHA256);
     assert_eq!(first["sha256"], synth_dicom_gen::sha256_hex(&first_bytes));
-    assert!(
-        jsonschema::validator_for(&read_json("schemas/manifest.schema.json"))
-            .unwrap()
-            .is_valid(&first_manifest),
-        "generated manifest must satisfy the locked schema"
-    );
+    crate::curated_manifest_contract_support::assert_curated_manifest_schema_valid(&first_manifest);
 
     assert_eq!(
         first.pointer("/dicom/sop_class_uid"),
@@ -217,6 +212,15 @@ fn validator_rejects_tampered_enhanced_pet_manifest_contracts() {
         let mut tampered = manifest.clone();
         *case_file_mut(&mut tampered).pointer_mut(pointer).unwrap() = replacement;
         write_manifest(&root, &tampered);
+        if !crate::curated_manifest_contract_support::curated_manifest_schema_is_valid(&tampered) {
+            let error = synth_dicom_gen::validate_generated_root(&root)
+                .expect_err("schema-invalid tampering must fail before semantic validation");
+            assert!(
+                error.to_string().contains("manifest schema invalid"),
+                "{error}"
+            );
+            continue;
+        }
         let summary = synth_dicom_gen::validate_generated_root(&root).unwrap();
         assert!(
             summary

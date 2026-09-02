@@ -1319,19 +1319,32 @@ fn validate_generated_root_with_resources(
                 message: error.to_string(),
             }
         })?;
-    let manifest = validated.value().clone();
-    if validated.kind() == manifest_contract::ManifestContractKind::QualifiedComposition {
+    validate_loaded_manifest_root(
+        root_dir,
+        &manifest_path,
+        validated.kind(),
+        validated.value(),
+    )
+}
+
+fn validate_loaded_manifest_root(
+    root_dir: &Path,
+    manifest_path: &Path,
+    kind: manifest_contract::ManifestContractKind,
+    manifest: &Value,
+) -> Result<ValidationSummary, ValidateError> {
+    if kind == manifest_contract::ManifestContractKind::QualifiedComposition {
         let (files_checked, failures) = composition::validate_composition_root(root_dir, &manifest);
         return Ok(ValidationSummary {
-            manifest_path,
+            manifest_path: manifest_path.to_path_buf(),
             files_checked,
             failures,
         });
     }
-    if validated.kind() == manifest_contract::ManifestContractKind::StructuralAssembly {
+    if kind == manifest_contract::ManifestContractKind::StructuralAssembly {
         let (files_checked, failures) = assembly::validate_assembly_root(root_dir, &manifest);
         return Ok(ValidationSummary {
-            manifest_path,
+            manifest_path: manifest_path.to_path_buf(),
             files_checked,
             failures,
         });
@@ -1341,7 +1354,7 @@ fn validate_generated_root_with_resources(
             .get("files")
             .and_then(Value::as_array)
             .ok_or(ValidateError::ManifestShape {
-                path: manifest_path.clone(),
+                path: manifest_path.to_path_buf(),
                 message: "missing files array",
             })?;
     let declared_paths = validate_manifest_corpus_layout(root_dir, &manifest_path, files)?;
@@ -1364,7 +1377,7 @@ fn validate_generated_root_with_resources(
     metadata::validate_manifest_metadata_corpus(files, &mut failures);
 
     Ok(ValidationSummary {
-        manifest_path,
+        manifest_path: manifest_path.to_path_buf(),
         files_checked: files.len(),
         failures,
     })
@@ -39107,6 +39120,129 @@ mod tests {
             summary.failures
         );
         fs::remove_dir_all(root).expect("remove undeclared-file corpus");
+    }
+
+    #[test]
+    fn schema_locked_manifest_fields_retain_downstream_semantic_guards() {
+        fn generate(profile: &str, label: &str) -> (PathBuf, Value) {
+            let root = unique_temp_dir(label);
+            let prepared = prepare_generation_run(GenerateOptions {
+                profile: profile.to_string(),
+                out_dir: root.clone(),
+                seed: 1,
+                include_stress: false,
+            })
+            .expect("prepare semantic-guard corpus");
+            write_generation_run(&prepared).expect("write semantic-guard corpus");
+            let manifest = serde_json::from_slice(
+                &fs::read(root.join("manifest.json")).expect("read generated manifest"),
+            )
+            .expect("parse generated manifest");
+            (root, manifest)
+        }
+
+        fn assert_guard(
+            root: &Path,
+            original: &Value,
+            case_id: &str,
+            pointer: &str,
+            replacement: Value,
+            failure_key: &str,
+        ) {
+            let mut manifest = original.clone();
+            let file = manifest["files"]
+                .as_array_mut()
+                .expect("files array")
+                .iter_mut()
+                .find(|file| file["case_id"] == case_id)
+                .expect("locked case must be generated");
+            *file.pointer_mut(pointer).expect("locked field pointer") = replacement;
+            let summary = validate_loaded_manifest_root(
+                root,
+                &root.join("manifest.json"),
+                manifest_contract::ManifestContractKind::CuratedGeneration,
+                &manifest,
+            )
+            .expect("direct semantic validation must remain reachable internally");
+            assert!(
+                summary
+                    .failures
+                    .iter()
+                    .any(|failure| failure.contains(failure_key)),
+                "missing {failure_key}: {:?}",
+                summary.failures
+            );
+        }
+
+        let (core_root, core) = generate("core", "schema_locked_core_semantics");
+        for (case_id, pointer, replacement, failure_key) in [
+            (
+                "metadata/sc/empty_type2_attributes",
+                "/expected_metadata/empty_type2_attributes/0/value_length",
+                serde_json::json!(2),
+                "metadata_empty_type2_manifest_value_length",
+            ),
+            (
+                "metadata/sc/private_creator_blocks",
+                "/recipe/recipe_parameters/private_creator_block_count",
+                serde_json::json!(2),
+                "metadata_private_creator_block_count",
+            ),
+            (
+                "classic/nm/multiframe_explicit_le",
+                "/expected_nm_multiframe/frame_increment_pointers",
+                serde_json::json!(["0054,0020", "0054,0010"]),
+                "nm_frame_increment_pointers",
+            ),
+            (
+                "classic/pet/rescaled_activity_explicit_le",
+                "/expected_pet_activity/units",
+                serde_json::json!("CNTS"),
+                "pet_units_manifest_contract",
+            ),
+            (
+                "classic/us/multiframe_explicit_le",
+                "/expected_us_multiframe/image_type/2",
+                serde_json::json!("CARDIAC"),
+                "us_multiframe_image_type_manifest_contract",
+            ),
+        ] {
+            assert_guard(
+                &core_root,
+                &core,
+                case_id,
+                pointer,
+                replacement,
+                failure_key,
+            );
+        }
+        fs::remove_dir_all(core_root).expect("remove core semantic-guard corpus");
+
+        let (extended_root, extended) = generate("extended", "schema_locked_extended_semantics");
+        for (case_id, pointer, replacement, failure_key) in [
+            (
+                "metadata/sc/defined_undefined_sequence_lengths",
+                "/expected_metadata/sequence_length_encoding/decoded_items/0/code_meaning",
+                serde_json::json!("Wrong"),
+                "metadata_sequence_length_manifest_contract",
+            ),
+            (
+                "enhanced/pet/multiframe_explicit_le",
+                "/expected_enhanced_pet/view_code/code_meaning",
+                serde_json::json!("Coronal"),
+                "enhanced_pet_view_code_code_meaning_manifest_contract",
+            ),
+        ] {
+            assert_guard(
+                &extended_root,
+                &extended,
+                case_id,
+                pointer,
+                replacement,
+                failure_key,
+            );
+        }
+        fs::remove_dir_all(extended_root).expect("remove extended semantic-guard corpus");
     }
 
     #[test]

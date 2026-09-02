@@ -47,11 +47,7 @@ fn us_multiframe_vertical_slice_is_exact_byte_stable_and_reported() {
         fs::read(first_root.join(RELATIVE_PATH)).unwrap(),
         fs::read(second_root.join(RELATIVE_PATH)).unwrap()
     );
-    assert!(
-        jsonschema::validator_for(&read_json("schemas/manifest.schema.json"))
-            .unwrap()
-            .is_valid(&first_manifest)
-    );
+    crate::curated_manifest_contract_support::assert_curated_manifest_schema_valid(&first_manifest);
 
     assert_eq!(
         first["dicom"]["sop_class_uid"],
@@ -366,6 +362,15 @@ fn validator_rejects_tampered_us_multiframe_contract() {
         let mut tampered = manifest.clone();
         *case_file_mut(&mut tampered).pointer_mut(pointer).unwrap() = replacement;
         write_manifest(&root, &tampered);
+        if !crate::curated_manifest_contract_support::curated_manifest_schema_is_valid(&tampered) {
+            let error = synth_dicom_gen::validate_generated_root(&root)
+                .expect_err("schema-invalid tampering must fail before semantic validation");
+            assert!(
+                error.to_string().contains("manifest schema invalid"),
+                "{error}"
+            );
+            continue;
+        }
         let summary = synth_dicom_gen::validate_generated_root(&root).unwrap();
         assert!(
             summary

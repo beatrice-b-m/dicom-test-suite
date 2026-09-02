@@ -84,10 +84,7 @@ fn empty_type2_vertical_slice_is_exact_byte_stable_and_reported() {
         "R"
     );
 
-    let manifest_schema = read_json("schemas/manifest.schema.json");
-    let manifest_validator =
-        jsonschema::validator_for(&manifest_schema).expect("manifest schema must compile");
-    assert!(manifest_validator.is_valid(&first_manifest));
+    crate::curated_manifest_contract_support::assert_curated_manifest_schema_valid(&first_manifest);
     let summary = synth_dicom_gen::validate_generated_root(&first_root)
         .expect("generated corpus must be inspectable");
     assert!(summary.failures.is_empty(), "{:?}", summary.failures);
@@ -134,29 +131,19 @@ fn validator_rejects_tampered_empty_type2_contract() {
     file["expected_metadata"]["empty_type2_attributes"][0]["value_length"] = Value::from(2);
     file["expected_metadata"]["empty_type2_attributes"][1]["vr"] = Value::from("PN");
     file["expected_metadata"]["empty_type2_attributes"][2]["keyword"] = Value::from("WrongKeyword");
+    crate::curated_manifest_contract_support::assert_curated_manifest_schema_rejected(&manifest);
     fs::write(
         root.join("manifest.json"),
         serde_json::to_vec_pretty(&manifest).expect("tampered manifest must serialize"),
     )
     .expect("tampered manifest must be writable");
 
-    let summary = synth_dicom_gen::validate_generated_root(&root)
-        .expect("tampered corpus must remain inspectable");
-    for failure_key in [
-        "metadata_empty_type2_attribute_set",
-        "metadata_empty_type2_manifest_value_length",
-        "metadata_empty_type2_vr",
-        "metadata_empty_type2_raw_vr",
-    ] {
-        assert!(
-            summary
-                .failures
-                .iter()
-                .any(|failure| failure.contains(failure_key)),
-            "validator must report {failure_key}: {:?}",
-            summary.failures
-        );
-    }
+    let error = synth_dicom_gen::validate_generated_root(&root)
+        .expect_err("schema-invalid tampering must fail before semantic inspection");
+    assert!(
+        error.to_string().contains("manifest schema invalid"),
+        "{error}"
+    );
 }
 
 fn generate_core(out_dir: &Path) -> Value {

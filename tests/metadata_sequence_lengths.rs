@@ -88,11 +88,7 @@ fn sequence_length_vertical_slice_is_exact_byte_stable_and_reported() {
         );
     }
 
-    assert!(
-        jsonschema::validator_for(&read_json("schemas/manifest.schema.json"))
-            .unwrap()
-            .is_valid(&first_manifest)
-    );
+    crate::curated_manifest_contract_support::assert_curated_manifest_schema_valid(&first_manifest);
     let summary = synth_dicom_gen::validate_generated_root(&first_root).unwrap();
     assert!(summary.failures.is_empty(), "{:?}", summary.failures);
 
@@ -152,20 +148,15 @@ fn validator_rejects_tampered_sequence_length_contract() {
         Value::from("Wrong");
     entries[1]["expected_metadata"]["sequence_length_encoding"]["variant_id"] =
         Value::from("defined");
+    crate::curated_manifest_contract_support::assert_curated_manifest_schema_rejected(&manifest);
     write_manifest(&root, &manifest);
 
-    let summary = synth_dicom_gen::validate_generated_root(&root).unwrap();
-    for key in [
-        "metadata_sequence_length_manifest_contract",
-        "metadata_sequence_length_variant",
-        "metadata_sequence_length_variant_set",
-    ] {
-        assert!(
-            summary.failures.iter().any(|failure| failure.contains(key)),
-            "missing {key}: {:?}",
-            summary.failures
-        );
-    }
+    let error = synth_dicom_gen::validate_generated_root(&root)
+        .expect_err("schema-invalid sequence tampering must fail before semantics");
+    assert!(
+        error.to_string().contains("manifest schema invalid"),
+        "{error}"
+    );
 }
 
 fn sequence_offset(bytes: &[u8]) -> usize {

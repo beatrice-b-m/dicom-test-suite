@@ -45,8 +45,7 @@ jobs:
       - name: Run light contract and domain tests
         run: |
           cargo test --locked --no-default-features \
-            --test schema_artifacts --test compatibility_ownership \
-            --test standalone_docs --test ci_release_gates
+            --test schema_resources__fast --test release_ci__fast
       - name: Generate and validate tiny smoke corpus
         run: |
           started=$SECONDS

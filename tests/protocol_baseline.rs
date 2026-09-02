@@ -1,7 +1,6 @@
-#[path = "../src/protocol.rs"]
-mod protocol;
 #[path = "../src/protocol_baseline.rs"]
 mod protocol_baseline;
+use crate::protocol;
 
 use std::path::PathBuf;
 

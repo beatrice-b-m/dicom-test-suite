@@ -1,5 +1,6 @@
 [package]
 name = "dicom-test-suite"
+autotests = false
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
@@ -95,3 +96,83 @@ incremental = false
 [profile.test]
 debug = 0
 incremental = false
+
+[[test]]
+name = "assembly__nightly"
+path = "tests/harnesses/assembly__nightly.rs"
+
+[[test]]
+name = "assembly__subsystem"
+path = "tests/harnesses/assembly__subsystem.rs"
+
+[[test]]
+name = "cli_sdk__nonfast"
+path = "tests/harnesses/cli_sdk__nonfast.rs"
+
+[[test]]
+name = "codec__nightly"
+path = "tests/harnesses/codec__nightly.rs"
+
+[[test]]
+name = "codec__subsystem"
+path = "tests/harnesses/codec__subsystem.rs"
+
+[[test]]
+name = "composition__nightly"
+path = "tests/harnesses/composition__nightly.rs"
+
+[[test]]
+name = "composition__subsystem"
+path = "tests/harnesses/composition__subsystem.rs"
+
+[[test]]
+name = "conformance_interoperability__nightly"
+path = "tests/harnesses/conformance_interoperability__nightly.rs"
+
+[[test]]
+name = "conformance_interoperability__subsystem"
+path = "tests/harnesses/conformance_interoperability__subsystem.rs"
+
+[[test]]
+name = "corpus_generation__nightly"
+path = "tests/harnesses/corpus_generation__nightly.rs"
+
+[[test]]
+name = "corpus_generation__subsystem"
+path = "tests/harnesses/corpus_generation__subsystem.rs"
+
+[[test]]
+name = "engine__nightly"
+path = "tests/harnesses/engine__nightly.rs"
+
+[[test]]
+name = "engine__subsystem"
+path = "tests/harnesses/engine__subsystem.rs"
+
+[[test]]
+name = "provider__subsystem"
+path = "tests/harnesses/provider__subsystem.rs"
+
+[[test]]
+name = "release_ci__fast"
+path = "tests/harnesses/release_ci__fast.rs"
+
+[[test]]
+name = "release_ci__nonfast"
+path = "tests/harnesses/release_ci__nonfast.rs"
+
+[[test]]
+name = "schema_resources__fast"
+path = "tests/harnesses/schema_resources__fast.rs"
+
+[[test]]
+name = "schema_resources__release_candidate"
+path = "tests/harnesses/schema_resources__release_candidate.rs"
+
+[[test]]
+name = "schema_resources__subsystem"
+path = "tests/harnesses/schema_resources__subsystem.rs"
+
+[[test]]
+name = "standards_validation__subsystem"
+path = "tests/harnesses/standards_validation__subsystem.rs"

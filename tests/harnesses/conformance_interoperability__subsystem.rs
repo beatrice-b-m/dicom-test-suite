@@ -1,3 +1,8 @@
+// `protocol_baseline` is path-included by its integration source and retains
+// its integration-crate import of this sibling support module.
+#[path = "../../src/protocol.rs"]
+mod protocol;
+
 #[path = "../conformance_check_tools.rs"]
 mod conformance_check_tools;
 #[path = "../conformance_entity.rs"]

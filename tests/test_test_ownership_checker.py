@@ -28,8 +28,11 @@ class TestOwnershipCheckerFixtures(unittest.TestCase):
 
     def test_current_inventory_is_complete_and_singly_owned(self):
         report = CHECKER.verify(ROOT, copy.deepcopy(self.manifest))
-        self.assertEqual(report["rust_test_targets"], 188)
+        self.assertEqual(report["rust_test_targets"], 22)
+        self.assertEqual(report["integration_test_targets"], 20)
         self.assertEqual(report["rust_test_entries"], 1375)
+        self.assertEqual(report["integration_source_groups"], 186)
+        self.assertEqual(report["integration_test_entries"], 879)
         self.assertEqual(
             sum(len(group.get("heavy_entries", [])) for group in self.manifest["entry_groups"]),
             6,
@@ -78,6 +81,21 @@ class TestOwnershipCheckerFixtures(unittest.TestCase):
         )
         del marked_group["fast_cost_exemption"]
         self.assert_rejected(unexplained, "Fast heavy marker lacks cost exemption")
+
+    def test_mixed_nonfast_and_named_class_targets_fail_closed(self):
+        mixed_fast = copy.deepcopy(self.manifest)
+        mixed = next(
+            target for target in mixed_fast["targets"] if target["name"] == "release_ci__nonfast"
+        )
+        mixed["verification_classes"] = ["fast", "release_candidate", "subsystem"]
+        self.assert_rejected(mixed_fast, "mixed nonfast target contains Fast ownership")
+
+        suffix_drift = copy.deepcopy(self.manifest)
+        named = next(
+            target for target in suffix_drift["targets"] if target["name"] == "engine__subsystem"
+        )
+        named["verification_classes"] = ["nightly", "subsystem"]
+        self.assert_rejected(suffix_drift, "target suffix/class disagreement")
 
 
 if __name__ == "__main__":

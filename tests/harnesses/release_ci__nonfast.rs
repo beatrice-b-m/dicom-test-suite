@@ -1,3 +1,7 @@
+// The typed-bulk compatibility source path-includes product projection modules
+// that retain their integration-crate imports of these public product items.
+pub use dicom_test_suite::{curated_validation, recipes, sha256_hex};
+
 #[path = "../caller_content_consumer.rs"]
 mod caller_content_consumer;
 #[path = "../non_rust_cli_consumer.rs"]
@@ -12,6 +16,7 @@ mod release_process;
 mod sdk_external_consumer;
 #[path = "../structural_catalog_consumer.rs"]
 mod structural_catalog_consumer;
+#[allow(unused_imports)]
 #[path = "../typed_bulk_compatibility.rs"]
 mod typed_bulk_compatibility;
 #[path = "../upgrade_consumer.rs"]

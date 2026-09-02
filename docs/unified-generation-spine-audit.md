@@ -15,7 +15,7 @@ source classification rules.
 cargo run --locked -- list-cases
 cargo run --locked -- list-cases --profile all
 cargo run --locked -- report gaps --format json
-cargo test --locked --test unified_generation_spine_audit
+cargo test --locked --test corpus_generation__subsystem unified_generation_spine_audit::
 ```
 
 At this checkpoint the registry contains 178 implemented recipe identities:

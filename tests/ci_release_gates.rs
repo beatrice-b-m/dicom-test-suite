@@ -23,16 +23,16 @@ const PROVIDER_IGNORED_TESTS: [(&str, &str); 7] = [
         "generation_backends::process::tests::fake_backend_inherited_pipe_timeout_is_enforced",
     ),
     (
-        "--test composition_curated_migration",
-        "migrated_curated_recipes_record_shared_plan_materialization",
+        "--test composition__subsystem",
+        "composition_curated_migration::migrated_curated_recipes_record_shared_plan_materialization",
     ),
     (
-        "--test composition_quantitative",
-        "quantitative_default_bundles_are_closed_provenanced_and_reproducible",
+        "--test composition__subsystem",
+        "composition_quantitative::quantitative_default_bundles_are_closed_provenanced_and_reproducible",
     ),
     (
-        "--test composition_quantitative",
-        "caller_segmentation_and_parametric_values_round_trip_at_fixed_shape",
+        "--test composition__subsystem",
+        "composition_quantitative::caller_segmentation_and_parametric_values_round_trip_at_fixed_shape",
     ),
 ];
 
@@ -73,8 +73,7 @@ fn fast_pr_is_bounded_to_light_contracts_and_tiny_smoke() {
         "jq empty cases/registry.json schemas/*.json",
         "RUSTFLAGS: -D warnings",
         "cargo check --locked --no-default-features --lib --bins",
-        "--test schema_artifacts --test compatibility_ownership",
-        "--test standalone_docs --test ci_release_gates",
+        "--test schema_resources__fast --test release_ci__fast",
         "generate --profile smoke",
         "validate \"$root\"",
         "scripts/report-ci-cost.sh fast-pr",
@@ -197,10 +196,22 @@ fn heavy_workflow_retains_nightly_matrix_and_immutable_release_gate() {
     assert!(!codecs.contains("DTS_HIGHDICOM_PYTHON="));
     assert!(codecs.contains("Test feature-sensitive surfaces"));
     assert!(codecs.contains("--lib codecs::tests::"));
-    assert!(codecs.contains("curated_exceptional_execution"));
+    for selector in [
+        "--test codec__subsystem codec_backend_registry::",
+        "--test codec__subsystem frame_codec_service::",
+        "--test corpus_generation__subsystem curated_exceptional_execution::",
+        "--test cli_sdk__nonfast curated_runtime_capabilities::",
+        "--test engine__subsystem exceptional_sc_plan::",
+        "--test schema_resources__subsystem project_artifacts::",
+        "--test cli_sdk__nonfast runtime_capabilities::",
+        "--test cli_sdk__nonfast \"validate_cli::$regression\" -- --exact",
+    ] {
+        assert!(
+            codecs.contains(selector),
+            "in-process codec qualification omitted bounded selector {selector}"
+        );
+    }
     assert!(!codecs.contains("composition_curated_migration"));
-    assert!(codecs.contains("frame_codec_service"));
-    assert!(codecs.contains("validate_cli"));
     assert!(
         codecs
             .contains("validate_command_reports_deflated_image_frame_decoded_frame_hash_mismatch")
@@ -236,6 +247,18 @@ fn heavy_workflow_retains_nightly_matrix_and_immutable_release_gate() {
     assert!(external.contains("Exercise selected external codec cases"));
     assert!(external.contains("--case-id"));
     assert!(external.contains("[.files[].case_id] + [.skipped_cases[].case_id]"));
+    for selector in [
+        "--test codec__subsystem codec_backend_registry::",
+        "--test codec__subsystem frame_codec_service::",
+        "--test cli_sdk__nonfast curated_runtime_capabilities::",
+        "--test engine__subsystem exceptional_sc_plan::",
+        "--test cli_sdk__nonfast runtime_capabilities::",
+    ] {
+        assert!(
+            external.contains(selector),
+            "external codec qualification omitted bounded selector {selector}"
+        );
+    }
     for case_id in [
         "classic/sc/mono2_u16_htj2k_lossless",
         "classic/sc/mono2_u16_htj2k_lossy",
@@ -260,16 +283,12 @@ fn heavy_workflow_retains_nightly_matrix_and_immutable_release_gate() {
         "git diff --check",
         "RUSTFLAGS='-D warnings' cargo check",
         "product_resource_lookup_audit",
-        "schema_artifacts",
-        "compatibility_ownership",
-        "standalone_docs",
         "non_rust_cli_consumer",
         "caller_content_consumer",
         "qualified_catalog_consumer",
         "structural_catalog_consumer",
         "upgrade_consumer",
         "release_process",
-        "ci_release_gates",
         "cargo package --locked",
         "sdk_external_consumer",
         "scripts/build-release-archive.sh",
@@ -284,6 +303,19 @@ fn heavy_workflow_retains_nightly_matrix_and_immutable_release_gate() {
         );
     }
     assert!(release.contains("path: ${{ runner.temp }}/dist/*"));
+    for selector in [
+        "--test schema_resources__subsystem product_resource_lookup_audit::",
+        "--test schema_resources__fast",
+        "--test release_ci__fast",
+        "--test release_ci__nonfast \"$module::\"",
+        "--test release_ci__nonfast sdk_external_consumer::",
+        "--test release_ci__nonfast release_archive::",
+    ] {
+        assert!(
+            release.contains(selector),
+            "release qualification omitted bounded selector {selector}"
+        );
+    }
     assert_eq!(heavy.matches("cargo package --locked").count(), 1);
     assert_eq!(heavy.matches("actions/upload-artifact@v7").count(), 1);
     assert_eq!(
@@ -317,7 +349,9 @@ fn heavy_workflow_retains_nightly_matrix_and_immutable_release_gate() {
         );
     }
     let harness_offset = release
-        .find("cargo test --locked --no-default-features --test release_archive")
+        .find(
+            "cargo test --locked --no-default-features --test release_ci__nonfast release_archive::",
+        )
         .unwrap();
     let upload_offset = release.find("actions/upload-artifact@v7").unwrap();
     assert!(
@@ -387,7 +421,7 @@ fn ignored_provider_inventory_is_owned_and_matches_serial_workflow() {
     for (_, test) in PROVIDER_IGNORED_TESTS {
         let source = if test.starts_with("generation_backends::") {
             &process
-        } else if test.starts_with("migrated_curated") {
+        } else if test.contains("migrated_curated") {
             &curated
         } else {
             &quantitative

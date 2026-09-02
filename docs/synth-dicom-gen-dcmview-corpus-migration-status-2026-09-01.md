@@ -35,7 +35,7 @@ artifact.
 | --- | --- | --- | --- |
 | R0 — freeze migration contract | Complete | R0.1, R0.2, R0.3, R0.4 | ADR 0003, the dated cost baseline, the exhaustive 801-path ownership inventory, and the seed-1 smoke parity manifest fix repository ownership, invalidated verification class, and the byte/normalized-semantic migration boundary. The R0 gate passes. |
 | R1 — contain CI and local build cost | Complete | R1.1, R1.2, R1.3, R1.4, R1.5, R1.6 | A disposable draft-PR probe proved superseded-run cancellation and single-event ownership. Replacement Fast run `33581809536` passed in 123 seconds of job time with only the declared Fast work, a 739,602,432-byte target, four smoke artifacts occupying 122,880 allocated bytes, and the 4-GiB ceiling enforced. The broad matrix remains separately scheduled/manually invocable. The R1 gate passes. |
-| R2 — reduce Rust test-linking amplification | In progress | R2.1 | A machine-readable inventory assigns all 188 Cargo harness targets and 1,375 direct Rust test entries to exactly one domain and verification class. The Fast metadata checker fails closed on target/entry drift, duplicate or missing ownership, unsupported generated-test attributes, and heavy or ignored Fast assignments. Harness consolidation, explicit heavy entry points, targeted routing, and the R2 gate remain. |
+| R2 — reduce Rust test-linking amplification | In progress | R2.1, R2.2 | The fail-closed inventory now maps 186 integration sources and all 879 integration entries into exactly 20 explicit harnesses while retaining one domain/class assignment per source entry. Cargo builds 22 total test executables including lib/bin, and live workflows select the intended harness plus module boundary. Explicit heavy entry points, change routing, and the R2 gate remain. |
 | R3 — rename reusable product | Not started | None | Requires the R0 gate; no current file, package, crate, binary, archive, or environment spelling has been migrated. |
 | R4 — split immutable resources and corpus definitions | Not started | None | Requires the accepted naming decision and sequential resource/schema migration. |
 | R5 — add supported external corpus API | Not started | None | Requires the R4 resource and identity boundary. |
@@ -1122,23 +1122,94 @@ time, and storage. Until that atomic change passes, the six files are not
 discoverable Cargo test targets and R2.2 remains in progress. This slice makes
 no compile-pass, target-count, cost-reduction, or R2-gate claim.
 
+### R2.2 atomic harness integration
+
+**State:** complete; R2 remains in progress
+
+**Commit:** the commit introducing this atomic compatibility boundary, with
+subject `test(harnesses): integrate explicit domain targets` (resolve the exact
+object with `git log --format='%H %s' -- Cargo.toml`)
+
+The integration consumes
+`/private/tmp/r2.2-proposed-partition-fecc6bf.json`, SHA-256
+`f99fc5d0930bffd7838772b69f45129bb718e71e5d6b4ba1ce8309561df625b8`,
+bound to source revision `fecc6bf99f908153b77a712edb0deb6e87441159`,
+R2.1 ownership SHA-256
+`3befc2d9a9cbe634c959f368988ee4385fc3f32aad67bd22cca6a2849db63637`,
+and entry-contract SHA-256
+`87adfb84d24b5160beb27cba648f51ca1594a272608d48b82976ed6f42919d0e`.
+`autotests = false` disables the 186 implicit integration crates and Cargo
+registers exactly the artifact's 20 roots. The ownership checker reports 22
+owned test build targets including lib/bin, 262 source groups, and 1,375 total
+entries; the integration subset remains exactly 186 sources and 879 entries.
+Mixed-class `__nonfast` roots retain entry-level ownership and cannot acquire a
+Fast assignment. Named-suffix class drift, missing or duplicate source
+membership, entry digest drift, and the 20/186/879 cardinality contract all
+fail closed.
+
+Live workflow selectors were translated rather than broadened. Fast runs only
+`schema_resources__fast` and `release_ci__fast`. Provider, codec, validation,
+SDK/archive, and release-candidate selections name both their new harness and
+source-module prefix; the default Nightly suite intentionally retains its
+broad all-target evidence. R2.3 heavy-prefix and R2.4 change-routing work was
+not pulled forward.
+
+Three harness-root support shims were required for source files that previously
+relied on being Cargo crate roots. `tests/sr_rt_evidence.rs` and
+`tests/protocol_baseline.rs` now import the one harness-root support module so
+product and test code share nominal types; `release_ci__nonfast` re-exports the
+typed-bulk product modules expected by its path-included projection. These are
+compile-only wiring changes: no test function, assertion, source membership,
+or product `src/**` file changed.
+
+Verification and measurements:
+
+- `python3 scripts/check-test-ownership.py` passed with 22 targets, 262
+  groups, and 1,375 entries; six checker fixture tests passed.
+- YAML parsing, `cargo metadata --locked --no-deps --format-version 1`,
+  `cargo fmt --all -- --check`, and `git diff --check` passed. Metadata exposed
+  exactly 20 explicit integration targets.
+- A warnings-denied clean Fast no-run build completed in 25.74 seconds and
+  occupied 580,317,184 target bytes. All six focused
+  `ci_release_gates::` tests then passed.
+- A clean
+  `cargo test --locked --all-targets --no-default-features --no-run` completed
+  in 33.87 seconds (`user 149.82`, `sys 10.16`), produced 22 executable lines
+  and 1,101 target files, and occupied 1,259,962,368 target bytes. Its one
+  8,192-byte allocated log artifact was reported before cleanup.
+- Default list mode discovered 841 entries. All-features no-run/list mode was
+  restricted to the five harnesses owning the 38 feature-gated entries; its
+  compile completed in 25.80 seconds. The default/all-features configuration
+  union matched all 879 expected module-qualified entries exactly once, with
+  zero missing, unexpected, duplicate-owned, or wrong-harness entries.
+- Ignored list mode retained exactly seven provider-owned entries and two
+  subprocess fixtures. No ignored or heavy test body ran, and no broad
+  qualification was invoked.
+
+Compared with the same no-default all-target R0 baseline of 8,013,463,552
+bytes, the clean R2.2 tree is 6,753,501,184 bytes (84.28%) smaller. The three
+exact temporary build roots and the list-output root were measured before
+removal and then removed. This closes R2.2's at-most-20 integration-binary,
+entry-parity, selector-compatibility, and measured-link-cost acceptance
+boundary. R2.3, R2.4, and the aggregate R2 gate remain open.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |
 | --- | --- | ---: | ---: | --- |
 | CI wall time by verification class | Run `33491521696`; class projection documented in the dated baseline | 132m15s full observed interval; no class is independently routed | — | Baseline recorded |
 | Billable runner time by verification class | Exact API job durations; failed attempt plus retry included | 175m45s actual; 180 per-job rounded minutes | — | Baseline recorded |
-| Largest local target-directory size | `CARGO_TARGET_DIR=/private/tmp/dts-r02-target.xAApSK cargo test --locked --all-targets --no-default-features --no-run` | 8,013,463,552 bytes after 72.29s | — | Baseline recorded; exact directory removed |
-| Integration-test target count | Cargo metadata plus top-level `tests/*.rs` at `65a296b` | 186 integration targets; 188 Cargo-reported harness executables | — | Baseline recorded |
+| Largest local target-directory size | `CARGO_TARGET_DIR=/private/tmp/dts-r02-target.xAApSK cargo test --locked --all-targets --no-default-features --no-run` | 8,013,463,552 bytes after 72.29s | R2.2 comparable clean run: 1,259,962,368 bytes after 33.87s | 6,753,501,184 bytes / 84.28% smaller; exact directory removed |
+| Integration-test target count | Cargo metadata plus top-level `tests/*.rs` at `65a296b` | 186 integration targets; 188 Cargo-reported harness executables | 20 explicit integration targets; 22 executables including lib/bin | R2.2 target-count gate passes |
 | CI/generated artifact count and size | Actions API for run `33491521696` | 1 upload, ID `9798112659`, 9,929,745-byte ZIP; no uploaded corpus | — | Baseline recorded |
 | Representative generator Fast PR | No independent class at `65a296b` | Not independently measurable; every PR selects the full graph | Remote run `33581809536`: 123s job interval, 116 build-work seconds, 739,602,432-byte target, four smoke artifacts occupying 122,880 allocated bytes | R1 gate passes 4-GiB and 15-minute budgets; target is 68.1% smaller than the pre-R1.5 Fast measurement and 90.8% smaller than the differently scoped R0 all-target tree |
 | Representative corpus PR | Repository does not yet exist; embedded corpus edit selects full graph | Not independently measurable | — | Explicit boundary recorded |
 | Representative viewer PR | Viewer repository not in current scope | — | — | Not measured |
 | Nightly and release-candidate cost | No separate Nightly/RC trigger; run `33491521696` is exact candidate evidence | Nightly not independently measurable; provider/default/release critical chain 123m53s | — | Explicit boundary recorded |
 
-Before/after cost reduction cannot be claimed until R1/R2 record comparable
-class-specific results and R9.6 repeats the terminal measurements. The R0.2
-baseline is diagnostic evidence, not proof that a target budget has passed.
+R2.2 now has a comparable local linking-cost reduction. CI class-specific
+terminal costs still require the later routing and R9.6 measurements; the R0.2
+baseline alone is not proof that those budgets have passed.
 
 ## Blockers and authority boundaries
 

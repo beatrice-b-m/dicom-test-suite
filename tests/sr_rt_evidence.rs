@@ -1,7 +1,6 @@
 #[path = "../src/sr_rt_manifest.rs"]
 mod sr_rt_manifest;
-#[path = "../src/sr_rt_validation.rs"]
-mod sr_rt_validation;
+use crate::sr_rt_validation;
 
 use serde_json::{Value, json};
 

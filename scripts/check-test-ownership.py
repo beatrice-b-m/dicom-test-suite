@@ -34,6 +34,13 @@ FAST_TARGETS = {
     "schema_artifacts",
     "standalone_docs",
 }
+EXPECTED_INTEGRATION_TARGETS = 20
+EXPECTED_INTEGRATION_SOURCES = 186
+EXPECTED_INTEGRATION_ENTRIES = 879
+HARNESS_MODULE = re.compile(
+    r'^#\[path = "\.\./([^"/]+\.rs)"\]\s*\nmod ([A-Za-z_][A-Za-z0-9_]*);$',
+    re.MULTILINE,
+)
 FAST_HEAVY_MARKERS = re.compile(
     r"(?:^|_)(?:all_profile|archive|codec|external|full_profile|heavy|package|"
     r"parity|provider|release|reproducibility|stress|wsi)(?:_|$)"
@@ -184,7 +191,7 @@ def domain_for(path: str) -> str:
 
 def class_for(path: str, target: str) -> str:
     name = Path(path).stem
-    if target in FAST_TARGETS:
+    if name in FAST_TARGETS:
         return "fast"
     if path in KNOWN_HEAVY_ENTRIES:
         return "nightly"
@@ -217,6 +224,22 @@ def cost_for(path: str, entries: list[dict[str, object]]) -> str:
 def discovered_groups(root: Path, targets: list[dict[str, object]]) -> list[dict[str, object]]:
     groups = []
     target_by_path = {str(item["path"]): str(item["name"]) for item in targets}
+    for item in targets:
+        if item["kind"] != "integration":
+            continue
+        harness_path = root / str(item["path"])
+        for source, module in HARNESS_MODULE.findall(harness_path.read_text(encoding="utf-8")):
+            if Path(source).stem != module:
+                raise OwnershipError(
+                    f"{item['path']}: source/module mismatch for {source}: {module}"
+                )
+            source_path = f"tests/{source}"
+            previous = target_by_path.get(source_path)
+            if previous is not None:
+                raise OwnershipError(
+                    f"multiply mapped integration source: {source_path} ({previous}, {item['name']})"
+                )
+            target_by_path[source_path] = str(item["name"])
     sources = sorted(root.glob("tests/*.rs"))
     sources.extend(sorted(root.glob("src/**/*.rs")))
     for path in sources:
@@ -244,20 +267,6 @@ def discovered_groups(root: Path, targets: list[dict[str, object]]) -> list[dict
 def bootstrap(root: Path) -> dict[str, object]:
     targets = cargo_targets(root)
     groups = discovered_groups(root, targets)
-    manifest_targets = []
-    target_classes = {}
-    for target in targets:
-        path = str(target["path"])
-        name = str(target["name"])
-        verification_class = class_for(path, name)
-        target_classes[name] = verification_class
-        manifest_targets.append(
-            {
-                **target,
-                "domain": domain_for(path),
-                "verification_class": verification_class,
-            }
-        )
     manifest_groups = []
     for group in groups:
         path = str(group["source"])
@@ -282,15 +291,46 @@ def bootstrap(root: Path) -> dict[str, object]:
             "schema_artifacts": "Static JSON Schema validation; WSI names do not generate a corpus.",
             "standalone_docs": "Static documentation inspection; external-consumer names launch no process.",
         }
-        if target in exemptions:
-            record["fast_cost_exemption"] = exemptions[target]
+        source_name = Path(path).stem
+        if source_name in exemptions:
+            record["fast_cost_exemption"] = exemptions[source_name]
         manifest_groups.append(record)
+    groups_by_target: dict[str, list[dict[str, object]]] = {}
+    for group in manifest_groups:
+        groups_by_target.setdefault(str(group["target"]), []).append(group)
+    manifest_targets = []
+    for target in targets:
+        name = str(target["name"])
+        owned = groups_by_target.get(name, [])
+        if target["kind"] == "integration":
+            domains = sorted({str(group["domain"]) for group in owned})
+            if len(domains) != 1:
+                raise OwnershipError(f"integration target {name} has domains {domains}")
+            domain = domains[0]
+            classes = sorted({str(group["verification_class"]) for group in owned})
+        elif target["kind"] == "lib":
+            domain = "engine"
+            classes = sorted({str(group["verification_class"]) for group in owned}) or ["subsystem"]
+        else:
+            domain = "cli_sdk"
+            classes = ["subsystem"]
+        manifest_targets.append(
+            {
+                **target,
+                "domain": domain,
+                "verification_classes": classes,
+            }
+        )
+    integration_groups = [group for group in manifest_groups if str(group["source"]).startswith("tests/")]
     return {
         "schema_version": SCHEMA_VERSION,
         "scope": {
             "rust_test_targets": len(targets),
+            "integration_test_targets": sum(target["kind"] == "integration" for target in targets),
             "rust_test_entry_groups": len(groups),
             "rust_test_entries": sum(int(group["entry_count"]) for group in groups),
+            "integration_source_groups": len(integration_groups),
+            "integration_test_entries": sum(int(group["entry_count"]) for group in integration_groups),
             "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry",
         },
         "enums": {
@@ -335,8 +375,14 @@ def verify(root: Path, manifest: dict[str, object]) -> dict[str, object]:
     for item in owned_targets:
         if item.get("domain") not in DOMAINS:
             errors.append(f"invalid target domain: {item.get('name')}")
-        if item.get("verification_class") not in CLASSES:
-            errors.append(f"invalid target verification class: {item.get('name')}")
+        classes = item.get("verification_classes")
+        if (
+            not isinstance(classes, list)
+            or not classes
+            or classes != sorted(set(classes))
+            or any(value not in CLASSES for value in classes)
+        ):
+            errors.append(f"invalid target verification classes: {item.get('name')}")
 
     sources = [item.get("source") for item in owned_groups]
     if len(sources) != len(set(sources)):
@@ -381,7 +427,7 @@ def verify(root: Path, manifest: dict[str, object]) -> dict[str, object]:
         if source.startswith("tests/") and target_record is not None:
             if owned.get("domain") != target_record.get("domain"):
                 errors.append(f"integration target/test domain disagreement: {source}")
-            if verification_class != target_record.get("verification_class"):
+            if verification_class not in target_record.get("verification_classes", []):
                 errors.append(f"integration target/test class disagreement: {source}")
 
         if verification_class == "fast":
@@ -401,18 +447,48 @@ def verify(root: Path, manifest: dict[str, object]) -> dict[str, object]:
     scope = manifest.get("scope", {})
     expected_counts = {
         "rust_test_targets": len(actual_targets),
+        "integration_test_targets": sum(item["kind"] == "integration" for item in actual_targets),
         "rust_test_entry_groups": len(actual_groups),
         "rust_test_entries": sum(int(item["entry_count"]) for item in actual_groups),
+        "integration_source_groups": sum(str(item["source"]).startswith("tests/") for item in actual_groups),
+        "integration_test_entries": sum(
+            int(item["entry_count"])
+            for item in actual_groups
+            if str(item["source"]).startswith("tests/")
+        ),
     }
     for key, value in expected_counts.items():
         if not isinstance(scope, dict) or scope.get(key) != value:
             errors.append(f"scope count drift: {key}")
 
+    integration_targets = [item for item in owned_targets if item.get("kind") == "integration"]
+    if len(integration_targets) != EXPECTED_INTEGRATION_TARGETS:
+        errors.append("R2.2 integration target count must be exactly 20")
+    if expected_counts["integration_source_groups"] != EXPECTED_INTEGRATION_SOURCES:
+        errors.append("R2.2 integration source count must be exactly 186")
+    if expected_counts["integration_test_entries"] != EXPECTED_INTEGRATION_ENTRIES:
+        errors.append("R2.2 integration entry count must be exactly 879")
+    for target in integration_targets:
+        name = str(target.get("name"))
+        classes = target.get("verification_classes", [])
+        suffix = name.rsplit("__", 1)[-1]
+        if suffix == "nonfast":
+            if "fast" in classes:
+                errors.append(f"mixed nonfast target contains Fast ownership: {name}")
+        elif classes != [suffix]:
+            errors.append(f"target suffix/class disagreement: {name}")
+
     if errors:
         raise OwnershipError("\n".join(errors))
     return {
         **expected_counts,
-        "targets_by_class": dict(Counter(str(item["verification_class"]) for item in owned_targets)),
+        "targets_by_class": dict(
+            Counter(
+                value
+                for item in owned_targets
+                for value in item["verification_classes"]
+            )
+        ),
     }
 
 

@@ -1,9 +1,12 @@
 {
   "schema_version": "1.0.0",
   "scope": {
-    "rust_test_targets": 188,
+    "rust_test_targets": 22,
+    "integration_test_targets": 20,
     "rust_test_entry_groups": 262,
     "rust_test_entries": 1375,
+    "integration_source_groups": 186,
+    "integration_test_entries": 879,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
   },
   "enums": {
@@ -36,1323 +39,208 @@
       "name": "dicom-test-suite",
       "path": "src/main.rs",
       "kind": "bin",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
+      "domain": "cli_sdk",
+      "verification_classes": [
+        "subsystem"
+      ]
     },
     {
-      "name": "advanced_blending_presentation_state",
-      "path": "tests/advanced_blending_presentation_state.rs",
+      "name": "assembly__nightly",
+      "path": "tests/harnesses/assembly__nightly.rs",
+      "kind": "integration",
+      "domain": "assembly",
+      "verification_classes": [
+        "nightly"
+      ]
+    },
+    {
+      "name": "assembly__subsystem",
+      "path": "tests/harnesses/assembly__subsystem.rs",
+      "kind": "integration",
+      "domain": "assembly",
+      "verification_classes": [
+        "subsystem"
+      ]
+    },
+    {
+      "name": "cli_sdk__nonfast",
+      "path": "tests/harnesses/cli_sdk__nonfast.rs",
+      "kind": "integration",
+      "domain": "cli_sdk",
+      "verification_classes": [
+        "nightly",
+        "subsystem"
+      ]
+    },
+    {
+      "name": "codec__nightly",
+      "path": "tests/harnesses/codec__nightly.rs",
+      "kind": "integration",
+      "domain": "codec",
+      "verification_classes": [
+        "nightly"
+      ]
+    },
+    {
+      "name": "codec__subsystem",
+      "path": "tests/harnesses/codec__subsystem.rs",
+      "kind": "integration",
+      "domain": "codec",
+      "verification_classes": [
+        "subsystem"
+      ]
+    },
+    {
+      "name": "composition__nightly",
+      "path": "tests/harnesses/composition__nightly.rs",
+      "kind": "integration",
+      "domain": "composition",
+      "verification_classes": [
+        "nightly"
+      ]
+    },
+    {
+      "name": "composition__subsystem",
+      "path": "tests/harnesses/composition__subsystem.rs",
+      "kind": "integration",
+      "domain": "composition",
+      "verification_classes": [
+        "subsystem"
+      ]
+    },
+    {
+      "name": "conformance_interoperability__nightly",
+      "path": "tests/harnesses/conformance_interoperability__nightly.rs",
+      "kind": "integration",
+      "domain": "conformance_interoperability",
+      "verification_classes": [
+        "nightly"
+      ]
+    },
+    {
+      "name": "conformance_interoperability__subsystem",
+      "path": "tests/harnesses/conformance_interoperability__subsystem.rs",
+      "kind": "integration",
+      "domain": "conformance_interoperability",
+      "verification_classes": [
+        "subsystem"
+      ]
+    },
+    {
+      "name": "corpus_generation__nightly",
+      "path": "tests/harnesses/corpus_generation__nightly.rs",
       "kind": "integration",
       "domain": "corpus_generation",
-      "verification_class": "subsystem"
+      "verification_classes": [
+        "nightly"
+      ]
     },
     {
-      "name": "advanced_provider_contract",
-      "path": "tests/advanced_provider_contract.rs",
+      "name": "corpus_generation__subsystem",
+      "path": "tests/harnesses/corpus_generation__subsystem.rs",
+      "kind": "integration",
+      "domain": "corpus_generation",
+      "verification_classes": [
+        "subsystem"
+      ]
+    },
+    {
+      "name": "engine__nightly",
+      "path": "tests/harnesses/engine__nightly.rs",
+      "kind": "integration",
+      "domain": "engine",
+      "verification_classes": [
+        "nightly"
+      ]
+    },
+    {
+      "name": "engine__subsystem",
+      "path": "tests/harnesses/engine__subsystem.rs",
+      "kind": "integration",
+      "domain": "engine",
+      "verification_classes": [
+        "subsystem"
+      ]
+    },
+    {
+      "name": "provider__subsystem",
+      "path": "tests/harnesses/provider__subsystem.rs",
       "kind": "integration",
       "domain": "provider",
-      "verification_class": "subsystem"
+      "verification_classes": [
+        "subsystem"
+      ]
     },
     {
-      "name": "advanced_recipe_catalog",
-      "path": "tests/advanced_recipe_catalog.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "assemble_cli",
-      "path": "tests/assemble_cli.rs",
-      "kind": "integration",
-      "domain": "assembly",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "assembly_plan",
-      "path": "tests/assembly_plan.rs",
-      "kind": "integration",
-      "domain": "assembly",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "assembly_qualification",
-      "path": "tests/assembly_qualification.rs",
-      "kind": "integration",
-      "domain": "assembly",
-      "verification_class": "nightly"
-    },
-    {
-      "name": "assembly_request",
-      "path": "tests/assembly_request.rs",
-      "kind": "integration",
-      "domain": "assembly",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "assembly_run",
-      "path": "tests/assembly_run.rs",
-      "kind": "integration",
-      "domain": "assembly",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "blending_presentation_state",
-      "path": "tests/blending_presentation_state.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "caller_content_consumer",
-      "path": "tests/caller_content_consumer.rs",
+      "name": "release_ci__fast",
+      "path": "tests/harnesses/release_ci__fast.rs",
       "kind": "integration",
       "domain": "release_ci",
-      "verification_class": "release_candidate"
+      "verification_classes": [
+        "fast"
+      ]
     },
     {
-      "name": "capabilities_cli",
-      "path": "tests/capabilities_cli.rs",
-      "kind": "integration",
-      "domain": "cli_sdk",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "case_recipe_catalog",
-      "path": "tests/case_recipe_catalog.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "nightly"
-    },
-    {
-      "name": "ci_release_gates",
-      "path": "tests/ci_release_gates.rs",
+      "name": "release_ci__nonfast",
+      "path": "tests/harnesses/release_ci__nonfast.rs",
       "kind": "integration",
       "domain": "release_ci",
-      "verification_class": "fast"
+      "verification_classes": [
+        "release_candidate",
+        "subsystem"
+      ]
     },
     {
-      "name": "classic_ct_plan",
-      "path": "tests/classic_ct_plan.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "classic_dx_mg_plan",
-      "path": "tests/classic_dx_mg_plan.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "classic_first_wave_part10_parity",
-      "path": "tests/classic_first_wave_part10_parity.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "nightly"
-    },
-    {
-      "name": "classic_mr_cr_plan",
-      "path": "tests/classic_mr_cr_plan.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "classic_nuclear_plan",
-      "path": "tests/classic_nuclear_plan.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "classic_plan_contracts",
-      "path": "tests/classic_plan_contracts.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "classic_vl_projection_plan",
-      "path": "tests/classic_vl_projection_plan.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "cli_contract_schema",
-      "path": "tests/cli_contract_schema.rs",
+      "name": "schema_resources__fast",
+      "path": "tests/harnesses/schema_resources__fast.rs",
       "kind": "integration",
       "domain": "schema_resources",
-      "verification_class": "subsystem"
+      "verification_classes": [
+        "fast"
+      ]
     },
     {
-      "name": "cli_error_golden",
-      "path": "tests/cli_error_golden.rs",
+      "name": "schema_resources__release_candidate",
+      "path": "tests/harnesses/schema_resources__release_candidate.rs",
       "kind": "integration",
-      "domain": "cli_sdk",
-      "verification_class": "subsystem"
+      "domain": "schema_resources",
+      "verification_classes": [
+        "release_candidate"
+      ]
     },
     {
-      "name": "codec_backend_registry",
-      "path": "tests/codec_backend_registry.rs",
+      "name": "schema_resources__subsystem",
+      "path": "tests/harnesses/schema_resources__subsystem.rs",
       "kind": "integration",
-      "domain": "codec",
-      "verification_class": "subsystem"
+      "domain": "schema_resources",
+      "verification_classes": [
+        "subsystem"
+      ]
     },
     {
-      "name": "color_softcopy_presentation_state",
-      "path": "tests/color_softcopy_presentation_state.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "compatibility_ownership",
-      "path": "tests/compatibility_ownership.rs",
-      "kind": "integration",
-      "domain": "release_ci",
-      "verification_class": "fast"
-    },
-    {
-      "name": "compose_cli",
-      "path": "tests/compose_cli.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "composition_advanced_plan_first",
-      "path": "tests/composition_advanced_plan_first.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "composition_bulk",
-      "path": "tests/composition_bulk.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "composition_catalog",
-      "path": "tests/composition_catalog.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "composition_classic_iod",
-      "path": "tests/composition_classic_iod.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "composition_codec",
-      "path": "tests/composition_codec.rs",
-      "kind": "integration",
-      "domain": "codec",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "composition_concatenation",
-      "path": "tests/composition_concatenation.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "composition_curated_migration",
-      "path": "tests/composition_curated_migration.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "composition_derived_references",
-      "path": "tests/composition_derived_references.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "composition_docs",
-      "path": "tests/composition_docs.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "composition_enhanced",
-      "path": "tests/composition_enhanced.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "composition_inventory",
-      "path": "tests/composition_inventory.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "composition_p2_e2e",
-      "path": "tests/composition_p2_e2e.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "composition_p3_gate",
-      "path": "tests/composition_p3_gate.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "composition_p8_qualification",
-      "path": "tests/composition_p8_qualification.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "nightly"
-    },
-    {
-      "name": "composition_parallel",
-      "path": "tests/composition_parallel.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "composition_provider",
-      "path": "tests/composition_provider.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "composition_public_api",
-      "path": "tests/composition_public_api.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "composition_quantitative",
-      "path": "tests/composition_quantitative.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "composition_quantitative_plan_first",
-      "path": "tests/composition_quantitative_plan_first.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "composition_radiotherapy",
-      "path": "tests/composition_radiotherapy.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "composition_resources",
-      "path": "tests/composition_resources.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "composition_sc_iod",
-      "path": "tests/composition_sc_iod.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "composition_schema",
-      "path": "tests/composition_schema.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "composition_sr_plan_first",
-      "path": "tests/composition_sr_plan_first.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "composition_streaming",
-      "path": "tests/composition_streaming.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "composition_structured_reports",
-      "path": "tests/composition_structured_reports.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "composition_wsi",
-      "path": "tests/composition_wsi.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "nightly"
-    },
-    {
-      "name": "conformance_check_tools",
-      "path": "tests/conformance_check_tools.rs",
-      "kind": "integration",
-      "domain": "conformance_interoperability",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "conformance_entity",
-      "path": "tests/conformance_entity.rs",
-      "kind": "integration",
-      "domain": "conformance_interoperability",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "conformance_icc",
-      "path": "tests/conformance_icc.rs",
-      "kind": "integration",
-      "domain": "conformance_interoperability",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "conformance_iod_routing",
-      "path": "tests/conformance_iod_routing.rs",
-      "kind": "integration",
-      "domain": "conformance_interoperability",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "conformance_parser",
-      "path": "tests/conformance_parser.rs",
-      "kind": "integration",
-      "domain": "conformance_interoperability",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "conformance_pixel",
-      "path": "tests/conformance_pixel.rs",
-      "kind": "integration",
-      "domain": "codec",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "conformance_rt",
-      "path": "tests/conformance_rt.rs",
-      "kind": "integration",
-      "domain": "conformance_interoperability",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "conformance_run",
-      "path": "tests/conformance_run.rs",
-      "kind": "integration",
-      "domain": "conformance_interoperability",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "conformance_schema",
-      "path": "tests/conformance_schema.rs",
-      "kind": "integration",
-      "domain": "conformance_interoperability",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "conformance_sr",
-      "path": "tests/conformance_sr.rs",
-      "kind": "integration",
-      "domain": "conformance_interoperability",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "conformance_verify",
-      "path": "tests/conformance_verify.rs",
-      "kind": "integration",
-      "domain": "conformance_interoperability",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "conformance_visible_light",
-      "path": "tests/conformance_visible_light.rs",
-      "kind": "integration",
-      "domain": "conformance_interoperability",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "conformance_waveform",
-      "path": "tests/conformance_waveform.rs",
-      "kind": "integration",
-      "domain": "conformance_interoperability",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "conformance_wsi",
-      "path": "tests/conformance_wsi.rs",
-      "kind": "integration",
-      "domain": "conformance_interoperability",
-      "verification_class": "nightly"
-    },
-    {
-      "name": "corpus_plan",
-      "path": "tests/corpus_plan.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "coverage_gaps_cli",
-      "path": "tests/coverage_gaps_cli.rs",
-      "kind": "integration",
-      "domain": "cli_sdk",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "ct_geometry",
-      "path": "tests/ct_geometry.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "curated_advanced_plan",
-      "path": "tests/curated_advanced_plan.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "curated_classic_validation",
-      "path": "tests/curated_classic_validation.rs",
+      "name": "standards_validation__subsystem",
+      "path": "tests/harnesses/standards_validation__subsystem.rs",
       "kind": "integration",
       "domain": "standards_validation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "curated_exceptional_execution",
-      "path": "tests/curated_exceptional_execution.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "curated_exceptional_matrix",
-      "path": "tests/curated_exceptional_matrix.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "curated_execution",
-      "path": "tests/curated_execution.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "curated_external_import_plan",
-      "path": "tests/curated_external_import_plan.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "curated_generate_integration",
-      "path": "tests/curated_generate_integration.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "curated_locked_full_file_execution",
-      "path": "tests/curated_locked_full_file_execution.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "nightly"
-    },
-    {
-      "name": "curated_locked_full_file_plan",
-      "path": "tests/curated_locked_full_file_plan.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "nightly"
-    },
-    {
-      "name": "curated_manifest",
-      "path": "tests/curated_manifest.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "curated_negative_plan",
-      "path": "tests/curated_negative_plan.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "curated_reference_plan",
-      "path": "tests/curated_reference_plan.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "curated_robustness_qualification",
-      "path": "tests/curated_robustness_qualification.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "nightly"
-    },
-    {
-      "name": "curated_runtime_capabilities",
-      "path": "tests/curated_runtime_capabilities.rs",
-      "kind": "integration",
-      "domain": "cli_sdk",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "curated_sc_corpus_plan",
-      "path": "tests/curated_sc_corpus_plan.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "curated_stress_ct_execution",
-      "path": "tests/curated_stress_ct_execution.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "nightly"
-    },
-    {
-      "name": "curated_stress_ct_plan",
-      "path": "tests/curated_stress_ct_plan.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "nightly"
-    },
-    {
-      "name": "curated_stress_manifest",
-      "path": "tests/curated_stress_manifest.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "nightly"
-    },
-    {
-      "name": "curated_stress_sc_integration",
-      "path": "tests/curated_stress_sc_integration.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "nightly"
-    },
-    {
-      "name": "deformable_spatial_registration",
-      "path": "tests/deformable_spatial_registration.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "enhanced_mr_temporal",
-      "path": "tests/enhanced_mr_temporal.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "enhanced_pet_multiframe",
-      "path": "tests/enhanced_pet_multiframe.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "enhanced_plan_provider",
-      "path": "tests/enhanced_plan_provider.rs",
-      "kind": "integration",
-      "domain": "provider",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "eot_arithmetic_qualification",
-      "path": "tests/eot_arithmetic_qualification.rs",
-      "kind": "integration",
-      "domain": "codec",
-      "verification_class": "nightly"
-    },
-    {
-      "name": "exceptional_sc_plan",
-      "path": "tests/exceptional_sc_plan.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "executor_adapters",
-      "path": "tests/executor_adapters.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "executor_engine",
-      "path": "tests/executor_engine.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "executor_evidence",
-      "path": "tests/executor_evidence.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "frame_codec_service",
-      "path": "tests/frame_codec_service.rs",
-      "kind": "integration",
-      "domain": "codec",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "general_ecg_waveform",
-      "path": "tests/general_ecg_waveform.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "generate_cli",
-      "path": "tests/generate_cli.rs",
-      "kind": "integration",
-      "domain": "cli_sdk",
-      "verification_class": "nightly"
-    },
-    {
-      "name": "generate_reproducibility",
-      "path": "tests/generate_reproducibility.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "nightly"
-    },
-    {
-      "name": "generation_backend_artifacts",
-      "path": "tests/generation_backend_artifacts.rs",
-      "kind": "integration",
-      "domain": "provider",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "generation_backend_contract",
-      "path": "tests/generation_backend_contract.rs",
-      "kind": "integration",
-      "domain": "provider",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "generation_backend_discovery",
-      "path": "tests/generation_backend_discovery.rs",
-      "kind": "integration",
-      "domain": "provider",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "installed_artifact_relocation",
-      "path": "tests/installed_artifact_relocation.rs",
-      "kind": "integration",
-      "domain": "schema_resources",
-      "verification_class": "release_candidate"
-    },
-    {
-      "name": "interoperability_schema",
-      "path": "tests/interoperability_schema.rs",
-      "kind": "integration",
-      "domain": "conformance_interoperability",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "interoperate_cli",
-      "path": "tests/interoperate_cli.rs",
-      "kind": "integration",
-      "domain": "conformance_interoperability",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "legacy_jpeg_dcmtk_wrapper",
-      "path": "tests/legacy_jpeg_dcmtk_wrapper.rs",
-      "kind": "integration",
-      "domain": "codec",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "legacy_jpeg_spike",
-      "path": "tests/legacy_jpeg_spike.rs",
-      "kind": "integration",
-      "domain": "codec",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "list_cases_cli",
-      "path": "tests/list_cases_cli.rs",
-      "kind": "integration",
-      "domain": "cli_sdk",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "media_sources",
-      "path": "tests/media_sources.rs",
-      "kind": "integration",
-      "domain": "conformance_interoperability",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "metadata_empty_type2",
-      "path": "tests/metadata_empty_type2.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "metadata_iso2022",
-      "path": "tests/metadata_iso2022.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "metadata_private_creators",
-      "path": "tests/metadata_private_creators.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "metadata_sc_recipe_planner",
-      "path": "tests/metadata_sc_recipe_planner.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "metadata_sequence_lengths",
-      "path": "tests/metadata_sequence_lengths.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "metadata_string_boundaries",
-      "path": "tests/metadata_string_boundaries.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "metadata_timezone",
-      "path": "tests/metadata_timezone.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "metadata_utf8",
-      "path": "tests/metadata_utf8.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "native_pixel_factory",
-      "path": "tests/native_pixel_factory.rs",
-      "kind": "integration",
-      "domain": "codec",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "negative_plan",
-      "path": "tests/negative_plan.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "neutral_content_provider",
-      "path": "tests/neutral_content_provider.rs",
-      "kind": "integration",
-      "domain": "provider",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "nm_multiframe",
-      "path": "tests/nm_multiframe.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "non_rust_cli_consumer",
-      "path": "tests/non_rust_cli_consumer.rs",
-      "kind": "integration",
-      "domain": "release_ci",
-      "verification_class": "release_candidate"
-    },
-    {
-      "name": "parametric_map",
-      "path": "tests/parametric_map.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "pet_rescaled_activity",
-      "path": "tests/pet_rescaled_activity.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "planning_contracts",
-      "path": "tests/planning_contracts.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "planning_preview",
-      "path": "tests/planning_preview.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "presentation_direct_plan",
-      "path": "tests/presentation_direct_plan.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "product_resource_lookup_audit",
-      "path": "tests/product_resource_lookup_audit.rs",
-      "kind": "integration",
-      "domain": "schema_resources",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "product_resources",
-      "path": "tests/product_resources.rs",
-      "kind": "integration",
-      "domain": "schema_resources",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "project_artifacts",
-      "path": "tests/project_artifacts.rs",
-      "kind": "integration",
-      "domain": "schema_resources",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "protocol_baseline",
-      "path": "tests/protocol_baseline.rs",
-      "kind": "integration",
-      "domain": "conformance_interoperability",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "protocol_substrate",
-      "path": "tests/protocol_substrate.rs",
-      "kind": "integration",
-      "domain": "conformance_interoperability",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "qualification_materialization",
-      "path": "tests/qualification_materialization.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "nightly"
-    },
-    {
-      "name": "qualified_catalog_consumer",
-      "path": "tests/qualified_catalog_consumer.rs",
-      "kind": "integration",
-      "domain": "release_ci",
-      "verification_class": "release_candidate"
-    },
-    {
-      "name": "quantitative_direct_parity",
-      "path": "tests/quantitative_direct_parity.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "nightly"
-    },
-    {
-      "name": "quantitative_evidence",
-      "path": "tests/quantitative_evidence.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "quantitative_plan",
-      "path": "tests/quantitative_plan.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "recipe_encoding",
-      "path": "tests/recipe_encoding.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "reference_recipe_catalog",
-      "path": "tests/reference_recipe_catalog.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "registration_plan_provider",
-      "path": "tests/registration_plan_provider.rs",
-      "kind": "integration",
-      "domain": "provider",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "release_archive",
-      "path": "tests/release_archive.rs",
-      "kind": "integration",
-      "domain": "release_ci",
-      "verification_class": "release_candidate"
-    },
-    {
-      "name": "release_process",
-      "path": "tests/release_process.rs",
-      "kind": "integration",
-      "domain": "release_ci",
-      "verification_class": "release_candidate"
-    },
-    {
-      "name": "report_cli",
-      "path": "tests/report_cli.rs",
-      "kind": "integration",
-      "domain": "cli_sdk",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "robustness_qualification_api",
-      "path": "tests/robustness_qualification_api.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "nightly"
-    },
-    {
-      "name": "robustness_qualification_plan",
-      "path": "tests/robustness_qualification_plan.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "nightly"
-    },
-    {
-      "name": "robustness_recipe_catalog",
-      "path": "tests/robustness_recipe_catalog.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "runtime_capabilities",
-      "path": "tests/runtime_capabilities.rs",
-      "kind": "integration",
-      "domain": "cli_sdk",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "sc_recipe_planner",
-      "path": "tests/sc_recipe_planner.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "schema_artifacts",
-      "path": "tests/schema_artifacts.rs",
-      "kind": "integration",
-      "domain": "schema_resources",
-      "verification_class": "fast"
-    },
-    {
-      "name": "scoord3d",
-      "path": "tests/scoord3d.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "sdk_external_consumer",
-      "path": "tests/sdk_external_consumer.rs",
-      "kind": "integration",
-      "domain": "release_ci",
-      "verification_class": "release_candidate"
-    },
-    {
-      "name": "sdk_facade",
-      "path": "tests/sdk_facade.rs",
-      "kind": "integration",
-      "domain": "cli_sdk",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "semantic_sr_rt_plan",
-      "path": "tests/semantic_sr_rt_plan.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "spatial_registration",
-      "path": "tests/spatial_registration.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "sr_rt_evidence",
-      "path": "tests/sr_rt_evidence.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "standalone_compose_resources",
-      "path": "tests/standalone_compose_resources.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "standalone_docs",
-      "path": "tests/standalone_docs.rs",
-      "kind": "integration",
-      "domain": "release_ci",
-      "verification_class": "fast"
-    },
-    {
-      "name": "standalone_generate_resources",
-      "path": "tests/standalone_generate_resources.rs",
-      "kind": "integration",
-      "domain": "schema_resources",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "standards_cli",
-      "path": "tests/standards_cli.rs",
-      "kind": "integration",
-      "domain": "cli_sdk",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "stress_ct_plan",
-      "path": "tests/stress_ct_plan.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "nightly"
-    },
-    {
-      "name": "stress_sc_plan",
-      "path": "tests/stress_sc_plan.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "nightly"
-    },
-    {
-      "name": "structural_catalog_consumer",
-      "path": "tests/structural_catalog_consumer.rs",
-      "kind": "integration",
-      "domain": "release_ci",
-      "verification_class": "release_candidate"
-    },
-    {
-      "name": "template_default_recipes",
-      "path": "tests/template_default_recipes.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "templates_cli",
-      "path": "tests/templates_cli.rs",
-      "kind": "integration",
-      "domain": "composition",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "tid1500",
-      "path": "tests/tid1500.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "twelve_lead_ecg_waveform",
-      "path": "tests/twelve_lead_ecg_waveform.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "typed_bulk_compatibility",
-      "path": "tests/typed_bulk_compatibility.rs",
-      "kind": "integration",
-      "domain": "release_ci",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "u3_plan_first_equivalence",
-      "path": "tests/u3_plan_first_equivalence.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "u4_classic_integration_parity",
-      "path": "tests/u4_classic_integration_parity.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "nightly"
-    },
-    {
-      "name": "u4_classic_qualification",
-      "path": "tests/u4_classic_qualification.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "nightly"
-    },
-    {
-      "name": "u6_quantitative_curated_plan",
-      "path": "tests/u6_quantitative_curated_plan.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "u6_unavailable_plan",
-      "path": "tests/u6_unavailable_plan.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "unified_generation_spine_audit",
-      "path": "tests/unified_generation_spine_audit.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "unified_spine_boundaries",
-      "path": "tests/unified_spine_boundaries.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "upgrade_consumer",
-      "path": "tests/upgrade_consumer.rs",
-      "kind": "integration",
-      "domain": "release_ci",
-      "verification_class": "release_candidate"
-    },
-    {
-      "name": "us_multiframe",
-      "path": "tests/us_multiframe.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "validate_cli",
-      "path": "tests/validate_cli.rs",
-      "kind": "integration",
-      "domain": "cli_sdk",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "version_cli",
-      "path": "tests/version_cli.rs",
-      "kind": "integration",
-      "domain": "cli_sdk",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "waveform_document_mesh_plan",
-      "path": "tests/waveform_document_mesh_plan.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "wsi_direct_plan",
-      "path": "tests/wsi_direct_plan.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "nightly"
-    },
-    {
-      "name": "wsi_pyramid",
-      "path": "tests/wsi_pyramid.rs",
-      "kind": "integration",
-      "domain": "corpus_generation",
-      "verification_class": "nightly"
-    },
-    {
-      "name": "xa_monoplane",
-      "path": "tests/xa_monoplane.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
-    },
-    {
-      "name": "xrf_monoplane",
-      "path": "tests/xrf_monoplane.rs",
-      "kind": "integration",
-      "domain": "engine",
-      "verification_class": "subsystem"
+      "verification_classes": [
+        "subsystem"
+      ]
     },
     {
       "name": "dicom_test_suite",
       "path": "src/lib.rs",
       "kind": "lib",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem"
+      "domain": "engine",
+      "verification_classes": [
+        "nightly",
+        "subsystem"
+      ]
     }
   ],
   "entry_groups": [
     {
       "source": "tests/advanced_blending_presentation_state.rs",
-      "target": "advanced_blending_presentation_state",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1364,7 +252,7 @@
     },
     {
       "source": "tests/advanced_provider_contract.rs",
-      "target": "advanced_provider_contract",
+      "target": "provider__subsystem",
       "domain": "provider",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1382,7 +270,7 @@
     },
     {
       "source": "tests/advanced_recipe_catalog.rs",
-      "target": "advanced_recipe_catalog",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1395,7 +283,7 @@
     },
     {
       "source": "tests/assemble_cli.rs",
-      "target": "assemble_cli",
+      "target": "assembly__subsystem",
       "domain": "assembly",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1410,7 +298,7 @@
     },
     {
       "source": "tests/assembly_plan.rs",
-      "target": "assembly_plan",
+      "target": "assembly__subsystem",
       "domain": "assembly",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1427,7 +315,7 @@
     },
     {
       "source": "tests/assembly_qualification.rs",
-      "target": "assembly_qualification",
+      "target": "assembly__nightly",
       "domain": "assembly",
       "verification_class": "nightly",
       "cost_tier": "ordinary",
@@ -1440,7 +328,7 @@
     },
     {
       "source": "tests/assembly_request.rs",
-      "target": "assembly_request",
+      "target": "assembly__subsystem",
       "domain": "assembly",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1457,7 +345,7 @@
     },
     {
       "source": "tests/assembly_run.rs",
-      "target": "assembly_run",
+      "target": "assembly__subsystem",
       "domain": "assembly",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1474,7 +362,7 @@
     },
     {
       "source": "tests/blending_presentation_state.rs",
-      "target": "blending_presentation_state",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1486,7 +374,7 @@
     },
     {
       "source": "tests/caller_content_consumer.rs",
-      "target": "caller_content_consumer",
+      "target": "release_ci__nonfast",
       "domain": "release_ci",
       "verification_class": "release_candidate",
       "cost_tier": "ordinary",
@@ -1498,7 +386,7 @@
     },
     {
       "source": "tests/capabilities_cli.rs",
-      "target": "capabilities_cli",
+      "target": "cli_sdk__nonfast",
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1512,7 +400,7 @@
     },
     {
       "source": "tests/case_recipe_catalog.rs",
-      "target": "case_recipe_catalog",
+      "target": "corpus_generation__nightly",
       "domain": "corpus_generation",
       "verification_class": "nightly",
       "cost_tier": "ordinary",
@@ -1539,7 +427,7 @@
     },
     {
       "source": "tests/ci_release_gates.rs",
-      "target": "ci_release_gates",
+      "target": "release_ci__fast",
       "domain": "release_ci",
       "verification_class": "fast",
       "cost_tier": "ordinary",
@@ -1552,12 +440,12 @@
         "ci_build_storage_controls_cover_every_job_and_preserve_heavy_evidence",
         "ci_cost_reporter_handles_missing_and_spaced_paths_and_fails_closed"
       ],
-      "entry_digest": "441b6e32070832c927f95a34e899f5a006ece4eccb6df1d8400a0e96f67b226a",
+      "entry_digest": "09ab26a11e01f3c909fe1501a27275a953b65e4dd415a0ffa720c9c00ec82934",
       "fast_cost_exemption": "Static workflow and script inspection; no heavyweight command is executed."
     },
     {
       "source": "tests/classic_ct_plan.rs",
-      "target": "classic_ct_plan",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1571,7 +459,7 @@
     },
     {
       "source": "tests/classic_dx_mg_plan.rs",
-      "target": "classic_dx_mg_plan",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1586,7 +474,7 @@
     },
     {
       "source": "tests/classic_first_wave_part10_parity.rs",
-      "target": "classic_first_wave_part10_parity",
+      "target": "corpus_generation__nightly",
       "domain": "corpus_generation",
       "verification_class": "nightly",
       "cost_tier": "ordinary",
@@ -1598,7 +486,7 @@
     },
     {
       "source": "tests/classic_mr_cr_plan.rs",
-      "target": "classic_mr_cr_plan",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1615,7 +503,7 @@
     },
     {
       "source": "tests/classic_nuclear_plan.rs",
-      "target": "classic_nuclear_plan",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1629,7 +517,7 @@
     },
     {
       "source": "tests/classic_plan_contracts.rs",
-      "target": "classic_plan_contracts",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1649,7 +537,7 @@
     },
     {
       "source": "tests/classic_vl_projection_plan.rs",
-      "target": "classic_vl_projection_plan",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1664,7 +552,7 @@
     },
     {
       "source": "tests/cli_contract_schema.rs",
-      "target": "cli_contract_schema",
+      "target": "schema_resources__subsystem",
       "domain": "schema_resources",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1679,7 +567,7 @@
     },
     {
       "source": "tests/cli_error_golden.rs",
-      "target": "cli_error_golden",
+      "target": "cli_sdk__nonfast",
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1692,7 +580,7 @@
     },
     {
       "source": "tests/codec_backend_registry.rs",
-      "target": "codec_backend_registry",
+      "target": "codec__subsystem",
       "domain": "codec",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1707,7 +595,7 @@
     },
     {
       "source": "tests/color_softcopy_presentation_state.rs",
-      "target": "color_softcopy_presentation_state",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1719,7 +607,7 @@
     },
     {
       "source": "tests/compatibility_ownership.rs",
-      "target": "compatibility_ownership",
+      "target": "release_ci__fast",
       "domain": "release_ci",
       "verification_class": "fast",
       "cost_tier": "ordinary",
@@ -1731,7 +619,7 @@
     },
     {
       "source": "tests/compose_cli.rs",
-      "target": "compose_cli",
+      "target": "composition__subsystem",
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1748,7 +636,7 @@
     },
     {
       "source": "tests/composition_advanced_plan_first.rs",
-      "target": "composition_advanced_plan_first",
+      "target": "composition__subsystem",
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1761,7 +649,7 @@
     },
     {
       "source": "tests/composition_bulk.rs",
-      "target": "composition_bulk",
+      "target": "composition__subsystem",
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1775,7 +663,7 @@
     },
     {
       "source": "tests/composition_catalog.rs",
-      "target": "composition_catalog",
+      "target": "composition__subsystem",
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1788,7 +676,7 @@
     },
     {
       "source": "tests/composition_classic_iod.rs",
-      "target": "composition_classic_iod",
+      "target": "composition__subsystem",
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1806,7 +694,7 @@
     },
     {
       "source": "tests/composition_codec.rs",
-      "target": "composition_codec",
+      "target": "codec__subsystem",
       "domain": "codec",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1818,7 +706,7 @@
     },
     {
       "source": "tests/composition_concatenation.rs",
-      "target": "composition_concatenation",
+      "target": "composition__subsystem",
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1831,7 +719,7 @@
     },
     {
       "source": "tests/composition_curated_migration.rs",
-      "target": "composition_curated_migration",
+      "target": "composition__subsystem",
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "heavy",
@@ -1843,7 +731,7 @@
     },
     {
       "source": "tests/composition_derived_references.rs",
-      "target": "composition_derived_references",
+      "target": "composition__subsystem",
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1857,7 +745,7 @@
     },
     {
       "source": "tests/composition_docs.rs",
-      "target": "composition_docs",
+      "target": "composition__subsystem",
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1872,7 +760,7 @@
     },
     {
       "source": "tests/composition_enhanced.rs",
-      "target": "composition_enhanced",
+      "target": "composition__subsystem",
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1885,7 +773,7 @@
     },
     {
       "source": "tests/composition_inventory.rs",
-      "target": "composition_inventory",
+      "target": "composition__subsystem",
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1901,7 +789,7 @@
     },
     {
       "source": "tests/composition_p2_e2e.rs",
-      "target": "composition_p2_e2e",
+      "target": "composition__subsystem",
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1916,7 +804,7 @@
     },
     {
       "source": "tests/composition_p3_gate.rs",
-      "target": "composition_p3_gate",
+      "target": "composition__subsystem",
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1929,7 +817,7 @@
     },
     {
       "source": "tests/composition_p8_qualification.rs",
-      "target": "composition_p8_qualification",
+      "target": "composition__nightly",
       "domain": "composition",
       "verification_class": "nightly",
       "cost_tier": "ordinary",
@@ -1941,7 +829,7 @@
     },
     {
       "source": "tests/composition_parallel.rs",
-      "target": "composition_parallel",
+      "target": "composition__subsystem",
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1953,7 +841,7 @@
     },
     {
       "source": "tests/composition_provider.rs",
-      "target": "composition_provider",
+      "target": "composition__subsystem",
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1971,7 +859,7 @@
     },
     {
       "source": "tests/composition_public_api.rs",
-      "target": "composition_public_api",
+      "target": "composition__subsystem",
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -1984,7 +872,7 @@
     },
     {
       "source": "tests/composition_quantitative.rs",
-      "target": "composition_quantitative",
+      "target": "composition__subsystem",
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "heavy",
@@ -1998,7 +886,7 @@
     },
     {
       "source": "tests/composition_quantitative_plan_first.rs",
-      "target": "composition_quantitative_plan_first",
+      "target": "composition__subsystem",
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2010,7 +898,7 @@
     },
     {
       "source": "tests/composition_radiotherapy.rs",
-      "target": "composition_radiotherapy",
+      "target": "composition__subsystem",
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2024,7 +912,7 @@
     },
     {
       "source": "tests/composition_resources.rs",
-      "target": "composition_resources",
+      "target": "composition__subsystem",
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2038,7 +926,7 @@
     },
     {
       "source": "tests/composition_sc_iod.rs",
-      "target": "composition_sc_iod",
+      "target": "composition__subsystem",
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2050,7 +938,7 @@
     },
     {
       "source": "tests/composition_schema.rs",
-      "target": "composition_schema",
+      "target": "composition__subsystem",
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2067,7 +955,7 @@
     },
     {
       "source": "tests/composition_sr_plan_first.rs",
-      "target": "composition_sr_plan_first",
+      "target": "composition__subsystem",
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2079,7 +967,7 @@
     },
     {
       "source": "tests/composition_streaming.rs",
-      "target": "composition_streaming",
+      "target": "composition__subsystem",
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2091,7 +979,7 @@
     },
     {
       "source": "tests/composition_structured_reports.rs",
-      "target": "composition_structured_reports",
+      "target": "composition__subsystem",
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2105,7 +993,7 @@
     },
     {
       "source": "tests/composition_wsi.rs",
-      "target": "composition_wsi",
+      "target": "composition__nightly",
       "domain": "composition",
       "verification_class": "nightly",
       "cost_tier": "heavy",
@@ -2119,7 +1007,7 @@
     },
     {
       "source": "tests/conformance_check_tools.rs",
-      "target": "conformance_check_tools",
+      "target": "conformance_interoperability__subsystem",
       "domain": "conformance_interoperability",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2134,7 +1022,7 @@
     },
     {
       "source": "tests/conformance_entity.rs",
-      "target": "conformance_entity",
+      "target": "conformance_interoperability__subsystem",
       "domain": "conformance_interoperability",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2148,7 +1036,7 @@
     },
     {
       "source": "tests/conformance_icc.rs",
-      "target": "conformance_icc",
+      "target": "conformance_interoperability__subsystem",
       "domain": "conformance_interoperability",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2162,7 +1050,7 @@
     },
     {
       "source": "tests/conformance_iod_routing.rs",
-      "target": "conformance_iod_routing",
+      "target": "conformance_interoperability__subsystem",
       "domain": "conformance_interoperability",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2174,7 +1062,7 @@
     },
     {
       "source": "tests/conformance_parser.rs",
-      "target": "conformance_parser",
+      "target": "conformance_interoperability__subsystem",
       "domain": "conformance_interoperability",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2186,7 +1074,7 @@
     },
     {
       "source": "tests/conformance_pixel.rs",
-      "target": "conformance_pixel",
+      "target": "codec__subsystem",
       "domain": "codec",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2212,7 +1100,7 @@
     },
     {
       "source": "tests/conformance_rt.rs",
-      "target": "conformance_rt",
+      "target": "conformance_interoperability__subsystem",
       "domain": "conformance_interoperability",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2224,7 +1112,7 @@
     },
     {
       "source": "tests/conformance_run.rs",
-      "target": "conformance_run",
+      "target": "conformance_interoperability__subsystem",
       "domain": "conformance_interoperability",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2237,7 +1125,7 @@
     },
     {
       "source": "tests/conformance_schema.rs",
-      "target": "conformance_schema",
+      "target": "conformance_interoperability__subsystem",
       "domain": "conformance_interoperability",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2252,7 +1140,7 @@
     },
     {
       "source": "tests/conformance_sr.rs",
-      "target": "conformance_sr",
+      "target": "conformance_interoperability__subsystem",
       "domain": "conformance_interoperability",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2264,7 +1152,7 @@
     },
     {
       "source": "tests/conformance_verify.rs",
-      "target": "conformance_verify",
+      "target": "conformance_interoperability__subsystem",
       "domain": "conformance_interoperability",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2280,7 +1168,7 @@
     },
     {
       "source": "tests/conformance_visible_light.rs",
-      "target": "conformance_visible_light",
+      "target": "conformance_interoperability__subsystem",
       "domain": "conformance_interoperability",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2293,7 +1181,7 @@
     },
     {
       "source": "tests/conformance_waveform.rs",
-      "target": "conformance_waveform",
+      "target": "conformance_interoperability__subsystem",
       "domain": "conformance_interoperability",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2307,7 +1195,7 @@
     },
     {
       "source": "tests/conformance_wsi.rs",
-      "target": "conformance_wsi",
+      "target": "conformance_interoperability__nightly",
       "domain": "conformance_interoperability",
       "verification_class": "nightly",
       "cost_tier": "heavy",
@@ -2321,7 +1209,7 @@
     },
     {
       "source": "tests/corpus_plan.rs",
-      "target": "corpus_plan",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2346,7 +1234,7 @@
     },
     {
       "source": "tests/coverage_gaps_cli.rs",
-      "target": "coverage_gaps_cli",
+      "target": "cli_sdk__nonfast",
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2362,7 +1250,7 @@
     },
     {
       "source": "tests/ct_geometry.rs",
-      "target": "ct_geometry",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2378,7 +1266,7 @@
     },
     {
       "source": "tests/curated_advanced_plan.rs",
-      "target": "curated_advanced_plan",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2392,7 +1280,7 @@
     },
     {
       "source": "tests/curated_classic_validation.rs",
-      "target": "curated_classic_validation",
+      "target": "standards_validation__subsystem",
       "domain": "standards_validation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2404,7 +1292,7 @@
     },
     {
       "source": "tests/curated_exceptional_execution.rs",
-      "target": "curated_exceptional_execution",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2431,7 +1319,7 @@
     },
     {
       "source": "tests/curated_exceptional_matrix.rs",
-      "target": "curated_exceptional_matrix",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2443,7 +1331,7 @@
     },
     {
       "source": "tests/curated_execution.rs",
-      "target": "curated_execution",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2461,7 +1349,7 @@
     },
     {
       "source": "tests/curated_external_import_plan.rs",
-      "target": "curated_external_import_plan",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2476,7 +1364,7 @@
     },
     {
       "source": "tests/curated_generate_integration.rs",
-      "target": "curated_generate_integration",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2491,7 +1379,7 @@
     },
     {
       "source": "tests/curated_locked_full_file_execution.rs",
-      "target": "curated_locked_full_file_execution",
+      "target": "corpus_generation__nightly",
       "domain": "corpus_generation",
       "verification_class": "nightly",
       "cost_tier": "heavy",
@@ -2506,7 +1394,7 @@
     },
     {
       "source": "tests/curated_locked_full_file_plan.rs",
-      "target": "curated_locked_full_file_plan",
+      "target": "engine__nightly",
       "domain": "engine",
       "verification_class": "nightly",
       "cost_tier": "heavy",
@@ -2518,7 +1406,7 @@
     },
     {
       "source": "tests/curated_manifest.rs",
-      "target": "curated_manifest",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2532,7 +1420,7 @@
     },
     {
       "source": "tests/curated_negative_plan.rs",
-      "target": "curated_negative_plan",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2550,7 +1438,7 @@
     },
     {
       "source": "tests/curated_reference_plan.rs",
-      "target": "curated_reference_plan",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2562,7 +1450,7 @@
     },
     {
       "source": "tests/curated_robustness_qualification.rs",
-      "target": "curated_robustness_qualification",
+      "target": "corpus_generation__nightly",
       "domain": "corpus_generation",
       "verification_class": "nightly",
       "cost_tier": "ordinary",
@@ -2582,7 +1470,7 @@
     },
     {
       "source": "tests/curated_runtime_capabilities.rs",
-      "target": "curated_runtime_capabilities",
+      "target": "cli_sdk__nonfast",
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2601,7 +1489,7 @@
     },
     {
       "source": "tests/curated_sc_corpus_plan.rs",
-      "target": "curated_sc_corpus_plan",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2620,7 +1508,7 @@
     },
     {
       "source": "tests/curated_stress_ct_execution.rs",
-      "target": "curated_stress_ct_execution",
+      "target": "corpus_generation__nightly",
       "domain": "corpus_generation",
       "verification_class": "nightly",
       "cost_tier": "heavy",
@@ -2632,7 +1520,7 @@
     },
     {
       "source": "tests/curated_stress_ct_plan.rs",
-      "target": "curated_stress_ct_plan",
+      "target": "engine__nightly",
       "domain": "engine",
       "verification_class": "nightly",
       "cost_tier": "heavy",
@@ -2646,7 +1534,7 @@
     },
     {
       "source": "tests/curated_stress_manifest.rs",
-      "target": "curated_stress_manifest",
+      "target": "corpus_generation__nightly",
       "domain": "corpus_generation",
       "verification_class": "nightly",
       "cost_tier": "heavy",
@@ -2665,7 +1553,7 @@
     },
     {
       "source": "tests/curated_stress_sc_integration.rs",
-      "target": "curated_stress_sc_integration",
+      "target": "corpus_generation__nightly",
       "domain": "corpus_generation",
       "verification_class": "nightly",
       "cost_tier": "heavy",
@@ -2683,7 +1571,7 @@
     },
     {
       "source": "tests/deformable_spatial_registration.rs",
-      "target": "deformable_spatial_registration",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2695,7 +1583,7 @@
     },
     {
       "source": "tests/enhanced_mr_temporal.rs",
-      "target": "enhanced_mr_temporal",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2707,7 +1595,7 @@
     },
     {
       "source": "tests/enhanced_pet_multiframe.rs",
-      "target": "enhanced_pet_multiframe",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2721,7 +1609,7 @@
     },
     {
       "source": "tests/enhanced_plan_provider.rs",
-      "target": "enhanced_plan_provider",
+      "target": "provider__subsystem",
       "domain": "provider",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2738,7 +1626,7 @@
     },
     {
       "source": "tests/eot_arithmetic_qualification.rs",
-      "target": "eot_arithmetic_qualification",
+      "target": "codec__nightly",
       "domain": "codec",
       "verification_class": "nightly",
       "cost_tier": "ordinary",
@@ -2752,7 +1640,7 @@
     },
     {
       "source": "tests/exceptional_sc_plan.rs",
-      "target": "exceptional_sc_plan",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2767,7 +1655,7 @@
     },
     {
       "source": "tests/executor_adapters.rs",
-      "target": "executor_adapters",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2781,7 +1669,7 @@
     },
     {
       "source": "tests/executor_engine.rs",
-      "target": "executor_engine",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2801,7 +1689,7 @@
     },
     {
       "source": "tests/executor_evidence.rs",
-      "target": "executor_evidence",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2818,7 +1706,7 @@
     },
     {
       "source": "tests/frame_codec_service.rs",
-      "target": "frame_codec_service",
+      "target": "codec__subsystem",
       "domain": "codec",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2836,7 +1724,7 @@
     },
     {
       "source": "tests/general_ecg_waveform.rs",
-      "target": "general_ecg_waveform",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2848,7 +1736,7 @@
     },
     {
       "source": "tests/generate_cli.rs",
-      "target": "generate_cli",
+      "target": "cli_sdk__nonfast",
       "domain": "cli_sdk",
       "verification_class": "nightly",
       "cost_tier": "ordinary",
@@ -2872,7 +1760,7 @@
     },
     {
       "source": "tests/generate_reproducibility.rs",
-      "target": "generate_reproducibility",
+      "target": "corpus_generation__nightly",
       "domain": "corpus_generation",
       "verification_class": "nightly",
       "cost_tier": "ordinary",
@@ -2886,7 +1774,7 @@
     },
     {
       "source": "tests/generation_backend_artifacts.rs",
-      "target": "generation_backend_artifacts",
+      "target": "provider__subsystem",
       "domain": "provider",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2900,7 +1788,7 @@
     },
     {
       "source": "tests/generation_backend_contract.rs",
-      "target": "generation_backend_contract",
+      "target": "provider__subsystem",
       "domain": "provider",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2913,7 +1801,7 @@
     },
     {
       "source": "tests/generation_backend_discovery.rs",
-      "target": "generation_backend_discovery",
+      "target": "provider__subsystem",
       "domain": "provider",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2925,7 +1813,7 @@
     },
     {
       "source": "tests/installed_artifact_relocation.rs",
-      "target": "installed_artifact_relocation",
+      "target": "schema_resources__release_candidate",
       "domain": "schema_resources",
       "verification_class": "release_candidate",
       "cost_tier": "ordinary",
@@ -2937,7 +1825,7 @@
     },
     {
       "source": "tests/interoperability_schema.rs",
-      "target": "interoperability_schema",
+      "target": "conformance_interoperability__subsystem",
       "domain": "conformance_interoperability",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2950,7 +1838,7 @@
     },
     {
       "source": "tests/interoperate_cli.rs",
-      "target": "interoperate_cli",
+      "target": "conformance_interoperability__subsystem",
       "domain": "conformance_interoperability",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2963,7 +1851,7 @@
     },
     {
       "source": "tests/legacy_jpeg_dcmtk_wrapper.rs",
-      "target": "legacy_jpeg_dcmtk_wrapper",
+      "target": "codec__subsystem",
       "domain": "codec",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2976,7 +1864,7 @@
     },
     {
       "source": "tests/legacy_jpeg_spike.rs",
-      "target": "legacy_jpeg_spike",
+      "target": "codec__subsystem",
       "domain": "codec",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -2990,7 +1878,7 @@
     },
     {
       "source": "tests/list_cases_cli.rs",
-      "target": "list_cases_cli",
+      "target": "cli_sdk__nonfast",
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3015,7 +1903,7 @@
     },
     {
       "source": "tests/media_sources.rs",
-      "target": "media_sources",
+      "target": "conformance_interoperability__subsystem",
       "domain": "conformance_interoperability",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3028,7 +1916,7 @@
     },
     {
       "source": "tests/metadata_empty_type2.rs",
-      "target": "metadata_empty_type2",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3041,7 +1929,7 @@
     },
     {
       "source": "tests/metadata_iso2022.rs",
-      "target": "metadata_iso2022",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3054,7 +1942,7 @@
     },
     {
       "source": "tests/metadata_private_creators.rs",
-      "target": "metadata_private_creators",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3068,7 +1956,7 @@
     },
     {
       "source": "tests/metadata_sc_recipe_planner.rs",
-      "target": "metadata_sc_recipe_planner",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3082,7 +1970,7 @@
     },
     {
       "source": "tests/metadata_sequence_lengths.rs",
-      "target": "metadata_sequence_lengths",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3095,7 +1983,7 @@
     },
     {
       "source": "tests/metadata_string_boundaries.rs",
-      "target": "metadata_string_boundaries",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3108,7 +1996,7 @@
     },
     {
       "source": "tests/metadata_timezone.rs",
-      "target": "metadata_timezone",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3121,7 +2009,7 @@
     },
     {
       "source": "tests/metadata_utf8.rs",
-      "target": "metadata_utf8",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3134,7 +2022,7 @@
     },
     {
       "source": "tests/native_pixel_factory.rs",
-      "target": "native_pixel_factory",
+      "target": "codec__subsystem",
       "domain": "codec",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3155,7 +2043,7 @@
     },
     {
       "source": "tests/negative_plan.rs",
-      "target": "negative_plan",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3168,7 +2056,7 @@
     },
     {
       "source": "tests/neutral_content_provider.rs",
-      "target": "neutral_content_provider",
+      "target": "provider__subsystem",
       "domain": "provider",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3185,7 +2073,7 @@
     },
     {
       "source": "tests/nm_multiframe.rs",
-      "target": "nm_multiframe",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3198,7 +2086,7 @@
     },
     {
       "source": "tests/non_rust_cli_consumer.rs",
-      "target": "non_rust_cli_consumer",
+      "target": "release_ci__nonfast",
       "domain": "release_ci",
       "verification_class": "release_candidate",
       "cost_tier": "ordinary",
@@ -3210,7 +2098,7 @@
     },
     {
       "source": "tests/parametric_map.rs",
-      "target": "parametric_map",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3222,7 +2110,7 @@
     },
     {
       "source": "tests/pet_rescaled_activity.rs",
-      "target": "pet_rescaled_activity",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3235,7 +2123,7 @@
     },
     {
       "source": "tests/planning_contracts.rs",
-      "target": "planning_contracts",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3251,7 +2139,7 @@
     },
     {
       "source": "tests/planning_preview.rs",
-      "target": "planning_preview",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3267,7 +2155,7 @@
     },
     {
       "source": "tests/presentation_direct_plan.rs",
-      "target": "presentation_direct_plan",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3282,7 +2170,7 @@
     },
     {
       "source": "tests/product_resource_lookup_audit.rs",
-      "target": "product_resource_lookup_audit",
+      "target": "schema_resources__subsystem",
       "domain": "schema_resources",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3295,7 +2183,7 @@
     },
     {
       "source": "tests/product_resources.rs",
-      "target": "product_resources",
+      "target": "schema_resources__subsystem",
       "domain": "schema_resources",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3313,7 +2201,7 @@
     },
     {
       "source": "tests/project_artifacts.rs",
-      "target": "project_artifacts",
+      "target": "schema_resources__subsystem",
       "domain": "schema_resources",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3396,7 +2284,7 @@
     },
     {
       "source": "tests/protocol_baseline.rs",
-      "target": "protocol_baseline",
+      "target": "conformance_interoperability__subsystem",
       "domain": "conformance_interoperability",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3411,7 +2299,7 @@
     },
     {
       "source": "tests/protocol_substrate.rs",
-      "target": "protocol_substrate",
+      "target": "conformance_interoperability__subsystem",
       "domain": "conformance_interoperability",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3427,7 +2315,7 @@
     },
     {
       "source": "tests/qualification_materialization.rs",
-      "target": "qualification_materialization",
+      "target": "corpus_generation__nightly",
       "domain": "corpus_generation",
       "verification_class": "nightly",
       "cost_tier": "ordinary",
@@ -3439,7 +2327,7 @@
     },
     {
       "source": "tests/qualified_catalog_consumer.rs",
-      "target": "qualified_catalog_consumer",
+      "target": "release_ci__nonfast",
       "domain": "release_ci",
       "verification_class": "release_candidate",
       "cost_tier": "ordinary",
@@ -3451,7 +2339,7 @@
     },
     {
       "source": "tests/quantitative_direct_parity.rs",
-      "target": "quantitative_direct_parity",
+      "target": "corpus_generation__nightly",
       "domain": "corpus_generation",
       "verification_class": "nightly",
       "cost_tier": "ordinary",
@@ -3463,7 +2351,7 @@
     },
     {
       "source": "tests/quantitative_evidence.rs",
-      "target": "quantitative_evidence",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3478,7 +2366,7 @@
     },
     {
       "source": "tests/quantitative_plan.rs",
-      "target": "quantitative_plan",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3497,7 +2385,7 @@
     },
     {
       "source": "tests/recipe_encoding.rs",
-      "target": "recipe_encoding",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3513,7 +2401,7 @@
     },
     {
       "source": "tests/reference_recipe_catalog.rs",
-      "target": "reference_recipe_catalog",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3526,7 +2414,7 @@
     },
     {
       "source": "tests/registration_plan_provider.rs",
-      "target": "registration_plan_provider",
+      "target": "provider__subsystem",
       "domain": "provider",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3542,7 +2430,7 @@
     },
     {
       "source": "tests/release_archive.rs",
-      "target": "release_archive",
+      "target": "release_ci__nonfast",
       "domain": "release_ci",
       "verification_class": "release_candidate",
       "cost_tier": "ordinary",
@@ -3554,7 +2442,7 @@
     },
     {
       "source": "tests/release_process.rs",
-      "target": "release_process",
+      "target": "release_ci__nonfast",
       "domain": "release_ci",
       "verification_class": "release_candidate",
       "cost_tier": "ordinary",
@@ -3569,7 +2457,7 @@
     },
     {
       "source": "tests/report_cli.rs",
-      "target": "report_cli",
+      "target": "cli_sdk__nonfast",
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3630,7 +2518,7 @@
     },
     {
       "source": "tests/robustness_qualification_api.rs",
-      "target": "robustness_qualification_api",
+      "target": "corpus_generation__nightly",
       "domain": "corpus_generation",
       "verification_class": "nightly",
       "cost_tier": "ordinary",
@@ -3642,7 +2530,7 @@
     },
     {
       "source": "tests/robustness_qualification_plan.rs",
-      "target": "robustness_qualification_plan",
+      "target": "engine__nightly",
       "domain": "engine",
       "verification_class": "nightly",
       "cost_tier": "ordinary",
@@ -3656,7 +2544,7 @@
     },
     {
       "source": "tests/robustness_recipe_catalog.rs",
-      "target": "robustness_recipe_catalog",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3672,7 +2560,7 @@
     },
     {
       "source": "tests/runtime_capabilities.rs",
-      "target": "runtime_capabilities",
+      "target": "cli_sdk__nonfast",
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3689,7 +2577,7 @@
     },
     {
       "source": "tests/sc_recipe_planner.rs",
-      "target": "sc_recipe_planner",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3703,7 +2591,7 @@
     },
     {
       "source": "tests/schema_artifacts.rs",
-      "target": "schema_artifacts",
+      "target": "schema_resources__fast",
       "domain": "schema_resources",
       "verification_class": "fast",
       "cost_tier": "ordinary",
@@ -3788,7 +2676,7 @@
     },
     {
       "source": "tests/scoord3d.rs",
-      "target": "scoord3d",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3800,7 +2688,7 @@
     },
     {
       "source": "tests/sdk_external_consumer.rs",
-      "target": "sdk_external_consumer",
+      "target": "release_ci__nonfast",
       "domain": "release_ci",
       "verification_class": "release_candidate",
       "cost_tier": "ordinary",
@@ -3812,7 +2700,7 @@
     },
     {
       "source": "tests/sdk_facade.rs",
-      "target": "sdk_facade",
+      "target": "cli_sdk__nonfast",
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3830,7 +2718,7 @@
     },
     {
       "source": "tests/semantic_sr_rt_plan.rs",
-      "target": "semantic_sr_rt_plan",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3846,7 +2734,7 @@
     },
     {
       "source": "tests/spatial_registration.rs",
-      "target": "spatial_registration",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3858,7 +2746,7 @@
     },
     {
       "source": "tests/sr_rt_evidence.rs",
-      "target": "sr_rt_evidence",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3874,7 +2762,7 @@
     },
     {
       "source": "tests/standalone_compose_resources.rs",
-      "target": "standalone_compose_resources",
+      "target": "composition__subsystem",
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3886,7 +2774,7 @@
     },
     {
       "source": "tests/standalone_docs.rs",
-      "target": "standalone_docs",
+      "target": "release_ci__fast",
       "domain": "release_ci",
       "verification_class": "fast",
       "cost_tier": "ordinary",
@@ -3902,7 +2790,7 @@
     },
     {
       "source": "tests/standalone_generate_resources.rs",
-      "target": "standalone_generate_resources",
+      "target": "schema_resources__subsystem",
       "domain": "schema_resources",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3914,7 +2802,7 @@
     },
     {
       "source": "tests/standards_cli.rs",
-      "target": "standards_cli",
+      "target": "cli_sdk__nonfast",
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3933,7 +2821,7 @@
     },
     {
       "source": "tests/stress_ct_plan.rs",
-      "target": "stress_ct_plan",
+      "target": "engine__nightly",
       "domain": "engine",
       "verification_class": "nightly",
       "cost_tier": "heavy",
@@ -3948,7 +2836,7 @@
     },
     {
       "source": "tests/stress_sc_plan.rs",
-      "target": "stress_sc_plan",
+      "target": "engine__nightly",
       "domain": "engine",
       "verification_class": "nightly",
       "cost_tier": "heavy",
@@ -3962,7 +2850,7 @@
     },
     {
       "source": "tests/structural_catalog_consumer.rs",
-      "target": "structural_catalog_consumer",
+      "target": "release_ci__nonfast",
       "domain": "release_ci",
       "verification_class": "release_candidate",
       "cost_tier": "ordinary",
@@ -3974,7 +2862,7 @@
     },
     {
       "source": "tests/template_default_recipes.rs",
-      "target": "template_default_recipes",
+      "target": "composition__subsystem",
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -3989,7 +2877,7 @@
     },
     {
       "source": "tests/templates_cli.rs",
-      "target": "templates_cli",
+      "target": "composition__subsystem",
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4004,7 +2892,7 @@
     },
     {
       "source": "tests/tid1500.rs",
-      "target": "tid1500",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4016,7 +2904,7 @@
     },
     {
       "source": "tests/twelve_lead_ecg_waveform.rs",
-      "target": "twelve_lead_ecg_waveform",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4028,7 +2916,7 @@
     },
     {
       "source": "tests/typed_bulk_compatibility.rs",
-      "target": "typed_bulk_compatibility",
+      "target": "release_ci__nonfast",
       "domain": "release_ci",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4042,7 +2930,7 @@
     },
     {
       "source": "tests/u3_plan_first_equivalence.rs",
-      "target": "u3_plan_first_equivalence",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4055,7 +2943,7 @@
     },
     {
       "source": "tests/u4_classic_integration_parity.rs",
-      "target": "u4_classic_integration_parity",
+      "target": "corpus_generation__nightly",
       "domain": "corpus_generation",
       "verification_class": "nightly",
       "cost_tier": "ordinary",
@@ -4069,7 +2957,7 @@
     },
     {
       "source": "tests/u4_classic_qualification.rs",
-      "target": "u4_classic_qualification",
+      "target": "corpus_generation__nightly",
       "domain": "corpus_generation",
       "verification_class": "nightly",
       "cost_tier": "ordinary",
@@ -4082,7 +2970,7 @@
     },
     {
       "source": "tests/u6_quantitative_curated_plan.rs",
-      "target": "u6_quantitative_curated_plan",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4094,7 +2982,7 @@
     },
     {
       "source": "tests/u6_unavailable_plan.rs",
-      "target": "u6_unavailable_plan",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4108,7 +2996,7 @@
     },
     {
       "source": "tests/unified_generation_spine_audit.rs",
-      "target": "unified_generation_spine_audit",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4124,7 +3012,7 @@
     },
     {
       "source": "tests/unified_spine_boundaries.rs",
-      "target": "unified_spine_boundaries",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4138,7 +3026,7 @@
     },
     {
       "source": "tests/upgrade_consumer.rs",
-      "target": "upgrade_consumer",
+      "target": "release_ci__nonfast",
       "domain": "release_ci",
       "verification_class": "release_candidate",
       "cost_tier": "ordinary",
@@ -4150,7 +3038,7 @@
     },
     {
       "source": "tests/us_multiframe.rs",
-      "target": "us_multiframe",
+      "target": "corpus_generation__subsystem",
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4163,7 +3051,7 @@
     },
     {
       "source": "tests/validate_cli.rs",
-      "target": "validate_cli",
+      "target": "cli_sdk__nonfast",
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4209,7 +3097,7 @@
     },
     {
       "source": "tests/version_cli.rs",
-      "target": "version_cli",
+      "target": "cli_sdk__nonfast",
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4223,7 +3111,7 @@
     },
     {
       "source": "tests/waveform_document_mesh_plan.rs",
-      "target": "waveform_document_mesh_plan",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4238,7 +3126,7 @@
     },
     {
       "source": "tests/wsi_direct_plan.rs",
-      "target": "wsi_direct_plan",
+      "target": "engine__nightly",
       "domain": "engine",
       "verification_class": "nightly",
       "cost_tier": "heavy",
@@ -4257,7 +3145,7 @@
     },
     {
       "source": "tests/wsi_pyramid.rs",
-      "target": "wsi_pyramid",
+      "target": "corpus_generation__nightly",
       "domain": "corpus_generation",
       "verification_class": "nightly",
       "cost_tier": "heavy",
@@ -4272,7 +3160,7 @@
     },
     {
       "source": "tests/xa_monoplane.rs",
-      "target": "xa_monoplane",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
@@ -4285,7 +3173,7 @@
     },
     {
       "source": "tests/xrf_monoplane.rs",
-      "target": "xrf_monoplane",
+      "target": "engine__subsystem",
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",

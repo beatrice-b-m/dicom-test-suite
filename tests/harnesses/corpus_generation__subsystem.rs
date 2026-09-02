@@ -1,3 +1,8 @@
+// `sr_rt_manifest` is path-included by `sr_rt_evidence` and retains its
+// integration-crate import of this sibling support module.
+#[path = "../../src/sr_rt_validation.rs"]
+mod sr_rt_validation;
+
 #[path = "../advanced_blending_presentation_state.rs"]
 mod advanced_blending_presentation_state;
 #[path = "../advanced_recipe_catalog.rs"]

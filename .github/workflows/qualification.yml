@@ -129,12 +129,12 @@ jobs:
           cargo test --locked --no-default-features --lib \
             generation_backends::process::tests::fake_backend_inherited_pipe_timeout_is_enforced \
             -- --ignored --exact
-          cargo test --locked --no-default-features --test composition_curated_migration \
-            migrated_curated_recipes_record_shared_plan_materialization -- --ignored --exact
-          cargo test --locked --no-default-features --test composition_quantitative \
-            quantitative_default_bundles_are_closed_provenanced_and_reproducible -- --ignored --exact
-          cargo test --locked --no-default-features --test composition_quantitative \
-            caller_segmentation_and_parametric_values_round_trip_at_fixed_shape -- --ignored --exact
+          cargo test --locked --no-default-features --test composition__subsystem \
+            composition_curated_migration::migrated_curated_recipes_record_shared_plan_materialization -- --ignored --exact
+          cargo test --locked --no-default-features --test composition__subsystem \
+            composition_quantitative::quantitative_default_bundles_are_closed_provenanced_and_reproducible -- --ignored --exact
+          cargo test --locked --no-default-features --test composition__subsystem \
+            composition_quantitative::caller_segmentation_and_parametric_values_round_trip_at_fixed_shape -- --ignored --exact
       - name: Report and enforce provider build cost
         if: always()
         env:
@@ -230,12 +230,15 @@ jobs:
           cargo fmt --all -- --check
           git diff --check
           RUSTFLAGS='-D warnings' cargo check --locked --all-targets --no-default-features
-          cargo test --locked --no-default-features \
-            --test product_resource_lookup_audit --test schema_artifacts \
-            --test compatibility_ownership --test standalone_docs \
-            --test non_rust_cli_consumer --test caller_content_consumer \
-            --test qualified_catalog_consumer --test structural_catalog_consumer \
-            --test upgrade_consumer --test release_process --test ci_release_gates
+          cargo test --locked --no-default-features --test schema_resources__subsystem product_resource_lookup_audit::
+          cargo test --locked --no-default-features --test schema_resources__fast
+          cargo test --locked --no-default-features --test release_ci__fast
+          for module in \
+            non_rust_cli_consumer caller_content_consumer qualified_catalog_consumer \
+            structural_catalog_consumer upgrade_consumer release_process
+          do
+            cargo test --locked --no-default-features --test release_ci__nonfast "$module::"
+          done
       - name: Verify packaged crate and SDK consumer
         run: |
           cargo package --locked
@@ -243,7 +246,7 @@ jobs:
           mkdir -p "$PACKAGE_ROOT"
           tar -xzf "$CARGO_TARGET_DIR/package/dicom-test-suite-0.1.0.crate" -C "$PACKAGE_ROOT"
           DTS_SDK_PACKAGE_ROOT="$PACKAGE_ROOT/dicom-test-suite-0.1.0" \
-            cargo test --locked --no-default-features --test sdk_external_consumer
+            cargo test --locked --no-default-features --test release_ci__nonfast sdk_external_consumer::
       - name: Build and qualify installed archive
         env:
           DTS_RELEASE_REVISION: ${{ needs.selection.outputs.revision }}
@@ -289,7 +292,8 @@ jobs:
           python3 tests/structural_catalog_consumer.py "$INSTALLED_BINARY"
           python3 tests/upgrade_consumer.py "$INSTALLED_BINARY"
       - name: Verify archive harness and adversarial checksum fixture
-        run: cargo test --locked --no-default-features --test release_archive
+        run: |
+          cargo test --locked --no-default-features --test release_ci__nonfast release_archive::
       - uses: actions/upload-artifact@v7
         with:
           name: dicom-test-suite-${{ runner.os }}-${{ runner.arch }}-${{ needs.selection.outputs.revision }}
@@ -330,10 +334,19 @@ jobs:
         run: |
           cargo test --locked --no-default-features --features "${{ matrix.feature }}" --lib codecs::tests::
           cargo test --locked --no-default-features --features "${{ matrix.feature }}" \
-            --test codec_backend_registry \
-            --test curated_exceptional_execution --test curated_runtime_capabilities \
-            --test exceptional_sc_plan --test frame_codec_service \
-            --test project_artifacts --test runtime_capabilities
+            --test codec__subsystem codec_backend_registry::
+          cargo test --locked --no-default-features --features "${{ matrix.feature }}" \
+            --test codec__subsystem frame_codec_service::
+          cargo test --locked --no-default-features --features "${{ matrix.feature }}" \
+            --test corpus_generation__subsystem curated_exceptional_execution::
+          cargo test --locked --no-default-features --features "${{ matrix.feature }}" \
+            --test cli_sdk__nonfast curated_runtime_capabilities::
+          cargo test --locked --no-default-features --features "${{ matrix.feature }}" \
+            --test engine__subsystem exceptional_sc_plan::
+          cargo test --locked --no-default-features --features "${{ matrix.feature }}" \
+            --test schema_resources__subsystem project_artifacts::
+          cargo test --locked --no-default-features --features "${{ matrix.feature }}" \
+            --test cli_sdk__nonfast runtime_capabilities::
       - name: Test feature-specific rejection boundary
         run: |
           case "${{ matrix.feature }}" in
@@ -345,7 +358,7 @@ jobs:
           esac
           if [ -n "$regression" ]; then
             cargo test --locked --no-default-features --features "${{ matrix.feature }}" \
-              --test validate_cli "$regression" -- --exact
+              --test cli_sdk__nonfast "validate_cli::$regression" -- --exact
           fi
       - name: Exercise feature corpus
         run: |
@@ -416,8 +429,15 @@ jobs:
           cargo check --locked --no-default-features --features "${{ matrix.feature }}" --lib --bins
           cargo test --locked --no-default-features --features "${{ matrix.feature }}" --lib codecs::tests::
           cargo test --locked --no-default-features --features "${{ matrix.feature }}" \
-            --test codec_backend_registry --test curated_runtime_capabilities \
-            --test exceptional_sc_plan --test frame_codec_service --test runtime_capabilities
+            --test codec__subsystem codec_backend_registry::
+          cargo test --locked --no-default-features --features "${{ matrix.feature }}" \
+            --test codec__subsystem frame_codec_service::
+          cargo test --locked --no-default-features --features "${{ matrix.feature }}" \
+            --test cli_sdk__nonfast curated_runtime_capabilities::
+          cargo test --locked --no-default-features --features "${{ matrix.feature }}" \
+            --test engine__subsystem exceptional_sc_plan::
+          cargo test --locked --no-default-features --features "${{ matrix.feature }}" \
+            --test cli_sdk__nonfast runtime_capabilities::
       - name: Exercise selected external codec cases
         run: |
           root="$RUNNER_TEMP/dts-${{ matrix.feature }}"

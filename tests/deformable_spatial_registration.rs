@@ -35,11 +35,7 @@ fn deformable_registration_vertical_slice_is_byte_deterministic_and_closed() {
     assert_eq!(first_bytes, second_bytes, "seed-7 REG bytes must match");
     assert_eq!(first["sha256"], synth_dicom_gen::sha256_hex(&first_bytes));
     assert_eq!(first["determinism"], "byte_stable");
-    assert!(
-        jsonschema::validator_for(&read_json("schemas/manifest.schema.json"))
-            .expect("manifest schema")
-            .is_valid(&first_manifest)
-    );
+    crate::curated_manifest_contract_support::assert_curated_manifest_schema_valid(&first_manifest);
 
     assert_manifest_contract(&first_root, first);
     assert_dicom_contract(&first_root);
@@ -269,10 +265,6 @@ fn text(object: &InMemDicomObject, tag: dicom_core::Tag) -> String {
         .expect("text")
         .trim_end_matches(['\0', ' '])
         .to_string()
-}
-
-fn read_json(path: &str) -> Value {
-    serde_json::from_slice(&fs::read(path).unwrap()).unwrap()
 }
 
 fn unique_temp_dir(label: &str) -> PathBuf {

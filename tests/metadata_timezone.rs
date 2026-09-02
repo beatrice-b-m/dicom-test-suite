@@ -81,13 +81,7 @@ fn timezone_boundaries_are_deterministic_strict_and_reported() {
         "2024-03-01T12:00:00.000000Z",
     );
 
-    let manifest_schema = read_json("schemas/manifest.schema.json");
-    let manifest_validator =
-        jsonschema::validator_for(&manifest_schema).expect("manifest schema must compile");
-    assert!(
-        manifest_validator.is_valid(&first_manifest),
-        "generated timezone manifest must satisfy the committed schema"
-    );
+    crate::curated_manifest_contract_support::assert_curated_manifest_schema_valid(&first_manifest);
     let summary = synth_dicom_gen::validate_generated_root(&first_root)
         .expect("timezone corpus must be inspectable");
     assert!(

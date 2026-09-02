@@ -93,12 +93,7 @@ fn string_boundary_vertical_slice_is_exact_byte_stable_and_reported() {
         ["+02147483647"]
     );
 
-    let manifest_schema = read_json("schemas/manifest.schema.json");
-    assert!(
-        jsonschema::validator_for(&manifest_schema)
-            .expect("manifest schema must compile")
-            .is_valid(&first_manifest)
-    );
+    crate::curated_manifest_contract_support::assert_curated_manifest_schema_valid(&first_manifest);
     let summary = synth_dicom_gen::validate_generated_root(&first_root)
         .expect("generated corpus must be inspectable");
     assert!(summary.failures.is_empty(), "{:?}", summary.failures);

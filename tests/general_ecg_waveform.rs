@@ -86,9 +86,9 @@ fn general_ecg_vertical_slice_is_byte_deterministic_and_closed() {
     );
     assert_eq!(first["sha256"], synth_dicom_gen::sha256_hex(&first_bytes));
     assert_eq!(first["determinism"], "byte_stable");
-    assert_eq!(first_manifest["manifest_schema_version"], "0.3.0");
+    assert_eq!(first_manifest["manifest_schema_version"], "1.0.0");
 
-    assert_schema_valid("schemas/manifest.schema.json", &first_manifest);
+    crate::curated_manifest_contract_support::assert_curated_manifest_schema_valid(&first_manifest);
     assert_manifest_contract(first);
     assert_independent_dicom_parse(&first_root);
 

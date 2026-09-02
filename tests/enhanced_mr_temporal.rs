@@ -22,19 +22,7 @@ fn enhanced_mr_temporal_position_vertical_slice_is_self_consistent() {
         &fs::read(out_dir.join("manifest.json")).expect("manifest must be readable"),
     )
     .expect("manifest must contain JSON");
-    let schema: Value = serde_json::from_slice(
-        &fs::read("schemas/manifest.schema.json").expect("manifest schema must be readable"),
-    )
-    .expect("manifest schema must contain JSON");
-    let validator = jsonschema::validator_for(&schema).expect("manifest schema must compile");
-    let schema_errors = validator
-        .iter_errors(&manifest)
-        .map(|error| error.to_string())
-        .collect::<Vec<_>>();
-    assert!(
-        schema_errors.is_empty(),
-        "generated manifest must match its schema: {schema_errors:?}"
-    );
+    crate::curated_manifest_contract_support::assert_curated_manifest_schema_valid(&manifest);
 
     let file = manifest["files"]
         .as_array()

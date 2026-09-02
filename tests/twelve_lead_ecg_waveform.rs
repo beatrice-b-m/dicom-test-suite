@@ -63,7 +63,7 @@ fn twelve_lead_ecg_vertical_slice_is_byte_deterministic_and_closed() {
     assert_eq!(second["sha256"], synth_dicom_gen::sha256_hex(&second_bytes));
     assert_eq!(first["determinism"], "byte_stable");
 
-    assert_schema_valid("schemas/manifest.schema.json", &first_manifest);
+    crate::curated_manifest_contract_support::assert_curated_manifest_schema_valid(&first_manifest);
     assert_manifest_contract(first);
 
     for root in [&first_root, &second_root] {

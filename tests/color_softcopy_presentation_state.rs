@@ -43,13 +43,7 @@ fn color_softcopy_presentation_state_vertical_slice_is_byte_deterministic_and_cl
     assert_eq!(first["sha256"], synth_dicom_gen::sha256_hex(&first_bytes));
     assert_eq!(first["determinism"], "byte_stable");
 
-    let schema = read_repo_json("schemas/manifest.schema.json");
-    let validator = jsonschema::validator_for(&schema).expect("manifest schema");
-    let errors = validator
-        .iter_errors(&first_manifest)
-        .map(|error| error.to_string())
-        .collect::<Vec<_>>();
-    assert!(errors.is_empty(), "manifest schema failures: {errors:#?}");
+    crate::curated_manifest_contract_support::assert_curated_manifest_schema_valid(&first_manifest);
 
     assert_manifest_contract(&first_root, &first_manifest, first);
     assert_dicom_contract(&first_root, first);

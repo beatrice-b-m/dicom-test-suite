@@ -689,20 +689,7 @@ fn core_generates_two_series_in_one_study_and_frame_of_reference() {
         &fs::read(out_dir.join("manifest.json")).expect("manifest must be readable"),
     )
     .expect("manifest must contain JSON");
-    let manifest_schema: Value = serde_json::from_slice(
-        &fs::read("schemas/manifest.schema.json").expect("manifest schema must be readable"),
-    )
-    .expect("manifest schema must contain JSON");
-    let manifest_validator =
-        jsonschema::validator_for(&manifest_schema).expect("manifest schema must compile");
-    let manifest_errors = manifest_validator
-        .iter_errors(&manifest)
-        .map(|error| error.to_string())
-        .collect::<Vec<_>>();
-    assert!(
-        manifest_errors.is_empty(),
-        "multiseries manifest must match schema: {manifest_errors:?}"
-    );
+    crate::curated_manifest_contract_support::assert_curated_manifest_schema_valid(&manifest);
     let files = manifest["files"]
         .as_array()
         .expect("manifest files must be an array")

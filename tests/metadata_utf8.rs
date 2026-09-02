@@ -54,20 +54,7 @@ fn utf8_person_name_vertical_slice_is_exact_and_byte_stable() {
         "小東"
     );
 
-    let schema: Value = serde_json::from_slice(
-        &fs::read("schemas/manifest.schema.json").expect("manifest schema must be readable"),
-    )
-    .expect("manifest schema must be JSON");
-    let schema_validator =
-        jsonschema::validator_for(&schema).expect("manifest schema must compile");
-    let schema_errors = schema_validator
-        .iter_errors(&first_manifest)
-        .map(|error| error.to_string())
-        .collect::<Vec<_>>();
-    assert!(
-        schema_errors.is_empty(),
-        "generated manifest must satisfy the strict metadata schema: {schema_errors:?}"
-    );
+    crate::curated_manifest_contract_support::assert_curated_manifest_schema_valid(&first_manifest);
 
     let obj = open_file(first_root.join(RELATIVE_PATH)).expect("UTF-8 fixture must parse");
     assert_eq!(

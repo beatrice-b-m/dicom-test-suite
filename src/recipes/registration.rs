@@ -25,7 +25,7 @@ use crate::corpus_plan::{
 };
 use crate::executor::services::ArtifactExecutionBindings;
 use crate::uid::{DeterministicUidInput, UidRole, deterministic_uid};
-use crate::{IMPLEMENTATION_VERSION_NAME, PACKAGE_VERSION};
+use crate::{BYTE_STABLE_OUTPUT_VERSION, IMPLEMENTATION_VERSION_NAME};
 
 use super::{
     AdvancedArtifactPlanningContext, AdvancedArtifactProvenance, AdvancedArtifactRole,
@@ -341,7 +341,7 @@ impl RegistrationPlanProvider {
         let implementation = deterministic_uid(&DeterministicUidInput {
             standards_lock_sha256: &self.standards_lock_sha256,
             case_id: "dicom-test-suite/implementation",
-            recipe_version: PACKAGE_VERSION,
+            recipe_version: BYTE_STABLE_OUTPUT_VERSION,
             run_seed: 0,
             file_index: 0,
             frame_index: None,
@@ -742,7 +742,7 @@ fn common_attributes(
             DicomVr::LO,
             &common.device_serial_number,
         ),
-        ("SoftwareVersions", DicomVr::LO, PACKAGE_VERSION),
+        ("SoftwareVersions", DicomVr::LO, BYTE_STABLE_OUTPUT_VERSION),
         ("InstanceNumber", DicomVr::IS, "1"),
         ("ContentDate", DicomVr::DA, "20260101"),
         ("ContentTime", DicomVr::TM, "000000"),

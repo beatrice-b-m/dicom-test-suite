@@ -15946,7 +15946,7 @@ fn validate_spatial_registration_standard_elements(
         manufacturer: "dicom-test-suite",
         manufacturer_model_name: "Native Spatial Registration",
         device_serial_number: "DTS-REG-001",
-        software_versions: PACKAGE_VERSION,
+        software_versions: BYTE_STABLE_OUTPUT_VERSION,
         registered_frame_of_reference_uid: manifest_str(
             manifest_path,
             expected,
@@ -16212,7 +16212,7 @@ fn validate_deformable_spatial_registration_standard_elements(
         manufacturer: "dicom-test-suite",
         manufacturer_model_name: "Native Deformable Registration",
         device_serial_number: "DTS-DEFREG-001",
-        software_versions: PACKAGE_VERSION,
+        software_versions: BYTE_STABLE_OUTPUT_VERSION,
         registered_frame_of_reference_uid: manifest_str(
             manifest_path,
             expected,

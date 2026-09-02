@@ -85,6 +85,8 @@ pub struct SupportedVersions {
     pub composition_request: Vec<&'static str>,
     pub assembly_request: Vec<&'static str>,
     pub assembly_manifest: Vec<&'static str>,
+    /// Structural-assembly manifest versions covered by validate/report readers.
+    pub assembly_manifest_validation: Vec<&'static str>,
     pub release_manifest: Vec<&'static str>,
     pub curated_manifest: Vec<&'static str>,
     /// Curated manifest versions covered by validate/report compatibility fixtures.
@@ -442,10 +444,12 @@ pub fn capabilities_result_with_context(
                 ("version", SUPPORTED_VERSION_RESULT_SCHEMA_VERSIONS.to_vec()),
                 ("generation", vec!["1.0.0", "2.0.0"]),
                 ("composition", vec!["1.0.0", "2.0.0"]),
+                ("assembly", vec!["1.0.0", "2.0.0"]),
             ]),
             composition_request: vec!["0.1.0"],
             assembly_request: vec![crate::assembly::ASSEMBLY_REQUEST_SCHEMA_VERSION],
             assembly_manifest: vec![crate::assembly::ASSEMBLY_MANIFEST_SCHEMA_VERSION],
+            assembly_manifest_validation: vec!["1.0.0", "2.0.0"],
             release_manifest: vec!["1.0.0"],
             curated_manifest: vec!["1.0.0"],
             curated_manifest_validation: vec!["0.2.0", "0.3.0", "1.0.0"],

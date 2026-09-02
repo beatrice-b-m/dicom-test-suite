@@ -109,6 +109,10 @@ fn capabilities_json_is_live_schema_valid_and_conservative_outside_the_checkout(
         serde_json::json!(["1.0.0", "2.0.0"])
     );
     assert_eq!(
+        envelope["result"]["supported_versions"]["result_schema_validation"]["assembly"],
+        serde_json::json!(["1.0.0", "2.0.0"])
+    );
+    assert_eq!(
         envelope["result"]["supported_versions"]["composition_manifest"],
         serde_json::json!(["1.0.0"])
     );
@@ -130,16 +134,20 @@ fn capabilities_json_is_live_schema_valid_and_conservative_outside_the_checkout(
         "1.0.0"
     );
     assert_eq!(
-        envelope["result"]["supported_versions"]["assembly_manifest"][0],
-        "1.0.0"
+        envelope["result"]["supported_versions"]["assembly_manifest"],
+        serde_json::json!(["2.0.0"])
+    );
+    assert_eq!(
+        envelope["result"]["supported_versions"]["assembly_manifest_validation"],
+        serde_json::json!(["1.0.0", "2.0.0"])
     );
     assert_eq!(
         envelope["result"]["supported_versions"]["release_manifest"][0],
         "1.0.0"
     );
     assert_eq!(
-        envelope["result"]["supported_versions"]["result_schemas"]["assembly"][0],
-        "1.0.0"
+        envelope["result"]["supported_versions"]["result_schemas"]["assembly"],
+        serde_json::json!(["2.0.0"])
     );
     assert_eq!(
         envelope["result"]["assembly_resource_ceilings"]["max_parallelism"],
@@ -198,6 +206,16 @@ fn capabilities_v2_schema_keeps_pre_composition_reader_documents_valid() {
     assert!(
         fixture["supported_versions"]
             .get("composition_manifest_validation")
+            .is_none()
+    );
+    assert!(
+        fixture["supported_versions"]["result_schema_validation"]
+            .get("assembly")
+            .is_none()
+    );
+    assert!(
+        fixture["supported_versions"]
+            .get("assembly_manifest_validation")
             .is_none()
     );
     assert!(compile_v2_capabilities_schema().is_valid(&fixture));

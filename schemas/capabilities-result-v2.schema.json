@@ -103,6 +103,7 @@
           "properties": {
             "capabilities": { "const": ["1.0.0", "2.0.0"] },
             "composition": { "const": ["1.0.0", "2.0.0"] },
+            "assembly": { "const": ["1.0.0", "2.0.0"] },
             "generation": { "const": ["1.0.0", "2.0.0"] },
             "version": { "const": ["1.0.0", "2.0.0"] }
           },
@@ -111,6 +112,7 @@
         "composition_request": { "$ref": "#/$defs/version_array" },
         "assembly_request": { "$ref": "#/$defs/version_array" },
         "assembly_manifest": { "$ref": "#/$defs/version_array" },
+        "assembly_manifest_validation": { "const": ["1.0.0", "2.0.0"] },
         "release_manifest": { "$ref": "#/$defs/version_array" },
         "curated_manifest": { "$ref": "#/$defs/version_array" },
         "curated_manifest_validation": { "$ref": "#/$defs/version_array" },

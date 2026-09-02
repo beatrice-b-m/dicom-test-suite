@@ -2528,11 +2528,12 @@ without changing any installed identity domain.
 
 The transitional monolith remains explicit and unchanged at 240 members and
 `dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410`.
-That same digest is now a named private compatibility salt for all six assembly
-UID derivations, so later R4.4 membership removal cannot perturb assembly bytes.
+That same digest is now a named private compatibility salt for all five assembly
+UID roles and callsites, so later R4.4 membership removal cannot perturb
+assembly bytes.
 The direct schema-set identity deliberately includes the two new schemas and
 crossed from 44 files / 826,625 bytes /
-`29f9c67a4622291bc940a7ece8b3a0553e853f26821bf1e08a524818340738f1` to
+`29f9c67a96302911a4ba38013deb0cafb8c6205eed53801f816e58728ebecba1` to
 46 files / 839,053 bytes /
 `0983a809348e6bd4c1df52ec579a321fa34118609ffd51d4a8895aee176dcca0`.
 
@@ -2568,6 +2569,10 @@ windows. Both new capability fields are optional so the frozen pre-field
 capabilities-v2 document remains valid. Each public schema has exactly one
 compatibility owner, and changes to either new schema route the assembly,
 identity, SDK, and generic schema bundles.
+The canonical seed-5 request, frozen manifest-v1, and frozen result-v1 fixtures
+also route assembly byte/plan/CLI parity together with schema and SDK readers.
+Changes to the shared manifest-contract loader route assembly semantics as well
+as its schema and SDK consumers.
 
 Bounded ordinary verification after the slice:
 
@@ -2579,7 +2584,7 @@ Bounded ordinary verification after the slice:
 - schema/resources route: 86 passed in 6.28 seconds (6.35 seconds wall);
 - ownership inventory: 22 targets, 265 groups, and 1,414 entries passed;
 - spelling inventory: 920 retained occurrences, SHA-256
-  `da5ad53dc550e057db3490957df41bfa69cc488d09d3e542d03b5e417e5c2630`.
+  `91566a24eb3bd68af2bb2e0fa24a11fece70ef4cb26ad4e0acfa4e98cfbfa126`.
 
 No provider, codec-feature, external-corpus, Heavy, Nightly,
 release-candidate, coverage/release projection, R4.4, R4.5, or R5 body ran.

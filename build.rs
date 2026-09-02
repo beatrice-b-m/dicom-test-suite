@@ -81,6 +81,7 @@ fn generate_embedded_engine_resources() {
 
 fn collect_json_files(root: &Path, relative: &Path, resources: &mut Vec<(String, PathBuf)>) {
     let directory = root.join(relative);
+    require_engine_resource_path(&directory, EngineResourcePathKind::Directory);
     println!("cargo:rerun-if-changed={}", directory.display());
     let mut entries = fs::read_dir(&directory)
         .unwrap_or_else(|error| panic!("read {}: {error}", directory.display()))
@@ -112,11 +113,59 @@ fn collect_json_files(root: &Path, relative: &Path, resources: &mut Vec<(String,
 }
 
 fn require_regular_engine_resource(path: &Path) {
-    let metadata = fs::symlink_metadata(path)
-        .unwrap_or_else(|error| panic!("inspect engine resource {}: {error}", path.display()));
-    assert!(
-        metadata.is_file() && !metadata.file_type().is_symlink(),
-        "engine resource is not a regular non-symlink file: {}",
-        path.display()
-    );
+    require_engine_resource_path(path, EngineResourcePathKind::File);
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum EngineResourcePathKind {
+    Directory,
+    File,
+}
+
+pub(crate) fn validate_engine_resource_path(
+    path: &Path,
+    expected: EngineResourcePathKind,
+) -> Result<(), String> {
+    let mut current = PathBuf::new();
+    let components = path.components().collect::<Vec<_>>();
+    if components.is_empty() {
+        return Err("engine resource path is empty".to_string());
+    }
+    for (index, component) in components.iter().enumerate() {
+        current.push(component.as_os_str());
+        let metadata = fs::symlink_metadata(&current)
+            .map_err(|error| format!("inspect engine resource {}: {error}", current.display()))?;
+        if metadata.file_type().is_symlink() {
+            return Err(format!(
+                "engine resource path contains a symbolic link: {}",
+                current.display()
+            ));
+        }
+        let is_target = index + 1 == components.len();
+        if !is_target && !metadata.is_dir() {
+            return Err(format!(
+                "engine resource ancestor is not a directory: {}",
+                current.display()
+            ));
+        }
+        if is_target {
+            let correct_kind = match expected {
+                EngineResourcePathKind::Directory => metadata.is_dir(),
+                EngineResourcePathKind::File => metadata.is_file(),
+            };
+            if !correct_kind {
+                return Err(format!(
+                    "engine resource has the wrong file type: {}",
+                    current.display()
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn require_engine_resource_path(path: &Path, expected: EngineResourcePathKind) {
+    if let Err(error) = validate_engine_resource_path(path, expected) {
+        panic!("{error}");
+    }
 }

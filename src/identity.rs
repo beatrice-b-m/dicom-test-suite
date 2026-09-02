@@ -328,6 +328,14 @@ const DIRECT_SCHEMA_MEMBERS: &[(&str, &[u8])] = &[
         include_bytes!("../schemas/corpus-definition-bundle.schema.json"),
     ),
     (
+        "schemas/generation-result-v2.schema.json",
+        include_bytes!("../schemas/generation-result-v2.schema.json"),
+    ),
+    (
+        "schemas/manifest-v1.schema.json",
+        include_bytes!("../schemas/manifest-v1.schema.json"),
+    ),
+    (
         "schemas/version-result-v2.schema.json",
         include_bytes!("../schemas/version-result-v2.schema.json"),
     ),

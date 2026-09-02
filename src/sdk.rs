@@ -527,21 +527,52 @@ impl SchemaBoundManifest {
             ),
             None | Some("curated_generation") => (
                 ManifestKind::CuratedGeneration,
-                "schemas/manifest.schema.json",
+                if schema_version == "1.0.0" {
+                    "schemas/manifest-v1.schema.json"
+                } else {
+                    "schemas/manifest.schema.json"
+                },
             ),
             Some(_) => return Err(SdkError::classify(command, "manifest run kind invalid")),
         };
         let seed = field("/run/seed")?
             .as_u64()
             .ok_or_else(|| SdkError::classify(command, "manifest schema invalid"))?;
-        let schema: serde_json::Value = serde_json::from_slice(
+        let resource_schema = if schema_path == "schemas/manifest-v1.schema.json" {
+            None
+        } else {
+            Some(
+                resources
+                    .bytes(schema_path)
+                    .map_err(|error| SdkError::classify(command, error))?,
+            )
+        };
+        let schema_bytes = resource_schema
+            .as_deref()
+            .unwrap_or_else(|| include_bytes!("../schemas/manifest-v1.schema.json").as_slice());
+        let schema: serde_json::Value = serde_json::from_slice(schema_bytes)
+            .map_err(|error| SdkError::classify(command, error))?;
+        let legacy_manifest: serde_json::Value = serde_json::from_slice(
             &resources
-                .bytes(schema_path)
+                .bytes("schemas/manifest.schema.json")
                 .map_err(|error| SdkError::classify(command, error))?,
         )
         .map_err(|error| SdkError::classify(command, error))?;
+        let version_v2: serde_json::Value =
+            serde_json::from_slice(include_bytes!("../schemas/version-result-v2.schema.json"))
+                .map_err(|error| SdkError::classify(command, error))?;
         let validator = jsonschema::options()
             .with_draft(jsonschema::Draft::Draft202012)
+            .with_resource(
+                "https://dicom-test-suite.local/schemas/manifest.schema.json",
+                jsonschema::Resource::from_contents(legacy_manifest)
+                    .map_err(|error| SdkError::classify(command, error))?,
+            )
+            .with_resource(
+                "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json",
+                jsonschema::Resource::from_contents(version_v2)
+                    .map_err(|error| SdkError::classify(command, error))?,
+            )
             .build(&schema)
             .map_err(|error| SdkError::classify(command, error))?;
         if let Err(error) = validator.validate(&value) {

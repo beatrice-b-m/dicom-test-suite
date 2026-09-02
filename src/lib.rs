@@ -22,6 +22,7 @@ use crate::executor::cancellation::CancellationToken;
 use crate::executor::engine::{
     CorpusExecutor, CorpusExecutorError, ManifestProjectionError, ManifestProjector,
 };
+use crate::executor::evidence::{ExecutionStatus, ResultStatus};
 use crate::executor::frame_codec::ExternalFrameCodecCommands;
 use crate::executor::transaction::TransactionError;
 use crate::runtime_capabilities::CapabilityInventory;
@@ -904,6 +905,7 @@ struct CuratedGenerationManifestProjector {
     cargo_lock: Vec<u8>,
     registry: Value,
     product_resources: engine_resources::EngineResourceIdentity,
+    resources: engine_resources::EngineResources,
 }
 
 impl ManifestProjector for CuratedGenerationManifestProjector {
@@ -919,6 +921,10 @@ impl ManifestProjector for CuratedGenerationManifestProjector {
             .map(|file| file.case_id.clone())
             .collect::<Vec<_>>();
         generated_case_ids.extend(generated.completed_case_ids);
+        let external_runtime = curated_external_runtime_identities(input)?;
+        let identity_projection =
+            identity::project_curated_manifest_identities(&self.resources, None, external_runtime)
+                .map_err(|error| ManifestProjectionError(error.to_string()))?;
         let manifest = build_generation_manifest(
             &self.run,
             &self.standards_lock,
@@ -926,6 +932,7 @@ impl ManifestProjector for CuratedGenerationManifestProjector {
             &self.cargo_lock,
             &self.registry,
             &self.product_resources,
+            &identity_projection,
             generated.files,
             generated.qualifications,
             &generated_case_ids,
@@ -937,6 +944,128 @@ impl ManifestProjector for CuratedGenerationManifestProjector {
         bytes.push(b'\n');
         Ok(bytes)
     }
+}
+
+fn curated_external_runtime_identities(
+    input: &crate::executor::adapters::ManifestProjectionInput,
+) -> Result<Vec<identity::ExternalRuntimeIdentity>, ManifestProjectionError> {
+    let mut identities = Vec::new();
+    for artifact in &input.artifacts {
+        if artifact.execution.status != ExecutionStatus::Succeeded {
+            continue;
+        }
+        for provider in &artifact.execution.providers {
+            let Some(executable_sha256) = &provider.executable_sha256 else {
+                continue;
+            };
+            if provider.status != ResultStatus::Passed {
+                continue;
+            }
+            identities.push(identity::ExternalRuntimeIdentity {
+                runtime_id: format!(
+                    "provider/{}/{}",
+                    artifact.execution.logical_id, provider.provider_id
+                ),
+                runtime_kind: "generation_provider".into(),
+                executable_sha256: executable_sha256.clone(),
+                version: provider.provider_version.clone(),
+                invocation_sha256: sha256_hex(
+                    format!(
+                        "artifact={}\nprovider={}\nargument={}\nrequest={}\nresponse={}\n",
+                        artifact.execution.logical_id,
+                        provider.provider_id,
+                        provider.argument_sha256,
+                        provider.request_sha256,
+                        provider.response_sha256,
+                    )
+                    .as_bytes(),
+                ),
+            });
+        }
+        for codec in &artifact.execution.codecs {
+            let Some(tool) = &codec.tool else {
+                continue;
+            };
+            if codec.status != ResultStatus::Passed {
+                continue;
+            }
+            identities.push(identity::ExternalRuntimeIdentity {
+                runtime_id: format!(
+                    "codec/{}/{}/{}",
+                    artifact.execution.logical_id, codec.backend_id, codec.slot
+                ),
+                runtime_kind: "frame_codec".into(),
+                executable_sha256: tool.executable_sha256.clone(),
+                version: tool.version.clone(),
+                invocation_sha256: sha256_hex(
+                    format!(
+                        "artifact={}\nbackend={}\nslot={}\nrequest={}\n",
+                        artifact.execution.logical_id,
+                        codec.backend_id,
+                        codec.slot,
+                        codec.request_sha256,
+                    )
+                    .as_bytes(),
+                ),
+            });
+        }
+        for obligation in &artifact.execution.obligations {
+            let Some(tool) = &obligation.tool else {
+                continue;
+            };
+            if obligation.status != ResultStatus::Passed {
+                continue;
+            }
+            identities.push(identity::ExternalRuntimeIdentity {
+                runtime_id: format!(
+                    "evidence/{}/{}",
+                    artifact.execution.logical_id, obligation.obligation_id
+                ),
+                runtime_kind: "evidence_tool".into(),
+                executable_sha256: tool.executable_sha256.clone(),
+                version: tool.version.clone(),
+                invocation_sha256: sha256_hex(
+                    format!(
+                        "artifact={}\nobligation={}\nroute={}\ntool={}\n",
+                        artifact.execution.logical_id,
+                        obligation.obligation_id,
+                        obligation.route_id,
+                        tool.tool_id,
+                    )
+                    .as_bytes(),
+                ),
+            });
+        }
+        if let Some(materialization) = &artifact.execution.materialization {
+            for evidence in &materialization.service_evidence {
+                let Some(executable_sha256) = &evidence.producer_executable_sha256 else {
+                    continue;
+                };
+                let claims = serde_json::to_vec(&evidence.claims)
+                    .map_err(|error| ManifestProjectionError(error.to_string()))?;
+                identities.push(identity::ExternalRuntimeIdentity {
+                    runtime_id: format!(
+                        "materialization/{}/{}",
+                        artifact.execution.logical_id, evidence.evidence_id
+                    ),
+                    runtime_kind: "materialization_service".into(),
+                    executable_sha256: executable_sha256.clone(),
+                    version: evidence.producer_version.clone(),
+                    invocation_sha256: sha256_hex(
+                        format!(
+                            "artifact={}\nevidence={}\nproducer={}\nclaims={}\n",
+                            artifact.execution.logical_id,
+                            evidence.evidence_id,
+                            evidence.producer_id,
+                            sha256_hex(&claims),
+                        )
+                        .as_bytes(),
+                    ),
+                });
+            }
+        }
+    }
+    Ok(identities)
 }
 
 pub fn write_generation_run(
@@ -1038,6 +1167,7 @@ fn write_generation_selection_with_resources(
         cargo_lock,
         registry,
         product_resources: product_resource_identity,
+        resources: resources.clone(),
     };
     let result = CorpusExecutor::new(
         curated_execution_service_factory(&curated_sc_plan)?,
@@ -34522,6 +34652,7 @@ fn build_generation_manifest(
     cargo_lock: &[u8],
     registry: &Value,
     product_resources: &engine_resources::EngineResourceIdentity,
+    identity_projection: &identity::CuratedManifestIdentityProjection,
     generated_files: Vec<GeneratedFile>,
     qualifications: Vec<Value>,
     generated_case_ids: &[String],
@@ -34539,7 +34670,7 @@ fn build_generation_manifest(
         .collect();
 
     Ok(serde_json::json!({
-        "manifest_schema_version": "0.3.0",
+        "manifest_schema_version": "1.0.0",
         "generated_at": "19700101000000.000000+0000",
         "generator": {
             "name": PACKAGE_NAME,
@@ -34571,6 +34702,7 @@ fn build_generation_manifest(
             "codec_versions": {}
         },
         "product_resources": product_resources,
+        "identity_projection": identity_projection,
         "run": {
             "profile": run.profile,
             "seed": run.seed,

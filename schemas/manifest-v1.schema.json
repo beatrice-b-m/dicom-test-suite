@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://synth-dicom-gen.local/schemas/manifest-v1.schema.json",
+  "title": "Synth DICOM Gen Curated Generation Manifest v1",
+  "type": "object",
+  "required": [
+    "manifest_schema_version",
+    "generated_at",
+    "generator",
+    "standards",
+    "dependencies",
+    "identity_projection",
+    "run",
+    "files",
+    "qualifications",
+    "skipped_cases"
+  ],
+  "properties": {
+    "manifest_schema_version": { "const": "1.0.0" },
+    "generated_at": { "type": "string", "minLength": 1 },
+    "generator": { "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/generator" },
+    "standards": { "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/standards" },
+    "dependencies": { "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/dependencies" },
+    "product_resources": { "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/product_resources" },
+    "identity_projection": { "$ref": "#/$defs/identity_projection" },
+    "run": { "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/run" },
+    "files": {
+      "type": "array",
+      "items": { "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/file" }
+    },
+    "qualifications": {
+      "type": "array",
+      "items": { "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/qualification" }
+    },
+    "skipped_cases": {
+      "type": "array",
+      "items": { "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/skipped_case" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "corpus_definition_projection": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["state", "identity"],
+          "properties": {
+            "state": { "const": "verified_bundle" },
+            "identity": { "$ref": "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json#/$defs/corpus_definition_identity" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["state", "identity"],
+          "properties": {
+            "state": { "const": "transitional_embedded_unverified" },
+            "identity": { "type": "null" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "legacy_provenance": {
+      "type": "object",
+      "required": ["resource_set_version", "origin", "resource_count", "resource_set_sha256", "removal_phase"],
+      "properties": {
+        "resource_set_version": { "const": "1.0.0" },
+        "origin": { "enum": ["embedded", "explicit"] },
+        "resource_count": { "const": 240 },
+        "resource_set_sha256": { "const": "dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410" },
+        "removal_phase": { "const": "R4.4" }
+      },
+      "additionalProperties": false
+    },
+    "identity_projection": {
+      "type": "object",
+      "required": [
+        "identity_projection_schema_version",
+        "projection_state",
+        "engine",
+        "schema_set",
+        "template_catalog",
+        "provider_catalog",
+        "corpus_definition",
+        "toolchain",
+        "external_runtime",
+        "standards",
+        "execution",
+        "legacy_provenance"
+      ],
+      "properties": {
+        "identity_projection_schema_version": { "const": "1.0.0" },
+        "projection_state": { "const": "projected" },
+        "engine": { "$ref": "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json#/$defs/engine_identity" },
+        "schema_set": { "$ref": "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json#/$defs/schema_set_identity" },
+        "template_catalog": { "$ref": "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json#/$defs/template_catalog_identity" },
+        "provider_catalog": { "$ref": "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json#/$defs/provider_catalog_identity" },
+        "corpus_definition": { "$ref": "#/$defs/corpus_definition_projection" },
+        "toolchain": { "$ref": "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json#/$defs/toolchain_identity" },
+        "external_runtime": {
+          "type": "array",
+          "items": { "$ref": "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json#/$defs/external_runtime_identity" }
+        },
+        "standards": { "$ref": "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json#/$defs/standards_identity" },
+        "execution": { "$ref": "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json#/$defs/execution_identity" },
+        "legacy_provenance": { "$ref": "#/$defs/legacy_provenance" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -76,6 +76,8 @@ fn resource_build_tracks_directory_additions() {
     for schema in [
         "schemas/version-result-v2.schema.json",
         "schemas/capabilities-result-v2.schema.json",
+        "schemas/generation-result-v2.schema.json",
+        "schemas/manifest-v1.schema.json",
     ] {
         assert!(
             !engine_resource_build_script::is_transitional_engine_resource(schema),

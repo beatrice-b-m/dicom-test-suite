@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use serde::Serialize;
 
 pub const CLI_API_VERSION: &str = "1.0.0";
-pub const GENERATION_RESULT_SCHEMA_VERSION: &str = "1.0.0";
+pub const GENERATION_RESULT_SCHEMA_VERSION: &str = "2.0.0";
 pub const COMPOSITION_RESULT_SCHEMA_VERSION: &str = "1.0.0";
 pub const ASSEMBLY_RESULT_SCHEMA_VERSION: &str = "1.0.0";
 pub const TEMPLATES_RESULT_SCHEMA_VERSION: &str = "1.0.0";

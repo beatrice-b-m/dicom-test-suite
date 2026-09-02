@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://synth-dicom-gen.local/schemas/generation-result-v2.schema.json",
+  "title": "Synth DICOM Gen Generation Result v2",
+  "type": "object",
+  "required": [
+    "generation_result_schema_version",
+    "requested_output_root",
+    "manifest_path",
+    "run_kind",
+    "seed",
+    "request_schema_version",
+    "manifest_schema_version",
+    "product_version",
+    "emitted_artifact_count",
+    "output_bytes",
+    "unavailable_capability_count",
+    "unavailable_capabilities",
+    "corpus_plan_sha256",
+    "published",
+    "publication_status",
+    "validation_status",
+    "plan_preview"
+  ],
+  "properties": {
+    "generation_result_schema_version": { "const": "2.0.0" },
+    "requested_output_root": { "type": "string", "minLength": 1 },
+    "manifest_path": { "type": "string", "minLength": 1 },
+    "run_kind": { "const": "curated_generation" },
+    "seed": { "type": "integer", "minimum": 0 },
+    "request_schema_version": { "const": "1.0.0" },
+    "manifest_schema_version": { "const": "1.0.0" },
+    "product_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$" },
+    "emitted_artifact_count": { "type": "integer", "minimum": 0 },
+    "output_bytes": { "type": "integer", "minimum": 0 },
+    "unavailable_capability_count": { "type": "integer", "minimum": 0 },
+    "unavailable_capabilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["capability_id", "reason_code"],
+        "properties": {
+          "capability_id": { "type": "string", "minLength": 1 },
+          "reason_code": { "type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "corpus_plan_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "published": { "const": true },
+    "publication_status": { "const": "published" },
+    "validation_status": { "const": "passed" },
+    "plan_preview": { "type": "null" }
+  },
+  "additionalProperties": false
+}

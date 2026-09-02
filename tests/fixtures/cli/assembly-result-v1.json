@@ -1,0 +1,19 @@
+{
+  "assembly_result_schema_version": "1.0.0",
+  "corpus_plan_sha256": "d4ebd5a7ca2081375022b0d9bf8726d5e8f508afe59e1c1ad7d68d65f5ebda45",
+  "emitted_artifact_count": 1,
+  "manifest_path": "/tmp/sdg-assembly-v1-seed5.vCvs2O/out/manifest.json",
+  "manifest_schema_version": "1.0.0",
+  "output_bytes": 774,
+  "plan_preview": null,
+  "product_version": "0.2.0",
+  "publication_status": "published",
+  "published": true,
+  "request_schema_version": "1.0.0",
+  "requested_output_root": "/tmp/sdg-assembly-v1-seed5.vCvs2O/out",
+  "run_kind": "structural_assembly",
+  "seed": 5,
+  "unavailable_capabilities": [],
+  "unavailable_capability_count": 0,
+  "validation_status": "passed"
+}

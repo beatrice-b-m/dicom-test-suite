@@ -1,0 +1,1581 @@
+{
+  "generated_at": "2000-01-01T00:00:00Z",
+  "generator": {
+    "name": "synth-dicom-gen",
+    "rustc": "rustc 1.85.0 (4d91de4e4 2025-02-17)",
+    "target": "aarch64-apple-darwin",
+    "version": "0.2.0"
+  },
+  "instances": [
+    {
+      "bulk": [
+        {
+          "address": {
+            "element": 16,
+            "group": 32736
+          },
+          "kind": "integer_pixel_data",
+          "placement": {
+            "kind": "top_level"
+          },
+          "properties": {
+            "bits_allocated": "8",
+            "columns": "2",
+            "frames": "1",
+            "iod_conformance": "not_assessed",
+            "padding": "none",
+            "resolved_sha256": "054edec1d0211f624fed0cbca9d4f9400b0e491c43742af2c5b0abebf0c990d8",
+            "rows": "2",
+            "samples_per_pixel": "1",
+            "source_kind": "inline_base64",
+            "source_sha256": "054edec1d0211f624fed0cbca9d4f9400b0e491c43742af2c5b0abebf0c990d8"
+          },
+          "sha256": "054edec1d0211f624fed0cbca9d4f9400b0e491c43742af2c5b0abebf0c990d8",
+          "size_bytes": 4,
+          "slot": "bulk_0",
+          "vr": "OB"
+        }
+      ],
+      "elements": [
+        {
+          "address": {
+            "element": 16,
+            "group": 16
+          },
+          "origin": "instance_override",
+          "value": {
+            "kind": "primitive",
+            "value": {
+              "kind": "string",
+              "value": "SYNTHETIC^ASSEMBLY"
+            }
+          },
+          "vr": "PN"
+        },
+        {
+          "address": {
+            "element": 4112,
+            "group": 17,
+            "private_creator": "DTS_ASSEMBLY"
+          },
+          "origin": "instance_override",
+          "value": {
+            "kind": "primitive",
+            "value": {
+              "kind": "string",
+              "value": "STRUCTURAL"
+            }
+          },
+          "vr": "LO"
+        },
+        {
+          "address": {
+            "element": 13,
+            "group": 32
+          },
+          "origin": "derived_structural",
+          "value": {
+            "kind": "primitive",
+            "value": {
+              "kind": "string",
+              "value": "2.25.131391886742213678286033606434638135815"
+            }
+          },
+          "vr": "UI"
+        },
+        {
+          "address": {
+            "element": 14,
+            "group": 32
+          },
+          "origin": "derived_structural",
+          "value": {
+            "kind": "primitive",
+            "value": {
+              "kind": "string",
+              "value": "2.25.39607469728402369607566362072293772613"
+            }
+          },
+          "vr": "UI"
+        },
+        {
+          "address": {
+            "element": 82,
+            "group": 32
+          },
+          "origin": "derived_structural",
+          "value": {
+            "kind": "primitive",
+            "value": {
+              "kind": "string",
+              "value": "2.25.245763833390795330413760970236265638444"
+            }
+          },
+          "vr": "UI"
+        },
+        {
+          "address": {
+            "element": 96,
+            "group": 8
+          },
+          "origin": "derived_structural",
+          "value": {
+            "kind": "primitive",
+            "value": {
+              "kind": "string",
+              "value": "OT"
+            }
+          },
+          "vr": "CS"
+        },
+        {
+          "address": {
+            "element": 16,
+            "group": 40
+          },
+          "origin": "derived_structural",
+          "value": {
+            "kind": "primitive",
+            "value": {
+              "kind": "unsigned",
+              "value": 2
+            }
+          },
+          "vr": "US"
+        },
+        {
+          "address": {
+            "element": 17,
+            "group": 40
+          },
+          "origin": "derived_structural",
+          "value": {
+            "kind": "primitive",
+            "value": {
+              "kind": "unsigned",
+              "value": 2
+            }
+          },
+          "vr": "US"
+        },
+        {
+          "address": {
+            "element": 8,
+            "group": 40
+          },
+          "origin": "derived_structural",
+          "value": {
+            "kind": "primitive",
+            "value": {
+              "kind": "unsigned",
+              "value": 1
+            }
+          },
+          "vr": "US"
+        },
+        {
+          "address": {
+            "element": 2,
+            "group": 40
+          },
+          "origin": "derived_structural",
+          "value": {
+            "kind": "primitive",
+            "value": {
+              "kind": "unsigned",
+              "value": 1
+            }
+          },
+          "vr": "US"
+        },
+        {
+          "address": {
+            "element": 256,
+            "group": 40
+          },
+          "origin": "derived_structural",
+          "value": {
+            "kind": "primitive",
+            "value": {
+              "kind": "unsigned",
+              "value": 8
+            }
+          },
+          "vr": "US"
+        },
+        {
+          "address": {
+            "element": 257,
+            "group": 40
+          },
+          "origin": "derived_structural",
+          "value": {
+            "kind": "primitive",
+            "value": {
+              "kind": "unsigned",
+              "value": 8
+            }
+          },
+          "vr": "US"
+        },
+        {
+          "address": {
+            "element": 258,
+            "group": 40
+          },
+          "origin": "derived_structural",
+          "value": {
+            "kind": "primitive",
+            "value": {
+              "kind": "unsigned",
+              "value": 7
+            }
+          },
+          "vr": "US"
+        },
+        {
+          "address": {
+            "element": 259,
+            "group": 40
+          },
+          "origin": "derived_structural",
+          "value": {
+            "kind": "primitive",
+            "value": {
+              "kind": "unsigned",
+              "value": 0
+            }
+          },
+          "vr": "US"
+        },
+        {
+          "address": {
+            "element": 4,
+            "group": 40
+          },
+          "origin": "derived_structural",
+          "value": {
+            "kind": "primitive",
+            "value": {
+              "kind": "string",
+              "value": "MONOCHROME2"
+            }
+          },
+          "vr": "CS"
+        }
+      ],
+      "identity": {
+        "frame_of_reference_uid": "2.25.245763833390795330413760970236265638444",
+        "provenance": {
+          "frame_of_reference": "deterministic",
+          "series": "deterministic",
+          "sop": "deterministic",
+          "study": "deterministic"
+        },
+        "series_instance_uid": "2.25.39607469728402369607566362072293772613",
+        "sop_instance_uid": "2.25.46553092604571578884474658719670022502",
+        "study_instance_uid": "2.25.131391886742213678286033606434638135815"
+      },
+      "instance_id": "primary",
+      "iod_conformance": "not_assessed",
+      "output_path": "instances/primary.dcm",
+      "references": [],
+      "resolved_plan_sha256": "b7505f0aa740d280f4be80041aa8d7b15830ea931954bd870ff24658c14c05e9",
+      "sha256": "7da898187a4f13054d48268660770f86c6939c082a5731d8f3737a5a855c7ba7",
+      "size_bytes": 774,
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "sop_instance_uid": "2.25.46553092604571578884474658719670022502",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "validation": [
+        {
+          "details": {
+            "checks": [
+              {
+                "layer": "part10",
+                "message": "128-byte preamble and DICM prefix are present",
+                "rule_id": "preamble_and_prefix",
+                "status": "passed"
+              },
+              {
+                "layer": "part10",
+                "message": "generated file reopens as a DICOM Part 10 object",
+                "rule_id": "reopen",
+                "status": "passed"
+              },
+              {
+                "layer": "part10",
+                "message": "file meta SOP and transfer-syntax identities match the resolved plan",
+                "rule_id": "meta_identity",
+                "status": "passed"
+              },
+              {
+                "layer": "generic_data_elements",
+                "message": "15 resolved attributes reopened with their planned VRs",
+                "rule_id": "resolved_attributes",
+                "status": "passed"
+              },
+              {
+                "layer": "content",
+                "message": "1 content slots match planned VR, size, and SHA-256",
+                "rule_id": "content_integrity",
+                "status": "passed"
+              },
+              {
+                "layer": "template",
+                "message": "0 materialized references are closed and source-consistent",
+                "rule_id": "reference_projection",
+                "status": "passed"
+              }
+            ]
+          },
+          "layer": "generic",
+          "message": "composition validation `structural_round_trip` passed",
+          "required": true,
+          "rule_id": "structural_round_trip",
+          "status": "passed"
+        }
+      ]
+    }
+  ],
+  "manifest_schema_version": "1.0.0",
+  "product_resources": {
+    "origin": "embedded",
+    "resource_count": 240,
+    "resource_set_sha256": "dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410",
+    "resource_set_version": "1.0.0",
+    "resources": [
+      {
+        "logical_path": "Cargo.lock",
+        "sha256": "4aa4b6c94043fb2f236ec888ac9b253f2ff451b666464609f81f82aaac6d8a4d",
+        "size_bytes": 41997
+      },
+      {
+        "logical_path": "assets/dcmtk_srgb_input_profile.hex",
+        "sha256": "249dd54ff7fc219611e1f8ed459dbf9632ac9974753b7ebc7feea6e917804e84",
+        "size_bytes": 1473
+      },
+      {
+        "logical_path": "cases/recipes/classic/cr/cr_overlay_modality_voi.json",
+        "sha256": "7ee5bd86e7a83db9b484ce4cdb2f12243616749fdf392ec155ff3d7604b8c8d1",
+        "size_bytes": 4013
+      },
+      {
+        "logical_path": "cases/recipes/classic/cr/cr_overlay_modality_voi_rle_lossless.json",
+        "sha256": "454812763f60ba9d8a379ffb83259c31da983566d9e239be6a46db80d23007fa",
+        "size_bytes": 4250
+      },
+      {
+        "logical_path": "cases/recipes/classic/ct/ct_mono2_i16_rescale.json",
+        "sha256": "f014e51c72b094dd188267fbe6a36e3caeebc6828fcc415045fcb02a758a84ca",
+        "size_bytes": 3938
+      },
+      {
+        "logical_path": "cases/recipes/classic/ct/ct_mono2_i16_rescale_rle_lossless.json",
+        "sha256": "5636ff2c408e85080124d175a6ac55ce8bff3c97876005828e3948543d2457c5",
+        "size_bytes": 4175
+      },
+      {
+        "logical_path": "cases/recipes/classic/dx/dx_display_shutter_mono2_u16.json",
+        "sha256": "82228d5ef2be7496cf084c41b7b885bb31b3c6f911e93211f92158f71768bb68",
+        "size_bytes": 4037
+      },
+      {
+        "logical_path": "cases/recipes/classic/dx/dx_display_shutter_mono2_u16_rle_lossless.json",
+        "sha256": "5dab8e4a22e8332fd607b7c41569ccee1a1b09d8169576c3b6f62599e4e89ca7",
+        "size_bytes": 5101
+      },
+      {
+        "logical_path": "cases/recipes/classic/mg/mg_for_presentation_mono1_u16.json",
+        "sha256": "4c963fca2cacab5f78dc28eae701278a4dc0445d06fef0f15d17a0afba9e76aa",
+        "size_bytes": 4160
+      },
+      {
+        "logical_path": "cases/recipes/classic/mg/mg_for_presentation_mono1_u16_rle_lossless.json",
+        "sha256": "0cb72911b49b7089281ceedea156a8d5538527a0411a84596523094b81c21955",
+        "size_bytes": 4397
+      },
+      {
+        "logical_path": "cases/recipes/classic/mg/mg_for_processing_mono2_u16.json",
+        "sha256": "cec2846945593d2d6c70e2faf839b459045c67128a082eee59f673262de07d78",
+        "size_bytes": 4694
+      },
+      {
+        "logical_path": "cases/recipes/classic/mg/mg_for_processing_mono2_u16_rle_lossless.json",
+        "sha256": "ff119ec17cd7a58c964958273fd347df40f75ec1776b21c3f3ed6cc3e19501ae",
+        "size_bytes": 6053
+      },
+      {
+        "logical_path": "cases/recipes/classic/mr/mr_mono2_u16_rle_lossless.json",
+        "sha256": "6187ac7f6c1c83933c381ceade833741415ecf07daa9fe2d3de4b403769fd736",
+        "size_bytes": 3438
+      },
+      {
+        "logical_path": "cases/recipes/classic/mr/mr_multislice_oblique.json",
+        "sha256": "c894c52053d4414e170f8f30b4be2786bcb5985153a763034707f241cc886526",
+        "size_bytes": 9104
+      },
+      {
+        "logical_path": "cases/recipes/classic/nm/classic_nm_multiframe_explicit_le.json",
+        "sha256": "f095ec6e49c06920bf6fb60edb75b138cf578650a9ff81bb4567c50e5e0964ad",
+        "size_bytes": 5769
+      },
+      {
+        "logical_path": "cases/recipes/classic/pet/classic_pet_rescaled_activity_explicit_le.json",
+        "sha256": "aa5bb7c928daa315242c9b144b01fafcb68fbfd87d4e8edace475822edc6db9e",
+        "size_bytes": 4486
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/classic_sc_mono2_u16_htj2k_lossy.json",
+        "sha256": "2739d91093c562528081d5d1570d4b2ceb55cb923b855af7ffba08754909b142",
+        "size_bytes": 21965
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/classic_sc_mono2_u1_native.json",
+        "sha256": "19383b00380ccd265e3bd475b22945a184a1f8c82890079f2018f6f88bb5136d",
+        "size_bytes": 3394
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/classic_sc_mono2_u32_explicit_le.json",
+        "sha256": "8ba0633ff11f6e0c78abd362425e0a869d234b250cdb5f6e06e6ba73277807a4",
+        "size_bytes": 2661
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/classic_sc_nonsquare_pixel_spacing.json",
+        "sha256": "0425d30c3e6e8b8ede125d719f231770e0164cb0d294c0887f4c3e18494d7a1b",
+        "size_bytes": 6576
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/classic_sc_rgb_jpegxl_lossy.json",
+        "sha256": "9e131842ba5128ffe1875882d7421a6c05e20b9bf7c30c75d862dfcbd9275d07",
+        "size_bytes": 54021
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono1_i16_multiframe_rle_lossless.json",
+        "sha256": "75c2ab16b2d9c6a7371f0053119247e2c09413f5268db073a47bf86fc02ca0af",
+        "size_bytes": 3003
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono1_i16_odd_3x3_rle_lossless.json",
+        "sha256": "96c428beeed091e906e51ccf894968c212058187d4f7f5265973e213d96bf34a",
+        "size_bytes": 2948
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono1_i16_padding_multiframe_rle_lossless.json",
+        "sha256": "8c35c6ec4deb10602c316f088c3b6d4fe5fb3582de2ca1b3b83c92393f949a16",
+        "size_bytes": 3186
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono1_i16_padding_rle_lossless.json",
+        "sha256": "320428ce238c995d0efc054cbfbe6cd429e31c705af9c1540138ae1168dc403d",
+        "size_bytes": 3005
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono1_i16_rect_2x3_rle_lossless.json",
+        "sha256": "71a19f0859802ea6367feb3008d387ab0e7d858bbff95b236d8a3c69818bca83",
+        "size_bytes": 2849
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono1_i16_rle_lossless.json",
+        "sha256": "c2336feb28dfe8cc9f8cd9880560eab9ed36d1ffcb49d8b5f8a80461fe8b6422",
+        "size_bytes": 2800
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono1_i16_tiny_1x1_rle_lossless.json",
+        "sha256": "303bc5981e4be952fc38a9ae612acf170211a09a6fc4c7f49146de949eedcc74",
+        "size_bytes": 2760
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono1_u16_multiframe_rle_lossless.json",
+        "sha256": "8716f868d447ed0f0b7d54c1fef4d56768b2d03121063a7e1c20c802b42042a5",
+        "size_bytes": 2974
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono1_u16_odd_3x3_rle_lossless.json",
+        "sha256": "77f4d5174cb5b5f28da6040a6c911e2ff65c3381db49a8e53be6e1e9ab2b5119",
+        "size_bytes": 2936
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono1_u16_padding_multiframe_rle_lossless.json",
+        "sha256": "6eef2f9de45947604729bb8cae514c721d95e8b2d709bb8e78cf239ed0931787",
+        "size_bytes": 3149
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono1_u16_padding_rle_lossless.json",
+        "sha256": "2e4469a96197e2b7ea30cad7521a6fa38ce9857aeebef5a1b96697f54d005dff",
+        "size_bytes": 2974
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono1_u16_rect_2x3_rle_lossless.json",
+        "sha256": "00bb36b2e86fffe614b0484ca02b1419f89ddbb726e0c2ebcc64a71b3df569c6",
+        "size_bytes": 2838
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono1_u16_rle_lossless.json",
+        "sha256": "e4a0b294d06d91f01125aba1113b0292303011bdfb51d148523a5df0eab345f3",
+        "size_bytes": 2818
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono1_u16_tiny_1x1_rle_lossless.json",
+        "sha256": "633f973b19a4576a7294efa61de1fdafa062fd0dcd35caec4d08ee011e3107bc",
+        "size_bytes": 2759
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono1_u8.json",
+        "sha256": "38824e9f8fa8189675753e815e7c87a914f1c37f95f50e630365ae5dc7ae5096",
+        "size_bytes": 2434
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono1_u8_multiframe_rle_lossless.json",
+        "sha256": "63fc83a526dd4578391265312c49809ac334095153091ad02ebacfed32f1774a",
+        "size_bytes": 2931
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono1_u8_odd_fragment_rle_lossless.json",
+        "sha256": "e61772e4374dd367209b1da84d17ecd8949d4e6f9464097f1dcd47e059ac3cd6",
+        "size_bytes": 2837
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono1_u8_padding_multiframe_rle_lossless.json",
+        "sha256": "846d6ccc05a332048ab8e8f4c15b4d8bafa413d5316cba3aab897376e5940529",
+        "size_bytes": 3137
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono1_u8_padding_rle_lossless.json",
+        "sha256": "1c025ae6e11355a3c1793b237bf53ae7d2637e1254635c9845e529f7af7ff281",
+        "size_bytes": 2966
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono1_u8_rle_lossless.json",
+        "sha256": "f2f1a5f7b0263976d4612deff165c7c3de6a7d12dd5924bbd28621f64b82b2ef",
+        "size_bytes": 2707
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_i16.json",
+        "sha256": "5db3627d4d5add59a92e6271306a48afb8316dada1b081b1224f5570336492d8",
+        "size_bytes": 2488
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_i16_multiframe_rle_lossless.json",
+        "sha256": "e84c3e2320d4aa8555e46c3dde98f4412b6236f197d6651ef765c3832cb94c94",
+        "size_bytes": 2963
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_i16_odd_3x3_rle_lossless.json",
+        "sha256": "4488aa8cc0c1d9e61df0ae41499165a72e0cef124599429beccc0211ff2aaa70",
+        "size_bytes": 2908
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_i16_padding_multiframe_rle_lossless.json",
+        "sha256": "a9686143a150042fe9aebe95a1c99d969328bb514069cd1b20cd62d3010de92a",
+        "size_bytes": 3146
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_i16_padding_rle_lossless.json",
+        "sha256": "cdc7d6b2f9c07e43dae5daf63f0aab4b7c24bce462c46552e9a54a62d7156bcf",
+        "size_bytes": 2965
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_i16_rect_2x3_rle_lossless.json",
+        "sha256": "9e9b4b64e7a81fcd72411cf1f2d8f283535c89fa271100fd3f25720f95dfcd3c",
+        "size_bytes": 2809
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_i16_rle_lossless.json",
+        "sha256": "2369e745051cf1785e08f0eea4f44bd9eda85e632e61ed80e7a9d4ab7d572abb",
+        "size_bytes": 2760
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_i16_tiny_1x1_rle_lossless.json",
+        "sha256": "0cc2fce9e883f4d19eec43a84e8c0acc181ed16224a76c773720c388384027e0",
+        "size_bytes": 2720
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_u16.json",
+        "sha256": "060f36f6d139e4f7ab94404b23c3a2a30a7beda13a98bf0f146e06a0d90b8b2c",
+        "size_bytes": 2472
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_u16_htj2k_lossless.json",
+        "sha256": "cf3c212dc4d56a0b0160b65261ba0f7af2a55e80a11edfa07af56103ed56bf74",
+        "size_bytes": 2905
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_u16_jpeg2000_lossless.json",
+        "sha256": "04bc8ff016866babcd40186562d60b1e2393d4ae08b56beb37ffc852d3188cca",
+        "size_bytes": 2893
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_u16_jpeg_lossless_process_14.json",
+        "sha256": "5beb5c769d66e17acf132cf85b28f6883b36884701f575f617ed014396ba351d",
+        "size_bytes": 3015
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_u16_jpeg_lossless_sv1.json",
+        "sha256": "e4d49237f428ea3cf58f5baccb3c475b9f50e739eee2d68a5360808905dfc86a",
+        "size_bytes": 2966
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_u16_multiframe_rle_lossless.json",
+        "sha256": "44cd255ffa266479110922efa996113b9299d070ee39bf9a0511c5d281372247",
+        "size_bytes": 2934
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_u16_odd_3x3.json",
+        "sha256": "1617d975ceee53593d7c0af332b245697972dc1d463119c5b41c79e024b72290",
+        "size_bytes": 2557
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_u16_odd_3x3_rle_lossless.json",
+        "sha256": "40224d37b26253b68d52c97a61ce9b3f155c49e539b33d82b63d1154fe891eef",
+        "size_bytes": 2896
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_u16_padding.json",
+        "sha256": "fa30f44caae76ad59c5285d622e5feb3ecd21464eefa4da3cce68b5e243ba4fe",
+        "size_bytes": 2662
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_u16_padding_multiframe_rle_lossless.json",
+        "sha256": "c7024c3935ac66ce9a15d9a715beeb6375dc54abad90ca7e553684fd102ed7b3",
+        "size_bytes": 3109
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_u16_padding_rle_lossless.json",
+        "sha256": "cbef609179fe50f5b213e6b473aa48b6350de4f396b3d77b43af06a32ec1d64d",
+        "size_bytes": 2934
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_u16_rect_2x3.json",
+        "sha256": "f29804469175fafa0b72f16b46b39777c7e49a14082954c063619391e20b6562",
+        "size_bytes": 2523
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_u16_rect_2x3_rle_lossless.json",
+        "sha256": "8af34f232419c22d88d82dc30a84f9b534339e42b57eebf9dd75baa9ee48c07f",
+        "size_bytes": 2865
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_u16_rle_lossless.json",
+        "sha256": "477570ab9460ebfe66464437f55e9c7d31ca8e6e9c278fe2caf52110b16e4595",
+        "size_bytes": 2730
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_u16_tiny_1x1.json",
+        "sha256": "1cbfddf308daa82a31fa6c7523bd0e3345a1ad14a0ce81c0fd4a792eb2061976",
+        "size_bytes": 2457
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_u16_tiny_1x1_rle_lossless.json",
+        "sha256": "41dd8109703aeeece0b64e55c26b2ed28f031984e6b01288f1f496f6be6901fa",
+        "size_bytes": 2719
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_u8.json",
+        "sha256": "a980d4136fa5a6c94f7e1b99fde6628c24171aa6e7b548497c7911d7b72f9639",
+        "size_bytes": 2426
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_u8_deflated_explicit_le.json",
+        "sha256": "b83208c7a4c27efb8285dc4577e20ca7579f3be24a3620b7534a0c093aa6e4b8",
+        "size_bytes": 2806
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_u8_explicit_be.json",
+        "sha256": "e913795d577477448ad54678c3b0b3c8598e998c5afa6b3206672791971f45bb",
+        "size_bytes": 2641
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_u8_jpeg_ls_lossless.json",
+        "sha256": "9e3e3362a8708fb688acac47436a6d4245df547a2d9320222536d91cc096f21c",
+        "size_bytes": 2880
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_u8_multiframe_rle_lossless.json",
+        "sha256": "0e31c2adb21b61be1bbaf1509e84ad93f0493381499a16f78dc4c6b39c8772a6",
+        "size_bytes": 2992
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_u8_odd_fragment_rle_lossless.json",
+        "sha256": "de09730c60efa3aa629c34f297ad1bb595fc7306118895fa9718759a89c26e30",
+        "size_bytes": 2829
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_u8_padding_multiframe_rle_lossless.json",
+        "sha256": "dbe0a009d94f483a888cabcaa87cd5c2a713972b487ce349449a9decf5ee56cf",
+        "size_bytes": 3164
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_u8_padding_rle_lossless.json",
+        "sha256": "42b9104f9606213cdf6cfa30457eef08103f4af8742ce46cfeb6b9f867068e39",
+        "size_bytes": 2926
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_mono2_u8_rle_lossless.json",
+        "sha256": "f40d936112a1198d2ae439c4033a7f489438117d72209283b4bbded1fbe325ae",
+        "size_bytes": 2686
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_palette_color_u8.json",
+        "sha256": "8add78fb4f387208071b354232ca6fd8f26f94bb187f4bb09000fe1e4e343e99",
+        "size_bytes": 3032
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_palette_color_u8_multiframe_rle_lossless.json",
+        "sha256": "14ca21f274b6ca63383ac20828f3192fa76745bd82c6241ee4b4e935cd255320",
+        "size_bytes": 3478
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_palette_color_u8_rle_lossless.json",
+        "sha256": "7b497a281364220bec5a8964a823c121b409c8a1462884387ed237335064f19e",
+        "size_bytes": 3304
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_rgb_planar0.json",
+        "sha256": "d4bce8627062bcba7f8d4e4302c5d89a269861620ecb4fea89a793f9a5b2f00c",
+        "size_bytes": 2730
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_rgb_planar0_jpeg_baseline_8bit.json",
+        "sha256": "7c15605abb7e77e98fdd0f428b79c3f76ae1059d14825b8083ac3bbc53f7b44f",
+        "size_bytes": 3616
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_rgb_planar0_jpegxl_lossless.json",
+        "sha256": "20c79b41d9ccab4b3033c04923523791d0d1a9c31fad6369f41b1ff23a6bd5a5",
+        "size_bytes": 3165
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_rgb_planar0_multiframe_rle_lossless.json",
+        "sha256": "9140cb9813797409dd56a274dee656ff2b5c7f03bf4b2294232560fb2733806f",
+        "size_bytes": 3329
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_rgb_planar0_rle_lossless.json",
+        "sha256": "3b808ea3d8573b7e20bb714cfd244bdbbe4b929eaf47c7f7576a04ebf9f1991f",
+        "size_bytes": 3007
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_rgb_planar1.json",
+        "sha256": "05680f804a92af519f35ee1428d2634cecf7ebf45ed44b9af4d0e5121cb8514a",
+        "size_bytes": 2748
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_rgb_planar1_multiframe_rle_lossless.json",
+        "sha256": "02841f49d8712917ce0ec490dac3422996b9b0fd9eb3e7a0e3e2d8ea0145cbb9",
+        "size_bytes": 3329
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_rgb_planar1_rle_lossless.json",
+        "sha256": "5961424ce2f5c3751a33081a89e9234ff15b9509fdca59bdbcbf91d352bbccfd",
+        "size_bytes": 3003
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_ybr_full_422.json",
+        "sha256": "5b1470914dc7af88179080e643a39ccc39d3bbf8f2c75367e3300171f8c08148",
+        "size_bytes": 2745
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_ybr_full_planar0.json",
+        "sha256": "79a156c740aa8c08cd32d9526ae2db6d9ee5b105fc9a0c6cc250a2ca5cee82cb",
+        "size_bytes": 2799
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_ybr_full_planar0_multiframe_rle_lossless.json",
+        "sha256": "aa551765ac7e8f678155803a413234ebac9e01e3f0f648f9a4e67ddd32887ca0",
+        "size_bytes": 3401
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_ybr_full_planar0_rle_lossless.json",
+        "sha256": "70cb8dd9d71a98c45346786899ecafe6c2b1ad94b76813bf6036335047fadad3",
+        "size_bytes": 3074
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_ybr_full_planar1_multiframe_rle_lossless.json",
+        "sha256": "d322564405867892e13b3411390896030beefe98b848b98024bcaf9ba26fbd9a",
+        "size_bytes": 3401
+      },
+      {
+        "logical_path": "cases/recipes/classic/sc/sc_ybr_full_planar1_rle_lossless.json",
+        "sha256": "08f1f7a5133f97026efb5db3294c1953a8ea796cf91ea58110646447c3bb90c5",
+        "size_bytes": 3070
+      },
+      {
+        "logical_path": "cases/recipes/classic/us/classic_us_multiframe_explicit_le.json",
+        "sha256": "2d36c8cef4725c6e350fd12a85b4ed29dbf30b835e91aa3875823fe278164ece",
+        "size_bytes": 5531
+      },
+      {
+        "logical_path": "cases/recipes/classic/us/us_mono2_u8.json",
+        "sha256": "cdd7bdd0179dcd6db5759ee443463318bb7dd798f3d45fa342edd6f2376b9635",
+        "size_bytes": 3312
+      },
+      {
+        "logical_path": "cases/recipes/classic/us/us_mono2_u8_rle_lossless.json",
+        "sha256": "dc4902d5c9c76c00619b4e5fbe897d402811c25ca57cbf62d83cdbf8919dc49e",
+        "size_bytes": 3549
+      },
+      {
+        "logical_path": "cases/recipes/classic/xa/classic_xa_monoplane_explicit_le.json",
+        "sha256": "b3662a1d5f2b87678b115f0816c8dcb2493b666ceb14aadc09cfb2f7794e5a07",
+        "size_bytes": 4643
+      },
+      {
+        "logical_path": "cases/recipes/classic/xrf/classic_xrf_monoplane_explicit_le.json",
+        "sha256": "4ef49d9365a9ca7546413cbc4851a22870b449477fd5bca481a115eb837f7890",
+        "size_bytes": 4287
+      },
+      {
+        "logical_path": "cases/recipes/derived/mesh/derived_mesh_encapsulated_stl.json",
+        "sha256": "21db0381c260a8efe52c6fa96aa1d1a2714285deee2fe709ea9dae037dc641c5",
+        "size_bytes": 2811
+      },
+      {
+        "logical_path": "cases/recipes/derived/parametric-map/derived_parametric_map_float32_ct_derived_explicit_le.json",
+        "sha256": "7b584cba360486b7944987d583ca7d97a3c22974a4e81656e6630fd2eaff923d",
+        "size_bytes": 2986
+      },
+      {
+        "logical_path": "cases/recipes/derived/parametric-map/derived_parametric_map_float64_ct_derived_explicit_le.json",
+        "sha256": "06def4ff7317d67441c0715afdb14b9a70e4c771ae9e30862f8669c26ac2cf33",
+        "size_bytes": 3010
+      },
+      {
+        "logical_path": "cases/recipes/derived/presentation-state/derived_presentation_state_advanced_blending.json",
+        "sha256": "d58bac254f00e99b3cc57745a1c4875ca1a1b015bf0679eba53d1f8d6fc1bdec",
+        "size_bytes": 3744
+      },
+      {
+        "logical_path": "cases/recipes/derived/presentation-state/derived_presentation_state_blending.json",
+        "sha256": "f2f8b82083027563993c6b102ead14551f48f14827d360fabb11e031b26856e1",
+        "size_bytes": 3987
+      },
+      {
+        "logical_path": "cases/recipes/derived/presentation-state/derived_presentation_state_color_softcopy.json",
+        "sha256": "a615070120ed1d46d707fe2be97f515c6e23b230f9970f48a9399b973986104a",
+        "size_bytes": 2629
+      },
+      {
+        "logical_path": "cases/recipes/derived/presentation-state/gsps_grayscale_softcopy_ct_window.json",
+        "sha256": "159ef64afcae36e67b3f39a037e900603625ad8b98fea1518e6d53da5a9ab70c",
+        "size_bytes": 3000
+      },
+      {
+        "logical_path": "cases/recipes/derived/registration/derived_registration_deformable_ct_pair.json",
+        "sha256": "a10b34e46f3d037dbd25e75da5baebe64837a08b4b0390abeeefdee49af73272",
+        "size_bytes": 3980
+      },
+      {
+        "logical_path": "cases/recipes/derived/registration/derived_registration_spatial_ct_pair.json",
+        "sha256": "dfca573804208a814441cf7a8155021a2669506cd618a6b7542aecae013984b7",
+        "size_bytes": 3514
+      },
+      {
+        "logical_path": "cases/recipes/derived/rwvm/rwvm_linear_ct_mapping.json",
+        "sha256": "351f451998e997ea07880e6b45b73adb7fe7c8e796926e2c98e2da9c1491d418",
+        "size_bytes": 2220
+      },
+      {
+        "logical_path": "cases/recipes/derived/seg/derived_seg_wsi_tile_reference.json",
+        "sha256": "a604278e90d810020efd936e54f5714c4c591e1b0ddbd0569dd7edcbf4e095f8",
+        "size_bytes": 2937
+      },
+      {
+        "logical_path": "cases/recipes/derived/seg/seg_binary_multiframe.json",
+        "sha256": "2c40240d86b1a3e60cfee578e3191760595c1c1ab79fc2b93ab245289d684001",
+        "size_bytes": 2249
+      },
+      {
+        "logical_path": "cases/recipes/derived/seg/seg_binary_multiframe_deflated_image_frame.json",
+        "sha256": "70e630dced75ee97e8c57744d0f4a328276065aa435918fee55d7f7144a8bd45",
+        "size_bytes": 2249
+      },
+      {
+        "logical_path": "cases/recipes/derived/seg/seg_fractional_probability_multiframe.json",
+        "sha256": "4ba5aea93e53c7a4341a7c189729b4b7a98539bc5a8f61f5bb3813b1eabea18a",
+        "size_bytes": 2232
+      },
+      {
+        "logical_path": "cases/recipes/derived/seg/seg_labelmap_multiframe.json",
+        "sha256": "28d8e1a647c4f30bcc7e940b705e30d0f4b24295d37549924f5cf47419511685",
+        "size_bytes": 2076
+      },
+      {
+        "logical_path": "cases/recipes/derived/sr/derived_sr_comprehensive3d_scoord3d.json",
+        "sha256": "6a4aaf0faaa00e3591d6fb33d74858590d2d2c4d359ee1865271d0461048c266",
+        "size_bytes": 3681
+      },
+      {
+        "logical_path": "cases/recipes/derived/sr/derived_sr_tid1500_ct_measurement_report.json",
+        "sha256": "2cffad55ade4b985833d332b1bcb3c84942bd3a3aad02c88596f607cf68a3534",
+        "size_bytes": 4580
+      },
+      {
+        "logical_path": "cases/recipes/derived/sr/sr_basic_text_observation.json",
+        "sha256": "8168795494020aad26fff7a237ff41ad4be68f2f57b003f81316bc728c0dc0ec",
+        "size_bytes": 2798
+      },
+      {
+        "logical_path": "cases/recipes/derived/sr/sr_comprehensive_measurement.json",
+        "sha256": "f7b78168674eb199a63339b44251190c436c4d1d00b79de20fe5151e3faf35df",
+        "size_bytes": 3082
+      },
+      {
+        "logical_path": "cases/recipes/derived/sr/sr_key_object_selection.json",
+        "sha256": "797477f914a577973cb90068040248ad7e3c1f52610f8c445de46a32f9e1e697",
+        "size_bytes": 3051
+      },
+      {
+        "logical_path": "cases/recipes/encapsulation/sc/encapsulation_sc_eot_single_fragment_multiframe.json",
+        "sha256": "17ceecc6b14cd2cf3cb3f3222006c63a86e481b1bb6446f5f97a9501ae5e6b2e",
+        "size_bytes": 3384
+      },
+      {
+        "logical_path": "cases/recipes/enhanced/ct/enhanced_ct_concatenation_two_part.json",
+        "sha256": "e0fe993d13aa193c31fbe9e76bc4c8d7e08f796bc55a594179bd3478fd6f7dd3",
+        "size_bytes": 4761
+      },
+      {
+        "logical_path": "cases/recipes/enhanced/ct/enhanced_ct_multiframe_shared_perframe.json",
+        "sha256": "69ef50264a2968db71ff62f39e474d7ef41300d262987a223d31ec7b6f9793cb",
+        "size_bytes": 3110
+      },
+      {
+        "logical_path": "cases/recipes/enhanced/mr/enhanced_mr_multiframe_echo_perframe.json",
+        "sha256": "3ba7b6edc136e34f98b266f8a9b81c5ab4ca77276fe63c2299134d836b8596f9",
+        "size_bytes": 3310
+      },
+      {
+        "logical_path": "cases/recipes/enhanced/mr/enhanced_mr_multiframe_phase_velocity_encoding.json",
+        "sha256": "f6affce861d69089d02c6e44700f13e4ddc7b4c40be0422fe84dd320e59bce97",
+        "size_bytes": 3504
+      },
+      {
+        "logical_path": "cases/recipes/enhanced/mr/enhanced_mr_multiframe_temporal_position.json",
+        "sha256": "b82be0995b47e797b419681bd4164419f8c70641aea016effc3569c190db3423",
+        "size_bytes": 3334
+      },
+      {
+        "logical_path": "cases/recipes/enhanced/pet/enhanced_pet_multiframe_explicit_le.json",
+        "sha256": "2ccdcb5b2587306c7dca1ba89e3c3aac9f0e59db2f15c35a9776120e9dd3cd8a",
+        "size_bytes": 3250
+      },
+      {
+        "logical_path": "cases/recipes/fuzz/parser/fuzz_parser_bounded_seed_corpus.json",
+        "sha256": "fe82738b11a8ef5084b0909e8ea6f998bf50620ca42d006b7edf641be437ef10",
+        "size_bytes": 2483
+      },
+      {
+        "logical_path": "cases/recipes/geometry/ct/geometry_ct_duplicate_missing_instance_number.json",
+        "sha256": "7dcf5dcdbb6cd7486ae8cb56a908b8f0fc63cf6a9c4ad6646a56308525af1920",
+        "size_bytes": 16859
+      },
+      {
+        "logical_path": "cases/recipes/geometry/ct/geometry_ct_gantry_tilt_series.json",
+        "sha256": "72139455d5fc2d5377d5e8cff637f22190d9c13fa4cf140bb97a7967e98f1dbe",
+        "size_bytes": 16973
+      },
+      {
+        "logical_path": "cases/recipes/geometry/ct/geometry_ct_multiseries_shared_frame_of_reference.json",
+        "sha256": "c632e1f1a3430354e9f3bfff43ac6c8e7bcce1fb047dea2bb8c120b8ae8247c8",
+        "size_bytes": 22716
+      },
+      {
+        "logical_path": "cases/recipes/geometry/ct/geometry_ct_nonuniform_slice_spacing.json",
+        "sha256": "7ab0b617dff1437891827e74275cdd9d423bd935f0c187240b92c65a5db1f33b",
+        "size_bytes": 16719
+      },
+      {
+        "logical_path": "cases/recipes/geometry/ct/geometry_ct_spatial_sort_conflicts_instance_number.json",
+        "sha256": "8742ea0ef8ad50c1bad6b21d7f215e0ec2b42426e9eb0509e662f9a707f1279e",
+        "size_bytes": 16712
+      },
+      {
+        "logical_path": "cases/recipes/metadata/sc/metadata_sc_defined_undefined_sequence_lengths.json",
+        "sha256": "4417246f89d2d35a637f248b1dc6c9f35a92a2cae3c854ca9c170a6c26871b71",
+        "size_bytes": 6135
+      },
+      {
+        "logical_path": "cases/recipes/metadata/sc/metadata_sc_empty_type2_attributes.json",
+        "sha256": "d8a8b313f0bdc4a916f7f79a053cd62379177c6e95d687aebe6ee85cc6311c92",
+        "size_bytes": 3401
+      },
+      {
+        "logical_path": "cases/recipes/metadata/sc/metadata_sc_iso2022_person_name_component_groups.json",
+        "sha256": "238ec42a02ceb6ca201c8566c226fc40077fcfe9aa2910a0ee584f6c67c0ee78",
+        "size_bytes": 4160
+      },
+      {
+        "logical_path": "cases/recipes/metadata/sc/metadata_sc_long_multivalue_text_numeric_strings.json",
+        "sha256": "64a2a2697b29ffeb3f453ed6340d09b279c12f2f4cbb0304192dd5ff17616329",
+        "size_bytes": 4965
+      },
+      {
+        "logical_path": "cases/recipes/metadata/sc/metadata_sc_private_creator_blocks.json",
+        "sha256": "c1eb011682246ab8801e7aca4bf5cb34538c9064e0c0bb895521a041f5270ad2",
+        "size_bytes": 4370
+      },
+      {
+        "logical_path": "cases/recipes/metadata/sc/metadata_sc_timezone_boundaries.json",
+        "sha256": "8cc5ab176b7b02ec0afaa5809531c05078fc17fcbcf4027bba678a3ad3441bda",
+        "size_bytes": 5517
+      },
+      {
+        "logical_path": "cases/recipes/metadata/sc/metadata_sc_utf8_person_name.json",
+        "sha256": "4616511eea415bb4b65236ef631fb78f5d0a8703a976ac924ae8c13ef3a6aef0",
+        "size_bytes": 3614
+      },
+      {
+        "logical_path": "cases/recipes/negative/charset/negative_charset_malformed_encoded_text.json",
+        "sha256": "085aca526043551bb4a49450e58e4d53c7563b75710941ce60084f2d4b3f3582",
+        "size_bytes": 1654
+      },
+      {
+        "logical_path": "cases/recipes/negative/dataset/negative_dataset_invalid_nested_item_length.json",
+        "sha256": "cb00ab6a271ef1b82cd83963333188e796a61404c5564596f863eb6482d4411e",
+        "size_bytes": 1395
+      },
+      {
+        "logical_path": "cases/recipes/negative/dataset/negative_dataset_truncated_dataset.json",
+        "sha256": "a2b6e964c527669bd7c55f5ed6ad6e2ba746c66f0f0df210b0add9c08fb4367e",
+        "size_bytes": 1287
+      },
+      {
+        "logical_path": "cases/recipes/negative/dataset/negative_dataset_truncated_sequence_item.json",
+        "sha256": "97cb76d1339358f323da57c0f3712571fba807ae96573124ad9f86cb765dfd7b",
+        "size_bytes": 1398
+      },
+      {
+        "logical_path": "cases/recipes/negative/dataset/negative_dataset_undefined_length_without_delimitation.json",
+        "sha256": "76f28755558ba92302d67ac7eb1a6fe32e0dd41563375c2bd2652600116f330e",
+        "size_bytes": 1460
+      },
+      {
+        "logical_path": "cases/recipes/negative/encapsulation/negative_encapsulation_broken_offset_table.json",
+        "sha256": "f3b226130aaeebb4abf0ef1b0cd0e6bde16192f1524dc4a194446c88cc21e5e4",
+        "size_bytes": 1395
+      },
+      {
+        "logical_path": "cases/recipes/negative/encapsulation/negative_encapsulation_truncated_fragment.json",
+        "sha256": "6b77d20ac8ba02bc7a4b7275beac1a408378b7549e386aa32ffa802e0e0a9644",
+        "size_bytes": 1360
+      },
+      {
+        "logical_path": "cases/recipes/negative/encoding/negative_encoding_explicit_vr_length_mismatch.json",
+        "sha256": "44e96300a2441b8b90aff3d7348716f5bfd4b22a3d7b12efbd2fb2c8ee04daec",
+        "size_bytes": 1356
+      },
+      {
+        "logical_path": "cases/recipes/negative/encoding/negative_encoding_illegal_vr_bytes.json",
+        "sha256": "2b4a2af414b32e07c4cdb448b3dd771f808c016b1438182a05c4130fcf2277cc",
+        "size_bytes": 1256
+      },
+      {
+        "logical_path": "cases/recipes/negative/encoding/negative_encoding_transfer_syntax_mismatch.json",
+        "sha256": "60a4d200a81b9bba89ce29c60bf822538e05e8d93a47f396a04ffec4c3c1bd4a",
+        "size_bytes": 1334
+      },
+      {
+        "logical_path": "cases/recipes/negative/identity/negative_identity_meta_dataset_uid_mismatch.json",
+        "sha256": "93085e724f35d5688638d9536ba541e6e7c6cd3480eb832ccd3d85944d23eb8a",
+        "size_bytes": 1668
+      },
+      {
+        "logical_path": "cases/recipes/negative/iod/negative_iod_missing_type1_attribute.json",
+        "sha256": "3cc0f4629a97562ca94e262ec80cba680e60419a086e3cb4a0a62df32e2683ac",
+        "size_bytes": 1288
+      },
+      {
+        "logical_path": "cases/recipes/negative/part10/negative_part10_truncated_file_meta.json",
+        "sha256": "55baa2e1c03a9c1a75df0f24c1960eb7f732e74de282d4bec38e45fb2631abda",
+        "size_bytes": 1287
+      },
+      {
+        "logical_path": "cases/recipes/negative/pixels/negative_pixels_invalid_bits_and_length.json",
+        "sha256": "cfd4b9efc0f236b94534fea20c4c76770cae39e439c4c47408177c7a8083ebd5",
+        "size_bytes": 1664
+      },
+      {
+        "logical_path": "cases/recipes/negative/pixels/negative_pixels_truncated_pixel_value.json",
+        "sha256": "746f7c412f83b0db992484c2f7fc70dd03df331945514e8bd70408c7a74f9c56",
+        "size_bytes": 1319
+      },
+      {
+        "logical_path": "cases/recipes/non-image/encapsulated-document/encapsulated_pdf_minimal.json",
+        "sha256": "dd42202838a3203549bde73c168c1efe11bb78176884e7ccc026075b136f6a8a",
+        "size_bytes": 2627
+      },
+      {
+        "logical_path": "cases/recipes/non-image/rt/non_image_rt_carm_photon_electron_radiation_minimal.json",
+        "sha256": "0a72cd9e14379bfe4c963ebc7223e9fbb0dffe98540d1e88e6ddf337830df71f",
+        "size_bytes": 2508
+      },
+      {
+        "logical_path": "cases/recipes/non-image/rt/non_image_rt_image_linked.json",
+        "sha256": "d35d615b64a457297f5dddf674a2d9515383527e6c3958e29a100c5673dc58c9",
+        "size_bytes": 2790
+      },
+      {
+        "logical_path": "cases/recipes/non-image/rt/non_image_rt_plan_linked.json",
+        "sha256": "2b209bf94e7cdbb83b987421caf7c957b95df98312be58f1dd2aaf42e42856ae",
+        "size_bytes": 2851
+      },
+      {
+        "logical_path": "cases/recipes/non-image/rt/non_image_rt_radiation_set_minimal.json",
+        "sha256": "d6ea560485a862f85e77d22df4974a4907fda1fc0b3340de7a3737f2e7f6d33a",
+        "size_bytes": 2872
+      },
+      {
+        "logical_path": "cases/recipes/non-image/rt/rt_dose_grid_u16.json",
+        "sha256": "7f87650becf19c9bc556ea1d60ec95da841560a491c21cee4232c03fb37cedd4",
+        "size_bytes": 3311
+      },
+      {
+        "logical_path": "cases/recipes/non-image/rt/rt_structure_set_single_roi.json",
+        "sha256": "651fad27107f7a7d08864d4e66362c065c67184e08bfd8b9b506923c45b6aaa4",
+        "size_bytes": 2912
+      },
+      {
+        "logical_path": "cases/recipes/non-image/waveform/non_image_waveform_general_ecg.json",
+        "sha256": "d36f6294dff0b4d985d748937873c1129103c248200960fe8f07e443b5626ea7",
+        "size_bytes": 4555
+      },
+      {
+        "logical_path": "cases/recipes/non-image/waveform/non_image_waveform_twelve_lead_ecg.json",
+        "sha256": "d1efb119f2f27d1dd695f9479c1b15ea403f985d09f6722d0d8b609186a27486",
+        "size_bytes": 3961
+      },
+      {
+        "logical_path": "cases/recipes/qualification/encapsulation/qualification_eot_u64_overflow.json",
+        "sha256": "aba0ad227a61925af4e39b3d6469e5a9988f67293c9e652d7823c4d87c7be7a2",
+        "size_bytes": 1086
+      },
+      {
+        "logical_path": "cases/recipes/stress/enhanced-ct/stress_enhanced_ct_many_frames.json",
+        "sha256": "5de926b803d42f87a6640a09085933079c2283c7c308ceb5cd38653704d0ce74",
+        "size_bytes": 2682
+      },
+      {
+        "logical_path": "cases/recipes/stress/sc/stress_sc_deep_nested_sequences.json",
+        "sha256": "6547e42b7b2f31720162f0f43dd08c49a087b84404dd02bdc3807412ad881d41",
+        "size_bytes": 2132
+      },
+      {
+        "logical_path": "cases/recipes/stress/sc/stress_sc_large_bulk_data.json",
+        "sha256": "46421663220bce72204ab87968f57e6c67f27bc4b4c40a60bdd444433c9d99a3",
+        "size_bytes": 2065
+      },
+      {
+        "logical_path": "cases/recipes/stress/sc/stress_sc_large_encapsulated_multifragment.json",
+        "sha256": "354e6fa9662a8c84c721df3af56458f6d549261e1213785150e92bf1bee54073",
+        "size_bytes": 2647
+      },
+      {
+        "logical_path": "cases/recipes/stress/sc/stress_sc_long_value_metadata.json",
+        "sha256": "c41bd309920054c535525a2e4b53e8950efc55c831aef63fcc0ce2d4d2d49eda",
+        "size_bytes": 2148
+      },
+      {
+        "logical_path": "cases/recipes/stress/study/stress_study_high_instance_count_ct.json",
+        "sha256": "053279273db777f373f45e1e77d11d64912d147ba93e3a63b66e9abdad9886cc",
+        "size_bytes": 187257
+      },
+      {
+        "logical_path": "cases/recipes/stress/wsi/stress_wsi_large_pyramid.json",
+        "sha256": "af5a5642eee27da7e518767e7f2da2ce2a84f2bf379a9b5c7dca1e3cb0e94d23",
+        "size_bytes": 7588
+      },
+      {
+        "logical_path": "cases/recipes/vl/endoscopic/vl_endoscopic_rgb_explicit_le.json",
+        "sha256": "4664571a07adadbef08dd74ca1568999f86228183f479820ba27227e78d5fdea",
+        "size_bytes": 5537
+      },
+      {
+        "logical_path": "cases/recipes/vl/microscopic/vl_microscopic_rgb_explicit_le.json",
+        "sha256": "bec65118c865f1557083d31d234fd143eee37879ac2d9d582d0220ba3cacb246",
+        "size_bytes": 5546
+      },
+      {
+        "logical_path": "cases/recipes/vl/photo/vl_photo_palette_color.json",
+        "sha256": "09ccd7e56a90ebf5fb643fbb89b477fc1f87c0c1e29a8e21ae9ddcb1a65c0abf",
+        "size_bytes": 4476
+      },
+      {
+        "logical_path": "cases/recipes/vl/photo/vl_photo_palette_color_rle_lossless.json",
+        "sha256": "69dcf0f4b7f77dacd49370389468541d7868f68afefd2f197eb80c6e86169445",
+        "size_bytes": 5632
+      },
+      {
+        "logical_path": "cases/recipes/vl/photo/vl_photo_rgb_icc_profile_explicit_le.json",
+        "sha256": "c6f117abfd6a913c6e13fb82b843465517835ab514671b1546113a33c962bed8",
+        "size_bytes": 7885
+      },
+      {
+        "logical_path": "cases/recipes/vl/photo/vl_photo_rgb_planar0.json",
+        "sha256": "0a3f074f3e32fa75aae2af39d073a6d4a5e2d8c8d2ea5859319a1228c976f648",
+        "size_bytes": 4371
+      },
+      {
+        "logical_path": "cases/recipes/vl/photo/vl_photo_rgb_planar0_rle_lossless.json",
+        "sha256": "e966eb99ca07bf99110fd7c78d77c10210496760616550340946d0400346d820",
+        "size_bytes": 4958
+      },
+      {
+        "logical_path": "cases/recipes/vl/photo/vl_photo_rgb_planar1_rle_lossless.json",
+        "sha256": "1e4d966e57bbd6e28fa06f27e82c2337ec28774f65f2cb19e7e4ad2cea2c6764",
+        "size_bytes": 4954
+      },
+      {
+        "logical_path": "cases/recipes/vl/wsi/vl_wsi_multiple_optical_paths.json",
+        "sha256": "5914de8db74457b31861e7745dd131289a40b18d344737ea7b1b562b939adc0c",
+        "size_bytes": 2993
+      },
+      {
+        "logical_path": "cases/recipes/vl/wsi/vl_wsi_pyramid_multiresolution.json",
+        "sha256": "c5fd4510051e8c267ccd4954b509b0cb7869293767bb69a7f3fe1e99e5a0447b",
+        "size_bytes": 7192
+      },
+      {
+        "logical_path": "cases/recipes/vl/wsi/vl_wsi_tiled_full_small.json",
+        "sha256": "3fe52b2ed6da0fd2312f48bfd96b299b919a65b88dc5edf41ceb887080828caf",
+        "size_bytes": 2739
+      },
+      {
+        "logical_path": "cases/recipes/vl/wsi/vl_wsi_tiled_sparse_small.json",
+        "sha256": "d5e8cc717b2a7798cf19af30caf39548a331cdd9e54639a0947fe017c670718b",
+        "size_bytes": 2751
+      },
+      {
+        "logical_path": "cases/registry.json",
+        "sha256": "354a5447c3b8f40b5f777f184a8d8850beb74f87fa08dc0c259e4b211142731b",
+        "size_bytes": 463479
+      },
+      {
+        "logical_path": "conformance/accepted-findings.json",
+        "sha256": "528723885287d6316db1a036038b8ceaa1e4f6df9b5b64c7d5599f0f973bfc20",
+        "size_bytes": 7712
+      },
+      {
+        "logical_path": "conformance/pixel-decoders.json",
+        "sha256": "b12232bb05b653b1d01d83a2d9d24b1bddb6974964134ecd463005e04d783d09",
+        "size_bytes": 3630
+      },
+      {
+        "logical_path": "conformance/validator-lock.json",
+        "sha256": "e0fe1eeb70fcbf4358ffe2c10454e881ed6fca944b4b6b60b8b5f369677c26bf",
+        "size_bytes": 43177
+      },
+      {
+        "logical_path": "conformance/validators.json",
+        "sha256": "01dd3b8c4cbc358db29129051f0c9822c175dfb8d5a8ef3e019859625529c204",
+        "size_bytes": 28442
+      },
+      {
+        "logical_path": "generation-backends.lock.json",
+        "sha256": "0ddf45e3e3683a46248cef7b7f088ca04d471b2327b5aeaf65f718e8e59864e3",
+        "size_bytes": 15602
+      },
+      {
+        "logical_path": "generation-backends/highdicom-pydicom/pyproject.toml",
+        "sha256": "54d6eee63d878c2fd45279b9106dc740ac984d85a355481799837fc2e9ccbd2c",
+        "size_bytes": 588
+      },
+      {
+        "logical_path": "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/__init__.py",
+        "sha256": "f4e5b3f9ae6e0c3cac299a59e20f0db7b85be363d5d5d9b1abb2a3196861e8a5",
+        "size_bytes": 84
+      },
+      {
+        "logical_path": "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/__main__.py",
+        "sha256": "e004775a5183ba9a2d4239bf318b30c1e2ac71a2fbb8d9afa0084fee27b4d666",
+        "size_bytes": 3280
+      },
+      {
+        "logical_path": "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/parametric_map.py",
+        "sha256": "c6d62de9a19c52cad40738ebc72d6889c5fc934dc708a08434308640d0c4fa07",
+        "size_bytes": 13067
+      },
+      {
+        "logical_path": "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/protocol.py",
+        "sha256": "4288b7ed4ef1fff81370c68eaf6d2a80deadef29f5f2d8b9c37a9da2c9f44abb",
+        "size_bytes": 4738
+      },
+      {
+        "logical_path": "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/scoord3d.py",
+        "sha256": "7980ea3c8152ad6dde41c04ae85833b424bae89aa53cfda5348c48a2d070d2ee",
+        "size_bytes": 10585
+      },
+      {
+        "logical_path": "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/tid1500.py",
+        "sha256": "ea6b644572872421779c8ddfb476df557533fa2f8b52ced5426346fe9d56e8a3",
+        "size_bytes": 15471
+      },
+      {
+        "logical_path": "generation-backends/highdicom-pydicom/src/dts_highdicom_backend/wsi_tile_segmentation.py",
+        "sha256": "e0573867d881cec60245b26459267983e745a3d291f18890b1c2d2f9eb80b9ec",
+        "size_bytes": 15968
+      },
+      {
+        "logical_path": "generation-backends/highdicom-pydicom/uv.lock",
+        "sha256": "253612f2a540d29071556c238e15abeb00929167e348edd6fa15e267e5189378",
+        "size_bytes": 12589
+      },
+      {
+        "logical_path": "product/cli-error-codes.json",
+        "sha256": "08ae5d75000f94427638b64014a6650453656eb56f6fce0dbb734fd88c5c3c06",
+        "size_bytes": 15659
+      },
+      {
+        "logical_path": "schemas/assembly-request.schema.json",
+        "sha256": "32a99c75602567267d48067f3aafa0607cb126373f7e10f50881bb7f402d85b6",
+        "size_bytes": 9326
+      },
+      {
+        "logical_path": "schemas/assembly-result.schema.json",
+        "sha256": "eaf379d1a824d5f7db314df81e137436fc76cabbb9c273e3d51accd038ed9829",
+        "size_bytes": 1764
+      },
+      {
+        "logical_path": "schemas/capabilities-result.schema.json",
+        "sha256": "e9570ad728ec7dbee8c6b15b720082daa965992ac740dee157c0e7baa9a74a80",
+        "size_bytes": 8619
+      },
+      {
+        "logical_path": "schemas/case-list-result.schema.json",
+        "sha256": "7339f1924c38b6819ba95cc3ef444972f91b717c3cea0ea2302881b558f0b046",
+        "size_bytes": 1936
+      },
+      {
+        "logical_path": "schemas/case-recipe.schema.json",
+        "sha256": "869b1191305ff3ebd3cf5bcb578e56661ea1e03f2607a6729fc0fce08443bc90",
+        "size_bytes": 42963
+      },
+      {
+        "logical_path": "schemas/case-registry.schema.json",
+        "sha256": "c5f0335b253abd980144638458dbf79a5533ce2856c208d3d59c2f128d418f63",
+        "size_bytes": 13240
+      },
+      {
+        "logical_path": "schemas/cli-error-code-registry.schema.json",
+        "sha256": "40b9452adbff8d1a1203060100590ca99b89df2c9ba9cfb6c75cc2059c3dda4f",
+        "size_bytes": 2518
+      },
+      {
+        "logical_path": "schemas/cli-error-envelope.schema.json",
+        "sha256": "5ce6a38974236b4b78f99d67f422e3c1bdaf654ea4d9dedc87c291a64c9cc42e",
+        "size_bytes": 1609
+      },
+      {
+        "logical_path": "schemas/cli-success-envelope.schema.json",
+        "sha256": "d3835907f60a972fc9107f8f963bb8b4e7c95d83a09bb8f74600463025b0bfd3",
+        "size_bytes": 650
+      },
+      {
+        "logical_path": "schemas/composition-manifest.schema.json",
+        "sha256": "38e12c8db2ab49fa0ec4e2c42e297a8764bee9009d7352392a992f4866ddbc2a",
+        "size_bytes": 10385
+      },
+      {
+        "logical_path": "schemas/composition-provider-request.schema.json",
+        "sha256": "c3d7848b294c4bd65d53463490b4c0776b7d3bf9e85fbc27ad239e5ab87aefe3",
+        "size_bytes": 2168
+      },
+      {
+        "logical_path": "schemas/composition-provider-response.schema.json",
+        "sha256": "143ec354dc376fce71c88c55f39a277ed5f132e4da2f8e2f792243a82bc9316a",
+        "size_bytes": 1504
+      },
+      {
+        "logical_path": "schemas/composition-result.schema.json",
+        "sha256": "e6124fe1dcc6eb27670c27041997d4d74189394d9570302dbac26d4ba72d9811",
+        "size_bytes": 3701
+      },
+      {
+        "logical_path": "schemas/composition-spec.schema.json",
+        "sha256": "f49484b30bc6aa709a56549817dfa8b031c59c3488cea6f83e6049ed8486fed6",
+        "size_bytes": 15681
+      },
+      {
+        "logical_path": "schemas/conformance-accepted-findings.schema.json",
+        "sha256": "d53c34986020aeab72533408943d1d58595053dc3bfcc07d580b346665d3740f",
+        "size_bytes": 1921
+      },
+      {
+        "logical_path": "schemas/conformance-result.schema.json",
+        "sha256": "79696bcac3d0b9ad54b0dd9726e8f73be517a2f1bf337606990e7357a281dd43",
+        "size_bytes": 511
+      },
+      {
+        "logical_path": "schemas/conformance-run.schema.json",
+        "sha256": "d804ef32eba959bc8e172d1ecd813c207f6daaa37da9ee7421764e55ea2b9149",
+        "size_bytes": 12278
+      },
+      {
+        "logical_path": "schemas/coverage-gap-report.schema.json",
+        "sha256": "1ac723f6b7a47a8ad19896d5c21c60229d8871bee22d2851e37818f2fbc6d05f",
+        "size_bytes": 4437
+      },
+      {
+        "logical_path": "schemas/coverage-report.schema.json",
+        "sha256": "22cb42455ca99c981d4bcd537e0069e8b87460f8f38aa996c1ec38666ae0ee76",
+        "size_bytes": 205937
+      },
+      {
+        "logical_path": "schemas/generation-backend-lock.schema.json",
+        "sha256": "d15567bfd06779b5aa849a8a64757437a06912e7b0900498793e7e7b8290562c",
+        "size_bytes": 7667
+      },
+      {
+        "logical_path": "schemas/generation-backend-request.schema.json",
+        "sha256": "cabc592068fa4d6d02a9ed02989881fd49f376b88466381427b69123cc6dd1db",
+        "size_bytes": 6324
+      },
+      {
+        "logical_path": "schemas/generation-backend-response.schema.json",
+        "sha256": "cb7707d75d19587873b9398815a3882a79af5e926bb0daea1ab7c1db5c769438",
+        "size_bytes": 5050
+      },
+      {
+        "logical_path": "schemas/generation-result.schema.json",
+        "sha256": "4127635b03f908e352d542c8cca8a84b650f98ea0f1199ee1feb95276410030c",
+        "size_bytes": 2692
+      },
+      {
+        "logical_path": "schemas/interoperability-result.schema.json",
+        "sha256": "9704ce6a6166c3f3dbd4f3f4f48321808293b21566c0dbf731ec034a6abf60af",
+        "size_bytes": 540
+      },
+      {
+        "logical_path": "schemas/manifest.schema.json",
+        "sha256": "8adc86156169dcb96a46565b246a4a4fc9dd36222036f4e22001c4002b2d635b",
+        "size_bytes": 352732
+      },
+      {
+        "logical_path": "schemas/media-report.schema.json",
+        "sha256": "2cdb107cc32b1479884f15e5405395c4431268ef625a6615ac8dbc90a1a4e27c",
+        "size_bytes": 3284
+      },
+      {
+        "logical_path": "schemas/release-manifest.schema.json",
+        "sha256": "ba3a2b51c2b77b6223119cf19782a7e0232a43ef62d98639b278c6e3db1a00e3",
+        "size_bytes": 1836
+      },
+      {
+        "logical_path": "schemas/report-result.schema.json",
+        "sha256": "fbc8cfc1078fca148241c507a65f4695c41fbd8073f0d557b584ee9c4cf8fc84",
+        "size_bytes": 639
+      },
+      {
+        "logical_path": "schemas/standards-result.schema.json",
+        "sha256": "67e54210a16c9ad5cdd05a122e50bc3bff7b2a28a74b2ade775ee2376f911bf5",
+        "size_bytes": 596
+      },
+      {
+        "logical_path": "schemas/structural-assembly-manifest.schema.json",
+        "sha256": "62456bb0409dfcf8eeac6ed37f21442d1d1f765285773dd2016f02be14f3c17b",
+        "size_bytes": 4237
+      },
+      {
+        "logical_path": "schemas/structural-assembly-report.schema.json",
+        "sha256": "d7235d28883fda991423cbb6e603ccba7a8fa3345150552fd6a8bf8eecc614ba",
+        "size_bytes": 1310
+      },
+      {
+        "logical_path": "schemas/template-catalog.schema.json",
+        "sha256": "9d9085fe8039d62291ca5c1e4e082f3af3c100e46164148b36472bed102ee76d",
+        "size_bytes": 20843
+      },
+      {
+        "logical_path": "schemas/templates-result.schema.json",
+        "sha256": "dfe5749410c976c5c3a671adfd4b0d2c8c0807f840334db6d30292f534c981f8",
+        "size_bytes": 1585
+      },
+      {
+        "logical_path": "schemas/transaction-report.schema.json",
+        "sha256": "46d60b053e23c2dc74ee45bf743a8d39af598eb20da9991db6e3021e796fbb98",
+        "size_bytes": 9040
+      },
+      {
+        "logical_path": "schemas/validation-result.schema.json",
+        "sha256": "800180e21bec113890d9d9c2819fd5fa766f7231ab5f096735705b8201060f02",
+        "size_bytes": 729
+      },
+      {
+        "logical_path": "schemas/version-result.schema.json",
+        "sha256": "587e7299359e389496ab6caf93bfc1abb6951168a67f28a63c4a28334cba4d77",
+        "size_bytes": 2243
+      },
+      {
+        "logical_path": "schemas/viewer-report.schema.json",
+        "sha256": "214a2a1e52e9905359dfd774552cb4128979518423eacbee7acb77fac29aec4a",
+        "size_bytes": 6414
+      },
+      {
+        "logical_path": "security/fixtures/fixtures.lock.json",
+        "sha256": "d4ce0a77d91747380c7ab5b572a26e1949cd846a0f3931dc3faa59a9184a3371",
+        "size_bytes": 3511
+      },
+      {
+        "logical_path": "standards.lock.json",
+        "sha256": "823230c5932b81b504434330d118fba286d5ff41d4e2f7766372633f4a49e559",
+        "size_bytes": 4170
+      },
+      {
+        "logical_path": "templates/catalog.json",
+        "sha256": "a1e66bbea38510e701f0ab656eace802b53c027dfba875d470d96f8537bb4db5",
+        "size_bytes": 129006
+      },
+      {
+        "logical_path": "templates/inventory.json",
+        "sha256": "2f9e140c73f32ebb35084f09f2b82db7c22590d56b8179be645629290fa640a4",
+        "size_bytes": 13584
+      },
+      {
+        "logical_path": "templates/qualification-evidence.json",
+        "sha256": "76a9da55b629e7571e5f01a4a1809dbd6899c5d47a6323d1780e4f5d28c5cc40",
+        "size_bytes": 3281
+      },
+      {
+        "logical_path": "transfer-syntax/backend-decisions.json",
+        "sha256": "76b1aaca7071a37effa6867177440676efdb5871690f1075db17f762cd732e13",
+        "size_bytes": 37042
+      },
+      {
+        "logical_path": "transfer-syntax/capability-matrix.json",
+        "sha256": "a65a792ef42a026eac8ba29e18a4cab322d2729418682a9f37c9ee68ade955b7",
+        "size_bytes": 17813
+      }
+    ]
+  },
+  "publication": {
+    "cleanup_complete": false,
+    "manifest_relative_path": "manifest.json",
+    "manifest_sha256": null,
+    "no_overwrite": true,
+    "private_staging": true,
+    "state": "staging",
+    "validation_complete": false
+  },
+  "resources": {
+    "actual_artifact_output_bytes": 774,
+    "actual_peak_working_bytes": 1073741824,
+    "actual_publication_bytes": 774,
+    "planned_max_artifacts": 1024,
+    "planned_max_peak_working_bytes": 1073741824,
+    "planned_max_total_output_bytes": 1073741824,
+    "requested_parallelism": 1,
+    "used_parallelism": 1
+  },
+  "run": {
+    "assembly_request_schema_version": "1.0.0",
+    "caller_asset_root_policy": "explicit_bounded_relative_paths",
+    "corpus_plan_sha256": "d4ebd5a7ca2081375022b0d9bf8726d5e8f508afe59e1c1ad7d68d65f5ebda45",
+    "iod_conformance": "not_assessed",
+    "kind": "structural_assembly",
+    "request_sha256": "29a0da03979c74631959851cc103cdcb9114a703de3f2b658ef714efd062f664",
+    "seed": 5
+  },
+  "unavailable_capabilities": [],
+  "warnings": [
+    "IOD conformance was not assessed"
+  ]
+}

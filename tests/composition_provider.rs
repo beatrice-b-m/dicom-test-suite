@@ -7,13 +7,13 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
+use serde_json::json;
 use synth_dicom_gen::composition::{
     CONTENT_PROVIDER_PROTOCOL_VERSION, ComposeError, ComposeOptions, ProviderError,
     ProviderInvocation, ProviderOutputDeclaration, ProviderRequest, compose,
     invoke_content_provider, provider_arguments_sha256,
 };
 use synth_dicom_gen::sha256_hex;
-use serde_json::json;
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 

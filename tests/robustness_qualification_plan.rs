@@ -40,8 +40,7 @@ fn fuzz_sources(target_id: &str) -> Vec<PreparedQualificationSource> {
     let fuzz = recipe(FUZZ_CASE);
     let parameters = qualification_parameters(&fuzz).unwrap();
     let synth_dicom_gen::recipes::QualificationParameters::BoundedDeterministicFuzz {
-        sources,
-        ..
+        sources, ..
     } = parameters
     else {
         unreachable!()

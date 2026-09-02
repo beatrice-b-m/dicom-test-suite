@@ -2,11 +2,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use serde_json::{Value, json};
 use synth_dicom_gen::media::MemberRole;
 use synth_dicom_gen::media_sources::{
     MEDIA_DERIVED_CASE_ID, MEDIA_IMAGE_CASE_ID, MEDIA_NON_IMAGE_CASE_ID, load_mixed_media_sources,
 };
-use serde_json::{Value, json};
 
 static NONCE: AtomicU64 = AtomicU64::new(0);
 

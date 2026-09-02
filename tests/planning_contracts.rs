@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
+use serde_json::{Value, json};
 use synth_dicom_gen::corpus_plan::{
     ArtifactDependency, ArtifactProvenance, ArtifactResourceEstimate, EvidencePlan, OutputPlan,
     OutputRelativePath, PlannedArtifact, PlannedAuxiliaryArtifact, PlannedQualification,
@@ -16,7 +17,6 @@ use synth_dicom_gen::planning::{
     PlanningTemplate, ProjectionError, RecipeIdentity, TemplateIdentity, TemplateService,
     ValidationExecutorDescriptor, ValidationRuleDescriptor, ValidationRuleRegistry,
 };
-use serde_json::{Value, json};
 
 fn recipe(id: &str) -> RecipeIdentity {
     RecipeIdentity {

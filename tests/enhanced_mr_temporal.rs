@@ -5,8 +5,8 @@ use std::process::Command;
 use dicom_core::Tag;
 use dicom_dictionary_std::{tags, uids};
 use dicom_object::open_file;
-use synth_dicom_gen::sha256_hex;
 use serde_json::{Value, json};
+use synth_dicom_gen::sha256_hex;
 
 const CASE_ID: &str = "enhanced/mr/multiframe_temporal_position_explicit_le";
 const RELATIVE_PATH: &str = "enhanced/mr/multiframe_temporal_position_explicit_le/instance.dcm";

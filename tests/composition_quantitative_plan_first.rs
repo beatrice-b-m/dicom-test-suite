@@ -2,8 +2,8 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use synth_dicom_gen::composition::{ComposeOptions, compose};
 use serde_json::{Value, json};
+use synth_dicom_gen::composition::{ComposeOptions, compose};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 

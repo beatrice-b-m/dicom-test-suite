@@ -6,11 +6,11 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use dicom_core::value::Value as DicomValue;
 use dicom_dictionary_std::tags;
 use dicom_object::open_file;
+use serde_json::Value;
 use synth_dicom_gen::composition::{AttributeOperation, AttributeValue, PrimitiveValue};
 use synth_dicom_gen::recipes::classic_dx_mg::{ClassicDxMgPlanError, plan_dx_mg_recipe};
 use synth_dicom_gen::recipes::{OrderedSeriesProvider, RecipeCatalog};
 use synth_dicom_gen::{GenerateOptions, prepare_generation_run, write_generation_run};
-use serde_json::Value;
 
 const SEED: u64 = 7;
 const STANDARDS_LOCK_SHA256: &str =

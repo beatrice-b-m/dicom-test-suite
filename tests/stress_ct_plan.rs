@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 use std::fs;
 
+use serde_json::Value;
 use synth_dicom_gen::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
 };
@@ -8,7 +9,6 @@ use synth_dicom_gen::recipes::{
     OrderedSeriesProvider, RecipeCatalog, StressCtPlanError, plan_stress_ct_recipe,
 };
 use synth_dicom_gen::sha256_hex;
-use serde_json::Value;
 
 fn load() -> (RecipeCatalog, String) {
     (

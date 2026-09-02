@@ -3,6 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use serde_json::{Value, json};
 use synth_dicom_gen::codecs::{NativeRleLosslessEncoder, RLE_LOSSLESS_TRANSFER_SYNTAX_UID};
 use synth_dicom_gen::composition::{
     CompositionUidRole, ContentMaterialization, Part10Materializer, TemplateCatalog, TemplateId,
@@ -22,7 +23,6 @@ use synth_dicom_gen::recipes::{
     resolved_classic_instance_plan,
 };
 use synth_dicom_gen::{GenerateOptions, prepare_generation_run, sha256_hex, write_generation_run};
-use serde_json::{Value, json};
 
 const SEED: u64 = 7;
 const EXPLICIT_VR_LITTLE_ENDIAN: &str = "1.2.840.10008.1.2.1";

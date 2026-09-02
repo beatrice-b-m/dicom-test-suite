@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 
-use synth_dicom_gen::recipes::RecipeCatalog;
 use serde_json::Value;
+use synth_dicom_gen::recipes::RecipeCatalog;
 
 fn catalog() -> RecipeCatalog {
     RecipeCatalog::load(

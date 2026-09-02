@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use dicom_core::value::Value as DicomValue;
 use dicom_dictionary_std::tags;
 use dicom_object::open_file;
+use serde_json::Value;
 use synth_dicom_gen::codecs::{FrameEncodeInput, FrameEncoder, NativeRleLosslessEncoder};
 use synth_dicom_gen::composition::{
     CompositionUidRole, ContentMaterialization, Part10Materializer, TemplateCatalog,
@@ -14,7 +15,6 @@ use synth_dicom_gen::recipes::{
     resolved_secondary_capture_plan,
 };
 use synth_dicom_gen::{GenerateOptions, prepare_generation_run, sha256_hex, write_generation_run};
-use serde_json::Value;
 
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 

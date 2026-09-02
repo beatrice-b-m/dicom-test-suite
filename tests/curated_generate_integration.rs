@@ -4,11 +4,11 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use serde_json::Value;
 use synth_dicom_gen::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
 };
 use synth_dicom_gen::{GenerateOptions, prepare_generation_run, sha256_hex};
-use serde_json::Value;
 
 const SEED: u64 = 7;
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);

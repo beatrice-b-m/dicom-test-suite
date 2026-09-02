@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use serde_json::Value;
 use synth_dicom_gen::curated_execution::CuratedExecutionServiceFactory;
 use synth_dicom_gen::curated_manifest::project_curated_file_entries;
 use synth_dicom_gen::curated_plan::{
@@ -13,7 +14,6 @@ use synth_dicom_gen::executor::cancellation::CancellationToken;
 use synth_dicom_gen::executor::engine::{
     CorpusExecutor, ManifestProjectionError, ManifestProjector,
 };
-use serde_json::Value;
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 struct Temp(PathBuf);

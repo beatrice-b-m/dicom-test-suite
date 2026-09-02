@@ -4,10 +4,10 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use serde_json::Value;
 use synth_dicom_gen::build_coverage_report;
 use synth_dicom_gen::composition::TemplateCatalog;
 use synth_dicom_gen::recipes::{ClassicProjectionFamily, RecipeCatalog};
-use serde_json::Value;
 
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 

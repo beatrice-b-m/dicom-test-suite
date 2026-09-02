@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use dicom_core::Tag;
+use serde_json::Value;
 use synth_dicom_gen::composition::{
     AttributeAddress, CompositionUidRole, IdentityPlan, ResolvedInstancePlan, TemplateId,
     TemplateVersion,
@@ -27,7 +28,6 @@ use synth_dicom_gen::recipes::{
     QuantitativeSourceRole, RecipeCatalog, quantitative_input_from_recipe,
 };
 use synth_dicom_gen::sha256_hex;
-use serde_json::Value;
 
 struct NoAuxiliary;
 

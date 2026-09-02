@@ -1,10 +1,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
+use serde_json::Value;
 use synth_dicom_gen::recipes::{
     PRESENTATION_ADVANCED_PROVIDER_ID, REGISTRATION_PLAN_PROVIDER_ID, RecipeCatalog,
 };
-use serde_json::Value;
 
 fn load_catalog() -> RecipeCatalog {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));

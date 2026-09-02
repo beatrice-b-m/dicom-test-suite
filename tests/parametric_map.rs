@@ -287,9 +287,7 @@ fn assert_generated_contract(root: &Path, file: &Value) {
     assert_eq!(float_bytes.len(), 48);
     assert_eq!(
         file["sha256"].as_str(),
-        Some(
-            synth_dicom_gen::sha256_hex(&fs::read(&path).expect("PM bytes should read")).as_str()
-        )
+        Some(synth_dicom_gen::sha256_hex(&fs::read(&path).expect("PM bytes should read")).as_str())
     );
 
     let manifest_bits =

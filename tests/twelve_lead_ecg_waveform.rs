@@ -60,10 +60,7 @@ fn twelve_lead_ecg_vertical_slice_is_byte_deterministic_and_closed() {
     assert_eq!(first, second, "seed-7 ECG entries must match");
     assert_eq!(first_bytes, second_bytes, "seed-7 ECG bytes must match");
     assert_eq!(first["sha256"], synth_dicom_gen::sha256_hex(&first_bytes));
-    assert_eq!(
-        second["sha256"],
-        synth_dicom_gen::sha256_hex(&second_bytes)
-    );
+    assert_eq!(second["sha256"], synth_dicom_gen::sha256_hex(&second_bytes));
     assert_eq!(first["determinism"], "byte_stable");
 
     assert_schema_valid("schemas/manifest.schema.json", &first_manifest);

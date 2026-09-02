@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use serde_json::{Value, json};
 use synth_dicom_gen::corpus_plan::{
     OutputRelativePath, PlannedArtifact, PublicationPlan, PublicationTransaction,
 };
@@ -20,7 +21,6 @@ use synth_dicom_gen::recipes::{
     WsiPlanRecipe,
 };
 use synth_dicom_gen::{GenerateOptions, prepare_generation_run, sha256_hex, write_generation_run};
-use serde_json::{Value, json};
 
 const SEED: u64 = 1;
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);

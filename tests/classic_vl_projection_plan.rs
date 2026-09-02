@@ -2,6 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use serde_json::Value;
 use synth_dicom_gen::codecs::{FrameEncodeInput, FrameEncoder, NativeRleLosslessEncoder};
 use synth_dicom_gen::composition::{
     ContentMaterialization, DicomVr, Part10Materializer, TemplateCatalog,
@@ -16,7 +17,6 @@ use synth_dicom_gen::recipes::{
     resolved_classic_instance_plan,
 };
 use synth_dicom_gen::{GenerateOptions, prepare_generation_run, sha256_hex, write_generation_run};
-use serde_json::Value;
 
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 

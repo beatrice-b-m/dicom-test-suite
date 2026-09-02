@@ -1,11 +1,11 @@
 use std::collections::BTreeSet;
 use std::fs;
 
+use serde_json::Value;
 use synth_dicom_gen::recipes::{
     BackendBoundary, CODEC_BACKENDS, CodecDispatchRequest, CodecEvidenceRequirement,
     CodecRegistryError, CodecSourceRequest, TransferSyntaxBackendRegistry,
 };
-use serde_json::Value;
 
 fn registry() -> Value {
     serde_json::from_slice(&fs::read("cases/registry.json").unwrap()).unwrap()

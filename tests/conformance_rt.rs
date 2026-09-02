@@ -177,8 +177,7 @@ impl Fixture {
         }
         let manifest_bytes = serde_json::to_vec_pretty(&manifest).unwrap();
         fs::write(&manifest_path, &manifest_bytes).unwrap();
-        baseline["source"]["manifest_sha256"] =
-            json!(synth_dicom_gen::sha256_hex(&manifest_bytes));
+        baseline["source"]["manifest_sha256"] = json!(synth_dicom_gen::sha256_hex(&manifest_bytes));
         write_json(&evidence_path, &baseline);
 
         let allowlist = root.join("allowlist.json");

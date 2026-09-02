@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use serde_json::Value;
 #[cfg(feature = "deflate")]
 use synth_dicom_gen::codecs::DicomRsDeflatedImageFrameEncoder;
 #[cfg(feature = "jpeg")]
@@ -13,7 +14,6 @@ use synth_dicom_gen::executor::services::{
     ByteBinding, CodecRequest, NativeFrameBinding, StagedAssetRegistry,
 };
 use synth_dicom_gen::sha256_hex;
-use serde_json::Value;
 
 fn request(
     backend_id: &str,

@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 use std::fs;
 
+use serde_json::Value;
 use synth_dicom_gen::native_pixel::{
     ByteOrder, ChromaSubsampling, ColorOrganization, NativePixelError, NativePixelFactory,
     NativePixelLimits, NativePixelPatternRequest, NativePixelRequest, Palette,
@@ -8,7 +9,6 @@ use synth_dicom_gen::native_pixel::{
     StoredValueType,
 };
 use synth_dicom_gen::recipes::{RecipeCatalog, SecondaryCaptureParameters};
-use serde_json::Value;
 
 fn request(sc: &SecondaryCaptureParameters) -> NativePixelRequest {
     NativePixelRequest {

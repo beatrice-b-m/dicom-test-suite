@@ -2,6 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use serde_json::Value;
 use synth_dicom_gen::codecs::{FrameEncodeInput, FrameEncoder, NativeRleLosslessEncoder};
 use synth_dicom_gen::composition::{
     CompositionUidRole, ContentMaterialization, DicomVr, Part10Materializer, TemplateCatalog,
@@ -14,7 +15,6 @@ use synth_dicom_gen::recipes::{
     ClassicResolvedPlanInput, OrderedSeriesProvider, RecipeCatalog, resolved_classic_instance_plan,
 };
 use synth_dicom_gen::{GenerateOptions, prepare_generation_run, sha256_hex, write_generation_run};
-use serde_json::Value;
 
 const LOCK_HASH_PATH: &str = "standards.lock.json";
 const CT_PREFIXES: [&str; 2] = ["classic/ct/", "geometry/ct/"];

@@ -3,12 +3,12 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use serde_json::Value;
 use synth_dicom_gen::composition::{TemplateCatalog, TemplateId};
 use synth_dicom_gen::recipes::{
     PRESENTATION_ADVANCED_PROVIDER_ID, REGISTRATION_PLAN_PROVIDER_ID, RecipeCatalog,
     WSI_ADVANCED_PROVIDER_ID,
 };
-use serde_json::Value;
 
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 const ENHANCED_PROVIDER_ID: &str = "native.enhanced_plan";

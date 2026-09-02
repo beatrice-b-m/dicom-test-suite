@@ -6,11 +6,11 @@ mod typed_bulk_compatibility;
 
 use std::collections::BTreeMap;
 
+use serde_json::Value;
 use synth_dicom_gen::recipes::{
     CaseRecipe, EncapsulatedPayload, encapsulated_payload_input_from_recipe,
     waveform_input_from_recipe,
 };
-use serde_json::Value;
 use typed_bulk_compatibility::{
     ObservedSpecializedContent, SpecializedValidationObservation, project_encapsulated_payload,
     project_waveform, validate_encapsulated_payload, validate_waveform,

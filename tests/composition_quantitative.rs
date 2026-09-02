@@ -6,8 +6,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use dicom_core::header::Header;
 use dicom_dictionary_std::tags;
 use dicom_object::{InMemDicomObject, open_file};
-use synth_dicom_gen::composition::{ComposeOptions, compose};
 use serde_json::{Value, json};
+use synth_dicom_gen::composition::{ComposeOptions, compose};
 
 #[path = "support/prepared_backend.rs"]
 mod prepared_backend;

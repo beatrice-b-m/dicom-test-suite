@@ -8,15 +8,15 @@ use dicom_core::value::Value as DicomValue;
 use dicom_dictionary_std::{tags, uids};
 use dicom_encoding::{Codec, adapters::PixelDataReader};
 use dicom_object::open_file;
+use dicom_transfer_syntax_registry::entries::{
+    JPEG_LOSSLESS_NON_HIERARCHICAL, JPEG_LOSSLESS_NON_HIERARCHICAL_FIRST_ORDER_PREDICTION,
+};
+use serde_json::Value;
 use synth_dicom_gen::codecs::{
     CodecBackendKind, CodecDeterminism, DcmtkDcmcjpegLosslessProcess,
     DcmtkDcmcjpegLosslessSv1Encoder, JPEG_LOSSLESS_PROCESS_14_TRANSFER_SYNTAX_UID,
     JPEG_LOSSLESS_SV1_TRANSFER_SYNTAX_UID,
 };
-use dicom_transfer_syntax_registry::entries::{
-    JPEG_LOSSLESS_NON_HIERARCHICAL, JPEG_LOSSLESS_NON_HIERARCHICAL_FIRST_ORDER_PREDICTION,
-};
-use serde_json::Value;
 
 const SOURCE_CASE_ID: &str = "classic/sc/mono2_u16_explicit_le";
 
@@ -42,12 +42,7 @@ fn dcmtk_wrapper_encodes_lossless_sv1_and_reports_runtime_identity() {
 
     let encoded = match encoder.encode_file(&source_path, &compressed_path) {
         Ok(encoded) => encoded,
-        Err(err)
-            if matches!(
-                err,
-                synth_dicom_gen::codecs::CodecError::Unavailable { .. }
-            ) =>
-        {
+        Err(err) if matches!(err, synth_dicom_gen::codecs::CodecError::Unavailable { .. }) => {
             eprintln!("skipping DCMTK wrapper test because dcmcjpeg is unavailable: {err}");
             return;
         }
@@ -176,12 +171,7 @@ fn dcmtk_wrapper_encodes_lossless_process_14_and_reports_runtime_identity() {
         &compressed_path,
     ) {
         Ok(encoded) => encoded,
-        Err(err)
-            if matches!(
-                err,
-                synth_dicom_gen::codecs::CodecError::Unavailable { .. }
-            ) =>
-        {
+        Err(err) if matches!(err, synth_dicom_gen::codecs::CodecError::Unavailable { .. }) => {
             eprintln!("skipping DCMTK wrapper test because dcmcjpeg is unavailable: {err}");
             return;
         }

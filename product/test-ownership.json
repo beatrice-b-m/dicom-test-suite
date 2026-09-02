@@ -1108,7 +1108,7 @@
       "entries": [
         "linked_rt_cases_require_clean_locked_additive_secondary_iod_results"
       ],
-      "entry_digest": "382ab9b43dcd286025cd2160f56bf65835945077455bfffaccd0f727dc200bca"
+      "entry_digest": "06ead5023b0eccfcd15f275bf83ac6379d3bf4beb381b972701b85475544d4dd"
     },
     {
       "source": "tests/conformance_run.rs",
@@ -1770,7 +1770,7 @@
         "core_generation_is_byte_stable_across_two_output_roots",
         "extended_generation_honors_declared_determinism_across_two_output_roots"
       ],
-      "entry_digest": "5cb10ac73af3abcd832c04b3756758888940bb72171fd05554acaedc0b58ea2b"
+      "entry_digest": "6823eeb49a23afd40e8a95fce556962364f93ba19f085d5b5b3a1ec5539bfde6"
     },
     {
       "source": "tests/generation_backend_artifacts.rs",
@@ -1860,7 +1860,7 @@
         "dcmtk_wrapper_encodes_lossless_sv1_and_reports_runtime_identity",
         "dcmtk_wrapper_encodes_lossless_process_14_and_reports_runtime_identity"
       ],
-      "entry_digest": "f79f3d040e6b0a199e5c71fbac6a04f67fa45583958ea4a3b6c0e235c283cdd9"
+      "entry_digest": "4052f8f3da394d1308f57d4b18239ea945d23d1867ba3184a896ef7d054dcc97"
     },
     {
       "source": "tests/legacy_jpeg_spike.rs",
@@ -2106,7 +2106,7 @@
       "entries": [
         "promoted_float32_parametric_map_satisfies_external_proof_contract"
       ],
-      "entry_digest": "84edef41fdb9e7e0cd62935b4774f8b08facd64e992ec243c53ec833b318524b"
+      "entry_digest": "c86c6f67a7dbf02ff6fe6dd27a37ca83f8f41708cccfa1488e02a4f5556d1733"
     },
     {
       "source": "tests/pet_rescaled_activity.rs",
@@ -2912,7 +2912,7 @@
       "entries": [
         "twelve_lead_ecg_vertical_slice_is_byte_deterministic_and_closed"
       ],
-      "entry_digest": "26114745962700cd742b74072ddfc48fb195e4af6e919eff308de4f766cbb7f9"
+      "entry_digest": "1be97bf1c7fdc65058b7eb75918370fa1b3db1d2b5dc5efa2cdcca1b84f4689c"
     },
     {
       "source": "tests/typed_bulk_compatibility.rs",

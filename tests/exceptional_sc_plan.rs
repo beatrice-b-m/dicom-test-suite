@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 use std::fs;
 
+use serde_json::Value;
 #[cfg(feature = "deflate")]
 use synth_dicom_gen::composition::Part10Materializer;
 use synth_dicom_gen::composition::{TemplateCatalog, TemplateId};
@@ -10,7 +11,6 @@ use synth_dicom_gen::recipes::{
     plan_exceptional_sc,
 };
 use synth_dicom_gen::sha256_hex;
-use serde_json::Value;
 
 fn loaded() -> (RecipeCatalog, TemplateCatalog, String) {
     (

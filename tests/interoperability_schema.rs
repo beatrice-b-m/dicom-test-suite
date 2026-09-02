@@ -1,5 +1,6 @@
 use std::fs;
 
+use serde_json::Value;
 use synth_dicom_gen::media::{
     CheckStatus, DcmtkProviderFingerprint, DicomDirQualification, MediaDeterminism,
     MediaValidationEvidence,
@@ -9,7 +10,6 @@ use synth_dicom_gen::protocol::{
     ProtocolReport, ProtocolSection, ProtocolStep, ProviderRelationship, SourceCaseLink,
     StepOutcome, ToolFingerprint,
 };
-use serde_json::Value;
 
 const SHA_A: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const SHA_B: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";

@@ -2,8 +2,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use synth_dicom_gen::composition::{TemplateCatalog, TemplateStatus};
 use serde_json::Value;
+use synth_dicom_gen::composition::{TemplateCatalog, TemplateStatus};
 
 fn json(path: &str) -> Value {
     serde_json::from_slice(&fs::read(path).unwrap_or_else(|error| panic!("{path}: {error}")))

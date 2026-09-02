@@ -1,11 +1,11 @@
 use std::collections::BTreeSet;
 
+use serde::Deserialize;
 use synth_dicom_gen::recipes::CODEC_BACKENDS;
 use synth_dicom_gen::runtime_capabilities::{
     CapabilityEvaluationRequest, CapabilityInventory, CapabilityKind, RegistryRuntimeRequirements,
     RuntimeCapabilityEvaluator, UnavailableReason,
 };
-use serde::Deserialize;
 
 fn set(values: &[&str]) -> BTreeSet<String> {
     values.iter().map(|value| (*value).into()).collect()

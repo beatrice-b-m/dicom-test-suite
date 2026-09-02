@@ -128,10 +128,8 @@ fn run() -> Result<(), String> {
                 Some("json") => {
                     let result = synth_dicom_gen::discovery::capabilities_result(&resources)
                         .map_err(|error| error.to_string())?;
-                    let envelope = synth_dicom_gen::cli_protocol::SuccessEnvelope::new(
-                        "capabilities",
-                        result,
-                    );
+                    let envelope =
+                        synth_dicom_gen::cli_protocol::SuccessEnvelope::new("capabilities", result);
                     println!(
                         "{}",
                         serde_json::to_string_pretty(&envelope)
@@ -303,9 +301,7 @@ fn run() -> Result<(), String> {
                         }
                         Some("json") if failures.is_empty() => write_machine_success(
                             "conformance verify",
-                            synth_dicom_gen::cli_protocol::ConformanceResult::new(
-                                "verify", result,
-                            ),
+                            synth_dicom_gen::cli_protocol::ConformanceResult::new("verify", result),
                         )?,
                         Some("json") => {}
                         Some(other) => {
@@ -723,9 +719,8 @@ fn run() -> Result<(), String> {
                             }
                         }
                     }
-                    let catalog =
-                        synth_dicom_gen::composition::TemplateCatalog::load(catalog_path)
-                            .map_err(|error| error.to_string())?;
+                    let catalog = synth_dicom_gen::composition::TemplateCatalog::load(catalog_path)
+                        .map_err(|error| error.to_string())?;
                     match format.as_str() {
                         "json" => write_machine_success(
                             "templates list",
@@ -780,9 +775,8 @@ fn run() -> Result<(), String> {
                             }
                         }
                     }
-                    let catalog =
-                        synth_dicom_gen::composition::TemplateCatalog::load(catalog_path)
-                            .map_err(|error| error.to_string())?;
+                    let catalog = synth_dicom_gen::composition::TemplateCatalog::load(catalog_path)
+                        .map_err(|error| error.to_string())?;
                     let descriptor = catalog
                         .resolve_qualified(&synth_dicom_gen::composition::TemplateId(id), version)
                         .map_err(|error| error.to_string())?;
@@ -824,9 +818,8 @@ fn run() -> Result<(), String> {
                             }
                         }
                     }
-                    let catalog =
-                        synth_dicom_gen::composition::TemplateCatalog::load(catalog_path)
-                            .map_err(|error| error.to_string())?;
+                    let catalog = synth_dicom_gen::composition::TemplateCatalog::load(catalog_path)
+                        .map_err(|error| error.to_string())?;
                     match format.as_str() {
                         "markdown" => print!("{}", catalog.render_reference_markdown()),
                         "json" => write_machine_success(

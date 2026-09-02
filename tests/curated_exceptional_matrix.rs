@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 
+use serde::Deserialize;
 use synth_dicom_gen::corpus_plan::PlannedArtifact;
 use synth_dicom_gen::curated_plan::{
     CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
@@ -9,7 +10,6 @@ use synth_dicom_gen::recipes::{
     BackendBoundary, QUANTITATIVE_NATIVE_PROVIDER_ID, RecipeCatalog, TransferSyntaxBackendRegistry,
 };
 use synth_dicom_gen::runtime_capabilities::{CapabilityInventory, QualifiedExecutableIdentity};
-use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 struct Registry {

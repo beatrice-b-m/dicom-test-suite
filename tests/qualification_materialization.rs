@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use serde_json::Value;
 use synth_dicom_gen::corpus_plan::{
     ArtifactProvenance, ArtifactResourceEstimate, CaseBinding, EvidenceIndependence,
     EvidenceObligation, EvidencePlan, PlannedArtifact, PlannedQualification,
@@ -29,7 +30,6 @@ use synth_dicom_gen::executor::services::{
     StagingRelativePath,
 };
 use synth_dicom_gen::sha256_hex;
-use serde_json::Value;
 
 const FUZZ_CASE: &str = "fuzz/parser/bounded_seed_corpus";
 const SOURCE_CASES: [&str; 2] = [

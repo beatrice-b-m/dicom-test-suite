@@ -7,12 +7,12 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use serde_json::{Value, json};
 use synth_dicom_gen::composition::{
     BundleError, ComposeCancellationToken, ComposeError, ComposeOptions, ContentError,
     RawContentError, SpecError, compose, compose_with_cancellation,
 };
 use synth_dicom_gen::sha256_hex;
-use serde_json::{Value, json};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 

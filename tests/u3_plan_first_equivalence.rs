@@ -7,6 +7,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use dicom_core::value::Value as DicomValue;
 use dicom_dictionary_std::tags;
 use dicom_object::open_file;
+use serde_json::{Value, json};
 use synth_dicom_gen::codecs::{FrameEncodeInput, FrameEncoder, NativeRleLosslessEncoder};
 use synth_dicom_gen::corpus_plan::{FragmentationPolicy, PlannedArtifact};
 use synth_dicom_gen::curated_plan::{
@@ -23,7 +24,6 @@ use synth_dicom_gen::executor::services::{
 };
 use synth_dicom_gen::recipes::RecipeCatalog;
 use synth_dicom_gen::{GenerateOptions, prepare_generation_run, sha256_hex, write_generation_run};
-use serde_json::{Value, json};
 
 const SEED: u64 = 7;
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);

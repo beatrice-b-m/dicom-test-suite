@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use serde_json::Value;
 use synth_dicom_gen::corpus_plan::{ArtifactProvenance, PlannedArtifact};
 use synth_dicom_gen::curated_execution::CuratedExecutionServiceFactory;
 use synth_dicom_gen::curated_plan::{
@@ -24,7 +25,6 @@ use synth_dicom_gen::executor::services::{
 };
 use synth_dicom_gen::recipes::RecipeCatalog;
 use synth_dicom_gen::sha256_hex;
-use serde_json::Value;
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 

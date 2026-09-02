@@ -1,8 +1,8 @@
 use std::fs;
 use std::process::{Command, Output};
 
-use synth_dicom_gen::cli_protocol::CliFailure;
 use serde_json::Value;
+use synth_dicom_gen::cli_protocol::CliFailure;
 
 fn binary() -> &'static str {
     env!("CARGO_BIN_EXE_synth-dicom-gen")

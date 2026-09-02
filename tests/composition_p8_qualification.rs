@@ -3,12 +3,12 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use serde_json::{Value, json};
 use synth_dicom_gen::composition::{
     ComposeOptions, TemplateCatalog, TemplateStatus, compose, composition_report,
     validate_composition_root,
 };
 use synth_dicom_gen::sha256_hex;
-use serde_json::{Value, json};
 
 #[path = "support/prepared_backend.rs"]
 mod prepared_backend;

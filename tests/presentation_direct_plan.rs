@@ -5,6 +5,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use serde_json::Value;
 use synth_dicom_gen::composition::{
     CompositionUidRole, IdentityPlan, ResolvedInstancePlan, TemplateId, TemplateVersion,
 };
@@ -31,7 +32,6 @@ use synth_dicom_gen::recipes::{
     PresentationSourceInput,
 };
 use synth_dicom_gen::{GenerateOptions, prepare_generation_run, sha256_hex, write_generation_run};
-use serde_json::Value;
 
 const SEED: u64 = 1;
 const CT_SOP_CLASS: &str = "1.2.840.10008.5.1.4.1.1.2";

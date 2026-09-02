@@ -80,8 +80,8 @@ fn assert_profile_is_reproducible(profile: &str) {
     );
 
     for root in [&first_out, &second_out] {
-        let validation = synth_dicom_gen::validate_generated_root(root)
-            .expect("generated root should validate");
+        let validation =
+            synth_dicom_gen::validate_generated_root(root).expect("generated root should validate");
         assert!(validation.failures.is_empty(), "{:?}", validation.failures);
     }
 

@@ -2,8 +2,8 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Component, Path};
 
-use synth_dicom_gen::sha256_hex;
 use serde_json::Value;
+use synth_dicom_gen::sha256_hex;
 
 #[test]
 fn committed_generation_backend_lock_validates_and_has_unique_ids() {

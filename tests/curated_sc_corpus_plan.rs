@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use serde_json::Value;
 use synth_dicom_gen::composition::ContentMaterialization;
 use synth_dicom_gen::corpus_plan::{OffsetTablePolicy, PlannedArtifact};
 use synth_dicom_gen::curated_plan::{
@@ -10,7 +11,6 @@ use synth_dicom_gen::curated_plan::{
 use synth_dicom_gen::executor::services::SlotExecutionBinding;
 use synth_dicom_gen::native_pixel::ByteOrder;
 use synth_dicom_gen::recipes::{CLASSIC_PIXEL_SLOT, RecipeCatalog};
-use serde_json::Value;
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 

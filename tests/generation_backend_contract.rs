@@ -1,10 +1,10 @@
 use std::fs;
 use std::path::Path;
 
+use serde_json::{Value, json};
 use synth_dicom_gen::generation_backends::{
     backend_policy, load_backend_lock, validate_request, validate_response_for_request,
 };
-use serde_json::{Value, json};
 
 #[test]
 fn committed_backend_lock_loads_with_dependency_verification() {

@@ -1,0 +1,31 @@
+{
+  "composition_report_schema_version": "0.1.0",
+  "counts": {
+    "instances": 1,
+    "output_bytes": 5010,
+    "unavailable_capabilities": 0
+  },
+  "generated_at": "2000-01-01T00:00:00Z",
+  "instances": [
+    {
+      "content_slots": 1,
+      "instance_id": "primary",
+      "path": "instances/primary.dcm",
+      "references": 0,
+      "sha256": "77bd0865e28ce3479e5219cb387bed1b705bed1c785d7ac655f148ccb3d13924",
+      "size_bytes": 5010,
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "template": "classic/secondary-capture/monochrome@1.0.0",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "validation_status": "passed"
+    }
+  ],
+  "report_kind": "composition",
+  "standards_lock_sha256": "823230c5932b81b504434330d118fba286d5ff41d4e2f7766372633f4a49e559",
+  "templates": {
+    "classic/secondary-capture/monochrome@1.0.0": 1
+  },
+  "transfer_syntaxes": {
+    "1.2.840.10008.1.2.1": 1
+  }
+}

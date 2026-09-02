@@ -1,0 +1,24 @@
+{
+  "bulk_kinds": {
+    "integer_pixel_data": 1
+  },
+  "counts": {
+    "instances": 1,
+    "output_bytes": 774
+  },
+  "instances": [
+    {
+      "instance_id": "primary",
+      "iod_conformance": "not_assessed",
+      "output_path": "instances/primary.dcm",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1"
+    }
+  ],
+  "iod_conformance": "not_assessed",
+  "report_kind": "structural_assembly",
+  "structural_assembly_report_schema_version": "1.0.0",
+  "warnings": [
+    "IOD conformance was not assessed; structural results are excluded from curated and qualified coverage"
+  ]
+}

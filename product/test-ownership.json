@@ -296,7 +296,7 @@
         "assemble_cli_adversarial_inputs_use_stable_exit_classes",
         "assemble_cli_destination_and_resource_failures_publish_nothing"
       ],
-      "entry_digest": "c832704750cba4fb6dda45c62ae3c601581c513e98124c4fdf7673e59c5b1fb2"
+      "entry_digest": "a2ea8afd2fed943915876df57e3d38bdabdc82843aa811c855f589e20991cc56"
     },
     {
       "source": "tests/assembly_plan.rs",
@@ -361,7 +361,7 @@
         "structural_cancellation_publishes_nothing",
         "structural_destination_race_preserves_one_valid_winner_and_cleans_staging"
       ],
-      "entry_digest": "1a2bf09a8cdd67fcb8f50f654676b7a5e651dbb7406da0a07933368351e016df"
+      "entry_digest": "792bd641abff139523d1f2957fe381b0c96892c3d4154fbca8d2ae618415cfd4"
     },
     {
       "source": "tests/blending_presentation_state.rs",

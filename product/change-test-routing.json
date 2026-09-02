@@ -186,6 +186,14 @@
       "bundles": ["identity"]
     },
     {
+      "id": "composition-identity-contract",
+      "exact": [
+        "schemas/composition-manifest-v1.schema.json",
+        "schemas/composition-result-v2.schema.json"
+      ],
+      "bundles": ["composition", "identity", "sdk"]
+    },
+    {
       "id": "embedded-corpus",
       "exact": [
         "src/curated_execution.rs", "src/curated_manifest.rs", "src/curated_plan.rs",

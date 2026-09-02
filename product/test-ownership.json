@@ -4,9 +4,9 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 265,
-    "rust_test_entries": 1401,
+    "rust_test_entries": 1408,
     "integration_source_groups": 187,
-    "integration_test_entries": 882,
+    "integration_test_entries": 889,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
   },
   "enums": {
@@ -390,13 +390,14 @@
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 3,
+      "entry_count": 4,
       "entries": [
         "capabilities_json_is_live_schema_valid_and_conservative_outside_the_checkout",
+        "capabilities_v2_schema_keeps_pre_composition_reader_documents_valid",
         "capabilities_requires_an_explicit_machine_format",
         "capabilities_machine_syntax_failure_is_one_schema_valid_stderr_envelope"
       ],
-      "entry_digest": "878344940525257370f14be0e717f460df2a1fd2238f2e533266be08ffc9a125"
+      "entry_digest": "947b01adf75780334c2bea3f89d600755f915750e2d6cd1318b081c47b36346a"
     },
     {
       "source": "tests/case_recipe_catalog.rs",
@@ -623,16 +624,17 @@
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 6,
+      "entry_count": 7,
       "entries": [
         "compose_default_sc_publishes_a_valid_root_and_summary",
         "compose_dry_run_prints_plans_without_creating_the_output_root",
         "compose_machine_publish_and_dry_run_share_one_typed_outcome_shape",
+        "cli_validate_and_report_read_all_supported_composition_manifests",
         "compose_rejects_protected_rows_before_promotion",
         "validate_and_report_dispatch_on_composition_manifests",
         "validate_accepts_manifest_projected_inline_pixel_evidence"
       ],
-      "entry_digest": "1c851312ceaa4afdbe9c36dc35c9e919eb2e360183391f60061c842e5224ceeb"
+      "entry_digest": "9f9944db7bb7d30c4405ef3f7f282c7fb336ead9785e83593310a9d40af1556a"
     },
     {
       "source": "tests/composition_advanced_plan_first.rs",
@@ -855,7 +857,7 @@
         "compose_pipelines_provider_native_pixels_through_rle_without_planning_bytes",
         "compose_provider_crash_cannot_publish_a_partial_corpus"
       ],
-      "entry_digest": "620011fce6dbfbcf9ce949391737aeeb5b53a25f50880de6a463362d0d52ffc5"
+      "entry_digest": "e16f721152258cf6df1b28135251101bd13da242a3c5e2f8d84e3062d80dd416"
     },
     {
       "source": "tests/composition_public_api.rs",
@@ -863,12 +865,14 @@
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 2,
+      "entry_count": 4,
       "entries": [
         "byte_and_file_rust_apis_share_the_exact_pipeline",
+        "manifest_v1_only_adds_versioned_identity_to_the_frozen_v05_payload",
+        "custom_catalog_run_hash_does_not_replace_installed_template_identity",
         "byte_api_resolves_local_assets_against_the_explicit_root"
       ],
-      "entry_digest": "b7613816625665eb0c905b63f688eae735a1f1ef503d2199037abcee9c00e522"
+      "entry_digest": "809f9de9ba47321ca5514cee22ca43ecd7422f188d8c4447080258d91cfb5255"
     },
     {
       "source": "tests/composition_quantitative.rs",
@@ -942,16 +946,17 @@
       "domain": "composition",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 6,
+      "entry_count": 7,
       "entries": [
         "composition_spec_positive_fixtures_validate",
         "composition_spec_negative_fixtures_are_rejected",
         "composition_paths_reject_every_unsafe_form",
         "composition_spec_rejects_inline_large_bulk_data",
         "template_catalog_positive_fixture_validates",
-        "template_catalog_rejects_unknown_fields_and_missing_evidence"
+        "template_catalog_rejects_unknown_fields_and_missing_evidence",
+        "legacy_composition_contract_fixtures_are_validation_only_compatible"
       ],
-      "entry_digest": "ef1c8e1a6aa32909598c1b76a1cab79e973b41356a52010f7e409cb41a58a12b"
+      "entry_digest": "3201de848fa1928645d3bee1c6116ddf8e5cdf57f01c5842f944717e9bb18621"
     },
     {
       "source": "tests/composition_sr_plan_first.rs",
@@ -1650,7 +1655,7 @@
         "resource_lookup_rejects_unsafe_and_unknown_paths",
         "snapshot_materializes_and_cleans_the_complete_resource_tree"
       ],
-      "entry_digest": "ae793c852058731395d70e756e48d30347060946b186586a2873786183e08ff8"
+      "entry_digest": "cf901fcc7b947ad106596b24f3e47140b750ca357e66dbb5a9744b971ab2e245"
     },
     {
       "source": "tests/enhanced_mr_temporal.rs",
@@ -2744,18 +2749,20 @@
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 8,
+      "entry_count": 10,
       "entries": [
         "sdk_embedded_discovery_is_typed_and_conservative",
         "sdk_explicit_resources_fail_closed_with_stable_error",
         "sdk_compose_bytes_returns_typed_publish_and_dry_run_outcomes",
         "sdk_validation_and_report_return_typed_schema_bound_results",
+        "sdk_composition_validate_and_report_read_exact_supported_manifest_versions",
+        "sdk_rejects_duplicate_terminal_runtime_ids_before_composition_semantics",
         "sdk_curated_validate_and_report_read_exact_supported_manifest_versions",
         "sdk_file_and_byte_requests_share_asset_root_and_pipeline",
         "sdk_precancelled_request_returns_typed_error_and_publishes_nothing",
         "sdk_structural_assembly_returns_no_claim_typed_manifest"
       ],
-      "entry_digest": "fa415adcdb587153f8de2de8067540953f88deab48956b1600ca87e69f1ede7f"
+      "entry_digest": "a6f951e43d2c1ad5f3ad3bec5908a300ba9585d915f8d828202a781bcb04a58e"
     },
     {
       "source": "tests/semantic_sr_rt_plan.rs",
@@ -3590,7 +3597,7 @@
         "encoded_rle_frames_are_hash_checked_decoded_and_preserved",
         "inline_small_fixture_is_hash_checked_and_resource_accounted"
       ],
-      "entry_digest": "08fea3f63f67714575df2975d93cdabad390e5f97110fa8c54af8bfcf0a915e8"
+      "entry_digest": "6293092f7e0485b2abec15d9562ab24826309b767c90969c768ec71caf5cf972"
     },
     {
       "source": "src/composition/spec.rs",

@@ -151,6 +151,44 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
                 )
                 self.assertEqual(self.commands(result), expected_commands)
 
+    def test_composition_identity_schemas_route_live_producers_readers_and_schema_checks(self):
+        for schema in [
+            "schemas/composition-manifest-v1.schema.json",
+            "schemas/composition-result-v2.schema.json",
+        ]:
+            with self.subTest(schema=schema):
+                result = self.select(schema)
+                self.assertEqual(
+                    result["bundle_ids"],
+                    ["composition", "identity", "schema", "sdk"],
+                )
+                self.assertEqual(
+                    result["matched_rules"][schema],
+                    ["composition-identity-contract", "schema"],
+                )
+                commands = self.commands(result)
+                self.assertTrue(
+                    any(
+                        command.startswith(
+                            "cargo test --locked --no-default-features --test composition__subsystem "
+                        )
+                        for command in commands
+                    ),
+                    commands,
+                )
+                self.assertIn(
+                    "cargo test --locked --no-default-features --test cli_sdk__nonfast sdk_facade::",
+                    commands,
+                )
+                self.assertIn(
+                    "cargo test --locked --no-default-features --lib identity::identity_domain_tests::",
+                    commands,
+                )
+                self.assertIn(
+                    "cargo test --locked --no-default-features --test schema_resources__subsystem",
+                    commands,
+                )
+
     def test_native_validation_routes_all_byte_stable_fixture_contracts(self):
         validation_commands = [
             "cargo test --locked --no-default-features --lib validation::advanced_blending_presentation_state_tests::",

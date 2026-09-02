@@ -1064,6 +1064,64 @@ gate passes, these files are not independently discoverable Cargo targets and
 R2.2 remains in progress. This slice makes no compile-pass,
 at-most-20-binary, R2 gate, or cost-reduction claim.
 
+### R2.2 harness-conversion slice — CLI, release, and schema resources
+
+**State:** slice complete; R2.2 remains in progress
+
+**Commit:** the commit introducing this conversion slice, with subject
+`test(harnesses): group CLI release and schema domains` (resolve the exact
+object with `git log --format='%H %s' -- tests/harnesses/cli_sdk__nonfast.rs`)
+
+**Owned files:**
+
+- `tests/harnesses/cli_sdk__nonfast.rs`
+- `tests/harnesses/release_ci__fast.rs`
+- `tests/harnesses/release_ci__nonfast.rs`
+- `tests/harnesses/schema_resources__fast.rs`
+- `tests/harnesses/schema_resources__release_candidate.rs`
+- `tests/harnesses/schema_resources__subsystem.rs`
+- `docs/synth-dicom-gen-dcmview-corpus-migration-status-2026-09-01.md`
+
+This final disjoint slice uses the same complete partition artifact,
+`/private/tmp/r2.2-proposed-partition-fecc6bf.json`, SHA-256
+`f99fc5d0930bffd7838772b69f45129bb718e71e5d6b4ba1ce8309561df625b8`,
+bound to R2.1 ownership SHA-256
+`3befc2d9a9cbe634c959f368988ee4385fc3f32aad67bd22cca6a2849db63637`
+and entry-contract SHA-256
+`87adfb84d24b5160beb27cba648f51ca1594a272608d48b82976ed6f42919d0e`.
+
+| Harness | Included sources | Existing test entries | Entry-contract SHA-256 |
+| --- | ---: | ---: | --- |
+| `cli_sdk__nonfast` | 12 | 151 | `24dd4802ac6aba7fc513c2aa58cbf7521b4652bf5b76b8c1bebe51ea63e3ddc0` |
+| `release_ci__fast` | 3 | 11 | `c87d17ac666a4eb84ed03135204273a3b90f4c53dc67cc1826674c4e6986fa6d` |
+| `release_ci__nonfast` | 9 | 14 | `6766e3189c1bb0d57400ae15bd1507322fd8b56713abd6bab87b68742c8bf3bd` |
+| `schema_resources__fast` | 1 | 73 | `b405f6cfe3ea730095dfac849f199a204c74ca538ad4b913431d62cbb122b74e` |
+| `schema_resources__release_candidate` | 1 | 1 | `9ebcddec6b7d1ec20b4d5a534124d96fd9b5191b70f9cd1a643141d0a79036c8` |
+| `schema_resources__subsystem` | 5 | 86 | `b52f46e62afc06f4fdcd711953f5f4472be7b706c573757afe2ec3521df8fb38` |
+| **Slice total** | **31** | **336** | — |
+
+Each assigned source appears once in artifact order through a stable path
+module. The 31 original files remain byte-untouched. Crate-level recursion
+limits are repeated at the CLI and schema harness roots; the retained inner
+attributes on `report_cli.rs` and `schema_artifacts.rs` are explicitly allowed
+as module attributes so warnings-denied compilation can verify the grouping
+without changing those source contracts.
+
+**Static verification:** a deterministic artifact comparison proved exact
+ordered membership for all six files, 31 unique source paths, matching module
+stems, and all 336 entry assignments. All referenced paths exist and the
+harness files pass the scoped whitespace and diff checks. Across the four
+committed conversion slices, the proposed union is now exactly 20 harnesses,
+186 unique source files, and all 879 integration entries; no source or
+assertion has moved or changed.
+
+The central sequential boundary still must disable implicit Cargo discovery,
+register the 20 roots, remap R2.1 ownership, update exact workflow selectors,
+compile/list every expected entry, and measure the final linked-binary count,
+time, and storage. Until that atomic change passes, the six files are not
+discoverable Cargo test targets and R2.2 remains in progress. This slice makes
+no compile-pass, target-count, cost-reduction, or R2-gate claim.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

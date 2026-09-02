@@ -3589,6 +3589,54 @@
       "reason": "The value is DICOM payload, AE-title, manufacturer/device, private-creator, or an immutable payload fixture."
     },
     {
+      "path": "tests/fixtures/cli/capabilities-result-v2-before-composition-readers.json",
+      "token": "DTS_DICOM_VALIDATOR_PYTHON",
+      "class": "qualified_adapter_environment",
+      "count": 9,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "tests/fixtures/cli/capabilities-result-v2-before-composition-readers.json",
+      "token": "DTS_HIGHDICOM_PYTHON",
+      "class": "qualified_adapter_environment",
+      "count": 1,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "tests/fixtures/cli/capabilities-result-v2-before-composition-readers.json",
+      "token": "DTS_WSI_RECONSTRUCTION_PYTHON",
+      "class": "qualified_adapter_environment",
+      "count": 1,
+      "owner": "qualified-adapter-interface",
+      "reason": "The exact environment spelling is bound by a qualified external adapter protocol or lock."
+    },
+    {
+      "path": "tests/fixtures/cli/capabilities-result-v2-before-composition-readers.json",
+      "token": "dts_highdicom_backend",
+      "class": "locked_python_module_or_backend",
+      "count": 7,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
+      "path": "tests/fixtures/cli/composition-manifest-v0.4.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/fixtures/cli/composition-manifest-v0.5.json",
+      "token": "dts_highdicom_backend",
+      "class": "locked_python_module_or_backend",
+      "count": 7,
+      "owner": "locked-adapter-identity",
+      "reason": "The lower-case snake spelling is a locked Python package, module, or external backend identity."
+    },
+    {
       "path": "tests/fixtures/cli/version-result-v1.json",
       "token": "dicom-test-suite",
       "class": "legacy_payload_schema_fixture_or_evidence",
@@ -4382,13 +4430,13 @@
     }
   ],
   "retained_snapshot": {
-    "match_count": 884,
-    "sha256": "08a12f22493fa0cbed591f3178e063330fe73d945649fe10f18db79bcf4293e0",
+    "match_count": 910,
+    "sha256": "3bb7713fbad7ff44ac73f19544fcb35803e9a0561f2cd4b00fa8cac00e92575d",
     "by_class": {
       "dicom_payload_identifier": 188,
-      "legacy_payload_schema_fixture_or_evidence": 284,
-      "locked_python_module_or_backend": 127,
-      "qualified_adapter_environment": 143,
+      "legacy_payload_schema_fixture_or_evidence": 285,
+      "locked_python_module_or_backend": 141,
+      "qualified_adapter_environment": 154,
       "qualified_adapter_or_test_fixture": 142
     }
   }

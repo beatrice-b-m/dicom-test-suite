@@ -108,7 +108,7 @@ fn first_f32_values(object: &InMemDicomObject, tag: Tag) -> Option<Vec<f32>> {
 }
 
 #[test]
-#[ignore = "external qualification requires the prepared locked highdicom backend"]
+#[ignore = "R1.4 native-provider-contract: prepared-backend structured-report qualification"]
 fn structured_report_defaults_have_closed_reproducible_reference_graphs() {
     let first = root("defaults-a");
     let second = root("defaults-b");
@@ -161,7 +161,7 @@ fn structured_report_defaults_have_closed_reproducible_reference_graphs() {
 }
 
 #[test]
-#[ignore = "external qualification requires the prepared locked highdicom backend"]
+#[ignore = "R1.4 native-provider-contract: prepared-backend structured-report qualification"]
 fn typed_sr_parameters_change_only_known_content_item_values() {
     let workspace = root("parameters");
     fs::create_dir(&workspace).unwrap();

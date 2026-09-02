@@ -23,7 +23,7 @@ fn assert_product_spelling_transition_is_exhaustive_and_fail_closed() {
     assert!(stdout.contains("dicom_payload_identifier"));
 }
 
-const PROVIDER_IGNORED_TESTS: [(&str, &str); 7] = [
+const PROVIDER_IGNORED_TESTS: [(&str, &str); 9] = [
     (
         "--lib",
         "generation_backends::process::tests::fake_backend_timeout_is_enforced",
@@ -51,6 +51,14 @@ const PROVIDER_IGNORED_TESTS: [(&str, &str); 7] = [
     (
         "--test composition__subsystem",
         "composition_quantitative::caller_segmentation_and_parametric_values_round_trip_at_fixed_shape",
+    ),
+    (
+        "--test composition__subsystem",
+        "composition_structured_reports::structured_report_defaults_have_closed_reproducible_reference_graphs",
+    ),
+    (
+        "--test composition__subsystem",
+        "composition_structured_reports::typed_sr_parameters_change_only_known_content_item_values",
     ),
 ];
 
@@ -254,6 +262,17 @@ fn heavy_workflow_retains_nightly_matrix_and_immutable_release_gate() {
 
     assert!(provider.contains("Native provider contract"));
     assert!(provider.contains("RUST_TEST_THREADS: \"1\""));
+    let prepared_backend = provider
+        .find("uv sync --project generation-backends/highdicom-pydicom --locked")
+        .expect("native provider job must prepare the exact locked highdicom project");
+    let exported_backend = provider
+        .find("DTS_HIGHDICOM_PYTHON=$PWD/generation-backends/highdicom-pydicom/.venv/bin/python")
+        .expect("native provider job must export the prepared highdicom executable");
+    let structured_report_qualification = provider
+        .find("composition_structured_reports::structured_report_defaults_have_closed_reproducible_reference_graphs")
+        .expect("native provider job must invoke structured-report qualification");
+    assert!(prepared_backend < exported_backend);
+    assert!(exported_backend < structured_report_qualification);
     assert_eq!(
         provider.matches("-- --ignored --exact").count(),
         PROVIDER_IGNORED_TESTS.len()
@@ -617,7 +636,8 @@ fn ignored_provider_inventory_is_owned_and_matches_serial_workflow() {
     let process = workflow("src/generation_backends/process.rs");
     let curated = workflow("tests/composition_curated_migration.rs");
     let quantitative = workflow("tests/composition_quantitative.rs");
-    let sources = [&process, &curated, &quantitative];
+    let structured_reports = workflow("tests/composition_structured_reports.rs");
+    let sources = [&process, &curated, &quantitative, &structured_reports];
     let provider_reason = "#[ignore = \"R1.4 native-provider-contract:";
     let fixture_reason =
         "#[ignore = \"subprocess fixture invoked by provider tests; not qualification evidence\"]";
@@ -646,8 +666,10 @@ fn ignored_provider_inventory_is_owned_and_matches_serial_workflow() {
             &process
         } else if test.contains("migrated_curated") {
             &curated
-        } else {
+        } else if test.contains("composition_quantitative::") {
             &quantitative
+        } else {
+            &structured_reports
         };
         let function = format!("fn {test}()", test = test.rsplit("::").next().unwrap());
         let offset = source

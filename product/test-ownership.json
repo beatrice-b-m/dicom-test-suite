@@ -3,10 +3,10 @@
   "scope": {
     "rust_test_targets": 22,
     "integration_test_targets": 20,
-    "rust_test_entry_groups": 265,
-    "rust_test_entries": 1414,
+    "rust_test_entry_groups": 266,
+    "rust_test_entries": 1418,
     "integration_source_groups": 187,
-    "integration_test_entries": 895,
+    "integration_test_entries": 896,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
   },
   "enums": {
@@ -400,7 +400,7 @@
         "capabilities_requires_an_explicit_machine_format",
         "capabilities_machine_syntax_failure_is_one_schema_valid_stderr_envelope"
       ],
-      "entry_digest": "b45949d214f614b2b814836e7ba650fc56cf21166a2d6e55f614c7ae6888af74"
+      "entry_digest": "75ce5b8d4fe42387c05f27b9167c686f1ec428bcb845130b981de312b430ff51"
     },
     {
       "source": "tests/case_recipe_catalog.rs",
@@ -831,7 +831,7 @@
       "entries": [
         "every_qualified_default_and_bundle_passes_p8_reproducibility_validation_and_report"
       ],
-      "entry_digest": "12a8d9fb625569354e31cfc009f5026a10bd4ee65f1c101d8c4a463aa6fc896f"
+      "entry_digest": "dbe026ebbcb0848955de7bcd735c9d47a77b11bbeb5d8938fe97acbcf02d07ed"
     },
     {
       "source": "tests/composition_parallel.rs",
@@ -2510,10 +2510,11 @@
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 50,
+      "entry_count": 51,
       "entries": [
         "report_command_isolates_bounded_fuzz_qualification",
         "report_command_writes_json_coverage_for_core_root",
+        "current_smoke_report_normalizes_to_the_frozen_r0_bytes",
         "markdown_report_renders_cross_series_organization_expectations",
         "markdown_report_renders_metadata_and_vr_expectations",
         "report_command_writes_enhanced_mr_per_frame_coverage_for_extended_root",
@@ -2563,7 +2564,7 @@
         "report_locks_rt_radiation_pair_contracts_and_markdown",
         "report_rejects_malformed_rt_radiation_pair_manifests"
       ],
-      "entry_digest": "46ea67578477a68760c3c1906eca659944b9d40f81dfe8693fda0b5c5f17e549"
+      "entry_digest": "c856db5d85967896a11a710e53d87a9d4df7e49eaf2a9700894c9b6d2728fbb3"
     },
     {
       "source": "tests/robustness_qualification_api.rs",
@@ -2768,7 +2769,7 @@
         "sdk_assembly_validate_and_report_read_exact_supported_manifest_versions",
         "sdk_rejects_invalid_assembly_identity_contracts_before_semantics"
       ],
-      "entry_digest": "782a086c64cf0f231172c2158fb8c5e55ef5f7cb1c4b6c5da90cebf75b3708e7"
+      "entry_digest": "67f667297e11273689273a2afaa23c948d67d663ada903ec1bb1a0e49c486d79"
     },
     {
       "source": "tests/semantic_sr_rt_plan.rs",
@@ -3649,7 +3650,7 @@
       "entries": [
         "validates_and_reports_composition_without_registry_axes"
       ],
-      "entry_digest": "d91b234559222cf55487afbe365e2dbefaa7d122743e90df16d6c61efa208ba7"
+      "entry_digest": "1a40d22a428f9e7aad32ddea58496f8f22f7e1303fc4e6e9b4011d9bf64f0070"
     },
     {
       "source": "src/conformance.rs",
@@ -4060,7 +4061,7 @@
         "verified_corpus_perturbation_changes_only_corpus_identity",
         "external_runtime_identity_requires_successful_typed_execution_evidence"
       ],
-      "entry_digest": "9b51a5e75875d4acf6f20fa346c9c9a1609e45fe8e8a9f9aabf14fe450832c27"
+      "entry_digest": "047a72642beccffacb46db7551d14e3d7f46c9e231ba0f8ec785710576cc6f50"
     },
     {
       "source": "src/lib.rs",
@@ -4266,6 +4267,20 @@
         "robustness_source_rejects_self_reference"
       ],
       "entry_digest": "96f6cf727a0410dbe048d7d34464d8164aceb67a56d02f2e5f1056ed51c7014f"
+    },
+    {
+      "source": "src/report_contract.rs",
+      "target": "synth_dicom_gen",
+      "domain": "corpus_generation",
+      "verification_class": "subsystem",
+      "cost_tier": "ordinary",
+      "entry_count": 3,
+      "entries": [
+        "legacy_report_fixtures_remain_schema_valid",
+        "current_reports_validate_and_preserve_every_legacy_field",
+        "current_report_contracts_reject_identity_and_version_mutations"
+      ],
+      "entry_digest": "8c3a3c639c82ef4164c6c74ca51ca2578cd263ec2a6efd341a76e06d61b3ddd6"
     },
     {
       "source": "src/rt_manifest.rs",

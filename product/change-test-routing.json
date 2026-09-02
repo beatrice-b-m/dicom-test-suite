@@ -79,6 +79,13 @@
       ],
       "deferred": ["native_provider_contract"]
     },
+    "report": {
+      "commands": [
+        {"kind": "lib", "module": "report_contract::report_contract_tests", "source": "src/report_contract.rs", "list_count": 3},
+        {"target": "cli_sdk__nonfast", "module": "report_cli"},
+        {"target": "cli_sdk__nonfast", "module": "sdk_facade"}
+      ]
+    },
     "routing_contract": {
       "commands": [],
       "covered_by_fast": ["release_ci__fast"]
@@ -171,7 +178,21 @@
     {
       "id": "manifest-contract",
       "exact": ["src/manifest_contract.rs"],
-      "bundles": ["assembly", "sdk", "schema"]
+      "bundles": ["assembly", "report", "sdk", "schema"]
+    },
+    {
+      "id": "report-contract",
+      "exact": [
+        "schemas/composition-report.schema.json",
+        "schemas/composition-report-v1.schema.json",
+        "schemas/coverage-report-v1.schema.json",
+        "schemas/structural-assembly-report-v2.schema.json",
+        "src/report_contract.rs",
+        "tests/fixtures/cli/composition-report-v0.1.json",
+        "tests/fixtures/cli/coverage-report-v0.1.json",
+        "tests/fixtures/cli/structural-assembly-report-v1.json"
+      ],
+      "bundles": ["report", "schema"]
     },
     {
       "id": "identity-discovery",

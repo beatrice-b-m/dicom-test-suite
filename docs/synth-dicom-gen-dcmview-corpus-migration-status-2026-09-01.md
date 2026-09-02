@@ -1951,6 +1951,160 @@ repair, the seed-1 hashes were `9d74d59a...`, `0c59e2f2...`, and
 | `classic/sc/mono2_u8_explicit_le` | 926 | `fce766bcbb4b4aa79cfb3fa0c3b5e4ef888b11c0708fad713b9cde8d41ec6a15` |
 | `classic/sc/rgb_planar0_explicit_le` | 938 | `33de9448509431fda27005cbf83c79977f1c3ebadb669ae1dedf1a225742f3c5` |
 
+### R3 output-version compatibility repair — 2026-09-02
+
+The SC repair above exposed the same release-version coupling in the remaining
+unchanged built-in byte-stable providers. The completed audit classifies all
+162 implemented `byte_stable` cases by provider: mutation 15, classic 32,
+encapsulated 2, enhanced 7, exceptional SC 1, metadata SC 7, presentation 4,
+quantitative 5, registration 2, RT 6, SC 66, SR 3, stress CT 1, stress SC 4,
+waveform 2, and WSI 5. A fail-closed source inventory now derives this set from
+the registry and recipe mapping and rejects `PACKAGE_VERSION` or
+`CARGO_PKG_VERSION` coupling in every byte-stable recipe and the built-in
+composition default.
+
+Commits `400e2c4`, `4b4a8d4`, `c120d89`, `f51f683`, `713de4b`, `6ee6b15`,
+`e0afd29`, `90298f4`, `562356f`, `e7d9314`, `b8deab1`, and `f5aa968`
+centralize `BYTE_STABLE_OUTPUT_VERSION = "0.1.0"` and apply it only to
+output-bearing DICOM Implementation Class UID and Software Versions producers
+and their paired validators. The earlier SC repair is `71e4c62`. Product,
+discovery, manifest, built-in runtime, package, and release evidence continues
+to use `PACKAGE_VERSION = "0.2.0"`. Five semantic-stable external cases remain
+intentionally product-versioned: two `external.highdicom_sr_import_plan` cases
+through `semantic_context` and three
+`external.quantitative_import_plan` cases through `quantitative_context`.
+
+The exact frozen Implementation Class UID is
+`2.25.93442075376351194778596039619060852790`; the incorrect release-coupled
+`0.2.0` derivation was
+`2.25.191308153041538677130862129189427757183`. Representative native plan
+locks cover every affected direct provider family:
+
+| Provider family | Exact canonical plan SHA-256 |
+| --- | --- |
+| SC | `71792e2a52c1bb1b0ef483324922a4c7c7613d0ae9535f088f84601c33eec32a` |
+| metadata SC | `ba18d5029e477f943d6765a9d706cef3c5f437a24c5346fa4f64c8adafaf2040` |
+| classic | `9656dc07538da6542157492b28bbd1c5bb9f27a7b86d73e522440885aa8c6430` |
+| enhanced | `8d970294e2143f6f55d6c134d5fea21366428faaf33c8ee368f48a2ab9e3dca7` |
+| WSI | `be80772ebab7462896244117b6581caf50a541e0eb6aa9f030c97e3bd217b1ab` |
+| registration | `7e3f825b6923734077281143600098003312c6acecf73a69828853a0ddb6c80c` |
+| presentation | `c032ecbd1179acd98e356a5d4a036fb6fd33ca313c841d91dd8f381efaec647c` |
+| waveform | `1848a8c90fee9191d66270822e9fb8fd4f950169182c79688f7ae6a56e8e717a` |
+| encapsulated | `f46f37b1f643c4a9b53814bde2926aeb372f7ebad1e822ef174ec2426f624967` |
+| quantitative | `002629859f739a4cbc4699a9f1550b095f29bc90e869cde201f3481ec00c0915` |
+| SR | `5438c54932da7b4de3e733f385854e2538a350507fb7e9195097f1d6e32d6fc6` |
+| RT | `e8210ca6e1c6864d259d1817c18c4102ec3db65e2b52cdc7c756a1426594c17b` |
+| stress CT | `5b36d3cf3f930d803a07d118fe9023f3aa80eecd032fc75e6fe7d1c501be00b9` |
+| stress SC | `6ad82a4b0c076e95037a30a69f85914c40792b6e2c536498f7d07bd6d8068f8f` |
+
+Commit `409ee2d` additionally locks the standalone smoke corpus plan at
+`2a18d78c956c2873755c30e989e90c900ece38bfd5ca87947565c19cfed8127c`
+and its mono1, mono2, and RGB resolved plans at
+`71792e2a52c1bb1b0ef483324922a4c7c7613d0ae9535f088f84601c33eec32a`,
+`394035d0ae5aa616041b4c140d6e20b0861e5074efa3177059cd533e5c5060ef`,
+and `aa32a98e6145116050f31d35739423619c84b096b65fa1d38e332396b888853e`,
+respectively. The three exact payload hashes and
+sizes remain those in the table above.
+
+The all-profile R0 comparison was performed mechanically against recorded R0
+revision `65a296bbb489fcaaff22e38fa35036f0805ccab6`, not inferred from a new
+expected value. Pretty-serialized seed-7 plans at R0 and current were identical:
+4,071,121 bytes and SHA-256
+`c85d84dc77197042e42bbe0ea072128853c7c185df3dcce5ef57cc17754b0bae`.
+Bounded ordinary generation emitted the same 153 paths and zero differing
+payloads. Exactly two manifest-entry evidence classes changed: 59
+`/pixel_data/codec/version` values changed from `0.1.0` to the required product
+version `0.2.0` through the pre-existing `built_in_tool` runtime identity when
+commit `86d0298` bumped the package, and one validation message changed in
+`c120d89` to describe the byte-stable contract accurately. Commits `e88202f`
+and `710f56f` therefore lock both the exact current projection digest
+`5d7a02ef873833dba33e9feb56330eabad709215c25de7c6caf0aa61986ab21e`
+and, after fail-closed normalization of exactly those 59 product-evidence
+versions and one message, the restored R0-compatible digest
+`a50de8b288b3543876e4e58bcc2b435f41b81e84201e78508f093e894b8f4c36`.
+Smoke and legacy require zero normalizations and retain their exact historical
+digests `798319444e6a0cd0b34607ebee9f4b2d88987e9c8cd0bb2e4a95480aa4f6a68e`
+and `162112cb5b497bce5111a5f1a95d003f63b67ca444f37931b78f097fda86a864`.
+
+Focused ordinary verification passed:
+
+```text
+cargo test --locked --no-default-features --test corpus_generation__subsystem unified_generation_spine_audit::
+7 passed; includes the 162-case fail-closed inventory and 14-family exact plan assertions
+
+cargo test --locked --no-default-features --test corpus_generation__subsystem curated_generate_integration::ordinary_generate_preserves_locked_curated_history_for_public_profiles -- --exact
+1 passed; exact current and R0-compatible smoke/all/legacy projections
+
+cargo test --locked --no-default-features --test schema_resources__subsystem standalone_generate_resources::generate_uses_embedded_resources_from_an_unrelated_working_directory -- --exact
+1 passed; exact smoke corpus, resolved-plan, and three payload digests
+
+cargo test --locked --no-default-features --test engine__subsystem corpus_plan::
+22 passed
+
+cargo test --locked --no-default-features --test composition__subsystem template_default_recipes::
+4 passed
+
+python3 scripts/check-test-ownership.py
+passed: 22 targets; 264 groups; 1,400 entries; 20 integration targets, 186 sources, 882 entries
+
+python3 -m unittest tests/test_test_ownership_checker.py tests/test_change_test_routing.py
+20 passed
+
+python3 scripts/check-spelling-transition.py
+passed: 883 classified retained occurrences; SHA-256 6a56bdc8947beb4cddd1d4b250eee6f682c7cc15c221d57aff842a53357919fa
+
+cargo fmt --all -- --check
+git diff --check
+passed
+```
+
+Every changed path was inspected through `route-changed-tests.py --dry-run`
+before its focused command. The terminal routing metadata hashes are config
+`9000f04a4318ace7ecb0e97de2d54c6d91bd70ec82ba16beda44b96cea05472e`
+and ownership
+`26dd5b5f0969f676a0be403fe5352d55200c94b43d603ef6d9754b460af299d8`.
+
+One exploratory ordinary subsystem run after the relevant digest repair was
+not acceptance evidence: `cargo test --locked --no-default-features --test
+corpus_generation__subsystem -- --format terse` reported 65 passed and 27
+failed. The failures are pre-existing R4.3 manifest-v1/schema/routing debt and
+were not changed in this compatibility task:
+
+| Exact failing test | Exact observed cause |
+| --- | --- |
+| `advanced_blending_presentation_state::advanced_blending_vertical_slice_is_byte_deterministic_and_closed` | Frozen schema rejects manifest `1.0.0` and unexpected `identity_projection`. |
+| `blending_presentation_state::blending_presentation_state_vertical_slice_is_byte_deterministic_and_closed` | Frozen schema rejects manifest `1.0.0` and unexpected `identity_projection`. |
+| `color_softcopy_presentation_state::color_softcopy_presentation_state_vertical_slice_is_byte_deterministic_and_closed` | Frozen schema rejects manifest `1.0.0` and unexpected `identity_projection`. |
+| `ct_geometry::core_generates_two_series_in_one_study_and_frame_of_reference` | Frozen schema accepts only `0.2.0`/`0.3.0` and rejects `identity_projection`. |
+| `curated_generate_integration::ordinary_generate_routes_curated_sc_through_the_shared_executor_only` | Static assertion still requires removed spelling `prepare_curated_sc_plan`. |
+| `deformable_spatial_registration::deformable_registration_vertical_slice_is_byte_deterministic_and_closed` | Generated manifest fails the frozen manifest schema. |
+| `enhanced_mr_temporal::enhanced_mr_temporal_position_vertical_slice_is_self_consistent` | Frozen schema rejects manifest `1.0.0` and unexpected `identity_projection`. |
+| `enhanced_pet_multiframe::enhanced_pet_vertical_slice_is_deterministic_schema_valid_and_strictly_validated` | Generated manifest fails the frozen locked schema. |
+| `enhanced_pet_multiframe::validator_rejects_tampered_enhanced_pet_manifest_contracts` | Schema-first validation rejects tampered orientation because `"Axial"` was expected before the intended semantic assertion. |
+| `general_ecg_waveform::general_ecg_vertical_slice_is_byte_deterministic_and_closed` | Test expects manifest version `0.3.0`; producer emits `1.0.0`. |
+| `metadata_empty_type2::empty_type2_vertical_slice_is_exact_byte_stable_and_reported` | Generated manifest fails the frozen manifest schema. |
+| `metadata_empty_type2::validator_rejects_tampered_empty_type2_contract` | Schema-first validation rejects the tampered value because `0` was expected before semantic inspection. |
+| `metadata_private_creators::private_creator_vertical_slice_is_exact_byte_stable_and_reported` | Generated manifest fails the frozen manifest schema. |
+| `metadata_private_creators::schema_and_validator_require_private_metadata_and_block_count` | Schema-first validation rejects the tampered count because `3` was expected before semantic inspection. |
+| `metadata_sequence_lengths::sequence_length_vertical_slice_is_exact_byte_stable_and_reported` | Generated manifest fails the frozen manifest schema. |
+| `metadata_sequence_lengths::validator_rejects_tampered_sequence_length_contract` | Schema-first validation rejects the tampered item because `"Head"` was expected before semantic inspection. |
+| `metadata_string_boundaries::string_boundary_vertical_slice_is_exact_byte_stable_and_reported` | Generated manifest fails the frozen manifest schema. |
+| `metadata_timezone::timezone_boundaries_are_deterministic_strict_and_reported` | Generated timezone manifest fails the committed frozen schema. |
+| `metadata_utf8::utf8_person_name_vertical_slice_is_exact_and_byte_stable` | Frozen schema rejects manifest `1.0.0` and unexpected `identity_projection`. |
+| `nm_multiframe::nm_multiframe_vertical_slice_is_exact_byte_stable_and_reported` | Generated manifest fails the frozen manifest schema. |
+| `nm_multiframe::validator_rejects_tampered_nm_dimension_contract` | Schema-first validation rejects the tampered dimension because `"0054,0010"` was expected before semantic inspection. |
+| `pet_rescaled_activity::pet_rescaled_activity_vertical_slice_is_exact_byte_stable_and_reported` | Generated manifest fails the frozen manifest schema. |
+| `pet_rescaled_activity::validator_rejects_tampered_pet_activity_contract` | Schema-first validation rejects the tampered units because `"BQML"` was expected before semantic inspection. |
+| `spatial_registration::spatial_registration_vertical_slice_is_byte_deterministic_and_strictly_validated` | Generated manifest fails the frozen locked schema. |
+| `twelve_lead_ecg_waveform::twelve_lead_ecg_vertical_slice_is_byte_deterministic_and_closed` | Frozen schema rejects manifest `1.0.0` and unexpected `identity_projection`. |
+| `us_multiframe::us_multiframe_vertical_slice_is_exact_byte_stable_and_reported` | Generated manifest fails the frozen manifest schema. |
+| `us_multiframe::validator_rejects_tampered_us_multiframe_contract` | Schema-first validation rejects the tampered region because `"ABDOMINAL"` was expected before semantic inspection. |
+
+No Heavy byte-parity/all-profile/WSI/stress body, external provider adapter,
+Nightly, release-candidate, or R7 terminal qualification ran. This repair is
+ordinary R3/R0 compatibility evidence only and does not promote any deferred
+R7 or terminal acceptance row.
+
 Focused verification passed:
 
 ```text

@@ -16,7 +16,7 @@ const SCHEMAS: &[(&str, &str)] = &[
     ),
     (
         "schemas/corpus-definition-bundle.schema.json",
-        "https://dicom-test-suite.local/schemas/corpus-definition-bundle.schema.json",
+        "https://synth-dicom-gen.local/schemas/corpus-definition-bundle.schema.json",
     ),
     (
         "schemas/version-result.schema.json",

@@ -7,7 +7,138 @@ use std::{
 };
 use synth_dicom_gen::sdk::{
     CorpusSelector, DicomTestSuite, GenerateCorpusOutcome, GenerateCorpusRequest,
+    InspectCorpusRequest,
 };
+
+#[test]
+fn loaded_capabilities_are_verified_destination_free_and_sdk_consistent() {
+    let f = Fixture::new();
+    let base = [
+        "capabilities",
+        "--corpus",
+        "./definition.json",
+        "--asset-root",
+        "corpus-members",
+        "--format",
+        "json",
+    ]
+    .map(str::to_owned)
+    .to_vec();
+    let inspect = |args: &[String]| {
+        let output = f.command(args);
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(output.stderr.is_empty());
+        let value: Value = serde_json::from_slice(&output.stdout).unwrap();
+        valid("capabilities-result-v3.schema.json", &value["result"]);
+        value["result"].clone()
+    };
+    let metadata = inspect(&base);
+    assert_eq!(
+        metadata["loaded_corpus"]["assessment_state"],
+        "not_assessed"
+    );
+    assert!(metadata["loaded_corpus"]["assessment"].is_null());
+    assert_eq!(
+        metadata["identity_domains"]["corpus_definition"],
+        metadata["loaded_corpus"]["corpus_definition_identity"]
+    );
+    assert_eq!(metadata["identity_domains"]["external_runtime"], json!([]));
+    assert!(
+        metadata["provider_support"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p["provider_id"] == "rust_native" && p["availability"] == "compiled")
+    );
+    for p in metadata["provider_support"].as_array().unwrap() {
+        assert_eq!(p["runtime_assessment"], "not_performed");
+    }
+    let mut selected = base.clone();
+    selected.extend(["--profile", "smoke", "--seed", "1", "--parallelism", "2"].map(str::to_owned));
+    let result = inspect(&selected);
+    // Inspection must not search PATH or invoke a provider/version executable.
+    let without_tools = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
+        .args(&selected)
+        .current_dir(&f.0)
+        .env("PATH", "")
+        .output()
+        .unwrap();
+    assert!(without_tools.status.success());
+    assert_eq!(
+        serde_json::from_slice::<Value>(&without_tools.stdout).unwrap()["result"],
+        result
+    );
+    let product = DicomTestSuite::embedded().unwrap();
+    let sdk = product
+        .capabilities_with_corpus(
+            InspectCorpusRequest::from_file(
+                f.0.join("definition.json"),
+                f.0.join("corpus-members"),
+            )
+            .with_selection(CorpusSelector::Profile {
+                profile: "smoke".into(),
+                include_stress: false,
+            })
+            .with_parallelism(2),
+        )
+        .unwrap();
+    assert_eq!(result, serde_json::to_value(sdk).unwrap());
+    assert_eq!(
+        result["loaded_corpus"]["assessment"]["validation"],
+        "not_run"
+    );
+    assert_eq!(
+        result["loaded_corpus"]["assessment"]["publication"],
+        "not_run"
+    );
+    assert_eq!(
+        result["loaded_corpus"]["assessment"]["artifact_ids"]
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
+    assert!(!f.0.join("generated").exists());
+    let schema = validator("capabilities-result-v3.schema.json");
+    for key in ["engine_sha256", "schema_set_sha256"] {
+        let mut bad = result.clone();
+        let domain = if key == "engine_sha256" {
+            "engine"
+        } else {
+            "schema_set"
+        };
+        bad["identity_domains"][domain][key] = json!("bad");
+        assert!(!schema.is_valid(&bad));
+    }
+    let mut bad = result.clone();
+    bad["capabilities_result_schema_version"] = json!("99.0.0");
+    assert!(!schema.is_valid(&bad));
+    for options in [
+        vec!["--seed", "1"],
+        vec!["--parallelism", "2"],
+        vec!["--include-stress"],
+        vec!["--case-id", "unknown"],
+    ] {
+        let mut args = base.clone();
+        args.extend(options.into_iter().map(str::to_owned));
+        let output = f.command(&args);
+        assert_eq!(output.status.code(), Some(2));
+        let envelope: Value = serde_json::from_slice(&output.stderr).unwrap();
+        assert_eq!(envelope["command"], "capabilities");
+        assert_eq!(envelope["error"]["code"], "command.argument.missing");
+    }
+    let mut absent = base.clone();
+    absent[2] = "./missing.json".into();
+    absent.extend(["--parallelism".into(), "0".into()]);
+    let output = f.command(&absent);
+    let envelope: Value = serde_json::from_slice(&output.stderr).unwrap();
+    assert_eq!(envelope["error"]["code"], "request.schema.invalid");
+    assert!(!f.0.join("generated").exists());
+}
 
 struct Fixture(PathBuf);
 impl Fixture {

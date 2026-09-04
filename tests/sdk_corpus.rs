@@ -164,6 +164,37 @@ fn inspection_is_destination_free_and_agrees_with_generation_planning() {
         )
         .unwrap_err();
     assert_eq!(invalid.code(), "request.schema.invalid");
+    let mut unsupported: Value = serde_json::from_slice(&fixture.bytes).unwrap();
+    unsupported["corpus_definition_bundle_schema_version"] = json!("99.0.0");
+    for (bytes, code) in [
+        (b"{".to_vec(), "request.json.invalid"),
+        (
+            serde_json::to_vec(&unsupported).unwrap(),
+            "request.version.unsupported",
+        ),
+        (vec![b' '; 1024 * 1024 + 1], "resource.limit.exceeded"),
+    ] {
+        assert_eq!(
+            product
+                .inspect_corpus(InspectCorpusRequest::from_json_bytes(
+                    bytes,
+                    &fixture.members
+                ))
+                .unwrap_err()
+                .code(),
+            code
+        );
+    }
+    assert_eq!(
+        product
+            .inspect_corpus(
+                InspectCorpusRequest::from_json_bytes(fixture.bytes.clone(), &fixture.members)
+                    .with_selection(profile("not-a-profile"))
+            )
+            .unwrap_err()
+            .code(),
+        "request.schema.invalid"
+    );
     let token = CancellationToken::new();
     token.cancel();
     assert_eq!(

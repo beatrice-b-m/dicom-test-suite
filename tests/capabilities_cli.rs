@@ -28,6 +28,25 @@ fn compile_v2_capabilities_schema() -> jsonschema::Validator {
         .unwrap()
 }
 
+fn compile_v3_capabilities_schema() -> jsonschema::Validator {
+    let schema: Value =
+        serde_json::from_slice(&fs::read("schemas/capabilities-result-v3.schema.json").unwrap())
+            .unwrap();
+    let mut options = jsonschema::options();
+    options = options.with_draft(jsonschema::Draft::Draft202012);
+    for entry in fs::read_dir("schemas").unwrap() {
+        let path = entry.unwrap().path();
+        if path.extension().and_then(|s| s.to_str()) == Some("json") {
+            let value: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+            options = options.with_resource(
+                value["$id"].as_str().unwrap().to_owned(),
+                jsonschema::Resource::from_contents(value).unwrap(),
+            );
+        }
+    }
+    options.build(&schema).unwrap()
+}
+
 #[test]
 fn capabilities_json_is_live_schema_valid_and_conservative_outside_the_checkout() {
     let cwd = std::env::temp_dir().join(format!(
@@ -57,11 +76,13 @@ fn capabilities_json_is_live_schema_valid_and_conservative_outside_the_checkout(
     );
     let envelope: Value = serde_json::from_slice(&output.stdout).unwrap();
     assert!(compile_schema("schemas/cli-success-envelope.schema.json").is_valid(&envelope));
-    assert!(compile_v2_capabilities_schema().is_valid(&envelope["result"]));
+    compile_v3_capabilities_schema()
+        .validate(&envelope["result"])
+        .unwrap();
     assert_eq!(envelope["command"], "capabilities");
     assert_eq!(
         envelope["result"]["capabilities_result_schema_version"],
-        "2.0.0"
+        "3.0.0"
     );
     assert_eq!(
         envelope["result"]["supported_versions"]["result_schemas"]["version"],
@@ -69,7 +90,7 @@ fn capabilities_json_is_live_schema_valid_and_conservative_outside_the_checkout(
     );
     assert_eq!(
         envelope["result"]["supported_versions"]["result_schemas"]["capabilities"],
-        serde_json::json!(["2.0.0"])
+        serde_json::json!(["3.0.0"])
     );
     assert_eq!(
         envelope["result"]["supported_versions"]["result_schema_validation"]["version"],
@@ -77,15 +98,15 @@ fn capabilities_json_is_live_schema_valid_and_conservative_outside_the_checkout(
     );
     assert_eq!(
         envelope["result"]["supported_versions"]["result_schema_validation"]["capabilities"],
-        serde_json::json!(["1.0.0", "2.0.0"])
+        serde_json::json!(["1.0.0", "2.0.0", "3.0.0"])
     );
     assert_eq!(
         envelope["result"]["supported_versions"]["result_schemas"]["generation"],
-        serde_json::json!(["2.0.0"])
+        serde_json::json!(["2.0.0", "3.0.0"])
     );
     assert_eq!(
         envelope["result"]["supported_versions"]["result_schema_validation"]["generation"],
-        serde_json::json!(["1.0.0", "2.0.0"])
+        serde_json::json!(["1.0.0", "2.0.0", "3.0.0"])
     );
     assert_eq!(
         envelope["result"]["supported_versions"]["curated_manifest"],
@@ -143,11 +164,11 @@ fn capabilities_json_is_live_schema_valid_and_conservative_outside_the_checkout(
     );
     assert_eq!(
         envelope["result"]["supported_versions"]["coverage_report"],
-        serde_json::json!(["1.0.0"])
+        serde_json::json!(["1.0.0", "2.0.0"])
     );
     assert_eq!(
         envelope["result"]["supported_versions"]["coverage_report_validation"],
-        serde_json::json!(["0.1.0", "1.0.0"])
+        serde_json::json!(["0.1.0", "1.0.0", "2.0.0"])
     );
     assert_eq!(
         envelope["result"]["supported_versions"]["composition_report"],
@@ -167,11 +188,11 @@ fn capabilities_json_is_live_schema_valid_and_conservative_outside_the_checkout(
     );
     assert_eq!(
         envelope["result"]["supported_versions"]["release_manifest"],
-        serde_json::json!(["2.0.0"])
+        serde_json::json!(["3.0.0"])
     );
     assert_eq!(
         envelope["result"]["supported_versions"]["release_manifest_validation"],
-        serde_json::json!(["1.0.0", "2.0.0"])
+        serde_json::json!(["1.0.0", "2.0.0", "3.0.0"])
     );
     assert_eq!(
         envelope["result"]["supported_versions"]["result_schemas"]["assembly"],

@@ -136,11 +136,11 @@ fn smoke_publication_is_verified_deterministic_and_reader_bounded() {
             .to_string()
             .contains("not yet supported")
     );
-    assert!(
+    assert_eq!(
         sdk.report(crate::sdk::ReportRequest::new(&first.destination))
             .unwrap_err()
-            .to_string()
-            .contains("not yet supported")
+            .code(),
+        "request.version.unsupported"
     );
 }
 

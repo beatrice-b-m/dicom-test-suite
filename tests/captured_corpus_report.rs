@@ -127,6 +127,35 @@ fn projection_accepts_unknown_case_names_without_embedded_inference() {
     assert_eq!(report["summary"]["logical_cases"], 3);
     assert_eq!(report["summary"]["emitted_files"], 4);
     assert_eq!(report["source_manifest"], source);
+    // Group real captured-definition shapes without executing isolated scopes.
+    let registry: Value = serde_json::from_slice(include_bytes!("../cases/registry.json")).unwrap();
+    let isolated = ["negative", "fuzz", "stress"].map(|profile| {
+        registry["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|row| {
+                row["profiles"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|p| p == profile)
+            })
+            .unwrap()
+    });
+    let grouped = dimensions(
+        isolated
+            .iter()
+            .map(|row| (row["case_id"].as_str().unwrap(), *row)),
+        false,
+    );
+    let profiles = grouped["profiles"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|group| group["value"].as_str().unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(profiles, vec!["fuzz", "negative", "stress"]);
 }
 
 #[test]

@@ -4,6 +4,8 @@ use serde::Serialize;
 
 pub const CLI_API_VERSION: &str = "1.0.0";
 pub const GENERATION_RESULT_SCHEMA_VERSION: &str = "2.0.0";
+pub const EXTERNAL_GENERATION_RESULT_SCHEMA_VERSION: &str = "3.0.0";
+pub const EXTERNAL_REPORT_RESULT_SCHEMA_VERSION: &str = "2.0.0";
 pub const COMPOSITION_RESULT_SCHEMA_VERSION: &str = "2.0.0";
 pub const ASSEMBLY_RESULT_SCHEMA_VERSION: &str = "2.0.0";
 pub const TEMPLATES_RESULT_SCHEMA_VERSION: &str = "1.0.0";
@@ -70,6 +72,35 @@ pub struct GenerationResult {
     pub generation_result_schema_version: &'static str,
     #[serde(flatten)]
     pub outcome: FileProducingOutcome,
+}
+
+/// External-corpus-only result: nonpublication is not an empty successful run.
+#[derive(Debug, Clone, Serialize)]
+pub struct ExternalGenerationResult {
+    pub generation_result_schema_version: &'static str,
+    pub outcome: &'static str,
+    pub requested_output_root: String,
+    pub manifest_path: Option<String>,
+    pub run_kind: &'static str,
+    pub seed: u64,
+    pub profile: String,
+    pub include_stress: bool,
+    pub selector: serde_json::Value,
+    pub request_schema_version: &'static str,
+    pub manifest_schema_version: &'static str,
+    pub product_version: String,
+    pub identity_projection: serde_json::Value,
+    pub selection_ledger: Vec<serde_json::Value>,
+    pub corpus_plan_sha256: String,
+    pub emitted_file_count: usize,
+    pub output_bytes: u64,
+    pub selected_case_count: usize,
+    pub direct_case_count: usize,
+    pub dependency_case_count: usize,
+    pub published: bool,
+    pub publication_status: &'static str,
+    pub validation_status: &'static str,
+    pub preview_artifact_ids: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -237,6 +268,34 @@ pub struct CliFailure {
 }
 
 impl CliFailure {
+    /// Bridge a typed SDK failure without reclassifying its diagnostic text.
+    pub fn from_sdk(command: &str, error: crate::sdk::SdkError) -> Self {
+        Self::from_code(command, error.code(), error.diagnostic())
+    }
+
+    pub fn from_code(command: &str, code: &'static str, diagnostic: impl Into<String>) -> Self {
+        let registry: serde_json::Value =
+            serde_json::from_str(include_str!("../product/cli-error-codes.json"))
+                .expect("committed error registry");
+        let row = registry["errors"]
+            .as_array()
+            .expect("error registry entries")
+            .iter()
+            .find(|row| row["code"] == code)
+            .expect("registered typed CLI code");
+        let diagnostic = diagnostic.into();
+        Self {
+            command: command.into(),
+            exit: row["exit"].as_u64().unwrap() as u8,
+            error: PublicError {
+                code,
+                message: row["meaning"].as_str().unwrap().into(),
+                retryable: row["retryable_default"].as_bool().unwrap(),
+                context: BTreeMap::new(),
+            },
+            human_message: diagnostic,
+        }
+    }
     pub fn classify(command: impl Into<String>, message: impl Into<String>) -> Self {
         let command = command.into();
         let message = message.into();

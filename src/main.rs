@@ -1,13 +1,18 @@
 use std::process::ExitCode;
+mod external_corpus_cli;
 
 fn main() -> ExitCode {
     let raw_arguments = std::env::args().skip(1).collect::<Vec<_>>();
     let command = command_context(&raw_arguments);
     let machine = requests_machine_json(&raw_arguments);
-    match run() {
+    let result = external_corpus_cli::try_run(&raw_arguments).unwrap_or_else(|| {
+        run().map_err(|message| {
+            synth_dicom_gen::cli_protocol::CliFailure::classify(command, message)
+        })
+    });
+    match result {
         Ok(()) => ExitCode::SUCCESS,
-        Err(message) => {
-            let failure = synth_dicom_gen::cli_protocol::CliFailure::classify(command, message);
+        Err(failure) => {
             if machine {
                 match serde_json::to_string(&failure.envelope()) {
                     Ok(envelope) => eprintln!("{envelope}"),
@@ -43,6 +48,10 @@ fn command_context(arguments: &[String]) -> String {
 }
 
 fn requests_machine_json(arguments: &[String]) -> bool {
+    if external_corpus_cli::recognizes(arguments) && arguments.iter().any(|arg| arg == "--cli-api")
+    {
+        return true;
+    }
     let json = arguments
         .windows(2)
         .any(|pair| pair[0] == "--format" && pair[1] == "json");
@@ -1466,11 +1475,6 @@ fn report_result(
         .get("report_kind")
         .and_then(serde_json::Value::as_str)
         .unwrap_or(fallback_kind);
-    if report_kind == "external_corpus" {
-        return Err(
-            "unsupported report-result schema version 1.0.0 for external corpus reports".into(),
-        );
-    }
     let report_schema_version = [
         "coverage_report_schema_version",
         "coverage_gap_report_schema_version",
@@ -1480,11 +1484,16 @@ fn report_result(
     .into_iter()
     .find_map(|field| report.get(field).and_then(serde_json::Value::as_str))
     .ok_or_else(|| "report has no supported schema version".to_string())?;
-    Ok(synth_dicom_gen::cli_protocol::ReportResult::new(
+    let mut result = synth_dicom_gen::cli_protocol::ReportResult::new(
         report_kind,
         report_schema_version,
         report.clone(),
-    ))
+    );
+    if report_kind == "external_corpus" {
+        result.report_result_schema_version =
+            synth_dicom_gen::cli_protocol::EXTERNAL_REPORT_RESULT_SCHEMA_VERSION;
+    }
+    Ok(result)
 }
 
 fn print_usage() {
@@ -1568,6 +1577,9 @@ fn print_media_qualification_markdown(
 }
 
 fn print_generate_usage() {
+    println!(
+        "usage: synth-dicom-gen generate --corpus PATH --asset-root ROOT --profile PROFILE --out PATH [--case-id ID ...] [--seed SEED] [--parallelism N] [--dry-run] [--include-stress] [--format json]"
+    );
     println!(
         "usage: synth-dicom-gen generate --profile PROFILE --out PATH [--seed SEED] [--include-stress] [--case-id CASE_ID ...] [--format json]"
     );

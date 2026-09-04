@@ -4468,6 +4468,49 @@ qualification occurred. The next sequential task is the exact ten-case core
 definition import, followed by complete public-loader checks and an explicitly
 reviewed migrated-parity boundary.
 
+### 2026-09-04 — R7.1 exact first ten core definitions imported
+
+Accepted static corpus checkpoint `538d09a`, range `2ba68a3..538d09a`.
+Commit `8a7dbdb` fixes historical CI fixture construction; `8a34471` imports
+exactly ten recipes and updates the registry/descriptor; `538d09a` updates
+current documentation. Corpus content is now0.2.0 under unchanged bundle1.
+The earlier accepted source232b9de ten-case selection is the sole core import.
+All thirteen live registry rows and recipes were independently compared to
+that immutable source, including unchanged smoke definitions. Generator-side
+copies remain until the scheduled R9 removal boundary.
+
+The descriptor is 6,992 bytes, SHA
+`f97cd5cd09515b068414bd0ce0a665ec88006ccd31b6f5d4bc1bb54d45c478de`;
+the registry is 29,370 bytes, SHA
+`29866d4355e5137fbc36b54a518abeb9add00e2cc688f322372a6a81a9a4593e`.
+The exact closed definition root contains fifteen regular files, 70,435 logical
+bytes: descriptor, registry and thirteen recipes. Eight profile definitions
+retain their boundaries: smoke3, core10 and the remaining concrete profiles
+empty, with the fixed valid `all` union and stress opt-in. No dependencies,
+assets or evidence files were introduced. There is no runtime sibling lookup
+or internal generator import; source checkout access was migration provenance
+verification only.
+
+The initial ordinary suite exposed six stale CI synthetic-fixture assumptions
+when live inventory grew: four failures/two errors in0.851s. The narrowly
+reviewed test-only correction builds historical smoke fixtures from immutable
+provenance rather than current live inventory, while keeping expanded-core
+tests and adding a separate actual-live source-bound fallback check. Production
+routing was not changed. Corrected CI25 tests passed in0.201s; full ordinary132
+passed in0.862s. Root full Draft2020 schema evaluation (Ajv8.18/Node24.19)
+passed fifteen checks and thirteen declared recipe hash/size bindings in
+0.09819125s. Independent review verified all source bytes and closed membership.
+
+The clean route dry-run from `2ba68a3` to `8a34471` selects exactly thirteen
+explicit IDs, transported through valid `all`, with no dependencies. It did
+not acquire a generator or create output. Diff/help checks pass. Current docs
+identify old native examples as content0.1 history, not evidence for0.2.
+
+This accepts data ownership and static verification only. No native capability,
+generation, validation or report command ran for the imported corpus. Public-
+loader availability, supported-interface byte/full-semantics parity, repeated
+generation and the later complete R7/terminal qualifications remain open.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

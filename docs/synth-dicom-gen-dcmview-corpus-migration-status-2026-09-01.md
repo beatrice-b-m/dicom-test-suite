@@ -4045,6 +4045,34 @@ discard affected core cases or expand to the whole registry. Viewer-result1
 stays smoke-only at this stage. No new generator capability, pin change,
 generation, source deletion or external mutation occurred during this audit.
 
+### 2026-09-04 — R7 first native baseline: reporting failure retained
+
+Corpus range `9d5e877..f384e70` establishes source provenance, a bounded
+capture helper and 103 passing ordinary tests. Clean capture candidate
+`4cc22bd4bf0d6879e1a8c7c561bcb52ea30dac65` executed the ten-case request
+once with the unchanged R5 native pin. Generation succeeded in 0.918764250s
+(ten files, 9,512 payload bytes), and strict validation passed all ten in
+0.220158500s. Machine reporting failed in 0.318525458s with exit 6,
+`internal.invariant.failed`. The baseline gate remains incomplete: there is
+no successful coverage report or accepted final baseline-expectations record.
+
+Complete unchanged output, acquisition and machine logs remain in corpus
+`artifacts/r7-native-core-baseline1-20260904`. Failed receipt SHA is
+`76f37d0175eba3c2a177a837eaa0df54e910720988641ff1407d7bb5208e97dc`;
+raw 223,968-byte manifest SHA is
+`aafa1e5faed4965afd0889fc570058abb625b2bb6db359a199df2c6c384388f7`.
+The manifest retains all ten generated objects and 24 nonselected core
+bookkeeping rows; none are silently removed or reinterpreted as selected-case
+capability failures. Whole job time was 3.262348292s; generated output is
+233,480 logical / 266,240 allocated bytes. Pre-receipt evidence is 19 files,
+315,582 logical / 364,544 allocated bytes, with no build tree.
+
+Next work is bounded read-only reporting diagnosis against this retained
+output, followed by an explicitly reviewed repair if required. No baseline
+regeneration, live case import, consumer/schema change, pin replacement,
+broader qualification or external mutation is authorized by this checkpoint.
+Required reporting evidence is not waived; R7 and terminal gates remain open.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

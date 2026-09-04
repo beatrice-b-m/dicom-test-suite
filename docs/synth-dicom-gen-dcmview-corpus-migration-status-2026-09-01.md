@@ -5274,6 +5274,43 @@ R7.2/R7.3 generic-capability review, wider ordinary-native migration,
 relationships, codecs, external providers, isolated legacy/negative/fuzz/stress,
 independent conformance, a release or terminal qualification.
 
+## R7 CT1 source prerequisite accepted — 2026-09-04
+
+The next ordinary-native slice is exactly
+`classic/ct/mono2_i16_rescale_12bit_explicit_le`. Corpus604dc0f adds a
+26,113-byte immutable source fixture SHA-256
+`4b2ae940d6d5262e6573ee3e9b2667aa151ffde26ef8c971b2c89332ecfea4ba`
+and its14,228-byte static test SHA-256
+`48604cc8832f0f372e9ae0e3c5f0a09d8d181eb98ce963adaf0eb8d348f45542`;
+b4dbd12 separately maps those exact paths to ordinary CI ownership.
+
+The fixture binds source232b9de, the complete2,358-byte canonical registry row
+SHA-256 `1b6c043c5df419ddbc7b27466f8fa19f8034688f78479d6a01b0432beaf6affa`,
+raw3,938-byte recipe SHA-256
+`f014e51c72b094dd188267fbe6a36e3caeebc6828fcc415045fcb02a758a84ca`,
+all11 ordered standards records, template `classic/ct@1.0.0`, native classic/
+pixels providers, algorithm, orders200/87, signed2x2/12-bit pixels, rescale/
+window values, no dependencies/assets/member evidence/runtime requirements and
+the original DTS/dicom-test-suite/0.1.0 payload strings. The eight-byte frame
+hash `d3e8d5fb...` is explicitly not a Part10 file identity.
+
+Root directly read every one of12 declared Git objects at source232 and verified
+all bytes/sizes/SHA values, plus full row/raw/typed recipe equality and exact11
+evidence rows. Independent review repeated the12-object comparison against both
+source232 and5c01827, including modes/blobs/template entry/standards lock/schema.
+Focused8 tests passed in0.006s root/agent and0.005s independent. Routing32 passed
+in0.291s; all229 ordinary tests passed in1.850s; diff checking passed.
+
+Source inspection proves the pinned4ca0 binary has a verified-bundle route to
+this exact external recipe, but does not prove runtime readiness. CT planning
+still depends on classic/CT namespaces, orders200..206, fixed template/content/
+algorithm contracts and typed static constraints, so R7.2/R7.3 genericity debt
+remains explicit. No accepted retained CT payload/full-file/report baseline
+exists. One unretained temporary output suggested a1,198-byte b7a7e95d payload,
+but the fixture records only truncated expected-to-confirm diagnostics and no
+hash-refresh authority. A new authenticated embedded CT1 baseline is required
+before data import; no native invocation, import or availability claim ran here.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

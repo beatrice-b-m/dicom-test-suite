@@ -139,6 +139,10 @@ const SCHEMAS: &[(&str, &str)] = &[
         "https://synth-dicom-gen.local/schemas/manifest-v1.schema.json",
     ),
     (
+        "schemas/manifest-v2.schema.json",
+        "https://synth-dicom-gen.local/schemas/manifest-v2.schema.json",
+    ),
+    (
         "schemas/case-registry.schema.json",
         "https://dicom-test-suite.local/schemas/case-registry.schema.json",
     ),

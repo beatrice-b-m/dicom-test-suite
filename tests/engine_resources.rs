@@ -45,7 +45,7 @@ fn embedded_resources_separate_current_identity_from_legacy_physical_closure() {
     let identity = resources.verify_integrity().unwrap();
     assert_eq!(identity.resource_set_version, ENGINE_RESOURCE_SET_VERSION);
     assert_eq!(identity.resource_count, ENGINE_RESOURCE_COUNT_V2);
-    assert_eq!(identity.resource_count, 74);
+    assert_eq!(identity.resource_count, 75);
     assert_eq!(identity.resource_set_sha256, ENGINE_RESOURCE_SHA256_V2);
     assert_eq!(
         identity
@@ -65,6 +65,7 @@ fn embedded_resources_separate_current_identity_from_legacy_physical_closure() {
         "schemas/version-result-v2.schema.json",
         "schemas/capabilities-result-v2.schema.json",
         "schemas/manifest-v1.schema.json",
+        "schemas/manifest-v2.schema.json",
         "schemas/release-manifest-v2.schema.json",
     ] {
         assert!(
@@ -98,6 +99,7 @@ fn resource_build_tracks_directory_additions() {
         "schemas/composition-result-v2.schema.json",
         "schemas/generation-result-v2.schema.json",
         "schemas/manifest-v1.schema.json",
+        "schemas/manifest-v2.schema.json",
     ] {
         assert!(
             !engine_resource_build_script::is_transitional_engine_resource(schema),

@@ -12,10 +12,10 @@ use serde::{Deserialize, Serialize};
 include!(concat!(env!("OUT_DIR"), "/embedded_engine_resources.rs"));
 
 pub const ENGINE_RESOURCE_SET_VERSION: &str = "2.0.0";
-pub const ENGINE_RESOURCE_COUNT_V2: usize = 74;
-pub const ENGINE_RESOURCE_TOTAL_BYTES_V2: u64 = 1_251_116;
+pub const ENGINE_RESOURCE_COUNT_V2: usize = 75;
+pub const ENGINE_RESOURCE_TOTAL_BYTES_V2: u64 = 1_256_195;
 pub const ENGINE_RESOURCE_SHA256_V2: &str =
-    "a54f1c1e897162dfaca6c3bc9264b45d2e2ddc77258fe3c6263f7a285a675c17";
+    "3da5070823dc6bf38ec54491d07eeaee75c29637c7ff7d0c6c7787a7233e846e";
 pub const TRANSITIONAL_ENGINE_RESOURCE_COUNT_V1: usize = 240;
 pub const TRANSITIONAL_ENGINE_RESOURCE_SHA256_V1: &str =
     "dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410";
@@ -685,9 +685,9 @@ mod snapshot_cache_tests {
         let elapsed = started.elapsed();
         assert_eq!(first.root(), second.root());
         assert_eq!(first.root(), third.root());
-        assert_eq!(file_inventory(first.root()), (254, 2_664_374));
+        assert_eq!(file_inventory(first.root()), (255, 2_669_453));
         eprintln!(
-            "r4_5_post operations=3 roots=1 files_written=254 bytes_written=2664374 elapsed_us={}",
+            "current_snapshot operations=3 roots=1 files_written=255 bytes_written=2669453 elapsed_us={}",
             elapsed.as_micros()
         );
     }
@@ -766,7 +766,7 @@ mod snapshot_cache_tests {
         );
         assert!(!failed_root.expect("writer observed snapshot root").exists());
         let snapshot = resources.shared_snapshot().unwrap();
-        assert_eq!(file_inventory(snapshot.root()), (254, 2_664_374));
+        assert_eq!(file_inventory(snapshot.root()), (255, 2_669_453));
     }
 
     #[test]
@@ -851,7 +851,7 @@ mod snapshot_cache_tests {
             resources.shared_snapshot().unwrap().root(),
             shared_root.as_path()
         );
-        assert_eq!(file_inventory(&shared_root), (254, 2_664_374));
+        assert_eq!(file_inventory(&shared_root), (255, 2_669_453));
 
         fs::remove_dir_all(workspace).unwrap();
     }

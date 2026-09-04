@@ -2,6 +2,13 @@
   "compatibility_ownership_schema_version": "1.0.0",
   "contracts": [
     {
+      "contract_id": "external-corpus-manifest",
+      "owner": "corpus_generation_maintainers",
+      "support_window": "manifest 2.0 internal producer and library validation; SDK and report consumption explicitly unavailable until their migration slices",
+      "apis": [],
+      "schemas": ["manifest-v2.schema.json"]
+    },
+    {
       "contract_id": "cli-machine-protocol",
       "owner": "cli_protocol_maintainers",
       "support_window": "current CLI API major and immediately preceding major for at least one product minor after replacement",

@@ -50,6 +50,14 @@ pub(crate) struct CapturedPlanningOutcome {
     pub(crate) publication: &'static str,
 }
 
+/// Owns the private engine lease until execution or inspection finishes.
+pub(crate) struct PreparedCapturedCorpus {
+    planned: CapturedCuratedPlan,
+    profile: String,
+    include_stress: bool,
+    pub(crate) preview: CapturedPlanningOutcome,
+}
+
 pub(crate) enum CapturedCorpusOutcome {
     Planned(CapturedPlanningOutcome),
     NoExecutableCases(CapturedPlanningOutcome),
@@ -280,8 +288,59 @@ fn run_with_publication_check(
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
         Err(e) => return Err(CapturedCorpusError::OutputIo(e)),
     }
+    let PreparedCapturedCorpus {
+        planned,
+        profile,
+        include_stress,
+        preview,
+    } = prepare_captured_corpus(
+        &bundle,
+        &resources,
+        &request.selection,
+        request.seed,
+        request.parallelism,
+        &request.cancellation,
+    )?;
+    let identities = preview.identities.clone();
+    let ledger = preview.selection_ledger.clone();
+    let selector = preview.selector.clone();
+    if request.dry_run {
+        return Ok(CapturedCorpusOutcome::Planned(preview));
+    }
+    if planned.planned.plan.artifacts.is_empty() {
+        return Ok(CapturedCorpusOutcome::NoExecutableCases(preview));
+    }
+    execute_prepared_corpus(
+        bundle,
+        resources,
+        request,
+        before_publication,
+        planned,
+        profile,
+        include_stress,
+        identities,
+        ledger,
+        selector,
+    )
+}
+
+/// Shared destination-free assessment. This never constructs services or executes providers.
+pub(crate) fn prepare_captured_corpus(
+    bundle: &CorpusDefinitionBundle,
+    resources: &EngineResources,
+    selection_request: &CorpusSelection,
+    seed: u64,
+    parallelism: u32,
+    cancellation: &CancellationToken,
+) -> Result<PreparedCapturedCorpus, CapturedCorpusError> {
+    checkpoint(cancellation)?;
+    if parallelism == 0 {
+        return Err(CapturedCorpusError::Input(
+            "parallelism must be positive".into(),
+        ));
+    }
     let (profile, include_stress, selector, direct, closure) =
-        selection(&bundle, &request.selection)?;
+        selection(bundle, selection_request)?;
     let context = CapturedCuratedPlanningContext::from_verified_bundle(&bundle, &resources)
         .map_err(CapturedCorpusError::Plan)?;
     let planned = context
@@ -301,11 +360,11 @@ fn run_with_publication_check(
                     .cloned()
                     .collect(),
             ),
-            seed: request.seed,
-            max_parallelism: request.parallelism,
+            seed,
+            max_parallelism: parallelism,
         })
         .map_err(CapturedCorpusError::Plan)?;
-    checkpoint(&request.cancellation)?;
+    checkpoint(cancellation)?;
     let identities =
         crate::identity::project_manifest_identities(&resources, Some(&bundle), vec![])
             .map_err(|e| CapturedCorpusError::Planning(e.to_string()))?;
@@ -345,17 +404,35 @@ fn run_with_publication_check(
         validation: "not_run",
         publication: "not_run",
     };
-    if request.dry_run {
-        return Ok(CapturedCorpusOutcome::Planned(preview));
-    }
     if planned.planned.plan.artifacts.is_empty() {
         if ledger.iter().any(|entry| entry["outcome"] == "ready") {
             return Err(CapturedCorpusError::Planning(
                 "ready selection has no executable artifacts".into(),
             ));
         }
-        return Ok(CapturedCorpusOutcome::NoExecutableCases(preview));
     }
+    checkpoint(cancellation)?;
+    Ok(PreparedCapturedCorpus {
+        planned,
+        profile,
+        include_stress,
+        preview,
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn execute_prepared_corpus(
+    bundle: Arc<CorpusDefinitionBundle>,
+    resources: EngineResources,
+    request: CapturedCorpusRequest,
+    before_publication: Arc<dyn Fn() -> Result<(), ManifestProjectionError> + Send + Sync>,
+    planned: CapturedCuratedPlan,
+    profile: String,
+    include_stress: bool,
+    identities: crate::identity::ManifestIdentityProjection,
+    ledger: Vec<Value>,
+    selector: Value,
+) -> Result<CapturedCorpusOutcome, CapturedCorpusError> {
     let parent = request
         .destination
         .parent()

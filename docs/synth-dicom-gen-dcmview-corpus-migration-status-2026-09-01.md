@@ -40,7 +40,7 @@ artifact.
 | R4 — split immutable resources and corpus definitions | Complete | R4.1, R4.2, R4.3, R4.4, R4.5 | At the accepted R4 checkpoint, EngineResources v2 owned 74 immutable members and its private lazy lease materialized a 254-file transitional physical closure once per shared context. Those checkpoint measurements remain historical; current schema additions and exact identities are recorded in the latest dated R5 entry below. Cases/Cargo remain excluded from authoritative engine identity, and exact legacy 240-member v1 provenance remains reconstructable. |
 | R5 — add supported external corpus API | Complete | R5.1–R5.5 and isolated-source consumer gate independently accepted | SDK `ca571fb..aa7fcad`, CLI `aa7fcad..a18d149`, discovery `a18d149..5da18e8`, and the 2026-09-04 source-removed consumer proof at exact `232b9de` are independently accepted. This closes R5, not package/release qualification or R6+ terminal cross-repository evidence. |
 | R6 — establish smoke corpus repository | Complete | R6.1–R6.5 independently accepted | The approved local repository at `/Users/beatrice/AgentFiles/projects/dcmview-test-corpus` owns its foundation, exact offline pin, imported smoke definitions, supported runner, full R0 smoke parity, viewer-result contract, and locally executed CI configuration. The R6 gate passes without compiling/testing generator internals. Hosted delivery, viewer execution and terminal release/CI evidence remain separate and unqualified. |
-| R7 — migrate complete dcmview corpus | In progress | First ten single-instance native SC core cases imported and parity accepted | Exact source-pinned content0.2 definitions, consumer result2 and bounded smoke/core routing are accepted. The isolated proof at corpus `c07b9c1` passes core profile/IDs/repeat plus smoke, with complete file parity, strict validation and report2. The original baseline and separate report-only completion remain authenticated. All remaining ordinary native, relationship, codec, provider and isolated special scopes are still required; embedded copies remain pending terminal removal. |
+| R7 — migrate complete dcmview corpus | In progress | First ten native SC core cases imported/parity accepted; metadata3 statically imported | Exact source-pinned content0.2 definitions and isolated proof at corpus `c07b9c1` pass core profile/IDs/repeat plus smoke, complete file parity, strict validation and report2. Content0.3 at `24485f0` adds metadata3 and exact source notes with ordinary/full-schema checks; its public-loader availability and migrated parity are not yet proven. Original baselines remain authenticated. Remaining ordinary native, relationship, codec, provider and isolated special scopes are still required; embedded copies remain pending terminal removal. |
 | R8 — decouple viewer development | Not started | None | Requires a qualified artifact key and complete-enough corpus ownership. |
 | R9 — remove embedded corpus and qualify products | Not started | None | Terminal removal, documentation, measurement, and exact qualification have not run. |
 
@@ -4890,6 +4890,45 @@ This was route inspection only: no artifact was opened or output created.
 Diff checking passed. No native acquisition, generation, validation, report,
 build or Heavy qualification ran. Exact metadata import and subsequent public
 availability/parity evidence remain separate, sequential boundaries.
+
+## R7.1 exact metadata-three definitions imported — 2026-09-04
+
+Corpus `24485f027431945398fd21a4fd98125a4e9ffeb3` adds exactly the three
+accepted metadata registry rows, recipes and original local source notes as
+content0.3.0 under unchanged bundle1. Root and independent review verified
+all six new member byte strings against frozen provenance, preserving prior
+thirteen registry rows, case descriptors and recipe bytes. Only core membership
+gains the three explicit IDs; other profile objects, dependencies, assets,
+source planning/projection orders and both binary pins are unchanged.
+
+The complete definition closure is21 regular files totaling98,603 logical bytes.
+Descriptor9,541 bytes has SHA
+`8e53a7f8eaa54737f93351a7ca93f5b069cbc54c9e5e236383e1549e31ecc038`;
+registry34,886 bytes has SHA
+`5d0242b1b0ecbb16c4baa4f4aa536810cd74bafd5edefc2a934d5001bc6c609c`.
+The six new recipes/notes retain their previously recorded20,103 raw bytes.
+These are definition costs, not generated-payload or runtime measurements.
+
+Static definition checks passed12 in0.035s; all ordinary tests passed188
+in1.229s before commit and188 in1.217s after tracking the new members.
+Diff checking passed. The exact clean dry route from `fc7b894` to `24485f0`
+selects only smoke3 union metadata3, explicit IDs transported through `all`,
+with zero dependencies; it does not select all core cases or execute a native
+job. Configuration SHA remains `71ccf9726648d9573dbfafa57b1b82f8b0d9eaac2aefd3db689bcb6092db75c7`.
+
+Root additionally evaluated the full Draft2020 schemas for the clean candidate's
+descriptor, registry and all16 recipes:18 checks passed in0.138266208s using
+Node24.19.0/Ajv8.18.0. Retained supplement
+`generated/r7-metadata-import-schema-review-20260904/receipt.json` has SHA
+`2176ec4deeeb9a9d7ed66b2a908d1366ec16d029e28bfa0edd6593de2d1f0eca`;
+its script SHA is `0aaebecd72bfcce068a479e08c91cc4c57091f61042693d6671d247f35e20c22`.
+The private original is retained at `/private/tmp/r7-metadata-import-schema.JRV0uB`.
+This is static schema evidence, not native availability or DICOM validation.
+
+Metadata public-loader selected planning and migrated generation/parity remain
+unexecuted. No original baseline or earlier parity proof was replayed, and no
+new native acquisition, generation, validation, report, build, Heavy or release
+qualification occurred. Embedded copies remain until the terminal removal gate.
 
 ## Measurements
 

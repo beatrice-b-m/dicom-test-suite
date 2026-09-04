@@ -2869,6 +2869,39 @@ tests pass. `cargo check --locked --no-default-features`, formatting, spelling,
 and range diff checks pass. Heavy, Nightly, release-candidate, provider,
 external, R5, and later-phase bodies did not run.
 
+### R4.5 review correction — 2026-09-03
+
+Commits `8f9cafa`, `cc90259`, and `4640e7e` correct the report-gaps
+explicit-path regression and record its ordinary test ownership. The CLI now
+tracks omitted registry/standards arguments separately from explicitly supplied
+paths. Omitted defaults use lazy embedded resources; explicitly supplied
+`cases/registry.json` and `standards.lock.json` remain caller-relative. The
+pre-existing compose default-path behavior is unchanged.
+
+`report_gaps_preserves_explicit_default_spelled_caller_paths` runs from a fresh,
+unrelated temporary directory. Four argument-presence combinations compare exact
+registry and standards hashes against distinct valid caller bytes or embedded
+bytes as appropriate. After deleting both caller inputs, each explicit
+default-spelled path independently fails rather than falling back.
+
+Verification: the route dry-run for `src/main.rs`,
+`tests/coverage_gaps_cli.rs`, and ownership metadata selected the conservative
+ordinary route plus the focused CLI and routing contracts. The authorized
+bounded command `cargo test --locked --no-default-features --test
+cli_sdk__nonfast coverage_gaps_cli::` passed 6 tests, 0 failed, 142 filtered,
+in 2.13s (2.30s compilation). The 22 routing tests, 1,432-entry ownership check
+(902 integration entries), spelling check (945 retained occurrences), formatting,
+and diff checks passed. Ownership metadata was regenerated after the added
+missing-file assertions changed its entry digest. A mistaken unittest discovery
+under `scripts` selected zero tests; the recorded 22-test result is the corrected
+discovery under `tests/test_change_test_routing.py`.
+
+No broad ordinary, Heavy, Nightly, provider, external, package, or release-candidate
+qualification was run for this correction, and R5 implementation did not begin.
+Earlier copy-cost measurements remain unchanged. Private cache reuse evidence
+does not claim atomic protection against hostile same-user writers after
+validation.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

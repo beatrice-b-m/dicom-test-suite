@@ -17,6 +17,8 @@ mod list_cases_cli;
 mod report_cli;
 #[path = "../runtime_capabilities.rs"]
 mod runtime_capabilities;
+#[path = "../sdk_corpus.rs"]
+mod sdk_corpus;
 #[path = "../sdk_facade.rs"]
 mod sdk_facade;
 #[path = "../standards_cli.rs"]

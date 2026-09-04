@@ -55,6 +55,89 @@ fn request(root: PathBuf) -> CapturedCorpusRequest {
         cancellation: CancellationToken::new(),
     }
 }
+
+#[test]
+fn typed_execution_errors_preserve_specificity_and_cleanup_precedence() {
+    use crate::executor::cancellation::{CancellationPoint, CancellationStage, Cancelled};
+    use crate::executor::engine::{
+        ArtifactExecutionError as A, CorpusExecutorError as E, ServiceInvocationError,
+    };
+    use crate::executor::scheduler::SchedulerError as S;
+    use crate::executor::transaction::TransactionError as T;
+    let cancelled = || Cancelled {
+        point: CancellationPoint::run(CancellationStage::BeforePromotion),
+        reason: "test".into(),
+    };
+    let worker = |source| {
+        E::Scheduler(S::Worker {
+            logical_id: "test".into(),
+            source,
+        })
+    };
+    for error in [
+        E::Cancelled(cancelled()),
+        E::Scheduler(S::Cancelled),
+        worker(A::Cancelled(cancelled())),
+    ] {
+        assert_eq!(
+            CapturedCorpusError::Execution(error).code(),
+            "generation.execution.cancelled"
+        );
+    }
+    for (error, code) in [
+        (
+            worker(A::Service(ServiceInvocationError::new(
+                "provider", "opaque",
+            ))),
+            "generation.provider.failed",
+        ),
+        (
+            worker(A::ServiceContract(
+                crate::executor::services::ServiceError::UnsafeStagedPath("opaque".into()),
+            )),
+            "generation.provider.failed",
+        ),
+        (
+            worker(A::ValidationFailed {
+                rule_id: "test".into(),
+                status: crate::executor::services::ValidationStatus::Failed,
+            }),
+            "validation.artifact.failed",
+        ),
+        (
+            worker(A::ObligationFailed("opaque".into())),
+            "validation.artifact.failed",
+        ),
+        (
+            worker(A::ResourceAccountingOverflow("opaque")),
+            "resource.limit.exceeded",
+        ),
+        (
+            E::Transaction(T::DestinationExists("out".into())),
+            "output.destination.exists",
+        ),
+        (
+            E::Transaction(T::UnsafeDestination("out".into())),
+            "output.path.unsafe",
+        ),
+        (
+            E::PrimaryAndCleanup {
+                primary: Box::new(E::Cancelled(cancelled())),
+                cleanup: T::UnsafeStagingTarget("out".into()),
+            },
+            "io.cleanup.failed",
+        ),
+        (
+            E::Transaction(T::PrimaryAndCleanup {
+                primary: Box::new(T::DestinationExists("out".into())),
+                cleanup: Box::new(T::UnsafeStagingTarget("out".into())),
+            }),
+            "io.cleanup.failed",
+        ),
+    ] {
+        assert_eq!(CapturedCorpusError::Execution(error).code(), code);
+    }
+}
 fn published(outcome: CapturedCorpusOutcome) -> CorpusExecutionResult {
     match outcome {
         CapturedCorpusOutcome::Published(result) => result,
@@ -132,15 +215,14 @@ fn smoke_publication_is_verified_deterministic_and_reader_bounded() {
     let sdk = crate::sdk::DicomTestSuite::embedded().unwrap();
     assert!(
         sdk.validate(crate::sdk::ValidateRequest::new(&first.destination))
-            .unwrap_err()
-            .to_string()
-            .contains("not yet supported")
+            .unwrap()
+            .is_valid()
     );
     assert_eq!(
         sdk.report(crate::sdk::ReportRequest::new(&first.destination))
-            .unwrap_err()
-            .code(),
-        "request.version.unsupported"
+            .unwrap()
+            .kind(),
+        crate::sdk::ReportKind::ExternalCorpus
     );
 }
 

@@ -466,6 +466,29 @@ pub enum GenerateCorpusOutcome {
 }
 
 impl DicomTestSuite {
+    /// Installed capabilities plus one captured caller corpus; no input reload.
+    pub fn capabilities_with_corpus(
+        &self,
+        request: InspectCorpusRequest,
+    ) -> Result<CapabilitiesResult, SdkError> {
+        let inspection = self.inspect_corpus(request)?;
+        let mut result = self.capabilities()?;
+        result.identity_domains = inspection.identity_domains.clone();
+        let assessment = inspection.assessment.as_ref().map(|value| {
+            let (profile, include_stress, selector) = match &value.selector {
+                CorpusSelector::Profile { profile, include_stress } => (profile, include_stress, serde_json::json!({"kind":"profile"})),
+                CorpusSelector::CaseIds { profile, include_stress, case_ids } => {
+                    let mut ids = case_ids.clone(); ids.sort();
+                    (profile, include_stress, serde_json::json!({"kind":"case_ids","case_ids":ids}))
+                }
+            };
+            serde_json::json!({"selector":selector,"profile":profile,"include_stress":include_stress,"seed":value.seed,"parallelism":value.parallelism,"selection_ledger":value.cases.iter().map(|c| c.evidence()).collect::<Vec<_>>(),"identity_projection":value.identity_projection,"artifact_ids":value.artifact_ids,"corpus_plan_sha256":value.plan_sha256,"has_executable_artifacts":value.has_executable_artifacts(),"validation":"not_run","publication":"not_run"})
+        });
+        result.loaded_corpus = Some(
+            serde_json::json!({"inspection_schema_version":"1.0.0","corpus_definition_identity":inspection.identity,"profiles":inspection.profiles.iter().map(|p| p.definition()).collect::<Vec<_>>(),"cases":inspection.cases.iter().map(|c| c.definition()).collect::<Vec<_>>(),"assessment_state":if assessment.is_some(){"assessed"}else{"not_assessed"},"assessment":assessment}),
+        );
+        Ok(result)
+    }
     pub fn inspect_corpus(
         &self,
         request: InspectCorpusRequest,

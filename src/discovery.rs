@@ -10,9 +10,9 @@ use crate::identity::{
 };
 
 pub const VERSION_RESULT_SCHEMA_VERSION: &str = "2.0.0";
-pub const CAPABILITIES_RESULT_SCHEMA_VERSION: &str = "2.0.0";
+pub const CAPABILITIES_RESULT_SCHEMA_VERSION: &str = "3.0.0";
 pub const SUPPORTED_VERSION_RESULT_SCHEMA_VERSIONS: &[&str] = &["1.0.0", "2.0.0"];
-pub const SUPPORTED_CAPABILITIES_RESULT_SCHEMA_VERSIONS: &[&str] = &["1.0.0", "2.0.0"];
+pub const SUPPORTED_CAPABILITIES_RESULT_SCHEMA_VERSIONS: &[&str] = &["1.0.0", "2.0.0", "3.0.0"];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ProductIdentity {
@@ -72,6 +72,18 @@ pub struct CapabilitiesResult {
     pub resource_ceilings: crate::composition::ResourceLimits,
     pub assembly_resource_ceilings: crate::assembly::AssemblyLimits,
     pub structural_assembly: WorkflowCapability,
+    pub provider_support: Vec<ProviderSupport>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub loaded_corpus: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ProviderSupport {
+    pub provider_id: String,
+    pub implementation_kind: String,
+    pub declared_status: String,
+    pub availability: &'static str,
+    pub runtime_assessment: &'static str,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -95,6 +107,9 @@ pub struct SupportedVersions {
     pub curated_manifest: Vec<&'static str>,
     /// Curated manifest versions covered by validate/report compatibility fixtures.
     pub curated_manifest_validation: Vec<&'static str>,
+    pub external_corpus_manifest: Vec<&'static str>,
+    pub external_corpus_manifest_validation: Vec<&'static str>,
+    pub corpus_definition_bundle: Vec<&'static str>,
     pub composition_manifest: Vec<&'static str>,
     /// Composition manifest versions covered by validate/report compatibility readers.
     pub composition_manifest_validation: Vec<&'static str>,
@@ -353,6 +368,21 @@ pub fn capabilities_result_with_context(
         })
         .collect();
 
+    let provider_support = backend_lock
+        .backends
+        .iter()
+        .map(|backend| ProviderSupport {
+            provider_id: backend.backend_id.clone(),
+            implementation_kind: backend.implementation_kind.clone(),
+            declared_status: backend.state.clone(),
+            availability: if backend.implementation_kind == "rust_native" {
+                "compiled"
+            } else {
+                "not_assessed"
+            },
+            runtime_assessment: "not_performed",
+        })
+        .collect();
     let mut optional_runtimes = backend_lock
         .backends
         .into_iter()
@@ -424,7 +454,10 @@ pub fn capabilities_result_with_context(
                 ),
                 (
                     "generation",
-                    vec![crate::cli_protocol::GENERATION_RESULT_SCHEMA_VERSION],
+                    vec![
+                        crate::cli_protocol::GENERATION_RESULT_SCHEMA_VERSION,
+                        crate::cli_protocol::EXTERNAL_GENERATION_RESULT_SCHEMA_VERSION,
+                    ],
                 ),
                 (
                     "interoperability",
@@ -432,7 +465,10 @@ pub fn capabilities_result_with_context(
                 ),
                 (
                     "report",
-                    vec![crate::cli_protocol::REPORT_RESULT_SCHEMA_VERSION],
+                    vec![
+                        crate::cli_protocol::REPORT_RESULT_SCHEMA_VERSION,
+                        crate::cli_protocol::EXTERNAL_REPORT_RESULT_SCHEMA_VERSION,
+                    ],
                 ),
                 (
                     "standards",
@@ -454,7 +490,8 @@ pub fn capabilities_result_with_context(
                     SUPPORTED_CAPABILITIES_RESULT_SCHEMA_VERSIONS.to_vec(),
                 ),
                 ("version", SUPPORTED_VERSION_RESULT_SCHEMA_VERSIONS.to_vec()),
-                ("generation", vec!["1.0.0", "2.0.0"]),
+                ("generation", vec!["1.0.0", "2.0.0", "3.0.0"]),
+                ("report", vec!["1.0.0", "2.0.0"]),
                 ("composition", vec!["1.0.0", "2.0.0"]),
                 ("assembly", vec!["1.0.0", "2.0.0"]),
             ]),
@@ -462,14 +499,17 @@ pub fn capabilities_result_with_context(
             assembly_request: vec![crate::assembly::ASSEMBLY_REQUEST_SCHEMA_VERSION],
             assembly_manifest: vec![crate::assembly::ASSEMBLY_MANIFEST_SCHEMA_VERSION],
             assembly_manifest_validation: vec!["1.0.0", "2.0.0"],
-            release_manifest: vec!["2.0.0"],
-            release_manifest_validation: vec!["1.0.0", "2.0.0"],
+            release_manifest: vec!["3.0.0"],
+            release_manifest_validation: vec!["1.0.0", "2.0.0", "3.0.0"],
             curated_manifest: vec!["1.0.0"],
             curated_manifest_validation: vec!["0.2.0", "0.3.0", "1.0.0"],
+            external_corpus_manifest: vec!["2.0.0"],
+            external_corpus_manifest_validation: vec!["2.0.0"],
+            corpus_definition_bundle: vec!["1.0.0"],
             composition_manifest: vec!["1.0.0"],
             composition_manifest_validation: vec!["0.4.0", "0.5.0", "1.0.0"],
-            coverage_report: vec!["1.0.0"],
-            coverage_report_validation: vec!["0.1.0", "1.0.0"],
+            coverage_report: vec!["1.0.0", "2.0.0"],
+            coverage_report_validation: vec!["0.1.0", "1.0.0", "2.0.0"],
             composition_report: vec!["1.0.0"],
             composition_report_validation: vec!["0.1.0", "1.0.0"],
             assembly_report: vec!["2.0.0"],
@@ -482,6 +522,8 @@ pub fn capabilities_result_with_context(
         qualified_templates,
         transfer_syntaxes,
         optional_runtimes,
+        provider_support,
+        loaded_corpus: None,
         resource_ceilings: crate::composition::ResourceLimits::default(),
         assembly_resource_ceilings: crate::assembly::AssemblyLimits::default(),
         structural_assembly: WorkflowCapability {

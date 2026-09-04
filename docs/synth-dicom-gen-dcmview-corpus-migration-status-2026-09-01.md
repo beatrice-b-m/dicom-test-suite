@@ -38,7 +38,7 @@ artifact.
 | R2 — reduce Rust test-linking amplification | Complete | R2.1, R2.2, R2.3, R2.4 | The fail-closed inventory maps 186 integration sources and all 879 integration entries into exactly 20 explicit harnesses. Six R0-measured heavy bodies have exact ignored qualification entry points, while deterministic change routing now selects bounded Fast/subsystem evidence and reports every deferred class without executing it. The aggregate R2 target-count, cost, heavy-isolation, and routing gates pass. |
 | R3 — rename reusable product | Complete | R3.1, R3.2, R3.3, R3.4 | Product, package, crate, library, sole binary, archives, discovery, package metadata, current operating guides, product-controlled environment, and production scratch paths use `synth-dicom-gen` / `synth_dicom_gen` at the breaking pre-1.0 product boundary `0.2.0`. Immutable dated evidence retains its exact old candidate identity, and 12 qualified-adapter variables retain provenance-bound spellings pending external requalification. The external-consumer audit found no supported `0.1.0` product consumer requiring an alias. A clean side project compiled and exercised only `synth_dicom_gen::sdk` from the extracted, verified `synth-dicom-gen-0.2.0.crate`, without the old repository path. The aggregate R3 gate passes. |
 | R4 — split immutable resources and corpus definitions | Complete | R4.1, R4.2, R4.3, R4.4, R4.5 | `EngineResources` v2 owns a 74-member immutable engine-resource identity containing every current schema while excluding `cases/**` and `Cargo.lock`; the exact 240-member v1 identity remains reconstructable for compatibility. `CorpusDefinitionBundle` 1.0.0 and the split manifest/discovery identities remain unchanged. A private handle-local lazy lease now materializes the 254-file transitional physical closure once per shared resource context. The supported SDK/CLI external-corpus generation route remains R5 work. |
-| R5 — add supported external corpus API | In progress | R5.1 input substrate and internal planning-input separation | Explicit descriptor-file and descriptor-bytes inspection share the verified bundle loader; an internal lease-owning planner joins captured corpus bytes with installed engine catalogs. SDK request/outcome, generation, CLI selection, batch execution, definition-driven reports, discovery, and external-consumer acceptance remain unimplemented. |
+| R5 — add supported external corpus API | In progress | R5.1 input substrate, internal planning and bounded batch execution | Verified captured inputs now feed one private atomic batch runner and external manifest 2.0 with exact case definitions and selection closure. Supported SDK/CLI requests and outcomes, definition-driven reports, discovery, and external-consumer acceptance remain unimplemented. |
 | R6 — establish smoke corpus repository | Not started | None | No external repository has been created; authority and destination are still required before out-of-workspace mutation. |
 | R7 — migrate complete dcmview corpus | Not started | None | Requires R6 smoke parity and supported contracts. |
 | R8 — decouple viewer development | Not started | None | Requires a qualified artifact key and complete-enough corpus ownership. |
@@ -3047,6 +3047,102 @@ Routing tests pass 23, ownership records 1,440 entries / 268 groups, spelling
 retains 945 exact occurrences, and formatting/diff checks pass. Heavy, Nightly,
 provider qualification, package/release-candidate, and external-consumer bodies
 did not run. No batch execution, SDK, CLI, or later R5 slice was implemented.
+
+### R5 internal batch execution and external manifest 2.0 — 2026-09-03
+
+This is the bounded internal R5.3/necessary R5.4 compatibility slice, not a
+supported external-corpus API or completion of R5. The sequential implementation
+range begins after `14dce37`: `ee0631a`, `f5bc6dc`, `95dd991` establish the
+schema/reader; `f7f2b66`, `1a7685d` inventory it and close dependency evidence;
+`f9e76bc` implements the private transaction; `3eb1c9c`, `93a5fb6`, `c33b83e`
+own routing, frozen references and isolated test sources; `8246d68`, `ad2d25f`
+retain complete captured case definitions and their exact metadata. No recipe,
+provider protocol, public request/result, or existing embedded manifest1 producer
+changed.
+
+`run_captured_corpus` retains a verified bundle, EngineResources and the private
+planning lease through one CorpusExecutor transaction. Profile selection follows
+the captured fixed bundle1 profile definitions; explicit IDs must be nonempty,
+unique, known and in the declared profile scope. Dependency closure is separate
+from direct selection. Every selected registry status remains explicit; only
+implemented recipe-bearing rows enter executable planning. Zero parallelism,
+unknown profiles and invalid stress scope fail before publication. One caller
+parallelism and cancellation token govern the batch. Dry-run returns `Planned`
+without creating output; planned-only or unavailable-only execution returns
+`NoExecutableCases` with validation/publication `not_run`, not an empty success.
+Mixed runnable/non-runnable selection publishes through the normal transaction.
+
+External manifest `2.0.0` contains verified corpus identity, exact captured
+`case_definition` rows (all blockers, requirements and standards facts), sorted
+dependency edges and explicit direct/dependency outcome ownership. The reader
+checks schema/version, identity, runtime uniqueness, case ID/status/profile
+coherence, graph closure/acyclicity/reachability, nonempty direct and generated
+publication, file ownership and unique qualification ownership. It proves
+internal document consistency, not correspondence to an original bundle that
+was not supplied; the producer copies the verified bundle graph and rows.
+Primary non-generated reason codes retain captured skip/blocker codes where
+present, without case-ID-derived roadmap phases. Current native invocation
+runtime evidence is empty, not a declaration of installed executables.
+
+Library validation accepts the tested manifest2 output. All report entry points
+and SDK manifest loading explicitly reject it as not yet supported; they cannot
+silently read the embedded registry. The later report slice can use the complete
+captured rows. Existing 0.x/1.x curated, composition and assembly readers remain
+unchanged. No supported external-corpus CLI or SDK execution was introduced.
+
+Final contract identities at this slice:
+
+- `schemas/manifest-v2.schema.json`: 5,642 bytes,
+  SHA-256 `63e22fe905d3849856b749101f216e0c13e204bd9cc5699e783386e018096ed6`.
+- Current engine v2: 75 members / 1,256,758 bytes,
+  SHA-256 `742cb5d3409219873fb8f5a6cf4b5d652e9ac131f9cc85c32cb60dc3e2d7fc5b`.
+- Schema domain: 52 members / 856,286 bytes,
+  SHA-256 `f4ec9e1df1230fc0168ed8763e0f9de1f7ceeb46e6b3d8c98a018ae29b2e0afc`.
+- Physical transitional capture: 255 files / 2,670,016 logical bytes. Named
+  legacy v1 remains exactly 240 / `dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410`.
+- Verified full bundle remains 214 files / 1,754,298 bytes, descriptor
+  `905d36bc93c7ae10ae5011304b25a647c4b792852e143bd2017e2aacd1574de8`, corpus
+  `571fa23fd392dd557ccdbe2db527698eaedc7078d86543efc68dfffc877411f7`.
+
+Route dry-runs preceded focused ordinary verification. The new runner filter
+`cargo test --locked --no-default-features --lib corpus_generation::captured_runner_tests::`
+passes 5/5 in 4.76s after an 18.40s compile. It proves three exact R0 native smoke
+SHA-256 values, sequential/parallel payload equality, matched-parallelism legacy
+plan equality, deleted source-root and unrelated-CWD independence, spatial
+dependency closure, mixed planned/native rows, unavailable-only nonpublication,
+dry-run, invalid selection, cancellation, projection refusal, cleanup and
+existing-root preservation. The contract filter
+`cargo test --locked --no-default-features --lib manifest_contract::external_manifest_contract_tests::`
+passes 7/7 in 2.08s after the final resolver correction. Current schema Fast
+passes 73/73 in 1.54s; identity-domain tests pass 4/4 in 1.31s. SDK facade tests
+pass 12/12 in 3.32s; report CLI tests pass 48/48 in 18.51s, including legacy
+reader/byte-normalization evidence. These are same-project ordinary checks,
+not independent conformance or provider qualification.
+
+Final ordinary resource subsystem passes 86/86 in 6.92s; release Fast passes
+14/14 in 1.88s. `cargo check --locked --no-default-features` passes in 10.99s;
+format and exact `git diff --check 14dce37..HEAD` pass. Routing fixtures pass
+24/24; ownership checks report 22 targets / 270 groups / 1,452 entries. Reviewed
+retained spelling inventory is 955 matches, SHA-256
+`59b3e0c69369b2cd47921175e0691c5d62d2dc773b293168d972dcdf61182d0c`.
+The 9 references in the new schema and 2 in the shared reader retain frozen
+contract identities, not aliases for product-controlled inputs.
+
+Intermediate failures were repaired rather than omitted: planned rows initially
+reached the recipe-only planner; positive contract fixtures initially assumed
+the frozen empty manifests contained files; the strict production lookup audit
+initially saw test-only compiled repository paths; adding the case-definition
+reference initially exposed a missing generic-reader resolver. The final
+implementation filters recipe planning without dropping ledger rows, uses real
+bounded smoke evidence, isolates test sources, and registers the frozen schema
+in both reader paths. Earlier historical measurements above are unchanged.
+
+Heavy, Nightly, RC/package/archive, all-profile, stress, WSI, fuzz execution,
+feature-specific codec and external-provider bodies were not run. No external
+repository or runtime tool was created, installed or invoked. The Python bundle
+builder is an ordinary fixture preparer only. R5 remains open for definition-led
+reporting, supported SDK/CLI surfaces, discovery and SDK-only external-consumer
+proof; this internal slice makes none of those claims.
 
 ## Measurements
 

@@ -341,6 +341,18 @@ fn validate_external_selection(value: &Value) -> Result<(), ManifestContractErro
         }
         let status = entry["registry_status"].as_str().unwrap();
         let outcome = entry["outcome"].as_str().unwrap();
+        if status != "implemented" {
+            let expected = definition["skip"]["reason_code"]
+                .as_str()
+                .or_else(|| definition["blockers"][0]["code"].as_str())
+                .map(str::to_owned)
+                .unwrap_or_else(|| format!("case_{status}"));
+            if entry["reason_code"] != expected {
+                return Err(contract_error(
+                    "outcome reason differs from captured definition",
+                ));
+            }
+        }
         if (outcome == "generated" && !entry["reason_code"].is_null())
             || (outcome != "generated" && entry["reason_code"].as_str().is_none_or(str::is_empty))
         {
@@ -379,6 +391,52 @@ fn validate_external_selection(value: &Value) -> Result<(), ManifestContractErro
     }
     if edges.values().flatten().any(|id| !edges.contains_key(id)) {
         return Err(contract_error("selection dependency absent from ledger"));
+    }
+    let rows = ledger
+        .iter()
+        .map(|row| (row["case_id"].as_str().unwrap(), row))
+        .collect::<std::collections::BTreeMap<_, _>>();
+    for (owner, dependencies) in &edges {
+        for dependency in dependencies {
+            let owner = rows[owner];
+            let dependency = rows[dependency];
+            if owner["registry_status"] != "implemented"
+                || dependency["registry_status"] != "implemented"
+            {
+                return Err(contract_error("dependency endpoints must be implemented"));
+            }
+            let has = |row: &Value, profile: &str| {
+                row["case_definition"]["profiles"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|p| p == profile)
+            };
+            let ordinary = ["smoke", "core", "extended"].iter().any(|p| has(owner, p));
+            let forbidden = (ordinary
+                && ["legacy", "stress", "negative", "fuzz"]
+                    .iter()
+                    .any(|p| has(dependency, p)))
+                || (has(owner, "legacy")
+                    && ["stress", "negative", "fuzz"]
+                        .iter()
+                        .any(|p| has(dependency, p)))
+                || (has(owner, "stress")
+                    && ["legacy", "negative", "fuzz"]
+                        .iter()
+                        .any(|p| has(dependency, p)))
+                || (has(owner, "negative")
+                    && ["legacy", "stress", "fuzz"]
+                        .iter()
+                        .any(|p| has(dependency, p)))
+                || (has(owner, "fuzz")
+                    && ["legacy", "stress", "negative"]
+                        .iter()
+                        .any(|p| has(dependency, p)));
+            if forbidden {
+                return Err(contract_error("dependency profile scope leakage"));
+            }
+        }
     }
     let mut remaining = edges.keys().copied().collect::<BTreeSet<_>>();
     while !remaining.is_empty() {
@@ -543,7 +601,7 @@ mod external_manifest_contract_tests {
             .clone();
         definition["case_id"] = json!(id);
         definition["profiles"] = json!(["smoke"]);
-        json!({"case_id":id,"case_definition":definition,"selection":"direct","registry_status":"planned","outcome":"planned","reason_code":"planned","artifact_paths":[],"dependency_case_ids":[]})
+        json!({"case_id":id,"case_definition":definition,"selection":"direct","registry_status":"planned","outcome":"planned","reason_code":definition["blockers"][0]["code"],"artifact_paths":[],"dependency_case_ids":[]})
     }
 
     #[test]
@@ -558,6 +616,28 @@ mod external_manifest_contract_tests {
         value["selection_ledger"] = json!([]);
         value["files"] = json!([]);
         assert!(validate_external_corpus_manifest(&value).is_err());
+        for (status, skip, blockers, expected) in [
+            (
+                "skipped",
+                json!({"reason_code":"explicit_skip","message":"test","recheck_phase":null}),
+                json!([{"code":"independent_decoder_unavailable","message":"test","recheck_phase":"phase-5"}]),
+                "explicit_skip",
+            ),
+            ("deprecated", Value::Null, json!([]), "case_deprecated"),
+        ] {
+            let mut value = fixture();
+            let mut row = entry("test/reason");
+            row["registry_status"] = json!(status);
+            row["outcome"] = json!(status);
+            row["case_definition"]["status"] = json!(status);
+            row["case_definition"]["skip"] = skip;
+            row["case_definition"]["blockers"] = blockers;
+            row["reason_code"] = json!(expected);
+            value["selection_ledger"].as_array_mut().unwrap().push(row);
+            validate_external_corpus_manifest(&value).unwrap();
+            value["selection_ledger"][1]["reason_code"] = json!("wrong_reason");
+            assert!(validate_external_corpus_manifest(&value).is_err());
+        }
     }
 
     #[test]
@@ -673,6 +753,11 @@ mod external_manifest_contract_tests {
         let mut value = fixture();
         let direct = value["selection_ledger"][0]["case_id"].clone();
         let mut dependency = entry("test/dependency");
+        dependency["registry_status"] = json!("implemented");
+        dependency["case_definition"] = value["selection_ledger"][0]["case_definition"].clone();
+        dependency["case_definition"]["case_id"] = json!("test/dependency");
+        dependency["outcome"] = json!("unavailable");
+        dependency["reason_code"] = json!("unavailable_backend");
         dependency["selection"] = json!("dependency");
         value["selection_ledger"][0]["dependency_case_ids"] = json!(["test/dependency"]);
         value["selection_ledger"]
@@ -680,6 +765,44 @@ mod external_manifest_contract_tests {
             .unwrap()
             .push(dependency);
         validate_external_corpus_manifest(&value).unwrap();
+        // Exercise every isolation pairing independently of case-specific schema
+        // requirements. Production reaches this only after schema validation.
+        for owner in ["smoke", "legacy", "stress", "negative", "fuzz"] {
+            for target in ["smoke", "legacy", "stress", "negative", "fuzz"] {
+                let mut changed = value.clone();
+                changed["run"]["profile"] = json!(owner);
+                changed["selection_ledger"][0]["case_definition"]["profiles"] = json!([owner]);
+                changed["selection_ledger"][1]["case_definition"]["profiles"] = json!([target]);
+                let allowed = target == "smoke" || (owner != "smoke" && owner == target);
+                assert_eq!(
+                    validate_external_selection(&changed).is_ok(),
+                    allowed,
+                    "{owner} -> {target}"
+                );
+            }
+        }
+        for direct_target in [false, true] {
+            let mut changed = value.clone();
+            if direct_target {
+                changed["selection_ledger"][1]["selection"] = json!("direct");
+            }
+            changed["run"]["profile"] = json!("all");
+            changed["run"]["include_stress"] = json!(true);
+            changed["selection_ledger"][1]["case_definition"]["profiles"] = json!(["stress"]);
+            assert!(validate_external_selection(&changed).is_err());
+            changed["selection_ledger"][1]["case_definition"]["profiles"] = json!(["smoke"]);
+            changed["selection_ledger"][1]["registry_status"] = json!("planned");
+            changed["selection_ledger"][1]["case_definition"] =
+                entry("test/dependency")["case_definition"].clone();
+            changed["selection_ledger"][1]["outcome"] = json!("planned");
+            changed["selection_ledger"][1]["reason_code"] =
+                changed["selection_ledger"][1]["case_definition"]["blockers"][0]["code"].clone();
+            assert!(validate_external_corpus_manifest(&changed).is_err());
+            changed["selection_ledger"][1]["reason_code"] = json!("fabricated_reason");
+            changed["selection_ledger"][0]["dependency_case_ids"] = json!([]);
+            changed["selection_ledger"][1]["selection"] = json!("direct");
+            assert!(validate_external_corpus_manifest(&changed).is_err());
+        }
         for (pointer, replacement) in [
             ("/selection_ledger/0/dependency_case_ids", json!([])),
             (

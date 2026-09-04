@@ -160,7 +160,9 @@ def main():
     env = os.environ.copy(); env["CARGO_TARGET_DIR"] = str(target); env["CARGO_INCREMENTAL"] = "0"
     run("rustc", ["rustc", "-vV"], root)
     run("cargo", ["cargo", "-V"], root)
-    run("consumer-lock", ["cargo", "generate-lockfile", "--offline"], consumer, env)
+    # Add the consumer root while retaining the seeded resolution, rather than
+    # regenerate-lockfile's fresh resolver choices from the local cache.
+    run("consumer-lock", ["cargo", "metadata", "--offline", "--format-version", "1"], consumer, env)
     consumer_packages = lock_packages((consumer / "Cargo.lock").read_text())
     assert consumer_packages.issubset(source_packages), "consumer dependency versions/checksums diverged from snapshot lock"
     receipt["consumer_dependency_alignment"] = {"registry_packages": len(consumer_packages), "all_versions_sources_checksums_match_snapshot": True}

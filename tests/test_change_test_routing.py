@@ -80,9 +80,12 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
                 ["release_candidate"],
             ),
             "src/sdk.rs": (
-                ["captured_corpus_report", "sdk"],
+                ["captured_corpus_report", "captured_corpus_runner", "sdk"],
                 [
+                    "cargo test --locked --no-default-features --lib corpus_generation::captured_runner_tests::",
                     "cargo test --locked --no-default-features --lib corpus_report::captured_report_tests::",
+                    "cargo test --locked --no-default-features --lib manifest_contract::external_manifest_contract_tests::",
+                    "cargo test --locked --no-default-features --test cli_sdk__nonfast sdk_corpus::",
                     "cargo test --locked --no-default-features --test cli_sdk__nonfast sdk_facade::",
                     "cargo test --locked --no-default-features --test schema_resources__subsystem cli_contract_schema::",
                 ],
@@ -97,6 +100,7 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
                     "cargo test --locked --no-default-features --lib report_contract::report_contract_tests::",
                     "cargo test --locked --no-default-features --test assembly__subsystem",
                     "cargo test --locked --no-default-features --test cli_sdk__nonfast report_cli::",
+                    "cargo test --locked --no-default-features --test cli_sdk__nonfast sdk_corpus::",
                     "cargo test --locked --no-default-features --test cli_sdk__nonfast sdk_facade::",
                     "cargo test --locked --no-default-features --test schema_resources__subsystem",
                 ],
@@ -137,13 +141,17 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
                 self.assertIn("captured_corpus_runner", result["bundle_ids"])
                 if path != "src/corpus_generation.rs":
                     self.assertIn("schema", result["bundle_ids"])
-                for module, count in [("corpus_generation::captured_runner_tests", 5), ("manifest_contract::external_manifest_contract_tests", 7)]:
+                for module, count in [("corpus_generation::captured_runner_tests", 6), ("manifest_contract::external_manifest_contract_tests", 7)]:
                     command = next(item for item in result["commands"] if item.get("module") == module)
                     self.assertEqual(command["list_count"], count)
         config = copy.deepcopy(self.config)
-        config["rules"] = [rule for rule in config["rules"] if rule["id"] != "captured-corpus-runner"]
+        config["rules"] = [rule for rule in config["rules"] if rule["id"] not in ["captured-corpus-runner", "external-corpus-sdk"]]
         with self.assertRaises(ROUTER.RoutingError):
             ROUTER.select(["src/corpus_generation.rs"], config, self.ownership)
+        for path in ["src/sdk.rs", "src/sdk/corpus.rs"]:
+            commands = self.commands(self.select(path))
+            self.assertIn("cargo test --locked --no-default-features --test cli_sdk__nonfast sdk_corpus::", commands)
+            self.assertIn("cargo test --locked --no-default-features --lib corpus_generation::captured_runner_tests::", commands)
 
     def test_external_report_sources_select_lossless_projection_and_cli_readers(self):
         for path in ["src/corpus_report.rs", "src/report_contract.rs", "schemas/coverage-report-v2.schema.json", "schemas/manifest-v2.schema.json"]:
@@ -451,7 +459,7 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
         self.assertEqual(run.call_args.args[0][:4], ["git", "diff", "--name-status", "-z"])
         self.assertEqual(run.call_args.args[0][-1], "--")
         result = self.select(*paths)
-        self.assertEqual(result["bundle_ids"], ["captured_corpus_report", "codec", "provider", "sdk"])
+        self.assertEqual(result["bundle_ids"], ["captured_corpus_report", "captured_corpus_runner", "codec", "provider", "sdk"])
 
         for malformed in [b"Q\0src/sdk.rs\0", b"R101\0src/sdk.rs\0src/codecs.rs\0", b"R100\0src/sdk.rs\0"]:
             failed = types.SimpleNamespace(returncode=0, stdout=malformed, stderr=b"")

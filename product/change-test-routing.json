@@ -47,7 +47,7 @@
     },
     "captured_corpus_runner": {
       "commands": [
-        {"kind": "lib", "module": "corpus_generation::captured_runner_tests", "source": "tests/captured_corpus_generation.rs", "list_count": 5},
+        {"kind": "lib", "module": "corpus_generation::captured_runner_tests", "source": "tests/captured_corpus_generation.rs", "list_count": 6},
         {"kind": "lib", "module": "manifest_contract::external_manifest_contract_tests", "source": "src/manifest_contract.rs", "list_count": 7}
       ]
     },
@@ -126,6 +126,7 @@
     "sdk": {
       "commands": [
         {"target": "cli_sdk__nonfast", "module": "sdk_facade"},
+        {"target": "cli_sdk__nonfast", "module": "sdk_corpus"},
         {"target": "schema_resources__subsystem", "module": "cli_contract_schema"}
       ]
     },
@@ -205,6 +206,7 @@
     },
     {
       "id": "sdk",
+      "prefixes": ["src/sdk/"],
       "exact": ["src/cli_protocol.rs", "src/coverage_gaps.rs", "src/runtime_capabilities.rs", "src/sdk.rs"],
       "bundles": ["sdk"]
     },
@@ -318,9 +320,10 @@
       "bundles": ["captured_corpus_report", "report"]
     },
     {
-      "id": "external-report-sdk-rejection",
-      "exact": ["src/sdk.rs"],
-      "bundles": ["captured_corpus_report"]
+      "id": "external-corpus-sdk",
+      "exact": ["src/sdk.rs", "src/corpus_generation.rs"],
+      "prefixes": ["src/sdk/"],
+      "bundles": ["captured_corpus_report", "captured_corpus_runner", "sdk"]
     },
     {
       "id": "assembly",

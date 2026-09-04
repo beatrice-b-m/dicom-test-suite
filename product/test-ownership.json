@@ -3,10 +3,10 @@
   "scope": {
     "rust_test_targets": 22,
     "integration_test_targets": 20,
-    "rust_test_entry_groups": 271,
-    "rust_test_entries": 1456,
-    "integration_source_groups": 187,
-    "integration_test_entries": 903,
+    "rust_test_entry_groups": 272,
+    "rust_test_entries": 1463,
+    "integration_source_groups": 188,
+    "integration_test_entries": 909,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
   },
   "enums": {
@@ -408,15 +408,16 @@
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 5,
+      "entry_count": 6,
       "entries": [
+        "typed_execution_errors_preserve_specificity_and_cleanup_precedence",
         "smoke_publication_is_verified_deterministic_and_reader_bounded",
         "selectors_dry_run_and_nonexecutable_outcomes_never_publish",
         "captured_runner_is_independent_of_working_directory",
         "explicit_selection_preserves_dependencies_and_mixed_statuses",
         "transaction_failure_cancellation_and_existing_destination_are_atomic"
       ],
-      "entry_digest": "c426b54c2ce830b4135dbd78a540bef0a9caf121e353e3e101c95ebf334ce095"
+      "entry_digest": "3e3878e2cd6d35584e8991eba86672682f59bf3347846850ab98987ff41b0c5d"
     },
     {
       "source": "tests/captured_corpus_report.rs",
@@ -430,7 +431,7 @@
         "projection_accepts_unknown_case_names_without_embedded_inference",
         "report_semantics_reject_summary_identity_and_source_tampering"
       ],
-      "entry_digest": "bb73532bfba93759c0a90cabf30bae48623ed35cc77df4736924a5cfdeb52d5d"
+      "entry_digest": "0d177609b0461ee3dcae05adda20398f9b07abfcff0322f09d3a15dce22d3dab"
     },
     {
       "source": "tests/captured_curated_plan.rs",
@@ -2790,6 +2791,23 @@
         "scoord3d_vertical_slice_is_byte_deterministic_and_strictly_validated"
       ],
       "entry_digest": "69a4e5dcc2a39795d20cbd249d24bc1b07ef395ed6dedf464ccfe48a23b5463f"
+    },
+    {
+      "source": "tests/sdk_corpus.rs",
+      "target": "cli_sdk__nonfast",
+      "domain": "cli_sdk",
+      "verification_class": "subsystem",
+      "cost_tier": "ordinary",
+      "entry_count": 6,
+      "entries": [
+        "sdk_corpus_file_bytes_reproduce_and_support_readers",
+        "sdk_corpus_preview_and_empty_execution_are_distinct",
+        "sdk_corpus_case_selection_retains_dependency_and_multifile_evidence",
+        "sdk_corpus_errors_preserve_codes_and_do_not_publish",
+        "sdk_corpus_nonimplemented_metadata_is_lossless",
+        "sdk_corpus_works_from_unrelated_cwd"
+      ],
+      "entry_digest": "d75db1de236c0d2a36cea5038a5e5c2886759710af63a19578c6c282108d3f5d"
     },
     {
       "source": "tests/sdk_external_consumer.rs",

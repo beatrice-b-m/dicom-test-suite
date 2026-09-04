@@ -88,6 +88,10 @@ use crate::runtime_capabilities::{
 use crate::sha256_hex;
 use crate::uid::{DeterministicUidInput, UidRole, deterministic_uid};
 
+#[cfg(test)]
+#[path = "../tests/captured_curated_plan.rs"]
+mod captured_input_tests;
+
 const SC_PLAN_PROVIDER: &str = "native.sc_plan";
 const METADATA_SC_PLAN_PROVIDER: &str = "native.metadata_sc_plan";
 const CLASSIC_PLAN_PROVIDER: &str = "native.classic_plan";
@@ -336,6 +340,78 @@ pub struct CuratedScCorpusPlanProvider {
     capability_inventory: CapabilityInventory,
     repository_root: PathBuf,
     standards_lock_path: PathBuf,
+    installed_codec_matrix: Option<String>,
+}
+
+/// Internal bridge for the later batch runner. No caller filesystem paths are
+/// retained: corpus inputs are captured, engine service paths own a private lease.
+#[allow(dead_code)]
+pub(crate) struct CapturedCuratedPlanningContext {
+    provider: CuratedScCorpusPlanProvider,
+    engine_lease: crate::engine_resources::EngineResourceSnapshot,
+    corpus_identity: crate::corpus_definition::CorpusDefinitionIdentity,
+}
+
+#[allow(dead_code)]
+pub(crate) struct CapturedCuratedPlan {
+    pub(crate) planned: CuratedScCorpusPlan,
+    pub(crate) corpus_identity: crate::corpus_definition::CorpusDefinitionIdentity,
+    engine_lease: crate::engine_resources::EngineResourceSnapshot,
+}
+
+#[allow(dead_code)]
+impl CapturedCuratedPlanningContext {
+    pub(crate) fn from_verified_bundle(
+        bundle: &crate::corpus_definition::CorpusDefinitionBundle,
+        resources: &crate::engine_resources::EngineResources,
+    ) -> Result<Self, CuratedPlanError> {
+        let engine_lease = resources
+            .shared_snapshot()
+            .map_err(|error| CuratedPlanError::Catalog(error.to_string()))?;
+        let root = engine_lease.root();
+        let path = &bundle.manifest().registry.path;
+        let registry =
+            serde_json::from_slice(bundle.bytes(path).expect("verified registry capture"))
+                .map_err(|error| CuratedPlanError::Parse {
+                    path: path.into(),
+                    message: error.to_string(),
+                })?;
+        let recipes = RecipeCatalog::from_verified_bundle(bundle, root)
+            .map_err(|error| CuratedPlanError::Catalog(error.to_string()))?;
+        let templates = TemplateCatalog::load(root.join("templates/catalog.json"))
+            .map_err(|error| CuratedPlanError::Catalog(error.to_string()))?;
+        let standards_lock_path = root.join("standards.lock.json");
+        let standards_lock_sha256 = sha256_hex(&read(&standards_lock_path)?);
+        let installed_codec_matrix = resources
+            .text("transfer-syntax/capability-matrix.json")
+            .map_err(|error| CuratedPlanError::Catalog(error.to_string()))?
+            .into_owned();
+        Ok(Self {
+            provider: CuratedScCorpusPlanProvider {
+                registry,
+                recipes,
+                templates,
+                standards_lock_sha256,
+                capability_inventory: CapabilityInventory::compiled(),
+                repository_root: root.to_path_buf(),
+                standards_lock_path,
+                installed_codec_matrix: Some(installed_codec_matrix),
+            },
+            engine_lease,
+            corpus_identity: bundle.identity().clone(),
+        })
+    }
+
+    pub(crate) fn plan(
+        &self,
+        request: CuratedScPlanRequest,
+    ) -> Result<CapturedCuratedPlan, CuratedPlanError> {
+        Ok(CapturedCuratedPlan {
+            planned: self.provider.plan(&request)?,
+            corpus_identity: self.corpus_identity.clone(),
+            engine_lease: self.engine_lease.clone(),
+        })
+    }
 }
 
 impl CuratedScCorpusPlanProvider {
@@ -369,6 +445,7 @@ impl CuratedScCorpusPlanProvider {
             capability_inventory: CapabilityInventory::compiled(),
             repository_root,
             standards_lock_path: paths.standards_lock_path,
+            installed_codec_matrix: None,
         })
     }
 
@@ -448,8 +525,11 @@ impl CuratedScCorpusPlanProvider {
         let mut classic_dependencies = Vec::new();
         let mut advanced_dependencies = Vec::new();
         let mut locked_full_file_requests = BTreeMap::new();
-        let capability_evaluator = RuntimeCapabilityEvaluator::committed()
-            .map_err(|error| CuratedPlanError::Catalog(error.to_string()))?;
+        let capability_evaluator = match &self.installed_codec_matrix {
+            Some(matrix) => RuntimeCapabilityEvaluator::from_installed_matrix(matrix),
+            None => RuntimeCapabilityEvaluator::committed(),
+        }
+        .map_err(|error| CuratedPlanError::Catalog(error.to_string()))?;
 
         let registry_order = self
             .registry

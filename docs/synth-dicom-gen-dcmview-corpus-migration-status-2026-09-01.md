@@ -5346,6 +5346,55 @@ retained baseline exists yet. Live corpus content remains0.3.1 with16 cases and
 root; CT import, runtime availability, migrated parity and R7.2/R7.3 genericity
 remain open.
 
+## R7 CT1 baseline1 failed; helper correction accepted — 2026-09-04
+
+After explicit authorization, the prepared helper ran once at clean corpus
+`4f0c3e6882d715efddf2ce239f11123e9cc48ae3` and failed closed without retry.
+Evidence remains at corpus `artifacts/r7-native-ct-baseline1-20260904`. Its
+26,894-byte receipt SHA-256 is
+`d0a967ca377d318594e065ae40826b26bf73f24ecca3439d7dfff87db075afdf`;
+status is failed at generation postcheck with `unaccepted full-file diagnostic
+differs`. The5.241005083s job completed both pinned acquisitions, then invoked
+exactly one generation. That command exited0 in1.404867959s with empty stderr;
+strict validation and reporting never ran.
+
+The retained 1,198-byte Part10 file SHA-256
+`b7a7e95dced9092c23e56815b6083e4b630f557bcb1508d55ef82d4d8fb7e732`
+and its resolved instance plan
+`598cb71e85d1cfa9b8976a1025a5c97e59438a36c756ada4821777d838a8b8df`
+match the source diagnostics. The143,348-byte manifest SHA-256 is
+`07fae743d9f511472673d5a53c40cd43c67070429db4bafa0c1ecdd849ee0201`.
+Its9,221-byte canonical file object SHA-256 is
+`82fd8a1658aa588cff6ae2644ee1e2538bf60fc6df03a2d7d1ed14e40030dcbd`
+and its explicit-selection plan is
+`ad33f99c00e2d17f93e07b2aa663ca82bbd63444aeb3ceb94c47b620adbe4d6e`.
+The earlier78ca59/35cfc5 prefixes came from a non-authoritative profile-wide
+diagnostic: the global selected-plan identity is embedded in the file object,
+so it cannot constrain a one-case selection. This is not generator
+nondeterminism or a DICOM failure.
+
+Review also found four masked helper assumptions: source emits full image-*
+recipe keys, an object-shaped visual check and five CT UID fields; stored signed
+12-bit bytes are `000c00000004ff07` and require low-12-bit sign extension. Corpus
+commit `26aaf61` preserves the old diagnostics as superseded, binds the exact
+retained failed-run observations, corrects those source-shaped checks and adds
+adversarial tests. Final files are: provenance27,630 bytes SHA-256
+`9188dcad32ddfcb648d379b197ea38e48ffb256839f6138d18bb98c5ff8f55a1`;
+provenance test16,458 bytes SHA-256
+`9c7cb8783b505085b6f456b3479442f997a223bb061c351a6bee7d2e126e1a79`;
+helper32,695 bytes SHA-256
+`a2dbf85e3ebe60bf217c7576b25c2575b638aea68bc8aee54a3aa858a0b4bca5`;
+helper test30,307 bytes SHA-256
+`46bdca744b2dc31ed11e72cdb663c8e5926ddd4c90f4cda957367e3e2e4ceca4`.
+
+Author/root/independent focused results were respectively provenance8/8 in
+0.010s/0.008s/0.009s and helper18/18 in0.236s/0.232s/0.234s. Diff checking and
+read-only validation of the retained generated output passed. No correction
+changed the generator or reporter, reran native code or promoted baseline1.
+The retained set has15 files/139,435,737 logical/139,472,896 allocated bytes.
+A fresh baseline2 must independently complete strict validation and reporting
+before CT import, availability or parity can proceed.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

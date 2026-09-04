@@ -144,18 +144,87 @@ impl RecipeCatalog {
                 message: error.to_string(),
             }
         })?;
+        let paths = sorted_json_files(recipes_root.as_ref())?;
+        let documents = paths
+            .into_iter()
+            .map(|path| {
+                fs::read(&path)
+                    .map(|bytes| (path.clone(), bytes))
+                    .map_err(|error| RecipeCatalogError::Read {
+                        path,
+                        message: error.to_string(),
+                    })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Self::assemble(
+            registry,
+            templates,
+            codec_registry,
+            documents,
+            Some(template_catalog_path),
+        )
+    }
+
+    /// Caller recipes are compatible with installed templates but need not own
+    /// the installed catalog's unrelated default-recipe closure.
+    pub(crate) fn from_verified_bundle(
+        bundle: &crate::corpus_definition::CorpusDefinitionBundle,
+        engine_root: &Path,
+    ) -> Result<Self, RecipeCatalogError> {
+        let registry_path = &bundle.manifest().registry.path;
+        let registry = serde_json::from_slice(
+            bundle
+                .bytes(registry_path)
+                .expect("verified registry capture"),
+        )
+        .map_err(|error| RecipeCatalogError::Parse {
+            path: registry_path.into(),
+            message: error.to_string(),
+        })?;
+        let templates = load_templates(&engine_root.join("templates/catalog.json"))?;
+        let matrix_path = engine_root.join("transfer-syntax/capability-matrix.json");
+        let matrix =
+            fs::read_to_string(&matrix_path).map_err(|error| RecipeCatalogError::Read {
+                path: matrix_path,
+                message: error.to_string(),
+            })?;
+        let codecs =
+            TransferSyntaxBackendRegistry::from_capability_matrix(&matrix).map_err(|error| {
+                RecipeCatalogError::Completeness {
+                    message: error.to_string(),
+                }
+            })?;
+        let documents = bundle
+            .manifest()
+            .cases
+            .iter()
+            .map(|case| {
+                (
+                    PathBuf::from(&case.recipe.path),
+                    bundle
+                        .bytes(&case.recipe.path)
+                        .expect("verified recipe capture")
+                        .to_vec(),
+                )
+            })
+            .collect();
+        Self::assemble(registry, templates, codecs, documents, None)
+    }
+
+    fn assemble(
+        registry: RegistryDocument,
+        templates: BTreeMap<(String, String), TemplateContract>,
+        codec_registry: TransferSyntaxBackendRegistry,
+        documents: Vec<(PathBuf, Vec<u8>)>,
+        engine_default_closure: Option<&Path>,
+    ) -> Result<Self, RecipeCatalogError> {
         let schema: Value =
             serde_json::from_str(CASE_RECIPE_SCHEMA).expect("embedded recipe schema");
         let validator = jsonschema::validator_for(&schema).expect("case recipe schema compiles");
-        let paths = sorted_json_files(recipes_root.as_ref())?;
         let mut recipes = BTreeMap::new();
         let mut bindings = BTreeMap::new();
 
-        for path in paths {
-            let bytes = fs::read(&path).map_err(|error| RecipeCatalogError::Read {
-                path: path.clone(),
-                message: error.to_string(),
-            })?;
+        for (path, bytes) in documents {
             let value: Value =
                 serde_json::from_slice(&bytes).map_err(|error| RecipeCatalogError::Parse {
                     path: path.clone(),
@@ -190,7 +259,9 @@ impl RecipeCatalog {
         }
 
         validate_registry_bindings(&registry, &recipes, &bindings, &templates, &codec_registry)?;
-        validate_template_default_recipes(template_catalog_path, &templates, &recipes)?;
+        if let Some(template_catalog_path) = engine_default_closure {
+            validate_template_default_recipes(template_catalog_path, &templates, &recipes)?;
+        }
         validate_migrated_planning_orders(&recipes)?;
         validate_dependencies(&registry, &recipes)?;
         let ordered = topological_order(&recipes)?;

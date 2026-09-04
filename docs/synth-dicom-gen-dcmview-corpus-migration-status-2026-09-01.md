@@ -3598,6 +3598,28 @@ installed-consumer/RC body, external repository or release publication ran.
 Independent review and the supported installed/cross-repository consumer proof
 remain required; R5 and terminal acceptance are not declared complete.
 
+### 2026-09-04 — R5.5 deferred harness compile correction
+
+Independent review rejected `a18d149..d5cf159` for one compile blocker in the
+touched deferred release harness. Its schema-registration loop discarded the
+owning `with_resource` return value. Commit `3b823f1` retains the returned
+options. The earlier ordinary/static checks passed but did not compile this
+deferred target; they were insufficient evidence for its buildability. The
+previous dated test results remain historical ordinary evidence, not release
+execution evidence.
+
+The `tests/release_archive.rs` route dry-run still correctly defers its bodies
+to release-candidate qualification. Explicit compile-only
+`cargo check --locked --no-default-features --test release_ci__nonfast` passes
+in 0.41s; no test body or archive build ran. `sh -n` passes for
+`scripts/build-release-archive.sh`, `scripts/validate-release-manifest.sh`, and
+`scripts/verify-release-archive.sh`. Python AST-only parsing passes for
+`tests/black_box_cli_consumer.py`, `scripts/check-test-ownership.py`, and
+`tests/test_change_test_routing.py`, without running consumer/qualification
+bodies. Ownership remains 22 targets / 273 groups / 1,470 entries; formatting
+and diff checks pass. Resource identities and generated behavior are unchanged.
+This narrow correction awaits independent re-review; no later phase began.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

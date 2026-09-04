@@ -3,8 +3,8 @@
   "scope": {
     "rust_test_targets": 22,
     "integration_test_targets": 20,
-    "rust_test_entry_groups": 268,
-    "rust_test_entries": 1440,
+    "rust_test_entry_groups": 270,
+    "rust_test_entries": 1452,
     "integration_source_groups": 187,
     "integration_test_entries": 902,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
@@ -1682,7 +1682,7 @@
         "resource_lookup_rejects_unsafe_and_unknown_paths",
         "snapshot_materializes_and_cleans_the_complete_resource_tree"
       ],
-      "entry_digest": "9de90162b5ce476174b59929bb861fb186680a279ef622e55439dd89599bcf7c"
+      "entry_digest": "194794360aa3b469ef543b264d25ffc96dc3bcb267551c8dcb69cf6a60ab7e09"
     },
     {
       "source": "tests/enhanced_mr_temporal.rs",
@@ -3705,6 +3705,22 @@
       "entry_digest": "a51e2113ba718f24b03a173d76fe495403206ff44601b408cc4bc92b497630aa"
     },
     {
+      "source": "src/corpus_generation.rs",
+      "target": "synth_dicom_gen",
+      "domain": "corpus_generation",
+      "verification_class": "subsystem",
+      "cost_tier": "ordinary",
+      "entry_count": 5,
+      "entries": [
+        "smoke_publication_is_verified_deterministic_and_reader_bounded",
+        "selectors_dry_run_and_nonexecutable_outcomes_never_publish",
+        "captured_runner_is_independent_of_working_directory",
+        "explicit_selection_preserves_dependencies_and_mixed_statuses",
+        "transaction_failure_cancellation_and_existing_destination_are_atomic"
+      ],
+      "entry_digest": "3f18e36957019420ead7a51f0a51159cd5b751a53799f008f54c70796fe1bce9"
+    },
+    {
       "source": "src/coverage_gaps.rs",
       "target": "synth_dicom_gen",
       "domain": "corpus_generation",
@@ -3778,7 +3794,7 @@
         "mutation_of_an_internal_shared_root_fails_closed_on_reuse",
         "one_handle_reuses_one_tree_across_batch_generate_validate_report_and_compose"
       ],
-      "entry_digest": "dbd687206a795ba8ed8407fa54f7699d40e576be79175df997d64cbe7f1d5554"
+      "entry_digest": "fe1db50a835b78213e033872f7f01ad63f3dfc27b513eb9d2943aee734aea264"
     },
     {
       "source": "src/executor/evidence.rs",
@@ -4105,7 +4121,7 @@
         "cargo_lock_perturbation_changes_only_toolchain_and_legacy_provenance",
         "external_runtime_identity_requires_successful_typed_execution_evidence"
       ],
-      "entry_digest": "5725828d10dfb635fd37f9e0daddc9b420636b31a015186afcc162812e95ff4f"
+      "entry_digest": "fde739b16ade8158f9675df008ed33fcdb1f431e13110a850e6f01e34bc91337"
     },
     {
       "source": "src/lib.rs",
@@ -4193,6 +4209,24 @@
         "encapsulated_stl_report_projects_payload_geometry_and_grouped_evidence"
       ],
       "entry_digest": "cbda585bf09bb45fe22abc602be8144e16cceb280a822f1d8b12586807dd5131"
+    },
+    {
+      "source": "src/manifest_contract.rs",
+      "target": "synth_dicom_gen",
+      "domain": "corpus_generation",
+      "verification_class": "subsystem",
+      "cost_tier": "ordinary",
+      "entry_count": 7,
+      "entries": [
+        "accepts_mixed_selection_and_rejects_empty_publication",
+        "rejects_identity_version_and_unknown_fields",
+        "rejects_duplicate_unsorted_and_selector_mismatched_ledgers",
+        "rejects_contradictory_and_unevidenced_outcomes",
+        "artifact_ownership_and_qualification_evidence_are_closed",
+        "dependency_graph_is_closed_acyclic_and_reachable",
+        "runtime_ids_remain_unique"
+      ],
+      "entry_digest": "3c4d61311a1c497c452a8e4970de4c409267ed52afc5e47683b8d266ec76258d"
     },
     {
       "source": "src/media.rs",

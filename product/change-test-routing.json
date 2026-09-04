@@ -45,6 +45,12 @@
         {"kind": "lib", "module": "curated_plan::captured_input_tests", "source": "tests/captured_curated_plan.rs", "list_count": 4}
       ]
     },
+    "captured_corpus_runner": {
+      "commands": [
+        {"kind": "lib", "module": "corpus_generation::captured_runner_tests", "source": "src/corpus_generation.rs", "list_count": 5},
+        {"kind": "lib", "module": "manifest_contract::external_manifest_contract_tests", "source": "src/manifest_contract.rs", "list_count": 7}
+      ]
+    },
     "corpus_definition_internal": {
       "commands": [
         {"kind": "lib", "module": "corpus_definition::tests", "source": "tests/corpus_definition_bundle.rs", "list_count": 23}
@@ -295,6 +301,11 @@
         "tests/fixtures/corpus-definition/"
       ],
       "bundles": ["corpus_definition_internal", "schema"]
+    },
+    {
+      "id": "captured-corpus-runner",
+      "exact": ["src/corpus_generation.rs", "schemas/manifest-v2.schema.json", "src/manifest_contract.rs"],
+      "bundles": ["captured_corpus_runner"]
     },
     {
       "id": "assembly",

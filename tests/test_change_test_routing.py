@@ -88,8 +88,10 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
                 ["release_candidate"],
             ),
             "src/manifest_contract.rs": (
-                ["assembly", "report", "schema", "sdk"],
+                ["assembly", "captured_corpus_runner", "report", "schema", "sdk"],
                 [
+                    "cargo test --locked --no-default-features --lib corpus_generation::captured_runner_tests::",
+                    "cargo test --locked --no-default-features --lib manifest_contract::external_manifest_contract_tests::",
                     "cargo test --locked --no-default-features --lib report_contract::report_contract_tests::",
                     "cargo test --locked --no-default-features --test assembly__subsystem",
                     "cargo test --locked --no-default-features --test cli_sdk__nonfast report_cli::",
@@ -125,6 +127,21 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
         config["bundles"]["captured_corpus_planning"]["commands"] = []
         with self.assertRaises(ROUTER.RoutingError):
             ROUTER.select(["tests/captured_curated_plan.rs"], config, self.ownership)
+
+    def test_captured_runner_and_contract_select_both_bounded_suites(self):
+        for path in ["src/corpus_generation.rs", "src/manifest_contract.rs", "schemas/manifest-v2.schema.json"]:
+            with self.subTest(path=path):
+                result = self.select(path)
+                self.assertIn("captured_corpus_runner", result["bundle_ids"])
+                if path != "src/corpus_generation.rs":
+                    self.assertIn("schema", result["bundle_ids"])
+                for module, count in [("corpus_generation::captured_runner_tests", 5), ("manifest_contract::external_manifest_contract_tests", 7)]:
+                    command = next(item for item in result["commands"] if item.get("module") == module)
+                    self.assertEqual(command["list_count"], count)
+        config = copy.deepcopy(self.config)
+        config["rules"] = [rule for rule in config["rules"] if rule["id"] != "captured-corpus-runner"]
+        with self.assertRaises(ROUTER.RoutingError):
+            ROUTER.select(["src/corpus_generation.rs"], config, self.ownership)
 
     def test_overlaps_and_multi_path_union_are_deterministic_and_deduplicated(self):
         codec_engine = self.select("src/executor/frame_codec.rs")
@@ -274,10 +291,10 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
 
     def test_shared_manifest_contract_routes_assembly_readers_and_semantics(self):
         result = self.select("src/manifest_contract.rs")
-        self.assertEqual(result["bundle_ids"], ["assembly", "report", "schema", "sdk"])
+        self.assertEqual(result["bundle_ids"], ["assembly", "captured_corpus_runner", "report", "schema", "sdk"])
         self.assertEqual(
             result["matched_rules"]["src/manifest_contract.rs"],
-            ["manifest-contract"],
+            ["captured-corpus-runner", "manifest-contract"],
         )
         self.assertIn(
             "cargo test --locked --no-default-features --test assembly__subsystem",

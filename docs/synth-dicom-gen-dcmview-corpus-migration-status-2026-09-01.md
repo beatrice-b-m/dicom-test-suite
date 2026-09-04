@@ -4349,6 +4349,14 @@ baseline alone is not proof that those budgets have passed.
 
 ## Blockers and authority boundaries
 
+- On 2026-09-04 the user explicitly approved local file edits and Git commits
+  in `/Users/beatrice/AgentFiles/projects/dcmview-test-corpus` after permission
+  review rejected the first report-only helper file creation. That rejected
+  attempt wrote no files and produced no corpus commit; both repositories
+  were clean at resume. This approval resolves the local-path authority
+  blocker only. Remotes, pushes, releases and viewer-repository changes remain
+  outside scope. The report-only helper must still pass review before its
+  one retained baseline completion execution.
 - On 2026-09-04 the user explicitly approved creation of the local corpus
   repository at `/Users/beatrice/AgentFiles/projects/dcmview-test-corpus`.
   The empty local Git repository was initialized on `main`; no remote was

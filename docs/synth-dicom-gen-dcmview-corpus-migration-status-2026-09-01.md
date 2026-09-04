@@ -3374,6 +3374,33 @@ release-candidate, external repository or release work ran. Earlier dated SDK
 unsupported statements describe their then-current slices; this section
 supersedes them only for the supported facade, not the CLI envelope boundary.
 
+### R5 SDK review corrections — 2026-09-03
+
+Independent review rejected `ca571fb..e443b15` for a P2 SDK-guide example
+and P3 adversarial-test precision defect; the prior passing checks did not
+exercise those exact conditions. Commit `bc3a298` fixes only those boundaries:
+the file example uses `./definition.json`, explicitly documents the required
+parent component, and preserves the loader's rejection of bare filenames.
+The existing isolated-CWD subprocess now executes the exact documented
+descriptor/member/output spellings, seed1/parallelism2, generation, validation,
+and report2; bare `definition.json` fails `resource.document.invalid` without
+creating its output. No global CWD mutation or loader behavior change occurs.
+The malformed-digest test now mutates the existing
+`identity_projection.engine.engine_sha256` via a checked pointer, rather than
+adding an unknown `sha256` property. Both public SDK reader paths reject it.
+Search found no other current `GenerateCorpusRequest::from_file` examples;
+composition's distinct parent-inference contract remains unchanged.
+
+After the docs/test route dry-run, `cargo test --locked --no-default-features
+--test cli_sdk__nonfast sdk_corpus::` passes 6/6 in 21.04s (1.99s compile).
+The exact isolated example regression, adding
+`sdk_corpus::sdk_corpus_works_from_unrelated_cwd -- --exact`, passes 1/1 in
+9.44s. Ownership stays 22 targets / 272 groups / 1,463 entries; spelling
+remains 955 with the unchanged digest above. Formatting and diff checks pass.
+No production code, schemas, identities, discovery, CLI corpus input,
+Heavy/provider/package/release evidence changed or ran. The corrected slice
+awaits independent re-review.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

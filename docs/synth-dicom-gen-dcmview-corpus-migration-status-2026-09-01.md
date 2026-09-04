@@ -4275,6 +4275,58 @@ source snapshot, then establish explicit report-only acquisition/completion
 evidence over the unchanged baseline. No live corpus import, generator-pin
 replacement or baseline regeneration follows from this ordinary gate alone.
 
+### 2026-09-04 — R7 immutable reporting candidate, build-only checkpoint
+
+Independently reviewed one native build from source
+`c2ffe41a9af6b72857f51b507ae6165a14deacdb`, tree
+`299a533f86caaddd7d5655b5c5c3ea9c234dc940`. The retained 18,339,840-byte
+source archive has SHA
+`8374cf734e7177d508e40b5548acc8f112380e927baf7526530324803d54764d`;
+all 898 extracted source files remain byte-equal to that archive. Source and
+fresh target remain under `/private/tmp/r7-reporter-candidate-cwzauz31`.
+This is an unreleased source-built reporting candidate, not a replacement for
+the corpus generation pin or an independently qualified release.
+
+The retained binary is
+`generated/r7-reporter-candidate-20260904/bin/synth-dicom-gen`, 69,743,968
+bytes, SHA `c56f49b0fc6626948f93f83568b592efd35109919c128da1191f818aab4bb383`.
+The offline, locked, no-default-feature build explicitly targets
+`aarch64-apple-darwin` with rustc/cargo1.85.0. Its dev debug0/incremental0
+settings match the archived Cargo.toml defaults; the validation receipt
+corrects an earlier commentary assertion that those defaults were absent.
+The target was fresh, but the Cargo registry cache was already warm.
+Build time was 23.717816958s and whole capture time 25.81105125s. The new
+target contains 973 files, 578,521,607 logical / 582,344,704 allocated bytes.
+These are reporter-build costs, not a terminal CI or release measurement.
+
+Version and capabilities were the only runtime commands, from an unrelated
+directory with empty PATH. Both identify product0.2.0 and agree on the separate
+identity domains: engine3/`4268d921…` and legacy240/`dc61cc01…` remain unchanged;
+schema58/`a81087ba…` and aggregate resources81/`1c1884b6…` include the additive
+report contract. Producers advertise coverage1.1/2 and readers retain
+coverage0.1/1/1.1/2. Root additionally validated the actual version2 and
+capabilities3 results and success envelopes against full Draft2020 schemas
+with Ajv8.18.0/Node24.19.0: four checks passed in 0.339068708s. No native
+command was rerun for that schema check.
+
+Evidence under `generated/r7-reporter-candidate-20260904`:
+
+- Build receipt SHA `96e325b520fe2bcc9f572b66484c2c019afc9fa1b7d9545fecc04f4abf1d0e01`.
+- Provenance/discovery assertion receipt SHA
+  `e6247991749894185ced8e6c4dac5fe15e7b092552b65d2b0cbb7d1f27e64db9`.
+- Complete inventory SHA
+  `e4a09590e636cdce44ff3e1580160666cdf42231e39b14a544df0a505a998265`;
+  root verified all 22 listed file hashes and sizes. They total 88,676,042
+  logical / 88,707,072 allocated bytes, excluding the inventory itself.
+
+No report against the retained baseline, generation, validation replay, SDK
+consumer build, Heavy, package or release qualification ran at this boundary.
+The original generator lock and failed baseline receipts are unchanged. Next
+is a separately reviewed, explicitly acquired report-only completion helper
+with exact pinned standards-enrichment expectations. R7 baseline acceptance,
+live core import and the later product-version identity-contract migration
+remain open.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

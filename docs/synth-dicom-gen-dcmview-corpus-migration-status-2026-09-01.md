@@ -3144,6 +3144,37 @@ builder is an ordinary fixture preparer only. R5 remains open for definition-led
 reporting, supported SDK/CLI surfaces, discovery and SDK-only external-consumer
 proof; this internal slice makes none of those claims.
 
+### R5 manifest dependency-policy remediation — 2026-09-03
+
+Review of `14dce37..6b30dda` rejected the standalone reader's dependency
+policy: graph closure alone allowed a generated ordinary row to depend on a
+planned row or isolated-profile evidence. This follow-up requires both edge
+endpoints to be implemented recipe-bearing definitions and mirrors the verified
+bundle's ordinary/legacy/stress/negative/fuzz isolation rules. Ordinary
+dependencies remain permitted for nonordinary owners. The check applies to all
+edges, including edges between directly selected rows; direct-selection scope
+checking is not used as a substitute for edge checking.
+
+The existing seven-test contract group now contains all 25 profile-family edge
+pairings, planned-target rejection, direct-to-direct scope/status mutations and
+a positive implemented dependency. Nonimplemented primary reasons must match
+the producer's exact captured precedence: skip reason, otherwise first blocker,
+otherwise `case_<status>`. Positive tests retain skip-over-blocker, first-blocker
+and no-blocker fallback behavior; contradictory reasons fail. Initial test
+fixture attempts exposed frozen registry constraints on implemented roadmap/
+blockers and blocker-code enums; fixtures were corrected without relaxing the
+schema. No manifest schema bytes, contract versions, resource/corpus identities,
+producer behavior, supported API, or report boundary changed.
+
+Implementation `9145fce` and ownership `9a4a0ac` pass the exact routed contract
+filter (7/7, 2.23s; 21.30s compile) and captured-runner filter (5/5, 4.97s).
+`python3 -m unittest discover -s tests -p test_change_test_routing.py` passes
+24/24 in 2.434s; ownership remains 22 targets / 270 groups / 1,452 entries.
+Spelling (955 matches, unchanged digest), formatting and diff checks pass.
+The dry-run was inspected for `src/manifest_contract.rs` before the focused
+ordinary checks. No Heavy, feature/provider, RC or external execution ran; no
+later R5 report/SDK implementation began.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

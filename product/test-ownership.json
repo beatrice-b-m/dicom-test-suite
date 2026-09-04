@@ -4,7 +4,7 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 267,
-    "rust_test_entries": 1432,
+    "rust_test_entries": 1436,
     "integration_source_groups": 187,
     "integration_test_entries": 902,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
@@ -1225,10 +1225,14 @@
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 19,
+      "entry_count": 23,
       "entries": [
         "minimal_bundle_loads_with_stable_exact_byte_identity",
         "manifest_bytes_are_identity_bearing",
+        "explicit_descriptor_inputs_are_equivalent_relocatable_and_output_free",
+        "explicit_inputs_reject_missing_ambiguous_and_conflicting_locations",
+        "explicit_descriptor_limits_and_invalid_bytes_fail_closed",
+        "explicit_input_ancestors_and_members_cannot_be_symlinks",
         "malformed_duplicate_unknown_bom_and_utf8_are_rejected",
         "undeclared_hash_size_version_and_limits_fail_closed",
         "root_intermediate_and_file_symlinks_are_rejected",
@@ -1247,7 +1251,7 @@
         "negative_and_fuzz_dependencies_cannot_cross_legacy_or_stress_boundaries",
         "excessive_undeclared_inventory_fails_without_buffering_all_names"
       ],
-      "entry_digest": "3e47eef00271db000f64067612e9ceacfd816c5714084b299953d394fceebf35"
+      "entry_digest": "7281ed5814e42c908a0a6cf93bdc7c479477a4c843f3cfe4b88d4355e8d478bb"
     },
     {
       "source": "tests/corpus_plan.rs",
@@ -2726,7 +2730,7 @@
         "manifest_schema_types_exact_rt_radiation_set_expectations",
         "manifest_schema_scopes_second_generation_rt_expectations_to_their_cases"
       ],
-      "entry_digest": "66aa15c4340d3ad3cc869fdb05c52b10a47803c303bc44c97558eb1bf86dad8d",
+      "entry_digest": "6910a92a239a49dea02604fa91962d55d5c9ffc2101bb4d5daceb9fe5bc89278",
       "fast_cost_exemption": "Static JSON Schema validation; WSI names do not generate a corpus."
     },
     {

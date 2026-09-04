@@ -39,7 +39,7 @@ artifact.
 | R3 — rename reusable product | Complete | R3.1, R3.2, R3.3, R3.4 | Product, package, crate, library, sole binary, archives, discovery, package metadata, current operating guides, product-controlled environment, and production scratch paths use `synth-dicom-gen` / `synth_dicom_gen` at the breaking pre-1.0 product boundary `0.2.0`. Immutable dated evidence retains its exact old candidate identity, and 12 qualified-adapter variables retain provenance-bound spellings pending external requalification. The external-consumer audit found no supported `0.1.0` product consumer requiring an alias. A clean side project compiled and exercised only `synth_dicom_gen::sdk` from the extracted, verified `synth-dicom-gen-0.2.0.crate`, without the old repository path. The aggregate R3 gate passes. |
 | R4 — split immutable resources and corpus definitions | Complete | R4.1, R4.2, R4.3, R4.4, R4.5 | At the accepted R4 checkpoint, EngineResources v2 owned 74 immutable members and its private lazy lease materialized a 254-file transitional physical closure once per shared context. Those checkpoint measurements remain historical; current schema additions and exact identities are recorded in the latest dated R5 entry below. Cases/Cargo remain excluded from authoritative engine identity, and exact legacy 240-member v1 provenance remains reconstructable. |
 | R5 — add supported external corpus API | Complete | R5.1–R5.5 and isolated-source consumer gate independently accepted | SDK `ca571fb..aa7fcad`, CLI `aa7fcad..a18d149`, discovery `a18d149..5da18e8`, and the 2026-09-04 source-removed consumer proof at exact `232b9de` are independently accepted. This closes R5, not package/release qualification or R6+ terminal cross-repository evidence. |
-| R6 — establish smoke corpus repository | In progress | Local repository creation authorized | On 2026-09-04 the user approved `/Users/beatrice/AgentFiles/projects/dcmview-test-corpus`; the local Git repository has been initialized. Foundation, dependency acquisition, smoke definitions, runner, parity, and viewer-result contracts remain to be accepted. No remote or release publication is authorized. |
+| R6 — establish smoke corpus repository | In progress | Foundation, offline acquisition, R6.2 definitions/schema fixtures, and local runner accepted | The approved local repository is `/Users/beatrice/AgentFiles/projects/dcmview-test-corpus`. Clean-clone acquisition, full R6.4 parity, viewer-result contract and CI remain. Local-only native artifact evidence is not release qualification; no remote or release publication is authorized. |
 | R7 — migrate complete dcmview corpus | Not started | None | Requires R6 smoke parity and supported contracts. |
 | R8 — decouple viewer development | Not started | None | Requires a qualified artifact key and complete-enough corpus ownership. |
 | R9 — remove embedded corpus and qualify products | Not started | None | Terminal removal, documentation, measurement, and exact qualification have not run. |
@@ -3792,6 +3792,38 @@ removed temporary fixtures; no generator replay was needed. All 25 ordinary
 corpus tests pass. No generation occurred: publication and validation remain
 `not_run`. The supported runner, migration parity, viewer result contract and
 CI still remain before R6 can pass.
+
+### R6.3 local CLI runner accepted — 2026-09-04
+
+Corpus range `d6ea8f8..cd4783e` is independently accepted for the local runner
+slice, not yet clean-clone acquisition or R6.4 parity. It consumes only the
+supported CLI through the pinned native artifact, reverifies the cached binary
+before each command, and preserves typed published/planned/no-executable
+outcomes. Published results require actual validation success and matching
+lossless report evidence. Returned paths, counts, request scope, ledger and
+per-file plan hashes are checked; consumed-field parsers are not advertised as
+a general JSON Schema evaluator.
+
+The initial `5ba1dfe` run correctly failed strict validation because helper
+evidence placed inside the generated root was undeclared. The failed output
+and records remain preserved; generator validation was not weakened. Corrective
+commit `7819bb5` uses an exclusive adjacent `<out>.dcmview-run` directory,
+preflights both destinations, and creates neither for nonpublished outcomes.
+Later failures preserve published output and report publication uncertainty
+when a trusted response is unavailable.
+
+Four actual checks at `7819bb5` passed: smoke 4.306s, one explicit case ID
+3.476s, dry-run 2.802s, and empty-core no-execution 2.699s. Smoke output contains
+four files / 94,780 logical bytes / 106,496 allocated bytes; its seven-file
+adjacent evidence occupies 417,047 logical / 434,176 allocated bytes. Receipt
+`95123a97f23c59bc4592709df4b4ec982e51a0d16e58276824f88068165465a4`
+is retained in corpus `artifacts/runner-validation-reviewed-20260904/`.
+Independent review verified result hashes, closed output inventories, payloads,
+manifest/validation/report consistency, and absent nonpublished destinations.
+All 19 runner tests and 45 ordinary corpus tests pass; post-evidence strict
+validation also passes. No generator build, remote, Heavy, package or release
+work occurred. Clean-clone proof, complete migration parity, viewer results and
+CI remain before the R6 gate.
 
 ## Measurements
 

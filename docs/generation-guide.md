@@ -118,6 +118,18 @@ Historical report JSON is the compatibility exception: `--format json` alone
 returns the raw report. Add `--cli-api 1.0.0` to receive the common envelope;
 the unchanged raw object is then at `result.report`.
 
+During corpus separation, the internal verified-corpus runner can also produce
+external manifest `2.0.0`. Raw `report <root> --format json` and `--format markdown`
+accept that manifest without reopening its payloads or consulting the embedded
+registry. The resulting `coverage_report_schema_version = "2.0.0"`,
+`report_kind = "external_corpus"` report retains the complete source manifest,
+captured definitions and identities, with separate logical-case and artifact
+counts. Reporting performs no new validation or independent conformance
+assessment; recorded source evidence is preserved without upgrading its claims.
+The SDK and `--cli-api 1.0.0` report envelope do not yet support this external
+report contract. No supported CLI or SDK external-corpus generation request is
+available yet; this is not a `generate --corpus` workflow.
+
 ## 3. Select A Profile
 
 ### Valid file corpora

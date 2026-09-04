@@ -123,7 +123,7 @@ manifests `0.2.0` and `0.3.0` retain coverage report `0.1.0`. Readers also retai
 coverage report `1.0.0`. The additive `1.1.0` contract keeps non-generated
 nonsquare rows explicit without inventing artifact observations; generated
 rows retain their strict field requirements. Reporting preserves the source
-identity projection and does not rerun validation.
+identity projection and does not rerun strict corpus validation.
 
 During corpus separation, the supported Rust SDK verified-corpus runner can produce
 external manifest `2.0.0`. Raw `report <root> --format json` and `--format markdown`

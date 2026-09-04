@@ -3744,6 +3744,29 @@ The recorded origin ref still predates the accepted R5 revision; no remote
 availability is inferred from a local commit. Remote/publication authority
 remains separate from the approved local work.
 
+### R6.1 explicit local acquisition accepted — 2026-09-04
+
+Corpus range `7a0e0fc..1c922af` is independently accepted for acquisition only.
+Its lock pins the exact R5 native binary (69,314,672 bytes,
+`4ca0c6d6a8e4cbab81b7005b4354c7ff558c44747e00f41d22d3abbfd50b7768`)
+and complete version/capabilities document digests. The explicit caller input
+is copied and reverified before private execution; an ignored content-addressed
+cache is checked without replacement. Review caught and corrected a
+same-bytes/wrong-permissions cache acceptance defect in `e27487d`; all 20
+synthetic tests pass independently. Exact owner/mode checks now apply to both
+existing entries and publication winners.
+
+Actual post-fix first import and cache recheck passed in 1.737160167s and
+1.657543125s, with 69,316,608 allocated cache bytes. The corpus retains commands,
+implementation revision, complete discovery results, and measurement receipt
+`37e5ebcc4c5b2a6d7622c7faf6efc2cf3cd87883c779a8a931af89ad492ab8ad`
+under ignored `artifacts/acquisition-reviewed-20260904/`. Independent review
+verified receipt/result/binary hashes and cache ownership/permissions without
+reexecuting the candidate. The clean handoff is `1c922af`. This is explicit
+local/offline acquisition, not a release, remote fetch, corpus-generation or
+full R6 gate. Schema fixtures, definitions, runner, parity, viewer contract and
+CI remain to be accepted sequentially.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

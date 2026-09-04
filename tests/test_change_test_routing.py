@@ -153,6 +153,19 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
             self.assertIn("cargo test --locked --no-default-features --test cli_sdk__nonfast sdk_corpus::", commands)
             self.assertIn("cargo test --locked --no-default-features --lib corpus_generation::captured_runner_tests::", commands)
 
+    def test_external_cli_contracts_select_live_cli_sdk_and_report_evidence(self):
+        for path in ["src/external_corpus_cli.rs", "src/cli_protocol.rs", "schemas/generation-result-v3.schema.json", "schemas/report-result-v2.schema.json"]:
+            result = self.select(path)
+            self.assertIn("external_corpus_cli", result["bundle_ids"])
+            for module in ["external_corpus_cli", "sdk_corpus", "report_cli"]:
+                self.assertIn(f"cargo test --locked --no-default-features --test cli_sdk__nonfast {module}::", self.commands(result))
+            if path.startswith("schemas/"):
+                self.assertIn("schema", result["bundle_ids"])
+        config = copy.deepcopy(self.config)
+        config["rules"] = [rule for rule in config["rules"] if rule["id"] != "external-corpus-cli"]
+        with self.assertRaises(ROUTER.RoutingError):
+            ROUTER.select(["src/external_corpus_cli.rs"], config, self.ownership)
+
     def test_external_report_sources_select_lossless_projection_and_cli_readers(self):
         for path in ["src/corpus_report.rs", "src/report_contract.rs", "schemas/coverage-report-v2.schema.json", "schemas/manifest-v2.schema.json"]:
             with self.subTest(path=path):

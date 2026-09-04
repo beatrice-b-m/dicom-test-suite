@@ -15,6 +15,13 @@
     "unrouted_lib_groups": "All-configured-ordinary runs only list-proven representative lib prefixes; remaining ordinary lib groups stay explicit deferred evidence."
   },
   "bundles": {
+    "external_corpus_cli": {
+      "commands": [
+        {"target": "cli_sdk__nonfast", "module": "external_corpus_cli"},
+        {"target": "cli_sdk__nonfast", "module": "sdk_corpus"},
+        {"target": "cli_sdk__nonfast", "module": "report_cli"}
+      ]
+    },
     "assembly": {
       "commands": [{"target": "assembly__subsystem"}]
     },
@@ -147,6 +154,11 @@
     }
   },
   "rules": [
+    {
+      "id": "external-corpus-cli",
+      "exact": ["src/external_corpus_cli.rs", "src/cli_protocol.rs", "schemas/generation-result-v3.schema.json", "schemas/report-result-v2.schema.json"],
+      "bundles": ["external_corpus_cli"]
+    },
     {
       "id": "global-build",
       "exact": ["Cargo.lock", "Cargo.toml", "build.rs", "src/lib.rs", "src/main.rs"],

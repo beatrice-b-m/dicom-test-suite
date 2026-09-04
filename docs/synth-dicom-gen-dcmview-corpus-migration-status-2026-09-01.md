@@ -4683,6 +4683,39 @@ selection will be inspected, not silently turned into whole-core generation.
 The inventory documentation route selected no ordinary commands; unconditional
 Fast targets were reported but not run. Diff checks passed.
 
+## R7 metadata source provenance frozen — 2026-09-04
+
+Corpus commits `a84f995` (two explicit shared CI paths) and `4e59ea8`
+(source fixture and static tests) complete this source-only preparation unit.
+`docs/r7-native-metadata-source-provenance.json` is57,609 bytes, SHA
+`db735caa8c9757c471d4336296e50b447d5f440db715393200877d00332c8699`.
+It is self-contained: three exact registry rows, raw recipe and local-note
+texts, typed contracts, six source bindings and the exact standards projector
+excerpt at source232b9de. It requires no sibling checkout, Git lookup or
+generator internal import at test runtime. No live definition or pin changed.
+
+Independent review checked every source binding, raw member, query closure and
+ordered standards array against232b9de. The metadata arrays preserve registry
+records, followed by four nonduplicate SC records, with first-wins deduplication
+on `(source, query)` only. UTF-8/empty Type 2/private-creator array lengths are
+9/7/6; their complete canonical hashes are respectively
+`af5d8ba69f937c04394b92d7aea4a55f46a24850de00c3d2b0491806a5005290`,
+`9b128c23a1720615011f7f6f31268e456a8beb7f2cfb62a9c4fb0d6f9e83956f`,
+and `9fe4cf95703fb2c9b1863f43dfe2731b2646036944ccc76544e806bdd7946f3d`.
+Canonicalization is sorted compact UTF-8 JSON, ensure_ascii=False, plus one LF;
+it is not the differently scoped historical R0 comparator.
+
+Root test review corrected a temporary live-absence assumption that would have
+invalidated the historical fixture on a later legitimate import, and aligned
+the optional-pixel checks with the actual source fields. Eleven static tests
+passed in0.010s; after new paths were committed,157 ordinary tests passed
+in0.946s. The dry route fromee06fc9 to4e59ea8 selects only existing smoke3
+fallback, no dependencies; it executed neither definition inspection nor
+generation. Configuration SHA:
+`e38ee2fc7e88476cbf4f433e756bca62e3de5613caed9cb40432fb3748dcbd58`.
+Diff checks passed. Root and independent review accept provenance only, not
+metadata availability, baseline generation, migrated parity or conformance.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

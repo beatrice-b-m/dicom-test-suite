@@ -4859,6 +4859,38 @@ changed-test dry route selected no commands; its reported unconditional Fast
 coverage was not executed. No native command, build, Heavy, package, release
 or external-state mutation ran for this source-only unit.
 
+## R7 metadata source-note consumer prerequisite accepted — 2026-09-04
+
+Corpus `7a07be81e9e1f5e69f2540b2da8982ce852a51fe` extends the source-bound
+CI and static member checks for exactly the frozen metadata-three provenance.
+Live content remains0.2/13 cases; content0.3 appears only in synthetic fixtures.
+No registry, recipe, note, binary pin, schema or earlier evidence was changed.
+
+Notes retain exact original paths, public `source-note.<stem>` IDs,
+`text/markdown`, raw hashes/sizes and per-case references. Unknown, missing,
+duplicate, orphan, renamed or altered evidence fails closed. Metadata rows
+have no smoke annotation exception, assets or dependencies. Raw Git snapshots
+authenticate regular member modes, closed inventory and registry/recipe/note
+bytes before routing; the parsed registry and descriptor path must coincide.
+These integrity checks do not replace the complete public loader.
+
+Configuration2/route2 shapes and config bytes are unchanged. The additive note
+ownership reason unions old/current owners, reverse impact and dependency
+closure. Global changes retain fixed smoke3 union affected cases, never a
+full-core fallback. Historical smoke/core fixtures and the smoke-only verifier
+remain intact. Root reviewed the complete diff and final raw-Git regression;
+independent review accepted the production boundary and42 focused tests.
+
+Focused CI passed31 in0.265s and static smoke12 in0.033s. All ordinary tests
+passed188 in1.282s before commit and188 in1.230s after commit; no failures
+occurred. The clean-candidate dry route from `3caac10` to `7a07be8` selected
+smoke3, seed1/parallelism2 and zero dependencies, with config SHA
+`71ccf9726648d9573dbfafa57b1b82f8b0d9eaac2aefd3db689bcb6092db75c7`.
+This was route inspection only: no artifact was opened or output created.
+Diff checking passed. No native acquisition, generation, validation, report,
+build or Heavy qualification ran. Exact metadata import and subsequent public
+availability/parity evidence remain separate, sequential boundaries.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

@@ -18242,24 +18242,17 @@ pub fn build_coverage_report_with_resources(
     build_coverage_report_with_registry(
         root_dir,
         &snapshot.root().join("cases/registry.json"),
-        resources,
+        &validated,
     )
 }
 
 fn build_coverage_report_with_registry(
     root_dir: impl AsRef<Path>,
     registry_path: &Path,
-    resources: &engine_resources::EngineResources,
+    validated: &manifest_contract::ValidatedManifest,
 ) -> Result<Value, ReportError> {
     let root_dir = root_dir.as_ref();
     let manifest_path = root_dir.join("manifest.json");
-    let validated =
-        manifest_contract::load_manifest_contract(root_dir, resources).map_err(|error| {
-            ReportError::ManifestContract {
-                path: manifest_path.clone(),
-                message: error.to_string(),
-            }
-        })?;
     let manifest = validated.value().clone();
     if validated.kind() == manifest_contract::ManifestContractKind::ExternalCorpus {
         return corpus_report::project(&manifest).map_err(ReportError::ReportContract);

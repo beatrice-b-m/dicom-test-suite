@@ -4197,6 +4197,84 @@ new performance baseline. The schema checkpoint's subsequently reported Fast
 checks passed 73/73 in 2.25s after 22.16s compilation; full integration routing
 is still pending.
 
+### 2026-09-04 — R7 reporting implementation and ordinary gate accepted
+
+The coverage1.1 implementation through clean
+`c2ffe41a9af6b72857f51b507ae6165a14deacdb` is independently accepted for its
+affected ordinary verification class. Product remains the unreleased `0.2.0`
+source candidate. Cargo/backend locks, frozen schemas/fixtures and DICOM salts
+are unchanged from the schema-only checkpoint. The retained ten-case baseline
+is **still incomplete**: no repaired reporter has yet been built or run against
+it, and its original failed report evidence remains immutable.
+
+`1ad35db` integrates coverage1.1 production for manifest1, the additive discovery
+reader window and a one-case CLI/raw-envelope/SDK agreement regression.
+Legacy manifest reporting and external manifest2/report2 dispatch remain
+unchanged. This commit also contains the directly related changelog/policy/guide
+updates: a staging error left implementation files staged before the
+docs-prefixed commit. Review confirmed one coherent reporting boundary and no
+unrelated files; its actual scope is recorded here rather than rewriting the
+logged history. `5e3f36d` clarifies that reporting checks contracts but does not
+rerun strict corpus validation.
+
+The ordinary route exposed four stale test-oracle locations, corrected in
+separate commits without changing producer behavior or removing assertions:
+`d1c6cf6` updates two physical snapshot count/size expectations; `3b77165`
+updates the current core report version; `61b6e31` updates the shared current
+report helper version while preserving full SDK validation and JSON equality;
+`c2ffe41` updates the current resource count from 80 to 81. All failed logs
+remain retained. Prior passing commands were reused only across these reviewed
+test-literal/ownership changes; each failed group was rerun in full.
+
+The accepted evidence is explicitly **composite**, not a single clean full
+run or terminal qualification:
+
+| Command indices | Exact candidate | Accepted scope |
+| --- | --- | --- |
+| 0–4 | `5e3f36db2afe1d4bc6c88d3ca140ae5af4e48484` | First five configured ordinary groups |
+| 5–36 | `d1c6cf66fcc2c57837d97f40db54255ed30a7377` | Cache group rerun and following ordinary groups |
+| 37–70 | `3b771650cde85d8c301218914cc19f8c0bb903e9` | Full report group rerun and following ordinary groups |
+| 71–74 | `61b6e31d0630f37f2558817889777097c2131cc0` | Full corpus and affected engine groups plus remaining mapped groups |
+| 75–78 | `c2ffe41a9af6b72857f51b507ae6165a14deacdb` | Resource group rerun, final ordinary group and two explicit Fast targets |
+
+The 77 configured command argv lists are identical across attempts. The local
+dispatcher reports coverage owned by unconditional Fast but does not execute
+those two targets in this list, so `release_ci__fast` and
+`schema_resources__fast` were run explicitly with `cargo test --locked
+--no-default-features --test TARGET`. Their results are 15 and 73 passes
+(2.07s and 1.96s test time). In total, all 79 mapped commands pass: 877 ordinary
+plus 88 Fast passed test executions, not unique cases. Six ignored executions
+are four separately owned provider timing tests and two subprocess fixtures;
+they are not the six R2 heavy dispatcher entries. No deferred Heavy, Nightly,
+codec-feature/provider qualification, package or release class was run.
+
+Composite receipt:
+`generated/r7-report-compat-resume4-20260904/composite-receipt.json`, 87,722 bytes,
+SHA `8c48b6416edca7e23d98119db5df83bef8aa340194ddc37a86dce8e7f1485a15`.
+It binds exact commands, source partitions, all mapped log hashes, prior failed
+receipts, argv equality and toolchain. Independent review checked 162 referenced
+artifacts/logs/toolchain hashes. Root additionally verified all 185 supplemental
+evidence files, including failed logs and hygiene output, against
+`evidence-inventory.json`, SHA
+`2346b9bf9cee4cec009c29217e2aebb47bd8ff9ac95afcfe0065d6d387263bc0`.
+Those files total 442,338 logical / 1,089,536 allocated bytes, excluding the
+inventory itself. Ownership, spelling, formatting and full-range diff checks
+pass; both repository worktrees remain clean at this review boundary.
+
+Recorded route-attempt wall times total 375.792789166s, including failed
+attempts but excluding separately reported focused reruns. Initial per-command
+wall times were not recorded and remain null, not fabricated. The cumulative
+target stayed at 9,665 files, growing from 12,630,586,526 to 12,635,813,674
+logical bytes (+5,227,148), and from 11,313,116 to 11,318,232 KiB allocated
+(+5,238,784 bytes). This is warm mixed-history growth, not clean-build cost.
+Toolchain is rustc1.85.0 / cargo1.85.0, host aarch64-apple-darwin, features empty;
+resolved executable fingerprints are bound in the receipt.
+
+Next: build one separately identity-bound reporting candidate from a frozen
+source snapshot, then establish explicit report-only acquisition/completion
+evidence over the unchanged baseline. No live corpus import, generator-pin
+replacement or baseline regeneration follows from this ordinary gate alone.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

@@ -230,8 +230,9 @@ impl CorpusDefinitionBundle {
             .file_name()
             .and_then(|name| name.to_str())
             .ok_or_else(|| CorpusDefinitionError::UnsafePath(descriptor.display().to_string()))?;
-        let bundle_root = BundleRoot::open_explicit(root.as_ref())?;
-        let descriptor_root = BundleRoot::open_explicit(parent)?;
+        let anchor = BundleRoot::open(Path::new("."))?;
+        let bundle_root = BundleRoot::open_explicit_at(root.as_ref(), &anchor)?;
+        let descriptor_root = BundleRoot::open_explicit_at(parent, &anchor)?;
         let bytes = descriptor_root.capture(name, limits.manifest_bytes)?;
         bundle_root.check_descriptor_copy(&bytes, limits.manifest_bytes)?;
         Self::capture_descriptor(&bundle_root, &bytes, limits)
@@ -1183,17 +1184,29 @@ impl BundleRoot {
     // New explicit-input paths resolve every ancestor without following links.
     // Keep load(root)'s historical location behavior unchanged.
     fn open_explicit(root: &Path) -> Result<Self, CorpusDefinitionError> {
+        Self::open_explicit_at(root, &Self::open(Path::new("."))?)
+    }
+
+    fn open_explicit_at(root: &Path, _anchor: &Self) -> Result<Self, CorpusDefinitionError> {
         require_explicit_location(root)?;
         #[cfg(unix)]
         {
             use std::ffi::CString;
             use std::os::fd::{AsRawFd, FromRawFd};
             use std::os::unix::ffi::OsStrExt;
-            let mut held = Self::open(if root.is_absolute() {
-                Path::new("/")
+            let mut held = if root.is_absolute() {
+                Self::open(Path::new("/"))?
             } else {
-                Path::new(".")
-            })?;
+                Self {
+                    path: root.to_path_buf(),
+                    file: _anchor.file.try_clone().map_err(|source| {
+                        CorpusDefinitionError::Read {
+                            path: root.to_path_buf(),
+                            source,
+                        }
+                    })?,
+                }
+            };
             for component in root.components() {
                 let Component::Normal(name) = component else {
                     continue;

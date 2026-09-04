@@ -24,6 +24,71 @@ root must contain the complete byte-identical resource set. Missing or changed
 resources fail closed; the SDK never falls back to the checkout or embedded
 resources after that constructor is selected.
 
+## Generate a verified caller-owned corpus
+
+`GenerateCorpusRequest` accepts a frozen corpus-definition bundle `1.0.0`.
+Both constructors require the dedicated member/asset root, output root, and
+an explicit selector; descriptor-file location never supplies an implicit
+member root. Inputs are captured when `generate_corpus` is called, not when
+the request is constructed. Changed, missing, symlinked, undeclared, or
+hash-mismatched inputs fail closed. Relative paths are caller-relative; use
+real, non-symlinked ancestor paths (including on macOS temporary directories).
+
+```rust
+use synth_dicom_gen::sdk::{CorpusSelector, DicomTestSuite, GenerateCorpusOutcome,
+    GenerateCorpusRequest, ReportRequest, ValidateRequest};
+
+let product = DicomTestSuite::embedded()?;
+let request = GenerateCorpusRequest::from_file(
+    "definition.json", "corpus-members", "generated/caller-smoke",
+    CorpusSelector::Profile { profile: "smoke".into(), include_stress: false },
+).with_seed(1).with_parallelism(2);
+match product.generate_corpus(request)? {
+    GenerateCorpusOutcome::Published(run) => {
+        assert!(product.validate(ValidateRequest::new(run.output_root()))?.is_valid());
+        let report = product.report(ReportRequest::new(run.output_root()))?;
+        assert_eq!(report.schema_version(), "2.0.0");
+    }
+    GenerateCorpusOutcome::Planned(preview)
+    | GenerateCorpusOutcome::NoExecutableCases(preview) => {
+        for case in preview.cases() {
+            println!("{}: {:?}", case.case_id(), case.disposition());
+        }
+    }
+    _ => {}
+}
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+For descriptor bytes use `GenerateCorpusRequest::from_json_bytes(bytes,
+member_root, output_root, selector)`. `CorpusSelector::CaseIds` takes
+`profile`, `include_stress`, and a nonempty, unique `case_ids` vector. The
+profile is a scope constraint, not a fallback selection. Direct selections
+retain every status; dependency closure is separate. The frozen bundle profile
+rules still apply: `all` excludes legacy/negative/fuzz; stress is opt-in only
+with `all`. No arbitrary profile contract is implied.
+
+`dry_run(true)` returns `Planned` even when no case is executable. A real request
+with no executable cases returns `NoExecutableCases`, never an empty successful
+corpus. Both have publication and validation `NotRun`, no manifest path, and no
+output directory. `Ready` is a planning disposition, not a generation pass.
+Preview accessors are SDK evidence contract `1.0.0`, **not** a standalone JSON
+document schema. They expose seed, selector, plan hash, artifact IDs, typed case
+dispositions, and lossless ledger/identity Values with manifest `2.0.0` field
+meanings (except preview-only `ready`). They never expose an internal plan.
+
+Published outcomes carry `ManifestKind::ExternalCorpus` manifest `2.0.0`, typed
+emitted-file count/bytes and plan hash. SDK validate/report consume that manifest
+and return `ReportKind::ExternalCorpus` report `2.0.0`. Reports preserve all source
+evidence; creating one performs no new validation or independent conformance.
+After capture the runner does not reopen caller inputs; persisted output can
+be moved and validated/reported after the source bundle is removed.
+
+Execution currently uses native/compiled support only. Missing providers and
+codecs remain explicit unavailable dispositions; no ambient tool discovery is
+performed. Loaded-corpus capability discovery and CLI corpus input are not yet
+supported, and CLI API 1 report envelopes still reject external report2.
+
 ## Compose from a file or bytes
 
 Both entry points use the exact same plan-first execution pipeline. A file
@@ -116,7 +181,8 @@ operation returns `serde_json::Value` as its primary result.
 
 ## Cancellation and errors
 
-Long-running composition and structural assembly accept a cooperative token:
+Corpus generation (`generate_corpus_cancellable`), composition, and structural
+assembly accept a cooperative token:
 
 ```rust
 # use synth_dicom_gen::sdk::{CancellationToken, ComposeRequest, DicomTestSuite};
@@ -133,7 +199,10 @@ Branch on `SdkError::code`, never `Display` or `diagnostic` text. Codes use the
 same append-only taxonomy as CLI API `1.0.0`; `kind` provides the stable broad
 request, unavailable, output, execution, or internal category. A cancelled
 operation returns `generation.execution.cancelled`, is retryable, removes
-private staging, and publishes no destination.
+private staging, and publishes no destination. If cleanup itself fails, corpus
+generation instead returns `io.cleanup.failed` and preserves the diagnostic;
+it does not claim successful cleanup. Corpus definition and execution failures
+are mapped from typed causes, not diagnostic substring matching.
 
 The facade does not convert missing codecs, providers, validators, or peers
 into passes. Inspect `capabilities()` first and handle unavailable results

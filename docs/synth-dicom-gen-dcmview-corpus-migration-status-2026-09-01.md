@@ -4562,6 +4562,36 @@ Loader availability for this imported slice is accepted. Actual external
 generation, strict validation, full report preservation, byte/full-semantics
 parity and reproducibility remain the next separately reviewed boundary.
 
+## R7 first native core parity proof preparation — 2026-09-04
+
+Corpus commit `980a535` adds an explicitly invoked, isolated four-run proof:
+core profile, the same ten explicit IDs, core repeat, and the frozen R0 smoke
+regression, all seed1/parallelism4. This is preparation, not executed parity.
+Original failed and completed baseline receipts and every retained input are
+authenticated before use. Full core file arrays must compare exactly; only the
+declared manifest1-to-manifest2 boundary may differ. The R0 smoke comparator
+is unchanged. Public runner execution uses an exact Git archive, unrelated
+working directory, empty PATH and a copied, verified native pin. No build,
+internal generator import, sibling-path fallback or OS-denial claim is added.
+
+Streaming SHA-256/size inventories cover retained source, inputs, native/cache
+and outputs. Timeout, launch, inventory and retention failures preserve a failed
+receipt rather than triggering a retry. Final source checks reject additions
+other than the exact pinned cache; runtime bytecode writes are disabled.
+
+The initial ordinary run exposed a historical tracked-path fixture problem:
+142 tests,141 passed/one error in0.911s. The earlier import suite ran before
+staging the new data, so its tracked-file inventory missed the expansion.
+Test-only corpus commit `2fddf53` uses the actual live snapshot for that one
+inventory test, retaining historical synthetic fixtures elsewhere. Its25
+focused tests passed in0.214s. After the proof/test files were committed,
+146 ordinary tests passed in0.937s;14 focused synthetic tests passed in0.041s.
+Independent review passed those14 in0.039s and accepted the failure handling,
+exact comparisons and isolation; root review concurs. Diff checks passed.
+The native proof remains a separate, one-attempt execution boundary after
+the corpus documentation checkpoint is clean. No heavyweight qualification,
+generation or broader R7/terminal acceptance is implied by this preparation.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

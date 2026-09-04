@@ -39,7 +39,7 @@ artifact.
 | R3 — rename reusable product | Complete | R3.1, R3.2, R3.3, R3.4 | Product, package, crate, library, sole binary, archives, discovery, package metadata, current operating guides, product-controlled environment, and production scratch paths use `synth-dicom-gen` / `synth_dicom_gen` at the breaking pre-1.0 product boundary `0.2.0`. Immutable dated evidence retains its exact old candidate identity, and 12 qualified-adapter variables retain provenance-bound spellings pending external requalification. The external-consumer audit found no supported `0.1.0` product consumer requiring an alias. A clean side project compiled and exercised only `synth_dicom_gen::sdk` from the extracted, verified `synth-dicom-gen-0.2.0.crate`, without the old repository path. The aggregate R3 gate passes. |
 | R4 — split immutable resources and corpus definitions | Complete | R4.1, R4.2, R4.3, R4.4, R4.5 | At the accepted R4 checkpoint, EngineResources v2 owned 74 immutable members and its private lazy lease materialized a 254-file transitional physical closure once per shared context. Those checkpoint measurements remain historical; current schema additions and exact identities are recorded in the latest dated R5 entry below. Cases/Cargo remain excluded from authoritative engine identity, and exact legacy 240-member v1 provenance remains reconstructable. |
 | R5 — add supported external corpus API | Complete | R5.1–R5.5 and isolated-source consumer gate independently accepted | SDK `ca571fb..aa7fcad`, CLI `aa7fcad..a18d149`, discovery `a18d149..5da18e8`, and the 2026-09-04 source-removed consumer proof at exact `232b9de` are independently accepted. This closes R5, not package/release qualification or R6+ terminal cross-repository evidence. |
-| R6 — establish smoke corpus repository | In progress | Foundation, offline acquisition, R6.2 definitions/schema fixtures, R6.3 clean-clone runner, R6.4 full parity, and R6.5 viewer-result contract accepted | The approved local repository is `/Users/beatrice/AgentFiles/projects/dcmview-test-corpus`. CI remains. Local-only native artifact evidence is not release qualification; no viewer execution, remote or release publication is authorized. |
+| R6 — establish smoke corpus repository | Complete | R6.1–R6.5 independently accepted | The approved local repository at `/Users/beatrice/AgentFiles/projects/dcmview-test-corpus` owns its foundation, exact offline pin, imported smoke definitions, supported runner, full R0 smoke parity, viewer-result contract, and locally executed CI configuration. The R6 gate passes without compiling/testing generator internals. Hosted delivery, viewer execution and terminal release/CI evidence remain separate and unqualified. |
 | R7 — migrate complete dcmview corpus | Not started | None | Requires R6 smoke parity and supported contracts. |
 | R8 — decouple viewer development | Not started | None | Requires a qualified artifact key and complete-enough corpus ownership. |
 | R9 — remove embedded corpus and qualify products | Not started | None | Terminal removal, documentation, measurement, and exact qualification have not run. |
@@ -3932,6 +3932,70 @@ This validates the complete consumer viewer-result schema, not the opaque
 upstream manifest's entire schema, observation truth, independent conformance,
 or later media/protocol scopes. R6.1 CI remains before aggregate R6 acceptance.
 
+### 2026-09-04 — R6.1 local CI and aggregate R6 gate accepted
+
+Corpus commits `882d33f` and `2fb2fc2` preserve exact historical import
+assertions against an immutable 4,350-byte registry fixture (SHA
+`39797914356219d903e67852d6ed7396d2f7bd61fe53d01d58e988cfc8cd7943`).
+Current rows retain every execution, availability, standards and identity field;
+only additional compatibility-axis annotations may vary, with refreshed member
+hashes. All original recipe/schema and R0 assertions remain. A corrective
+regression ensures already-present metadata cannot break the test itself.
+No live corpus content or frozen parity baseline changed.
+
+CI configuration `84762ec`, entrypoint `80e57d4`, tests `a1b5a96`, operating
+docs `169f55e`, and result-binding correction `5e8a6af` implement one locally
+executed, configuration-driven job. Exact committed base/head, ancestry and
+clean checkout are required. Unconditional ordinary tests cannot be disabled
+through configuration. Docs-only paths never generate; old/new recipe owners,
+semantic registry/profile changes, reverse dependents and required dependencies
+determine case selection. Shared changes use bounded smoke. Unknown paths,
+removed case IDs and unsupported non-smoke scopes fail closed until explicit
+migration. This scope restriction does not waive any later R7 or terminal row.
+
+Each real job requires the explicit pinned macOS arm64 native artifact. Corpus
+changes use the complete supported definition loader and selected-case runner;
+consumer version, publication, validation, corpus identity, complete selection
+and generated outcomes must agree. Protected/symlinked evidence paths fail;
+failure stages, timeout logs and published output are retained. Whole-job and
+per-command time, cache/output/evidence sizes and deferred classes are reported.
+No generator compilation, internal test, full-corpus or parity replay is invoked.
+
+Independent review approved exact implementation
+`5e8a6af683198c0003ac1684a7745c96678c294f` and the isolated local fixture proof.
+Fixture-only commits are docs `65d9972c20d8746022b394692932878a1c5ce525` and
+metadata `c6ca7bf508a3742d47d828595e7caf12278b6780`; they are not changes to
+the original corpus. Both repeated dry routes are byte-identical. Both jobs
+passed all 94 ordinary tests. Docs ran tests plus acquisition only in 2.210458s;
+the metadata job ran complete inspection and generated only mono1 in 7.151087s.
+Its sole payload is the unchanged 926-byte R0 mono1 artifact; strict validation
+passed and the report retains the complete manifest. Loader/run corpus identity
+is `2166ac4bb65372f1f3e7cfa3b822584d0632a42a169e162b7034b10995d9bf7c`.
+
+The one-case output has two files, 68,854 logical / 73,728 allocated bytes;
+adjacent runner evidence has seven files, 317,110 / 335,872 bytes. Full docs
+evidence is five files, 36,021 / 49,152 bytes; case evidence is eighteen files,
+613,304 / 651,264 bytes. The verified native cache is 69,314,672 /
+69,316,608 bytes; no build tree exists. The whole runtime proof before its
+receipt is 112 files, 140,123,961 / 140,398,592 bytes, including input and cache
+copies. Durable retention adds storage, not execution time.
+
+Corpus `artifacts/local-ci-proof1-20260904/` retains both Git bundles, exact
+fixture checkout, native input, raw logs and all results. Proof receipt SHA:
+`76491ecf5741c7e3ab846424eacd10dc992cbf347d6c07e3fe0f114ee68ae711`.
+Docs receipt SHA: `9b1448ab31bcdc9fe49e4cc0eff38daf4d3d908e428ee15ec637649c34decb30`.
+Case receipt SHA: `7ce3c2132fb3cf307e05b682a45c6b241aec46fced840e3b1b74635891ef7b88`.
+Reviewers verified hashes, fixture commits, clean/no-alternates/no-remotes
+state, routing, selection, validation/report bindings and costs without native
+replay. The original repositories remain outside the runtime dependency path;
+OS-denied access to them is not claimed.
+
+Together with the accepted foundation/acquisition, full clean-clone/parity and
+read-only viewer contract, this closes R6.1–R6.5 and the local R6 gate. It does
+not close hosted Corpus PR evidence, durable distribution, actual viewer
+integration, complete corpus migration, or terminal qualification. No remote,
+hosted runner, release or viewer-repository mutation has been authorized here.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |
@@ -3944,7 +4008,7 @@ or later media/protocol scopes. R6.1 CI remains before aggregate R6 acceptance.
 | Representative generator Fast PR | No independent class at `65a296b` | Not independently measurable; every PR selects the full graph | Remote run `33581809536`: 123s job interval, 116 build-work seconds, 739,602,432-byte target, four smoke artifacts occupying 122,880 allocated bytes | R1 gate passes 4-GiB and 15-minute budgets; target is 68.1% smaller than the pre-R1.5 Fast measurement and 90.8% smaller than the differently scoped R0 all-target tree |
 | R2.4 bounded Fast plus selected engine route | R0 clean no-default all-target target at `65a296b` | 8,013,463,552 target bytes; 188 Cargo-reported harness executables | 68.57s wall; 705,949,696 target bytes; four test binaries plus one product binary; one 36,864-byte allocated log artifact | 7,307,513,856 bytes / 91.19% smaller; 4-GiB Fast disk budget passes; exact temporary target removed |
 | R2 warm invalidation, Fast plus selected engine route | Same R0 clean tree, conservatively used because R0 retained no separate warm-tree capture | 8,013,463,552 clean target bytes | Initial 66.90s and 705,957,888 bytes; post-touch 58.82s and 706,031,616 bytes; 994 files; zero incremental-cache files | Warm invalidation added 73,728 bytes / 0.0104%; terminal tree remains 7,307,431,936 bytes / 91.19% smaller than the R0 clean lower bound; exact temporary target removed |
-| Representative corpus PR | Repository does not yet exist; embedded corpus edit selects full graph | Not independently measurable | — | Explicit boundary recorded |
+| Representative corpus PR | At R0, the corpus repository did not exist and embedded edits selected the full graph | Not independently measurable | R6 local configured metadata-change fixture: 7.151087s, one 926-byte payload; output 73,728 allocated bytes, cache 69,316,608 bytes, no build tree. Docs-only fixture: 2.210458s, no generation. | Local measurements accepted; hosted and exact terminal PR measurements remain open; no comparable R0 Corpus PR percentage is fabricated |
 | Representative viewer PR | Viewer repository not in current scope | — | — | Not measured |
 | Nightly and release-candidate cost | No separate Nightly/RC trigger; run `33491521696` is exact candidate evidence | Nightly not independently measurable; provider/default/release critical chain 123m53s | — | Explicit boundary recorded |
 

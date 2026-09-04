@@ -158,15 +158,17 @@ def main():
         assert sha(source / expected["recipe"]["logical_path"]) == expected["recipe"]["sha256"]
     write_json(root / "r0-baseline.json", baseline)
     env = os.environ.copy(); env["CARGO_TARGET_DIR"] = str(target); env["CARGO_INCREMENTAL"] = "0"
-    run("rustc", ["rustc", "-vV"], root)
+    rustc = run("rustc", ["rustc", "-vV"], root).decode()
+    host = re.search(r"^host: (\S+)$", rustc, re.MULTILINE).group(1)
+    receipt["target"] = host
     run("cargo", ["cargo", "-V"], root)
     # Add the consumer root while retaining the seeded resolution, rather than
     # regenerate-lockfile's fresh resolver choices from the local cache.
-    run("consumer-lock", ["cargo", "metadata", "--offline", "--format-version", "1"], consumer, env)
+    run("consumer-lock", ["cargo", "metadata", "--offline", "--filter-platform", host, "--format-version", "1"], consumer, env)
     consumer_packages = lock_packages((consumer / "Cargo.lock").read_text())
     assert consumer_packages.issubset(source_packages), "consumer dependency versions/checksums diverged from snapshot lock"
     receipt["consumer_dependency_alignment"] = {"registry_packages": len(consumer_packages), "all_versions_sources_checksums_match_snapshot": True}
-    metadata = json.loads(run("consumer-metadata", ["cargo", "metadata", "--offline", "--locked", "--format-version", "1"], consumer, env))
+    metadata = json.loads(run("consumer-metadata", ["cargo", "metadata", "--offline", "--locked", "--filter-platform", host, "--format-version", "1"], consumer, env))
     package = next(p for p in metadata["packages"] if p["name"] == "synth-dicom-gen")
     assert Path(package["manifest_path"]) == source / "Cargo.toml"
     node = next(n for n in metadata["resolve"]["nodes"] if n["id"] == package["id"])
@@ -174,11 +176,11 @@ def main():
     assert str(checkout) not in json.dumps(metadata), "original checkout dependency"
     receipt["dependency_manifest"] = package["manifest_path"]
     receipt["consumer_lock_sha256"] = sha(consumer / "Cargo.lock")
-    run("build-consumer", ["cargo", "build", "--offline", "--locked", "--no-default-features", "--target-dir", target], consumer, env)
-    run("build-cli", ["cargo", "build", "--offline", "--locked", "--no-default-features", "--bin", "synth-dicom-gen", "--target-dir", target], source, env)
+    run("build-consumer", ["cargo", "build", "--offline", "--locked", "--no-default-features", "--target", host, "--target-dir", target], consumer, env)
+    run("build-cli", ["cargo", "build", "--offline", "--locked", "--no-default-features", "--target", host, "--bin", "synth-dicom-gen", "--target-dir", target], source, env)
     binaries = root / "bin"; binaries.mkdir()
     for name in ("isolated-corpus-consumer", "synth-dicom-gen"):
-        shutil.copy2(target / "debug" / name, binaries / name)
+        shutil.copy2(target / host / "debug" / name, binaries / name)
     receipt["binaries"] = {p.name: {"sha256": sha(p), "size_bytes": p.stat().st_size} for p in binaries.iterdir()}
     receipt["target_before_cleanup"] = inventory(target)
     receipt["source_before_cleanup"] = inventory(source)

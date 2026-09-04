@@ -151,4 +151,10 @@ fn report_semantics_reject_summary_identity_and_source_tampering() {
         assert!(validate(&changed).is_err(), "{pointer}");
     }
     assert!(crate::report_contract::validate_report_contract(&report).is_ok());
+    assert_eq!(
+        crate::sdk::ReportOutcome::from_report_test_fixture(&report)
+            .unwrap_err()
+            .code(),
+        "request.version.unsupported"
+    );
 }

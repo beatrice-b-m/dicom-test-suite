@@ -634,6 +634,11 @@ pub struct ReportOutcome {
 }
 
 impl ReportOutcome {
+    #[cfg(test)]
+    pub(crate) fn from_report_test_fixture(value: &serde_json::Value) -> Result<Self, SdkError> {
+        Self::from_value(PathBuf::new(), value)
+    }
+
     fn from_value(output_root: PathBuf, value: &serde_json::Value) -> Result<Self, SdkError> {
         crate::report_contract::validate_report_contract(value)
             .map_err(|error| SdkError::classify("report", error))?;
@@ -650,6 +655,12 @@ impl ReportOutcome {
                 ReportKind::CuratedCoverage,
                 "coverage_report_schema_version",
             ),
+            Some("external_corpus") => {
+                return Err(SdkError::classify(
+                    "report",
+                    "unsupported report schema version 2.0.0 for SDK consumption",
+                ));
+            }
             Some(_) => return Err(SdkError::classify("report", "report kind invalid")),
         };
         let schema_version = value

@@ -172,6 +172,76 @@ impl CorpusDefinitionBundle {
         let bundle_root = BundleRoot::open(root)?;
         let manifest_bytes =
             bundle_root.capture(CORPUS_DEFINITION_MANIFEST, limits.manifest_bytes)?;
+        Self::capture_descriptor(&bundle_root, &manifest_bytes, limits)
+    }
+
+    /// Inspect exact descriptor bytes with an explicitly selected member root.
+    ///
+    /// A canonical descriptor in `root`, if present, must match these bytes.
+    /// This is an inspection substrate, not a generation or supported SDK request.
+    pub fn load_descriptor_bytes(
+        bytes: &[u8],
+        root: impl AsRef<Path>,
+    ) -> Result<Self, CorpusDefinitionError> {
+        Self::load_descriptor_bytes_with_limits(bytes, root, CorpusDefinitionLimits::default())
+    }
+
+    pub fn load_descriptor_bytes_with_limits(
+        bytes: &[u8],
+        root: impl AsRef<Path>,
+        limits: CorpusDefinitionLimits,
+    ) -> Result<Self, CorpusDefinitionError> {
+        if bytes.len() as u64 > limits.manifest_bytes {
+            return Err(limit(CORPUS_DEFINITION_MANIFEST, limits.manifest_bytes));
+        }
+        require_explicit_location(root.as_ref())?;
+        let bundle_root = BundleRoot::open_explicit(root.as_ref())?;
+        bundle_root.check_descriptor_copy(bytes, limits.manifest_bytes)?;
+        Self::capture_descriptor(&bundle_root, bytes, limits)
+    }
+
+    /// Inspect a descriptor file without inferring the member root from its path.
+    /// The descriptor may be outside the member root; closure validation of the
+    /// member root remains unchanged (including rejection of undeclared files).
+    pub fn load_descriptor_file(
+        descriptor: impl AsRef<Path>,
+        root: impl AsRef<Path>,
+    ) -> Result<Self, CorpusDefinitionError> {
+        Self::load_descriptor_file_with_limits(descriptor, root, CorpusDefinitionLimits::default())
+    }
+
+    pub fn load_descriptor_file_with_limits(
+        descriptor: impl AsRef<Path>,
+        root: impl AsRef<Path>,
+        limits: CorpusDefinitionLimits,
+    ) -> Result<Self, CorpusDefinitionError> {
+        let descriptor = descriptor.as_ref();
+        require_explicit_location(descriptor)?;
+        require_explicit_location(root.as_ref())?;
+        let parent = descriptor
+            .parent()
+            .filter(|path| !path.as_os_str().is_empty())
+            .ok_or_else(|| {
+                CorpusDefinitionError::UnsafePath(
+                    "descriptor file requires an explicit parent directory".into(),
+                )
+            })?;
+        let name = descriptor
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or_else(|| CorpusDefinitionError::UnsafePath(descriptor.display().to_string()))?;
+        let bundle_root = BundleRoot::open_explicit(root.as_ref())?;
+        let descriptor_root = BundleRoot::open_explicit(parent)?;
+        let bytes = descriptor_root.capture(name, limits.manifest_bytes)?;
+        bundle_root.check_descriptor_copy(&bytes, limits.manifest_bytes)?;
+        Self::capture_descriptor(&bundle_root, &bytes, limits)
+    }
+
+    fn capture_descriptor(
+        bundle_root: &BundleRoot,
+        manifest_bytes: &[u8],
+        limits: CorpusDefinitionLimits,
+    ) -> Result<Self, CorpusDefinitionError> {
         let manifest_value =
             strict_json::parse(&manifest_bytes, CORPUS_DEFINITION_MANIFEST, limits)?;
         preflight_version_and_paths(&manifest_value)?;
@@ -278,6 +348,19 @@ impl CorpusDefinitionBundle {
     pub fn bytes(&self, logical_path: &str) -> Option<&[u8]> {
         self.files.get(logical_path).map(Vec::as_slice)
     }
+}
+
+fn require_explicit_location(path: &Path) -> Result<(), CorpusDefinitionError> {
+    if path.as_os_str().is_empty()
+        || path
+            .components()
+            .any(|part| matches!(part, Component::ParentDir))
+    {
+        return Err(CorpusDefinitionError::UnsafePath(
+            "input location must be explicit and contain no parent traversal".into(),
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Debug)]
@@ -1097,6 +1180,61 @@ struct BundleRoot {
 }
 
 impl BundleRoot {
+    // New explicit-input paths resolve every ancestor without following links.
+    // Keep load(root)'s historical location behavior unchanged.
+    fn open_explicit(root: &Path) -> Result<Self, CorpusDefinitionError> {
+        require_explicit_location(root)?;
+        #[cfg(unix)]
+        {
+            use std::ffi::CString;
+            use std::os::fd::{AsRawFd, FromRawFd};
+            use std::os::unix::ffi::OsStrExt;
+            let mut held = Self::open(if root.is_absolute() {
+                Path::new("/")
+            } else {
+                Path::new(".")
+            })?;
+            for component in root.components() {
+                let Component::Normal(name) = component else {
+                    continue;
+                };
+                let name = CString::new(name.as_bytes())
+                    .map_err(|_| CorpusDefinitionError::UnsafePath(root.display().to_string()))?;
+                let raw = unsafe {
+                    libc::openat(
+                        held.file.as_raw_fd(),
+                        name.as_ptr(),
+                        libc::O_RDONLY | libc::O_CLOEXEC | libc::O_DIRECTORY | libc::O_NOFOLLOW,
+                    )
+                };
+                if raw < 0 {
+                    let source = std::io::Error::last_os_error();
+                    if matches!(source.raw_os_error(), Some(libc::ELOOP | libc::ENOTDIR)) {
+                        return Err(CorpusDefinitionError::UnsafePath(
+                            root.display().to_string(),
+                        ));
+                    }
+                    return Err(CorpusDefinitionError::Read {
+                        path: root.to_path_buf(),
+                        source,
+                    });
+                }
+                held.file = unsafe { fs::File::from_raw_fd(raw) };
+            }
+            held.path = root.to_path_buf();
+            Ok(held)
+        }
+        #[cfg(not(unix))]
+        {
+            let mut current = PathBuf::new();
+            for component in root.components() {
+                current.push(component);
+                validate_root(&current)?;
+            }
+            Self::open(root)
+        }
+    }
+
     fn open(root: &Path) -> Result<Self, CorpusDefinitionError> {
         validate_root(root)?;
         #[cfg(unix)]
@@ -1138,6 +1276,9 @@ impl BundleRoot {
     }
 
     fn capture(&self, logical: &str, max: u64) -> Result<Vec<u8>, CorpusDefinitionError> {
+        if max.checked_add(1).is_none() || usize::try_from(max).is_err() {
+            return Err(limit("unrepresentable capture limit", max));
+        }
         #[cfg(unix)]
         {
             capture_file(&self.file, &self.path, logical, max)
@@ -1145,6 +1286,21 @@ impl BundleRoot {
         #[cfg(not(unix))]
         {
             capture_file(&self.path, logical, max)
+        }
+    }
+
+    fn check_descriptor_copy(&self, bytes: &[u8], max: u64) -> Result<(), CorpusDefinitionError> {
+        match self.capture(CORPUS_DEFINITION_MANIFEST, max) {
+            Ok(copy) if copy == bytes => Ok(()),
+            Ok(_) => Err(CorpusDefinitionError::Closure(
+                "canonical descriptor conflicts with explicitly supplied bytes".into(),
+            )),
+            Err(CorpusDefinitionError::Read { source, .. })
+                if source.kind() == std::io::ErrorKind::NotFound =>
+            {
+                Ok(())
+            }
+            Err(error) => Err(error),
         }
     }
 

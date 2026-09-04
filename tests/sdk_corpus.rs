@@ -6,9 +6,10 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 use synth_dicom_gen::sdk::{
-    CancellationToken, CorpusCaseDisposition, CorpusPublicationState, CorpusSelector,
-    CorpusValidationState, DicomTestSuite, GenerateCorpusOutcome, GenerateCorpusRequest,
-    ManifestKind, ReportKind, ReportRequest, ValidateRequest,
+    CancellationToken, CorpusCaseDisposition, CorpusCaseStatus, CorpusPublicationState,
+    CorpusSelector, CorpusValidationState, DicomTestSuite, GenerateCorpusOutcome,
+    GenerateCorpusRequest, InspectCorpusRequest, ManifestKind, ReportKind, ReportRequest,
+    ValidateRequest,
 };
 
 struct Fixture {
@@ -72,6 +73,114 @@ fn profile(name: &str) -> CorpusSelector {
         profile: name.into(),
         include_stress: false,
     }
+}
+
+#[test]
+fn inspection_is_destination_free_and_agrees_with_generation_planning() {
+    let fixture = Fixture::new();
+    let product = DicomTestSuite::embedded().unwrap();
+    let metadata = product
+        .inspect_corpus(InspectCorpusRequest::from_file(
+            &fixture.descriptor,
+            &fixture.members,
+        ))
+        .unwrap();
+    assert!(metadata.assessment().is_none());
+    assert_eq!(metadata.profiles().len(), 8);
+    assert!(
+        metadata
+            .profiles()
+            .iter()
+            .any(|p| p.profile_id() == "negative" && p.scope() == "expected_invalid")
+    );
+    let native = metadata
+        .cases()
+        .iter()
+        .find(|c| c.case_id() == "classic/sc/mono2_u8_explicit_le")
+        .unwrap();
+    assert_eq!(native.status(), CorpusCaseStatus::Implemented);
+    assert!(native.profiles().any(|p| p == "smoke"));
+    for selector in [
+        profile("smoke"),
+        ids(&["derived/registration/spatial_ct_pair"]),
+        ids(&["classic/dx/mono2_u12_jpeg_extended"]),
+        ids(&["classic/sc/mono2_u16_jpeg2000_lossless"]),
+    ] {
+        let inspected = product
+            .inspect_corpus(
+                InspectCorpusRequest::from_json_bytes(fixture.bytes.clone(), &fixture.members)
+                    .with_selection(selector.clone())
+                    .with_seed(7)
+                    .with_parallelism(2),
+            )
+            .unwrap();
+        let assessment = inspected.assessment().unwrap();
+        assert_eq!(assessment.seed(), 7);
+        assert_eq!(assessment.parallelism(), 2);
+        assert_eq!(assessment.validation_state(), CorpusValidationState::NotRun);
+        assert_eq!(
+            assessment.publication_state(),
+            CorpusPublicationState::NotRun
+        );
+        let GenerateCorpusOutcome::Planned(preview) = product
+            .generate_corpus(
+                fixture
+                    .request("never-published", selector)
+                    .with_seed(7)
+                    .with_parallelism(2)
+                    .dry_run(true),
+            )
+            .unwrap()
+        else {
+            panic!("planning only")
+        };
+        assert_eq!(
+            assessment.corpus_plan_sha256(),
+            preview.corpus_plan_sha256()
+        );
+        assert_eq!(assessment.artifact_ids(), preview.artifact_ids());
+        assert_eq!(
+            assessment.identity_projection(),
+            preview.identity_projection()
+        );
+        assert_eq!(
+            assessment
+                .cases()
+                .iter()
+                .map(|c| c.evidence())
+                .collect::<Vec<_>>(),
+            preview
+                .cases()
+                .iter()
+                .map(|c| c.evidence())
+                .collect::<Vec<_>>()
+        );
+        assert!(!fixture.root.join("never-published").exists());
+    }
+    let invalid = product
+        .inspect_corpus(
+            InspectCorpusRequest::from_json_bytes(b"not-json".to_vec(), &fixture.members)
+                .with_parallelism(0),
+        )
+        .unwrap_err();
+    assert_eq!(invalid.code(), "request.schema.invalid");
+    let token = CancellationToken::new();
+    token.cancel();
+    assert_eq!(
+        product
+            .inspect_corpus_cancellable(
+                InspectCorpusRequest::from_file(&fixture.descriptor, &fixture.members),
+                &token
+            )
+            .unwrap_err()
+            .code(),
+        "generation.execution.cancelled"
+    );
+    fs::remove_dir_all(&fixture.members).unwrap();
+    assert_eq!(
+        metadata.corpus_definition_identity()["corpus_definition_sha256"],
+        "571fa23fd392dd557ccdbe2db527698eaedc7078d86543efc68dfffc877411f7"
+    );
 }
 fn ids(values: &[&str]) -> CorpusSelector {
     CorpusSelector::CaseIds {

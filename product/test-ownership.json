@@ -4,9 +4,9 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 273,
-    "rust_test_entries": 1468,
+    "rust_test_entries": 1469,
     "integration_source_groups": 189,
-    "integration_test_entries": 914,
+    "integration_test_entries": 915,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
   },
   "enums": {
@@ -2814,8 +2814,9 @@
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 6,
+      "entry_count": 7,
       "entries": [
+        "inspection_is_destination_free_and_agrees_with_generation_planning",
         "sdk_corpus_file_bytes_reproduce_and_support_readers",
         "sdk_corpus_preview_and_empty_execution_are_distinct",
         "sdk_corpus_case_selection_retains_dependency_and_multifile_evidence",
@@ -2823,7 +2824,7 @@
         "sdk_corpus_nonimplemented_metadata_is_lossless",
         "sdk_corpus_works_from_unrelated_cwd"
       ],
-      "entry_digest": "192608d6b3fc6e48e823e01bf4410dee55ec517019bfef328d08c854a64a2dba"
+      "entry_digest": "0bdaa7dee9d8fca6741784c0b177906256716f644c6939a591516332b4f1f02f"
     },
     {
       "source": "tests/sdk_external_consumer.rs",

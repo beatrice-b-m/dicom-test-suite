@@ -73,6 +73,7 @@ fn run(arguments: &[String], resource_root: Option<&str>) -> Result<(), CliFailu
     let mut stress = false;
     let mut dry = false;
     let mut format = None;
+    let mut cli_api = false;
     let mut cases = Vec::new();
     let mut seen = BTreeSet::new();
     let mut help = false;
@@ -119,6 +120,7 @@ fn run(arguments: &[String], resource_root: Option<&str>) -> Result<(), CliFailu
                         "unsupported CLI API version",
                     ));
                 }
+                cli_api = true;
             }
             "--include-stress" => stress = true,
             "--dry-run" => dry = true,
@@ -136,6 +138,9 @@ fn run(arguments: &[String], resource_root: Option<&str>) -> Result<(), CliFailu
             "command.syntax.invalid",
             "external corpus generation supports only --format json",
         ));
+    }
+    if cli_api && format.is_none() {
+        format = Some("json".into());
     }
     if parallelism == 0 {
         return Err(failure(

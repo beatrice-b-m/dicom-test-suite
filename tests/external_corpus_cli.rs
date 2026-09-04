@@ -300,6 +300,14 @@ fn external_cli_planned_and_noexecution_preserve_scope_and_evidence() {
         r["selected_case_count"].as_u64().unwrap(),
         r["direct_case_count"].as_u64().unwrap() + r["dependency_case_count"].as_u64().unwrap()
     );
+    let mut args = f.args("api-preview", "smoke");
+    args.truncate(args.len() - 2);
+    args.extend(["--cli-api".into(), "1.0.0".into(), "--dry-run".into()]);
+    let output = f.command(&args);
+    assert!(output.status.success());
+    let envelope: Value = serde_json::from_slice(&output.stdout).unwrap();
+    valid("generation-result-v3.schema.json", &envelope["result"]);
+    assert_eq!(envelope["result"]["outcome"], "planned");
 }
 
 #[test]

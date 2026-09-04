@@ -1852,7 +1852,7 @@
         "external_cli_descriptor_limits_versions_and_missing_options_fail_closed",
         "corpus_option_looking_value_does_not_select_external_dispatch"
       ],
-      "entry_digest": "c07790393d1ee14a506f10883322ec63f19107f8aac8af0e7ce78a33abaef0f2"
+      "entry_digest": "5fb0314a2904df8d4dbc16c3622b4bee23f173e03ce3d979e4aad23b65860648"
     },
     {
       "source": "tests/frame_codec_service.rs",

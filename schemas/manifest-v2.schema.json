@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://synth-dicom-gen.local/schemas/manifest-v2.schema.json",
+  "title": "External Corpus Generation Manifest v2",
+  "type": "object",
+  "required": [
+    "manifest_schema_version",
+    "generated_at",
+    "generator",
+    "standards",
+    "dependencies",
+    "identity_projection",
+    "run",
+    "files",
+    "qualifications",
+    "selection_ledger"
+  ],
+  "properties": {
+    "manifest_schema_version": {
+      "const": "2.0.0"
+    },
+    "generated_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generator": {
+      "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/generator"
+    },
+    "standards": {
+      "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/standards"
+    },
+    "dependencies": {
+      "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/dependencies"
+    },
+    "product_resources": {
+      "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/product_resources"
+    },
+    "identity_projection": {
+      "allOf": [
+        {
+          "$ref": "https://synth-dicom-gen.local/schemas/manifest-v1.schema.json#/$defs/identity_projection"
+        },
+        {
+          "properties": {
+            "corpus_definition": {
+              "properties": {
+                "state": {
+                  "const": "verified_bundle"
+                },
+                "identity": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "run": {
+      "type": "object",
+      "required": [
+        "kind",
+        "profile",
+        "seed",
+        "include_stress",
+        "selector"
+      ],
+      "properties": {
+        "kind": {
+          "const": "external_corpus"
+        },
+        "profile": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/profile"
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "include_stress": {
+          "type": "boolean"
+        },
+        "selector": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": [
+                "kind"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "profile"
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": [
+                "kind",
+                "case_ids"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "case_ids"
+                },
+                "case_ids": {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/file"
+      }
+    },
+    "qualifications": {
+      "type": "array",
+      "items": {
+        "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/qualification"
+      }
+    },
+    "selection_ledger": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "case_id",
+          "selection",
+          "registry_status",
+          "outcome",
+          "reason_code",
+          "artifact_paths"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "selection": {
+            "enum": [
+              "direct",
+              "dependency"
+            ]
+          },
+          "registry_status": {
+            "enum": [
+              "implemented",
+              "planned",
+              "skipped",
+              "blocked",
+              "deprecated"
+            ]
+          },
+          "outcome": {
+            "enum": [
+              "generated",
+              "unavailable",
+              "planned",
+              "skipped",
+              "blocked",
+              "deprecated"
+            ]
+          },
+          "reason_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "artifact_paths": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

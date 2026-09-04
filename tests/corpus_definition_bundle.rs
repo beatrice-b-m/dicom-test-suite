@@ -100,6 +100,203 @@ fn manifest_bytes_are_identity_bearing() {
 }
 
 #[test]
+fn explicit_descriptor_inputs_are_equivalent_relocatable_and_output_free() {
+    let parent = temp("explicit-inputs").canonicalize().unwrap();
+    let root = parent.join("members");
+    copy_bundle(&fixture(), &root);
+    let bytes = fs::read(root.join("corpus-definition.json")).unwrap();
+    let descriptor = parent.join("selected.json");
+    fs::write(&descriptor, &bytes).unwrap();
+    let before = walk(&parent);
+    let original = CorpusDefinitionBundle::load(&root).unwrap();
+    let file = CorpusDefinitionBundle::load_descriptor_file(&descriptor, &root).unwrap();
+    let memory = CorpusDefinitionBundle::load_descriptor_bytes(&bytes, &root).unwrap();
+    assert_eq!(original.identity(), file.identity());
+    assert_eq!(file.identity(), memory.identity());
+    assert_eq!(walk(&parent), before, "loading creates no output");
+    fs::remove_file(root.join("corpus-definition.json")).unwrap();
+    let moved = parent.join("relocated");
+    fs::rename(&root, &moved).unwrap();
+    assert_eq!(
+        original.identity(),
+        CorpusDefinitionBundle::load_descriptor_file(&descriptor, &moved)
+            .unwrap()
+            .identity()
+    );
+    assert_eq!(
+        original.identity(),
+        CorpusDefinitionBundle::load_descriptor_bytes(&bytes, &moved)
+            .unwrap()
+            .identity()
+    );
+    let retained = memory.bytes("cases/recipes/minimal.json").unwrap().to_vec();
+    fs::write(moved.join("cases/recipes/minimal.json"), vec![b'x'; 633]).unwrap();
+    for error in [
+        CorpusDefinitionBundle::load_descriptor_file(&descriptor, &moved).unwrap_err(),
+        CorpusDefinitionBundle::load_descriptor_bytes(&bytes, &moved).unwrap_err(),
+    ] {
+        assert_eq!(error.code(), "evidence.integrity.failed");
+    }
+    assert_eq!(
+        memory.bytes("cases/recipes/minimal.json").unwrap(),
+        retained
+    );
+    fs::remove_dir_all(parent).unwrap();
+}
+
+#[test]
+fn explicit_inputs_reject_missing_ambiguous_and_conflicting_locations() {
+    let parent = temp("explicit-locations").canonicalize().unwrap();
+    let root = parent.join("members");
+    copy_bundle(&fixture(), &root);
+    let bytes = fs::read(root.join("corpus-definition.json")).unwrap();
+    let descriptor = parent.join("selected.json");
+    fs::write(&descriptor, &bytes).unwrap();
+    assert_eq!(
+        CorpusDefinitionBundle::load_descriptor_file(parent.join("missing.json"), &root)
+            .unwrap_err()
+            .code(),
+        "io.read.failed"
+    );
+    for error in [
+        CorpusDefinitionBundle::load_descriptor_bytes(&bytes, parent.join("missing-root"))
+            .unwrap_err(),
+        CorpusDefinitionBundle::load_descriptor_file(&descriptor, parent.join("missing-root"))
+            .unwrap_err(),
+    ] {
+        assert_eq!(error.code(), "io.read.failed");
+    }
+    for error in [
+        CorpusDefinitionBundle::load_descriptor_bytes(&bytes, "").unwrap_err(),
+        CorpusDefinitionBundle::load_descriptor_file("selected.json", &root).unwrap_err(),
+        CorpusDefinitionBundle::load_descriptor_bytes(&bytes, parent.join("members/../members"))
+            .unwrap_err(),
+    ] {
+        assert_eq!(error.code(), "resource.document.invalid");
+    }
+    let empty = parent.join("empty");
+    fs::create_dir(&empty).unwrap();
+    assert_eq!(
+        CorpusDefinitionBundle::load_descriptor_file(&descriptor, &empty)
+            .unwrap_err()
+            .code(),
+        "io.read.failed",
+        "never use descriptor siblings as members"
+    );
+    fs::write(root.join("corpus-definition.json"), b"{}").unwrap();
+    for error in [
+        CorpusDefinitionBundle::load_descriptor_bytes(&bytes, &root).unwrap_err(),
+        CorpusDefinitionBundle::load_descriptor_file(&descriptor, &root).unwrap_err(),
+    ] {
+        assert!(matches!(error, CorpusDefinitionError::Closure(_)));
+    }
+    assert_eq!(
+        CorpusDefinitionBundle::load(&root).unwrap_err().code(),
+        "request.json.invalid"
+    );
+    fs::remove_dir_all(parent).unwrap();
+}
+
+#[test]
+fn explicit_descriptor_limits_and_invalid_bytes_fail_closed() {
+    let root = temp("explicit-invalid").canonicalize().unwrap();
+    copy_bundle(&fixture(), &root);
+    let bytes = fs::read(root.join("corpus-definition.json")).unwrap();
+    let descriptor = root.join("corpus-definition.json");
+    for maximum in [16, u64::MAX] {
+        let limits = CorpusDefinitionLimits {
+            manifest_bytes: maximum,
+            ..CorpusDefinitionLimits::default()
+        };
+        for error in [
+            CorpusDefinitionBundle::load_descriptor_file_with_limits(&descriptor, &root, limits)
+                .unwrap_err(),
+            CorpusDefinitionBundle::load_descriptor_bytes_with_limits(&bytes, &root, limits)
+                .unwrap_err(),
+        ] {
+            assert_eq!(error.code(), "resource.limit.exceeded");
+        }
+    }
+    fs::remove_file(&descriptor).unwrap();
+    let mut value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    value["corpus_definition_bundle_schema_version"] = "99.0.0".into();
+    assert_eq!(
+        CorpusDefinitionBundle::load_descriptor_bytes(&serde_json::to_vec(&value).unwrap(), &root)
+            .unwrap_err()
+            .code(),
+        "request.version.unsupported"
+    );
+    value["corpus_definition_bundle_schema_version"] = "1.0.0".into();
+    value["registry"]["path"] = "../registry.json".into();
+    assert_eq!(
+        CorpusDefinitionBundle::load_descriptor_bytes(&serde_json::to_vec(&value).unwrap(), &root)
+            .unwrap_err()
+            .code(),
+        "resource.document.invalid"
+    );
+    assert_eq!(
+        CorpusDefinitionBundle::load_descriptor_bytes(b"{", &root)
+            .unwrap_err()
+            .code(),
+        "request.json.invalid"
+    );
+    let oversized = vec![b' '; CorpusDefinitionLimits::default().manifest_bytes as usize + 1];
+    assert_eq!(
+        CorpusDefinitionBundle::load_descriptor_bytes(&oversized, &root)
+            .unwrap_err()
+            .code(),
+        "resource.limit.exceeded"
+    );
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn explicit_input_ancestors_and_members_cannot_be_symlinks() {
+    use std::os::unix::fs::symlink;
+    let parent = temp("explicit-symlinks").canonicalize().unwrap();
+    let actual = parent.join("actual");
+    let root = actual.join("members");
+    copy_bundle(&fixture(), &root);
+    let bytes = fs::read(root.join("corpus-definition.json")).unwrap();
+    fs::write(actual.join("selected.json"), &bytes).unwrap();
+    let anchor = BundleRoot::open(&actual).unwrap();
+    let relative = BundleRoot::open_explicit_at(Path::new("members"), &anchor).unwrap();
+    assert_eq!(
+        relative
+            .capture("corpus-definition.json", 1024 * 1024)
+            .unwrap(),
+        bytes
+    );
+    symlink(&actual, parent.join("alias")).unwrap();
+    for error in [
+        CorpusDefinitionBundle::load_descriptor_bytes(&bytes, parent.join("alias/members"))
+            .unwrap_err(),
+        CorpusDefinitionBundle::load_descriptor_file(parent.join("alias/selected.json"), &root)
+            .unwrap_err(),
+    ] {
+        assert_eq!(error.code(), "resource.document.invalid");
+    }
+    symlink(actual.join("selected.json"), parent.join("linked.json")).unwrap();
+    assert_eq!(
+        CorpusDefinitionBundle::load_descriptor_file(parent.join("linked.json"), &root)
+            .unwrap_err()
+            .code(),
+        "resource.document.invalid"
+    );
+    let recipe = root.join("cases/recipes/minimal.json");
+    fs::rename(&recipe, actual.join("recipe.json")).unwrap();
+    symlink(actual.join("recipe.json"), &recipe).unwrap();
+    assert_eq!(
+        CorpusDefinitionBundle::load_descriptor_bytes(&bytes, &root)
+            .unwrap_err()
+            .code(),
+        "resource.document.invalid"
+    );
+    fs::remove_dir_all(parent).unwrap();
+}
+
+#[test]
 fn malformed_duplicate_unknown_bom_and_utf8_are_rejected() {
     for (name, bytes) in [
         ("duplicate", br#"{"corpus_definition_bundle_schema_version":"1.0.0","corpus_definition_bundle_schema_version":"1.0.0"}"#.to_vec()),
@@ -308,6 +505,25 @@ fn deterministic_current_source_assembly_loads_all_registry_cases() {
         .unwrap();
     assert!(status.success());
     let bundle = CorpusDefinitionBundle::load(&root).unwrap();
+    let explicit_root = root.canonicalize().unwrap();
+    let descriptor = explicit_root.join("corpus-definition.json");
+    assert_eq!(
+        bundle.identity(),
+        CorpusDefinitionBundle::load_descriptor_file(&descriptor, &explicit_root)
+            .unwrap()
+            .identity()
+    );
+    assert_eq!(
+        bundle.identity(),
+        CorpusDefinitionBundle::load_descriptor_bytes(
+            &fs::read(&descriptor).unwrap(),
+            &explicit_root
+        )
+        .unwrap()
+        .identity()
+    );
+    assert_eq!(bundle.identity().file_count, 214);
+    assert_eq!(bundle.identity().total_size_bytes, 1_754_298);
     eprintln!(
         "current corpus definition identity: {:?}",
         bundle.identity()

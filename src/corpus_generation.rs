@@ -61,6 +61,7 @@ pub(crate) enum CapturedCorpusError {
     Input(String),
     Cancelled,
     Planning(String),
+    Plan(crate::curated_plan::CuratedPlanError),
     DestinationExists,
     UnsafeDestination,
     OutputIo(std::io::Error),
@@ -80,6 +81,23 @@ impl CapturedCorpusError {
             Self::Input(_) => "request.schema.invalid",
             Self::Cancelled => "generation.execution.cancelled",
             Self::Planning(_) => "generation.planning.failed",
+            Self::Plan(error) => {
+                use crate::corpus_plan::CorpusPlanError as C;
+                use crate::curated_plan::CuratedPlanError as P;
+                match error {
+                    P::ResourceOverflow
+                    | P::CorpusPlan(
+                        C::ResourceEstimateOverflow
+                        | C::ResourceEstimateExceedsLimit { .. }
+                        | C::ZeroResourceLimit,
+                    ) => "resource.limit.exceeded",
+                    P::UnknownProfile(_)
+                    | P::UnknownCase(_)
+                    | P::DuplicateCaseSelection
+                    | P::ZeroParallelism => "request.schema.invalid",
+                    _ => "generation.planning.failed",
+                }
+            }
             Self::DestinationExists => "output.destination.exists",
             Self::UnsafeDestination => "output.path.unsafe",
             Self::OutputIo(_) => "io.write.failed",
@@ -265,7 +283,7 @@ fn run_with_publication_check(
     let (profile, include_stress, selector, direct, closure) =
         selection(&bundle, &request.selection)?;
     let context = CapturedCuratedPlanningContext::from_verified_bundle(&bundle, &resources)
-        .map_err(|e| CapturedCorpusError::Planning(e.to_string()))?;
+        .map_err(CapturedCorpusError::Plan)?;
     let planned = context
         .plan(CuratedScPlanRequest {
             // Bundle1 recipe descriptors exist only for implemented rows. All
@@ -286,7 +304,7 @@ fn run_with_publication_check(
             seed: request.seed,
             max_parallelism: request.parallelism,
         })
-        .map_err(|e| CapturedCorpusError::Planning(e.to_string()))?;
+        .map_err(CapturedCorpusError::Plan)?;
     checkpoint(&request.cancellation)?;
     let identities =
         crate::identity::project_manifest_identities(&resources, Some(&bundle), vec![])

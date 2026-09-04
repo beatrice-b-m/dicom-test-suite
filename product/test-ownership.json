@@ -417,7 +417,7 @@
         "explicit_selection_preserves_dependencies_and_mixed_statuses",
         "transaction_failure_cancellation_and_existing_destination_are_atomic"
       ],
-      "entry_digest": "3e3878e2cd6d35584e8991eba86672682f59bf3347846850ab98987ff41b0c5d"
+      "entry_digest": "2c1881baacf82cef6b23c8cae2aa1d931da8808f1fd96834f6fb3201ed91dd92"
     },
     {
       "source": "tests/captured_corpus_report.rs",

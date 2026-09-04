@@ -58,6 +58,17 @@ fn request(root: PathBuf) -> CapturedCorpusRequest {
 
 #[test]
 fn typed_execution_errors_preserve_specificity_and_cleanup_precedence() {
+    for error in [
+        crate::curated_plan::CuratedPlanError::ResourceOverflow,
+        crate::curated_plan::CuratedPlanError::CorpusPlan(
+            crate::corpus_plan::CorpusPlanError::ResourceEstimateOverflow,
+        ),
+    ] {
+        assert_eq!(
+            CapturedCorpusError::Plan(error).code(),
+            "resource.limit.exceeded"
+        );
+    }
     use crate::executor::cancellation::{CancellationPoint, CancellationStage, Cancelled};
     use crate::executor::engine::{
         ArtifactExecutionError as A, CorpusExecutorError as E, ServiceInvocationError,

@@ -4427,6 +4427,47 @@ qualification. Current corpus content is still0.1/smoke-only. Live-versus-
 historical definition and CI selection work, exact core import and migrated
 parity remain the next sequential gates.
 
+### 2026-09-04 — R7 historical/live selection and bounded CI prerequisite
+
+Accepted corpus checkpoint `bbcb03d`: `5a6e68a` separates historical smoke
+assertions from live inventory and updates the explicit loader verifier;
+`eb269af` versions the local CI configuration/route to2; `bbcb03d` documents
+the boundary. Historical fixture bytes remain unchanged. Live inventory must
+retain all three smoke IDs and may add only cases from the accepted ten-case
+source provenance, with exact registry/recipe identity and empty dependency/
+evidence closure. Smoke recipe path/size/hash bindings are also pinned. Only
+the pre-existing descriptive smoke compatibility annotations may evolve; that
+allowance cannot apply to core rows.
+
+Shared changes now union the fixed smoke set with affected cases, then expand
+old/new reverse impact and current dependency closure. They neither replace
+affected core cases with smoke nor select the whole live registry. Smoke-only
+and core-only routes use those profiles; a mixed route uses the existing valid
+`all` union with explicit bounded IDs. Extended and isolated memberships remain
+empty and the `all` union/opt-in stress definition is fixed. This is not full-
+profile generation. Unknown paths/cases, removals, altered source bindings and
+unsupported scopes fail closed. Future relationship slices require their own
+versioned ownership expansion; synthetic graph tests do not authorize new live
+dependencies in this slice.
+
+The smoke verifier still exercises seven full supported-loader checks without
+generation, now selecting the named historical smoke subset and binding the
+actual full descriptor identity. Adverse fixtures target named smoke cases,
+not index0, and each command rechecks the explicitly acquired executable.
+No historical native proof was rewritten or replayed at this prerequisite.
+
+Verification: smoke tests10/10 in0.010s, CI24/24 in0.186s, full ordinary131/131
+in0.858s. Independent review reran smoke10/10 in0.009s and CI24/24 in0.189s.
+The clean current-repository route dry-run from `ca4a41b` to `eb269af` selected
+only the fixed smoke3, with no acquisition or output creation. Help and diff
+checks passed. Review caught and corrected missing-smoke acceptance in a
+standalone routing snapshot before final acceptance.
+
+No native command, live corpus import, pin change, generated artifact or wider
+qualification occurred. The next sequential task is the exact ten-case core
+definition import, followed by complete public-loader checks and an explicitly
+reviewed migrated-parity boundary.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

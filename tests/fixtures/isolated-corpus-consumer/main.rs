@@ -120,7 +120,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &bundle,
         ))
         .unwrap_err();
-    assert_eq!(invalid.code(), "request.json.invalid");
+    // The selected bytes conflict with the root's canonical descriptor before parsing.
+    assert_eq!(invalid.code(), "resource.document.invalid");
     let cancelled = CancellationToken::new();
     cancelled.cancel();
     let error = product

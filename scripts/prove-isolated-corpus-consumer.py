@@ -224,7 +224,7 @@ def main():
     receipt["verified_corpus_identity"] = identity
     receipt["installed_identity_domains"] = capabilities["identity_domains"]
     files = {f["case_id"]: f for f in sdk_manifest["files"]}
-    assert len(files) == 3 and not sdk_manifest["skipped_cases"]
+    assert len(files) == 3 and "skipped_cases" not in sdk_manifest
     for expected in baseline["cases"]:
         actual = files[expected["case_id"]]
         for name in ("path", "sha256", "size_bytes", "determinism"):

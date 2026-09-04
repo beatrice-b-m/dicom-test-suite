@@ -38,7 +38,7 @@ artifact.
 | R2 — reduce Rust test-linking amplification | Complete | R2.1, R2.2, R2.3, R2.4 | The fail-closed inventory maps 186 integration sources and all 879 integration entries into exactly 20 explicit harnesses. Six R0-measured heavy bodies have exact ignored qualification entry points, while deterministic change routing now selects bounded Fast/subsystem evidence and reports every deferred class without executing it. The aggregate R2 target-count, cost, heavy-isolation, and routing gates pass. |
 | R3 — rename reusable product | Complete | R3.1, R3.2, R3.3, R3.4 | Product, package, crate, library, sole binary, archives, discovery, package metadata, current operating guides, product-controlled environment, and production scratch paths use `synth-dicom-gen` / `synth_dicom_gen` at the breaking pre-1.0 product boundary `0.2.0`. Immutable dated evidence retains its exact old candidate identity, and 12 qualified-adapter variables retain provenance-bound spellings pending external requalification. The external-consumer audit found no supported `0.1.0` product consumer requiring an alias. A clean side project compiled and exercised only `synth_dicom_gen::sdk` from the extracted, verified `synth-dicom-gen-0.2.0.crate`, without the old repository path. The aggregate R3 gate passes. |
 | R4 — split immutable resources and corpus definitions | Complete | R4.1, R4.2, R4.3, R4.4, R4.5 | At the accepted R4 checkpoint, EngineResources v2 owned 74 immutable members and its private lazy lease materialized a 254-file transitional physical closure once per shared context. Those checkpoint measurements remain historical; current schema additions and exact identities are recorded in the latest dated R5 entry below. Cases/Cargo remain excluded from authoritative engine identity, and exact legacy 240-member v1 provenance remains reconstructable. |
-| R5 — add supported external corpus API | In progress | Input substrate, batch execution, reporting, accepted SDK facade; CLI slice pending review | SDK range `ca571fb..aa7fcad` is independently accepted. SDK and the new bounded CLI slice execute verified captured inputs through one atomic runner with explicit Published/Planned/NoExecutableCases outcomes. External CLI generation3/report2 evidence is recorded below and awaits review. Loaded-corpus discovery and independent installed/cross-repository acceptance remain pending. |
+| R5 — add supported external corpus API | In progress | Input substrate, batch execution, reporting, accepted SDK/CLI; discovery slice pending review | SDK `ca571fb..aa7fcad` and CLI `aa7fcad..a18d149` are independently accepted. The dated R5.5 entry records destination-free supported inspection and capabilities3, pending review. Independent installed/cross-repository acceptance remains required. |
 | R6 — establish smoke corpus repository | Not started | None | No external repository has been created; authority and destination are still required before out-of-workspace mutation. |
 | R7 — migrate complete dcmview corpus | Not started | None | Requires R6 smoke parity and supported contracts. |
 | R8 — decouple viewer development | Not started | None | Requires a qualified artifact key and complete-enough corpus ownership. |
@@ -3495,6 +3495,109 @@ codec feature matrix, external provider execution, release-candidate,
 external repository or release qualification ran; terminal acceptance remains
 open.
 
+### 2026-09-04 — R5.5 supported loaded-corpus discovery (pending review)
+
+Independent review accepted preceding CLI range `aa7fcad..a18d149`; the SDK
+range `ca571fb..aa7fcad` remains accepted. This bounded discovery slice begins
+at `a18d149`. Functional/evidence commits are `7a453bc`, `205ed7e`, `5cda053`,
+`798cac4`, `e2b2cda`, `ca64c0b`, `3a99e60`, `b1dc5b6`, `bfdae8d`, and
+`f0b5f71`; documentation/status follow separately. No later phase began.
+
+`InspectCorpusRequest` accepts descriptor file or bytes with an explicit member
+root, optional selection, seed and parallelism. Inspection captures at call
+time. Metadata-only results explicitly have no assessment; typed case status,
+profile IDs, exact definitions, provider/requirement/blocker facts and verified
+identity remain available. A selected assessment shares the exact lease-owning
+preparation used by generation, without a fake destination, filesystem output
+probe, service construction or provider execution. It preserves direct and
+dependency dispositions/reasons, seed, parallelism, artifact IDs and plan hash.
+Ready is not generated, and validation/publication remain not-run. Cooperative
+cancellation is checked before/after bounded capture and planning.
+
+`capabilities_with_corpus` projects that one capture into capabilities3; top
+and nested corpus identities agree without reloading inputs. CLI
+`capabilities --corpus ./definition.json --asset-root corpus-members --format json`
+is metadata-only. Adding `--profile smoke --seed 1 --parallelism 2` assesses
+the selected scope. Repeated case IDs and stress remain scope-bound; planning
+options require a profile. CLI errors retain SDK codes structurally. No CLI
+signal cancellation is claimed. SDK evidence-accessor version1 is not a
+standalone JSON document or an exposed private plan.
+
+Provider discovery is supplied by `qualified_templates`, `transfer_syntaxes`,
+`optional_runtimes` and the new `provider_support` declarations from the
+installed locked backend catalog. Native compiled support is distinct from
+unassessed external declarations; all runtime assessment is explicitly not
+performed. Loaded definitions preserve their exact provider/requirements facts,
+and selected readiness/unavailability comes from the same planner as execution,
+not registry implemented status. Empty-PATH CLI inspection is identical to the
+ordinary result; no ambient provider or executable discovery is required.
+
+Capabilities3 advertises external generation3, manifest2, report2 and bundle1,
+and retains predecessor validation windows. Frozen capabilities1/2 and
+version2 schemas are unchanged. The existing release2 contract strictly binds
+capabilities2, so the default discovery change necessarily introduces release3
+with capabilities3; release2 remains frozen and valid. The verifier retains
+1/2/3 with exact 2→2 and 3→3 pairing, domain/product/target/features/source,
+inventory, runtime uniqueness, and optional legacy parity checks. Tests use
+synthetic manifests only: the v2 compatibility projection is explicitly not a
+historical or qualified archive. Deferred archive schema dispatch and installed
+black-box expectations are updated but their bodies were not run.
+
+Routing dry-runs were inspected for the changed SDK/runner, discovery, CLI,
+schema and release paths before focused checks. Capabilities3 selects live
+external CLI/SDK, identity, schema and release evidence; release3 selects
+schema/release evidence. The conservative main/build all-ordinary fallback was
+not executed; the authorized bounded affected suites below were used instead.
+All Cargo test rows use `cargo test --locked --no-default-features`:
+
+| Exact test arguments | Result | Test wall time |
+| --- | --- | --- |
+| `--lib corpus_generation::captured_runner_tests::` | 6/6 | 4.68s |
+| `--test cli_sdk__nonfast sdk_corpus::` | 7/7 | 35.72s |
+| `--test cli_sdk__nonfast sdk_corpus::inspection_is_destination_free_and_agrees_with_generation_planning -- --exact` after input-error additions | 1/1 | 28.48s |
+| `--test cli_sdk__nonfast capabilities_cli::` | 4/4 | 1.66s |
+| `--test cli_sdk__nonfast external_corpus_cli::` | 6/6 | 24.69s |
+| `--test cli_sdk__nonfast sdk_facade::` | 12/12 | 3.53s |
+| `--test cli_sdk__nonfast version_cli::` | 3/3 | 1.14s |
+| `--test cli_sdk__nonfast report_cli::` | 49/49 | 20.08s |
+| `--test schema_resources__subsystem` | 86/86 | 6.90s |
+| `--test schema_resources__fast` | 73/73 | 2.04s |
+| `--test release_ci__fast` | 14/14 | 2.12s |
+| `--lib identity::identity_domain_tests::` | 4/4 | 1.39s |
+| `--lib engine_resources::snapshot_cache_tests::` | 7/7 | 2.14s |
+
+The report suite includes its existing ordinary bounded fuzz-report test, not
+Heavy qualification. The inspection comparisons cover smoke, dependency,
+planned and unavailable selections without heavy generation. Existing external
+CLI smoke remains SDK-byte-identical. Initial failures were a test's wrong
+digest key, moved JSON-schema options in new test helpers, a rustfmt-sensitive
+static assertion, and routing assertions that omitted the deliberately added
+overlap; all were repaired and rerun, with no evidence body removed.
+
+Current schemas/resources (these supersede earlier dated inventories):
+
+- capabilities3: 20,696 bytes /
+  `d79781d45f2482ec8a9a46524b5ac0010303c874b4324761c8f4db6e13d7174a`;
+- release3: 2,611 bytes /
+  `b08de95b56bc595e05d69238fd54672eef2a61e68978894f1bb705b0074ad78c`;
+- engine: 80 members / 1,290,402 bytes /
+  `76e335c57a4b6f9aeefda2cf56b2bfea83231440d9d69e1e78ab4d81d1ce0740`;
+- schema set: 57 members / 889,930 bytes /
+  `a27fc5915c974c51a142b8bc4772a5fbc10a0077196e8a58e96a4a7cba378a83`;
+- physical snapshot: 260 files / 2,703,660 bytes. Legacy240/dc61 and verified
+  bundle214/571fa23 identities remain unchanged.
+
+Routing fixtures pass 26/26 in 3.316s. Ownership passes 22 targets, 273 groups,
+1,470 entries (189 integration sources, 916 integration entries). Spelling
+passes 957 matches /
+`a211351385574ab085b0b660de6c0588c914ebc6ba7823735c59f6dfe8a843da`;
+the sole new retained occurrence is the frozen case-registry schema reference.
+Cargo check passes in 13.76s; formatting and diff checks pass. No Heavy,
+Nightly, codec feature matrix, external provider, package/archive build,
+installed-consumer/RC body, external repository or release publication ran.
+Independent review and the supported installed/cross-repository consumer proof
+remain required; R5 and terminal acceptance are not declared complete.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |
@@ -3538,7 +3641,7 @@ baseline alone is not proof that those budgets have passed.
 | --- | --- | --- |
 | Repository boundary | Not run | Must prove no generator dependency on dcmview and no corpus use of unsupported modules or sibling paths. |
 | Naming and compatibility | Passed | R3.1-R3.4 prove package `synth-dicom-gen` `0.2.0`, library `synth_dicom_gen`, the sole binary and version-derived archive/discovery identities, clean no-alias product environment, renamed production scratch paths, dual readers only at the four approved compatibility boundaries, current operating guides under the new identity, immutable historical evidence under the old identity, and 12 explicitly evidence-bound retained adapter environments. The exact 2,500,992-byte packaged crate (`9bc4cdaa357ce6f87a8dcce61d2f554d45f7a795a5c5f09fbb93017e65f79fe6`) passed Cargo verification and a clean extracted-package SDK consumer without an old repository path. A qualified `0.2.0` release remains correctly separate in the packaging-and-release row. |
-| External corpus contract | In progress | R4.2 proves the bounded verified definition loader; accepted R5 SDK and pending-review CLI slices expose explicit-root selection/generation without unsupported execution imports. Loaded-corpus discovery and independent installed/cross-repository consumer acceptance remain required before this terminal row passes. |
+| External corpus contract | In progress | R4.2 proves the bounded verified definition loader; accepted R5 SDK/CLI slices expose explicit-root selection/generation without unsupported execution imports. Supported loaded-corpus discovery is implemented pending review; independent installed/cross-repository consumer acceptance remains required before this terminal row passes. |
 | Identity separation | In progress | R4.3 independently projects engine, toolchain, template, provider, schema, standards, execution, verified loaded-corpus, and invocation runtime identities through v2 discovery and current generation, composition, assembly, report, and release contracts. R4.4 removes `cases/**` and `Cargo.lock` from the authoritative v2 engine digest while retaining exact named v1 reconstruction for required compatibility fields. Embedded paths do not fabricate corpus or runtime identities. The supported R5 external-corpus generation route and later physical/default-reader migration remain before the terminal cross-repository row can pass. |
 | Smoke migration | In progress | The R0 parity baseline passes for the current embedded smoke slice; R6 repository generation and comparison have not run. |
 | Complete migration | Not run | The current repository still owns the complete embedded corpus. |

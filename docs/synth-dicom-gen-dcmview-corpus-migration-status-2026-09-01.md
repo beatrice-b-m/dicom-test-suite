@@ -3271,6 +3271,25 @@ authoritative for the actual bodies executed. No Heavy/Nightly, feature-specific
 codec, external provider, package/archive/RC or external repository work ran in
 this reporting slice. No later SDK/CLI implementation began.
 
+### R5 reporting accepted boundary and duplicate-load cleanup — 2026-09-03
+
+Independent review accepted `f568ef9..ea26b52` with no P1/P2 findings. The
+bounded P3 follow-up passes the already validated manifest by reference into
+the sole-caller private registry report helper. Curated/composition/assembly
+report dispatch previously loaded and schema-validated the same manifest twice;
+it now performs that load once. External early dispatch, public signatures,
+error mapping, resource lease lifetime, schema bytes and report projection
+semantics are unchanged. This is a structural reduction in duplicate work,
+not a claimed wall-time speedup. No SDK implementation began.
+
+The `src/lib.rs` route dry-run preceded focused ordinary checks:
+`report_contract::report_contract_tests::` passes 3/3 in 0.94s (20.57s compile),
+and `cli_sdk__nonfast report_cli::` passes 49/49 in 18.89s (21.94s compile),
+including the exact raw external JSON/Markdown and rejected envelope regression.
+As corrected above, this ordinary suite includes bounded fuzz reporting, not
+the deferred Heavy qualification. Ownership remains 22/271/1,456;
+spelling, formatting and diff checks pass. No Heavy/provider/RC work ran.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

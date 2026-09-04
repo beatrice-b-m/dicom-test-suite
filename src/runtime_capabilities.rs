@@ -175,6 +175,12 @@ pub struct RuntimeCapabilityEvaluator {
 }
 
 impl RuntimeCapabilityEvaluator {
+    pub(crate) fn from_installed_matrix(json: &str) -> Result<Self, CapabilityEvaluatorError> {
+        Ok(Self {
+            codecs: TransferSyntaxBackendRegistry::from_capability_matrix(json)?,
+        })
+    }
+
     pub fn committed() -> Result<Self, CapabilityEvaluatorError> {
         Ok(Self {
             codecs: TransferSyntaxBackendRegistry::load_committed()?,

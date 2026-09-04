@@ -5059,6 +5059,40 @@ passed; config bytes, corpus data, schemas, pins and historical evidence remain
 unchanged in this prerequisite. The separate data relocation and subsequent
 corrected-candidate native check are still required.
 
+## R7 canonical evidence data correction accepted — 2026-09-04
+
+Corpus `54edb7737325ef813edacf50d198c82571d778f7` changes only content
+version0.3.0 to0.3.1 and three evidence declaration/storage paths to
+`evidence/<same-basename>`. Independent and root review confirmed three
+byte-identical Git renames; all registry queries, raw registry/recipes, evidence
+IDs, media types, hashes, sizes and profile membership remain unchanged. Exact
+old empty directories were removed. The closed bundle has21 files/98,561 bytes;
+descriptor9,499 bytes SHA-256
+`e12f9fff740aa43e20a5963bf5c926094288af71c7fd91f16d6b558244de6697`;
+public corpus digest
+`91d63240f00c5398d698abd900baadca7a3f4617573a365c45868f49367bfd65`.
+
+Static13 tests passed in0.042s. Before staging, the ordinary204-test run had
+203 passes/one tracked-index transition error in1.625s: the old index named
+removed paths while both inspected snapshots were the corrected live tree.
+After selectively staging the exact repair, all204 passed in1.634s; no test
+or routing relaxation was made. Initial empty-hunk relocation was rejected
+atomically and then corrected with context-only moves. Two read-only diagnostic
+reports reversed a helper return tuple (KeyError/nonserializable set); the
+corrected report confirmed old/current routing selects fixed smoke3 plus
+metadata3 with no dependencies. No generation ran.
+
+Root full Draft2020 descriptor validation passed one check in0.080277417s
+against the clean committed candidate, Node24.19.0/Ajv8.18.0. Retained supplement
+`generated/r7-evidence-storage-schema-review-20260904/receipt.json` SHA-256
+`e76992a447a74e58c6a745d04712048c2a820cfb02f55a65f376593dca143038`;
+script SHA-256
+`b78f3b4ae46456e95bf4c6c042aafe01f5c396922b3c64bf585ee9fb5bc35189`.
+Registry and recipes are unchanged from their prior full-schema checks. This
+is static evidence only: a fresh corrected-candidate public-loader response is
+still required. Historical rejected0.3 input and failed native evidence remain
+immutable; metadata availability and migrated parity are not yet established.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

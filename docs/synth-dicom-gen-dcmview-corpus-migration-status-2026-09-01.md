@@ -5311,6 +5311,41 @@ but the fixture records only truncated expected-to-confirm diagnostics and no
 hash-refresh authority. A new authenticated embedded CT1 baseline is required
 before data import; no native invocation, import or availability claim ran here.
 
+## R7 CT1 baseline helper prepared, not executed — 2026-09-04
+
+Corpus commit `394b6144e1b9fde73a84a5b97388c913abc8c7db` adds the
+fail-closed CT1 baseline helper and synthetic tests; corpus commit
+`0a5cc525a2df21d07f55443464f7eaece2560836` separately maps those two
+paths into bounded ordinary CI ownership. The31,890-byte
+`scripts/capture_native_ct_baseline.py` has SHA-256
+`454b1f7a9209ebba370d00832229480e6674aa344477b586df135dfccf94da95`;
+the25,635-byte `tests/test_capture_native_ct_baseline.py` has SHA-256
+`0d2eabeec62b895837a92248c22f3a48634077f2823f5f965bb94616b7dd0843`.
+
+The helper binds source232, the full34-row source fixture and exact33 skips,
+then permits only one exact CT1 core/seed1 generation with the original pinned
+generator, one strict validation with that same generator and one coverage1.1
+report with the separately pinned repaired reporter. Complete payload, Part10,
+pixel, six-UID,39+4 validation,11-standard, report, source, mode and directory
+closure checks are retained with acquisition records and a failure receipt.
+Pins are reverified before every command; there is no build, download, network
+or sibling fallback, normalization, retry, deletion, Heavy, conformance, import,
+public-loader request or parity claim.
+
+An initial active synthetic draft exposed two contract errors (12/14 passed in
+0.069s): test pin overrides did not reach the shared globals, and the command
+incorrectly expected an unsupported parallelism flag. Both were corrected
+without weakening the evidence contract. The final focused suite passed15/15
+in0.215s for the authoring agent,0.201s for root and0.200s independently;
+routing passed32/32 in0.335s, all244 ordinary tests passed in2.073s and diff
+checking passed. The corpus repository was clean after the two commits.
+
+No native artifact was acquired or invoked and no CT DICOM, manifest, report or
+retained baseline exists yet. Live corpus content remains0.3.1 with16 cases and
+21 members. Native capture still requires separate approval and a fresh evidence
+root; CT import, runtime availability, migrated parity and R7.2/R7.3 genericity
+remain open.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

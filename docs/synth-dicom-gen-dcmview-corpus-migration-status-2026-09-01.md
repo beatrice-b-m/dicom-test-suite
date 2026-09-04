@@ -3825,6 +3825,34 @@ validation also passes. No generator build, remote, Heavy, package or release
 work occurred. Clean-clone proof, complete migration parity, viewer results and
 CI remain before the R6 gate.
 
+### R6.3 supplemental complete consumer-schema check — 2026-09-04
+
+After the accepted runner checkpoint, a read-only root audit evaluated the
+complete consumer result schema with locally available Ajv `8.18.0` (Draft
+2020-12 implementation) under Node `24.19.0`. The generator-lock schema was
+explicitly registered for its referenced URI; no network resolution occurred.
+Meta-schema validation and compilation passed, and all four retained corrected
+runner outcomes (smoke, case ID, dry-run and no-execution) validated with zero
+errors. Evaluation used `allErrors: true, strict: false`: standard schema
+evaluation, without Ajv's additional schema-authoring lint restrictions.
+This is complete evaluation of the consumer-owned schema, not a claim that
+the runner's consumed-field parsers evaluate arbitrary upstream schemas.
+
+The validator was an existing local installation at
+`/Users/beatrice/node_modules/ajv/dist/2020.js`; it is verification tooling,
+not a new corpus runtime dependency or supported machine-specific acquisition
+path. No package was installed and no generator command or build was repeated.
+The four inputs remain hash-bound by runner receipt `95123a97f23c59bc4592709df4b4ec982e51a0d16e58276824f88068165465a4`.
+Node executable SHA-256 is
+`27db838bb204ef7c21df2931f5656e4c8fb32e6e947f363a402b49714d32b5b1`;
+Ajv package-metadata SHA-256 is
+`720f862de3e496df05e074c33df5174db92c47e60726e41ab1338cfefda9754c`.
+Consumer schema SHA-256 is
+`440ba785926505f6be441d5960b927a7a147c279a769fb41081467d11a6817c6`;
+registered lock schema SHA-256 is
+`8d418149a2b8ca890453c19bec9a0056ea9b3bbccaa669fe8e0967697a88e9bc`.
+The successful verification process completed in approximately 0.2 seconds.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

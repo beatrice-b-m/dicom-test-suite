@@ -4383,6 +4383,50 @@ completion receipt supplies the previously missing report. Next gates remain
 consumer content-version compatibility, live-versus-historical selection/CI,
 the exact ten-case import, and supported-boundary parity before further slices.
 
+### 2026-09-04 — R7 consumer content-version prerequisite accepted
+
+The reviewed corpus code checkpoint `6c7657b` establishes a versioned consumer
+result boundary before any core definition import. Commits `2a25fb0`,
+`b0d6d44` and `6c7657b` separately cover descriptor-bound result production,
+the reviewed exact-integer/failure-evidence correction, and CI result parsing.
+Documentation and independent acceptance are recorded at `4044414`/`ca4a41b`.
+The original result1 schema remains byte-identical, SHA
+`440ba785926505f6be441d5960b927a7a147c279a769fb41081467d11a6817c6`.
+Content0.1 still emits its unchanged result1 shape. Other numeric
+major.minor.patch content versions under bundle schema1 use result2, with
+required submitted-descriptor identity, raw SHA and byte size. The new schema
+SHA is `44b89ef8ed9c335a37798d3cff5f37cbd3a0c95191d98c13d31e9da50cf49bdb`.
+
+Both paths capture bounded, no-follow descriptor bytes and match returned
+ID/content version/bundle schema/raw manifest hash to those exact bytes.
+The descriptor's byte size is not confused with whole-bundle size. Trusted
+published results retain the raw descriptor and generation response outside
+the closed output before checking descriptor stability; later mutation fails
+without deleting output. Untrusted responses retain unknown publication status
+and do not create sidecars. Nonpublished paths recheck stability and remain
+output/evidence-directory free. This is not hostile concurrent-writer atomicity;
+the supported generator loader still owns member integrity.
+
+CI explicitly dispatches result1/result2 and checks captured, inspected and
+generated identity. Selection and shared-smoke routing semantics are unchanged.
+No generator pin, live corpus, historical proof fixture or viewer scope changed.
+
+Verification: 26 runner tests passed in 0.056s, 22 CI tests in 0.144s, and all
+127 ordinary tests in 0.799s. Independent review reran runner/CI tests with
+26/22 passes in 0.056s/0.145s. Root full Draft2020 evaluation using existing
+Ajv8.18/Node24.19 passed 29 checks in 0.029376459s: retained result1, synthetic
+result2's three outcomes at two content versions, cross-version rejection,
+malformed versions and missing/invalid submitted fields. Exact uint64 limits
+and cross-document equality are separately checked with integer-aware Python
+tests; JavaScript numeric precision is not claimed to prove that boundary.
+Review caught and corrected a rounded uint64 schema literal before acceptance.
+Frozen-schema equality and intended-only structural differences are tested.
+
+This prerequisite is accepted without native execution, new generation or
+qualification. Current corpus content is still0.1/smoke-only. Live-versus-
+historical definition and CI selection work, exact core import and migrated
+parity remain the next sequential gates.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

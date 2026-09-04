@@ -432,5 +432,22 @@ fn report_gaps_preserves_explicit_default_spelled_caller_paths() {
             );
         }
     }
+    std::fs::remove_file(root.join("cases/registry.json")).unwrap();
+    std::fs::remove_file(root.join("standards.lock.json")).unwrap();
+    for (flag, path) in [
+        ("--registry", "cases/registry.json"),
+        ("--standards-lock", "standards.lock.json"),
+    ] {
+        let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
+            .current_dir(&root)
+            .args(["report", "gaps", "--format", "json", flag, path])
+            .output()
+            .unwrap();
+        assert!(
+            !output.status.success(),
+            "missing explicit {flag} must not fall back"
+        );
+        assert!(String::from_utf8_lossy(&output.stderr).contains(path));
+    }
     std::fs::remove_dir_all(root).unwrap();
 }

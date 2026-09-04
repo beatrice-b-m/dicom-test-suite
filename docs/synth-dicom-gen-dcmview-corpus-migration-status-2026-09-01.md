@@ -5198,6 +5198,17 @@ This confirms input readability/bindings, not execution or generated parity.
 The loading-only user approval does not authorize the new two-run boundary;
 explicit native approval and later exact output/schema review remain required.
 
+Final preparation documentation is corpus9a920eb/ce04867, clean full candidate
+`ce0486722a1b1858771432fc72c9b3e367580443`. The exact clean CI dry inspection
+487104d tobc42d25 passed in0.256991875s with configuration SHA-256
+`ff4bbbb31b922a4d4e2ee70e7574c41444d5ceeb3f90f1eeb17945f8e731eec4`:
+ordinary unit discovery plus bounded smoke3 fallback were selected; parity
+replay, full corpus, hosted/viewer, Heavy and release remained deferred. No
+selected native command was executed. Generator docs-only routing inspection
+selected no commands; unconditional Fast was reported, not run. Both worktrees
+were checked clean at this preparation handoff; this is not terminal hygiene
+qualification or goal completion.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

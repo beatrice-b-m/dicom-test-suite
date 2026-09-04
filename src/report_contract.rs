@@ -59,7 +59,9 @@ pub(crate) fn validate_report_contract(report: &Value) -> Result<(), ReportContr
         .get(version_field)
         .and_then(Value::as_str)
         .ok_or_else(|| error(format!("{version_field} must be a string")))?;
-    let schema_bytes = if version == supported_current {
+    let schema_bytes = if report_kind.is_none() && version == "1.1.0" {
+        include_bytes!("../schemas/coverage-report-v1.1.schema.json").as_slice()
+    } else if version == supported_current {
         schema_bytes
     } else if version == supported_legacy {
         match report_kind {
@@ -122,7 +124,7 @@ pub(crate) fn validate_report_contract(report: &Value) -> Result<(), ReportContr
     if let Err(failure) = validator.validate(report) {
         return Err(error(format!("report schema invalid: {failure}")));
     }
-    if version == supported_current {
+    if version == supported_current || (report_kind.is_none() && version == "1.1.0") {
         crate::manifest_contract::validate_identity_projection_runtime_uniqueness(report)
             .map_err(|failure| error(failure.to_string()))?;
     }
@@ -142,6 +144,142 @@ fn error(message: impl Into<String>) -> ReportContractError {
 #[cfg(test)]
 mod report_contract_tests {
     use super::*;
+
+    const NONSQUARE_FIELDS: [&str; 7] = [
+        "nonsquare_variant_id",
+        "nonsquare_pixel_spacing",
+        "nonsquare_nominal_scanned_pixel_spacing",
+        "nonsquare_pixel_aspect_ratio",
+        "nonsquare_uncalibrated",
+        "nonsquare_patient_space_geometry_present",
+        "nonsquare_pixel_data_sha256",
+    ];
+
+    fn nonsquare_report(status: &str, variant: &str) -> Value {
+        let mut report = current_report(
+            include_bytes!("../tests/fixtures/cli/coverage-report-v0.1.json"),
+            "coverage_report_schema_version",
+            "1.1.0",
+        );
+        let row = &mut report["coverage_matrix"][0];
+        row["case_id"] = "classic/sc/nonsquare_pixel_spacing".into();
+        row["status"] = status.into();
+        row["nonsquare_variant_id"] = variant.into();
+        row["nonsquare_uncalibrated"] = true.into();
+        row["nonsquare_patient_space_geometry_present"] = false.into();
+        row["nonsquare_pixel_data_sha256"] =
+            "e89b23efeade0dc3de624fc8982ea8b99adb35a3bb9a2fbf8b8ce675e10581a6".into();
+        if variant == "pixel_spacing" {
+            row["nonsquare_pixel_spacing"] = "0.6\\0.3".into();
+            row["nonsquare_nominal_scanned_pixel_spacing"] = "0.6\\0.3".into();
+            row["nonsquare_pixel_aspect_ratio"] = Value::Null;
+        } else {
+            row["nonsquare_pixel_spacing"] = Value::Null;
+            row["nonsquare_nominal_scanned_pixel_spacing"] = Value::Null;
+            row["nonsquare_pixel_aspect_ratio"] = "2\\1".into();
+        }
+        report
+    }
+
+    #[test]
+    fn coverage_1_1_preserves_original_rows_and_other_case_guards_exactly() {
+        let legacy: Value =
+            serde_json::from_slice(include_bytes!("../schemas/coverage-report.schema.json"))
+                .unwrap();
+        let current: Value =
+            serde_json::from_slice(include_bytes!("../schemas/coverage-report-v1.schema.json"))
+                .unwrap();
+        let new: Value = serde_json::from_slice(include_bytes!(
+            "../schemas/coverage-report-v1.1.schema.json"
+        ))
+        .unwrap();
+        fn explicit_references(value: &mut Value) {
+            match value {
+                Value::Object(object) => {
+                    for (key, value) in object {
+                        if key == "$ref" && value.as_str().is_some_and(|s| s.starts_with('#')) {
+                            *value =
+                                format!("{LEGACY_COVERAGE_ID}{}", value.as_str().unwrap()).into();
+                        } else {
+                            explicit_references(value);
+                        }
+                    }
+                }
+                Value::Array(values) => values.iter_mut().for_each(explicit_references),
+                _ => {}
+            }
+        }
+        let mut expected = legacy["$defs"]["coverage_row"].clone();
+        explicit_references(&mut expected);
+        let mut actual = new["$defs"]["coverage_row"].clone();
+        actual["allOf"][15] = actual["allOf"][15]["anyOf"][0].clone();
+        assert_eq!(
+            actual, expected,
+            "only the reviewed nonsquare alternative may change"
+        );
+        let mut normalized = new.clone();
+        normalized.as_object_mut().unwrap().remove("$defs");
+        for field in ["$id", "title"] {
+            normalized[field] = current[field].clone();
+        }
+        for field in ["coverage_report_schema_version", "coverage_matrix"] {
+            normalized["properties"][field] = current["properties"][field].clone();
+        }
+        assert_eq!(normalized, current);
+        for status in [
+            "generated",
+            "planned",
+            "skipped",
+            "blocked",
+            "deprecated",
+            "unavailable",
+        ] {
+            for variant in ["pixel_spacing", "pixel_aspect_ratio"] {
+                let mut report = nonsquare_report(status, variant);
+                validate_report_contract(&report).unwrap();
+                report["coverage_report_schema_version"] = "1.0.0".into();
+                validate_report_contract(&report).unwrap();
+            }
+        }
+    }
+
+    #[test]
+    fn coverage_1_1_non_generated_null_alternative_is_closed() {
+        for status in ["planned", "skipped", "blocked", "deprecated", "unavailable"] {
+            let mut report = nonsquare_report(status, "pixel_spacing");
+            for field in NONSQUARE_FIELDS {
+                report["coverage_matrix"][0][field] = Value::Null;
+            }
+            validate_report_contract(&report).unwrap();
+            let mut old = report.clone();
+            old["coverage_report_schema_version"] = "1.0.0".into();
+            assert!(
+                validate_report_contract(&old).is_err(),
+                "frozen reader must stay frozen"
+            );
+            for invalid in ["generated", "unknown", "not_run"] {
+                let mut mutated = report.clone();
+                mutated["coverage_matrix"][0]["status"] = invalid.into();
+                assert!(validate_report_contract(&mutated).is_err());
+            }
+            for field in NONSQUARE_FIELDS {
+                let mut missing = report.clone();
+                missing["coverage_matrix"][0]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove(field);
+                assert!(validate_report_contract(&missing).is_err());
+                let mut partial = report.clone();
+                partial["coverage_matrix"][0][field] = "invented-observation".into();
+                assert!(validate_report_contract(&partial).is_err());
+            }
+            report["coverage_matrix"][0]
+                .as_object_mut()
+                .unwrap()
+                .remove("status");
+            assert!(validate_report_contract(&report).is_err());
+        }
+    }
 
     fn current_report(legacy_bytes: &[u8], version_field: &str, version: &str) -> Value {
         let mut report: Value = serde_json::from_slice(legacy_bytes).unwrap();
@@ -172,6 +310,12 @@ mod report_contract_tests {
     #[test]
     fn current_reports_validate_and_preserve_every_legacy_field() {
         for (bytes, version_field, legacy_version, current_version) in [
+            (
+                include_bytes!("../tests/fixtures/cli/coverage-report-v0.1.json").as_slice(),
+                "coverage_report_schema_version",
+                "0.1.0",
+                "1.1.0",
+            ),
             (
                 include_bytes!("../tests/fixtures/cli/coverage-report-v0.1.json").as_slice(),
                 "coverage_report_schema_version",
@@ -209,6 +353,11 @@ mod report_contract_tests {
     #[test]
     fn current_report_contracts_reject_identity_and_version_mutations() {
         for (bytes, version_field, current_version) in [
+            (
+                include_bytes!("../tests/fixtures/cli/coverage-report-v0.1.json").as_slice(),
+                "coverage_report_schema_version",
+                "1.1.0",
+            ),
             (
                 include_bytes!("../tests/fixtures/cli/coverage-report-v0.1.json").as_slice(),
                 "coverage_report_schema_version",

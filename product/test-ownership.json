@@ -4,7 +4,7 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 273,
-    "rust_test_entries": 1471,
+    "rust_test_entries": 1473,
     "integration_source_groups": 189,
     "integration_test_entries": 917,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
@@ -3846,7 +3846,7 @@
         "mutation_of_an_internal_shared_root_fails_closed_on_reuse",
         "one_handle_reuses_one_tree_across_batch_generate_validate_report_and_compose"
       ],
-      "entry_digest": "1d08d44420ba0b6f8c372dc52342fff8beea716f70a9475ba1bad5df705470af"
+      "entry_digest": "1f32dc7fb7f31317605aab25df9ad90cf02cfe8eac100d4393dd0ba22974cd5a"
     },
     {
       "source": "src/executor/evidence.rs",
@@ -4173,7 +4173,7 @@
         "cargo_lock_perturbation_changes_only_toolchain_and_legacy_provenance",
         "external_runtime_identity_requires_successful_typed_execution_evidence"
       ],
-      "entry_digest": "155422e2d3b4ac4cdc22e00d757fea93f46bd55011a94d72495d69bca9ed6e5f"
+      "entry_digest": "12faabbf10feecaa2d6d13065d25cffa2a033e1912c5049042cc046f983da47e"
     },
     {
       "source": "src/lib.rs",
@@ -4404,13 +4404,15 @@
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 3,
+      "entry_count": 5,
       "entries": [
+        "coverage_1_1_preserves_original_rows_and_other_case_guards_exactly",
+        "coverage_1_1_non_generated_null_alternative_is_closed",
         "legacy_report_fixtures_remain_schema_valid",
         "current_reports_validate_and_preserve_every_legacy_field",
         "current_report_contracts_reject_identity_and_version_mutations"
       ],
-      "entry_digest": "8c3a3c639c82ef4164c6c74ca51ca2578cd263ec2a6efd341a76e06d61b3ddd6"
+      "entry_digest": "335ed652c3c82bb29e5ccbc9ba52ecd4a45bc488f936a609c6d6f1f96ee5b8bb"
     },
     {
       "source": "src/rt_manifest.rs",

@@ -171,6 +171,10 @@ const SCHEMAS: &[(&str, &str)] = &[
         "https://synth-dicom-gen.local/schemas/coverage-report-v1.schema.json",
     ),
     (
+        "schemas/coverage-report-v1.1.schema.json",
+        "https://synth-dicom-gen.local/schemas/coverage-report-v1.1.schema.json",
+    ),
+    (
         "schemas/coverage-report-v2.schema.json",
         "https://synth-dicom-gen.local/schemas/coverage-report-v2.schema.json",
     ),

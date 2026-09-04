@@ -301,6 +301,70 @@
   },
   "retained_occurrences": [
     {
+      "path": "schemas/coverage-report-v1.1.schema.json",
+      "token": "DTS_DRR",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The additive coverage1.1 schema vendors this unchanged frozen DICOM payload constant."
+    },
+    {
+      "path": "schemas/coverage-report-v1.1.schema.json",
+      "token": "DTS_LINAC",
+      "class": "dicom_payload_identifier",
+      "count": 2,
+      "owner": "dicom-payload-contract",
+      "reason": "The additive coverage1.1 schema vendors this unchanged frozen DICOM payload constant."
+    },
+    {
+      "path": "schemas/coverage-report-v1.1.schema.json",
+      "token": "DTS_PLAN",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The additive coverage1.1 schema vendors this unchanged frozen DICOM payload constant."
+    },
+    {
+      "path": "schemas/coverage-report-v1.1.schema.json",
+      "token": "DTS_RADIATION",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The additive coverage1.1 schema vendors this unchanged frozen DICOM payload constant."
+    },
+    {
+      "path": "schemas/coverage-report-v1.1.schema.json",
+      "token": "DTS_RADSET",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The additive coverage1.1 schema vendors this unchanged frozen DICOM payload constant."
+    },
+    {
+      "path": "schemas/coverage-report-v1.1.schema.json",
+      "token": "DTS_STATIC_AP",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The additive coverage1.1 schema vendors this unchanged frozen DICOM payload constant."
+    },
+    {
+      "path": "schemas/coverage-report-v1.1.schema.json",
+      "token": "DTS_TPG_1",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The additive coverage1.1 schema vendors this unchanged frozen DICOM payload constant."
+    },
+    {
+      "path": "schemas/coverage-report-v1.1.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 44,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The additive coverage1.1 schema explicitly references frozen legacy schema identities."
+    },
+    {
       "path": ".github/workflows/qualification.yml",
       "token": "DTS_HIGHDICOM_PYTHON",
       "class": "qualified_adapter_environment",
@@ -4510,11 +4574,11 @@
     }
   ],
   "retained_snapshot": {
-    "match_count": 957,
-    "sha256": "a211351385574ab085b0b660de6c0588c914ebc6ba7823735c59f6dfe8a843da",
+    "match_count": 1009,
+    "sha256": "a2fe4f341c85acb9f56b0c2084244252b5ab17ed57dc7cc9ac4c9ed3a0e09d50",
     "by_class": {
-      "dicom_payload_identifier": 189,
-      "legacy_payload_schema_fixture_or_evidence": 323,
+      "dicom_payload_identifier": 197,
+      "legacy_payload_schema_fixture_or_evidence": 367,
       "locked_python_module_or_backend": 148,
       "qualified_adapter_environment": 155,
       "qualified_adapter_or_test_fixture": 142

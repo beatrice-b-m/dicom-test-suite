@@ -12,10 +12,10 @@ use serde::{Deserialize, Serialize};
 include!(concat!(env!("OUT_DIR"), "/embedded_engine_resources.rs"));
 
 pub const ENGINE_RESOURCE_SET_VERSION: &str = "2.0.0";
-pub const ENGINE_RESOURCE_COUNT_V2: usize = 80;
-pub const ENGINE_RESOURCE_TOTAL_BYTES_V2: u64 = 1_290_402;
+pub const ENGINE_RESOURCE_COUNT_V2: usize = 81;
+pub const ENGINE_RESOURCE_TOTAL_BYTES_V2: u64 = 1_505_420;
 pub const ENGINE_RESOURCE_SHA256_V2: &str =
-    "76e335c57a4b6f9aeefda2cf56b2bfea83231440d9d69e1e78ab4d81d1ce0740";
+    "1c1884b655a528f5c667b3bffa38b036e367964acdd8621fbd2e5de7fcca0cb5";
 pub const TRANSITIONAL_ENGINE_RESOURCE_COUNT_V1: usize = 240;
 pub const TRANSITIONAL_ENGINE_RESOURCE_SHA256_V1: &str =
     "dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410";
@@ -685,9 +685,9 @@ mod snapshot_cache_tests {
         let elapsed = started.elapsed();
         assert_eq!(first.root(), second.root());
         assert_eq!(first.root(), third.root());
-        assert_eq!(file_inventory(first.root()), (260, 2_703_660));
+        assert_eq!(file_inventory(first.root()), (261, 2_918_678));
         eprintln!(
-            "current_snapshot operations=3 roots=1 files_written=260 bytes_written=2703660 elapsed_us={}",
+            "current_snapshot operations=3 roots=1 files_written=261 bytes_written=2918678 elapsed_us={}",
             elapsed.as_micros()
         );
     }

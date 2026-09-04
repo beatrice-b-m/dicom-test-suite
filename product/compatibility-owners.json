@@ -41,6 +41,7 @@
         "case-recipe.schema.json", "case-registry.schema.json",
         "coverage-gap-report.schema.json", "coverage-report.schema.json",
         "coverage-report-v1.schema.json",
+        "coverage-report-v1.1.schema.json",
         "manifest.schema.json", "manifest-v1.schema.json"
       ]
     },

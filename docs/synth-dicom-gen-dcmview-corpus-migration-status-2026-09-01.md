@@ -4149,6 +4149,54 @@ for the product patch must change their actual identities truthfully; no frozen
 byte adapter may hide changed inputs. Historical source/pin evidence remains
 immutable and separate from the forthcoming reporter's identities.
 
+### 2026-09-04 — R7 product-version experiment and compatibility decision
+
+A local, uncommitted `0.2.1` integration experiment truthfully changed the root
+Cargo package entry and all three backend-lock references. Cargo lock SHA became
+`0dec9e0c5a533ff266b7bbecd4cbf0b130be6719400b59131773f717a522024e`;
+backend lock SHA became
+`309c5dc33250f40fc358d30686c6fce0e5f731402b677f3c394581aed3b04952`.
+The resulting legacy resource digest was
+`007b47600fe65fcb27b0de5f9a2494088c2da7fca56809fb64f727e9d700b1c2`.
+The focused one-case report regression failed before reporting: frozen
+manifest1 legacy provenance requires `dc61…`. Version2 discovery's shared
+migration definition also pins that literal. The failed focused run took 1.83s
+after 2.14s compilation; no broader route, reporter build, retained-baseline
+replay or schema mutation followed. Earlier focused output was not retained
+across an agent context refresh, so one ordinary test rerun was explicitly
+recorded; it is not additional baseline qualification.
+
+Independent policy review classifies coverage1.1 as an **additive report-schema
+capability within the unreleased 0.2.0 source candidate**, consistent with the
+earlier R4/R5 independent schema changes. It is not a replacement released
+artifact or a same-schema correction of successfully emitted invalid output:
+the old reporter rejected its result before emission. The committed policy's
+product-release rules and independent schema-version rules remain unchanged.
+The planned product patch is therefore withdrawn from this bounded boundary;
+only the agent-owned uncommitted product/lock deltas and associated temporary
+expectation edits are to be restored to their actual schema-checkpoint bytes.
+No frozen-byte adapter, fake digest, historical fixture rewrite or frozen-schema
+relaxation is permitted.
+
+The repaired reporter must still have its own exact source revision, binary
+hash and changed schema/current-resource identities. Product version equality
+does not establish artifact equivalence. The old corpus pin and failed native
+baseline remain unchanged. Any later product-version bump requires an explicit
+versioned identity-contract migration; the discovered literal coupling is an
+open prerequisite for terminal R9 identity/release work, not assumed solved or
+waived. Current documentation must not claim that a future patch bump already
+works. The complete reporting gate remains open pending producer integration,
+ordinary verification and separate report-only evidence.
+
+For storage context only, the existing cumulative target tree measured before
+the deferred full route contained 9,665 regular files / 12,630,138,007 logical
+bytes and 11,312,676 KiB allocated. It contains earlier builds and is neither a
+clean-build cost nor an incremental cost of this repair. Final route evidence
+must distinguish before/after storage rather than repurpose this total as a
+new performance baseline. The schema checkpoint's subsequently reported Fast
+checks passed 73/73 in 2.25s after 22.16s compilation; full integration routing
+is still pending.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

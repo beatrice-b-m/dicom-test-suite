@@ -5093,6 +5093,57 @@ is static evidence only: a fresh corrected-candidate public-loader response is
 still required. Historical rejected0.3 input and failed native evidence remain
 immutable; metadata availability and migrated parity are not yet established.
 
+## R7 corrected metadata loading accepted — 2026-09-04
+
+After the user's bounded loading approval, one corrected-candidate check ran
+against clean corpus `ca561cbea6b0f8553434dd111a1e29272dab2185`
+(data54edb77, statusaf55cdc, current-docsca561cb). No generator change, rebuild,
+pin update or accepted baseline replay occurred. The reviewed harness differs
+from the failed-candidate harness only in exact source revision and fresh
+evidence root. Its retained8,233 bytes SHA-256
+`671f2d503f756dec0c1140577006b3ac40c1602299744cc77785548350aad7d5`
+bind `artifacts/r7-metadata-availability2-20260904` in the corpus repository.
+The original failed run and preflight remain immutable.
+
+Fresh acquisition of the original `4ca0c6d6` macOS-arm64 candidate passed in
+1.603038792s. Exactly one loaded `capabilities` call selected the three explicit
+metadata IDs under core, seed1/parallelism4, stress disabled, from an unrelated
+empty working directory with empty PATH. It exited0 in1.814245125s with empty
+stderr. Response98,111 bytes SHA-256
+`bcf63c2350d39fed38a28058fa14475012b5d9806f3d8bcebaf1b313d7c15442`
+contains three direct ready rows, no dependencies or generated paths, all16
+catalog cases/eight profiles, the exact verified0.3.1 corpus identity above and
+the unchanged baseline plan
+`05620ed8acf08ed665e3c73291b8ed45706440ba248c86b55d1157ebf3b59c03`.
+The full response checker passed in0.011548208s, preserving all identity-domain
+fields except the documented loaded-corpus transitions. Its retained1,016-byte
+binding result SHA-256 is
+`6806df41a194509fdf44fe10fc0afa8d9f5fb2df8f23812ca36a6c945c5cf181`.
+
+Receipt46,496 bytes SHA-256
+`337f02fbced484a0604229ec1c5c3255dff3f52e5a0cdde3a5dda94fc56556ed`
+records whole-job3.663707583s, unchanged originals/copies/source/cache, empty
+working directory and no output/DICOM. Before receipt,33 files occupy69,810,110
+logical/69,869,568 allocated bytes; final34 files occupy69,856,606 logical/
+69,918,720 allocated bytes. Root reapplied the documented read-only checker;
+independent review verified every33-file inventory hash and72 source Git blobs,
+pin/acquisition bindings, full response, closed bundle and all unchanged guards.
+
+Full Draft2020 success-envelope/capabilities3 checks both passed in0.317841541s
+(Node24.19.0/Ajv8.18.0), without native replay. Generator supplement
+`generated/r7-metadata-availability2-schema-review-20260904/receipt.json`
+SHA-256 `4617c8d8ae33ad802e7b1cedf66ec38867bc305d5de2ef2bbee8d5fcaeada970`
+binds response and both complete schemas; script SHA-256
+`09bb676b925b5bb3f97f6637e1a6bf997ae94895c79245249dee54cb02f199a2`.
+
+This closes only corrected metadata3 loading/selected-planning availability.
+No generation, strict validation, reporting, all-core or Heavy qualification
+ran. Retained JSON binding validity is not invocation authenticity; the separate
+capture/log/source evidence supplies that narrower invocation record. Neither
+proves independent conformance, migrated payload parity, a release or completeR7.
+The next separate gate is a reviewed bounded migrated-parity helper and explicit
+native execution authority, not a replay of the accepted embedded baseline.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

@@ -8,6 +8,7 @@ use synth_dicom_gen::cli_protocol::{
 };
 use synth_dicom_gen::sdk::{
     CorpusSelector, DicomTestSuite, GenerateCorpusOutcome, GenerateCorpusRequest,
+    InspectCorpusRequest,
 };
 
 fn failure(code: &'static str, detail: impl Into<String>) -> CliFailure {
@@ -15,6 +16,158 @@ fn failure(code: &'static str, detail: impl Into<String>) -> CliFailure {
 }
 fn sdk(error: synth_dicom_gen::sdk::SdkError) -> CliFailure {
     CliFailure::from_sdk("generate", error)
+}
+
+pub(super) fn try_inspect(arguments: &[String]) -> Option<Result<(), CliFailure>> {
+    let offset = usize::from(arguments.first().map(String::as_str) == Some("--resource-root")) * 2;
+    if arguments.get(offset).map(String::as_str) != Some("capabilities") {
+        return None;
+    }
+    Some(inspect(
+        &arguments[offset + 1..],
+        if offset == 2 {
+            arguments.get(1).map(String::as_str)
+        } else {
+            None
+        },
+    ))
+}
+
+fn inspect(arguments: &[String], resource_root: Option<&str>) -> Result<(), CliFailure> {
+    let fail = |code, detail: &str| CliFailure::from_code("capabilities", code, detail);
+    let mut corpus = None;
+    let mut assets = None;
+    let mut profile = None;
+    let mut cases = Vec::new();
+    let mut seed = 1u64;
+    let mut parallelism = 1u32;
+    let mut stress = false;
+    let mut format = None;
+    let mut seen = BTreeSet::new();
+    let mut args = arguments.iter();
+    while let Some(option) = args.next() {
+        if option != "--case-id" && !seen.insert(option.as_str()) {
+            return Err(fail(
+                "command.syntax.invalid",
+                "duplicate capabilities option",
+            ));
+        }
+        let mut value = || {
+            args.next().filter(|v| !v.starts_with("--")).ok_or_else(|| {
+                fail(
+                    "command.argument.missing",
+                    "capabilities option requires a value",
+                )
+            })
+        };
+        match option.as_str() {
+            "--corpus" => corpus = Some(value()?.clone()),
+            "--asset-root" => assets = Some(value()?.clone()),
+            "--profile" => profile = Some(value()?.clone()),
+            "--case-id" => cases.push(value()?.clone()),
+            "--seed" => {
+                seed = value()?
+                    .parse()
+                    .map_err(|_| fail("command.syntax.invalid", "invalid seed"))?
+            }
+            "--parallelism" => {
+                parallelism = value()?
+                    .parse()
+                    .map_err(|_| fail("command.syntax.invalid", "invalid parallelism"))?
+            }
+            "--include-stress" => stress = true,
+            "--format" => format = Some(value()?.clone()),
+            "--cli-api" => {
+                if value()? != "1.0.0" {
+                    return Err(fail(
+                        "request.version.unsupported",
+                        "unsupported CLI API version",
+                    ));
+                }
+            }
+            "--help" | "-h" => {
+                println!(
+                    "Usage: synth-dicom-gen capabilities --format json [--corpus ./definition.json --asset-root ROOT [--profile PROFILE [--case-id ID] [--seed N] [--parallelism N] [--include-stress]]]"
+                );
+                return Ok(());
+            }
+            _ => {
+                return Err(fail(
+                    "command.syntax.invalid",
+                    "unknown capabilities option",
+                ));
+            }
+        }
+    }
+    if format.as_deref() != Some("json") {
+        return Err(fail(
+            "command.syntax.invalid",
+            "capabilities requires --format json",
+        ));
+    }
+    if parallelism == 0 {
+        return Err(fail(
+            "request.schema.invalid",
+            "parallelism must be positive",
+        ));
+    }
+    if profile.is_none()
+        && (seen.contains("--seed")
+            || seen.contains("--parallelism")
+            || stress
+            || !cases.is_empty())
+    {
+        return Err(fail(
+            "command.argument.missing",
+            "selection options require --profile",
+        ));
+    }
+    if corpus.is_none() && (assets.is_some() || profile.is_some()) {
+        return Err(fail(
+            "command.argument.missing",
+            "loaded corpus options require --corpus",
+        ));
+    }
+    if corpus.is_some() && assets.is_none() {
+        return Err(fail(
+            "command.argument.missing",
+            "--corpus requires explicit --asset-root",
+        ));
+    }
+    let sdk_error = |error| CliFailure::from_sdk("capabilities", error);
+    let product = match resource_root {
+        Some(root) => DicomTestSuite::explicit_resource_root(root),
+        None => DicomTestSuite::embedded(),
+    }
+    .map_err(sdk_error)?;
+    let result = if let Some(descriptor) = corpus {
+        let mut request = InspectCorpusRequest::from_file(descriptor, assets.unwrap())
+            .with_seed(seed)
+            .with_parallelism(parallelism);
+        if let Some(profile) = profile {
+            request = request.with_selection(if cases.is_empty() {
+                CorpusSelector::Profile {
+                    profile,
+                    include_stress: stress,
+                }
+            } else {
+                CorpusSelector::CaseIds {
+                    profile,
+                    include_stress: stress,
+                    case_ids: cases,
+                }
+            });
+        }
+        product
+            .capabilities_with_corpus(request)
+            .map_err(sdk_error)?
+    } else {
+        product.capabilities().map_err(sdk_error)?
+    };
+    let bytes = serde_json::to_string_pretty(&SuccessEnvelope::new("capabilities", result))
+        .map_err(|_| fail("internal.serialization.failed", "serialize capabilities"))?;
+    writeln!(std::io::stdout().lock(), "{bytes}")
+        .map_err(|_| fail("io.write.failed", "write capabilities"))
 }
 
 pub(super) fn recognizes(arguments: &[String]) -> bool {

@@ -5,11 +5,13 @@ fn main() -> ExitCode {
     let raw_arguments = std::env::args().skip(1).collect::<Vec<_>>();
     let command = command_context(&raw_arguments);
     let machine = requests_machine_json(&raw_arguments);
-    let result = external_corpus_cli::try_run(&raw_arguments).unwrap_or_else(|| {
-        run().map_err(|message| {
-            synth_dicom_gen::cli_protocol::CliFailure::classify(command, message)
-        })
-    });
+    let result = external_corpus_cli::try_inspect(&raw_arguments)
+        .or_else(|| external_corpus_cli::try_run(&raw_arguments))
+        .unwrap_or_else(|| {
+            run().map_err(|message| {
+                synth_dicom_gen::cli_protocol::CliFailure::classify(command, message)
+            })
+        });
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(failure) => {

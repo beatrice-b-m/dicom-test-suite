@@ -3722,6 +3722,28 @@ accepted proof4 after verifying artifact hashes, toolchain/host/metadata,
 source removal, complete parity and all 15 DICOM payload copies. R5 passes;
 R6 location/remote authority and all later terminal rows remain open.
 
+### R6.1 approved local foundation — 2026-09-04
+
+Following explicit user approval, the local corpus repository was initialized
+at `/Users/beatrice/AgentFiles/projects/dcmview-test-corpus`, on `main`, without
+a remote. Foundation commits `a6381d9`, `3c90f1b`, and `7a0e0fc` separately
+establish policy/ignore rules, README/licenses, and dated evidence. Root and
+independent review accepted the six-file foundation: licenses match upstream
+exactly, generated/private artifacts are ignored, documentation claims no
+runnable workflow, and the handoff worktree was clean. No generator code or
+case definition moved in this slice.
+
+R6.1 remains partial. The next sequential slice pins the already measured R5
+source-built native candidate for explicit offline acquisition through the
+supported CLI. The corpus must not discover a sibling checkout, compile or
+test generator internals, or label that candidate release-qualified. Initial
+availability is limited to the exact no-default-feature macOS arm64 artifact;
+unsupported hosts and absent artifacts must fail explicitly. Local acquisition
+and fresh-clone evidence do not prove remote hosting or hosted-CI execution.
+The recorded origin ref still predates the accepted R5 revision; no remote
+availability is inferred from a local commit. Remote/publication authority
+remains separate from the approved local work.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

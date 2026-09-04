@@ -1501,6 +1501,14 @@
       "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
     },
     {
+      "path": "schemas/manifest-v2.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 8,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "References preserve the frozen manifest schema contract identity; the new external manifest has its own synth-dicom-gen identity."
+    },
+    {
       "path": "schemas/manifest.schema.json",
       "token": "DTS_DRR",
       "class": "dicom_payload_identifier",
@@ -4486,11 +4494,11 @@
     }
   ],
   "retained_snapshot": {
-    "match_count": 945,
-    "sha256": "e5f5585a41c7003530c62019bff6cb6a8196dc345bd676ce618225a4ae5b9e3e",
+    "match_count": 953,
+    "sha256": "c467ecd2a86487110df2487ed26cdbb9d6ad143e4b47ed832845a37ece6f6ce7",
     "by_class": {
       "dicom_payload_identifier": 189,
-      "legacy_payload_schema_fixture_or_evidence": 311,
+      "legacy_payload_schema_fixture_or_evidence": 319,
       "locked_python_module_or_backend": 148,
       "qualified_adapter_environment": 155,
       "qualified_adapter_or_test_fixture": 142

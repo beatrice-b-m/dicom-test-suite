@@ -4592,6 +4592,64 @@ The native proof remains a separate, one-attempt execution boundary after
 the corpus documentation checkpoint is clean. No heavyweight qualification,
 generation or broader R7/terminal acceptance is implied by this preparation.
 
+## R7 first native core isolated parity execution — 2026-09-04
+
+The single authorized proof from clean corpus candidate
+`c07b9c162a925459c7973fb26a72f75dc124d4f4` passed all four public-runner calls,
+without a build or retry. Final post-documentation ordinary verification was
+146 passes in0.914s. Evidence is retained at corpus
+`artifacts/r7-native-core-parity1-20260904`; the receipt is99,483 bytes, SHA
+`d51a36d70b20d37caf2f42711feb3a259fe2a781c525f577d05a7cb85b6ada85`.
+The source archive SHA is
+`fb8a8aeee10760f660313e0e086a029b73097c743d888fc4e520abfb743feb69`.
+Both the private runtime `/private/tmp/r7-core-parity-srbttw36` and its durable
+`retained-runtime` copy remain available. This is local archive isolation,
+not remote acquisition, package qualification or operating-system access denial.
+
+Core profile, ten explicit IDs and core repeat each emitted ten payloads totaling
+9,512 bytes. Their complete canonical file arrays equal the original baseline:
+`3e16678d3a82c89d0c8ef43d8210245bec46b769fdc5a34e33731c476ddf4b30`.
+No file field, ordering, UID, recipe, standards or validation evidence was
+discarded. Repeated whole manifests and reports are equal; explicit-ID manifests
+differ only in the selector. The manifest1-to-manifest2 transition retains the
+authenticated original24 unselected rows separately and publishes an exact
+ten-case generated selection ledger with full registry definitions.
+
+Smoke emitted three payloads/2,790 bytes and retained the exact frozen14,109-byte
+R0 semantic projection SHA
+`18f154c38903677cadf4f955b0658ed2fd59162c44a970a9b15c5dc9905eabcd`.
+All four runs passed strict validation and report2, including the complete
+source manifest and original generation/validation/report envelopes. The pin
+remained the69,314,672-byte native artifact from232b9de, SHA4ca0c6d6…0b7768;
+the separate repaired reporter was not substituted. Copied and original inputs,
+tracked source and the exact pinned cache passed final integrity checks.
+
+Runner wall times: core profile3.893840042s, IDs3.365399458s,
+repeat3.425715209s and smoke3.348479583s; whole proof14.848957333s.
+Runtime inventory:162 files/145,297,479 logical/145,694,720 allocated bytes.
+Durable evidence before its receipt:181 files/146,745,710 logical/147,169,280
+allocated bytes; receipt cost is additional. Core output roots each contain11
+files/241,664 allocated bytes (206,211 logical for profile/repeat;206,733 for
+IDs). Smoke output contains4 files/94,781 logical/106,496 allocated bytes.
+Adjacent full evidence costs are retained, not omitted from the receipt.
+
+Root full Draft2020 schema validation passed36 checks in0.333293s with
+Node24.19/Ajv8.18: every actual result2, manifest2, report2, three original
+success envelopes and their versioned payloads for each run. No native rerun
+occurred. Generator evidence
+`generated/r7-core-parity-schema-review-20260904/receipt.json` is7,630 bytes,
+SHA `3835e8c0e34b589189916239592e1ee07ada6830408b879b5280cd0b8473621a`;
+the2,817-byte validation script SHA is
+`ced451b8846e91df3acdf95fdd421493393458761b6ceb440cf4b0d79d8aaab6`.
+Independent review verified all181 inventoried durable files and162 runtime
+files, exact candidate Git blobs, authenticated inputs, native/discovery pins,
+nine recorded orchestration commands and every parity/validation/report result,
+without native replay. Root and independent review accept this first ten-core
+slice plus smoke regression. Including its receipt, durable evidence contains
+182 files/146,845,193 logical/147,271,680 allocated bytes. The33 payload
+executions cover13 distinct cases and31,326 payload bytes. This bounded result
+does not close the remaining R7 slices, R8/R9 or terminal qualification rows.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

@@ -39,7 +39,7 @@ artifact.
 | R3 — rename reusable product | Complete | R3.1, R3.2, R3.3, R3.4 | Product, package, crate, library, sole binary, archives, discovery, package metadata, current operating guides, product-controlled environment, and production scratch paths use `synth-dicom-gen` / `synth_dicom_gen` at the breaking pre-1.0 product boundary `0.2.0`. Immutable dated evidence retains its exact old candidate identity, and 12 qualified-adapter variables retain provenance-bound spellings pending external requalification. The external-consumer audit found no supported `0.1.0` product consumer requiring an alias. A clean side project compiled and exercised only `synth_dicom_gen::sdk` from the extracted, verified `synth-dicom-gen-0.2.0.crate`, without the old repository path. The aggregate R3 gate passes. |
 | R4 — split immutable resources and corpus definitions | Complete | R4.1, R4.2, R4.3, R4.4, R4.5 | At the accepted R4 checkpoint, EngineResources v2 owned 74 immutable members and its private lazy lease materialized a 254-file transitional physical closure once per shared context. Those checkpoint measurements remain historical; current schema additions and exact identities are recorded in the latest dated R5 entry below. Cases/Cargo remain excluded from authoritative engine identity, and exact legacy 240-member v1 provenance remains reconstructable. |
 | R5 — add supported external corpus API | Complete | R5.1–R5.5 and isolated-source consumer gate independently accepted | SDK `ca571fb..aa7fcad`, CLI `aa7fcad..a18d149`, discovery `a18d149..5da18e8`, and the 2026-09-04 source-removed consumer proof at exact `232b9de` are independently accepted. This closes R5, not package/release qualification or R6+ terminal cross-repository evidence. |
-| R6 — establish smoke corpus repository | Not started | None | No external repository has been created; authority and destination are still required before out-of-workspace mutation. |
+| R6 — establish smoke corpus repository | In progress | Local repository creation authorized | On 2026-09-04 the user approved `/Users/beatrice/AgentFiles/projects/dcmview-test-corpus`; the local Git repository has been initialized. Foundation, dependency acquisition, smoke definitions, runner, parity, and viewer-result contracts remain to be accepted. No remote or release publication is authorized. |
 | R7 — migrate complete dcmview corpus | Not started | None | Requires R6 smoke parity and supported contracts. |
 | R8 — decouple viewer development | Not started | None | Requires a qualified artifact key and complete-enough corpus ownership. |
 | R9 — remove embedded corpus and qualify products | Not started | None | Terminal removal, documentation, measurement, and exact qualification have not run. |
@@ -3744,10 +3744,14 @@ baseline alone is not proof that those budgets have passed.
 
 ## Blockers and authority boundaries
 
-- The location, remote, and creation authority for `dcmview-test-corpus` have
-  not been supplied. No persistent corpus repository, release, or remote has
-  been created. The authorized disposable R1 probe was closed and its branch
-  deleted after evidence capture.
+- On 2026-09-04 the user explicitly approved creation of the local corpus
+  repository at `/Users/beatrice/AgentFiles/projects/dcmview-test-corpus`.
+  The empty local Git repository was initialized on `main`; no remote was
+  configured and no release was created. Remote creation, publication, and
+  generator pushes remain outside this approval. R6 must establish an
+  independently obtainable immutable generator pin rather than infer that an
+  unpublished local commit is remotely available. The authorized disposable
+  R1 probe was closed and its branch deleted after evidence capture.
 - The R3.2 external-consumer inventory is complete and supports the clean
   `0.2.0` rename without a product alias. Public evidence found only five
   TomeVault repository-metadata mirrors, not a supported package, SDK,

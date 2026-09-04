@@ -136,6 +136,24 @@ cooperative before/after bounded capture/planning through
 Inspection/assessment accessors are SDK evidence version `1.0.0`, not standalone
 serialized documents or private plans. CLI serialization is capabilities3.
 
+### Explicit isolated-source consumer proof
+
+Maintainers can invoke `scripts/prove-isolated-corpus-consumer.py` at an
+explicit supported-boundary gate, not on ordinary PRs. It requires a clean
+checkout, an exact full committed `--revision`, a new absolute private
+`--artifacts` root, and a new `--retain` directory immediately under the ignored
+workspace `generated/` directory. The harness archives that revision, builds
+the SDK-only fixture and CLI offline from the extracted source, records lock
+alignment and build measurements, removes the extracted generator and consumer
+source trees, and then runs from an unrelated directory with an empty PATH.
+
+Receipts, the source archive, binaries, caller-owned smoke/planned bundles and
+complete output evidence are copied to the durable retained directory. Target
+trees are measured and removed. This proves an isolated committed-source
+consumer boundary using an existing offline dependency cache; it is **not**
+Cargo package verification, remote-fetch/clean-clone evidence, installed-release
+qualification, or an independent DICOM conformance assessment.
+
 ## Compose from a file or bytes
 
 Both entry points use the exact same plan-first execution pipeline. A file

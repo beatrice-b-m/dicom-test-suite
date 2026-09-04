@@ -89,8 +89,10 @@ be moved and validated/reported after the source bundle is removed.
 
 Execution currently uses native/compiled support only. Missing providers and
 codecs remain explicit unavailable dispositions; no ambient tool discovery is
-performed. Loaded-corpus capability discovery and CLI corpus input are not yet
-supported, and CLI API 1 report envelopes still reject external report2.
+performed. The [external corpus CLI](generation-guide.md#generate-a-caller-owned-definition-bundle)
+uses this facade and emits generation-result3/report-result2 in CLI API1.
+Loaded-corpus capability discovery remains pending; frozen capabilities2 does
+not yet advertise these complete external result-validation windows.
 
 ## Compose from a file or bytes
 

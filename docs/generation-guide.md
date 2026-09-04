@@ -127,10 +127,61 @@ captured definitions and identities, with separate logical-case and artifact
 counts. Reporting performs no new validation or independent conformance
 assessment; recorded source evidence is preserved without upgrading its claims.
 The [SDK corpus request](sdk-guide.md#generate-a-verified-caller-owned-corpus)
-supports generation, validation, and reporting of this external contract using
-explicit descriptor/member inputs. The `--cli-api 1.0.0` report envelope still
-rejects external report2. CLI corpus input and loaded-corpus discovery remain
-pending; this is not a `generate --corpus` workflow.
+and `generate --corpus` support this external contract using explicit
+descriptor/member inputs. External report envelopes use report-result `2.0.0`;
+legacy report kinds keep report-result `1.0.0` unchanged.
+
+### Generate a caller-owned definition bundle
+
+Given a verified bundle1 descriptor `definition.json` and its dedicated member
+directory `corpus-members`, these commands run from the caller's directory;
+no repository or sibling-path lookup is used:
+
+```sh
+synth-dicom-gen generate --corpus ./definition.json --asset-root corpus-members \
+  --profile smoke --out generated/cli --seed 1 --parallelism 2 --format json
+synth-dicom-gen validate generated/cli --format json
+synth-dicom-gen report generated/cli --format json --cli-api 1.0.0
+```
+
+`--asset-root` is mandatory and contains **all** declared registry, recipe,
+evidence and asset members, not only binary assets. It is independent of the
+descriptor's parent. File paths need an explicit parent (`./definition.json`,
+not bare `definition.json`); all path ancestors must satisfy the loader's
+no-symlink policy. The fixed bundle1 profile and closure rules remain unchanged.
+
+Use repeated `--case-id ID` with an explicit profile to select direct members
+within that scope; required dependencies are added separately. For example:
+
+```sh
+synth-dicom-gen generate --corpus ./definition.json --asset-root corpus-members \
+  --profile all --case-id derived/registration/spatial_ct_pair \
+  --out generated/ids --format json
+synth-dicom-gen generate --corpus ./definition.json --asset-root corpus-members \
+  --profile smoke --out generated/dry --dry-run --format json
+```
+
+External generation JSON uses CLI API `1.0.0` with generation-result `3.0.0`.
+`--cli-api 1.0.0` also selects JSON when `--format` is omitted.
+Its `outcome` is `published`, `planned`, or `no_executable_cases`. Only published
+has a manifest path and passed generation-time validation. Nonpublished
+outcomes have null manifest path, zero emitted-file count/bytes, and publication
+and validation `not_run`. Dry-run remains `planned` even when no case can run;
+no-executable is never reported as an empty generated corpus. Preview `ready`
+is not `generated`. Every result retains exact selected/dependency definitions,
+reasons, verified identities, selector and plan hash; file counts are distinct
+from logical case counts. No private plan JSON is exposed.
+
+Formats/options are checked before generation, existing destinations are never
+overwritten, and SDK error codes cross into CLI errors without parsing prose.
+Native/compiled support only is currently executable; unavailable providers
+remain explicit. SDK cooperative cancellation exists, but this CLI does not
+install a signal handler and makes no graceful SIGINT-cleanup claim.
+Capabilities `2.0.0` retains its frozen pre-external result-validation window;
+loaded-corpus and complete generation3/report2 discovery is deferred to the
+next versioned discovery slice. Use these exact contracts in the interim,
+not an inferred capability claim. Embedded `generate` without `--corpus`
+continues to emit generation-result `2.0.0` and curated manifest `1.0.0`.
 
 ## 3. Select A Profile
 

@@ -4930,6 +4930,45 @@ unexecuted. No original baseline or earlier parity proof was replayed, and no
 new native acquisition, generation, validation, report, build, Heavy or release
 qualification occurred. Embedded copies remain until the terminal removal gate.
 
+## R7 metadata retained-availability verifier prepared — 2026-09-04
+
+While native execution awaits separate approval, corpus `131c306` adds
+`scripts/verify_metadata_availability.py` and self-contained synthetic tests;
+`59da8c8446a8a3be0c0055e42caf608c132c1b88` explicitly maps those two paths
+to bounded ordinary CI. The checker only reads explicit response, acquisition,
+bundle and baseline paths. It neither acquires nor launches a generator, writes
+evidence, or authenticates that a native invocation actually occurred.
+
+Its exact response contract binds the accepted baseline receipt and raw manifest,
+receipt-bound expectations, original pinned discovery documents, full current
+bundle members and all16 cases/eight profiles. The selected assessment must be
+exactly metadata3/core/seed1/parallelism4 with sorted explicit selectors, complete
+direct-ready rows, source-ordered artifact IDs and the accepted plan hash.
+Publication and validation remain `not_run`. Discovery changes only the loaded
+corpus plus its explicit migration-status field; the distinct planning projection
+retains every non-corpus domain and legacy identity. No permissive normalization
+or general schema-evaluation claim was added.
+
+Independent review identified an empty-directory/enumeration-error gap in the
+first capture draft. The accepted checker rejects undeclared directories and
+walk errors, as well as links, extra/missing files and changed raw bytes. Tests
+use explicit synthetic trust roots, not ignored artifacts or sibling sources.
+Root separately exercised only its pure baseline/acquisition/bundle-input
+functions against the already retained real documents. Those bindings passed:
+content0.3 digest `231690d2d27667afea83f3ab3553cdca5375858c511da6c22029130792789292`,
+21 files/98,603 bytes, original source `232b9de`, and plan `05620ed8acf08ed665e3c73291b8ed45706440ba248c86b55d1157ebf3b59c03`.
+No actual metadata availability response exists yet, and none was fabricated.
+
+Focused tests passed13 in0.371s and independently13 in0.375s. An independent
+initial filename typo selected zero tests and is not counted as verification.
+All ordinary tests passed201 in1.602s before commit and201 in1.595s afterward.
+Read-only `--help` and diff checks passed. The exact clean dry route from
+`4d92998` to `59da8c8` selected fixed smoke3 and zero dependencies, with config
+SHA `5cd42d3c2d401bdac35bbb91db9ed61cc1466fa89161f4a345c43bef0a01bd2c`;
+it did not open an artifact or create output. Native approval remains pending;
+no generation, validation, report, baseline replay, build or Heavy qualification
+ran. R7 availability/parity and the broader terminal gates remain incomplete.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

@@ -47,6 +47,14 @@ const SCHEMAS: &[(&str, &str)] = &[
         "https://synth-dicom-gen.local/schemas/capabilities-result-v2.schema.json",
     ),
     (
+        "schemas/capabilities-result-v3.schema.json",
+        "https://synth-dicom-gen.local/schemas/capabilities-result-v3.schema.json",
+    ),
+    (
+        "schemas/release-manifest-v3.schema.json",
+        "https://synth-dicom-gen.local/schemas/release-manifest-v3.schema.json",
+    ),
+    (
         "schemas/generation-result.schema.json",
         "https://dicom-test-suite.local/schemas/generation-result.schema.json",
     ),

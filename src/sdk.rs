@@ -504,6 +504,12 @@ impl SchemaBoundManifest {
         let validated = crate::manifest_contract::load_manifest_contract(output_root, resources)
             .map_err(|error| SdkError::classify(command, error))?;
         let kind = match validated.kind() {
+            crate::manifest_contract::ManifestContractKind::ExternalCorpus => {
+                return Err(SdkError::classify(
+                    command,
+                    "external corpus manifest 2.0 is not yet supported by the SDK",
+                ));
+            }
             crate::manifest_contract::ManifestContractKind::CuratedGeneration => {
                 ManifestKind::CuratedGeneration
             }

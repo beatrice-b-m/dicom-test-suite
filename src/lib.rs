@@ -27,6 +27,7 @@ use crate::executor::frame_codec::ExternalFrameCodecCommands;
 use crate::executor::transaction::TransactionError;
 use crate::runtime_capabilities::CapabilityInventory;
 
+mod corpus_generation;
 mod report_contract;
 #[cfg(any(
     feature = "htj2k_openjph",
@@ -18248,6 +18249,11 @@ fn build_coverage_report_with_registry(
             }
         })?;
     let manifest = validated.value().clone();
+    if validated.kind() == manifest_contract::ManifestContractKind::ExternalCorpus {
+        return Err(ReportError::ReportContract(
+            "external corpus manifest 2.0 reporting is not yet supported".into(),
+        ));
+    }
     if validated.kind() == manifest_contract::ManifestContractKind::QualifiedComposition {
         let report =
             composition::composition_report(&manifest).map_err(ReportError::ReportContract)?;

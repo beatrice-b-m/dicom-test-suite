@@ -4327,6 +4327,62 @@ with exact pinned standards-enrichment expectations. R7 baseline acceptance,
 live core import and the later product-version identity-contract migration
 remain open.
 
+### 2026-09-04 — R7 retained ten-case baseline reporting completed
+
+The separate corpus helper checkpoint `51158d5ad3f81f33682a12aab752fe810e130fee`
+passed review and 119 ordinary tests (final clean-candidate run 0.786s).
+Granular corpus commits are `e3d393a` (separate reporter lock/schema and exact
+source-derived enrichment), `7de9082` (helper and fourteen synthetic tests),
+`ad338fb` (six explicit CI support-path mappings, unchanged routing policy),
+and `51158d5` (documentation). The earlier ordinary attempt's one unmapped-path
+failure remains recorded; no failing result was relabeled. Full reporter-lock
+schema evaluation also passed, including ten required-field deletions and an
+unexpected-field rejection. The original generator lock, source provenance,
+capture helper, live corpus and consumer runner remained unchanged.
+
+One explicitly acquired report-only completion then passed. It used the
+separate c2ffe41 reporter above against the original source232b9de baseline
+under corpus `artifacts/r7-native-core-baseline1-20260904/generated`, from an
+unrelated directory with empty PATH. No generation or strict validation was
+replayed. The report command took 0.888731042s, helper 2.646760333s, and outer
+capture 2.681410084s. Corpus execution record commit: `7f1a458`.
+
+New evidence under corpus `artifacts/r7-native-core-report-completion1-20260904`:
+
+- Completion receipt, 9,478 bytes, SHA
+  `50e35a73f027ccceaac04a3adc58d2fa64d6046b8f763503fe3370401b43c89b`.
+- Full machine report, 940,203 bytes, SHA
+  `ac18f3eed0dfe080ed98285a1e49fbb515738042aaf548c4c2bf37c82edc9841`.
+- Coverage report1.1, 695,509 bytes, SHA
+  `8ec116d6036a2302ec1837004d56ab7464575059d09e05413eb2957decfcfc8c`.
+- Separate invocation receipt under
+  `artifacts/r7-native-core-report-invocation1-20260904`, SHA
+  `5792b1b290fbbd3105100c87536897093fb12ac649fb5ece026ebcefdf006056`.
+
+The eight completion files occupy 1,791,974 logical / 1,806,336 allocated bytes.
+The new reporter cache contains one 69,743,968-byte executable occupying
+69,746,688 allocated bytes. All 23 original evidence files, including the later
+diagnostic and original failed receipt, remain unchanged: 324,089 logical /
+380,928 allocated bytes. The generated root remains the same eleven files.
+These costs exclude the separately recorded reporter build and are not a
+terminal CI or release measurement.
+
+Independent review verified original and completion inventory hashes, all ten
+generated rows, all twenty-four unselected statuses/reasons/gap messages, exact
+source-derived standards enrichment and complete original file/skipped objects.
+Root validated the actual coverage1.1 report, report-result1 and success
+envelope with full Draft2020 schemas using Ajv8.18/Node24.19: three checks
+passed in 0.46077775s, with no native rerun. The report preserves the original
+manifest identity; new reporter acquisition records its distinct artifact and
+schema identity separately. Nonsquare observations remain truthfully null.
+
+The retained embedded baseline for these ten cases is now complete and accepted.
+This is not migrated-corpus parity, wider R7 completion, independent conformance
+or release evidence. The original failed capture remains failed; the separate
+completion receipt supplies the previously missing report. Next gates remain
+consumer content-version compatibility, live-versus-historical selection/CI,
+the exact ten-case import, and supported-boundary parity before further slices.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

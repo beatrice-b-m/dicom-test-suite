@@ -38,7 +38,7 @@ artifact.
 | R2 — reduce Rust test-linking amplification | Complete | R2.1, R2.2, R2.3, R2.4 | The fail-closed inventory maps 186 integration sources and all 879 integration entries into exactly 20 explicit harnesses. Six R0-measured heavy bodies have exact ignored qualification entry points, while deterministic change routing now selects bounded Fast/subsystem evidence and reports every deferred class without executing it. The aggregate R2 target-count, cost, heavy-isolation, and routing gates pass. |
 | R3 — rename reusable product | Complete | R3.1, R3.2, R3.3, R3.4 | Product, package, crate, library, sole binary, archives, discovery, package metadata, current operating guides, product-controlled environment, and production scratch paths use `synth-dicom-gen` / `synth_dicom_gen` at the breaking pre-1.0 product boundary `0.2.0`. Immutable dated evidence retains its exact old candidate identity, and 12 qualified-adapter variables retain provenance-bound spellings pending external requalification. The external-consumer audit found no supported `0.1.0` product consumer requiring an alias. A clean side project compiled and exercised only `synth_dicom_gen::sdk` from the extracted, verified `synth-dicom-gen-0.2.0.crate`, without the old repository path. The aggregate R3 gate passes. |
 | R4 — split immutable resources and corpus definitions | Complete | R4.1, R4.2, R4.3, R4.4, R4.5 | `EngineResources` v2 owns a 74-member immutable engine-resource identity containing every current schema while excluding `cases/**` and `Cargo.lock`; the exact 240-member v1 identity remains reconstructable for compatibility. `CorpusDefinitionBundle` 1.0.0 and the split manifest/discovery identities remain unchanged. A private handle-local lazy lease now materializes the 254-file transitional physical closure once per shared resource context. The supported SDK/CLI external-corpus generation route remains R5 work. |
-| R5 — add supported external corpus API | Not started | None | Requires the R4 resource and identity boundary. |
+| R5 — add supported external corpus API | In progress | R5.1 input substrate only | Explicit descriptor-file and descriptor-bytes inspection share the verified bundle loader. SDK request/outcome, generation, CLI selection, batch execution, definition-driven reports, discovery, and external-consumer acceptance remain unimplemented. |
 | R6 — establish smoke corpus repository | Not started | None | No external repository has been created; authority and destination are still required before out-of-workspace mutation. |
 | R7 — migrate complete dcmview corpus | Not started | None | Requires R6 smoke parity and supported contracts. |
 | R8 — decouple viewer development | Not started | None | Requires a qualified artifact key and complete-enough corpus ownership. |
@@ -2901,6 +2901,85 @@ qualification was run for this correction, and R5 implementation did not begin.
 Earlier copy-cost measurements remain unchanged. Private cache reuse evidence
 does not claim atomic protection against hostile same-user writers after
 validation.
+
+### R5.1 input substrate — 2026-09-03
+
+This bounded slice establishes inspection inputs, not completion of R5.1 or
+the R5 gate. `load_descriptor_file(path, root)` and
+`load_descriptor_bytes(bytes, root)`, with corresponding limits variants, reuse
+the existing strict `CorpusDefinitionBundle` capture and closure validation.
+These methods remain on the unsupported migration module, not the supported
+SDK surface. No generation request, CLI option, planning, execution, or output
+publication is introduced.
+
+The root is explicit and supplies every declared registry, recipe, evidence,
+and asset. It is never inferred from a descriptor parent, current repository,
+or sibling checkout. A relative path is explicitly caller-relative; descriptor
+files require a parent component (`./selected.json` is valid, a bare filename
+is rejected as ambiguous). Empty locations and parent traversal fail. Unix
+file/member relative locations resolve from one held current-directory anchor;
+every ancestor uses no-follow directory traversal and final files reuse bounded,
+regular-file capture. Symlinked ancestors, including platform convenience
+aliases, are not accepted by these new explicit-input methods. The historical
+`load(root)` entry point retains its prior location behavior. Non-Unix code
+retains its documented weaker pathname-based race boundary and is not newly
+qualified here.
+
+The member root remains a dedicated closure, not an arbitrary working tree.
+An optional canonical `corpus-definition.json` must equal the selected bytes;
+a conflict is a closure error, not an alternate selection or fallback. An
+external descriptor may be outside this root. A differently named descriptor
+inside the member root remains an undeclared file and is rejected. Captured
+identity includes the actual descriptor bytes but excludes its host filename
+and location. Loading creates no output, and returned captured bytes remain
+immutable when source files later change.
+
+Schema `1.0.0` is unchanged. Its fixed eight profiles, exact scope isolation,
+`all` union, registry/recipe bindings, reserved engine namespaces, limits,
+hashes, sizes, and reference closure are not generalized. Missing roots or
+files retain `io.read.failed`; malformed bytes use `request.json.invalid`,
+unsupported versions `request.version.unsupported`, limits
+`resource.limit.exceeded`, mismatched members `evidence.integrity.failed`, and
+unsafe/ambiguous/conflicting locations `resource.document.invalid`.
+
+Implementation commits are `eb689f0` and `51603fe`; focused evidence is
+`deb89c8`. The 23-test loader suite passed in 12.17s after 22.95s compilation.
+It covers equivalent file/bytes/root inputs, relocation, no output, post-load
+mutation, missing and conflicting locations, oversized bytes, custom-limit
+overflow, invalid/versioned descriptors, traversal and symlink ancestry.
+The full-current fixture remains exactly 214 files / 1,754,298 bytes, manifest
+SHA-256 `905d36bc93c7ae10ae5011304b25a647c4b792852e143bd2017e2aacd1574de8`
+and corpus SHA-256
+`571fa23fd392dd557ccdbe2db527698eaedc7078d86543efc68dfffc877411f7`
+for all three loading forms.
+
+Route dry-runs selected the loader suite, schema/resource subsystem, and
+unconditional Fast contracts. The resource subsystem passed 86 tests in 7.72s;
+release Fast passed 14 in 2.11s. The initial schema Fast run passed 72 and failed
+one: `committed_schema_files_compile` lacked frozen report references introduced
+in R4.3. Its authorized test-only repair registers the committed schema
+inventory without changing schema bytes or production behavior. This is prior
+static-test registration debt, not a loader regression. Repair commit
+`e010b80` passes all 73 schema Fast tests in 1.67s (1.25s compilation);
+the resource subsystem rerun passes all 86 in 7.35s. Metadata commit
+`f32f560` records 1,436 owned entries and the exact 23-test loader filter.
+The 22 routing tests, ownership, 945-occurrence spelling inventory, formatting,
+Cargo check (13.42s), and range diff checks pass. Exact verification commands:
+
+- `cargo test --locked --no-default-features --lib corpus_definition::tests::`
+- `cargo test --locked --no-default-features --test schema_resources__fast`
+- `cargo test --locked --no-default-features --test schema_resources__subsystem`
+- `cargo test --locked --no-default-features --test schema_resources__subsystem --test schema_resources__fast --test release_ci__fast` (initial run stopped at the recorded schema failure)
+- `cargo check --locked --no-default-features`
+- `python3 -m unittest discover -s tests -p test_change_test_routing.py`
+- `python3 scripts/check-test-ownership.py`
+- `python3 scripts/check-spelling-transition.py`
+- `cargo fmt --all -- --check`
+- `git diff --check 04a85fe..HEAD`
+
+Heavy, Nightly,
+provider, package/release-candidate, external repository, and later R5 execution
+work did not run.
 
 ## Measurements
 

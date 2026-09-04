@@ -416,7 +416,7 @@
         "explicit_selection_preserves_dependencies_and_mixed_statuses",
         "transaction_failure_cancellation_and_existing_destination_are_atomic"
       ],
-      "entry_digest": "0dceb146b2fa73594cfdad647dbe490dd7556a0df8b62bfcb7635d7b884fc0b7"
+      "entry_digest": "f3b06c4150fc5fae810e350a44d88754e14ed90fc74978156b5e6a7b375389e6"
     },
     {
       "source": "tests/captured_curated_plan.rs",
@@ -3794,7 +3794,7 @@
         "mutation_of_an_internal_shared_root_fails_closed_on_reuse",
         "one_handle_reuses_one_tree_across_batch_generate_validate_report_and_compose"
       ],
-      "entry_digest": "fe1db50a835b78213e033872f7f01ad63f3dfc27b513eb9d2943aee734aea264"
+      "entry_digest": "80e89a8b47930297c71fab53c04f41f0beb448a845036ada00ae0a4f3c42c912"
     },
     {
       "source": "src/executor/evidence.rs",
@@ -4121,7 +4121,7 @@
         "cargo_lock_perturbation_changes_only_toolchain_and_legacy_provenance",
         "external_runtime_identity_requires_successful_typed_execution_evidence"
       ],
-      "entry_digest": "fde739b16ade8158f9675df008ed33fcdb1f431e13110a850e6f01e34bc91337"
+      "entry_digest": "e09d704f802c3132de56a6b5eb872887290681814dc2ed36f948c3046f5170d8"
     },
     {
       "source": "src/lib.rs",
@@ -4226,7 +4226,7 @@
         "dependency_graph_is_closed_acyclic_and_reachable",
         "runtime_ids_remain_unique"
       ],
-      "entry_digest": "3c4d61311a1c497c452a8e4970de4c409267ed52afc5e47683b8d266ec76258d"
+      "entry_digest": "8a8225d9398400477e04aa3280a42fef2744ca873506e329f0970261fd0945cc"
     },
     {
       "source": "src/media.rs",

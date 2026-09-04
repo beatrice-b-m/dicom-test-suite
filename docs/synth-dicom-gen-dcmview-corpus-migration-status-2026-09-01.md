@@ -38,7 +38,7 @@ artifact.
 | R2 — reduce Rust test-linking amplification | Complete | R2.1, R2.2, R2.3, R2.4 | The fail-closed inventory maps 186 integration sources and all 879 integration entries into exactly 20 explicit harnesses. Six R0-measured heavy bodies have exact ignored qualification entry points, while deterministic change routing now selects bounded Fast/subsystem evidence and reports every deferred class without executing it. The aggregate R2 target-count, cost, heavy-isolation, and routing gates pass. |
 | R3 — rename reusable product | Complete | R3.1, R3.2, R3.3, R3.4 | Product, package, crate, library, sole binary, archives, discovery, package metadata, current operating guides, product-controlled environment, and production scratch paths use `synth-dicom-gen` / `synth_dicom_gen` at the breaking pre-1.0 product boundary `0.2.0`. Immutable dated evidence retains its exact old candidate identity, and 12 qualified-adapter variables retain provenance-bound spellings pending external requalification. The external-consumer audit found no supported `0.1.0` product consumer requiring an alias. A clean side project compiled and exercised only `synth_dicom_gen::sdk` from the extracted, verified `synth-dicom-gen-0.2.0.crate`, without the old repository path. The aggregate R3 gate passes. |
 | R4 — split immutable resources and corpus definitions | Complete | R4.1, R4.2, R4.3, R4.4, R4.5 | `EngineResources` v2 owns a 74-member immutable engine-resource identity containing every current schema while excluding `cases/**` and `Cargo.lock`; the exact 240-member v1 identity remains reconstructable for compatibility. `CorpusDefinitionBundle` 1.0.0 and the split manifest/discovery identities remain unchanged. A private handle-local lazy lease now materializes the 254-file transitional physical closure once per shared resource context. The supported SDK/CLI external-corpus generation route remains R5 work. |
-| R5 — add supported external corpus API | In progress | R5.1 input substrate only | Explicit descriptor-file and descriptor-bytes inspection share the verified bundle loader. SDK request/outcome, generation, CLI selection, batch execution, definition-driven reports, discovery, and external-consumer acceptance remain unimplemented. |
+| R5 — add supported external corpus API | In progress | R5.1 input substrate and internal planning-input separation | Explicit descriptor-file and descriptor-bytes inspection share the verified bundle loader; an internal lease-owning planner joins captured corpus bytes with installed engine catalogs. SDK request/outcome, generation, CLI selection, batch execution, definition-driven reports, discovery, and external-consumer acceptance remain unimplemented. |
 | R6 — establish smoke corpus repository | Not started | None | No external repository has been created; authority and destination are still required before out-of-workspace mutation. |
 | R7 — migrate complete dcmview corpus | Not started | None | Requires R6 smoke parity and supported contracts. |
 | R8 — decouple viewer development | Not started | None | Requires a qualified artifact key and complete-enough corpus ownership. |
@@ -2980,6 +2980,73 @@ Cargo check (13.42s), and range diff checks pass. Exact verification commands:
 Heavy, Nightly,
 provider, package/release-candidate, external repository, and later R5 execution
 work did not run.
+
+### R5 internal planning-input separation — 2026-09-03
+
+Commits `fa5c9c6`, `52f70de`, `1cb0ef6`, and `b3698d6` add only an
+internal planning bridge. `CapturedCuratedPlanningContext` accepts a verified
+bundle and `EngineResources`; it parses registry/recipe bytes from captured
+memory and never reopens or infers a caller corpus directory. Installed
+templates, codec policy, standards, and external-provider source paths remain
+bound to the private engine lease. Capability evaluation uses the verified
+installed matrix, not caller data or executable discovery. The context and
+returned private plan wrapper retain the lease through later consumption.
+
+Recipe catalog assembly shares existing schema, shape, registry binding,
+dependency, provider, template compatibility, and planning-order checks. The
+legacy path entry point still checks every installed template's default recipe.
+External subsets are not required to supply unrelated engine default recipes;
+their own references and template compatibility remain mandatory. No schema,
+recipe, template, DICOM, version, UID salt, or oracle changes were made. The
+frozen eight-profile bundle contract remains unchanged.
+
+Four focused tests pass (5.89s; 19.72s compilation on the final focused run):
+
+- The full verified bundle produces exact serialized legacy/new smoke and
+  `derived/registration/spatial_ct_pair` dependency plans, including UIDs,
+  order, bindings, and projections. The entire caller source root is deleted
+  before planning. No plan normalization is used.
+- A three-case smoke subset plans without unrelated default recipes and has
+  exactly equal planned artifacts and byte bindings to full-bundle smoke.
+  The legacy catalog still rejects the same subset's missing default closure.
+- Descriptor metadata changes only the retained corpus identity; planned
+  smoke output and installed matrix remain equal. An unavailable highdicom
+  parametric-map request has the same explicit unavailable plan as legacy,
+  without discovering or invoking its runtime.
+- A schema-valid unknown installed template is rejected by planning;
+  unclosed dependency declarations and a reserved engine matrix namespace
+  are rejected by bundle loading. A preliminary test fixture used an invalid
+  template-ID spelling and correctly failed at schema validation; its spelling
+  was corrected to reach the intended compatibility guard, without relaxing
+  any validation.
+
+Dropping the context and resource handle leaves the returned plan wrapper's
+engine files alive. Dropping the final wrapper removes the exact private root.
+This proves ownership/lifetime, not hostile same-user atomic filesystem
+protection. Planning is still internal and output-free; these tests do not
+establish the later supported SDK/CLI execution contract or independent
+external conformance.
+
+The inspected and executed ordinary route was
+`python3 scripts/route-changed-tests.py --path src/curated_plan.rs --path
+src/recipes/loader.rs --path src/runtime_capabilities.rs`. It exited successfully
+with the exact four-test captured planner, SDK facade (12 passed, 3.89s),
+corpus-generation subsystem, corpus-plan contract, and CLI schema contract
+(4 passed, 0.06s). Quiet summary reruns of
+`cargo test --locked --no-default-features --test corpus_generation__subsystem --quiet`
+and `cargo test --locked --no-default-features --test engine__subsystem corpus_plan:: --quiet`
+passed 92/92 in 30.75s and 22/22 in 0.85s, respectively, with zero ignored tests.
+`cargo check --locked --no-default-features` passed in 0.06s warm (initial
+implementation check 13.28s). Unconditional Fast was separately exercised with
+`cargo test --locked --no-default-features --test schema_resources__fast --test
+release_ci__fast`: schema Fast 73 passed in 3.11s and release Fast 14 in 3.91s.
+The router now maps library fixtures to their declared exact source filter,
+rather than treating every library test file as the corpus loader. All four
+affected code/test paths select the new filter; an absent filter fails closed.
+Routing tests pass 23, ownership records 1,440 entries / 268 groups, spelling
+retains 945 exact occurrences, and formatting/diff checks pass. Heavy, Nightly,
+provider qualification, package/release-candidate, and external-consumer bodies
+did not run. No batch execution, SDK, CLI, or later R5 slice was implemented.
 
 ## Measurements
 

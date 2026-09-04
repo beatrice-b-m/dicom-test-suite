@@ -2,7 +2,7 @@
 
 **Recorded:** 2026-09-01
 
-**Updated:** 2026-09-02
+**Updated:** 2026-09-04
 
 **Contract:** `docs/synth-dicom-gen-dcmview-corpus-separation-plan.md`
 
@@ -39,7 +39,7 @@ artifact.
 | R3 — rename reusable product | Complete | R3.1, R3.2, R3.3, R3.4 | Product, package, crate, library, sole binary, archives, discovery, package metadata, current operating guides, product-controlled environment, and production scratch paths use `synth-dicom-gen` / `synth_dicom_gen` at the breaking pre-1.0 product boundary `0.2.0`. Immutable dated evidence retains its exact old candidate identity, and 12 qualified-adapter variables retain provenance-bound spellings pending external requalification. The external-consumer audit found no supported `0.1.0` product consumer requiring an alias. A clean side project compiled and exercised only `synth_dicom_gen::sdk` from the extracted, verified `synth-dicom-gen-0.2.0.crate`, without the old repository path. The aggregate R3 gate passes. |
 | R4 — split immutable resources and corpus definitions | Complete | R4.1, R4.2, R4.3, R4.4, R4.5 | At the accepted R4 checkpoint, EngineResources v2 owned 74 immutable members and its private lazy lease materialized a 254-file transitional physical closure once per shared context. Those checkpoint measurements remain historical; current schema additions and exact identities are recorded in the latest dated R5 entry below. Cases/Cargo remain excluded from authoritative engine identity, and exact legacy 240-member v1 provenance remains reconstructable. |
 | R5 — add supported external corpus API | Complete | R5.1–R5.5 and isolated-source consumer gate independently accepted | SDK `ca571fb..aa7fcad`, CLI `aa7fcad..a18d149`, discovery `a18d149..5da18e8`, and the 2026-09-04 source-removed consumer proof at exact `232b9de` are independently accepted. This closes R5, not package/release qualification or R6+ terminal cross-repository evidence. |
-| R6 — establish smoke corpus repository | In progress | Foundation, offline acquisition, R6.2 definitions/schema fixtures, R6.3 clean-clone runner, and R6.4 full parity accepted | The approved local repository is `/Users/beatrice/AgentFiles/projects/dcmview-test-corpus`. Viewer-result contract and CI remain. Local-only native artifact evidence is not release qualification; no remote or release publication is authorized. |
+| R6 — establish smoke corpus repository | In progress | Foundation, offline acquisition, R6.2 definitions/schema fixtures, R6.3 clean-clone runner, R6.4 full parity, and R6.5 viewer-result contract accepted | The approved local repository is `/Users/beatrice/AgentFiles/projects/dcmview-test-corpus`. CI remains. Local-only native artifact evidence is not release qualification; no viewer execution, remote or release publication is authorized. |
 | R7 — migrate complete dcmview corpus | Not started | None | Requires R6 smoke parity and supported contracts. |
 | R8 — decouple viewer development | Not started | None | Requires a qualified artifact key and complete-enough corpus ownership. |
 | R9 — remove embedded corpus and qualify products | Not started | None | Terminal removal, documentation, measurement, and exact qualification have not run. |
@@ -3891,6 +3891,46 @@ and complete inputs/results/sidecars are retained in corpus
 hashes, all projections/payloads, identities, output closure and costs without
 native replay. Full R6 still requires its viewer-result contract and CI;
 terminal remote/target/release evidence is not implied.
+
+### 2026-09-04 — R6.5 read-only viewer-result contract accepted
+
+Corpus implementation range `9cf30d7..f9e30e0` adds the versioned smoke
+viewer-result schema, typed read-only validator and synthetic adversarial tests.
+It binds exact manifest2 bytes, corpus identity and every generated artifact's
+case ID, path, size and hash. Multi-artifact cases require one observation per
+artifact. Runtime availability remains distinct from per-artifact outcomes;
+mixed failures are retained, and successful contract validation never means
+viewer compatibility or DICOM conformance. Evidence references are bounded,
+hash-checked files outside the generator root, resolved against the result's
+parent without traversal, symlink or special-file acceptance. File integrity
+does not establish observation authenticity. No generator evidence is edited.
+
+Review corrected schema/parser path disagreement and two malformed-input
+traceback branches (deep JSON and invalid Unicode paths). All 20 focused tests
+passed independently in 0.195s; root ran all 70 ordinary corpus tests in 0.282s
+with no failures and a clean diff check. These are synthetic contract checks,
+not generator qualification or actual viewer observations.
+
+Exact code candidate `f9e30e0d40736a5d9d88637ed5c2ac37b51554f8` checked the
+existing strictly validated smoke root from an unrelated working directory in
+0.042943s. The retained sample is explicitly `synthetic_fixture`, with three
+`not_run` rows, zero other outcomes and no observation evidence. All four
+generator-owned files remained hash-identical; neither generator nor viewer
+was executed. Corpus `artifacts/viewer-contract-20260904/` retains the sample,
+raw command output and receipt. Sample SHA is
+`4b4c02ac7d4718f1e524bca1ec642cedc88f03986587ce39c20e28d0357bafe8`;
+receipt SHA is `3bed8d9743bf4aa3051d51ddee51331ecef970ee7aff218ec12719171f7309b7`.
+
+Root additionally evaluated the complete viewer schema with existing Node
+24.19.0 and Ajv 8.18.0 (Draft 2020-12, `allErrors:true`, `strict:false`, no
+installation or corpus runtime dependency). Schema/meta compilation and all
+76 expected evaluations passed: valid/invalid fixtures and actual not-run
+sample, twelve path variants, sixty runtime/status/evidence/version
+combinations, and trailing-newline digest rejection. Schema SHA is
+`6a356557f0e6775d142365e779816cd9defb4cbc0eab5ab56fa633d04f3ef173`.
+This validates the complete consumer viewer-result schema, not the opaque
+upstream manifest's entire schema, observation truth, independent conformance,
+or later media/protocol scopes. R6.1 CI remains before aggregate R6 acceptance.
 
 ## Measurements
 

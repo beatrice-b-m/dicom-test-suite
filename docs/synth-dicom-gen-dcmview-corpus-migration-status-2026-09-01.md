@@ -4979,6 +4979,13 @@ working directory. Stdout was empty; stderr269 bytes has SHA
 `acbe96fec7f984a81945f8669c56fb963db381d0d6325945706e92d206a06f93`.
 No availability binding check or DICOM generation occurred, and no native retry ran.
 
+Root checked the retained error envelope against full Draft2020 schema:
+one error-schema check passed in0.048109416s with Node24.19.0/Ajv8.18.0.
+Supplement `generated/r7-metadata-availability-failure-schema-20260904/receipt.json`
+has SHA `0e627d98d212e418c1e74afbbf593d0392fbf50b82be33dd779ad85af92e19bf`;
+script SHA `09bb676b925b5bb3f97f6637e1a6bf997ae94895c79245249dee54cb02f199a2`.
+This validates the failure document's shape, not availability or successful loading.
+
 The retained corpus root `artifacts/r7-metadata-availability1-20260904` contains
 receipt46,530 bytes SHA
 `e4a2e4eecbac89ff7198c566e6d2a002b8955dce7810be42a5c7be905ccfea40`.

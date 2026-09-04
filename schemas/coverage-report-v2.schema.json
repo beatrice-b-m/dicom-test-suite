@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://synth-dicom-gen.local/schemas/coverage-report-v2.schema.json",
+  "title": "External corpus definition-driven report v2",
+  "type": "object",
+  "required": ["coverage_report_schema_version", "report_kind", "evidence", "identity_projection", "source_manifest", "summary", "case_dimensions", "artifact_dimensions"],
+  "properties": {
+    "coverage_report_schema_version": {"const": "2.0.0"},
+    "report_kind": {"const": "external_corpus"},
+    "evidence": {"const": {"class": "manifest_projection", "validation": "not_assessed", "independent_conformance": "not_assessed", "payloads_reopened": false}},
+    "identity_projection": {"$ref": "https://synth-dicom-gen.local/schemas/manifest-v1.schema.json#/$defs/identity_projection"},
+    "source_manifest": {"$ref": "https://synth-dicom-gen.local/schemas/manifest-v2.schema.json"},
+    "summary": {
+      "type": "object",
+      "required": ["logical_cases", "direct_cases", "dependency_cases", "emitted_files", "qualifications", "outcomes"],
+      "properties": {
+        "logical_cases": {"$ref": "#/$defs/count"},
+        "direct_cases": {"$ref": "#/$defs/count"},
+        "dependency_cases": {"$ref": "#/$defs/count"},
+        "emitted_files": {"$ref": "#/$defs/count"},
+        "qualifications": {"$ref": "#/$defs/count"},
+        "outcomes": {"type": "object", "additionalProperties": {"$ref": "#/$defs/count"}}
+      },
+      "additionalProperties": false
+    },
+    "case_dimensions": {"$ref": "#/$defs/dimensions"},
+    "artifact_dimensions": {"$ref": "#/$defs/dimensions"}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "count": {"type": "integer", "minimum": 0},
+    "groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["value", "count", "members"],
+        "properties": {
+          "value": {"type": "string"},
+          "count": {"$ref": "#/$defs/count"},
+          "members": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}
+        },
+        "additionalProperties": false
+      }
+    },
+    "dimensions": {
+      "type": "object",
+      "required": ["profiles", "modalities", "sop_classes", "transfer_syntaxes", "determinism", "providers"],
+      "properties": {
+        "profiles": {"$ref": "#/$defs/groups"},
+        "modalities": {"$ref": "#/$defs/groups"},
+        "sop_classes": {"$ref": "#/$defs/groups"},
+        "transfer_syntaxes": {"$ref": "#/$defs/groups"},
+        "determinism": {"$ref": "#/$defs/groups"},
+        "providers": {"$ref": "#/$defs/groups"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

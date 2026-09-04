@@ -135,6 +135,7 @@ pub(crate) fn is_transitional_engine_resource(logical_path: &str) -> bool {
             | "schemas/composition-report.schema.json"
             | "schemas/composition-report-v1.schema.json"
             | "schemas/coverage-report-v1.schema.json"
+            | "schemas/coverage-report-v2.schema.json"
             | "schemas/assembly-result-v2.schema.json"
             | "schemas/generation-result-v2.schema.json"
             | "schemas/manifest-v1.schema.json"

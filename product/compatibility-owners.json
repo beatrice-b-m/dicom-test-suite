@@ -2,9 +2,16 @@
   "compatibility_ownership_schema_version": "1.0.0",
   "contracts": [
     {
+      "contract_id": "external-corpus-report",
+      "owner": "corpus_generation_maintainers",
+      "support_window": "report 2.0 raw JSON/Markdown and library validation; SDK and CLI machine envelope explicitly unavailable pending supported API migration",
+      "apis": [],
+      "schemas": ["coverage-report-v2.schema.json"]
+    },
+    {
       "contract_id": "external-corpus-manifest",
       "owner": "corpus_generation_maintainers",
-      "support_window": "manifest 2.0 internal producer and library validation; SDK and report consumption explicitly unavailable until their migration slices",
+      "support_window": "manifest 2.0 internal producer, library validation and definition-driven report consumption; SDK explicitly unavailable until its migration slice",
       "apis": [],
       "schemas": ["manifest-v2.schema.json"]
     },

@@ -5211,6 +5211,69 @@ selected no commands; unconditional Fast was reported, not run. Both worktrees
 were checked clean at this preparation handoff; this is not terminal hygiene
 qualification or goal completion.
 
+## R7 metadata-three migrated parity accepted — 2026-09-04
+
+Following explicit user approval, the prepared boundary ran once against clean
+corpus `ce048678890a762c04c8310e0b5d9d66189105ee`. Evidence is retained at corpus
+`artifacts/r7-native-metadata-parity1-20260904`; receipt183,141 bytes SHA-256
+`199a18f9237038ee9021758e97b2c121f78a918c447983e0f9660b20f50ed386`.
+The10.224665666s proof invoked only Git archive, a clone-local import audit and
+the two approved runner calls. It did not build, retry, run whole core/smoke/
+Heavy or invoke the historical reporter.
+
+The first/repeat runners completed in3.973892625s/3.53421125s with empty stderr.
+Each used the original pinned generator through the public corpus runner,
+selected the same explicit metadata3/core/seed1/parallelism4 request, generated
+three files, strictly validated exactly three with no failures, and projected
+report2. Raw manifests are byte-identical101,955-byte objects SHA-256
+`c86a40077784e4702dcdb1a7eb1454ee5515e76275e7f5ff5d2ee48750fe339c`;
+raw reports are byte-identical113,957-byte objects SHA-256
+`8c7320f195823e14ddc56e041fb788b30516b3bc506b4805a3e83e85ee7778c2`.
+Canonical manifest/report SHA-256 are respectively
+`7d96e2906a347e14dcba673735c06d519a95e11ee3f54e3739a2e6b469f293d4`/
+`9c7f164128cb6962bf12af73b6f66168cb73e9d8ce1f7cb2cc523cd8e8bb1986`.
+
+The complete file projection remains
+`3404c2a8b8c47e974f8856fea3c7e69748cca97c72d23c98aeb787cd4c662c01`:
+three payloads/3,024 bytes with original hashes7f457e4f,5a0726a6,b1334cff,
+full raw metadata and standards arrays9/7/6. All31 historical skips authenticate
+before their exact replacement by three direct/generated ledger rows with no
+dependencies. Only the documented manifest1→2 schema/request/verified0.3.1
+identity/ledger boundary differs. Report2 exactly equals its full pure source
+projection and does not upgrade independent evidence.
+
+Independent review reauthenticated baseline26 files/141,256,194 bytes,
+availability34/69,856,606 bytes, source74 tracked files/1,113,262 bytes and exact
+archive. It rechecked payloads, metadata, standards, ledger, manifests, reports,
+strict validation, eight-file sidecars, pins, modes, directory closures and empty
+unrelated CWD. Root's separate pure recheck passed in0.219526s. Pre-receipt
+evidence has169 files/353,372,087 logical/353,718,272 allocated bytes; final has
+170/353,555,228/353,902,592. Retained runtime has160 files/351,995,598 logical/
+352,329,728 allocated bytes. Retention cost is explicit, not a Fast-PR cost.
+
+Root full Draft2020 validation passed18 checks in0.368554083s across both actual
+consumer results, manifests, reports and all generation/validation/report
+envelopes/results. Generator supplement
+`generated/r7-metadata-parity-schema-review-20260904/receipt.json` SHA-256
+`a7766fa3f7f94beb46419be64daa499dcbfbbc4b39ba06142ecbee24c7e72ed8`;
+schema script SHA-256
+`be39e056485a8778c5a94754c56c6d2e4d5c55e4d6c4a520d9163e9e932ecbda`;
+pure-recheck script SHA-256
+`79d5964cfb03d2a8f384b303cff5e58beac75c0c8f6362df16d953fee423c0a7`.
+An additional independent read-only audit passed34 Draft2020 checks in0.277043s
+validator time (3.5s invocation). It covered both standalone and consumer-
+embedded envelopes/results plus embedded/file report payload equality, and
+reauthenticated receipt, source archive
+`aa2ae265c32c98c5c935455af24367fbfbf2a1a9459a618980a628cf98c63699`,
+input receipts, inventories and payloads. It created no permanent artifact and
+did not replay native execution; the retained root18-check supplement is the
+durable schema receipt.
+
+This accepts R7.1/R7.5 only for the metadata-three slice. It does not complete
+R7.2/R7.3 generic-capability review, wider ordinary-native migration,
+relationships, codecs, external providers, isolated legacy/negative/fuzz/stress,
+independent conformance, a release or terminal qualification.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

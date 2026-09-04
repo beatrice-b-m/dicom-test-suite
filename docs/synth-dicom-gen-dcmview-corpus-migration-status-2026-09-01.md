@@ -40,7 +40,7 @@ artifact.
 | R4 — split immutable resources and corpus definitions | Complete | R4.1, R4.2, R4.3, R4.4, R4.5 | At the accepted R4 checkpoint, EngineResources v2 owned 74 immutable members and its private lazy lease materialized a 254-file transitional physical closure once per shared context. Those checkpoint measurements remain historical; current schema additions and exact identities are recorded in the latest dated R5 entry below. Cases/Cargo remain excluded from authoritative engine identity, and exact legacy 240-member v1 provenance remains reconstructable. |
 | R5 — add supported external corpus API | Complete | R5.1–R5.5 and isolated-source consumer gate independently accepted | SDK `ca571fb..aa7fcad`, CLI `aa7fcad..a18d149`, discovery `a18d149..5da18e8`, and the 2026-09-04 source-removed consumer proof at exact `232b9de` are independently accepted. This closes R5, not package/release qualification or R6+ terminal cross-repository evidence. |
 | R6 — establish smoke corpus repository | Complete | R6.1–R6.5 independently accepted | The approved local repository at `/Users/beatrice/AgentFiles/projects/dcmview-test-corpus` owns its foundation, exact offline pin, imported smoke definitions, supported runner, full R0 smoke parity, viewer-result contract, and locally executed CI configuration. The R6 gate passes without compiling/testing generator internals. Hosted delivery, viewer execution and terminal release/CI evidence remain separate and unqualified. |
-| R7 — migrate complete dcmview corpus | In progress | Read-only first-slice decomposition accepted; no definitions moved yet | Begin with ten single-instance native SC core cases. Freeze a bounded pinned pre-migration baseline, then sequentially prepare consumer versioning and multi-profile routing before importing unchanged recipes and proving slice parity. All later scopes remain required. |
+| R7 — migrate complete dcmview corpus | In progress | First ten single-instance native SC core cases imported and parity accepted | Exact source-pinned content0.2 definitions, consumer result2 and bounded smoke/core routing are accepted. The isolated proof at corpus `c07b9c1` passes core profile/IDs/repeat plus smoke, with complete file parity, strict validation and report2. The original baseline and separate report-only completion remain authenticated. All remaining ordinary native, relationship, codec, provider and isolated special scopes are still required; embedded copies remain pending terminal removal. |
 | R8 — decouple viewer development | Not started | None | Requires a qualified artifact key and complete-enough corpus ownership. |
 | R9 — remove embedded corpus and qualify products | Not started | None | Terminal removal, documentation, measurement, and exact qualification have not run. |
 
@@ -4678,8 +4678,9 @@ baseline alone is not proof that those budgets have passed.
   attempt wrote no files and produced no corpus commit; both repositories
   were clean at resume. This approval resolves the local-path authority
   blocker only. Remotes, pushes, releases and viewer-repository changes remain
-  outside scope. The report-only helper must still pass review before its
-  one retained baseline completion execution.
+  outside scope. The report-only helper and its single retained completion
+  execution subsequently passed review, as did the bounded first-core import
+  and isolated parity execution recorded above.
 - On 2026-09-04 the user explicitly approved creation of the local corpus
   repository at `/Users/beatrice/AgentFiles/projects/dcmview-test-corpus`.
   The empty local Git repository was initialized on `main`; no remote was

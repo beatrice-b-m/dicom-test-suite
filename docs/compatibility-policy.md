@@ -28,7 +28,7 @@ necessarily change every other contract.
 | Composition result | `2.0.0` (schema validation retains `1.0.0`) | `composition_result_schema_version`; version `2.0.0` binds published and dry-run outcomes to the composition manifest `1.0.0` contract while preserving their typed shape. |
 | Structural-assembly manifest | `2.0.0` (reader retains `1.0.0`) | `manifest_schema_version` plus `run.kind = "structural_assembly"`. Version `2.0.0` adds split identity projection while retaining the exact no-IOD-claim semantics; the legacy reader never synthesizes split identities. |
 | Structural-assembly result | `2.0.0` (schema validation retains `1.0.0`) | `assembly_result_schema_version`; version `2.0.0` binds published and dry-run outcomes to the structural-assembly manifest `2.0.0` contract without changing their typed execution shape. |
-| Coverage report | `0.1.0` | `coverage_report_schema_version` and report field meanings. |
+| Coverage report | `1.1.0` for curated manifest1; `2.0.0` for external manifest2 | Readers retain `0.1.0` and `1.0.0`. Legacy curated manifests still produce `0.1.0`; report-result1 remains the envelope for curated reports. |
 | Template catalog | `0.1.0` | `template_catalog_schema_version`; each descriptor also has an independent template ID/version. |
 | Case registry | `0.2.0` | Registry document shape; case recipe identity and determinism change through `recipe_version`. |
 | Composition provider | `1.0.0` | Request/response protocol used by caller-selected content providers. |
@@ -38,6 +38,22 @@ necessarily change every other contract.
 The version/capability discovery response is the machine authority for the
 versions supported by a particular executable. This table records the policy
 baseline and must not be used to infer runtime availability.
+
+The unreleased product `0.2.0` source candidate adds coverage schema `1.1.0`
+for supported selected-core reporting. It preserves every previously accepted row
+and permits explicitly non-generated nonsquare rows to retain null artifact
+observations. Generated rows retain the original strict requirements. Frozen
+coverage schemas `0.1.0` and `1.0.0` are unchanged. This is an independently
+versioned additive schema capability, not a product release or replacement of
+the historical executable. Source revision, binary hash, and current schema
+and engine identities distinguish any later reporting candidate.
+
+Frozen manifest/discovery identity schemas still bind legacy provenance to
+the historical resource digest. A future product-version bump changes
+Cargo.lock and backend-lock provenance and therefore requires an explicit
+versioned identity migration before the R9 release gate. This remains a
+blocker, not permission to hide changed bytes behind historical hashes or
+edit frozen schemas. No qualified release is claimed here.
 
 ## 2. Compatibility rules
 

@@ -164,11 +164,11 @@ fn capabilities_json_is_live_schema_valid_and_conservative_outside_the_checkout(
     );
     assert_eq!(
         envelope["result"]["supported_versions"]["coverage_report"],
-        serde_json::json!(["1.0.0", "2.0.0"])
+        serde_json::json!(["1.1.0", "2.0.0"])
     );
     assert_eq!(
         envelope["result"]["supported_versions"]["coverage_report_validation"],
-        serde_json::json!(["0.1.0", "1.0.0", "2.0.0"])
+        serde_json::json!(["0.1.0", "1.0.0", "1.1.0", "2.0.0"])
     );
     assert_eq!(
         envelope["result"]["supported_versions"]["composition_report"],

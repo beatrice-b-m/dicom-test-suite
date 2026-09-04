@@ -316,7 +316,7 @@ fn sdk_curated_validate_and_report_read_exact_supported_manifest_versions() {
         assert_eq!(report.kind(), ReportKind::CuratedCoverage);
         assert_eq!(
             report.schema_version(),
-            if version == "1.0.0" { "1.0.0" } else { "0.1.0" }
+            if version == "1.0.0" { "1.1.0" } else { "0.1.0" }
         );
         let report_json: serde_json::Value = report.deserialize().unwrap();
         if version == "1.0.0" {

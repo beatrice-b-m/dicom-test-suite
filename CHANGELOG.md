@@ -9,6 +9,9 @@ change a CLI API, request, manifest, report, template, or provider version.
 
 ### Added
 
+- Additive coverage report `1.1.0` for current curated manifests, preserving
+  frozen readers and truthful non-generated nonsquare observations. This is
+  an unreleased `0.2.0` source capability, not a qualified release artifact.
 - Relocatable native archives with checksums, target/feature identity,
   dependency notices, and a schema-bound payload manifest.
 - Versioned machine discovery, result/error envelopes, stable exit classes,

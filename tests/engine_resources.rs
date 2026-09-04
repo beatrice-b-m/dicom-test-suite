@@ -66,6 +66,7 @@ fn embedded_resources_separate_current_identity_from_legacy_physical_closure() {
         "schemas/capabilities-result-v2.schema.json",
         "schemas/manifest-v1.schema.json",
         "schemas/manifest-v2.schema.json",
+        "schemas/coverage-report-v1.1.schema.json",
         "schemas/release-manifest-v2.schema.json",
     ] {
         assert!(

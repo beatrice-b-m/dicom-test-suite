@@ -18390,7 +18390,7 @@ fn build_coverage_report_with_registry(
         "gaps": gaps
     });
     if let Some(identity_projection) = current_identity_projection {
-        report["coverage_report_schema_version"] = "1.0.0".into();
+        report["coverage_report_schema_version"] = "1.1.0".into();
         report["identity_projection"] = identity_projection;
     }
     report_contract::validate_report_contract(&report)

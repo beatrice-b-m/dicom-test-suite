@@ -18,9 +18,12 @@ fn coverage_report_validator(report: &Value) -> jsonschema::Validator {
         let value: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
         jsonschema::Resource::from_contents(value).unwrap()
     };
-    let schema: Value =
-        serde_json::from_slice(&fs::read("schemas/coverage-report-v1.schema.json").unwrap())
-            .unwrap();
+    let schema_path = match report["coverage_report_schema_version"].as_str() {
+        Some("1.0.0") => "schemas/coverage-report-v1.schema.json",
+        Some("1.1.0") => "schemas/coverage-report-v1.1.schema.json",
+        version => panic!("unsupported coverage report version: {version:?}"),
+    };
+    let schema: Value = serde_json::from_slice(&fs::read(schema_path).unwrap()).unwrap();
     jsonschema::options()
         .with_draft(jsonschema::Draft::Draft202012)
         .with_resource(
@@ -1337,7 +1340,7 @@ fn current_smoke_report_normalizes_to_the_frozen_r0_bytes() {
         String::from_utf8_lossy(&output.stderr)
     );
     let mut current: Value = serde_json::from_slice(&output.stdout).unwrap();
-    assert_eq!(current["coverage_report_schema_version"], "1.0.0");
+    assert_eq!(current["coverage_report_schema_version"], "1.1.0");
     assert_eq!(
         current["identity_projection"],
         serde_json::from_slice::<Value>(&fs::read(out_dir.join("manifest.json")).unwrap()).unwrap()
@@ -1355,6 +1358,102 @@ fn current_smoke_report_normalizes_to_the_frozen_r0_bytes() {
         include_bytes!("fixtures/cli/coverage-report-v0.1.json")
     );
     fs::remove_dir_all(out_dir).unwrap();
+}
+
+#[test]
+fn selected_core_report_preserves_unselected_nonsquare_without_observation() {
+    let output = unique_temp_dir("report-selected-core-unavailable");
+    let binary = env!("CARGO_BIN_EXE_synth-dicom-gen");
+    let generated = Command::new(binary)
+        .args([
+            "generate",
+            "--profile",
+            "core",
+            "--case-id",
+            "classic/sc/mono2_i16_explicit_le",
+            "--seed",
+            "1",
+            "--out",
+            output.to_str().unwrap(),
+            "--format",
+            "json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        generated.status.success(),
+        "{}",
+        String::from_utf8_lossy(&generated.stderr)
+    );
+    let manifest: Value =
+        serde_json::from_slice(&fs::read(output.join("manifest.json")).unwrap()).unwrap();
+    assert_eq!(manifest["files"].as_array().unwrap().len(), 1);
+    let raw = Command::new(binary)
+        .args(["report", output.to_str().unwrap(), "--format", "json"])
+        .output()
+        .unwrap();
+    assert!(
+        raw.status.success(),
+        "{}",
+        String::from_utf8_lossy(&raw.stderr)
+    );
+    let report: Value = serde_json::from_slice(&raw.stdout).unwrap();
+    assert_eq!(report["coverage_report_schema_version"], "1.1.0");
+    assert!(coverage_report_validator(&report).is_valid(&report));
+    assert_eq!(
+        report["identity_projection"],
+        manifest["identity_projection"]
+    );
+    assert_eq!(report["counts"]["generated"], 1);
+    assert_eq!(
+        report["counts"]["skipped"].as_u64().unwrap() as usize,
+        manifest["skipped_cases"].as_array().unwrap().len()
+    );
+    let row = report["coverage_matrix"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["case_id"] == "classic/sc/nonsquare_pixel_spacing")
+        .unwrap();
+    assert_eq!(row["status"], "unavailable");
+    for (field, value) in row.as_object().unwrap() {
+        if field.starts_with("nonsquare_") {
+            assert!(value.is_null(), "{field}");
+        }
+    }
+    let wrapped = Command::new(binary)
+        .args([
+            "report",
+            output.to_str().unwrap(),
+            "--format",
+            "json",
+            "--cli-api",
+            "1.0.0",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        wrapped.status.success(),
+        "{}",
+        String::from_utf8_lossy(&wrapped.stderr)
+    );
+    let envelope: Value = serde_json::from_slice(&wrapped.stdout).unwrap();
+    let schema: Value =
+        serde_json::from_slice(&fs::read("schemas/report-result.schema.json").unwrap()).unwrap();
+    assert!(
+        jsonschema::validator_for(&schema)
+            .unwrap()
+            .is_valid(&envelope["result"])
+    );
+    assert_eq!(envelope["result"]["report_schema_version"], "1.1.0");
+    assert_eq!(envelope["result"]["report"], report);
+    let product = synth_dicom_gen::sdk::DicomTestSuite::embedded().unwrap();
+    let sdk_report = product
+        .report(synth_dicom_gen::sdk::ReportRequest::new(&output))
+        .unwrap();
+    assert_eq!(sdk_report.schema_version(), "1.1.0");
+    assert_eq!(sdk_report.deserialize::<Value>().unwrap(), report);
+    fs::remove_dir_all(output).unwrap();
 }
 
 #[test]

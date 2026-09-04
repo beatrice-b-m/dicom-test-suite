@@ -810,7 +810,7 @@ mod snapshot_cache_tests {
         assert!(validation.failures.is_empty());
         let report = crate::build_coverage_report_with_resources(&generated, &resources)
             .expect("shared-resource report must complete");
-        assert_eq!(report["coverage_report_schema_version"], "1.0.0");
+        assert_eq!(report["coverage_report_schema_version"], "1.1.0");
 
         for (path, expected) in [
             (

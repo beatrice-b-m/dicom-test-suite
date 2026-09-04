@@ -4,9 +4,9 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 273,
-    "rust_test_entries": 1473,
+    "rust_test_entries": 1474,
     "integration_source_groups": 189,
-    "integration_test_entries": 917,
+    "integration_test_entries": 918,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
   },
   "enums": {
@@ -400,7 +400,7 @@
         "capabilities_requires_an_explicit_machine_format",
         "capabilities_machine_syntax_failure_is_one_schema_valid_stderr_envelope"
       ],
-      "entry_digest": "176161dbd3eb467f072033e4f5c42db712bb06b3e503a8755ae9f2df241ca592"
+      "entry_digest": "9c8bf4ac7b70752a76fcfe6b8b7b095a9f46a2938fd6a0946d34cea5c7d29318"
     },
     {
       "source": "tests/captured_corpus_generation.rs",
@@ -1714,7 +1714,7 @@
         "resource_lookup_rejects_unsafe_and_unknown_paths",
         "snapshot_materializes_and_cleans_the_complete_resource_tree"
       ],
-      "entry_digest": "9d9ca673193aaef4cf14c7f62880a6320555f22b87bc72afe9bf96f6aee0faf1"
+      "entry_digest": "b076233cb7ea18108f1a783927e610e5210f670bbc4e97cf7cb9de1fc23646d9"
     },
     {
       "source": "tests/enhanced_mr_temporal.rs",
@@ -2582,11 +2582,12 @@
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 53,
+      "entry_count": 54,
       "entries": [
         "report_command_isolates_bounded_fuzz_qualification",
         "report_command_writes_json_coverage_for_core_root",
         "current_smoke_report_normalizes_to_the_frozen_r0_bytes",
+        "selected_core_report_preserves_unselected_nonsquare_without_observation",
         "markdown_report_renders_cross_series_organization_expectations",
         "markdown_report_renders_metadata_and_vr_expectations",
         "report_command_writes_enhanced_mr_per_frame_coverage_for_extended_root",
@@ -2638,7 +2639,7 @@
         "report_rejects_malformed_rt_radiation_pair_manifests",
         "external_report_raw_formats_preserve_evidence_and_use_versioned_envelope"
       ],
-      "entry_digest": "c62706336173be1da44dfab74b0903c044f1072ea2a089974a14258c99b9e149"
+      "entry_digest": "3fb79766efc81b36e22530735260d692a81fd83963dd81fe9bc75513d2b10dda"
     },
     {
       "source": "tests/robustness_qualification_api.rs",
@@ -2861,7 +2862,7 @@
         "sdk_assembly_validate_and_report_read_exact_supported_manifest_versions",
         "sdk_rejects_invalid_assembly_identity_contracts_before_semantics"
       ],
-      "entry_digest": "70e5d024e9ee667250c416ba789e0bf5c3e2269bd8094f599ccbf7ff4f77e6c7"
+      "entry_digest": "54760a4e7fec5f79a045e709202ba19ded71843f6a373fb95d2b5c41eead82b2"
     },
     {
       "source": "tests/semantic_sr_rt_plan.rs",
@@ -3846,7 +3847,7 @@
         "mutation_of_an_internal_shared_root_fails_closed_on_reuse",
         "one_handle_reuses_one_tree_across_batch_generate_validate_report_and_compose"
       ],
-      "entry_digest": "1f32dc7fb7f31317605aab25df9ad90cf02cfe8eac100d4393dd0ba22974cd5a"
+      "entry_digest": "c2e49a3d143d30dcf846fa1bbec42d9af3c4c7dea1599e52665298d4f8faefd3"
     },
     {
       "source": "src/executor/evidence.rs",

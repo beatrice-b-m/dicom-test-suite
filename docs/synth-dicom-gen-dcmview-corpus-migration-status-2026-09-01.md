@@ -4650,6 +4650,39 @@ slice plus smoke regression. Including its receipt, durable evidence contains
 executions cover13 distinct cases and31,326 payload bytes. This bounded result
 does not close the remaining R7 slices, R8/R9 or terminal qualification rows.
 
+## R7 next metadata cohort: source-only decomposition — 2026-09-04
+
+Generator commit `5d21d93` records the reviewed bounded inventory in
+`docs/r7-remaining-native-slice-inventory-2026-09-04.md`. Corpus status/current
+documentation checkpoint `ee06fc9` separately records the accepted first-core
+proof. Both repositories were clean before the next assignment.
+
+The next cohort is exactly `metadata/sc/empty_type2_attributes`,
+`metadata/sc/private_creator_blocks`, and `metadata/sc/utf8_person_name`:
+single-artifact, native byte-stable SC recipes with no case dependencies.
+Root and independent source review accepted the three registry rows, recipes,
+local source-note hashes, provider/template bindings and preserved planning/
+projection orders against232b9de. Raw UTF-8 PN bytes and `DTS_PRIVATE_ALPHA` /
+`DTS_PRIVATE_BETA` are payload contracts, not product branding to rename.
+
+This is source-only selection of the next work unit, not native availability
+or an import. Remaining core cohorts, broader extended scope and metadata
+loader case-ID/namespace coupling are explicit in the inventory. Generic
+capability promotion remains required before full R7 acceptance. Live consumer
+source guards still admit only the first ten core cases; the historical proof
+also has a64-file source-snapshot ceiling. Both require separately reviewed
+preparation before expansion, without weakening frozen historical evidence.
+
+The next delegated unit owns only new metadata source provenance, static tests
+and their explicit CI path mappings in the corpus repository. It may not alter
+live definitions, pins, old baseline helpers or native outputs. Subsequent
+baseline preparation will use the original native pin for generation/validation
+and the separately pinned repaired reporter on its first report attempt; no
+repeat of the known old subset-report failure is required. Expanded profile
+selection will be inspected, not silently turned into whole-core generation.
+The inventory documentation route selected no ordinary commands; unconditional
+Fast targets were reported but not run. Diff checks passed.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

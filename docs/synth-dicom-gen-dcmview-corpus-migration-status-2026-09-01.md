@@ -37,8 +37,8 @@ artifact.
 | R1 — contain CI and local build cost | Complete | R1.1, R1.2, R1.3, R1.4, R1.5, R1.6 | A disposable draft-PR probe proved superseded-run cancellation and single-event ownership. Replacement Fast run `33581809536` passed in 123 seconds of job time with only the declared Fast work, a 739,602,432-byte target, four smoke artifacts occupying 122,880 allocated bytes, and the 4-GiB ceiling enforced. The broad matrix remains separately scheduled/manually invocable. The R1 gate passes. |
 | R2 — reduce Rust test-linking amplification | Complete | R2.1, R2.2, R2.3, R2.4 | The fail-closed inventory maps 186 integration sources and all 879 integration entries into exactly 20 explicit harnesses. Six R0-measured heavy bodies have exact ignored qualification entry points, while deterministic change routing now selects bounded Fast/subsystem evidence and reports every deferred class without executing it. The aggregate R2 target-count, cost, heavy-isolation, and routing gates pass. |
 | R3 — rename reusable product | Complete | R3.1, R3.2, R3.3, R3.4 | Product, package, crate, library, sole binary, archives, discovery, package metadata, current operating guides, product-controlled environment, and production scratch paths use `synth-dicom-gen` / `synth_dicom_gen` at the breaking pre-1.0 product boundary `0.2.0`. Immutable dated evidence retains its exact old candidate identity, and 12 qualified-adapter variables retain provenance-bound spellings pending external requalification. The external-consumer audit found no supported `0.1.0` product consumer requiring an alias. A clean side project compiled and exercised only `synth_dicom_gen::sdk` from the extracted, verified `synth-dicom-gen-0.2.0.crate`, without the old repository path. The aggregate R3 gate passes. |
-| R4 — split immutable resources and corpus definitions | Complete | R4.1, R4.2, R4.3, R4.4, R4.5 | `EngineResources` v2 owns a 74-member immutable engine-resource identity containing every current schema while excluding `cases/**` and `Cargo.lock`; the exact 240-member v1 identity remains reconstructable for compatibility. `CorpusDefinitionBundle` 1.0.0 and the split manifest/discovery identities remain unchanged. A private handle-local lazy lease now materializes the 254-file transitional physical closure once per shared resource context. The supported SDK/CLI external-corpus generation route remains R5 work. |
-| R5 — add supported external corpus API | In progress | Input substrate, internal batch execution, definition-driven reporting, bounded SDK facade | Verified captured inputs feed one atomic batch runner and external manifest2/report2. The supported SDK exposes explicit file/bytes requests and Published/Planned/NoExecutableCases outcomes, with facade-only consumer tests; independent review is pending for this slice. CLI corpus input, external report machine envelopes, discovery, and independent installed/cross-repository acceptance remain pending. |
+| R4 — split immutable resources and corpus definitions | Complete | R4.1, R4.2, R4.3, R4.4, R4.5 | At the accepted R4 checkpoint, EngineResources v2 owned 74 immutable members and its private lazy lease materialized a 254-file transitional physical closure once per shared context. Those checkpoint measurements remain historical; current schema additions and exact identities are recorded in the latest dated R5 entry below. Cases/Cargo remain excluded from authoritative engine identity, and exact legacy 240-member v1 provenance remains reconstructable. |
+| R5 — add supported external corpus API | In progress | Input substrate, batch execution, reporting, accepted SDK facade; CLI slice pending review | SDK range `ca571fb..aa7fcad` is independently accepted. SDK and the new bounded CLI slice execute verified captured inputs through one atomic runner with explicit Published/Planned/NoExecutableCases outcomes. External CLI generation3/report2 evidence is recorded below and awaits review. Loaded-corpus discovery and independent installed/cross-repository acceptance remain pending. |
 | R6 — establish smoke corpus repository | Not started | None | No external repository has been created; authority and destination are still required before out-of-workspace mutation. |
 | R7 — migrate complete dcmview corpus | Not started | None | Requires R6 smoke parity and supported contracts. |
 | R8 — decouple viewer development | Not started | None | Requires a qualified artifact key and complete-enough corpus ownership. |
@@ -3401,6 +3401,100 @@ No production code, schemas, identities, discovery, CLI corpus input,
 Heavy/provider/package/release evidence changed or ran. The corrected slice
 awaits independent re-review.
 
+### R5.2 external corpus CLI and result contracts — 2026-09-03
+
+Independent review accepted SDK range `ca571fb..aa7fcad`. This next sequential
+slice starts at clean `aa7fcad` and records implementation through `573187a`,
+pending independent review. No R5.5 discovery implementation began.
+
+| Commit | Coherent unit |
+| --- | --- |
+| `d0871e4` | External-only generation-result3/report-result2 schemas, compatibility ownership, current resource/schema inventories |
+| `48d2b10` | SDK-only external generation dispatch, typed SDK error bridge, external report2 envelope |
+| `4e25e77` | Five bounded CLI consumer/error/state tests and migrated external report-envelope regression |
+| `487d79d` | Fail-closed live CLI/SDK/report routing and exact test ownership |
+| `acd7698` | One frozen profile-schema URI spelling record and reviewed snapshot |
+| `909ace7` | Explicit CLI API mode selects JSON when format is omitted; exact preview regression |
+| `a8659f0` | Current command/result/evidence documentation |
+| `573187a` | Exact documented CLI validation after source removal |
+
+`generate --corpus ./definition.json --asset-root corpus-members --profile
+smoke --out generated/cli --seed 1 --parallelism 2 --format json` invokes only
+the supported SDK for execution. Required member root and explicit descriptor
+parent remain independent. The pre-dispatch scan respects option-value slots,
+so an output value spelled `--corpus` does not accidentally select the new
+route. Formats, options and numeric syntax are validated before resource
+construction/corpus capture or publication. SDK errors retain their registered
+codes, exit class, retry flag and meaning without Display-string parsing.
+
+External generation uses generation-result `3.0.0` in CLI API1, while embedded
+generation2 stays unchanged. Published, planned and no-executable results
+retain exact ledger/definitions/identity/scope/plan facts and explicit logical
+case versus emitted-file counts. Empty dry-run stays planned; no-executable
+has no ready rows/artifact IDs. Nonpublication has null manifest path, zero
+emitted bytes/files and validation/publication not_run. No internal plan is
+serialized. Report JSON/Markdown stays lossless; only external machine reports
+use report-result `2.0.0` with a strict report2 reference, leaving report1 for
+legacy kinds. CLI signal cancellation is not implemented or claimed.
+
+All affected paths were dry-run routed first. Build/main remain conservative
+all-ordinary fallbacks in the router; this explicitly assigned bounded slice
+ran the focused ordinary evidence below, not the broad fallback or deferred
+classes. New result schemas additionally select their owning live CLI, SDK
+and report tests as well as schema coverage.
+
+| Exact bounded check (Cargo tests use `--locked --no-default-features`) | Result | Body time |
+| --- | --- | --- |
+| `--test cli_sdk__nonfast external_corpus_cli::` | 5/5 | 20.91s |
+| `--test cli_sdk__nonfast report_cli::` | 49/49 | 20.68s |
+| `--test cli_sdk__nonfast sdk_corpus::` | 6/6 | 21.28s |
+| `--test cli_sdk__nonfast sdk_facade::` | 12/12 | 3.20s |
+| `--test cli_sdk__nonfast generate_cli::generate_command_writes_smoke_part10_files_and_manifest -- --exact` | 1/1 | 1.85s |
+| `--test schema_resources__subsystem` | 86/86 | 10.95s |
+| `--lib engine_resources::snapshot_cache_tests::` | 7/7 | 2.36s |
+| `--lib identity_domain_tests::` | 4/4 | 1.33s |
+| `--test schema_resources__fast` | 73/73 | 1.63s |
+| `--test release_ci__fast` | 14/14 | 1.92s |
+| Exact external CLI planned/no-execution test after explicit API-mode correction | 1/1 | 20.12s |
+| Exact external CLI profile/SDK-parity test including documented validate/report commands | 1/1 | 8.13s |
+
+The 49-test ordinary report suite includes its existing bounded fuzz reporting
+body, not deferred Heavy fuzz or target qualification. Initial Fast failures
+correctly identified the missing retained-URI entry and then a snapshot digest
+that omitted the reviewed owner/reason; both were corrected, not suppressed.
+Final spelling is 956 matches /
+`d695b8a5cdce36c11352a07f55f11df30a0b45b3c38234d2a3d7aef56597f5b9`.
+Routing fixtures pass 26/26 in 2.53s; ownership passes 22 targets, 273 groups,
+1,468 entries (189 integration sources, 914 integration entries). Final cargo
+check passes in 0.25s; format/diff checks pass.
+
+Exact current resource changes are only the two schemas:
+
+- generation-result3: 7,015 bytes /
+  `eee219e1fcc403f811416631e228c88b88b555df8310845b7384712602846dfd`;
+- report-result2: 681 bytes /
+  `3822642a4d4189523255eb4310b91cf06c7362f1d45fc7a84b0550425dda9f0a`;
+- current engine: 78 members / 1,267,095 bytes /
+  `668dd330fe4bc80c66910c45fdd86510b76ced2fdd4694dcbfb18f4a04497209`;
+- schema set: 55 members / 866,623 bytes /
+  `084e17c32fa2c500478f3cd89a96cb758b17750eb8a82f42f50eec2b1b2cea69`;
+- physical private snapshot: 258 files / 2,680,353 bytes. Legacy240/dc61 and
+  verified bundle214/571fa23 identities are unchanged.
+
+The documented fresh caller-relative command produces three smoke files /
+2,790 payload bytes identical to SDK generation at matched seed/parallelism,
+with equal manifest bytes. Tests also prove dependency counts, schema-bound
+state constraints, source deletion before CLI validation/reporting, invalid
+format/options/IDs/profile/parallelism, missing/unsupported/oversized/tampered
+descriptor input, preserved existing destination, and exact typed error
+envelopes. Frozen embedded reader/result fixtures remain covered.
+Capabilities2 is deliberately not changed: its frozen validation inventory
+cannot advertise generation3. Loaded-corpus and complete result discovery
+await capabilities3 in R5.5. No package/installed-consumer, Heavy, Nightly,
+codec feature matrix, external provider execution, release-candidate,
+external repository or release qualification ran; terminal acceptance remains
+open.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |
@@ -3444,7 +3538,7 @@ baseline alone is not proof that those budgets have passed.
 | --- | --- | --- |
 | Repository boundary | Not run | Must prove no generator dependency on dcmview and no corpus use of unsupported modules or sibling paths. |
 | Naming and compatibility | Passed | R3.1-R3.4 prove package `synth-dicom-gen` `0.2.0`, library `synth_dicom_gen`, the sole binary and version-derived archive/discovery identities, clean no-alias product environment, renamed production scratch paths, dual readers only at the four approved compatibility boundaries, current operating guides under the new identity, immutable historical evidence under the old identity, and 12 explicitly evidence-bound retained adapter environments. The exact 2,500,992-byte packaged crate (`9bc4cdaa357ce6f87a8dcce61d2f554d45f7a795a5c5f09fbb93017e65f79fe6`) passed Cargo verification and a clean extracted-package SDK consumer without an old repository path. A qualified `0.2.0` release remains correctly separate in the packaging-and-release row. |
-| External corpus contract | In progress | R4.2 proves the versioned, bounded, integrity-checked definition schema and typed inspection loader. R5 must still expose supported CLI/SDK selection and generation without internal imports or sibling paths before this row can pass. |
+| External corpus contract | In progress | R4.2 proves the bounded verified definition loader; accepted R5 SDK and pending-review CLI slices expose explicit-root selection/generation without unsupported execution imports. Loaded-corpus discovery and independent installed/cross-repository consumer acceptance remain required before this terminal row passes. |
 | Identity separation | In progress | R4.3 independently projects engine, toolchain, template, provider, schema, standards, execution, verified loaded-corpus, and invocation runtime identities through v2 discovery and current generation, composition, assembly, report, and release contracts. R4.4 removes `cases/**` and `Cargo.lock` from the authoritative v2 engine digest while retaining exact named v1 reconstruction for required compatibility fields. Embedded paths do not fabricate corpus or runtime identities. The supported R5 external-corpus generation route and later physical/default-reader migration remain before the terminal cross-repository row can pass. |
 | Smoke migration | In progress | The R0 parity baseline passes for the current embedded smoke slice; R6 repository generation and comparison have not run. |
 | Complete migration | Not run | The current repository still owns the complete embedded corpus. |

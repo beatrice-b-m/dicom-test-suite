@@ -61,7 +61,10 @@ pub(crate) enum CapturedCorpusError {
     Input(String),
     Cancelled,
     Planning(String),
-    Execution(String),
+    DestinationExists,
+    UnsafeDestination,
+    OutputIo(std::io::Error),
+    Execution(crate::executor::engine::CorpusExecutorError),
 }
 
 impl std::fmt::Display for CapturedCorpusError {
@@ -70,6 +73,70 @@ impl std::fmt::Display for CapturedCorpusError {
     }
 }
 impl std::error::Error for CapturedCorpusError {}
+
+impl CapturedCorpusError {
+    pub(crate) fn code(&self) -> &'static str {
+        match self {
+            Self::Input(_) => "request.schema.invalid",
+            Self::Cancelled => "generation.execution.cancelled",
+            Self::Planning(_) => "generation.planning.failed",
+            Self::DestinationExists => "output.destination.exists",
+            Self::UnsafeDestination => "output.path.unsafe",
+            Self::OutputIo(_) => "io.write.failed",
+            Self::Execution(error) => executor_error_code(error),
+        }
+    }
+}
+
+fn executor_error_code(error: &crate::executor::engine::CorpusExecutorError) -> &'static str {
+    use crate::executor::engine::{ArtifactExecutionError as A, CorpusExecutorError as E};
+    use crate::executor::scheduler::SchedulerError as S;
+    use crate::executor::transaction::TransactionError as T;
+    fn transaction(error: &T) -> &'static str {
+        match error {
+            T::DestinationExists(_) => "output.destination.exists",
+            T::UnsafeDestination(_)
+            | T::UnsafeStagingTarget(_)
+            | T::UnsafeRelativePath(_)
+            | T::UnsafeFilesystemEntry { .. } => "output.path.unsafe",
+            T::PrimaryAndCleanup { .. } => "io.cleanup.failed",
+            T::Io { .. } => "io.write.failed",
+            _ => "internal.invariant.failed",
+        }
+    }
+    match error {
+        // Failed cleanup must not promise that cancellation cleanup completed.
+        E::PrimaryAndCleanup { .. } => "io.cleanup.failed",
+        E::Cancelled(_)
+        | E::Scheduler(S::Cancelled)
+        | E::Scheduler(S::Worker {
+            source: A::Cancelled(_),
+            ..
+        }) => "generation.execution.cancelled",
+        E::Scheduler(S::ResourceOverflow { .. } | S::ResourceLimitExceeded { .. }) => {
+            "resource.limit.exceeded"
+        }
+        E::Transaction(error) => transaction(error),
+        E::InvalidPlan(_) | E::EmptyPlan | E::Scheduler(S::InvalidPlan(_) | S::ZeroParallelism) => {
+            "generation.planning.failed"
+        }
+        E::Manifest(_) => "validation.manifest.invalid",
+        E::Service(_) | E::ServiceContract(_) => "generation.provider.failed",
+        E::Scheduler(S::Worker {
+            source: A::Service(_) | A::ServiceContract(_),
+            ..
+        }) => "generation.provider.failed",
+        E::Scheduler(S::Worker {
+            source: A::ValidationFailed { .. } | A::ObligationFailed(_),
+            ..
+        }) => "validation.artifact.failed",
+        E::Scheduler(S::Worker {
+            source: A::ResourceAccountingOverflow(_),
+            ..
+        }) => "resource.limit.exceeded",
+        _ => "generation.materialization.failed",
+    }
+}
 
 fn checkpoint(token: &CancellationToken) -> Result<(), CapturedCorpusError> {
     if token.is_cancelled() {
@@ -191,9 +258,9 @@ fn run_with_publication_check(
         ));
     }
     match std::fs::symlink_metadata(&request.destination) {
-        Ok(_) => return Err(CapturedCorpusError::Input("destination exists".into())),
+        Ok(_) => return Err(CapturedCorpusError::DestinationExists),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-        Err(e) => return Err(CapturedCorpusError::Input(e.to_string())),
+        Err(e) => return Err(CapturedCorpusError::OutputIo(e)),
     }
     let (profile, include_stress, selector, direct, closure) =
         selection(&bundle, &request.selection)?;
@@ -276,13 +343,16 @@ fn run_with_publication_check(
         .parent()
         .filter(|p| !p.as_os_str().is_empty())
         .unwrap_or_else(|| std::path::Path::new("."));
-    std::fs::create_dir_all(parent).map_err(|e| CapturedCorpusError::Execution(e.to_string()))?;
+    std::fs::create_dir_all(parent).map_err(CapturedCorpusError::OutputIo)?;
     let destination = parent
         .canonicalize()
-        .map_err(|e| CapturedCorpusError::Execution(e.to_string()))?
-        .join(request.destination.file_name().ok_or_else(|| {
-            CapturedCorpusError::Input("destination requires a final name".into())
-        })?);
+        .map_err(CapturedCorpusError::OutputIo)?
+        .join(
+            request
+                .destination
+                .file_name()
+                .ok_or_else(|| CapturedCorpusError::UnsafeDestination)?,
+        );
     let plan = planned.planned.plan.clone();
     let services = crate::curated_execution::CuratedExecutionServiceFactory::new(&planned.planned);
     let projector = CapturedManifestProjector {
@@ -308,7 +378,7 @@ fn run_with_publication_check(
             request.parallelism,
             &request.cancellation,
         )
-        .map_err(|e| CapturedCorpusError::Execution(e.to_string()))?;
+        .map_err(CapturedCorpusError::Execution)?;
     Ok(CapturedCorpusOutcome::Published(result))
 }
 

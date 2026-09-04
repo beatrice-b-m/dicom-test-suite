@@ -31,6 +31,13 @@ use serde::de::DeserializeOwned;
 use crate::discovery::{CapabilitiesResult, VersionResult};
 use crate::engine_resources::EngineResources;
 
+mod corpus;
+pub use corpus::{
+    CorpusCaseDisposition, CorpusCaseEvidence, CorpusPreview, CorpusPublicationState,
+    CorpusSelector, CorpusValidationState, GenerateCorpusOutcome, GenerateCorpusRequest,
+    PublishedCorpus,
+};
+
 /// A relocatable product handle backed by an integrity-checked resource set.
 #[derive(Debug, Clone)]
 pub struct DicomTestSuite {
@@ -480,6 +487,7 @@ impl ComposeOutcome {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ManifestKind {
+    ExternalCorpus,
     CuratedGeneration,
     QualifiedComposition,
     StructuralAssembly,
@@ -505,10 +513,7 @@ impl SchemaBoundManifest {
             .map_err(|error| SdkError::classify(command, error))?;
         let kind = match validated.kind() {
             crate::manifest_contract::ManifestContractKind::ExternalCorpus => {
-                return Err(SdkError::classify(
-                    command,
-                    "external corpus manifest 2.0 is not yet supported by the SDK",
-                ));
+                ManifestKind::ExternalCorpus
             }
             crate::manifest_contract::ManifestContractKind::CuratedGeneration => {
                 ManifestKind::CuratedGeneration
@@ -619,6 +624,7 @@ impl ReportRequest {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ReportKind {
+    ExternalCorpus,
     CuratedCoverage,
     QualifiedComposition,
     StructuralAssembly,
@@ -656,10 +662,7 @@ impl ReportOutcome {
                 "coverage_report_schema_version",
             ),
             Some("external_corpus") => {
-                return Err(SdkError::classify(
-                    "report",
-                    "unsupported report schema version 2.0.0 for SDK consumption",
-                ));
+                (ReportKind::ExternalCorpus, "coverage_report_schema_version")
             }
             Some(_) => return Err(SdkError::classify("report", "report kind invalid")),
         };
@@ -722,6 +725,32 @@ pub struct SdkError {
 }
 
 impl SdkError {
+    /// Preserve a typed code without passing diagnostic prose through classification.
+    fn coded(code: &'static str, diagnostic: impl fmt::Display) -> Self {
+        let registry: serde_json::Value =
+            serde_json::from_str(include_str!("../product/cli-error-codes.json"))
+                .expect("committed error registry");
+        let row = registry["errors"]
+            .as_array()
+            .expect("error entries")
+            .iter()
+            .find(|row| row["code"] == code)
+            .expect("registered typed SDK code");
+        let kind = match row["exit"].as_u64().expect("error exit") {
+            2 => SdkErrorKind::Request,
+            3 => SdkErrorKind::Unavailable,
+            4 => SdkErrorKind::Output,
+            5 => SdkErrorKind::Execution,
+            _ => SdkErrorKind::Internal,
+        };
+        Self {
+            kind,
+            code,
+            message: row["meaning"].as_str().unwrap().into(),
+            retryable: row["retryable_default"].as_bool().unwrap(),
+            diagnostic: diagnostic.to_string(),
+        }
+    }
     pub(crate) fn classify(command: &str, error: impl fmt::Display) -> Self {
         let diagnostic = error.to_string();
         let failure = crate::cli_protocol::CliFailure::classify(command, &diagnostic);

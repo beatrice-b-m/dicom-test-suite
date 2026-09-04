@@ -38,7 +38,7 @@ artifact.
 | R2 — reduce Rust test-linking amplification | Complete | R2.1, R2.2, R2.3, R2.4 | The fail-closed inventory maps 186 integration sources and all 879 integration entries into exactly 20 explicit harnesses. Six R0-measured heavy bodies have exact ignored qualification entry points, while deterministic change routing now selects bounded Fast/subsystem evidence and reports every deferred class without executing it. The aggregate R2 target-count, cost, heavy-isolation, and routing gates pass. |
 | R3 — rename reusable product | Complete | R3.1, R3.2, R3.3, R3.4 | Product, package, crate, library, sole binary, archives, discovery, package metadata, current operating guides, product-controlled environment, and production scratch paths use `synth-dicom-gen` / `synth_dicom_gen` at the breaking pre-1.0 product boundary `0.2.0`. Immutable dated evidence retains its exact old candidate identity, and 12 qualified-adapter variables retain provenance-bound spellings pending external requalification. The external-consumer audit found no supported `0.1.0` product consumer requiring an alias. A clean side project compiled and exercised only `synth_dicom_gen::sdk` from the extracted, verified `synth-dicom-gen-0.2.0.crate`, without the old repository path. The aggregate R3 gate passes. |
 | R4 — split immutable resources and corpus definitions | Complete | R4.1, R4.2, R4.3, R4.4, R4.5 | `EngineResources` v2 owns a 74-member immutable engine-resource identity containing every current schema while excluding `cases/**` and `Cargo.lock`; the exact 240-member v1 identity remains reconstructable for compatibility. `CorpusDefinitionBundle` 1.0.0 and the split manifest/discovery identities remain unchanged. A private handle-local lazy lease now materializes the 254-file transitional physical closure once per shared resource context. The supported SDK/CLI external-corpus generation route remains R5 work. |
-| R5 — add supported external corpus API | In progress | R5.1 input substrate, internal planning and bounded batch execution | Verified captured inputs now feed one private atomic batch runner and external manifest 2.0 with exact case definitions and selection closure. Supported SDK/CLI requests and outcomes, definition-driven reports, discovery, and external-consumer acceptance remain unimplemented. |
+| R5 — add supported external corpus API | In progress | Input substrate, internal batch execution and definition-driven raw reporting | Verified captured inputs feed one private atomic batch runner and external manifest2; raw report2 preserves the complete source evidence without embedded registry reads. Supported SDK/CLI generation requests/outcomes, external report machine envelopes, discovery, and SDK-only external-consumer acceptance remain unimplemented. |
 | R6 — establish smoke corpus repository | Not started | None | No external repository has been created; authority and destination are still required before out-of-workspace mutation. |
 | R7 — migrate complete dcmview corpus | Not started | None | Requires R6 smoke parity and supported contracts. |
 | R8 — decouple viewer development | Not started | None | Requires a qualified artifact key and complete-enough corpus ownership. |
@@ -3174,6 +3174,102 @@ Spelling (955 matches, unchanged digest), formatting and diff checks pass.
 The dry-run was inspected for `src/manifest_contract.rs` before the focused
 ordinary checks. No Heavy, feature/provider, RC or external execution ran; no
 later R5 report/SDK implementation began.
+
+### R5.4 definition-driven raw reporting — 2026-09-03
+
+The preceding internal runner/manifest boundary `14dce37..f568ef9` received
+independent acceptance before this sequential slice began. The new range after
+`f568ef9` contains `beac74b` (report schema/current identity inventory), `d094ddb`
+(pure projector, semantic validator and raw dispatch), `6420662` (old CLI
+envelope rejection), `0d51f24` (SDK rejection classification), `c524a7e`
+(isolated metadata/runner evidence), `e81b736` (routing/ownership), and `7fe3f4c`
+(generation-guide reporting boundary).
+
+External `coverage_report_schema_version = "2.0.0"` has
+`report_kind = "external_corpus"`. It preserves the complete source manifest as
+a JSON Value, including every definition, selector, ledger edge, identity,
+file, qualification and recorded validation field; it does not claim to retain
+the original JSON whitespace. Top-level identity is copied exactly. Generic
+case dimensions use captured definitions; artifact dimensions use emitted file
+metadata only. Profile, modality, SOP Class, transfer syntax, determinism and
+provider groups carry sorted membership and counts. Logical-case, direct,
+dependency, file and qualification counts are distinct. Unknown caller case
+names require no built-in case-ID inference.
+
+The semantic reader first validates the source manifest2, then reconstructs the
+entire report and rejects changed summaries, dimensions, identities, source
+ledger, assessment claims or versions. Report creation is explicitly
+`manifest_projection`, with report-level validation and independent conformance
+`not_assessed`; it neither reopens payloads nor upgrades or discards recorded
+source results. Markdown identifies profile, selector, verified corpus digest,
+per-case profile membership, outcome and reason, and points to retained full
+JSON evidence. The raw library/CLI dispatch occurs before private snapshot or
+legacy registry reads. No old generated/skipped coverage-row helper is used.
+
+The frozen report-result1 machine envelope cannot represent the new report
+kind. `report <root> --format json --cli-api 1.0.0` therefore returns stable
+`request.version.unsupported`, exit 2 and a schema-valid error envelope, with no
+stdout. Raw JSON/Markdown are available. SDK report2 likewise returns the
+unsupported-version code; external manifest SDK validation remains unsupported.
+No new supported generation request, public corpus selector, report envelope,
+ReportKind or external-consumer API was added. Old curated/composition/assembly
+reports and the coverage-gap report retain their existing contracts.
+
+New exact resource endpoint (all prior dated measurements remain historical):
+
+- Report2 schema: 2,641 bytes,
+  SHA-256 `0f0b3945a575563c6d45d4acb5b29917b86a14748b4762b47cdafeb93cfc0eda`.
+- Current engine v2: 76 members / 1,259,399 bytes,
+  SHA-256 `e8cb8ba376e03d9d4d1451c44a70b3609c0ada11baab16bb96b012b8e6e6cd77`.
+- Schema domain: 53 members / 858,927 bytes,
+  SHA-256 `a562c02e31550c0bac2d2f14b2c7af49b772af1368f19109a0e1b9174a229299`.
+- Physical capture: 256 files / 2,672,657 logical bytes. The exact named
+  legacy240/dc61 reconstruction and verified214-file corpus identity above
+  remain unchanged.
+
+Route dry-runs preceded the bounded ordinary checks. Exact new report filter
+`cargo test --locked --no-default-features --lib corpus_report::captured_report_tests::`
+passes 3/3 in 4.04s (21.06s compile); frozen/current report-contract filter
+passes 3/3 in 0.92s. Captured runner passes 5/5 in 11.93s and identity-domain
+tests 4/4 in 3.64s during overlapping local ordinary checks. New tests cover
+deleted definition/output source trees, complete evidence equality, spatial
+dependency and mixed planned/unavailable selection, synthetic multi-file case
+counts, unknown case names, and metadata-only negative/fuzz/stress grouping.
+The report validator rejects changed totals, dimensions, identities, source
+status and assessment claims.
+
+The exact CLI regression
+`report_cli::external_report_raw_formats_preserve_evidence_and_reject_old_envelope`
+passes 1/1 in 2.38s. It moves a schema-valid synthetic manifest2 metadata fixture
+over real smoke file evidence to an unrelated working directory, deletes its
+payload files, verifies raw JSON/Markdown and rejects the frozen machine
+envelope. This is reporting evidence, not a claim that the synthetic metadata
+fixture was produced by the external runner; the separate runner tests prove
+that execution boundary. Full ordinary report CLI passes 49/49 in 24.93s,
+including all previous 48 entries; SDK facade passes 12/12 in 4.38s.
+Schema Fast passes 73/73, release Fast 14/14, resource subsystem 86/86 (7.14s).
+`cargo check --locked --no-default-features` passes in 12.92s; formatting and
+exact range diff checks pass. Routing passes 25/25; ownership is 22 targets /
+271 groups / 1,456 entries, including 903 integration entries. Spelling remains
+955 with unchanged digest. The new schema uses current contract references.
+
+Intermediate errors were resolved without weakening evidence: the initial
+unsupported envelope text classified as an internal invariant error; it now
+uses the existing unsupported-version category. The runner's old report-error
+prose assertion was updated to the stable SDK code. Adding one CLI entry
+required the fail-closed integration inventory increment from 902 to 903.
+
+**Dated evidence correction:** the earlier internal-runner section's blanket
+statement that fuzz execution did not run was too broad. Its full ordinary
+report CLI 48-entry suite included
+`report_command_isolates_bounded_fuzz_qualification`, which executes a bounded
+ordinary fuzz generation/report test. The current 49-entry suite retains and
+passes that same entry. Neither run invoked the ignored Heavy dispatcher or
+terminal target qualification. The new isolated-profile grouping checks use
+metadata only. Earlier text is preserved as historical, with this correction
+authoritative for the actual bodies executed. No Heavy/Nightly, feature-specific
+codec, external provider, package/archive/RC or external repository work ran in
+this reporting slice. No later SDK/CLI implementation began.
 
 ## Measurements
 

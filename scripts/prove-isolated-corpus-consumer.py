@@ -150,6 +150,8 @@ def main():
     shutil.copyfile(fixture, consumer / "src/main.rs")
     (consumer / "Cargo.toml").write_text('[package]\nname="isolated-corpus-consumer"\nversion="0.0.0"\nedition="2024"\n[dependencies]\nsynth-dicom-gen={path=' + json.dumps(str(source)) + ',default-features=false}\nserde_json="=1.0.150"\n[profile.dev]\ndebug=0\nincremental=false\n')
     shutil.copyfile(source / "Cargo.lock", consumer / "Cargo.lock")
+    shutil.copyfile(source / "rust-toolchain.toml", consumer / "rust-toolchain.toml")
+    receipt["rust_toolchain_file_sha256"] = sha(source / "rust-toolchain.toml")
     source_packages = lock_packages((source / "Cargo.lock").read_text())
     receipt["snapshot_cargo_lock_sha256"] = sha(source / "Cargo.lock")
     receipt["bundles"] = {"smoke": bundle(source, root / "caller-smoke"), "planned": bundle(source, root / "caller-planned", planned=True)}
@@ -158,10 +160,12 @@ def main():
         assert sha(source / expected["recipe"]["logical_path"]) == expected["recipe"]["sha256"]
     write_json(root / "r0-baseline.json", baseline)
     env = os.environ.copy(); env["CARGO_TARGET_DIR"] = str(target); env["CARGO_INCREMENTAL"] = "0"
-    rustc = run("rustc", ["rustc", "-vV"], root).decode()
+    rustc = run("rustc", ["rustc", "-vV"], source, env).decode()
+    assert run("consumer-rustc", ["rustc", "-vV"], consumer, env).decode() == rustc
     host = re.search(r"^host: (\S+)$", rustc, re.MULTILINE).group(1)
     receipt["target"] = host
-    run("cargo", ["cargo", "-V"], root)
+    cargo = run("cargo", ["cargo", "-V"], source, env)
+    assert run("consumer-cargo", ["cargo", "-V"], consumer, env) == cargo
     # Add the consumer root while retaining the seeded resolution, rather than
     # regenerate-lockfile's fresh resolver choices from the local cache.
     run("consumer-lock", ["cargo", "metadata", "--offline", "--filter-platform", host, "--format-version", "1"], consumer, env)

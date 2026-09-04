@@ -4511,6 +4511,57 @@ generation, validation or report command ran for the imported corpus. Public-
 loader availability, supported-interface byte/full-semantics parity, repeated
 generation and the later complete R7/terminal qualifications remain open.
 
+### 2026-09-04 — R7 imported-definition public-loader availability accepted
+
+One bounded loader-only proof passed on clean corpus `538d09a`, using the
+unchanged explicitly supplied source232b9de generator artifact. The existing
+smoke verifier ran its seven positive/adverse checks once. Core capabilities
+then ran once by profile and once by the exact ten explicit IDs, seed1 and
+parallelism4, from an unrelated directory with empty PATH. No generation,
+validation, report or rebuild ran.
+
+The smoke assessment selects three ready cases from the full thirteen-case
+definition. Both core assessments select ten unique ready/direct cases with
+zero dependencies, ten artifact IDs, no artifact paths and publication/
+validation `not_run`. Their complete assessments are equal except the declared
+selector. The planned core hash is exactly the retained embedded baseline's
+`6769b685d9fec095215acd9b3359948e28d78f7c6d426c4ccb8379ffcfac99bb`;
+this is planning equality, not byte-output proof. The verified corpus digest is
+`0b651cdc15a6618725bbef7e7d5a5a84276acdfebe1ec47a026fc1496249fda2`,
+with fifteen files /70,435 bytes and the previously recorded raw descriptor hash.
+
+Evidence lives in corpus `artifacts/r7-imported-definition-smoke1-20260904`,
+`artifacts/r7-imported-definition-core1-20260904`, and
+`artifacts/r7-imported-definition-invocation1-20260904`. Invocation receipt SHA:
+`2e579070e7c305a6ee315fb3a9515823538135104da121f60997afc0bbe50759`.
+Raw core profile stdout SHA:
+`e3a8cf4f00c1aa526b24c281a21b0f954f178459300576f12d78fa57a44af114`;
+raw core explicit-ID stdout SHA:
+`b176293c7183009dabdecb2bbbc6c1e636e7ec0fa179c7f86212e5e99614a258`.
+Receipt discovery digests label inner result documents; acquisition separately
+validated complete-envelope digests against the unchanged generator lock.
+These different canonicalization scopes must not be substituted for each other.
+
+Smoke-helper wall time was4.698362167s, core acquisition1.566495875s,
+core-profile command1.339004833s and core-ID command1.346308625s; whole
+capture9.070288708s. Retained smoke evidence is16 files,145,605 logical /
+176,128 allocated bytes; core evidence5 files,285,330/294,912 bytes; invocation
+evidence including final receipt5 files,33,101/45,056 bytes. All fifteen corpus
+inputs remain unchanged at70,435 logical/94,208 allocated bytes. The existing
+generator cache remains one69,314,672-byte file/69,316,608 allocated bytes,
+with zero growth.
+
+Independent review verified every inventoried artifact/input/cache hash and
+size, candidate Git blobs, binary mode0500 and lock discovery bindings, all
+seven exact smoke outcomes, and complete core assessment equality. Root full
+Draft2020 evaluation (Ajv8.18/Node24.19) passed twelve checks in0.325471458s:
+three capabilities3 results, their success envelopes and six adverse error
+envelopes. Neither review reran native commands.
+
+Loader availability for this imported slice is accepted. Actual external
+generation, strict validation, full report preservation, byte/full-semantics
+parity and reproducibility remain the next separately reviewed boundary.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

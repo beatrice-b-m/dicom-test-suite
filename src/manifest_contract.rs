@@ -275,6 +275,7 @@ fn validate_external_selection(value: &Value) -> Result<(), ManifestContractErro
     let mut direct = BTreeSet::new();
     let mut owned = std::collections::BTreeMap::new();
     let mut generated = BTreeSet::new();
+    let mut edges = std::collections::BTreeMap::new();
     for entry in ledger {
         let id = entry["case_id"].as_str().unwrap();
         if previous.is_some_and(|prior| prior >= id) {
@@ -283,6 +284,16 @@ fn validate_external_selection(value: &Value) -> Result<(), ManifestContractErro
             ));
         }
         previous = Some(id);
+        let dependencies = entry["dependency_case_ids"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|id| id.as_str().unwrap())
+            .collect::<Vec<_>>();
+        if dependencies.windows(2).any(|pair| pair[0] >= pair[1]) {
+            return Err(contract_error("dependency IDs must be sorted and unique"));
+        }
+        edges.insert(id, dependencies);
         if entry["selection"] == "direct" {
             direct.insert(id);
         }
@@ -319,6 +330,42 @@ fn validate_external_selection(value: &Value) -> Result<(), ManifestContractErro
             previous_path = Some(path);
         }
     }
+    if direct.is_empty() || generated.is_empty() {
+        return Err(contract_error(
+            "published corpus requires direct selection and generated evidence",
+        ));
+    }
+    if edges.values().flatten().any(|id| !edges.contains_key(id)) {
+        return Err(contract_error("selection dependency absent from ledger"));
+    }
+    let mut remaining = edges.keys().copied().collect::<BTreeSet<_>>();
+    while !remaining.is_empty() {
+        let ready = remaining
+            .iter()
+            .copied()
+            .filter(|id| {
+                edges[id]
+                    .iter()
+                    .all(|dependency| !remaining.contains(dependency))
+            })
+            .collect::<Vec<_>>();
+        if ready.is_empty() {
+            return Err(contract_error("selection dependency cycle"));
+        }
+        for id in ready {
+            remaining.remove(id);
+        }
+    }
+    let mut reached = BTreeSet::new();
+    let mut pending = direct.iter().copied().collect::<Vec<_>>();
+    while let Some(id) = pending.pop() {
+        if reached.insert(id) {
+            pending.extend(edges[id].iter().copied());
+        }
+    }
+    if reached.len() != ledger.len() {
+        return Err(contract_error("orphan dependency ledger row"));
+    }
     if value["run"]["selector"]["kind"] == "case_ids" {
         let ids: Vec<_> = value["run"]["selector"]["case_ids"]
             .as_array()
@@ -349,9 +396,10 @@ fn validate_external_selection(value: &Value) -> Result<(), ManifestContractErro
     if files.len() != owned.len() {
         return Err(contract_error("ledger artifact absent from files"));
     }
+    let mut qualified = BTreeSet::new();
     for qualification in value["qualifications"].as_array().unwrap() {
         let id = qualification["case_id"].as_str().unwrap();
-        if !generated.contains(id) {
+        if !generated.contains(id) || !qualified.insert(id) {
             return Err(contract_error("orphan qualification"));
         }
         evidenced.insert(id);
@@ -390,10 +438,35 @@ mod external_manifest_contract_tests {
         .unwrap();
         value.as_object_mut().unwrap().remove("skipped_cases");
         value["manifest_schema_version"] = json!("2.0.0");
-        value["files"] = json!([]);
+        // A real bounded native output supplies schema-valid evidence; the frozen
+        // reader fixtures intentionally contain no generated files.
+        static FILE: std::sync::OnceLock<Value> = std::sync::OnceLock::new();
+        let file = FILE
+            .get_or_init(|| {
+                let root = std::env::temp_dir().join(format!(
+                    "synth-dicom-gen-contract-evidence-{}",
+                    std::process::id()
+                ));
+                assert!(!root.exists());
+                let run = crate::prepare_generation_run(crate::GenerateOptions {
+                    profile: "smoke".into(),
+                    out_dir: root.clone(),
+                    seed: 1,
+                    include_stress: false,
+                })
+                .unwrap();
+                crate::write_generation_run(&run).unwrap();
+                let manifest: Value =
+                    serde_json::from_slice(&std::fs::read(root.join("manifest.json")).unwrap())
+                        .unwrap();
+                std::fs::remove_dir_all(root).unwrap();
+                manifest["files"][0].clone()
+            })
+            .clone();
+        value["files"] = json!([file]);
         value["qualifications"] = json!([]);
         value["run"] = json!({"kind":"external_corpus","profile":"smoke","seed":1,"include_stress":false,"selector":{"kind":"profile"}});
-        value["selection_ledger"] = json!([]);
+        value["selection_ledger"] = json!([{"case_id":file["case_id"],"selection":"direct","registry_status":"implemented","outcome":"generated","reason_code":null,"artifact_paths":[file["path"]],"dependency_case_ids":[]}]);
         value["identity_projection"] = serde_json::to_value(
             crate::identity::project_manifest_identities(
                 &EngineResources::embedded(),
@@ -408,16 +481,21 @@ mod external_manifest_contract_tests {
     }
 
     fn entry(id: &str) -> Value {
-        json!({"case_id":id,"selection":"direct","registry_status":"planned","outcome":"planned","reason_code":"planned","artifact_paths":[]})
+        json!({"case_id":id,"selection":"direct","registry_status":"planned","outcome":"planned","reason_code":"planned","artifact_paths":[],"dependency_case_ids":[]})
     }
 
     #[test]
-    fn accepts_empty_profile_and_explicit_planned_selection() {
+    fn accepts_mixed_selection_and_rejects_empty_publication() {
         let mut value = fixture();
         validate_external_corpus_manifest(&value).unwrap();
-        value["selection_ledger"] = json!([entry("test/a"), entry("test/b")]);
-        value["run"]["selector"] = json!({"kind":"case_ids","case_ids":["test/a","test/b"]});
+        let generated = value["selection_ledger"][0].clone();
+        value["selection_ledger"] = json!([generated, entry("test/a"), entry("test/b")]);
+        value["run"]["selector"] =
+            json!({"kind":"case_ids","case_ids":[generated["case_id"],"test/a","test/b"]});
         validate_external_corpus_manifest(&value).unwrap();
+        value["selection_ledger"] = json!([]);
+        value["files"] = json!([]);
+        assert!(validate_external_corpus_manifest(&value).is_err());
     }
 
     #[test]
@@ -483,7 +561,7 @@ mod external_manifest_contract_tests {
         // Relationship checks run only after full schema validation in production.
         let mut value = json!({
             "run":{"selector":{"kind":"profile"}},
-            "selection_ledger":[{"case_id":"a","selection":"direct","registry_status":"implemented","outcome":"generated","reason_code":null,"artifact_paths":["a.dcm"]}],
+            "selection_ledger":[{"case_id":"a","selection":"direct","registry_status":"implemented","outcome":"generated","reason_code":null,"artifact_paths":["a.dcm"],"dependency_case_ids":[]}],
             "files":[{"case_id":"a","path":"a.dcm"}],"qualifications":[]
         });
         validate_external_selection(&value).unwrap();
@@ -500,8 +578,45 @@ mod external_manifest_contract_tests {
         value["selection_ledger"][0]["artifact_paths"] = json!([]);
         value["qualifications"] = json!([{"case_id":"a"}]);
         validate_external_selection(&value).unwrap();
+        value["qualifications"] = json!([{"case_id":"a"},{"case_id":"a"}]);
+        assert!(validate_external_selection(&value).is_err());
+        value["qualifications"] = json!([{"case_id":"a"}]);
         value["qualifications"][0]["case_id"] = json!("b");
         assert!(validate_external_selection(&value).is_err());
+    }
+
+    #[test]
+    fn dependency_graph_is_closed_acyclic_and_reachable() {
+        let mut value = fixture();
+        let direct = value["selection_ledger"][0]["case_id"].clone();
+        let mut dependency = entry("test/dependency");
+        dependency["selection"] = json!("dependency");
+        value["selection_ledger"][0]["dependency_case_ids"] = json!(["test/dependency"]);
+        value["selection_ledger"]
+            .as_array_mut()
+            .unwrap()
+            .push(dependency);
+        validate_external_corpus_manifest(&value).unwrap();
+        for (pointer, replacement) in [
+            ("/selection_ledger/0/dependency_case_ids", json!([])),
+            (
+                "/selection_ledger/0/dependency_case_ids",
+                json!(["test/missing"]),
+            ),
+            (
+                "/selection_ledger/0/dependency_case_ids",
+                json!(["test/dependency", "test/dependency"]),
+            ),
+            ("/selection_ledger/1/dependency_case_ids", json!([direct])),
+            ("/selection_ledger/0/selection", json!("dependency")),
+        ] {
+            let mut changed = value.clone();
+            *changed.pointer_mut(pointer).unwrap() = replacement;
+            assert!(
+                validate_external_corpus_manifest(&changed).is_err(),
+                "{pointer}"
+            );
+        }
     }
 
     #[test]

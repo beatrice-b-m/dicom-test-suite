@@ -655,10 +655,10 @@ mod identity_domain_tests {
         .unwrap();
         assert_eq!(embedded.engine.member_count, 3);
         assert_eq!(embedded.schema_set.member_count, 52);
-        assert_eq!(embedded.schema_set.total_size_bytes, 855_723);
+        assert_eq!(embedded.schema_set.total_size_bytes, 856_114);
         assert_eq!(
             embedded.schema_set.schema_set_sha256,
-            "e62b974961225034819b829411d82219892aa5520ead4e90e138771f3ad1eef7"
+            "b651b37ae3f8692140bdc71a08f2b8ab1b225b07a01d4469098a347fbb3c6e70"
         );
         assert_eq!(embedded.template_catalog.member_count, 3);
         assert_eq!(embedded.provider_catalog.member_count, 16);

@@ -5493,6 +5493,54 @@ passed. This accepts static R7.1 ownership for CT1 only. Public-loader
 availability, generated parity and R7.2/R7.3 genericity remain separate; no
 native command, viewer, conformance or wider core run occurred.
 
+## R7 CT1 selected planning readiness accepted — 2026-09-04
+
+Corpus commits `be2e239192a298c1a2bc75045d9209b85fc99dcc` and
+`fedd06b44183227c294a5dff895fe195e5d97769` add the bounded capture helper and
+its explicit ordinary routing; corpus status commit
+`4073834f2faae62ca2c6a6381463a3f67de4ed77` records the independently accepted
+execution. The retained evidence is
+`artifacts/r7-ct-availability1-20260904` in the corpus repository. Its
+86,647-byte canonical receipt SHA-256 is
+`2c50290fe972004483bf274a70929cecb7d597a887ddb28e1e4c1dad44ff7f5d`.
+
+From clean corpus source `fedd06b44183227c294a5dff895fe195e5d97769`,
+the helper acquired the unchanged69,314,672-byte generator artifact SHA-256
+`4ca0c6d6a8e4cbab81b7005b4354c7ff558c44747e00f41d22d3abbfd50b7768`
+from source `232b9de41f97ee95abe1ecc40b6b8b70ebeeea5f` under the exact R5
+macOS-arm64 pin. Acquisition took1.624879916s. Exactly one managed command ran,
+without retry: `capabilities` for profile core, seed1, parallelism4 and only
+`classic/ct/mono2_i16_rescale_12bit_explicit_le`, using the copied content0.4.0
+bundle from an empty private working directory and empty `PATH`. It exited0 in
+1.872721334s; binding took0.013188625s and the whole capture took3.786612542s.
+
+The copied22-file/106,636-byte corpus has descriptor SHA-256
+`80488c8248124e8215131bd670c6c2fe330400c960bcef5f4a8b145083a4d691`
+and framed identity
+`ccd14b73d81cf9d6f49f950174331cb418824e8888fb476768365a623b4b6d79`.
+The retained result contains the complete17-case/eight-profile catalog and one
+direct, ready CT ledger row with no dependencies or artifact paths, artifact
+`curated_ct_mono2_i16_rescale_instance`, executable artifacts true and plan
+`ad33f99c00e2d17f93e07b2aa663ca82bbd63444aeb3ceb94c47b620adbe4d6e`;
+publication and validation are both `not_run`. The final evidence closure is34
+files/71,294,167 logical/71,356,416 allocated bytes and14 directories. Source,
+pin, original artifact, copied and original corpus/baseline inputs, private
+cache, modes, owners, directories and empty working directory all passed the
+recorded before/after guards.
+
+Independent review reauthenticated all83 source-archive members, the complete
+evidence inventory, both discovery documents, the raw response and the pure
+binding result. With jsonschema4.26.0 Draft202012Validator, all57 generator
+schemas and8 corpus schemas passed their meta-schemas and all25 applicable
+retained instances passed in1.56s; a separate pure-checker replay passed in
+0.06s. These audits launched no native process.
+
+This accepts only CT1 selected public-loader planning readiness. It does not
+generate, strictly validate, report or publish the migrated case, and it does
+not establish migrated parity, viewer or independent-conformance behavior,
+whole-core readiness, R7.2/R7.3 genericity, packaging or release qualification.
+The next bounded CT boundary is the separately reviewed migrated parity proof.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

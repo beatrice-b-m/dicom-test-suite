@@ -5395,6 +5395,51 @@ The retained set has15 files/139,435,737 logical/139,472,896 allocated bytes.
 A fresh baseline2 must independently complete strict validation and reporting
 before CT import, availability or parity can proceed.
 
+## R7 CT1 embedded baseline2 accepted — 2026-09-04
+
+Under the existing authorization, the corrected helper ran once from clean
+corpus `62676290b3056ea7dc1f2022b6418b6737bdcec8`. The bounded baseline is
+retained at corpus `artifacts/r7-native-ct-baseline2-20260904`; its37,034-byte
+receipt SHA-256 is
+`e34a25ca0bb2720dab0d5736bb08f51736fcfb169e0db54608ce10b3c5c3da51`.
+The6.611080083s job executed exactly one generate, one strict validate and one
+coverage1.1 report in1.408821999s,0.251495459s and1.011095916s. All exited0
+with empty stderr; there was no retry, build, network, broader profile or Heavy
+work.
+
+The output exactly reproduces baseline1's generation bytes: manifest143,348
+bytes SHA-256
+`07fae743d9f511472673d5a53c40cd43c67070429db4bafa0c1ecdd849ee0201`
+and Part10 file1,198 bytes SHA-256
+`b7a7e95dced9092c23e56815b6083e4b630f557bcb1508d55ef82d4d8fb7e732`.
+Canonical manifest/file/skips SHA-256 are respectively
+`8b2aa76210738f2cac3c43408f633fcd910860563da8545a36d7e7a56c4696f3`,
+`82fd8a1658aa588cff6ae2644ee1e2538bf60fc6df03a2d7d1ed14e40030dcbd`
+and `2ffb7b01d4c900a77333029e75df85c3e34d046611c16cf3f3330704533a1b4d`.
+The exact corpus/resolved plans are ad33f99c/598cb71e above. The raw frame is
+`000c00000004ff07`, which sign-extends at12 bits to -1024,0,1024,2047.
+The source-shaped recipe, visual object, five UIDs,39 internal+4 standards
+checks and11 ordered standards records all match.
+
+Strict validation accepted exactly one file with no failures. The697,228-byte
+report SHA-256
+`1f2016e94846d0693a46753e2342e431f78814c595d7d9a2a3a0567fb2841d9b`
+has34 unique rows, counts generated1/skipped33/others0 and33 exact gaps. Its
+complete object equals the report envelope projection. The retained pre-receipt
+inventory is22 files/141,110,112 logical/141,164,544 allocated bytes; final is
+23 files/141,147,146 logical/141,205,504 allocated. Output remained unchanged
+across validation/report, and source, pins, copied inputs, both caches, modes,
+owners, directories and empty private CWD passed closure checks.
+
+Independent artifact/source review accepted the same exact command, payload,
+semantic, report and closure boundary while confirming baseline1 remains failed
+and unchanged. A separate Draft2020 audit passed8/8 schemas in0.511119417s;
+24/24 exact envelope/projection/inventory bindings passed in0.093373916s. This
+accepts only the original embedded CT1 baseline prerequisite. It is same-project
+evidence, not independent conformance or viewer evidence, and does not import
+CT1, establish public-loader availability or migrated parity, close R7.2/R7.3,
+or qualify wider R7/release scope.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

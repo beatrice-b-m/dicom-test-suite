@@ -80,17 +80,19 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
                 ["release_candidate"],
             ),
             "src/sdk.rs": (
-                ["sdk"],
+                ["captured_corpus_report", "sdk"],
                 [
+                    "cargo test --locked --no-default-features --lib corpus_report::captured_report_tests::",
                     "cargo test --locked --no-default-features --test cli_sdk__nonfast sdk_facade::",
                     "cargo test --locked --no-default-features --test schema_resources__subsystem cli_contract_schema::",
                 ],
                 ["release_candidate"],
             ),
             "src/manifest_contract.rs": (
-                ["assembly", "captured_corpus_runner", "report", "schema", "sdk"],
+                ["assembly", "captured_corpus_report", "captured_corpus_runner", "report", "schema", "sdk"],
                 [
                     "cargo test --locked --no-default-features --lib corpus_generation::captured_runner_tests::",
+                    "cargo test --locked --no-default-features --lib corpus_report::captured_report_tests::",
                     "cargo test --locked --no-default-features --lib manifest_contract::external_manifest_contract_tests::",
                     "cargo test --locked --no-default-features --lib report_contract::report_contract_tests::",
                     "cargo test --locked --no-default-features --test assembly__subsystem",
@@ -142,6 +144,15 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
         config["rules"] = [rule for rule in config["rules"] if rule["id"] != "captured-corpus-runner"]
         with self.assertRaises(ROUTER.RoutingError):
             ROUTER.select(["src/corpus_generation.rs"], config, self.ownership)
+
+    def test_external_report_sources_select_lossless_projection_and_cli_readers(self):
+        for path in ["src/corpus_report.rs", "src/report_contract.rs", "schemas/coverage-report-v2.schema.json", "schemas/manifest-v2.schema.json"]:
+            with self.subTest(path=path):
+                result = self.select(path)
+                self.assertIn("captured_corpus_report", result["bundle_ids"])
+                self.assertIn("report", result["bundle_ids"])
+                command = next(item for item in result["commands"] if item.get("module") == "corpus_report::captured_report_tests")
+                self.assertEqual(command["list_count"], 3)
 
     def test_overlaps_and_multi_path_union_are_deterministic_and_deduplicated(self):
         codec_engine = self.select("src/executor/frame_codec.rs")
@@ -291,10 +302,10 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
 
     def test_shared_manifest_contract_routes_assembly_readers_and_semantics(self):
         result = self.select("src/manifest_contract.rs")
-        self.assertEqual(result["bundle_ids"], ["assembly", "captured_corpus_runner", "report", "schema", "sdk"])
+        self.assertEqual(result["bundle_ids"], ["assembly", "captured_corpus_report", "captured_corpus_runner", "report", "schema", "sdk"])
         self.assertEqual(
             result["matched_rules"]["src/manifest_contract.rs"],
-            ["captured-corpus-runner", "manifest-contract"],
+            ["captured-corpus-report", "captured-corpus-runner", "manifest-contract"],
         )
         self.assertIn(
             "cargo test --locked --no-default-features --test assembly__subsystem",
@@ -440,7 +451,7 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
         self.assertEqual(run.call_args.args[0][:4], ["git", "diff", "--name-status", "-z"])
         self.assertEqual(run.call_args.args[0][-1], "--")
         result = self.select(*paths)
-        self.assertEqual(result["bundle_ids"], ["codec", "provider", "sdk"])
+        self.assertEqual(result["bundle_ids"], ["captured_corpus_report", "codec", "provider", "sdk"])
 
         for malformed in [b"Q\0src/sdk.rs\0", b"R101\0src/sdk.rs\0src/codecs.rs\0", b"R100\0src/sdk.rs\0"]:
             failed = types.SimpleNamespace(returncode=0, stdout=malformed, stderr=b"")

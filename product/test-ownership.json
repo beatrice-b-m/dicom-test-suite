@@ -3,10 +3,10 @@
   "scope": {
     "rust_test_targets": 22,
     "integration_test_targets": 20,
-    "rust_test_entry_groups": 270,
-    "rust_test_entries": 1452,
+    "rust_test_entry_groups": 271,
+    "rust_test_entries": 1456,
     "integration_source_groups": 187,
-    "integration_test_entries": 902,
+    "integration_test_entries": 903,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
   },
   "enums": {
@@ -416,7 +416,21 @@
         "explicit_selection_preserves_dependencies_and_mixed_statuses",
         "transaction_failure_cancellation_and_existing_destination_are_atomic"
       ],
-      "entry_digest": "f3b06c4150fc5fae810e350a44d88754e14ed90fc74978156b5e6a7b375389e6"
+      "entry_digest": "c426b54c2ce830b4135dbd78a540bef0a9caf121e353e3e101c95ebf334ce095"
+    },
+    {
+      "source": "tests/captured_corpus_report.rs",
+      "target": "synth_dicom_gen",
+      "domain": "corpus_generation",
+      "verification_class": "subsystem",
+      "cost_tier": "ordinary",
+      "entry_count": 3,
+      "entries": [
+        "reports_preserve_exact_source_and_distinguish_case_artifact_counts",
+        "projection_accepts_unknown_case_names_without_embedded_inference",
+        "report_semantics_reject_summary_identity_and_source_tampering"
+      ],
+      "entry_digest": "bb73532bfba93759c0a90cabf30bae48623ed35cc77df4736924a5cfdeb52d5d"
     },
     {
       "source": "tests/captured_curated_plan.rs",
@@ -1698,7 +1712,7 @@
         "resource_lookup_rejects_unsafe_and_unknown_paths",
         "snapshot_materializes_and_cleans_the_complete_resource_tree"
       ],
-      "entry_digest": "194794360aa3b469ef543b264d25ffc96dc3bcb267551c8dcb69cf6a60ab7e09"
+      "entry_digest": "86be03ce1768e160f1ecc45a56d93e714eeac8c106cf8d9bbd5ed6b33231af91"
     },
     {
       "source": "tests/enhanced_mr_temporal.rs",
@@ -2549,7 +2563,7 @@
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 52,
+      "entry_count": 53,
       "entries": [
         "report_command_isolates_bounded_fuzz_qualification",
         "report_command_writes_json_coverage_for_core_root",
@@ -2602,9 +2616,10 @@
         "report_exposes_generated_wsi_tile_segmentation_closure",
         "report_rejects_partial_and_wrong_case_single_frame_vl_contracts",
         "report_locks_rt_radiation_pair_contracts_and_markdown",
-        "report_rejects_malformed_rt_radiation_pair_manifests"
+        "report_rejects_malformed_rt_radiation_pair_manifests",
+        "external_report_raw_formats_preserve_evidence_and_reject_old_envelope"
       ],
-      "entry_digest": "5cd89683c1c01d7fc603b2d36024c970d1e3682f82b2a0b9d3570f7542f4cc06"
+      "entry_digest": "61f6636fdd973fc91d8caf98ebbcfd42fd90da5de7e4605de0208636b9452c06"
     },
     {
       "source": "tests/robustness_qualification_api.rs",
@@ -3794,7 +3809,7 @@
         "mutation_of_an_internal_shared_root_fails_closed_on_reuse",
         "one_handle_reuses_one_tree_across_batch_generate_validate_report_and_compose"
       ],
-      "entry_digest": "80e89a8b47930297c71fab53c04f41f0beb448a845036ada00ae0a4f3c42c912"
+      "entry_digest": "9682b5f4e62ef54f181197b13ac8f3c8d6ee8bb3f208f9d3706baad631a302ef"
     },
     {
       "source": "src/executor/evidence.rs",
@@ -4121,7 +4136,7 @@
         "cargo_lock_perturbation_changes_only_toolchain_and_legacy_provenance",
         "external_runtime_identity_requires_successful_typed_execution_evidence"
       ],
-      "entry_digest": "e09d704f802c3132de56a6b5eb872887290681814dc2ed36f948c3046f5170d8"
+      "entry_digest": "935f047a7e70a8f88f33a177f4f7b4e6d0cecf7e2347702a4759e7e7e4ecb825"
     },
     {
       "source": "src/lib.rs",

@@ -4834,6 +4834,31 @@ the2,427-byte script SHA is
 Root and independent review accept this embedded baseline only. Metadata live
 import, loaded-corpus availability and migrated parity remain unrun.
 
+## R7 later classic/VL cohort: source-only audit accepted — 2026-09-04
+
+Generator `bd2859e976dd0e9e27bc5ff3767248a4115ae59b` records the bounded
+eleven-case inventory in
+`docs/r7-classic-single-instance-source-inventory-2026-09-04.md`. Root and an
+independent reviewer accepted all eleven canonical registry-row and raw recipe
+identities, planning/projection orders, template/algorithm bindings, and the
+three declared source-note identities against source `232b9de`. The named
+loader, planners, execution/projector sources, catalog and standards lock have
+no scoped source drift. This is not a whole-engine equivalence claim.
+
+The proposed sequential subcohorts are CT1, DX/MG3, CR1, US1, PET1, XA/XRF2
+and VL2. Shared algorithm providers prevent treating these case sets as
+independent implementation boundaries. Fixed names, prefixes and projection
+rules remain explicit R7.2/R7.3 debt; native sample-byte hints are not measured
+Part 10 output sizes. No baseline, import, generation, parity or new capability
+was established by this audit. Metadata-three consumer preparation remains
+the sole active migration boundary.
+
+Verification was read-only source extraction, JSON/byte/hash comparison and
+independent source review. `git diff --check` passed. The documentation-only
+changed-test dry route selected no commands; its reported unconditional Fast
+coverage was not executed. No native command, build, Heavy, package, release
+or external-state mutation ran for this source-only unit.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

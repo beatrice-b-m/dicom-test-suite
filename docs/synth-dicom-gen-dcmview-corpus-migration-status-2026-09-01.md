@@ -4073,6 +4073,41 @@ regeneration, live case import, consumer/schema change, pin replacement,
 broader qualification or external mutation is authorized by this checkpoint.
 Required reporting evidence is not waived; R7 and terminal gates remain open.
 
+### 2026-09-04 — R7 reporting diagnosis and ordered repair decision
+
+Corpus `d005aa4` records one additional read-only raw report invocation against
+the unchanged baseline output: exit 6 in 0.302576333s, with diagnostic
+`report schema invalid: false was expected`. Diagnostic receipt SHA is
+`49df95f8a0352db6d8f00e7540e15008be4b35e6361ceb1c50607fc2e27b0482`.
+The original receipt and all eleven output hashes remain unchanged. Independent
+review verifies the generated/validated evidence is reusable, not complete.
+
+The frozen coverage schema's nonsquare case condition requires concrete
+artifact fields even for an unselected unavailable row. The producer's null
+fields correctly avoid inventing pixel/geometry observations. Other case-only
+guards were inventoried, but are not assumed broken: some intentionally retain
+definition expectations. No blanket relaxation or removal of rows is permitted.
+
+The next sequential generator-only boundary is an additive coverage `1.1.0`
+contract: preserve frozen `0.1.0` and `1.0.0` schema bytes and readers; retain
+every previously accepted row; add only an explicit known non-generated,
+all-seven-nonsquare-fields-null alternative. Generated variants retain their
+full strict constraints. Current manifest1 reporting will use the new version;
+legacy manifest reporting remains unchanged. Existing machine wrapper and
+discovery versions may stay only if their frozen schemas demonstrably permit
+the new advertised report version. The repair needs owning ordinary/Fast
+verification, resource/identity/compatibility tests and a clean code checkpoint
+before a separately identified reporter is built. It does not authorize broader
+Heavy qualification or replacement of the corpus generator pin.
+
+After code acceptance, a separately hash-bound reporter may read the original
+baseline; its provenance must remain separate from the unchanged generating
+binary. A later corpus helper repair must also compare exact pinned standards
+enrichment (registry-first, conditional appended records, first-occurrence
+deduplication), preserving all records rather than assuming registry equality.
+Only then can complete baseline evidence be reviewed. Live case imports and
+consumer-version migration remain queued behind this boundary.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

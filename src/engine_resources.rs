@@ -766,7 +766,7 @@ mod snapshot_cache_tests {
         );
         assert!(!failed_root.expect("writer observed snapshot root").exists());
         let snapshot = resources.shared_snapshot().unwrap();
-        assert_eq!(file_inventory(snapshot.root()), (260, 2_703_660));
+        assert_eq!(file_inventory(snapshot.root()), (261, 2_918_678));
     }
 
     #[test]
@@ -851,7 +851,7 @@ mod snapshot_cache_tests {
             resources.shared_snapshot().unwrap().root(),
             shared_root.as_path()
         );
-        assert_eq!(file_inventory(&shared_root), (260, 2_703_660));
+        assert_eq!(file_inventory(&shared_root), (261, 2_918_678));
 
         fs::remove_dir_all(workspace).unwrap();
     }

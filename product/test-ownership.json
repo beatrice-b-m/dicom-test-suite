@@ -3847,7 +3847,7 @@
         "mutation_of_an_internal_shared_root_fails_closed_on_reuse",
         "one_handle_reuses_one_tree_across_batch_generate_validate_report_and_compose"
       ],
-      "entry_digest": "c2e49a3d143d30dcf846fa1bbec42d9af3c4c7dea1599e52665298d4f8faefd3"
+      "entry_digest": "cbadaefa69366bce418b65ac59db421e8c38ad4d197cd3660b5565598e19a8f2"
     },
     {
       "source": "src/executor/evidence.rs",

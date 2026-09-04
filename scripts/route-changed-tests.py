@@ -292,12 +292,15 @@ def select(paths: list[str], config: dict[str, Any], ownership: dict[str, Any], 
                 and group.get("cost_tier") == "ordinary"
                 and not group.get("heavy_entries")
             ):
-                bundle_id = (
-                    "corpus_definition_internal"
-                    if group.get("target") == "synth_dicom_gen"
-                    else f"test:{path}"
-                )
-                bundle_ids.add(bundle_id)
+                if group.get("target") == "synth_dicom_gen":
+                    owners = {name for name, bundle in config["bundles"].items()
+                              if any(command.get("kind") == "lib" and command.get("source") == path
+                                     for command in bundle["commands"])}
+                    if not owners:
+                        raise RoutingError(f"library test source has no bounded command: {path}")
+                    bundle_ids.update(owners)
+                else:
+                    bundle_ids.add(f"test:{path}")
             else:
                 if group.get("heavy_entries"):
                     deferred_ids.add("explicit_heavy")

@@ -40,6 +40,11 @@
       "covered_by_fast": ["schema_resources__fast"],
       "deferred": ["explicit_heavy", "future_external_corpus"]
     },
+    "captured_corpus_planning": {
+      "commands": [
+        {"kind": "lib", "module": "curated_plan::captured_input_tests", "source": "tests/captured_curated_plan.rs", "list_count": 4}
+      ]
+    },
     "corpus_definition_internal": {
       "commands": [
         {"kind": "lib", "module": "corpus_definition::tests", "source": "tests/corpus_definition_bundle.rs", "list_count": 23}
@@ -252,6 +257,11 @@
         "tests/fixtures/cli/assembly-result-v1.json"
       ],
       "bundles": ["assembly"]
+    },
+    {
+      "id": "captured-corpus-planning",
+      "exact": ["src/curated_plan.rs", "src/recipes/loader.rs", "src/runtime_capabilities.rs", "tests/captured_curated_plan.rs"],
+      "bundles": ["captured_corpus_planning"]
     },
     {
       "id": "embedded-corpus",

@@ -114,6 +114,18 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
                 self.assertEqual(self.commands(result), commands)
                 self.assertEqual([item["id"] for item in result["deferred_evidence"]], deferred)
 
+    def test_captured_planner_sources_select_their_exact_library_tests(self):
+        for path in ["src/curated_plan.rs", "src/recipes/loader.rs", "src/runtime_capabilities.rs", "tests/captured_curated_plan.rs"]:
+            with self.subTest(path=path):
+                result = self.select(path)
+                self.assertIn("captured_corpus_planning", result["bundle_ids"])
+                command = next(item for item in result["commands"] if item.get("module") == "curated_plan::captured_input_tests")
+                self.assertEqual(command["list_count"], 4)
+        config = copy.deepcopy(self.config)
+        config["bundles"]["captured_corpus_planning"]["commands"] = []
+        with self.assertRaises(ROUTER.RoutingError):
+            ROUTER.select(["tests/captured_curated_plan.rs"], config, self.ownership)
+
     def test_overlaps_and_multi_path_union_are_deterministic_and_deduplicated(self):
         codec_engine = self.select("src/executor/frame_codec.rs")
         self.assertEqual(codec_engine["bundle_ids"], ["codec", "engine"])

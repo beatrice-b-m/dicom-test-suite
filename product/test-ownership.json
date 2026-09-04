@@ -3,8 +3,8 @@
   "scope": {
     "rust_test_targets": 22,
     "integration_test_targets": 20,
-    "rust_test_entry_groups": 267,
-    "rust_test_entries": 1436,
+    "rust_test_entry_groups": 268,
+    "rust_test_entries": 1440,
     "integration_source_groups": 187,
     "integration_test_entries": 902,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
@@ -401,6 +401,21 @@
         "capabilities_machine_syntax_failure_is_one_schema_valid_stderr_envelope"
       ],
       "entry_digest": "c21736dfc2a839966ad43805ba9c0b7e04a32ec23b9a2f9b3af523e700f2e278"
+    },
+    {
+      "source": "tests/captured_curated_plan.rs",
+      "target": "synth_dicom_gen",
+      "domain": "engine",
+      "verification_class": "subsystem",
+      "cost_tier": "ordinary",
+      "entry_count": 4,
+      "entries": [
+        "full_capture_matches_legacy_plans_after_source_removal_and_owns_lease",
+        "smoke_subset_uses_installed_templates_without_unrelated_default_recipes",
+        "captured_metadata_isolated_and_external_provider_remains_unavailable",
+        "captured_constructor_rejects_incompatible_templates_and_unclosed_members"
+      ],
+      "entry_digest": "6d17ca3ae4a8e3efa67f404411b3c2771b6402814662aa7ebf2bf3ec97db90f8"
     },
     {
       "source": "tests/case_recipe_catalog.rs",

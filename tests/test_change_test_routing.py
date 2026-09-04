@@ -154,7 +154,7 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
             self.assertIn("cargo test --locked --no-default-features --lib corpus_generation::captured_runner_tests::", commands)
 
     def test_external_cli_contracts_select_live_cli_sdk_and_report_evidence(self):
-        for path in ["src/external_corpus_cli.rs", "src/cli_protocol.rs", "schemas/generation-result-v3.schema.json", "schemas/report-result-v2.schema.json"]:
+        for path in ["src/external_corpus_cli.rs", "src/cli_protocol.rs", "schemas/generation-result-v3.schema.json", "schemas/report-result-v2.schema.json", "schemas/capabilities-result-v3.schema.json"]:
             result = self.select(path)
             self.assertIn("external_corpus_cli", result["bundle_ids"])
             for module in ["external_corpus_cli", "sdk_corpus", "report_cli"]:
@@ -210,18 +210,24 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
         ]
         for schema in [
             "schemas/capabilities-result-v2.schema.json",
+            "schemas/capabilities-result-v3.schema.json",
             "schemas/generation-result-v2.schema.json",
             "schemas/manifest-v1.schema.json",
             "schemas/version-result-v2.schema.json",
         ]:
             with self.subTest(schema=schema):
                 result = self.select(schema)
-                self.assertEqual(result["bundle_ids"], ["identity", "schema"])
-                self.assertEqual(
-                    result["matched_rules"][schema],
-                    ["identity-discovery", "schema"],
-                )
-                self.assertEqual(self.commands(result), expected_commands)
+                expected = ["external_corpus_cli", "identity", "release_manifest", "schema"] if schema.endswith("capabilities-result-v3.schema.json") else ["identity", "schema"]
+                self.assertEqual(result["bundle_ids"], expected)
+                if schema.endswith("capabilities-result-v3.schema.json"):
+                    self.assertEqual(result["matched_rules"][schema], ["external-corpus-cli", "identity-discovery", "release-manifest-contract", "schema"])
+                    for command in expected_commands:
+                        self.assertIn(command, self.commands(result))
+                else:
+                    self.assertEqual(result["matched_rules"][schema], ["identity-discovery", "schema"])
+                    self.assertEqual(self.commands(result), expected_commands)
+        release = self.select("schemas/release-manifest-v3.schema.json")
+        self.assertEqual(release["bundle_ids"], ["release_manifest", "schema"])
 
     def test_composition_identity_schemas_route_live_producers_readers_and_schema_checks(self):
         for schema in [

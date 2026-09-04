@@ -21,7 +21,7 @@
       "support_window": "current CLI API major and immediately preceding major for at least one product minor after replacement",
       "apis": ["cli_json_envelopes", "cli_exit_classes", "cli_error_codes"],
       "schemas": [
-        "capabilities-result.schema.json", "capabilities-result-v2.schema.json",
+        "capabilities-result.schema.json", "capabilities-result-v2.schema.json", "capabilities-result-v3.schema.json",
         "case-list-result.schema.json",
         "cli-error-code-registry.schema.json", "cli-error-envelope.schema.json",
         "cli-success-envelope.schema.json", "generation-result.schema.json",
@@ -105,7 +105,7 @@
       "owner": "release_maintainers",
       "support_window": "every published target artifact for its announced product support window",
       "apis": ["native_archive", "archive_checksum", "release_manifest"],
-      "schemas": ["release-manifest.schema.json", "release-manifest-v2.schema.json"]
+      "schemas": ["release-manifest.schema.json", "release-manifest-v2.schema.json", "release-manifest-v3.schema.json"]
     }
   ]
 }

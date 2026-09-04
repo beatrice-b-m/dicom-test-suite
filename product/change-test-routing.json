@@ -156,7 +156,7 @@
   "rules": [
     {
       "id": "external-corpus-cli",
-      "exact": ["src/external_corpus_cli.rs", "src/cli_protocol.rs", "schemas/generation-result-v3.schema.json", "schemas/report-result-v2.schema.json"],
+      "exact": ["src/external_corpus_cli.rs", "src/cli_protocol.rs", "schemas/generation-result-v3.schema.json", "schemas/report-result-v2.schema.json", "schemas/capabilities-result-v3.schema.json"],
       "bundles": ["external_corpus_cli"]
     },
     {
@@ -250,6 +250,7 @@
       "id": "identity-discovery",
       "exact": [
         "schemas/capabilities-result-v2.schema.json",
+        "schemas/capabilities-result-v3.schema.json",
         "schemas/generation-result-v2.schema.json",
         "schemas/manifest-v1.schema.json",
         "schemas/version-result-v2.schema.json",
@@ -377,6 +378,8 @@
       "exact": [
         "schemas/release-manifest.schema.json",
         "schemas/release-manifest-v2.schema.json",
+        "schemas/release-manifest-v3.schema.json",
+        "schemas/capabilities-result-v3.schema.json",
         "scripts/build-release-archive.sh",
         "scripts/validate-release-manifest.sh",
         "scripts/verify-release-archive.sh"

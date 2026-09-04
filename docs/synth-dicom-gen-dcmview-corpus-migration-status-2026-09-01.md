@@ -5199,7 +5199,9 @@ The loading-only user approval does not authorize the new two-run boundary;
 explicit native approval and later exact output/schema review remain required.
 
 Final preparation documentation is corpus9a920eb/ce04867, clean full candidate
-`ce0486722a1b1858771432fc72c9b3e367580443`. The exact clean CI dry inspection
+`ce048678890a762c04c8310e0b5d9d66189105ee`. Root corrected the initially
+misreported full hash against direct Git output; the short ce04867 identity and
+all artifact evidence were unchanged. The exact clean CI dry inspection
 487104d tobc42d25 passed in0.256991875s with configuration SHA-256
 `ff4bbbb31b922a4d4e2ee70e7574c41444d5ceeb3f90f1eeb17945f8e731eec4`:
 ordinary unit discovery plus bounded smoke3 fallback were selected; parity

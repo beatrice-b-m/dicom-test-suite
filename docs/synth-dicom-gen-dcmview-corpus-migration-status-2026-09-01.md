@@ -4108,6 +4108,47 @@ deduplication), preserving all records rather than assuming registry equality.
 Only then can complete baseline evidence be reviewed. Live case imports and
 consumer-version migration remain queued behind this boundary.
 
+### 2026-09-04 — R7 additive report reader checkpoint
+
+Generator `6b454e1` adds coverage `1.1.0` schema/reader support and its
+compatibility, routing and resource inventories. This is an accepted
+schema/reader checkpoint, **not** acceptance of the reporting repair or the
+baseline: producer integration and full routed ordinary verification remain
+pending. No replacement reporter or native baseline replay has executed.
+
+The 215,018-byte schema SHA is
+`1550441969f1093f5686d6249ef645e1545557fbba0e6f27d9655b1247624fc2`.
+Independent structural review confirms the original nonsquare branch remains
+exact, all other row rules are unchanged apart from explicit frozen-schema
+references, and the new alternative requires the case ID, a known non-generated
+status and all seven null fields. Frozen coverage0.1/1 schemas are unchanged.
+The reader applies runtime-identity uniqueness checks to the new version too.
+
+Focused Rust report-contract tests pass 5/5 in 6.06s after 23.00s compilation,
+including both generated variants, old-field preservation, null/malformed
+rows, missing identity and duplicate runtime IDs. Ownership, spelling,
+formatting and diff checks pass. These do not substitute for the pending
+integration route's unconditional Fast and affected ordinary tests.
+
+Root independently used Node24.19.0/Ajv8.18.0, Draft2020-12 with `strict:false`
+(schema validation remains enabled), to validate 46 synthetic full-report
+projections in 0.583001s. Checks cover all five non-generated statuses,
+35 invented-field mutations, generated-null/unknown/missing-status rejection,
+and preserved old concrete rows. Three additional frozen-outer-schema checks
+in 0.459156s confirm capabilities3 and report-result1 permit a coverage1.1
+version. These are schema tests, not native report or viewer evidence.
+
+At this schema-only checkpoint, current resources are 81 files / 1,505,420
+bytes, SHA `1c1884b655a528f5c667b3bffa38b036e367964acdd8621fbd2e5de7fcca0cb5`;
+the schema domain is 58 files / 1,104,948 bytes, SHA
+`a81087ba5bc1951a281b22486b7b9a7316df92448d16379fe65c53fc5f5aa166`.
+Physical snapshot inventory is 261 files / 2,918,678 bytes. Legacy membership
+remains 240 with the existing `dc61…` digest because the new schema is excluded
+from that historical membership. Subsequent genuine Cargo/provider-lock changes
+for the product patch must change their actual identities truthfully; no frozen
+byte adapter may hide changed inputs. Historical source/pin evidence remains
+immutable and separate from the forthcoming reporter's identities.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

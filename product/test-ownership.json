@@ -4,9 +4,9 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 267,
-    "rust_test_entries": 1431,
+    "rust_test_entries": 1432,
     "integration_source_groups": 187,
-    "integration_test_entries": 901,
+    "integration_test_entries": 902,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
   },
   "enums": {
@@ -1280,15 +1280,16 @@
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 5,
+      "entry_count": 6,
       "entries": [
         "report_gaps_counts_logical_cases_and_dimensions",
         "report_gaps_is_byte_stable_for_unchanged_inputs",
         "report_gaps_renders_markdown_from_the_same_model",
         "report_gaps_validates_against_the_committed_schema",
-        "report_gaps_wraps_only_at_the_explicit_cli_api_boundary"
+        "report_gaps_wraps_only_at_the_explicit_cli_api_boundary",
+        "report_gaps_preserves_explicit_default_spelled_caller_paths"
       ],
-      "entry_digest": "17c1e9a91b8bc3a703450d1722407d0dd0d0e90b47f31ee7e9ffaa0a753895e4"
+      "entry_digest": "a33aa44ed7dfbe2c8acee66ef6871cc5a5305933edfc0c40c51d7c375b638409"
     },
     {
       "source": "tests/ct_geometry.rs",

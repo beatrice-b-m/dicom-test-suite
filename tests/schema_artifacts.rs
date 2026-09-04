@@ -7,6 +7,14 @@ use serde_json::Value;
 
 const SCHEMAS: &[(&str, &str)] = &[
     (
+        "schemas/generation-result-v3.schema.json",
+        "https://synth-dicom-gen.local/schemas/generation-result-v3.schema.json",
+    ),
+    (
+        "schemas/report-result-v2.schema.json",
+        "https://synth-dicom-gen.local/schemas/report-result-v2.schema.json",
+    ),
+    (
         "schemas/assembly-request.schema.json",
         "https://dicom-test-suite.local/schemas/assembly-request.schema.json",
     ),

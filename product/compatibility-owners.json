@@ -4,14 +4,14 @@
     {
       "contract_id": "external-corpus-report",
       "owner": "corpus_generation_maintainers",
-      "support_window": "report 2.0 raw JSON/Markdown and library validation; SDK and CLI machine envelope explicitly unavailable pending supported API migration",
+      "support_window": "report 2.0 raw JSON/Markdown, library and SDK validation, and external-only CLI report-result 2.0 envelope; frozen report-result 1.0 remains for legacy report kinds",
       "apis": [],
       "schemas": ["coverage-report-v2.schema.json"]
     },
     {
       "contract_id": "external-corpus-manifest",
       "owner": "corpus_generation_maintainers",
-      "support_window": "manifest 2.0 internal producer, library validation and definition-driven report consumption; SDK explicitly unavailable until its migration slice",
+      "support_window": "manifest 2.0 supported SDK and CLI producer, library/SDK validation and definition-driven reporting; frozen curated manifest 1.0 remains the embedded producer",
       "apis": [],
       "schemas": ["manifest-v2.schema.json"]
     },
@@ -26,6 +26,7 @@
         "cli-error-code-registry.schema.json", "cli-error-envelope.schema.json",
         "cli-success-envelope.schema.json", "generation-result.schema.json",
         "generation-result-v2.schema.json",
+        "generation-result-v3.schema.json", "report-result-v2.schema.json",
         "report-result.schema.json", "standards-result.schema.json",
         "validation-result.schema.json", "version-result.schema.json",
         "version-result-v2.schema.json"

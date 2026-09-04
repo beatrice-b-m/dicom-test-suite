@@ -5144,6 +5144,60 @@ proves independent conformance, migrated payload parity, a release or completeR7
 The next separate gate is a reviewed bounded migrated-parity helper and explicit
 native execution authority, not a replay of the accepted embedded baseline.
 
+## R7 metadata parity helper prepared, not executed — 2026-09-04
+
+Corpus `ae0a606` adds only `scripts/prove_native_metadata_parity.py` and its
+self-contained synthetic tests. Separate `bc42d25` adds those two exact paths
+to existing ordinary/shared-smoke routing, without changing configuration2 or
+route2 semantics. Loading evidence remains bound to ca561cb; subsequent current
+documentation commits f3b3822/487104d record that acceptance without relabeling
+the source candidate.
+
+The new helper requires an explicit original generator artifact, accepted
+metadata baseline, accepted corrected availability evidence and fresh evidence
+root. It authenticates complete inventories before acquisition can execute
+discovery, archives exact clean committed source, and copies caller inputs and
+the pinned binary into an unrelated private runtime. The intended native scope
+is exactly two identical public-runner calls selecting metadata3/core/seed1/
+parallelism4. Each would generate, strictly validate and report, then compare
+the complete manifest and report with its repeat. No whole-core, smoke, reporter
+baseline, source build, Heavy or terminal replay is included.
+
+The oracle authenticates all31 original unselected rows, exact full file
+objects/raw metadata/standards, payload hashes and baseline plan. Only manifest1
+to2 schema, explicit request selector/kind, verified caller identity and the
+three-row complete selection ledger may differ. The historical report1.1 stays
+authenticated; report2 must equal its complete public manifest projection, not
+an arbitrary normalization. Neither report upgrades independent evidence.
+The helper observes final exact bytes and repeat/final closure, not byte
+immutability between the public runner's internal stages.
+
+Root and independent review accepted the final429-line helper/271-line tests.
+Review corrected JSON-only equality applied to raw byte maps/sets, missing
+expected-path checks, suppressed final checks, and full permission/retention
+bindings before acceptance. File and directory modes use full permission bits;
+retained caches use the established private-parent/owner/executable verifier.
+Original/copied inputs, outputs, sidecars and retained runtime are independently
+checked, including failures. No failed check was normalized into a pass.
+
+Focused17 tests passed in0.183s, root0.212s and independent0.186s. Ordinary221
+passed in1.847s before tracking (not routing proof) and1.830s after the explicit
+mapping; focused routing32 passed in0.277s. A prior16-test run had15 passes/one
+fixture failure because macOS stripped setuid4500 to0500; the test now uses a
+preserved sticky1500 mode to exercise special-bit rejection. An attempted
+py_compile check could not write the protected system bytecode cache and wrote
+no file; read-only AST parsing replaced it. Exact helper help and diff checks
+passed. No native invocation ran in these tests.
+
+Separately from ordinary tests, root read-only authentication of actual retained
+baseline26 files and availability34 files (including receipts) passed in
+0.1985115s, then0.190530292s after hardening, with exact corpus91d63240 identity.
+The latter binds helper SHA-256
+`0631c50478568b9f7f46e8fa250131976ad38c9abfd96a3c06a26d9bb896fff3`.
+This confirms input readability/bindings, not execution or generated parity.
+The loading-only user approval does not authorize the new two-run boundary;
+explicit native approval and later exact output/schema review remain required.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

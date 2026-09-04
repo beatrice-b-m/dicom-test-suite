@@ -48,6 +48,172 @@ enum Source {
     Bytes(Vec<u8>),
 }
 
+/// Captured at inspection time. No destination is accepted or probed.
+#[derive(Debug, Clone)]
+pub struct InspectCorpusRequest {
+    source: Source,
+    member_root: PathBuf,
+    selector: Option<CorpusSelector>,
+    seed: u64,
+    parallelism: u32,
+}
+impl InspectCorpusRequest {
+    pub fn from_file(descriptor: impl Into<PathBuf>, member_root: impl Into<PathBuf>) -> Self {
+        Self::new(Source::File(descriptor.into()), member_root.into())
+    }
+    pub fn from_json_bytes(
+        descriptor: impl Into<Vec<u8>>,
+        member_root: impl Into<PathBuf>,
+    ) -> Self {
+        Self::new(Source::Bytes(descriptor.into()), member_root.into())
+    }
+    fn new(source: Source, member_root: PathBuf) -> Self {
+        Self {
+            source,
+            member_root,
+            selector: None,
+            seed: 1,
+            parallelism: 1,
+        }
+    }
+    pub fn with_selection(mut self, selector: CorpusSelector) -> Self {
+        self.selector = Some(selector);
+        self
+    }
+    pub fn with_seed(mut self, seed: u64) -> Self {
+        self.seed = seed;
+        self
+    }
+    pub fn with_parallelism(mut self, parallelism: u32) -> Self {
+        self.parallelism = parallelism;
+        self
+    }
+}
+
+/// Registry status is definition metadata, not runtime availability.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum CorpusCaseStatus {
+    Implemented,
+    Planned,
+    Blocked,
+    Deprecated,
+    Skipped,
+}
+
+#[derive(Debug, Clone)]
+pub struct CorpusCaseSupport {
+    row: Value,
+    status: CorpusCaseStatus,
+}
+impl CorpusCaseSupport {
+    pub fn case_id(&self) -> &str {
+        self.row["case_id"].as_str().expect("verified ID")
+    }
+    pub fn status(&self) -> CorpusCaseStatus {
+        self.status
+    }
+    pub fn profiles(&self) -> impl Iterator<Item = &str> {
+        self.row["profiles"]
+            .as_array()
+            .expect("verified profiles")
+            .iter()
+            .map(|p| p.as_str().unwrap())
+    }
+    /// Complete declared provider, requirements, standards, blockers, and skip facts.
+    pub fn definition(&self) -> &Value {
+        &self.row
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CorpusProfileSupport {
+    definition: Value,
+}
+impl CorpusProfileSupport {
+    pub fn profile_id(&self) -> &str {
+        self.definition["profile_id"].as_str().unwrap()
+    }
+    pub fn scope(&self) -> &str {
+        self.definition["scope"].as_str().unwrap()
+    }
+    pub fn definition(&self) -> &Value {
+        &self.definition
+    }
+}
+
+/// Selected planning facts only: `Ready` is not generated or validated evidence.
+#[derive(Debug, Clone)]
+pub struct CorpusAssessment {
+    selector: CorpusSelector,
+    seed: u64,
+    parallelism: u32,
+    cases: Vec<CorpusCaseEvidence>,
+    identity_projection: Value,
+    artifact_ids: Vec<String>,
+    plan_sha256: String,
+}
+impl CorpusAssessment {
+    pub fn selector(&self) -> &CorpusSelector {
+        &self.selector
+    }
+    pub fn seed(&self) -> u64 {
+        self.seed
+    }
+    pub fn parallelism(&self) -> u32 {
+        self.parallelism
+    }
+    pub fn cases(&self) -> &[CorpusCaseEvidence] {
+        &self.cases
+    }
+    pub fn identity_projection(&self) -> &Value {
+        &self.identity_projection
+    }
+    pub fn artifact_ids(&self) -> &[String] {
+        &self.artifact_ids
+    }
+    pub fn corpus_plan_sha256(&self) -> &str {
+        &self.plan_sha256
+    }
+    pub fn has_executable_artifacts(&self) -> bool {
+        !self.artifact_ids.is_empty()
+    }
+    pub fn validation_state(&self) -> CorpusValidationState {
+        CorpusValidationState::NotRun
+    }
+    pub fn publication_state(&self) -> CorpusPublicationState {
+        CorpusPublicationState::NotRun
+    }
+}
+
+/// SDK accessor evidence, not a standalone serialized document. An absent
+/// assessment means runtime/selection support has not been assessed.
+#[derive(Debug, Clone)]
+pub struct CorpusInspection {
+    identity: Value,
+    pub(crate) identity_domains: crate::identity::InstalledIdentityDomains,
+    profiles: Vec<CorpusProfileSupport>,
+    cases: Vec<CorpusCaseSupport>,
+    assessment: Option<CorpusAssessment>,
+}
+impl CorpusInspection {
+    pub fn evidence_version(&self) -> &str {
+        "1.0.0"
+    }
+    pub fn corpus_definition_identity(&self) -> &Value {
+        &self.identity
+    }
+    pub fn profiles(&self) -> &[CorpusProfileSupport] {
+        &self.profiles
+    }
+    pub fn cases(&self) -> &[CorpusCaseSupport] {
+        &self.cases
+    }
+    pub fn assessment(&self) -> Option<&CorpusAssessment> {
+        self.assessment.as_ref()
+    }
+}
+
 /// Inputs are captured when generation is called, not when this request is built.
 /// Both constructors require the dedicated member root independently of descriptor location.
 #[derive(Debug, Clone)]
@@ -147,6 +313,9 @@ pub struct CorpusCaseEvidence {
     disposition: CorpusCaseDisposition,
 }
 impl CorpusCaseEvidence {
+    pub fn reason_code(&self) -> Option<&str> {
+        self.row["reason_code"].as_str()
+    }
     pub fn case_id(&self) -> &str {
         self.row["case_id"].as_str().expect("validated case ID")
     }
@@ -210,27 +379,7 @@ impl CorpusPreview {
         output_root: PathBuf,
         selector: CorpusSelector,
     ) -> Result<Self, SdkError> {
-        let cases = value
-            .selection_ledger
-            .into_iter()
-            .map(|row| {
-                let disposition = match row["outcome"].as_str() {
-                    Some("ready") => CorpusCaseDisposition::Ready,
-                    Some("unavailable") => CorpusCaseDisposition::Unavailable,
-                    Some("planned") => CorpusCaseDisposition::Planned,
-                    Some("blocked") => CorpusCaseDisposition::Blocked,
-                    Some("deprecated") => CorpusCaseDisposition::Deprecated,
-                    Some("skipped") => CorpusCaseDisposition::Skipped,
-                    _ => {
-                        return Err(SdkError::coded(
-                            "internal.invariant.failed",
-                            "unknown planning disposition",
-                        ));
-                    }
-                };
-                Ok(CorpusCaseEvidence { row, disposition })
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+        let cases = planning_cases(value.selection_ledger)?;
         Ok(Self {
             seed: value.plan.seed,
             output_root,
@@ -250,6 +399,28 @@ impl CorpusPreview {
                 .map_err(|e| SdkError::coded("generation.planning.failed", e))?,
         })
     }
+}
+
+fn planning_cases(rows: Vec<Value>) -> Result<Vec<CorpusCaseEvidence>, SdkError> {
+    rows.into_iter()
+        .map(|row| {
+            let disposition = match row["outcome"].as_str() {
+                Some("ready") => CorpusCaseDisposition::Ready,
+                Some("unavailable") => CorpusCaseDisposition::Unavailable,
+                Some("planned") => CorpusCaseDisposition::Planned,
+                Some("blocked") => CorpusCaseDisposition::Blocked,
+                Some("deprecated") => CorpusCaseDisposition::Deprecated,
+                Some("skipped") => CorpusCaseDisposition::Skipped,
+                _ => {
+                    return Err(SdkError::coded(
+                        "internal.invariant.failed",
+                        "unknown planning disposition",
+                    ));
+                }
+            };
+            Ok(CorpusCaseEvidence { row, disposition })
+        })
+        .collect()
 }
 
 #[derive(Debug, Clone)]
@@ -295,6 +466,140 @@ pub enum GenerateCorpusOutcome {
 }
 
 impl DicomTestSuite {
+    pub fn inspect_corpus(
+        &self,
+        request: InspectCorpusRequest,
+    ) -> Result<CorpusInspection, SdkError> {
+        self.inspect_corpus_cancellable(request, &CancellationToken::new())
+    }
+    pub fn inspect_corpus_cancellable(
+        &self,
+        request: InspectCorpusRequest,
+        cancellation: &CancellationToken,
+    ) -> Result<CorpusInspection, SdkError> {
+        let checkpoint = || {
+            if cancellation.is_cancelled() {
+                Err(SdkError::coded(
+                    "generation.execution.cancelled",
+                    "corpus inspection cancelled",
+                ))
+            } else {
+                Ok(())
+            }
+        };
+        checkpoint()?;
+        if request.parallelism == 0
+            || (request.selector.is_none() && (request.seed != 1 || request.parallelism != 1))
+        {
+            return Err(SdkError::coded(
+                "request.schema.invalid",
+                "positive parallelism and a selection for planning options are required",
+            ));
+        }
+        let bundle = match request.source {
+            Source::File(path) => {
+                CorpusDefinitionBundle::load_descriptor_file(path, &request.member_root)
+            }
+            Source::Bytes(bytes) => {
+                CorpusDefinitionBundle::load_descriptor_bytes(&bytes, &request.member_root)
+            }
+        }
+        .map_err(|e| SdkError::coded(e.code(), e))?;
+        checkpoint()?;
+        let registry: Value = serde_json::from_slice(
+            bundle
+                .bytes(&bundle.manifest().registry.path)
+                .expect("verified registry"),
+        )
+        .map_err(|e| SdkError::coded("internal.invariant.failed", e))?;
+        let cases = registry["cases"]
+            .as_array()
+            .expect("verified cases")
+            .iter()
+            .map(|row| {
+                let status = match row["status"].as_str() {
+                    Some("implemented") => CorpusCaseStatus::Implemented,
+                    Some("planned") => CorpusCaseStatus::Planned,
+                    Some("blocked") => CorpusCaseStatus::Blocked,
+                    Some("deprecated") => CorpusCaseStatus::Deprecated,
+                    Some("skipped") => CorpusCaseStatus::Skipped,
+                    _ => {
+                        return Err(SdkError::coded(
+                            "internal.invariant.failed",
+                            "unknown verified registry status",
+                        ));
+                    }
+                };
+                Ok(CorpusCaseSupport {
+                    row: row.clone(),
+                    status,
+                })
+            })
+            .collect::<Result<Vec<_>, SdkError>>()?;
+        let profiles = bundle
+            .manifest()
+            .profiles
+            .iter()
+            .map(|profile| {
+                serde_json::to_value(profile)
+                    .map(|definition| CorpusProfileSupport { definition })
+                    .map_err(|e| SdkError::coded("internal.invariant.failed", e))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let identity = serde_json::to_value(bundle.identity())
+            .map_err(|e| SdkError::coded("internal.invariant.failed", e))?;
+        let identity_domains = crate::identity::project_installed_identities(
+            &self.resources,
+            crate::identity::IdentityInspectionContext {
+                corpus_definition: Some(&bundle),
+            },
+        )
+        .map_err(|e| SdkError::coded("evidence.integrity.failed", e))?;
+        let assessment = if let Some(selector) = request.selector {
+            let prepared = crate::corpus_generation::prepare_captured_corpus(
+                &bundle,
+                &self.resources,
+                &selector.clone().into(),
+                request.seed,
+                request.parallelism,
+                &cancellation.assembly,
+            )
+            .map_err(|e| SdkError::coded(e.code(), e))?;
+            let value = prepared.preview;
+            let cases = planning_cases(value.selection_ledger)?;
+            let identity_projection = serde_json::to_value(value.identities)
+                .map_err(|e| SdkError::coded("internal.invariant.failed", e))?;
+            let plan_sha256 = value
+                .plan
+                .canonical_sha256()
+                .map_err(|e| SdkError::coded("generation.planning.failed", e))?;
+            let artifact_ids = value
+                .plan
+                .artifacts
+                .iter()
+                .map(|artifact| artifact.logical_id().to_owned())
+                .collect();
+            Some(CorpusAssessment {
+                selector,
+                seed: request.seed,
+                parallelism: request.parallelism,
+                cases,
+                identity_projection,
+                artifact_ids,
+                plan_sha256,
+            })
+        } else {
+            None
+        };
+        checkpoint()?;
+        Ok(CorpusInspection {
+            identity,
+            identity_domains,
+            profiles,
+            cases,
+            assessment,
+        })
+    }
     pub fn generate_corpus(
         &self,
         request: GenerateCorpusRequest,

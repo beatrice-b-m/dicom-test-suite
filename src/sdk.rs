@@ -33,9 +33,10 @@ use crate::engine_resources::EngineResources;
 
 mod corpus;
 pub use corpus::{
-    CorpusCaseDisposition, CorpusCaseEvidence, CorpusPreview, CorpusPublicationState,
-    CorpusSelector, CorpusValidationState, GenerateCorpusOutcome, GenerateCorpusRequest,
-    PublishedCorpus,
+    CorpusAssessment, CorpusCaseDisposition, CorpusCaseEvidence, CorpusCaseStatus,
+    CorpusCaseSupport, CorpusInspection, CorpusPreview, CorpusProfileSupport,
+    CorpusPublicationState, CorpusSelector, CorpusValidationState, GenerateCorpusOutcome,
+    GenerateCorpusRequest, InspectCorpusRequest, PublishedCorpus,
 };
 
 /// A relocatable product handle backed by an integrity-checked resource set.

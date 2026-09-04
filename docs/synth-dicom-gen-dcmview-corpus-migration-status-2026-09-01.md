@@ -5440,6 +5440,31 @@ evidence, not independent conformance or viewer evidence, and does not import
 CT1, establish public-loader availability or migrated parity, close R7.2/R7.3,
 or qualify wider R7/release scope.
 
+## R7 CT1 consumer version/routing prerequisite accepted — 2026-09-04
+
+Corpus commit `9a42290802bd513518e2253a47f5bea4c145dadb` prepares the
+consumer boundary without importing CT1. `scripts/run_ci.py` now pins exact
+version inventories: content0.1.0 smoke3;0.2.0 smoke3+core10; rejected0.3.0 and
+live0.3.1 plus metadata3; future0.4.0 plus CT1 only. The separate `approved_ct()`
+does not widen prior approved cases, and0.4.0 retains the corrected metadata
+`evidence/<basename>` ownership. Unsupported version/inventory combinations
+fail closed.
+
+The0.3.1→0.4.0 descriptor/registry transition selects exactly CT1 plus the
+fixed smoke3, profile all. A CT recipe-only change selects exactly CT1, profile
+core, without fallback. Neither route selects metadata3 or the other ten core
+cases. The production retained-metadata checker remains frozen to0.3.1; only
+its test fixture can reconstruct that exact historical input after a future
+live CT import.
+
+An initial combined62-test draft exposed three newly exact version assumptions
+and was corrected without relaxing the inventory contract. Final routing,
+static-definition and metadata-availability suites passed34/34 in0.415s,14/14
+in0.075s and14/14 in0.504s; all250 ordinary tests passed in2.698s and diff
+checking passed. Live content remains0.3.1 with16 cases/21 members. No corpus
+data, schema, pin or native command changed; the exact three-file CT import is
+the next sequential boundary.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

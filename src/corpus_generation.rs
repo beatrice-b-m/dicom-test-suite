@@ -241,14 +241,16 @@ fn run_with_publication_check(
         let status = row["status"].as_str().unwrap();
         let pending = planned.planned.pending.iter().find(|pending| &pending.case_id == id);
         let outcome = if status == "implemented" { if pending.is_some() { "unavailable" } else { "ready" } } else { status };
-        let reason = pending.map(|pending| pending.reason_code.clone()).unwrap_or_else(|| format!("case_{status}"));
+        let reason = pending.map(|pending| pending.reason_code.clone()).unwrap_or_else(|| {
+            row["skip"]["reason_code"].as_str().or_else(|| row["blockers"][0]["code"].as_str()).map(str::to_owned).unwrap_or_else(|| format!("case_{status}"))
+        });
         let mut dependencies = match bundle.manifest().cases.iter().find(|case| &case.case_id == id) {
             Some(case) => case.dependencies.clone(),
             None if status != "implemented" => vec![],
             None => unreachable!("verified implemented case closure"),
         };
         dependencies.sort();
-        json!({"case_id":id,"selection":if direct.contains(id){"direct"}else{"dependency"},"dependency_case_ids":dependencies,"registry_status":status,"outcome":outcome,"reason_code":if outcome=="ready"{Value::Null}else{json!(reason)},"artifact_paths":[]})
+        json!({"case_id":id,"case_definition":row,"selection":if direct.contains(id){"direct"}else{"dependency"},"dependency_case_ids":dependencies,"registry_status":status,"outcome":outcome,"reason_code":if outcome=="ready"{Value::Null}else{json!(reason)},"artifact_paths":[]})
     }).collect::<Vec<_>>();
     let preview = CapturedPlanningOutcome {
         plan: planned.planned.plan.clone(),

@@ -146,9 +146,13 @@
           "outcome",
           "reason_code",
           "artifact_paths",
-          "dependency_case_ids"
+          "dependency_case_ids",
+          "case_definition"
         ],
         "properties": {
+          "case_definition": {
+            "$ref": "https://dicom-test-suite.local/schemas/case-registry.schema.json#/$defs/case"
+          },
           "case_id": {
             "type": "string",
             "maxLength": 240,

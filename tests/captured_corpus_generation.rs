@@ -220,6 +220,14 @@ fn selectors_dry_run_and_nonexecutable_outcomes_never_publish() {
             .iter()
             .any(|row| row["case_id"] == id && row["outcome"] == "planned")
     );
+    assert_eq!(
+        result
+            .selection_ledger
+            .iter()
+            .find(|row| row["case_id"] == id)
+            .unwrap()["reason_code"],
+        planned["blockers"][0]["code"]
+    );
     assert!(fs::read_dir(&workspace.0).unwrap().next().is_none());
 }
 
@@ -255,6 +263,17 @@ fn explicit_selection_preserves_dependencies_and_mixed_statuses() {
     let manifest: Value = serde_json::from_slice(&result.manifest_bytes).unwrap();
     assert_eq!(manifest["selection_ledger"].as_array().unwrap().len(), 2);
     assert_eq!(manifest["files"].as_array().unwrap().len(), 1);
+    let registry: Value =
+        serde_json::from_slice(bundle.bytes(&bundle.manifest().registry.path).unwrap()).unwrap();
+    for row in manifest["selection_ledger"].as_array().unwrap() {
+        let captured = registry["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|case| case["case_id"] == row["case_id"])
+            .unwrap();
+        assert_eq!(&row["case_definition"], captured);
+    }
     assert!(
         manifest["selection_ledger"]
             .as_array()

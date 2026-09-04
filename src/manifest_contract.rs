@@ -9,6 +9,7 @@ use serde_json::Value;
 use crate::engine_resources::EngineResources;
 
 const LEGACY_MANIFEST_ID: &str = "https://dicom-test-suite.local/schemas/manifest.schema.json";
+const CASE_REGISTRY_ID: &str = "https://dicom-test-suite.local/schemas/case-registry.schema.json";
 const IDENTITY_SCHEMA_ID: &str =
     "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json";
 
@@ -155,6 +156,16 @@ pub(crate) fn load_manifest_contract(
     let validator = jsonschema::options()
         .with_draft(jsonschema::Draft::Draft202012)
         .with_resource(
+            CASE_REGISTRY_ID,
+            jsonschema::Resource::from_contents(
+                serde_json::from_slice::<Value>(include_bytes!(
+                    "../schemas/case-registry.schema.json"
+                ))
+                .map_err(|error| contract_error(error.to_string()))?,
+            )
+            .map_err(|error| contract_error(error.to_string()))?,
+        )
+        .with_resource(
             "https://synth-dicom-gen.local/schemas/manifest-v1.schema.json",
             jsonschema::Resource::from_contents(
                 serde_json::from_slice::<Value>(include_bytes!(
@@ -236,6 +247,10 @@ pub(crate) fn validate_external_corpus_manifest(
     let mut options = jsonschema::options().with_draft(jsonschema::Draft::Draft202012);
     for (id, bytes) in [
         (
+            CASE_REGISTRY_ID,
+            include_bytes!("../schemas/case-registry.schema.json").as_slice(),
+        ),
+        (
             LEGACY_MANIFEST_ID,
             include_bytes!("../schemas/manifest.schema.json").as_slice(),
         ),
@@ -276,8 +291,21 @@ fn validate_external_selection(value: &Value) -> Result<(), ManifestContractErro
     let mut owned = std::collections::BTreeMap::new();
     let mut generated = BTreeSet::new();
     let mut edges = std::collections::BTreeMap::new();
+    let profile = value["run"]["profile"].as_str().unwrap();
+    let include_stress = value["run"]["include_stress"].as_bool().unwrap();
+    if include_stress && profile != "all" {
+        return Err(contract_error("include_stress requires all profile"));
+    }
     for entry in ledger {
         let id = entry["case_id"].as_str().unwrap();
+        let definition = &entry["case_definition"];
+        if definition["case_id"] != entry["case_id"]
+            || definition["status"] != entry["registry_status"]
+        {
+            return Err(contract_error(
+                "ledger differs from captured case definition",
+            ));
+        }
         if previous.is_some_and(|prior| prior >= id) {
             return Err(contract_error(
                 "selection ledger case IDs must be sorted and unique",
@@ -295,6 +323,20 @@ fn validate_external_selection(value: &Value) -> Result<(), ManifestContractErro
         }
         edges.insert(id, dependencies);
         if entry["selection"] == "direct" {
+            let profiles = definition["profiles"].as_array().unwrap();
+            let in_scope = if profile == "all" {
+                profiles.iter().any(|p| {
+                    matches!(p.as_str(), Some("smoke" | "core" | "extended"))
+                        || (include_stress && p == "stress")
+                })
+            } else {
+                profiles.iter().any(|p| p == profile)
+            };
+            if !in_scope {
+                return Err(contract_error(
+                    "direct case definition outside selector profile",
+                ));
+            }
             direct.insert(id);
         }
         let status = entry["registry_status"].as_str().unwrap();
@@ -467,6 +509,15 @@ mod external_manifest_contract_tests {
         value["qualifications"] = json!([]);
         value["run"] = json!({"kind":"external_corpus","profile":"smoke","seed":1,"include_stress":false,"selector":{"kind":"profile"}});
         value["selection_ledger"] = json!([{"case_id":file["case_id"],"selection":"direct","registry_status":"implemented","outcome":"generated","reason_code":null,"artifact_paths":[file["path"]],"dependency_case_ids":[]}]);
+        let registry: Value =
+            serde_json::from_slice(include_bytes!("../cases/registry.json")).unwrap();
+        value["selection_ledger"][0]["case_definition"] = registry["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|row| row["case_id"] == file["case_id"])
+            .unwrap()
+            .clone();
         value["identity_projection"] = serde_json::to_value(
             crate::identity::project_manifest_identities(
                 &EngineResources::embedded(),
@@ -481,7 +532,18 @@ mod external_manifest_contract_tests {
     }
 
     fn entry(id: &str) -> Value {
-        json!({"case_id":id,"selection":"direct","registry_status":"planned","outcome":"planned","reason_code":"planned","artifact_paths":[],"dependency_case_ids":[]})
+        let registry: Value =
+            serde_json::from_slice(include_bytes!("../cases/registry.json")).unwrap();
+        let mut definition = registry["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|row| row["status"] == "planned")
+            .unwrap()
+            .clone();
+        definition["case_id"] = json!(id);
+        definition["profiles"] = json!(["smoke"]);
+        json!({"case_id":id,"case_definition":definition,"selection":"direct","registry_status":"planned","outcome":"planned","reason_code":"planned","artifact_paths":[],"dependency_case_ids":[]})
     }
 
     #[test]
@@ -514,6 +576,27 @@ mod external_manifest_contract_tests {
             );
         }
         let mut value = original;
+        for (pointer, replacement) in [
+            (
+                "/selection_ledger/0/case_definition/case_id",
+                json!("test/other"),
+            ),
+            (
+                "/selection_ledger/0/case_definition/status",
+                json!("planned"),
+            ),
+            (
+                "/selection_ledger/0/case_definition/profiles",
+                json!(["negative"]),
+            ),
+        ] {
+            let mut changed = value.clone();
+            *changed.pointer_mut(pointer).unwrap() = replacement;
+            assert!(
+                validate_external_corpus_manifest(&changed).is_err(),
+                "{pointer}"
+            );
+        }
         value["skipped_cases"] = json!([]);
         assert!(validate_external_corpus_manifest(&value).is_err());
     }
@@ -560,8 +643,8 @@ mod external_manifest_contract_tests {
     fn artifact_ownership_and_qualification_evidence_are_closed() {
         // Relationship checks run only after full schema validation in production.
         let mut value = json!({
-            "run":{"selector":{"kind":"profile"}},
-            "selection_ledger":[{"case_id":"a","selection":"direct","registry_status":"implemented","outcome":"generated","reason_code":null,"artifact_paths":["a.dcm"],"dependency_case_ids":[]}],
+            "run":{"profile":"smoke","include_stress":false,"selector":{"kind":"profile"}},
+            "selection_ledger":[{"case_id":"a","case_definition":{"case_id":"a","status":"implemented","profiles":["smoke"]},"selection":"direct","registry_status":"implemented","outcome":"generated","reason_code":null,"artifact_paths":["a.dcm"],"dependency_case_ids":[]}],
             "files":[{"case_id":"a","path":"a.dcm"}],"qualifications":[]
         });
         validate_external_selection(&value).unwrap();

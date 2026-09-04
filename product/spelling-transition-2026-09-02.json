@@ -1501,6 +1501,14 @@
       "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
     },
     {
+      "path": "schemas/generation-result-v3.schema.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "cli_protocol_maintainers",
+      "reason": "The profile reference preserves the frozen manifest schema identity; the new external result schema has its own synth-dicom-gen identity."
+    },
+    {
       "path": "schemas/manifest-v2.schema.json",
       "token": "dicom-test-suite",
       "class": "legacy_payload_schema_fixture_or_evidence",
@@ -4494,11 +4502,11 @@
     }
   ],
   "retained_snapshot": {
-    "match_count": 955,
-    "sha256": "59b3e0c69369b2cd47921175e0691c5d62d2dc773b293168d972dcdf61182d0c",
+    "match_count": 956,
+    "sha256": "d695b8a5cdce36c11352a07f55f11df30a0b45b3c38234d2a3d7aef56597f5b9",
     "by_class": {
       "dicom_payload_identifier": 189,
-      "legacy_payload_schema_fixture_or_evidence": 321,
+      "legacy_payload_schema_fixture_or_evidence": 322,
       "locked_python_module_or_backend": 148,
       "qualified_adapter_environment": 155,
       "qualified_adapter_or_test_fixture": 142

@@ -415,8 +415,8 @@ mod external_manifest_contract_tests {
     fn accepts_empty_profile_and_explicit_planned_selection() {
         let mut value = fixture();
         validate_external_corpus_manifest(&value).unwrap();
-        value["selection_ledger"] = json!([entry("a"), entry("b")]);
-        value["run"]["selector"] = json!({"kind":"case_ids","case_ids":["a","b"]});
+        value["selection_ledger"] = json!([entry("test/a"), entry("test/b")]);
+        value["run"]["selector"] = json!({"kind":"case_ids","case_ids":["test/a","test/b"]});
         validate_external_corpus_manifest(&value).unwrap();
     }
 
@@ -443,13 +443,13 @@ mod external_manifest_contract_tests {
     #[test]
     fn rejects_duplicate_unsorted_and_selector_mismatched_ledgers() {
         for entries in [
-            json!([entry("a"), entry("a")]),
-            json!([entry("b"), entry("a")]),
-            json!([entry("b")]),
+            json!([entry("test/a"), entry("test/a")]),
+            json!([entry("test/b"), entry("test/a")]),
+            json!([entry("test/b")]),
         ] {
             let mut value = fixture();
             value["selection_ledger"] = entries;
-            value["run"]["selector"] = json!({"kind":"case_ids","case_ids":["a"]});
+            value["run"]["selector"] = json!({"kind":"case_ids","case_ids":["test/a"]});
             assert!(validate_external_corpus_manifest(&value).is_err());
         }
     }
@@ -468,7 +468,7 @@ mod external_manifest_contract_tests {
             ("planned", "planned", Value::Null, json!([])),
         ] {
             let mut value = fixture();
-            let mut item = entry("a");
+            let mut item = entry("test/a");
             item["registry_status"] = json!(status);
             item["outcome"] = json!(outcome);
             item["reason_code"] = reason;

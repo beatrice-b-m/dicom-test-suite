@@ -109,7 +109,8 @@
                   "uniqueItems": true,
                   "items": {
                     "type": "string",
-                    "minLength": 1
+                    "maxLength": 240,
+                    "pattern": "^[a-z0-9][a-z0-9_.-]*(/[a-z0-9][a-z0-9_.-]*)+$"
                   }
                 }
               },
@@ -147,7 +148,8 @@
         "properties": {
           "case_id": {
             "type": "string",
-            "minLength": 1
+            "maxLength": 240,
+            "pattern": "^[a-z0-9][a-z0-9_.-]*(/[a-z0-9][a-z0-9_.-]*)+$"
           },
           "selection": {
             "enum": [
@@ -184,8 +186,7 @@
             "type": "array",
             "uniqueItems": true,
             "items": {
-              "type": "string",
-              "minLength": 1
+              "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/file/properties/path"
             }
           }
         },

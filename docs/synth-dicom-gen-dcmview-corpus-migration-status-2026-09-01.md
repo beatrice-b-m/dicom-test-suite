@@ -39,7 +39,7 @@ artifact.
 | R3 — rename reusable product | Complete | R3.1, R3.2, R3.3, R3.4 | Product, package, crate, library, sole binary, archives, discovery, package metadata, current operating guides, product-controlled environment, and production scratch paths use `synth-dicom-gen` / `synth_dicom_gen` at the breaking pre-1.0 product boundary `0.2.0`. Immutable dated evidence retains its exact old candidate identity, and 12 qualified-adapter variables retain provenance-bound spellings pending external requalification. The external-consumer audit found no supported `0.1.0` product consumer requiring an alias. A clean side project compiled and exercised only `synth_dicom_gen::sdk` from the extracted, verified `synth-dicom-gen-0.2.0.crate`, without the old repository path. The aggregate R3 gate passes. |
 | R4 — split immutable resources and corpus definitions | Complete | R4.1, R4.2, R4.3, R4.4, R4.5 | At the accepted R4 checkpoint, EngineResources v2 owned 74 immutable members and its private lazy lease materialized a 254-file transitional physical closure once per shared context. Those checkpoint measurements remain historical; current schema additions and exact identities are recorded in the latest dated R5 entry below. Cases/Cargo remain excluded from authoritative engine identity, and exact legacy 240-member v1 provenance remains reconstructable. |
 | R5 — add supported external corpus API | Complete | R5.1–R5.5 and isolated-source consumer gate independently accepted | SDK `ca571fb..aa7fcad`, CLI `aa7fcad..a18d149`, discovery `a18d149..5da18e8`, and the 2026-09-04 source-removed consumer proof at exact `232b9de` are independently accepted. This closes R5, not package/release qualification or R6+ terminal cross-repository evidence. |
-| R6 — establish smoke corpus repository | In progress | Foundation, offline acquisition, R6.2 definitions/schema fixtures, and local runner accepted | The approved local repository is `/Users/beatrice/AgentFiles/projects/dcmview-test-corpus`. Clean-clone acquisition, full R6.4 parity, viewer-result contract and CI remain. Local-only native artifact evidence is not release qualification; no remote or release publication is authorized. |
+| R6 — establish smoke corpus repository | In progress | Foundation, offline acquisition, R6.2 definitions/schema fixtures, R6.3 clean-clone runner, and R6.4 full parity accepted | The approved local repository is `/Users/beatrice/AgentFiles/projects/dcmview-test-corpus`. Viewer-result contract and CI remain. Local-only native artifact evidence is not release qualification; no remote or release publication is authorized. |
 | R7 — migrate complete dcmview corpus | Not started | None | Requires R6 smoke parity and supported contracts. |
 | R8 — decouple viewer development | Not started | None | Requires a qualified artifact key and complete-enough corpus ownership. |
 | R9 — remove embedded corpus and qualify products | Not started | None | Terminal removal, documentation, measurement, and exact qualification have not run. |
@@ -3853,6 +3853,45 @@ registered lock schema SHA-256 is
 `8d418149a2b8ca890453c19bec9a0056ea9b3bbccaa669fe8e0967697a88e9bc`.
 The successful verification process completed in approximately 0.2 seconds.
 
+### R6.3 clean clone and R6.4 full smoke parity accepted — 2026-09-04
+
+Corpus range `cd4783e..9cf30d7` is independently accepted for local clean-clone
+acquisition and full R6.4 parity. Immutable candidate
+`3a059de5aa8c10b086fcf58575ce16a2d1235227` was transferred as an 84,015-byte
+Git bundle, SHA `9c9e07bdad307bcce64d6838e9c1c973b9b62b5e892d03e64ee1aa697f5ad7e1`.
+The private clone has no alternates or remote; its input bundle was removed
+after preserving a portable evidence copy. Absolute Python commands used a
+restricted environment and unrelated working directory; resolved modules came
+from the clone. The explicitly supplied binary was copied outside both real
+repositories. No generator compilation, tests, or sibling lookup was needed.
+Original workspaces were not moved or denied by an OS sandbox, and this is not
+remote acquisition or package/release qualification.
+
+A recovered byte-identical baseline manifest, not the deleted original R0
+directory, matches raw SHA `6a6540ba8acc13afa5e76e35e46d246d77f46ffdc2e5dcce0497fb882ab684eb`.
+It remains ignored, hash-bound evidence. All four fresh three-case runs match
+the exact 14,109-byte R0 normalized projection
+`18f154c38903677cadf4f955b0658ed2fd59162c44a970a9b15c5dc9905eabcd`,
+including full recipes, case semantics, validation check names/statuses, and
+standards evidence; all 12 payload copies match the frozen hashes. Only the
+explicitly versioned run representation and verified empty skipped set are
+normalized. Profile/repeat manifests and reports are identical; explicit IDs
+differ only in selector. A separate clone-only metadata perturbation changes
+only corpus identity while preserving file evidence and every installed
+identity domain. It does not modify the committed corpus or baseline.
+
+Recorded runtimes are profile 4.303s, IDs 3.636s, repeat 3.626s, metadata
+perturbation 3.695s, and final post-sidecar strict validation 0.333s. The clone
+source occupies 516,096 allocated bytes, each binary/input cache 69,316,608
+bytes, and the measured entire proof root 141,910,016 allocated bytes. No build
+tree was produced. Five focused and all 50 ordinary corpus tests pass.
+Receipt `5d2904f5f15ea4dcbf644a249d87b7d37c4f90adeca5167e2d7fb45f8d836805`
+and complete inputs/results/sidecars are retained in corpus
+`artifacts/clean-clone-proof1-20260904/`. Independent review verified transport,
+hashes, all projections/payloads, identities, output closure and costs without
+native replay. Full R6 still requires its viewer-result contract and CI;
+terminal remote/target/release evidence is not implied.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |
@@ -3902,7 +3941,7 @@ baseline alone is not proof that those budgets have passed.
 | Naming and compatibility | Passed | R3.1-R3.4 prove package `synth-dicom-gen` `0.2.0`, library `synth_dicom_gen`, the sole binary and version-derived archive/discovery identities, clean no-alias product environment, renamed production scratch paths, dual readers only at the four approved compatibility boundaries, current operating guides under the new identity, immutable historical evidence under the old identity, and 12 explicitly evidence-bound retained adapter environments. The exact 2,500,992-byte packaged crate (`9bc4cdaa357ce6f87a8dcce61d2f554d45f7a795a5c5f09fbb93017e65f79fe6`) passed Cargo verification and a clean extracted-package SDK consumer without an old repository path. A qualified `0.2.0` release remains correctly separate in the packaging-and-release row. |
 | External corpus contract | In progress | R5 SDK/CLI, loaded-corpus discovery and the dated 2026-09-04 isolated immutable-source consumer gate are independently accepted, with SDK-only imports and both build source roots removed before runtime. This is not package/installed-release or the later separated-repository terminal qualification; R6+ evidence remains required before this row passes. |
 | Identity separation | In progress | R4.3 independently projects engine, toolchain, template, provider, schema, standards, execution, verified loaded-corpus, and invocation runtime identities through v2 discovery and current generation, composition, assembly, report, and release contracts. R4.4 removes `cases/**` and `Cargo.lock` from the authoritative v2 engine digest while retaining exact named v1 reconstruction for required compatibility fields. Embedded paths do not fabricate corpus or runtime identities. The supported R5 external-corpus generation route and later physical/default-reader migration remain before the terminal cross-repository row can pass. |
-| Smoke migration | In progress | The R0 parity baseline passes for the current embedded smoke slice; R6 repository generation and comparison have not run. |
+| Smoke migration | Passed for the local R6 smoke boundary | The separate corpus repository clean-clone proof at `3a059de` reproduces all three frozen R0 hashes and the complete 14,109-byte normalized semantic/validation/standards projection. Four runs, explicit-ID selection, repeat equality and metadata-only identity sensitivity are independently accepted. Later terminal candidate qualification remains required; this does not imply remote delivery or a qualified release. |
 | Complete migration | Not run | The current repository still owns the complete embedded corpus. |
 | Fast development | In progress | R1-R2 record the representative 123-second generator Fast PR, 739,602,432-byte target, bounded smoke artifacts, 20 integration harnesses, 84.28% comparable clean-tree size reduction, 91.19% bounded Fast-route reduction, and warm-invalidation evidence while preserving separately invocable heavy coverage. Representative corpus and viewer PR measurements remain absent, and R9.6 still owns terminal verification-class cost measurements, so this terminal row does not yet pass. |
 | Heavy qualification | In progress | Nightly/manual/release routing now selects the six explicit heavy entries once, but no exact terminal Nightly or release-candidate run has executed at the separated-repository boundary. |

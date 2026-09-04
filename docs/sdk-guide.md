@@ -91,8 +91,50 @@ Execution currently uses native/compiled support only. Missing providers and
 codecs remain explicit unavailable dispositions; no ambient tool discovery is
 performed. The [external corpus CLI](generation-guide.md#generate-a-caller-owned-definition-bundle)
 uses this facade and emits generation-result3/report-result2 in CLI API1.
-Loaded-corpus capability discovery remains pending; frozen capabilities2 does
-not yet advertise these complete external result-validation windows.
+Capabilities `3.0.0` advertises these external producer and validation windows;
+the earlier capability schemas remain frozen.
+
+## Inspect a caller-owned corpus before submitting
+
+```rust
+use synth_dicom_gen::sdk::{CorpusSelector, DicomTestSuite, InspectCorpusRequest};
+
+let product = DicomTestSuite::embedded()?;
+let inspection = product.inspect_corpus(
+    InspectCorpusRequest::from_file("./definition.json", "corpus-members")
+        .with_selection(CorpusSelector::Profile {
+            profile: "smoke".into(), include_stress: false,
+        })
+        .with_seed(1)
+        .with_parallelism(2),
+)?;
+let assessment = inspection.assessment().expect("selection was supplied");
+assert_eq!(assessment.seed(), 1);
+for case in assessment.cases() {
+    println!("{} {:?} {:?}", case.case_id(), case.disposition(), case.reason_code());
+}
+# Ok::<(), synth_dicom_gen::sdk::SdkError>(())
+```
+
+File and `from_json_bytes` inspection require an explicit dedicated member
+root, with the same capture/limits/closure rules as generation. No destination
+is accepted, checked, or created. Without `with_selection`, only verified
+profiles and case definitions are returned: runtime/selection assessment was
+not performed. Case status is not runtime availability. Selected assessment
+uses generation's same captured planner and preserves seed, parallelism,
+scope, dependencies and unavailable reasons. `Ready` means planned, never
+generated or validated; publication and validation remain `NotRun`.
+
+`capabilities_with_corpus(request)` combines the same captured inspection with
+installed engine, qualified-template, transfer-syntax and provider declarations.
+Its top-level and nested corpus identities refer to that one verified capture.
+`provider_support` distinguishes compiled native support from unassessed
+external declarations; actual selected feasibility is in the assessment.
+No provider, codec or executable discovery is invoked. Cancellation is
+cooperative before/after bounded capture/planning through
+`inspect_corpus_cancellable`; this is not a CLI signal-handling claim.
+Inspection/assessment accessors are SDK evidence version `1.0.0`, not standalone
+serialized documents or private plans. CLI serialization is capabilities3.
 
 ## Compose from a file or bytes
 

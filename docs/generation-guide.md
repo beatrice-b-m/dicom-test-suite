@@ -177,11 +177,29 @@ overwritten, and SDK error codes cross into CLI errors without parsing prose.
 Native/compiled support only is currently executable; unavailable providers
 remain explicit. SDK cooperative cancellation exists, but this CLI does not
 install a signal handler and makes no graceful SIGINT-cleanup claim.
-Capabilities `2.0.0` retains its frozen pre-external result-validation window;
-loaded-corpus and complete generation3/report2 discovery is deferred to the
-next versioned discovery slice. Use these exact contracts in the interim,
-not an inferred capability claim. Embedded `generate` without `--corpus`
+Capabilities `3.0.0` advertises the external generation3/manifest2/report2
+producer and validation windows; capabilities1/2 remain frozen. Embedded `generate` without `--corpus`
 continues to emit generation-result `2.0.0` and curated manifest `1.0.0`.
+
+Inspect the same caller-owned bundle without an output path:
+
+```sh
+synth-dicom-gen capabilities --corpus ./definition.json \
+  --asset-root corpus-members --format json
+synth-dicom-gen capabilities --corpus ./definition.json \
+  --asset-root corpus-members --profile smoke --seed 1 --parallelism 2 \
+  --format json
+```
+
+The first command returns verified profiles/case metadata with assessment
+`not_assessed`. The second assesses the selected scope using the same planner
+as generation; repeat `--case-id ID` for direct cases within `--profile`.
+Seed, parallelism, case IDs and stress options require a profile. Registry
+`implemented`, installed provider declarations, and selected `ready` are
+different facts. Inspection never runs generators/providers, discovers external
+executables, creates a destination, or claims generation/validation success.
+Qualified templates, compiled native provider support, unassessed external
+providers, and exact unavailable reasons remain machine-readable.
 
 ## 3. Select A Profile
 

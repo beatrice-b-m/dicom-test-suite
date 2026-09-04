@@ -17,6 +17,13 @@ SPEC.loader.exec_module(ROUTER)
 
 
 class ChangeTestRoutingFixtures(unittest.TestCase):
+    def test_isolated_consumer_proof_is_explicit_not_ordinary_execution(self):
+        for path in ["scripts/prove-isolated-corpus-consumer.py", "tests/fixtures/isolated-corpus-consumer/main.rs", "tests/test_isolated_corpus_consumer.py"]:
+            result = self.select(path)
+            self.assertEqual(result["bundle_ids"], ["routing_contract"])
+            self.assertEqual(result["commands"], [])
+            self.assertEqual([entry["id"] for entry in result["deferred_evidence"]], ["isolated_sdk_consumer", "release_candidate"])
+
     @classmethod
     def setUpClass(cls):
         cls.config = ROUTER.load_json(ROOT / "product/change-test-routing.json")
@@ -449,7 +456,7 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
         self.assertEqual(
             [item["id"] for item in result["deferred_evidence"]],
             [
-                "codec_feature_matrix", "explicit_heavy", "future_external_corpus",
+                "codec_feature_matrix", "explicit_heavy", "future_external_corpus", "isolated_sdk_consumer",
                 "native_provider_contract", "nightly", "release_candidate", "unrouted_lib_groups",
             ],
         )
@@ -512,7 +519,7 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
         self.assertEqual(
             [item["id"] for item in result["deferred_evidence"]],
             [
-                "codec_feature_matrix", "explicit_heavy", "future_external_corpus",
+                "codec_feature_matrix", "explicit_heavy", "future_external_corpus", "isolated_sdk_consumer",
                 "native_provider_contract", "nightly", "release_candidate", "unrouted_lib_groups",
             ],
         )

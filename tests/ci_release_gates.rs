@@ -7,6 +7,32 @@ use serde_json::{Value, json};
 
 static NEXT_RELEASE_MANIFEST_TEST: AtomicU64 = AtomicU64::new(0);
 
+#[test]
+fn isolated_corpus_proof_has_sdk_only_inputs_and_bounded_static_fixtures() {
+    let result = Command::new("python3")
+        .arg("tests/test_isolated_corpus_consumer.py")
+        .output()
+        .unwrap();
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    let script = fs::read_to_string("scripts/prove-isolated-corpus-consumer.py").unwrap();
+    for required in [
+        "--offline",
+        "--locked",
+        "--no-default-features",
+        "consumer_packages.issubset(source_packages)",
+        "source_roots_removed_before_runtime",
+        "retained_root",
+        "target_before_cleanup",
+    ] {
+        assert!(script.contains(required), "isolated proof omits {required}");
+    }
+    assert!(!script.contains("cargo package"));
+}
+
 fn current_discovery_result(command: &str) -> Value {
     let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
         .args([command, "--format", "json"])

@@ -6,6 +6,7 @@
     "schema_resources__fast"
   ],
   "deferred_evidence": {
+    "isolated_sdk_consumer": "Explicit R5 or supported-boundary isolated-source SDK/CLI proof only; not ordinary PR, package, or release qualification.",
     "codec_feature_matrix": "Feature-specific codec compilation and corpus evidence remains in Heavy qualification.",
     "explicit_heavy": "R2.3 ignored byte-parity, all-profile, WSI, and stress entries run only through the heavy dispatcher.",
     "future_external_corpus": "The future corpus repository will own its independent PR workflow after extraction; no sibling path is consulted.",
@@ -154,6 +155,12 @@
     }
   },
   "rules": [
+    {
+      "id": "isolated-sdk-consumer-proof",
+      "exact": ["scripts/prove-isolated-corpus-consumer.py", "tests/fixtures/isolated-corpus-consumer/main.rs", "tests/test_isolated_corpus_consumer.py"],
+      "bundles": ["routing_contract"],
+      "deferred": ["isolated_sdk_consumer"]
+    },
     {
       "id": "external-corpus-cli",
       "exact": ["src/external_corpus_cli.rs", "src/cli_protocol.rs", "schemas/generation-result-v3.schema.json", "schemas/report-result-v2.schema.json", "schemas/capabilities-result-v3.schema.json"],

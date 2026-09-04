@@ -4716,6 +4716,31 @@ generation. Configuration SHA:
 Diff checks passed. Root and independent review accept provenance only, not
 metadata availability, baseline generation, migrated parity or conformance.
 
+## R7 metadata baseline prerequisite: complete source core rows — 2026-09-04
+
+While reviewing the unexecuted metadata baseline helper, root found that the
+historical `source_core_registry_scope` contains only case ID, status and
+profiles. It cannot supply complete standards evidence for the31 unselected
+rows. A real-fixture test run reproduced this initialization defect:14 tests,
+zero passes/14 setup errors in0.022s. No native command or baseline was run.
+
+Corpus prerequisite commit `0c664c9` adds the separately reviewed
+`docs/r7-native-core-registry-source-2026-09-04.json`,103,156 bytes, SHA
+`f879075135b1616a9693502c827c21ab79d516ec7635a0dd92b033bc8580fafa`.
+All34 full rows exactly match the core filter in source232b9de registry order.
+Independent review also confirmed that their minimal projection equals the
+unchanged historical scope, and that the three metadata rows match the newly
+accepted metadata provenance. This is source evidence, not live corpus import.
+
+The fixture binds original `src/lib.rs`,1,490,527 bytes, SHA
+`e0eb3231dfbd90218b5bda6cfa9e6434f19da516a83b212ac7ec5f5c3b87b467`,
+the exact skipped-case constructor at34866–34940, and parallelism source lines
+650/694/1246. Parallelism4 is an embedded executor setting, not an invented
+legacy CLI flag. Root and independent review accept this prerequisite.
+The earlier minimal and metadata fixtures remain unchanged. Helper/tests/CI
+preparation remains owned uncommitted work pending final review and ordinary
+verification; native execution is still not authorized at this checkpoint.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

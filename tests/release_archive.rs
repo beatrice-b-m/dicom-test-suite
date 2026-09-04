@@ -39,24 +39,23 @@ fn validate_release_manifest_schema(manifest: &Value) {
             let schema = read_json("schemas/release-manifest.schema.json");
             Validator::new(&schema).unwrap().validate(manifest).unwrap();
         }
-        Some("2.0.0") => {
-            let schema = read_json("schemas/release-manifest-v2.schema.json");
-            let version = read_json("schemas/version-result-v2.schema.json");
-            let capabilities = read_json("schemas/capabilities-result-v2.schema.json");
-            jsonschema::options()
-                .with_draft(jsonschema::Draft::Draft202012)
-                .with_resource(
-                    "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json",
-                    jsonschema::Resource::from_contents(version).unwrap(),
-                )
-                .with_resource(
-                    "https://synth-dicom-gen.local/schemas/capabilities-result-v2.schema.json",
-                    jsonschema::Resource::from_contents(capabilities).unwrap(),
-                )
-                .build(&schema)
-                .unwrap()
-                .validate(manifest)
-                .unwrap();
+        Some(version @ ("2.0.0" | "3.0.0")) => {
+            let schema = read_json(format!(
+                "schemas/release-manifest-v{}.schema.json",
+                &version[..1]
+            ));
+            let mut options = jsonschema::options();
+            options = options.with_draft(jsonschema::Draft::Draft202012);
+            for entry in fs::read_dir("schemas").unwrap() {
+                let path = entry.unwrap().path();
+                if path.extension().and_then(|s| s.to_str()) == Some("json") {
+                    let resource = read_json(path);
+                    let id = resource["$id"].as_str().unwrap().to_owned();
+                    options
+                        .with_resource(id, jsonschema::Resource::from_contents(resource).unwrap());
+                }
+            }
+            options.build(&schema).unwrap().validate(manifest).unwrap();
         }
         version => panic!("unsupported release manifest schema version: {version:?}"),
     }

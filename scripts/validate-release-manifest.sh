@@ -20,8 +20,8 @@ case "$manifest_version" in
             exit 4
         }
         ;;
-    2.0.0)
-        jq -e '
+    2.0.0|3.0.0)
+        jq -e --arg expected_capabilities "$manifest_version" '
           def sha256: type == "string" and test("^[0-9a-f]{64}$");
           def runtime_valid:
             type == "object" and
@@ -33,7 +33,7 @@ case "$manifest_version" in
           .product.name == "synth-dicom-gen" and
           .version_result.product.name == "synth-dicom-gen" and
           .version_result.version_result_schema_version == "2.0.0" and
-          .capabilities_result.capabilities_result_schema_version == "2.0.0" and
+          .capabilities_result.capabilities_result_schema_version == $expected_capabilities and
           (.identity_domains | type == "object") and
           .identity_domains.identity_domains_schema_version == "1.0.0" and
           (.identity_domains.engine.engine_sha256 | sha256) and
@@ -60,7 +60,7 @@ case "$manifest_version" in
             (.legacy_product_resources == .version_result.product_resources and
              .legacy_product_resources == .capabilities_result.product_resources))
         ' "$manifest" >/dev/null || {
-            echo "release manifest v2 identity or embedded discovery contract is invalid" >&2
+            echo "release manifest current identity or embedded discovery contract is invalid" >&2
             exit 4
         }
         ;;

@@ -16,7 +16,7 @@ fn current_discovery_result(command: &str) -> Value {
     serde_json::from_slice::<Value>(&output.stdout).unwrap()["result"].clone()
 }
 
-fn current_release_manifest_v2() -> Value {
+fn current_release_manifest_v3() -> Value {
     let version = current_discovery_result("version");
     let capabilities = current_discovery_result("capabilities");
     assert_eq!(
@@ -25,7 +25,7 @@ fn current_release_manifest_v2() -> Value {
     );
     let identity_domains = version["identity_domains"].clone();
     json!({
-        "release_manifest_schema_version": "2.0.0",
+        "release_manifest_schema_version": "3.0.0",
         "product": version["product"],
         "source": {"revision": "1111111111111111111111111111111111111111", "dirty": false},
         "target": version["target"],
@@ -70,15 +70,44 @@ fn unique_runtime() -> Value {
 }
 
 #[test]
-fn release_manifest_reader_accepts_v1_and_current_v2() {
+fn release_manifest_reader_accepts_v1_v2_and_current_v3() {
     let legacy: Value = serde_json::from_slice(
         &fs::read("tests/fixtures/release/release-manifest-v1.json").unwrap(),
     )
     .unwrap();
     assert!(validate_release_manifest(&legacy).status.success());
 
-    let current = current_release_manifest_v2();
-    assert!(release_manifest_v2_schema().is_valid(&current));
+    let current = current_release_manifest_v3();
+    // Synthetic compatibility projection, not a historical qualified archive.
+    let mut previous = current.clone();
+    previous["release_manifest_schema_version"] = json!("2.0.0");
+    let caps = previous["capabilities_result"].as_object_mut().unwrap();
+    caps.insert("capabilities_result_schema_version".into(), json!("2.0.0"));
+    caps.remove("provider_support");
+    caps.remove("loaded_corpus");
+    let versions = caps["supported_versions"].as_object_mut().unwrap();
+    for field in [
+        "external_corpus_manifest",
+        "external_corpus_manifest_validation",
+        "corpus_definition_bundle",
+    ] {
+        versions.remove(field);
+    }
+    versions["result_schema_validation"]["capabilities"] = json!(["1.0.0", "2.0.0"]);
+    versions["result_schema_validation"]["generation"] = json!(["1.0.0", "2.0.0"]);
+    versions["result_schema_validation"]
+        .as_object_mut()
+        .unwrap()
+        .remove("report");
+    assert!(release_schema("schemas/release-manifest-v2.schema.json").is_valid(&previous));
+    assert!(validate_release_manifest(&previous).status.success());
+    let mut crossed = previous.clone();
+    crossed["release_manifest_schema_version"] = json!("3.0.0");
+    assert!(!validate_release_manifest(&crossed).status.success());
+    crossed = current.clone();
+    crossed["release_manifest_schema_version"] = json!("2.0.0");
+    assert!(!validate_release_manifest(&crossed).status.success());
+    assert!(release_manifest_v3_schema().is_valid(&current));
     let validation = validate_release_manifest(&current);
     assert!(
         validation.status.success(),
@@ -102,13 +131,13 @@ fn release_manifest_reader_accepts_v1_and_current_v2() {
 
     let mut with_runtime = current;
     set_release_runtimes(&mut with_runtime, unique_runtime());
-    assert!(release_manifest_v2_schema().is_valid(&with_runtime));
+    assert!(release_manifest_v3_schema().is_valid(&with_runtime));
     assert!(validate_release_manifest(&with_runtime).status.success());
 }
 
 #[test]
 fn release_manifest_v2_reader_rejects_identity_and_version_tampering() {
-    let baseline = current_release_manifest_v2();
+    let baseline = current_release_manifest_v3();
     let mut cases = Vec::new();
 
     let mut unknown = baseline.clone();
@@ -223,11 +252,10 @@ fn release_archive_harness_dispatches_frozen_and_current_schemas() {
     for required in [
         "validate_release_manifest_schema",
         "schemas/release-manifest.schema.json",
-        "schemas/release-manifest-v2.schema.json",
-        "schemas/version-result-v2.schema.json",
-        "schemas/capabilities-result-v2.schema.json",
-        "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json",
-        "https://synth-dicom-gen.local/schemas/capabilities-result-v2.schema.json",
+        "Some(version @ (\"2.0.0\" | \"3.0.0\"))",
+        "schemas/release-manifest-v{}.schema.json",
+        "fs::read_dir(\"schemas\")",
+        ".with_resource(",
     ] {
         assert!(harness.contains(required), "RC harness omits {required}");
     }
@@ -249,28 +277,25 @@ fn validate_release_manifest(document: &Value) -> std::process::Output {
     output
 }
 
-fn release_manifest_v2_schema() -> jsonschema::Validator {
-    let release: Value =
-        serde_json::from_slice(&fs::read("schemas/release-manifest-v2.schema.json").unwrap())
-            .unwrap();
-    let version: Value =
-        serde_json::from_slice(&fs::read("schemas/version-result-v2.schema.json").unwrap())
-            .unwrap();
-    let capabilities: Value =
-        serde_json::from_slice(&fs::read("schemas/capabilities-result-v2.schema.json").unwrap())
-            .unwrap();
-    jsonschema::options()
-        .with_draft(jsonschema::Draft::Draft202012)
-        .with_resource(
-            "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json",
-            jsonschema::Resource::from_contents(version).unwrap(),
-        )
-        .with_resource(
-            "https://synth-dicom-gen.local/schemas/capabilities-result-v2.schema.json",
-            jsonschema::Resource::from_contents(capabilities).unwrap(),
-        )
-        .build(&release)
-        .unwrap()
+fn release_manifest_v3_schema() -> jsonschema::Validator {
+    release_schema("schemas/release-manifest-v3.schema.json")
+}
+
+fn release_schema(path: &str) -> jsonschema::Validator {
+    let release: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+    let mut options = jsonschema::options();
+    options = options.with_draft(jsonschema::Draft::Draft202012);
+    for entry in fs::read_dir("schemas").unwrap() {
+        let path = entry.unwrap().path();
+        if path.extension().and_then(|s| s.to_str()) == Some("json") {
+            let value: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+            options = options.with_resource(
+                value["$id"].as_str().unwrap().to_owned(),
+                jsonschema::Resource::from_contents(value).unwrap(),
+            );
+        }
+    }
+    options.build(&release).unwrap()
 }
 
 fn workflow(path: &str) -> String {

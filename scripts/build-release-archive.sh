@@ -200,7 +200,7 @@ jq -S -n \
     --slurpfile version_document "$archive_root/version.json" \
     --slurpfile capabilities_document "$archive_root/capabilities.json" \
     --slurpfile files "$file_inventory" \
-    '({release_manifest_schema_version:"2.0.0",
+    '({release_manifest_schema_version:"3.0.0",
       product:{name:"synth-dicom-gen",version:$version},
       source:{revision:$revision,dirty:$dirty},
       target:$target,

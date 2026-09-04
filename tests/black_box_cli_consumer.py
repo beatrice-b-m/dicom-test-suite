@@ -132,7 +132,7 @@ with tempfile.TemporaryDirectory(prefix="dts-python-consumer-") as temporary:
 
     version = success(["version", "--format", "json"], "version-result-v2.schema.json")
     capabilities = success(
-        ["capabilities", "--format", "json"], "capabilities-result-v2.schema.json"
+        ["capabilities", "--format", "json"], "capabilities-result-v3.schema.json"
     )
     assert version["result"]["cli_api_version"] == "1.0.0"
     assert "composition" in capabilities["result"]["supported_versions"]["result_schemas"]

@@ -5024,6 +5024,41 @@ that correction and a new content identity require separate review before a
 fresh native check. No generator implementation or pin change is indicated by
 the proven first rejection. Metadata availability/parity remain unproven.
 
+## R7 canonical evidence-path consumer correction accepted — 2026-09-04
+
+Corpus `91401e0` introduces an explicit versioned source-to-storage mapping:
+metadata-bearing content0.3.0 retains original paths only for rejected historical
+base inspection; content0.3.1 requires `evidence/<same-basename>`. Stable note
+IDs, media types, raw hashes/sizes and all registry source queries remain exact.
+Other metadata content versions and mixed layouts fail closed. Every route
+rejects0.3.0 as its target, including documentation-only routes; old/base snapshots
+remain available for exact old/current ownership comparison. The retained
+availability checker now requires canonical0.3.1, with no producer or pin change.
+
+Root and independent review accepted the two production changes and four
+affected test files. The additional baseline-test file changes only its routing
+fixture: it asserts actual historical rejection before separately testing a
+synthetic corrected target. Baseline generation/byte/skip oracles and native
+capture helpers are unchanged. Tests construct corrected bundles in private
+temporary fixtures without mutating live data, preserve the enumeration-error
+regression, and remove only exact now-empty fixture directories after relocation.
+
+Focused tests passed32 CI in0.278s,13 static definition in0.045s and14 retained
+checker tests in0.387s; independent checks passed32/0.275s,13/0.044s,14/0.384s
+plus9 baseline tests in0.042s. The initial full204-test run had203 passes and
+one stale routing-fixture error in1.630s. After that narrow correction, all204
+passed in1.638s and again1.626s after commit. An initial ad-hoc route inspection
+used the wrong config-function arity; its TypeError was corrected, then three
+expected live0.3 route rejections were verified without execution.
+
+The exact clean CLI dry route from `a488643` to `91401e0` returned expected
+exit2/`ci.scope.unsupported` in0.228382458s: the still-live rejected0.3 input
+cannot run CI. This is an accepted rejection check, not a generation plan or
+availability pass. Its evidence destination stayed absent. Diff checking
+passed; config bytes, corpus data, schemas, pins and historical evidence remain
+unchanged in this prerequisite. The separate data relocation and subsequent
+corrected-candidate native check are still required.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

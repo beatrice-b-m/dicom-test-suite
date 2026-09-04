@@ -51,7 +51,7 @@ fn validate_release_manifest_schema(manifest: &Value) {
                 if path.extension().and_then(|s| s.to_str()) == Some("json") {
                     let resource = read_json(path);
                     let id = resource["$id"].as_str().unwrap().to_owned();
-                    options
+                    options = options
                         .with_resource(id, jsonschema::Resource::from_contents(resource).unwrap());
                 }
             }

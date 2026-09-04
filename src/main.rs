@@ -992,8 +992,8 @@ fn run() -> Result<(), String> {
             }
             let gap_report = root == "gaps";
             let mut format = None;
-            let mut registry_path = "cases/registry.json".to_string();
-            let mut standards_lock_path = "standards.lock.json".to_string();
+            let mut registry_path = None;
+            let mut standards_lock_path = None;
             let mut cli_api = None;
             while let Some(arg) = args.next() {
                 match arg.as_str() {
@@ -1004,14 +1004,10 @@ fn run() -> Result<(), String> {
                         );
                     }
                     "--registry" if gap_report => {
-                        registry_path = args
-                            .next()
-                            .ok_or_else(|| "--registry requires a value".to_string())?;
+                        registry_path = Some(required_value(&mut args, "--registry")?);
                     }
                     "--standards-lock" if gap_report => {
-                        standards_lock_path = args
-                            .next()
-                            .ok_or_else(|| "--standards-lock requires a value".to_string())?;
+                        standards_lock_path = Some(required_value(&mut args, "--standards-lock")?);
                     }
                     "--cli-api" => cli_api = Some(required_value(&mut args, "--cli-api")?),
                     unknown => {
@@ -1029,12 +1025,14 @@ fn run() -> Result<(), String> {
                 }
             }
             if gap_report {
-                if registry_path == "cases/registry.json" {
-                    registry_path = resource_path("cases/registry.json")?;
-                }
-                if standards_lock_path == "standards.lock.json" {
-                    standards_lock_path = resource_path("standards.lock.json")?;
-                }
+                let registry_path = match registry_path {
+                    Some(path) => path,
+                    None => resource_path("cases/registry.json")?,
+                };
+                let standards_lock_path = match standards_lock_path {
+                    Some(path) => path,
+                    None => resource_path("standards.lock.json")?,
+                };
                 let report =
                     synth_dicom_gen::build_coverage_gap_report(registry_path, standards_lock_path)
                         .map_err(|err| err.to_string())?;

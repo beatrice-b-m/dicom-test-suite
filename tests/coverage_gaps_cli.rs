@@ -372,3 +372,65 @@ fn run_gap_report(format: &str) -> std::process::Output {
         .output()
         .expect("report gaps command must run")
 }
+
+#[test]
+fn report_gaps_preserves_explicit_default_spelled_caller_paths() {
+    let root = std::env::temp_dir().join(format!(
+        "synth-dicom-gen-gap-paths-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(root.join("cases")).unwrap();
+    let resources = synth_dicom_gen::engine_resources::EngineResources::embedded();
+    let embedded_registry = resources.bytes("cases/registry.json").unwrap();
+    let embedded_standards = resources.bytes("standards.lock.json").unwrap();
+    // Distinct valid JSON byte identities make caller/embedded selection observable.
+    let mut caller_registry = embedded_registry.to_vec();
+    caller_registry.extend_from_slice(b"\n \n");
+    let mut caller_standards = embedded_standards.to_vec();
+    caller_standards.extend_from_slice(b"\n  \n");
+    std::fs::write(root.join("cases/registry.json"), &caller_registry).unwrap();
+    std::fs::write(root.join("standards.lock.json"), &caller_standards).unwrap();
+
+    for explicit_registry in [false, true] {
+        for explicit_standards in [false, true] {
+            let mut command = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"));
+            command
+                .current_dir(&root)
+                .args(["report", "gaps", "--format", "json"]);
+            if explicit_registry {
+                command.args(["--registry", "cases/registry.json"]);
+            }
+            if explicit_standards {
+                command.args(["--standards-lock", "standards.lock.json"]);
+            }
+            let output = command.output().unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            let report: Value = serde_json::from_slice(&output.stdout).unwrap();
+            assert_eq!(
+                report["registry_sha256"],
+                synth_dicom_gen::sha256_hex(if explicit_registry {
+                    &caller_registry
+                } else {
+                    embedded_registry.as_ref()
+                })
+            );
+            assert_eq!(
+                report["standards_lock_sha256"],
+                synth_dicom_gen::sha256_hex(if explicit_standards {
+                    &caller_standards
+                } else {
+                    embedded_standards.as_ref()
+                })
+            );
+        }
+    }
+    std::fs::remove_dir_all(root).unwrap();
+}

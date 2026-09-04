@@ -8,6 +8,8 @@ mod cli_error_golden;
 mod coverage_gaps_cli;
 #[path = "../curated_runtime_capabilities.rs"]
 mod curated_runtime_capabilities;
+#[path = "../external_corpus_cli.rs"]
+mod external_corpus_cli;
 #[path = "../generate_cli.rs"]
 mod generate_cli;
 #[path = "../list_cases_cli.rs"]

@@ -9414,7 +9414,7 @@ fn coverage_row_with_u64_field<'a>(
 }
 
 #[test]
-fn external_report_raw_formats_preserve_evidence_and_reject_old_envelope() {
+fn external_report_raw_formats_preserve_evidence_and_use_versioned_envelope() {
     let workspace = unique_temp_dir("external-report-formats");
     fs::create_dir(&workspace).unwrap();
     let root = workspace.join("generated");
@@ -9484,16 +9484,16 @@ fn external_report_raw_formats_preserve_evidence_and_reject_old_envelope() {
         .current_dir(&workspace)
         .output()
         .unwrap();
-    assert!(!machine.status.success());
-    assert!(machine.stdout.is_empty());
-    let error: Value = serde_json::from_slice(&machine.stderr).unwrap();
-    assert_eq!(error["status"], "error");
-    assert_eq!(error["error"]["code"], "request.version.unsupported");
-    assert_eq!(machine.status.code(), Some(2));
-    let schema: Value =
-        serde_json::from_slice(include_bytes!("../schemas/cli-error-envelope.schema.json"))
-            .unwrap();
-    assert!(jsonschema::validator_for(&schema).unwrap().is_valid(&error));
+    assert!(
+        machine.status.success(),
+        "{}",
+        String::from_utf8_lossy(&machine.stderr)
+    );
+    assert!(machine.stderr.is_empty());
+    let envelope: Value = serde_json::from_slice(&machine.stdout).unwrap();
+    assert_eq!(envelope["status"], "success");
+    assert_eq!(envelope["result"]["report_result_schema_version"], "2.0.0");
+    assert_eq!(envelope["result"]["report"], report);
     fs::remove_dir_all(workspace).unwrap();
 }
 

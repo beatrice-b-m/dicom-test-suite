@@ -28,6 +28,7 @@ use crate::executor::transaction::TransactionError;
 use crate::runtime_capabilities::CapabilityInventory;
 
 mod corpus_generation;
+mod corpus_report;
 mod report_contract;
 #[cfg(any(
     feature = "htj2k_openjph",
@@ -18224,6 +18225,17 @@ pub fn build_coverage_report_with_resources(
     root_dir: impl AsRef<Path>,
     resources: &engine_resources::EngineResources,
 ) -> Result<Value, ReportError> {
+    let root_dir = root_dir.as_ref();
+    let validated =
+        manifest_contract::load_manifest_contract(root_dir, resources).map_err(|error| {
+            ReportError::ManifestContract {
+                path: root_dir.join("manifest.json"),
+                message: error.to_string(),
+            }
+        })?;
+    if validated.kind() == manifest_contract::ManifestContractKind::ExternalCorpus {
+        return corpus_report::project(validated.value()).map_err(ReportError::ReportContract);
+    }
     let snapshot = resources
         .shared_snapshot()
         .map_err(|error| ReportError::EngineResources(error.to_string()))?;
@@ -18250,9 +18262,7 @@ fn build_coverage_report_with_registry(
         })?;
     let manifest = validated.value().clone();
     if validated.kind() == manifest_contract::ManifestContractKind::ExternalCorpus {
-        return Err(ReportError::ReportContract(
-            "external corpus manifest 2.0 reporting is not yet supported".into(),
-        ));
+        return corpus_report::project(&manifest).map_err(ReportError::ReportContract);
     }
     if validated.kind() == manifest_contract::ManifestContractKind::QualifiedComposition {
         let report =
@@ -18700,6 +18710,9 @@ fn validate_wsi_pyramid_report_group(
 }
 
 pub fn render_coverage_report_markdown(report: &Value) -> String {
+    if report.get("report_kind").and_then(Value::as_str) == Some("external_corpus") {
+        return corpus_report::markdown(report);
+    }
     if report.get("report_kind").and_then(Value::as_str) == Some("composition") {
         return composition::render_composition_report_markdown(report);
     }

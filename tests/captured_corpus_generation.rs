@@ -125,12 +125,10 @@ fn smoke_publication_is_verified_deterministic_and_reader_bounded() {
             .failures
             .is_empty()
     );
-    assert!(
-        crate::build_coverage_report_with_resources(&first.destination, &resources)
-            .unwrap_err()
-            .to_string()
-            .contains("not yet supported")
-    );
+    let report =
+        crate::build_coverage_report_with_resources(&first.destination, &resources).unwrap();
+    assert_eq!(report["source_manifest"], manifest);
+    crate::report_contract::validate_report_contract(&report).unwrap();
     let sdk = crate::sdk::DicomTestSuite::embedded().unwrap();
     assert!(
         sdk.validate(crate::sdk::ValidateRequest::new(&first.destination))

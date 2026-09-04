@@ -31,6 +31,9 @@ impl std::error::Error for ReportContractError {}
 
 pub(crate) fn validate_report_contract(report: &Value) -> Result<(), ReportContractError> {
     let report_kind = report.get("report_kind").and_then(Value::as_str);
+    if report_kind == Some("external_corpus") {
+        return crate::corpus_report::validate(report).map_err(error);
+    }
     let (version_field, supported_legacy, supported_current, schema_bytes) = match report_kind {
         None => (
             "coverage_report_schema_version",

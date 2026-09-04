@@ -38,7 +38,7 @@ artifact.
 | R2 — reduce Rust test-linking amplification | Complete | R2.1, R2.2, R2.3, R2.4 | The fail-closed inventory maps 186 integration sources and all 879 integration entries into exactly 20 explicit harnesses. Six R0-measured heavy bodies have exact ignored qualification entry points, while deterministic change routing now selects bounded Fast/subsystem evidence and reports every deferred class without executing it. The aggregate R2 target-count, cost, heavy-isolation, and routing gates pass. |
 | R3 — rename reusable product | Complete | R3.1, R3.2, R3.3, R3.4 | Product, package, crate, library, sole binary, archives, discovery, package metadata, current operating guides, product-controlled environment, and production scratch paths use `synth-dicom-gen` / `synth_dicom_gen` at the breaking pre-1.0 product boundary `0.2.0`. Immutable dated evidence retains its exact old candidate identity, and 12 qualified-adapter variables retain provenance-bound spellings pending external requalification. The external-consumer audit found no supported `0.1.0` product consumer requiring an alias. A clean side project compiled and exercised only `synth_dicom_gen::sdk` from the extracted, verified `synth-dicom-gen-0.2.0.crate`, without the old repository path. The aggregate R3 gate passes. |
 | R4 — split immutable resources and corpus definitions | Complete | R4.1, R4.2, R4.3, R4.4, R4.5 | At the accepted R4 checkpoint, EngineResources v2 owned 74 immutable members and its private lazy lease materialized a 254-file transitional physical closure once per shared context. Those checkpoint measurements remain historical; current schema additions and exact identities are recorded in the latest dated R5 entry below. Cases/Cargo remain excluded from authoritative engine identity, and exact legacy 240-member v1 provenance remains reconstructable. |
-| R5 — add supported external corpus API | In progress | Input substrate, batch execution, reporting, accepted SDK/CLI; discovery slice pending review | SDK `ca571fb..aa7fcad` and CLI `aa7fcad..a18d149` are independently accepted. The dated R5.5 entry records destination-free supported inspection and capabilities3, pending review. Independent installed/cross-repository acceptance remains required. |
+| R5 — add supported external corpus API | Complete | R5.1–R5.5 and isolated-source consumer gate independently accepted | SDK `ca571fb..aa7fcad`, CLI `aa7fcad..a18d149`, discovery `a18d149..5da18e8`, and the 2026-09-04 source-removed consumer proof at exact `232b9de` are independently accepted. This closes R5, not package/release qualification or R6+ terminal cross-repository evidence. |
 | R6 — establish smoke corpus repository | Not started | None | No external repository has been created; authority and destination are still required before out-of-workspace mutation. |
 | R7 — migrate complete dcmview corpus | Not started | None | Requires R6 smoke parity and supported contracts. |
 | R8 — decouple viewer development | Not started | None | Requires a qualified artifact key and complete-enough corpus ownership. |
@@ -3620,6 +3620,108 @@ bodies. Ownership remains 22 targets / 273 groups / 1,470 entries; formatting
 and diff checks pass. Resource identities and generated behavior are unchanged.
 This narrow correction awaits independent re-review; no later phase began.
 
+### R5 isolated immutable-source SDK/CLI consumer proof — 2026-09-04
+
+Predecessor discovery range `a18d149..5da18e8` is independently accepted,
+including compile-only remediation of the deferred release harness. This
+supersedes the earlier dated pending-review wording without changing its
+historical measurements. Proof implementation commits are `bc8e6a9` (harness,
+SDK-only fixture, static checks), `3dd9fed` (explicit-boundary routing),
+`60bd201` (scope documentation), `6c0b117` (preserved dependency resolution),
+`95e7aba` (host-scoped offline metadata), `2558146` (actual reader assertions),
+and `232b9de` (same pinned compiler for both builds). No generator behavior,
+schema, recipe, or DICOM oracle changed.
+
+The successful command was:
+
+```sh
+python3 scripts/prove-isolated-corpus-consumer.py --revision 232b9de41f97ee95abe1ecc40b6b8b70ebeeea5f --artifacts /private/tmp/synth-dicom-gen-r5-consumer-20260904-proof4 --retain /Users/beatrice/AgentFiles/projects/dicom-test-suite/generated/r5-isolated-consumer-20260904-proof4
+```
+
+The starting revision was clean and committed. Its immutable git archive is
+18,073,600 bytes, SHA-256
+`e63b7ce5380e6f0c7519b754bd0e8f5acbefebc3217f992ad61a07002244e78a`.
+The receipt SHA-256 is
+`b4e39eeaa8aecb8a686809c3516131738a8ce73861b78524f40b2eaac02d60c0`.
+Runtime paths remain recorded verbatim in the receipt; the durable ignored
+workspace directory above contains the identical archive/receipt, logs,
+binaries, caller definitions, full manifests/reports/ledgers and baseline.
+It holds 87 files / 147,338,727 logical bytes / 147,488,768 allocated bytes.
+No generated evidence is tracked in Git.
+
+The external crate imports only `synth_dicom_gen::sdk` from the product.
+Cargo metadata resolves its dependency solely to the extracted immutable
+source, not the original checkout or a sibling. Both builds use offline,
+locked, no-default-features `aarch64-apple-darwin` compilation with
+`rustc 1.85.0 (4d91de4e4 2025-02-17)` and
+`cargo 1.85.0 (d73d2caf9 2024-12-31)`. The consumer lock is seeded from the
+snapshot; all 136 registry dependency version/source/checksum tuples match.
+Snapshot lock SHA is `4aa4b6c94043fb2f236ec888ac9b253f2ff451b666464609f81f82aaac6d8a4d`;
+consumer lock SHA is `86bc1659509512efad20d82b84b348ffd1a21446f07fc2ebc12294b5f31353cf`.
+The consumer and CLI binaries are respectively 57,741,456 and 69,314,672 bytes,
+SHA-256 `37b6dee311510f2c1c815b3dd6edd491fc9c0fad81e1969a3eccac0b86997b43`
+and `4ca0c6d6a8e4cbab81b7005b4354c7ff558c44747e00f41d22d3abbfd50b7768`.
+
+Both exact extracted source roots were removed before runtime. Execution
+used an unrelated private working directory and empty PATH. The caller's
+three-case smoke subset retains unchanged recipe bytes, the fixed eight-profile
+contract, and a schema-valid `metadata` compatibility-axis marker preserved
+in every generated definition row and lossless report. Its verified identity
+is `isolated-sdk.smoke` / 1.0.0, five files / 14,462 bytes, descriptor SHA
+`8f45985cee3b70e77eaf68bfc393f6a0cc87ddda0baeb6c8aa62ef008a1a960e`, corpus SHA
+`572f3b53a31ec87dad171aaff10eda01c8f2894bc37b65949374753e83792248`.
+The installed split engine-core domain remains three members / 20,643 bytes /
+`4268d9216842aaaca8e9ea1d3fd8e8538d7d02124deccf8cd17b63c180b86276`;
+this is not the aggregate 80-member EngineResources identity. Schema identity
+remains 57 / 889,930 / `a27fc5915c974c51a142b8bc4772a5fbc10a0077196e8a58e96a4a7cba378a83`;
+legacy 240 / `dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410`
+is unchanged. All complete installed domains are retained in the receipt.
+
+SDK file/profile, bytes/case-ID, and reproduction runs plus CLI profile/ID
+runs pass supported strict validation. Full matching-selector manifests,
+capabilities, and definition-driven reports compare equal without identity
+normalization. All five fresh outputs reproduce the three exact R0 smoke
+hashes (926 + 926 + 938 = 2,790 DICOM bytes), UIDs and recorded per-case
+semantics, including 25 internal / four standards / zero external checks
+per file. This does not claim equality to the old whole-run plan/manifest
+digest: selector and identity contracts deliberately changed. A separate
+read-only comparison proves SDK preview, CLI preview and published CLI plan
+SHA equal `6566c25b4280f3b4694cb2bdabe6bc1ba7322b6b83b5fe936e3107360f6b4bb0`.
+SDK/CLI dry-run and a tiny planned-only selection remain nonpublished with
+complete evidence and no output directory. SDK pre-cancellation and canonical
+descriptor conflict preserve their registered error codes. No CLI signal
+cancellation or independent conformance claim is made.
+
+Consumer build took 25.656s, CLI build 19.500s, and all runtime commands
+12.078s (SDK scenario 5.009s). Target measurement was 1,002 files /
+880,565,231 logical bytes / 885,231,616 allocated bytes, then the exact target
+was removed. Each CLI output holds three DICOM files plus manifest: profile
+94,845 bytes and IDs 95,006 bytes. SDK outputs additionally retain reports:
+profile/repeat 168,249 bytes each and IDs 168,529 bytes. These bounded scope
+measurements are not a comparable replacement for R0 all-target build costs.
+
+Failed attempts remain durably recorded under matching ignored `proof1`,
+`proof2`, and `proof3` directories. Attempt1 failed before compile because
+unfiltered metadata tried to unpack an irrelevant Android cache entry into
+read-only cache. Attempt2 compiled but its fixture expected a JSON parse error
+instead of the earlier canonical-descriptor conflict; attempt3 correctly
+rejected unequal toolchain identities (consumer default 1.92 versus pinned
+CLI 1.85). The final harness fixes those causes; none was converted into a
+pass or normalized away. All failed target trees were measured if present
+and removed; their archives, logs and receipts remain available.
+
+Route dry-runs select only static ordinary evidence and defer actual consumer
+execution to this explicit R5 boundary. Python fixture tests pass 4/4 (0.031s),
+the exact Fast `ci_release_gates::isolated_corpus_proof_has_sdk_only_inputs_and_bounded_static_fixtures`
+passes 1/1 (0.08s), routing tests pass 27/27 (2.837s), ownership passes
+22 targets / 273 groups / 1,471 entries, spelling passes 957 occurrences,
+and formatting/diff checks pass. Offline cached dependencies are required.
+No cargo package, installed-release consumer, remote clone, release archive,
+Heavy, provider, codec, Nightly or RC qualification ran. Independent review
+accepted proof4 after verifying artifact hashes, toolchain/host/metadata,
+source removal, complete parity and all 15 DICOM payload copies. R5 passes;
+R6 location/remote authority and all later terminal rows remain open.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |
@@ -3663,7 +3765,7 @@ baseline alone is not proof that those budgets have passed.
 | --- | --- | --- |
 | Repository boundary | Not run | Must prove no generator dependency on dcmview and no corpus use of unsupported modules or sibling paths. |
 | Naming and compatibility | Passed | R3.1-R3.4 prove package `synth-dicom-gen` `0.2.0`, library `synth_dicom_gen`, the sole binary and version-derived archive/discovery identities, clean no-alias product environment, renamed production scratch paths, dual readers only at the four approved compatibility boundaries, current operating guides under the new identity, immutable historical evidence under the old identity, and 12 explicitly evidence-bound retained adapter environments. The exact 2,500,992-byte packaged crate (`9bc4cdaa357ce6f87a8dcce61d2f554d45f7a795a5c5f09fbb93017e65f79fe6`) passed Cargo verification and a clean extracted-package SDK consumer without an old repository path. A qualified `0.2.0` release remains correctly separate in the packaging-and-release row. |
-| External corpus contract | In progress | R4.2 proves the bounded verified definition loader; accepted R5 SDK/CLI slices expose explicit-root selection/generation without unsupported execution imports. Supported loaded-corpus discovery is implemented pending review; independent installed/cross-repository consumer acceptance remains required before this terminal row passes. |
+| External corpus contract | In progress | R5 SDK/CLI, loaded-corpus discovery and the dated 2026-09-04 isolated immutable-source consumer gate are independently accepted, with SDK-only imports and both build source roots removed before runtime. This is not package/installed-release or the later separated-repository terminal qualification; R6+ evidence remains required before this row passes. |
 | Identity separation | In progress | R4.3 independently projects engine, toolchain, template, provider, schema, standards, execution, verified loaded-corpus, and invocation runtime identities through v2 discovery and current generation, composition, assembly, report, and release contracts. R4.4 removes `cases/**` and `Cargo.lock` from the authoritative v2 engine digest while retaining exact named v1 reconstruction for required compatibility fields. Embedded paths do not fabricate corpus or runtime identities. The supported R5 external-corpus generation route and later physical/default-reader migration remain before the terminal cross-repository row can pass. |
 | Smoke migration | In progress | The R0 parity baseline passes for the current embedded smoke slice; R6 repository generation and comparison have not run. |
 | Complete migration | Not run | The current repository still owns the complete embedded corpus. |

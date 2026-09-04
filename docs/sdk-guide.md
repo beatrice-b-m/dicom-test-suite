@@ -29,8 +29,11 @@ resources after that constructor is selected.
 `GenerateCorpusRequest` accepts a frozen corpus-definition bundle `1.0.0`.
 Both constructors require the dedicated member/asset root, output root, and
 an explicit selector; descriptor-file location never supplies an implicit
-member root. Inputs are captured when `generate_corpus` is called, not when
-the request is constructed. Changed, missing, symlinked, undeclared, or
+member root. Descriptor file paths require an explicit parent: use
+`./definition.json` for the current directory, not bare `definition.json`,
+which is rejected as `resource.document.invalid`. Inputs are captured when
+`generate_corpus` is called, not when the request is constructed. Changed,
+missing, symlinked, undeclared, or
 hash-mismatched inputs fail closed. Relative paths are caller-relative; use
 real, non-symlinked ancestor paths (including on macOS temporary directories).
 
@@ -40,7 +43,7 @@ use synth_dicom_gen::sdk::{CorpusSelector, DicomTestSuite, GenerateCorpusOutcome
 
 let product = DicomTestSuite::embedded()?;
 let request = GenerateCorpusRequest::from_file(
-    "definition.json", "corpus-members", "generated/caller-smoke",
+    "./definition.json", "corpus-members", "generated/caller-smoke",
     CorpusSelector::Profile { profile: "smoke".into(), include_stress: false },
 ).with_seed(1).with_parallelism(2);
 match product.generate_corpus(request)? {

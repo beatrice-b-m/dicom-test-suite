@@ -2807,7 +2807,7 @@
         "sdk_corpus_nonimplemented_metadata_is_lossless",
         "sdk_corpus_works_from_unrelated_cwd"
       ],
-      "entry_digest": "d75db1de236c0d2a36cea5038a5e5c2886759710af63a19578c6c282108d3f5d"
+      "entry_digest": "192608d6b3fc6e48e823e01bf4410dee55ec517019bfef328d08c854a64a2dba"
     },
     {
       "source": "tests/sdk_external_consumer.rs",

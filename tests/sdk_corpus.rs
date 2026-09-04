@@ -89,6 +89,48 @@ fn published(value: GenerateCorpusOutcome) -> synth_dicom_gen::sdk::PublishedCor
 
 #[test]
 fn sdk_corpus_file_bytes_reproduce_and_support_readers() {
+    if std::env::var_os("SYNTH_DICOM_GEN_SDK_GUIDE_CHILD").is_some() {
+        // Only the isolated subprocess has this CWD and opt-in marker. Execute
+        // the documented relative arguments, without process-global chdir.
+        let product = DicomTestSuite::embedded().unwrap();
+        let bare = GenerateCorpusRequest::from_file(
+            "definition.json",
+            "corpus-members",
+            "generated/rejected",
+            profile("smoke"),
+        );
+        assert_eq!(
+            product.generate_corpus(bare).unwrap_err().code(),
+            "resource.document.invalid"
+        );
+        assert!(!std::path::Path::new("generated/rejected").exists());
+        let request = GenerateCorpusRequest::from_file(
+            "./definition.json",
+            "corpus-members",
+            "generated/caller-smoke",
+            CorpusSelector::Profile {
+                profile: "smoke".into(),
+                include_stress: false,
+            },
+        )
+        .with_seed(1)
+        .with_parallelism(2);
+        let run = published(product.generate_corpus(request).unwrap());
+        assert!(
+            product
+                .validate(ValidateRequest::new(run.output_root()))
+                .unwrap()
+                .is_valid()
+        );
+        assert_eq!(
+            product
+                .report(ReportRequest::new(run.output_root()))
+                .unwrap()
+                .schema_version(),
+            "2.0.0"
+        );
+        assert_eq!(run.emitted_file_count(), 3);
+    }
     let fixture = Fixture::new();
     let product = DicomTestSuite::embedded().unwrap();
     let first = published(
@@ -162,7 +204,12 @@ fn sdk_corpus_file_bytes_reproduce_and_support_readers() {
                     .unwrap()
                     .remove("identity_projection");
             }
-            2 => invalid["identity_projection"]["engine"]["sha256"] = json!("malformed"),
+            2 => {
+                *invalid
+                    .pointer_mut("/identity_projection/engine/engine_sha256")
+                    .expect("existing engine digest, not an unknown-field mutation") =
+                    json!("malformed")
+            }
             _ => {
                 invalid["identity_projection"]["external_runtime"] =
                     json!([runtime, second_runtime])
@@ -515,12 +562,15 @@ fn sdk_corpus_nonimplemented_metadata_is_lossless() {
 #[test]
 fn sdk_corpus_works_from_unrelated_cwd() {
     let fixture = Fixture::new();
+    fs::rename(&fixture.members, fixture.root.join("corpus-members")).unwrap();
+    fs::copy(&fixture.descriptor, fixture.root.join("definition.json")).unwrap();
     let output = std::process::Command::new(std::env::current_exe().unwrap())
         .args([
             "--exact",
             "sdk_corpus::sdk_corpus_file_bytes_reproduce_and_support_readers",
         ])
         .current_dir(&fixture.root)
+        .env("SYNTH_DICOM_GEN_SDK_GUIDE_CHILD", "1")
         .output()
         .unwrap();
     assert!(

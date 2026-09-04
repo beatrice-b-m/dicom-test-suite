@@ -314,23 +314,31 @@ fn assert_renamed_product_reader_compatibility() {
 
 #[test]
 fn committed_schema_files_compile() {
-    let version_v2 =
-        jsonschema::Resource::from_contents(read_json("schemas/version-result-v2.schema.json"))
-            .expect("version v2 schema resource");
-    let legacy_manifest =
-        jsonschema::Resource::from_contents(read_json("schemas/manifest.schema.json"))
-            .expect("legacy manifest schema resource");
+    // Compile against the committed registry, including frozen report contracts
+    // and transitive identity references; never resolve these IDs over HTTP.
+    let resources = SCHEMAS
+        .iter()
+        .map(|(path, _)| {
+            let schema = read_json(path);
+            let id = schema["$id"]
+                .as_str()
+                .expect("committed schema ID")
+                .to_owned();
+            (
+                id,
+                jsonschema::Resource::from_contents(schema).expect("committed schema resource"),
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        resources
+            .iter()
+            .any(|(id, _)| id == "https://dicom-test-suite.local/schemas/manifest.schema.json")
+    );
     for (path, _) in SCHEMAS {
         let schema = read_json(path);
         jsonschema::options()
-            .with_resource(
-                "https://synth-dicom-gen.local/schemas/version-result-v2.schema.json",
-                version_v2.clone(),
-            )
-            .with_resource(
-                "https://dicom-test-suite.local/schemas/manifest.schema.json",
-                legacy_manifest.clone(),
-            )
+            .with_resources(resources.clone().into_iter())
             .build(&schema)
             .unwrap_or_else(|error| panic!("{path} must compile as JSON Schema: {error}"));
     }

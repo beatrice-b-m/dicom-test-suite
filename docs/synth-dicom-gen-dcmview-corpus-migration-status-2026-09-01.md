@@ -40,7 +40,7 @@ artifact.
 | R4 — split immutable resources and corpus definitions | Complete | R4.1, R4.2, R4.3, R4.4, R4.5 | At the accepted R4 checkpoint, EngineResources v2 owned 74 immutable members and its private lazy lease materialized a 254-file transitional physical closure once per shared context. Those checkpoint measurements remain historical; current schema additions and exact identities are recorded in the latest dated R5 entry below. Cases/Cargo remain excluded from authoritative engine identity, and exact legacy 240-member v1 provenance remains reconstructable. |
 | R5 — add supported external corpus API | Complete | R5.1–R5.5 and isolated-source consumer gate independently accepted | SDK `ca571fb..aa7fcad`, CLI `aa7fcad..a18d149`, discovery `a18d149..5da18e8`, and the 2026-09-04 source-removed consumer proof at exact `232b9de` are independently accepted. This closes R5, not package/release qualification or R6+ terminal cross-repository evidence. |
 | R6 — establish smoke corpus repository | Complete | R6.1–R6.5 independently accepted | The approved local repository at `/Users/beatrice/AgentFiles/projects/dcmview-test-corpus` owns its foundation, exact offline pin, imported smoke definitions, supported runner, full R0 smoke parity, viewer-result contract, and locally executed CI configuration. The R6 gate passes without compiling/testing generator internals. Hosted delivery, viewer execution and terminal release/CI evidence remain separate and unqualified. |
-| R7 — migrate complete dcmview corpus | Not started | None | Requires R6 smoke parity and supported contracts. |
+| R7 — migrate complete dcmview corpus | In progress | Read-only first-slice decomposition accepted; no definitions moved yet | Begin with ten single-instance native SC core cases. Freeze a bounded pinned pre-migration baseline, then sequentially prepare consumer versioning and multi-profile routing before importing unchanged recipes and proving slice parity. All later scopes remain required. |
 | R8 — decouple viewer development | Not started | None | Requires a qualified artifact key and complete-enough corpus ownership. |
 | R9 — remove embedded corpus and qualify products | Not started | None | Terminal removal, documentation, measurement, and exact qualification have not run. |
 
@@ -3995,6 +3995,55 @@ read-only viewer contract, this closes R6.1–R6.5 and the local R6 gate. It doe
 not close hosted Corpus PR evidence, durable distribution, actual viewer
 integration, complete corpus migration, or terminal qualification. No remote,
 hosted runner, release or viewer-repository mutation has been authorized here.
+
+### 2026-09-04 — R7 first native slice decomposed
+
+Read-only source/registry/recipe/ownership review at generator `45a844d` and
+corpus `9d5e877` identifies ten initial single-instance native SC core cases.
+Their rows and recipe bytes match the pinned R5 source `232b9de`. Each has
+one artifact, no dependencies or optional runtime requirements, byte-stable
+classification, recipe `0.1.0`, provider `native.sc_plan`, and installed
+monochrome/RGB SC template `1.0.0`. KB2026b evidence remains unchanged; this
+slice requires no local-source-note or asset members.
+
+Case IDs below have prefix `classic/sc/`; recipe files have prefix
+`cases/recipes/classic/sc/` and suffix `.json`:
+
+| Case suffix | Recipe filename stem |
+| --- | --- |
+| mono2_i16_explicit_le | sc_mono2_i16 |
+| mono2_u16_explicit_le | sc_mono2_u16 |
+| mono2_u16_odd_3x3_explicit_le | sc_mono2_u16_odd_3x3 |
+| mono2_u16_padding_explicit_le | sc_mono2_u16_padding |
+| mono2_u16_rect_2x3_explicit_le | sc_mono2_u16_rect_2x3 |
+| mono2_u16_tiny_1x1_explicit_le | sc_mono2_u16_tiny_1x1 |
+| palette_color_u8_explicit_le | sc_palette_color_u8 |
+| rgb_planar1_explicit_le | sc_rgb_planar1 |
+| ybr_full_422_explicit_le | sc_ybr_full_422 |
+| ybr_full_planar0_explicit_le | sc_ybr_full_planar0 |
+
+`nonsquare_pixel_spacing` is intentionally deferred to a multi-artifact slice
+with its local source note: it emits two spatial variants. This is ordered
+work, not permanent exclusion. Optional codecs, other native families,
+relationships, providers, legacy, negative, fuzz, stress, media and protocol
+coverage still require their own migration/availability evidence.
+
+The pinned embedded CLI supports repeated `--case-id` with `--profile core`,
+so the old baseline can be generated for only these ten cases, not the full
+core profile. Embedded execution uses parallelism four; external comparison
+will use the same value. This will be a newly captured pinned pre-migration
+baseline, never mislabeled as historical R0 execution.
+
+Next bounded tasks remain sequential: freeze baseline/provenance; establish a
+versioned consumer compatibility precursor with actual submitted-definition
+binding and frozen predecessor support; prepare live-vs-historical checks and
+smoke/core routing; import the ten unchanged definitions as corpus content
+`0.2.0`; then execute complete loaded assessment, explicit/profile selection,
+byte/full-semantic parity, fresh repeat and bounded smoke regression. Shared
+CI changes must select fixed smoke plus affected core/dependency closure, not
+discard affected core cases or expand to the whole registry. Viewer-result1
+stays smoke-only at this stage. No new generator capability, pin change,
+generation, source deletion or external mutation occurred during this audit.
 
 ## Measurements
 

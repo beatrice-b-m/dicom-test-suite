@@ -407,7 +407,7 @@ fn report_command_writes_json_coverage_for_core_root() {
         report
             .get("coverage_report_schema_version")
             .and_then(Value::as_str),
-        Some("1.0.0")
+        Some("1.1.0")
     );
     let manifest: Value = serde_json::from_slice(&fs::read(out_dir.join("manifest.json")).unwrap())
         .expect("generated manifest should be JSON");

@@ -4778,6 +4778,62 @@ current documentation checkpoint must be clean before separate one-attempt
 native authorization. Live corpus definitions and case-routing scope remain
 unchanged, and no metadata baseline payload or runtime cost is yet claimed.
 
+## R7 metadata-three embedded baseline accepted — 2026-09-04
+
+The single authorized capture from clean corpus candidate
+`dd59877e4c84de158f21f269adb2a2829e0f7b1e` passed without a retry. Evidence is
+retained at corpus `artifacts/r7-native-metadata-baseline1-20260904`. Its
+27,721-byte receipt SHA is
+`04143fa6113464c9904ae6b6375b38b0db3f008279dfdac59f8719fa09d32185`.
+The original232b9de generator performed generation/strict validation; the
+separately pinnedc2ffe41 reporter produced coverage1.1 on its first attempt.
+No old-report failure was replayed, and no build or broader qualification ran.
+
+| Selected case | Payload bytes | SHA-256 |
+| --- | ---: | --- |
+| `metadata/sc/utf8_person_name` | 978 | `b1334cff9865e0a8f4e6d9af50f15fd043beea971c98be596fbaa9d200936ac9` |
+| `metadata/sc/empty_type2_attributes` | 932 | `7f457e4f9593a8d41dff970d32de86c8b5493841546dd6d60b219f311a7abc7c` |
+| `metadata/sc/private_creator_blocks` | 1114 | `5a0726a68554bb55a6dc5f7a74f639138dc365e8a46f444013303261705141e9` |
+
+Total payload is3,024 bytes. Raw manifest1:167,360 bytes, SHA
+`262582845014f2fe3beb3491b263618baab9e6608e65ae1a91719fda953e2feb`.
+Complete canonical files:25,331 bytes, SHA
+`3404c2a8b8c47e974f8856fea3c7e69748cca97c72d23c98aeb787cd4c662c01`.
+Complete31 unselected rows:48,621 bytes, SHA
+`b2762741f88d8433ef4774c01ccab79957a1e07b9a78493509cf6eb291ef5891`.
+Whole plan SHA:
+`05620ed8acf08ed665e3c73291b8ed45706440ba248c86b55d1157ebf3b59c03`.
+Full report:698,584 bytes, SHA
+`f8919cd1a966dd7428bb429da3d418090c987d605a94b2d1b4d119948e3db542`;
+its original wrapper is944,090 bytes, SHA
+`269bc30b1bf3ee8e6ffcca407829acd3ae25c6fd16552820e889abc7e4ad706a`.
+Full metadata observations,9/7/6 standards arrays, all35 report metadata fields
+and null unselected observations passed their reviewed comparisons. No full-file
+field was removed or normalized. The original generator identity remains
+separate from the reporter acquisition identity.
+
+Whole capture5.939972833s: generator acquisition1.641825875s, reporter
+acquisition1.594357083s, generation1.302557417s, strict validation0.228056584s,
+report0.918813541s. All three corpus commands exited0 with empty stderr.
+Output:4 files/5 directories,170,384 logical/180,224 allocated file bytes,
+unchanged through validation/reporting. Evidence excluding receipt:25 files,
+141,228,473 logical/141,287,424 allocated bytes, including both native caches.
+Including receipt:26 files,141,256,194 logical/141,316,096 allocated bytes.
+Original artifacts, copied inputs and the64-file candidate source stayed intact.
+
+Independent review verified every inventoried file, exact candidate Git blobs,
+source/pin/discovery bindings, raw metadata and payloads, all31 skipped rows,
+full reporting and output-directory closure without native replay. Root full
+Draft2020 validation passed8 checks in0.459828583s with Node24.19/Ajv8.18:
+manifest1, report1.1 and three original success envelopes/result payloads.
+Generator supplement `generated/r7-metadata-baseline-schema-review-20260904/receipt.json`
+is1,881 bytes, SHA
+`6cc03c8c98157858887e71b43919c9a3882975c3962fabf0633832cc63e9d87e`;
+the2,427-byte script SHA is
+`580673cf2e9fe3330f074b17e22d8b657425f7bdd334fe0665261897d29f0ab3`.
+Root and independent review accept this embedded baseline only. Metadata live
+import, loaded-corpus availability and migrated parity remain unrun.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

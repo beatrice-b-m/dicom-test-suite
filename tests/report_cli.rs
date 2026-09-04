@@ -9413,6 +9413,90 @@ fn coverage_row_with_u64_field<'a>(
         })
 }
 
+#[test]
+fn external_report_raw_formats_preserve_evidence_and_reject_old_envelope() {
+    let workspace = unique_temp_dir("external-report-formats");
+    fs::create_dir(&workspace).unwrap();
+    let root = workspace.join("generated");
+    let generated = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
+        .args(["generate", "--profile", "smoke", "--seed", "1", "--out"])
+        .arg(&root)
+        .output()
+        .unwrap();
+    assert!(
+        generated.status.success(),
+        "{}",
+        String::from_utf8_lossy(&generated.stderr)
+    );
+    // Synthetic manifest2 metadata fixture over real smoke file evidence. The
+    // separate private runner suite proves actual captured-bundle execution.
+    let mut manifest: Value =
+        serde_json::from_slice(&fs::read(root.join("manifest.json")).unwrap()).unwrap();
+    let registry: Value = serde_json::from_slice(include_bytes!("../cases/registry.json")).unwrap();
+    manifest["manifest_schema_version"] = json!("2.0.0");
+    manifest["run"]["kind"] = json!("external_corpus");
+    manifest["run"]["selector"] = json!({"kind":"profile"});
+    manifest.as_object_mut().unwrap().remove("skipped_cases");
+    manifest["identity_projection"]["corpus_definition"] = json!({"state":"verified_bundle","identity":{"schema_version":"1.0.0","definition_id":"report_fixture","definition_version":"1.0.0","manifest_sha256":"a".repeat(64),"corpus_definition_sha256":"b".repeat(64),"file_count":1,"total_size_bytes":1}});
+    let mut ledger = manifest["files"].as_array().unwrap().iter().map(|file| {
+        let definition = registry["cases"].as_array().unwrap().iter().find(|r|r["case_id"]==file["case_id"]).unwrap();
+        json!({"case_id":file["case_id"],"case_definition":definition,"selection":"direct","registry_status":"implemented","outcome":"generated","reason_code":null,"artifact_paths":[file["path"]],"dependency_case_ids":[]})
+    }).collect::<Vec<_>>();
+    ledger.sort_by_key(|r| r["case_id"].as_str().unwrap().to_owned());
+    manifest["selection_ledger"] = json!(ledger);
+    fs::write(
+        root.join("manifest.json"),
+        serde_json::to_vec(&manifest).unwrap(),
+    )
+    .unwrap();
+    for file in manifest["files"].as_array().unwrap() {
+        fs::remove_file(root.join(file["path"].as_str().unwrap())).unwrap();
+    }
+    let moved = workspace.join("moved");
+    fs::rename(&root, &moved).unwrap();
+    let raw = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
+        .args(["report", "moved", "--format", "json"])
+        .current_dir(&workspace)
+        .output()
+        .unwrap();
+    assert!(
+        raw.status.success(),
+        "{}",
+        String::from_utf8_lossy(&raw.stderr)
+    );
+    assert!(raw.stderr.is_empty());
+    let report: Value = serde_json::from_slice(&raw.stdout).unwrap();
+    assert_eq!(report["report_kind"], "external_corpus");
+    assert_eq!(report["source_manifest"], manifest);
+    assert_eq!(report["evidence"]["validation"], "not_assessed");
+    let markdown = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
+        .args(["report", "moved", "--format", "markdown"])
+        .current_dir(&workspace)
+        .output()
+        .unwrap();
+    assert!(markdown.status.success());
+    let text = String::from_utf8(markdown.stdout).unwrap();
+    assert!(text.contains("No new validation"));
+    assert!(text.contains("Profile: smoke"));
+    assert!(text.contains(&"b".repeat(64)));
+    let machine = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
+        .args(["report", "moved", "--format", "json", "--cli-api", "1.0.0"])
+        .current_dir(&workspace)
+        .output()
+        .unwrap();
+    assert!(!machine.status.success());
+    assert!(machine.stdout.is_empty());
+    let error: Value = serde_json::from_slice(&machine.stderr).unwrap();
+    assert_eq!(error["status"], "error");
+    assert_eq!(error["error"]["code"], "request.version.unsupported");
+    assert_eq!(machine.status.code(), Some(2));
+    let schema: Value =
+        serde_json::from_slice(include_bytes!("../schemas/cli-error-envelope.schema.json"))
+            .unwrap();
+    assert!(jsonschema::validator_for(&schema).unwrap().is_valid(&error));
+    fs::remove_dir_all(workspace).unwrap();
+}
+
 fn unique_temp_dir(name: &str) -> PathBuf {
     let nonce = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

@@ -1466,6 +1466,11 @@ fn report_result(
         .get("report_kind")
         .and_then(serde_json::Value::as_str)
         .unwrap_or(fallback_kind);
+    if report_kind == "external_corpus" {
+        return Err(
+            "unsupported report-result schema version 1.0.0 for external corpus reports".into(),
+        );
+    }
     let report_schema_version = [
         "coverage_report_schema_version",
         "coverage_gap_report_schema_version",

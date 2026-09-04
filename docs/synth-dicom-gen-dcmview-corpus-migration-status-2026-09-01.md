@@ -5465,6 +5465,34 @@ checking passed. Live content remains0.3.1 with16 cases/21 members. No corpus
 data, schema, pin or native command changed; the exact three-file CT import is
 the next sequential boundary.
 
+## R7.1 CT1 static import accepted — 2026-09-04
+
+Corpus test commit `6664ecc` first corrects the synthetic metadata transition
+fixture to reconstruct exact content0.3.1 after the live tree advances. This was
+required because the initial exact data draft exposed three static failures:
+two fixtures relabeled a17-case clone as0.3.1 and one appended CT twice. The
+13-line fixture correction preserves the strict version inventories.
+
+Corpus commit `c2bf8d7` then imports exactly three data paths. The raw CT recipe
+is3,938 bytes SHA-256
+`f014e51c72b094dd188267fbe6a36e3caeebc6828fcc415045fcb02a758a84ca`;
+the17-row registry is38,525 bytes SHA-256
+`cdfaa0041b1b8fe67e257cf43bb26e6de1aa6b0e191defb0b339337e655a2840`;
+the content0.4.0 descriptor is9,997 bytes SHA-256
+`80488c8248124e8215131bd670c6c2fe330400c960bcef5f4a8b145083a4d691`.
+The recipe is byte-identical and the registry row semantically exact to frozen
+source232. The descriptor adds CT1 only, with no dependencies, assets or
+evidence members; smoke remains3, core becomes14, and the closed bundle has22
+files/106,636 bytes.
+
+Independent Draft2020 validation accepted the complete recipe, registry and
+descriptor against their vendored schemas. After the fixture correction,
+smoke-definition14/14, routing34/34 and metadata-availability14/14 passed in
+0.062s/0.324s/0.417s; all250 ordinary tests passed in2.187s and diff checking
+passed. This accepts static R7.1 ownership for CT1 only. Public-loader
+availability, generated parity and R7.2/R7.3 genericity remain separate; no
+native command, viewer, conformance or wider core run occurred.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

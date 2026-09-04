@@ -403,6 +403,22 @@
       "entry_digest": "c21736dfc2a839966ad43805ba9c0b7e04a32ec23b9a2f9b3af523e700f2e278"
     },
     {
+      "source": "tests/captured_corpus_generation.rs",
+      "target": "synth_dicom_gen",
+      "domain": "corpus_generation",
+      "verification_class": "subsystem",
+      "cost_tier": "ordinary",
+      "entry_count": 5,
+      "entries": [
+        "smoke_publication_is_verified_deterministic_and_reader_bounded",
+        "selectors_dry_run_and_nonexecutable_outcomes_never_publish",
+        "captured_runner_is_independent_of_working_directory",
+        "explicit_selection_preserves_dependencies_and_mixed_statuses",
+        "transaction_failure_cancellation_and_existing_destination_are_atomic"
+      ],
+      "entry_digest": "0dceb146b2fa73594cfdad647dbe490dd7556a0df8b62bfcb7635d7b884fc0b7"
+    },
+    {
       "source": "tests/captured_curated_plan.rs",
       "target": "synth_dicom_gen",
       "domain": "engine",
@@ -3703,22 +3719,6 @@
         "wsi_is_exactly_scoped_into_the_visible_light_iod_route"
       ],
       "entry_digest": "a51e2113ba718f24b03a173d76fe495403206ff44601b408cc4bc92b497630aa"
-    },
-    {
-      "source": "src/corpus_generation.rs",
-      "target": "synth_dicom_gen",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem",
-      "cost_tier": "ordinary",
-      "entry_count": 5,
-      "entries": [
-        "smoke_publication_is_verified_deterministic_and_reader_bounded",
-        "selectors_dry_run_and_nonexecutable_outcomes_never_publish",
-        "captured_runner_is_independent_of_working_directory",
-        "explicit_selection_preserves_dependencies_and_mixed_statuses",
-        "transaction_failure_cancellation_and_existing_destination_are_atomic"
-      ],
-      "entry_digest": "3f18e36957019420ead7a51f0a51159cd5b751a53799f008f54c70796fe1bce9"
     },
     {
       "source": "src/coverage_gaps.rs",

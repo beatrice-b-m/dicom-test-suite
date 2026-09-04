@@ -47,7 +47,7 @@
     },
     "captured_corpus_runner": {
       "commands": [
-        {"kind": "lib", "module": "corpus_generation::captured_runner_tests", "source": "src/corpus_generation.rs", "list_count": 5},
+        {"kind": "lib", "module": "corpus_generation::captured_runner_tests", "source": "tests/captured_corpus_generation.rs", "list_count": 5},
         {"kind": "lib", "module": "manifest_contract::external_manifest_contract_tests", "source": "src/manifest_contract.rs", "list_count": 7}
       ]
     },

@@ -3767,6 +3767,32 @@ local/offline acquisition, not a release, remote fetch, corpus-generation or
 full R6 gate. Schema fixtures, definitions, runner, parity, viewer contract and
 CI remain to be accepted sequentially.
 
+### R6.2 smoke definitions and schema fixtures accepted — 2026-09-04
+
+Corpus range `1c922af..d6ea8f8` is independently accepted for R6.2 and the R6.1
+schema-fixture subset. Three registry rows and recipes preserve exact source
+`232b9de` metadata, recipe bytes, case IDs, profiles and covered standards
+evidence. All seven copied recipe/schema/baseline blobs match that source.
+The canonical five-file bundle is `dcmview-test-corpus` version `0.1.0`,
+14,403 bytes, corpus digest
+`1daba69474fd1864dee80b09e2d0008ff97bb0c2f05ac20fd22177c26504ccc3`;
+descriptor digest `f28ddec1b14281c78295d56ae10dde8e62ccdeedae7d6108cc81fed4fa3ae2ac`.
+No R5-only metadata marker, generator template/catalog copy, or implicit sibling
+dependency was introduced. Upstream embedded definitions remain until R9.
+
+Five static checks verify source hashes and reference closure, without claiming
+to implement JSON Schema. The complete pinned public CLI loader passed seven
+recorded checks at clean harness `d29c96c`: three ready cases plus rejection of
+unknown version, descriptor/registry/recipe schema errors, schema-valid profile
+inconsistency, and member tampering. Calls total 2.552s. Receipt
+`ffed8025de4fcd306469c8a2f164896970c672a94ec674a858efb0c23e3ea99c`
+is retained in corpus `artifacts/definition-validation-reviewed-20260904/`.
+Independent review verified the receipt, identities, rejection classes and
+removed temporary fixtures; no generator replay was needed. All 25 ordinary
+corpus tests pass. No generation occurred: publication and validation remain
+`not_run`. The supported runner, migration parity, viewer result contract and
+CI still remain before R6 can pass.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

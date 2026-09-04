@@ -4969,6 +4969,54 @@ it did not open an artifact or create output. Native approval remains pending;
 no generation, validation, report, baseline replay, build or Heavy qualification
 ran. R7 availability/parity and the broader terminal gates remain incomplete.
 
+## R7 metadata native availability failure retained — 2026-09-04
+
+After explicit user approval, one native loaded-capabilities call at corpus
+candidate `f7946d8c101c7b3d5bff2d08b6888123cfb7b86f` failed with exit2,
+`resource.document.invalid`, `retryable:false`. It selected exactly metadata3
+under core/seed1/parallelism4, from a copied bundle and unrelated empty-PATH
+working directory. Stdout was empty; stderr269 bytes has SHA
+`acbe96fec7f984a81945f8669c56fb963db381d0d6325945706e92d206a06f93`.
+No availability binding check or DICOM generation occurred, and no native retry ran.
+
+The retained corpus root `artifacts/r7-metadata-availability1-20260904` contains
+receipt46,530 bytes SHA
+`e4a2e4eecbac89ff7198c566e6d2a002b8955dce7810be42a5c7be905ccfea40`.
+Fresh pinned acquisition took1.625143500s, the single loaded capabilities call
+0.597122292s, and the entire capture2.453987917s. Before its receipt, evidence
+contained32 files/69,711,294 logical/69,771,264 allocated bytes; the receipt
+adds49,152 allocated bytes. Copied definitions remained21 files/98,603 logical/
+131,072 allocated bytes, and the verified cache remained69,314,672 logical/
+69,316,608 allocated bytes. Root and independent review accepted failure
+evidence only: all72 tracked source blobs/modes, inputs, copied bundle, original
+artifact and final cached binary were verified unchanged; the working directory
+remained empty. The corrected capture harness SHA is
+`2ccdd03870dced2525fc31edee2c4740c27e19be5aa33599291264946056d83a`.
+
+An earlier Python3.9.6 preflight failed before evidence creation, acquisition
+or native execution because `Path.stat(follow_symlinks=False)` is unsupported.
+The exact failed harness, stderr and invocation are separately retained under
+`artifacts/r7-metadata-availability-preflight1-20260904`. Root reviewed the
+single equivalent replacement with `Path.lstat()` and its read-only artifact
+check before authorizing the native attempt. The preflight is not silently
+discarded or counted as a native run.
+
+Read-only pinned-source diagnosis identifies the first rejection:
+`src/corpus_definition/mod.rs:513` requires evidence storage paths under
+`evidence/`, whereas this import used `standards/source-notes/`. The later
+`source_note_evidence_id` accepts both reference namespaces but does not bypass
+that earlier storage gate. Our prior source/schema reviews missed this ordering;
+their static passes do not establish runtime acceptance. This is an invalid
+caller storage path, not demonstrated absence of metadata generation capability.
+
+The bounded proposed correction relocates only note storage/declaration paths
+to `evidence/`, retaining raw bytes, source provenance, evidence IDs, registry
+query strings, recipes and generated standards expectations. Consumer guards
+must distinguish immutable source paths from canonical caller storage paths;
+that correction and a new content identity require separate review before a
+fresh native check. No generator implementation or pin change is indicated by
+the proven first rejection. Metadata availability/parity remain unproven.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

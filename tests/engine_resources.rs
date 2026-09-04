@@ -45,7 +45,7 @@ fn embedded_resources_separate_current_identity_from_legacy_physical_closure() {
     let identity = resources.verify_integrity().unwrap();
     assert_eq!(identity.resource_set_version, ENGINE_RESOURCE_SET_VERSION);
     assert_eq!(identity.resource_count, ENGINE_RESOURCE_COUNT_V2);
-    assert_eq!(identity.resource_count, 80);
+    assert_eq!(identity.resource_count, 81);
     assert_eq!(identity.resource_set_sha256, ENGINE_RESOURCE_SHA256_V2);
     assert_eq!(
         identity

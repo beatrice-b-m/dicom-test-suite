@@ -38,7 +38,7 @@ artifact.
 | R2 — reduce Rust test-linking amplification | Complete | R2.1, R2.2, R2.3, R2.4 | The fail-closed inventory maps 186 integration sources and all 879 integration entries into exactly 20 explicit harnesses. Six R0-measured heavy bodies have exact ignored qualification entry points, while deterministic change routing now selects bounded Fast/subsystem evidence and reports every deferred class without executing it. The aggregate R2 target-count, cost, heavy-isolation, and routing gates pass. |
 | R3 — rename reusable product | Complete | R3.1, R3.2, R3.3, R3.4 | Product, package, crate, library, sole binary, archives, discovery, package metadata, current operating guides, product-controlled environment, and production scratch paths use `synth-dicom-gen` / `synth_dicom_gen` at the breaking pre-1.0 product boundary `0.2.0`. Immutable dated evidence retains its exact old candidate identity, and 12 qualified-adapter variables retain provenance-bound spellings pending external requalification. The external-consumer audit found no supported `0.1.0` product consumer requiring an alias. A clean side project compiled and exercised only `synth_dicom_gen::sdk` from the extracted, verified `synth-dicom-gen-0.2.0.crate`, without the old repository path. The aggregate R3 gate passes. |
 | R4 — split immutable resources and corpus definitions | Complete | R4.1, R4.2, R4.3, R4.4, R4.5 | `EngineResources` v2 owns a 74-member immutable engine-resource identity containing every current schema while excluding `cases/**` and `Cargo.lock`; the exact 240-member v1 identity remains reconstructable for compatibility. `CorpusDefinitionBundle` 1.0.0 and the split manifest/discovery identities remain unchanged. A private handle-local lazy lease now materializes the 254-file transitional physical closure once per shared resource context. The supported SDK/CLI external-corpus generation route remains R5 work. |
-| R5 — add supported external corpus API | In progress | Input substrate, internal batch execution and definition-driven raw reporting | Verified captured inputs feed one private atomic batch runner and external manifest2; raw report2 preserves the complete source evidence without embedded registry reads. Supported SDK/CLI generation requests/outcomes, external report machine envelopes, discovery, and SDK-only external-consumer acceptance remain unimplemented. |
+| R5 — add supported external corpus API | In progress | Input substrate, internal batch execution, definition-driven reporting, bounded SDK facade | Verified captured inputs feed one atomic batch runner and external manifest2/report2. The supported SDK exposes explicit file/bytes requests and Published/Planned/NoExecutableCases outcomes, with facade-only consumer tests; independent review is pending for this slice. CLI corpus input, external report machine envelopes, discovery, and independent installed/cross-repository acceptance remain pending. |
 | R6 — establish smoke corpus repository | Not started | None | No external repository has been created; authority and destination are still required before out-of-workspace mutation. |
 | R7 — migrate complete dcmview corpus | Not started | None | Requires R6 smoke parity and supported contracts. |
 | R8 — decouple viewer development | Not started | None | Requires a qualified artifact key and complete-enough corpus ownership. |
@@ -3289,6 +3289,90 @@ including the exact raw external JSON/Markdown and rejected envelope regression.
 As corrected above, this ordinary suite includes bounded fuzz reporting, not
 the deferred Heavy qualification. Ownership remains 22/271/1,456;
 spelling, formatting and diff checks pass. No Heavy/provider/RC work ran.
+
+### R5 supported SDK corpus facade — 2026-09-03
+
+Predecessor reporting `f568ef9..ea26b52` and bounded duplicate-load cleanup
+`ea26b52..ca571fb` were independently accepted. The SDK slice starts from clean
+`ca571fb`; its implementation/evidence/documentation range is
+`ca571fb..e78c89a`, pending independent review. Granular commits:
+
+- `6ad1003`: explicit corpus requests/outcomes, manifest2/report2 SDK readers,
+  and structural execution error mapping.
+- `5f05cfe`: six facade-only consumer tests, direct nested-error evidence,
+  and replacement of the former SDK unsupported-reader expectations.
+- `50f80e1`: bounded SDK/runner routing and exact ownership inventory.
+- `f7cd58b`: preserve typed planner resource-limit causes and direct evidence.
+- `e78c89a`: SDK workflow, accessor-version and compatibility documentation.
+
+Both request constructors require the selected descriptor (file or bytes), a
+separate explicit member/asset root, output root, and Profile/CaseIds selector.
+Capture happens at invocation, not request construction; a subsequent source
+mutation before invocation fails integrity checks. Seed, parallelism, dry-run,
+and the existing cancellation token feed the runner once. The tested file
+descriptor is outside the member root and no canonical descriptor is required.
+No ambient root or corpus fallback is added.
+
+Published wraps the validated manifest2 and typed file count/bytes/plan hash.
+Planned and NoExecutableCases have no manifest path, publication/validation
+NotRun, and complete captured selection/dependency/definition/reason/identity
+evidence. Typed preview dispositions include ready, unavailable, planned,
+skipped, blocked and deprecated; generated is rejected as a preview invariant.
+SDK evidence accessor version `1.0.0` is not a standalone JSON document schema
+and exports no internal plan. Loader codes and typed planner/executor errors
+remain structural; nested cancellation is distinguished from cleanup failure,
+which returns `io.cleanup.failed` rather than claiming successful cleanup.
+
+Exact `route-changed-tests.py --dry-run` inspection preceded the six-path
+ordinary route for `src/sdk.rs`, `src/sdk/corpus.rs`, `src/corpus_generation.rs`,
+`tests/sdk_corpus.rs`, `tests/captured_corpus_generation.rs`, and
+`tests/captured_corpus_report.rs`. The route was executed without deferred work:
+
+| Bounded ordinary command (all Cargo tests locked, no-default-features) | Result | Body time |
+| --- | --- | --- |
+| `--lib corpus_generation::captured_runner_tests::` | 6/6 | 4.64s; final typed-planner rerun 4.75s |
+| `--lib corpus_report::captured_report_tests::` | 3/3 | 3.89s |
+| `--lib manifest_contract::external_manifest_contract_tests::` | 7/7 | 2.10s |
+| `--test cli_sdk__nonfast sdk_corpus::` | 6/6 | 20.15s; final rerun 21.53s |
+| `--test cli_sdk__nonfast sdk_facade::` | Existing 12/12 | 3.22s |
+| `--test schema_resources__subsystem cli_contract_schema::` | 4/4 | 0.06s |
+| `--test release_ci__fast --test schema_resources__fast` | 14/14 + 73/73 | 1.88s + 1.55s |
+| `--test cli_sdk__nonfast report_cli::external_report_raw_formats_preserve_evidence_and_reject_old_envelope -- --exact` | 1/1 | 2.52s |
+
+Final `cargo check --locked --no-default-features` passes in 12.07s. Routing
+fixtures pass 25/25 in 2.46s; ownership passes at 22 targets, 272 groups and
+1,463 entries (188 integration sources, 909 integration entries). Spelling
+remains 955 matches / `59b3e0c69369b2cd47921175e0691c5d62d2dc773b293168d972dcdf61182d0c`;
+format and range-diff checks pass.
+
+File/bytes smoke at seed1 and parallelism2 produces equal manifest bytes,
+equal payload bytes, three emitted files and 2,790 payload bytes. The existing
+runner's R0 smoke and exact-plan parity assertions still pass. SDK evidence
+also covers actual dependency closure and multi-file geometry, mixed planned
+and generated rows, uncompiled codec unavailability, source deletion followed
+by output relocation and validate/report, unrelated CWD, invalid selectors,
+zero parallelism, precancellation, preserved existing-output sentinel,
+missing/unsafe/oversized/changed input, and public manifest version/identity/
+duplicate-runtime rejection. Skipped/blocked/deprecated cases use explicitly
+synthetic schema-valid metadata only, not expensive qualification bodies.
+The initial fixture failures were test assumptions: macOS `/var` symlink
+ancestry, incorrect smoke byte/count expectations, and an unavailable test
+hashing dependency; fixes used a real temporary ancestor, observed payload
+inventory, an actual geometry multi-file case, and existing fixture tooling.
+No production safety checks or byte oracles were relaxed.
+
+No schemas or resource memberships changed: current engine remains 76 members,
+1,259,399 bytes / `e8cb8ba376e03d9d4d1451c44a70b3609c0ada11baab16bb96b012b8e6e6cd77`;
+schema set remains 53 / 858,927 bytes /
+`a562c02e31550c0bac2d2f14b2c7af49b772af1368f19109a0e1b9174a229299`.
+Legacy 240/dc61 reconstruction and verified bundle214/571fa23 identity remain
+unchanged. These are same-workspace ordinary consumer tests, not installed
+package or independently qualified external-consumer evidence. No CLI corpus
+input, discovery, report-result2 envelope, public whole-preview JSON schema,
+external runtime discovery/execution, Heavy, Nightly, feature matrix, package,
+release-candidate, external repository or release work ran. Earlier dated SDK
+unsupported statements describe their then-current slices; this section
+supersedes them only for the supported facade, not the CLI envelope boundary.
 
 ## Measurements
 

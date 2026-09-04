@@ -191,6 +191,16 @@ fn external_cli_profile_is_sdk_identical_and_reports_version_two() {
     }
     fs::remove_dir_all(f.0.join("corpus-members")).unwrap();
     fs::remove_file(f.0.join("definition.json")).unwrap();
+    let validation =
+        f.command(&["validate", "generated/cli", "--format", "json"].map(String::from));
+    assert!(
+        validation.status.success(),
+        "{}",
+        String::from_utf8_lossy(&validation.stderr)
+    );
+    let validation: Value = serde_json::from_slice(&validation.stdout).unwrap();
+    valid("validation-result.schema.json", &validation["result"]);
+    assert_eq!(validation["result"]["valid"], true);
     let raw = f.command(&["report", "generated/cli", "--format", "json"].map(String::from));
     assert!(raw.status.success());
     let report: Value = serde_json::from_slice(&raw.stdout).unwrap();

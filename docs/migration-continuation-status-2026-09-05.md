@@ -1339,3 +1339,18 @@ viewer/independent/release evidence. First source planner ownership is now
 explicit in the PET preparation document; loader and public proof stay
 sequential. No new provider family or widened quantitative contract is admitted.
 R7 remains incomplete.
+
+## Disjoint VL2 source-only preparation opened — 2026-09-05
+
+While PET's nuclear planner is the sole partially migrated public boundary,
+a separate agent may prepare immutable source provenance for exactly
+vl/photo/rgb_planar0_explicit_le and vl/photo/palette_color_explicit_le.
+These native photographic cases use the classic VL provider, disjoint from
+PET's nuclear closure; XA/XRF shared-provider implementation is not active.
+Plan section7 permits disjoint R7 case/provider work. This unit owns only corpus
+docs/r7-native-vl-photo-source-provenance.json and
+tests/test_native_vl_photo_provenance.py. Freeze232b9de source objects, fullcore
+snapshot, exact recipes/notes and typed projection/validation/report semantics.
+No native execution, helper, data import, provider implementation, template or
+public compatibility change is included. Review and granular source-only commit
+precede any later helper work. PET loader/public proof ordering is unchanged.

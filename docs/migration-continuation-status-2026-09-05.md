@@ -1824,3 +1824,32 @@ immediately by zero-length sequence delimiter. These are failed-run
 observations, not accepted baseline or validation evidence. Exact helper/test
 owner and independent read-only reviewer are checking source encoding before
 a bounded correction, offline replay and renewed readiness. R7 open/R8R9 held.
+
+## VL photographic embedded baseline2 accepted — 2026-09-05
+
+Correctionc1e9234 binds the source empty undefined-length SQ and exact sixth
+UID field implementation_version_name=DICOMTS010.25 pure tests3.384s and
+offline failed-generation replay2 in0.2176595s passed without changing the
+original evidence. Intermediate SQ-only replay failed UID closure in0.183656s;
+/private/tmp/vl-empty-sq-replay.log retained. Corrected logs
+/private/tmp/vl-empty-sq-uid-tests.log and vl-empty-sq-uid-replay.log retained.
+Full ordinary683/21.190s passed at clean c1e9234; log
+/private/tmp/r7-vl-photo-prebaseline2-ordinary-20260905.log. Readiness1608bf8
+preceded fresh baseline2 with unchanged pins, exact2core/seed1/parallel4.
+
+artifacts/r7-native-vl-photo-baseline2-20260905 passed. Receipt64211bytes SHA
+6ba6acb4251c3c97bcab36762e5dd68d3ab7cca1492fb24fcf11f5243d2d32c1.
+RGB994/e5d16461a94e4d38570069f1d521c07d896ff8443bd5557e98f09f62f6ee8e3f
+and palette1090/48a5e1bad2aac8ce40a9273937d595ae39f55256ad6bc39279394cb488fd83e1
+match original failed-run bytes. Manifest152353 SHA
+ec7d1d3a4bbb254c7af10aef9b6cf16d7dd484b8c97fe637a6a1ce96a614bc73;
+report696993 SHA
+d45a43d7800caef0774a2612d18bcf5c382124ee49f3bf5cb8ba890746d0385d.
+Generation1.289737583s, strict0.226334459s, report0.918586917s,
+whole6.029387375s;23nonreceipt files141268855logical/141324288allocated bytes.
+Independent audit authenticated150Gitobjects,23files/pins/modes/fullclosure/
+finalizers and replay2+strict/report in1.227866s.25RGB/31palette internal
+findings plus4standards each;32source skips. Failedbaseline1 remains failed
+and unchanged. This is same-project embedded evidence only. Next sequential
+unit imports exact two recipes/registryrows into corpus content; availability,
+migrated parity and source capability boundaries remain pending. R7open/R8R9held.

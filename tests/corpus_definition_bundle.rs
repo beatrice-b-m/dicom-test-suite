@@ -1210,7 +1210,6 @@ fn external_metadata3_capability_is_name_independent_and_fail_closed() {
     }
     for (index, source) in [
         "metadata/sc/iso2022_person_name_component_groups",
-        "metadata/sc/timezone_boundaries",
         "metadata/sc/long_multivalue_text_numeric_strings",
         "metadata/sc/defined_undefined_sequence_lengths",
     ]
@@ -1234,6 +1233,136 @@ fn external_metadata3_capability_is_name_independent_and_fail_closed() {
             |_| {},
         );
     }
+}
+
+#[test]
+fn external_timezone_capability_is_name_independent_and_fail_closed() {
+    let source = "metadata/sc/timezone_boundaries";
+    let root = one_case_bundle(
+        "timezone-caller-owned",
+        source,
+        "caller/temporal/offset-extrema",
+        "caller_offset_pair",
+        |recipe| {
+            recipe["planning_order"] = 947.into();
+            recipe["projection_order"] = 953.into();
+            let artifacts = recipe["dicom"]["artifacts"].as_array_mut().unwrap();
+            artifacts[0]["logical_id"] = "east_edge".into();
+            artifacts[0]["output"]["role"] = "first_clock".into();
+            artifacts[0]["output"]["path"] = "caller/clocks/east.dcm".into();
+            artifacts[0]["secondary_capture"]["stored_values"] =
+                serde_json::json!([7, 31, 127, 250]);
+            artifacts[0]["secondary_capture"]["pixel_min"] = 7.into();
+            artifacts[0]["secondary_capture"]["pixel_max"] = 250.into();
+            artifacts[0]["secondary_capture"]["frame_sha256"] =
+                serde_json::json!([crate::sha256_hex(&[7, 31, 127, 250])]);
+            artifacts[0]["metadata_sc"]["study_date"] = "20321231".into();
+            artifacts[0]["metadata_sc"]["study_time"] = "235958.123456".into();
+            artifacts[0]["metadata_sc"]["acquisition_date_time"] =
+                "20321231235958.123456+1400".into();
+            artifacts[0]["metadata_sc"]["normalized_utc"] = "2032-12-31T09:59:58.123456Z".into();
+            artifacts[1]["logical_id"] = "west_edge".into();
+            artifacts[1]["output"]["role"] = "second_clock".into();
+            artifacts[1]["output"]["path"] = "caller/clocks/west.dcm".into();
+            artifacts[1]["secondary_capture"]["stored_values"] =
+                serde_json::json!([250, 127, 31, 7]);
+            artifacts[1]["secondary_capture"]["pixel_min"] = 7.into();
+            artifacts[1]["secondary_capture"]["pixel_max"] = 250.into();
+            artifacts[1]["secondary_capture"]["frame_sha256"] =
+                serde_json::json!([crate::sha256_hex(&[250, 127, 31, 7])]);
+            artifacts[1]["metadata_sc"]["study_date"] = "20330101".into();
+            artifacts[1]["metadata_sc"]["study_time"] = "000001.654321".into();
+            artifacts[1]["metadata_sc"]["acquisition_date_time"] =
+                "20330101000001.654321-1200".into();
+            artifacts[1]["metadata_sc"]["normalized_utc"] = "2033-01-01T12:00:01.654321Z".into();
+        },
+    );
+    let bundle = CorpusDefinitionBundle::load(&root).unwrap();
+    let catalog =
+        crate::recipes::RecipeCatalog::from_verified_bundle(&bundle, Path::new(".")).unwrap();
+    assert!(
+        catalog
+            .binding_for_case("caller/temporal/offset-extrema")
+            .is_some()
+    );
+    fs::remove_dir_all(root).unwrap();
+
+    for mutation in 0..12 {
+        assert_one_case_rejected(
+            &format!("timezone-caller-invalid-{mutation}"),
+            source,
+            "caller/temporal/invalid",
+            |recipe| {
+                let artifacts = recipe["dicom"]["artifacts"].as_array_mut().unwrap();
+                match mutation {
+                    0 => artifacts.pop().map(|_| ()).unwrap(),
+                    1 => artifacts[1]["metadata_sc"]["boundary_id"] = "positive_max".into(),
+                    2 => artifacts[0]["metadata_sc"]["study_date"] = "20230229".into(),
+                    3 => artifacts[0]["metadata_sc"]["study_time"] = "240000.000000".into(),
+                    4 => {
+                        artifacts[0]["metadata_sc"]["acquisition_date_time"] =
+                            "20240229235959.999999-1200".into()
+                    }
+                    5 => artifacts[0]["metadata_sc"]["timezone_offset"] = "+1300".into(),
+                    6 => artifacts[0]["metadata_sc"]["offset_minutes"] = 0.into(),
+                    7 => {
+                        artifacts[0]["metadata_sc"]["normalized_utc"] =
+                            "2024-02-29T10:00:00.000000Z".into()
+                    }
+                    8 => artifacts[0]["secondary_capture"]["rows"] = 3.into(),
+                    9 => {
+                        artifacts[0]["secondary_capture"]["frame_sha256"] =
+                            serde_json::json!(["0".repeat(64)])
+                    }
+                    10 => artifacts[0]["content"]["provider_id"] = "content.native_pixels".into(),
+                    _ => artifacts[0]["metadata_sc"]["timezone_offset"] = "+1400 ".into(),
+                }
+            },
+        );
+    }
+}
+
+#[test]
+fn caller_owned_timezone_fixture_is_admitted_by_structure() {
+    let fixture = PathBuf::from("tests/fixtures/generic-timezone-sc-corpus");
+    let descriptor = fs::read(fixture.join("definition.json")).unwrap();
+    let bundle =
+        CorpusDefinitionBundle::load_descriptor_bytes(&descriptor, fixture.join("members"))
+            .unwrap();
+    let catalog =
+        crate::recipes::RecipeCatalog::from_verified_bundle(&bundle, Path::new(".")).unwrap();
+    assert!(
+        catalog
+            .binding_for_case("caller/temporal/offset-extrema")
+            .is_some()
+    );
+}
+
+#[test]
+fn caller_owned_timezone_fixture_rejects_registry_modality_contradiction() {
+    let root = one_case_bundle(
+        "timezone-registry-modality",
+        "metadata/sc/timezone_boundaries",
+        "caller/temporal/wrong-modality",
+        "caller_offset_pair",
+        |_| {},
+    );
+    let mut descriptor: serde_json::Value =
+        serde_json::from_slice(&fs::read(root.join("corpus-definition.json")).unwrap()).unwrap();
+    let mut registry: serde_json::Value =
+        serde_json::from_slice(&fs::read(root.join("cases/registry.json")).unwrap()).unwrap();
+    registry["cases"][0]["modality"] = "MR".into();
+    rewrite_registry(&root, &registry, &mut descriptor);
+    let bundle = CorpusDefinitionBundle::load(&root).unwrap();
+    let error =
+        crate::recipes::RecipeCatalog::from_verified_bundle(&bundle, Path::new(".")).unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("registry modality contradicts timezone SC capability"),
+        "{error}"
+    );
+    fs::remove_dir_all(root).unwrap();
 }
 
 #[test]

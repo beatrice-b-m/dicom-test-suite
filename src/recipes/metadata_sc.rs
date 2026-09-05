@@ -1,6 +1,6 @@
 //! Direct plan-only translation for typed Secondary Capture metadata recipes.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fmt;
 use std::str::FromStr;
@@ -15,6 +15,148 @@ use super::{
     CaseRecipe, MetadataScParameters, PlannedArtifactRecipe, PrivateElementValue,
     SecondaryCapturePlanInput, StringValueSource, sc::resolved_secondary_capture_base_plan,
 };
+
+/// A complete, name-independent caller declaration for the two legal DICOM
+/// timezone extrema.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TimezoneBoundaryCapability {
+    pub artifact_count: usize,
+}
+
+pub(crate) fn inspect_timezone_boundary_capability(
+    recipe: &CaseRecipe,
+) -> Result<Option<TimezoneBoundaryCapability>, String> {
+    if recipe.plan_provider_id != "native.metadata_sc_plan" {
+        return Ok(None);
+    }
+    let Some(dicom) = recipe.dicom.as_ref() else {
+        return Ok(None);
+    };
+    if !dicom.artifacts.iter().any(|artifact| {
+        matches!(
+            artifact.metadata_sc,
+            Some(MetadataScParameters::TimezoneBoundary(_))
+        )
+    }) {
+        return Ok(None);
+    }
+    if dicom.artifacts.len() != 2
+        || !recipe.provider_parameters.is_empty()
+        || !recipe.dependencies.is_empty()
+        || !recipe
+            .validation_rule_ids
+            .iter()
+            .any(|rule| rule == "validation.sc.pixel")
+        || !recipe
+            .validation_rule_ids
+            .iter()
+            .any(|rule| rule == "validation.metadata.timezone")
+        || !recipe
+            .projection_rule_ids
+            .iter()
+            .any(|rule| rule == "projection.curated")
+    {
+        return Err("timezone capability requires one complete two-artifact pair contract".into());
+    }
+    let mut boundaries = BTreeSet::new();
+    for artifact in &dicom.artifacts {
+        let template = artifact.template.as_ref();
+        let pixels = artifact.secondary_capture.as_ref();
+        if !template.is_some_and(|value| {
+            value.template_id == "classic/secondary-capture/monochrome"
+                && value.template_version == "1.0.0"
+        }) || artifact.output.path.is_none()
+            || artifact.output.provider_derived == Some(true)
+            || artifact.encoding.transfer_syntax_uid != "1.2.840.10008.1.2.1"
+            || artifact.encoding.sequence_length_policy != "default"
+            || artifact.encoding.item_length_policy != "default"
+            || artifact.encoding.offset_table_policy != "none"
+            || artifact.encoding.fragmentation_policy != "native"
+            || artifact.encoding.preamble_policy.as_deref() != Some("zero_filled")
+            || artifact.encoding.file_meta_policy.as_deref() != Some("standard")
+            || artifact
+                .encoding
+                .non_template_encoding_provider_id
+                .is_some()
+            || !artifact.parameters.is_empty()
+            || !artifact.content.parameters.is_empty()
+            || artifact.content.provider_id != "content.metadata.timezone_boundary"
+            || artifact.algorithm_provider_id.is_some()
+            || !artifact.attribute_operations.is_empty()
+            || artifact.classic_projection.is_some()
+            || artifact.nonsquare_geometry.is_some()
+            || !artifact
+                .validation_rule_ids
+                .iter()
+                .any(|rule| rule == "validation.sc.pixel")
+            || !artifact
+                .validation_rule_ids
+                .iter()
+                .any(|rule| rule == "validation.metadata.timezone")
+            || !artifact
+                .projection_rule_ids
+                .iter()
+                .any(|rule| rule == "projection.curated")
+        {
+            return Err(
+                "timezone artifact must use the complete native monochrome SC contract".into(),
+            );
+        }
+        let Some(pixels) = pixels else {
+            return Err("timezone artifact requires native 2x2 U8 pixels".into());
+        };
+        if pixels.rows != 2
+            || pixels.columns != 2
+            || pixels.frames != 1
+            || pixels.samples_per_pixel != 1
+            || pixels.photometric_interpretation != "MONOCHROME2"
+            || pixels.bits_allocated != 8
+            || pixels.bits_stored != 8
+            || pixels.high_bit != 7
+            || pixels.pixel_representation != 0
+            || pixels.pixel_data_vr != "OB"
+            || pixels.stored_value_type != "u8"
+            || pixels.stored_values.len() != 4
+            || pixels.frame_sha256.len() != 1
+            || pixels.padding.is_some()
+            || pixels.palette.is_some()
+            || pixels.color.is_some()
+            || pixels.bit_packing.is_some()
+            || pixels.integer_word.is_some()
+            || pixels.encapsulation_projection.is_some()
+            || pixels
+                .stored_values
+                .iter()
+                .any(|value| !(0..=255).contains(value))
+            || pixels.pixel_min != *pixels.stored_values.iter().min().unwrap()
+            || pixels.pixel_max != *pixels.stored_values.iter().max().unwrap()
+        {
+            return Err(
+                "timezone artifact requires an internally consistent native 2x2 U8 SC tuple".into(),
+            );
+        }
+        let bytes = pixels
+            .stored_values
+            .iter()
+            .map(|value| *value as u8)
+            .collect::<Vec<_>>();
+        if pixels.frame_sha256[0] != crate::sha256_hex(&bytes) {
+            return Err("timezone artifact frame hash contradicts its caller-owned pixels".into());
+        }
+        let Some(MetadataScParameters::TimezoneBoundary(boundary)) = artifact.metadata_sc.as_ref()
+        else {
+            return Err("timezone pair cannot mix metadata variants".into());
+        };
+        crate::metadata::validate_timezone_boundary_definition(boundary)?;
+        if !boundaries.insert(boundary.boundary_id.as_str()) {
+            return Err("timezone pair boundary IDs must be unique".into());
+        }
+    }
+    if boundaries != BTreeSet::from(["negative_min", "positive_max"]) {
+        return Err("timezone pair requires exactly one negative_min and one positive_max".into());
+    }
+    Ok(Some(TimezoneBoundaryCapability { artifact_count: 2 }))
+}
 
 /// Stable metadata planning inputs available before staging exists.
 pub struct MetadataScPlanInput<'a> {

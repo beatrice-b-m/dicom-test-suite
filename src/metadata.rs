@@ -1579,6 +1579,53 @@ fn parse_timezone_offset(value: &str) -> Result<i16, String> {
     Ok(signed as i16)
 }
 
+/// Validate the caller-owned values which define one member of the reusable
+/// timezone-extrema pair before planning writes any Part 10 bytes.
+pub(crate) fn validate_timezone_boundary_definition(
+    boundary: &crate::recipes::TimezoneBoundaryMetadata,
+) -> Result<(), String> {
+    for (name, value, maximum) in [
+        ("DA", boundary.study_date.as_str(), 8_usize),
+        ("TM", boundary.study_time.as_str(), 16),
+        ("DT", boundary.acquisition_date_time.as_str(), 26),
+        ("SH", boundary.timezone_offset.as_str(), 16),
+    ] {
+        if value.is_empty()
+            || value.len() > maximum
+            || !value.is_ascii()
+            || value.ends_with([' ', '\0'])
+        {
+            return Err(format!(
+                "{name} value must be nonempty unpadded ASCII within its DICOM VR limit"
+            ));
+        }
+    }
+
+    let expected_offset = match boundary.boundary_id.as_str() {
+        "positive_max" => ("+1400", 840_i16),
+        "negative_min" => ("-1200", -720_i16),
+        _ => return Err("timezone pair requires positive_max and negative_min".into()),
+    };
+    let date = parse_dicom_date(&boundary.study_date)?;
+    let time = parse_dicom_time(&boundary.study_time)?;
+    let (dt_date, dt_time, embedded_offset) =
+        parse_dicom_date_time(&boundary.acquisition_date_time)?;
+    let parsed_offset = parse_timezone_offset(&boundary.timezone_offset)?;
+    if boundary.timezone_offset != expected_offset.0
+        || boundary.offset_minutes != expected_offset.1
+        || parsed_offset != expected_offset.1
+        || embedded_offset != expected_offset.1
+    {
+        return Err("timezone boundary ID, extrema, offset minutes, and DT suffix disagree".into());
+    }
+    let combined = normalize_utc(date, time, parsed_offset);
+    let date_time = normalize_utc(dt_date, dt_time, embedded_offset);
+    if combined != boundary.normalized_utc || date_time != boundary.normalized_utc {
+        return Err("timezone boundary normalized UTC value is inconsistent".into());
+    }
+    Ok(())
+}
+
 fn parse_digits(value: &str) -> Result<i64, String> {
     value
         .parse::<i64>()

@@ -733,7 +733,7 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
         process_source = (ROOT / "src/generation_backends/process.rs").read_text(encoding="utf-8")
         self.assertEqual(process_source.count("#[ignore ="), 6)
 
-    def test_corpus_definition_route_lists_all_thirty_four_owned_tests(self):
+    def test_corpus_definition_route_lists_all_thirty_seven_owned_tests(self):
         selected = self.select("tests/corpus_definition_bundle.rs")
         commands = [
             command
@@ -742,7 +742,7 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
         ]
         self.assertEqual(len(commands), 1)
         self.assertEqual(commands[0]["source"], "tests/corpus_definition_bundle.rs")
-        self.assertEqual(commands[0]["list_count"], 34)
+        self.assertEqual(commands[0]["list_count"], 37)
 
         listing = subprocess.check_output(
             [
@@ -757,7 +757,7 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
             for line in listing
             if line.startswith("corpus_definition::tests::") and line.endswith(": test")
         ]
-        self.assertEqual(len(observed), 34)
+        self.assertEqual(len(observed), 37)
         self.assertEqual(len(observed), commands[0]["list_count"])
 
     def test_current_tracked_executable_surfaces_are_routed_or_explicitly_ignored(self):

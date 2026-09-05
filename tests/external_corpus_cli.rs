@@ -16,6 +16,8 @@ mod generic_nonsquare_sc_bundle;
 mod generic_pet_bundle;
 #[path = "support/generic_sc_bundle.rs"]
 mod generic_sc_bundle;
+#[path = "support/generic_timezone_sc_bundle.rs"]
+mod generic_timezone_sc_bundle;
 #[path = "support/generic_us_bundle.rs"]
 mod generic_us_bundle;
 #[path = "support/generic_us_multiframe_bundle.rs"]
@@ -2420,6 +2422,133 @@ fn caller_owned_nonsquare_sc_cli_sdk_strict_and_report_are_identical() {
             .any(|failure| failure.contains("nonsquare_pixel_spacing")),
         "{:?}",
         validation.failures()
+    );
+}
+
+#[test]
+fn caller_owned_timezone_sc_cli_sdk_strict_and_report_are_identical() {
+    let f = generic_timezone_sc_bundle::GenericTimezoneScBundle::new();
+    let command = |args: &[String]| {
+        let raw = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
+            .args(args)
+            .current_dir(&f.root)
+            .env("PATH", "")
+            .output()
+            .unwrap();
+        assert!(
+            raw.status.success(),
+            "{}",
+            String::from_utf8_lossy(&raw.stderr)
+        );
+        serde_json::from_slice::<Value>(&raw.stdout).unwrap()
+    };
+    let product = DicomTestSuite::embedded().unwrap();
+    let cli = command(&f.args("generate", Some("cli-output")));
+    assert_eq!(cli["result"]["validation_status"], "passed");
+    assert_eq!(cli["result"]["emitted_file_count"], 2);
+    let manifest_bytes = fs::read(f.root.join("cli-output/manifest.json")).unwrap();
+    let manifest: Value = serde_json::from_slice(&manifest_bytes).unwrap();
+    valid("manifest-v2.schema.json", &manifest);
+    let files = manifest["files"].as_array().unwrap();
+    assert_eq!(files.len(), 2);
+    assert_eq!(files[0]["case_id"], "caller/temporal/offset-extrema");
+    assert_eq!(files[0]["path"], "caller/clocks/east.dcm");
+    assert_eq!(files[1]["path"], "caller/clocks/west.dcm");
+    assert_eq!(files[0]["frame_of_reference_uid"], Value::Null);
+    assert_eq!(files[1]["frame_of_reference_uid"], Value::Null);
+    assert_eq!(files[0]["references"], json!([]));
+    assert_eq!(files[1]["references"], json!([]));
+    assert_eq!(
+        files[0]["expected_metadata"]["temporal"]["boundary_id"],
+        "positive_max"
+    );
+    assert_eq!(
+        files[1]["expected_metadata"]["temporal"]["boundary_id"],
+        "negative_min"
+    );
+
+    let GenerateCorpusOutcome::Published(sdk) = product
+        .generate_corpus(
+            GenerateCorpusRequest::from_file(
+                &f.descriptor,
+                &f.members,
+                f.root.join("sdk-output"),
+                generic_timezone_sc_bundle::GenericTimezoneScBundle::selector(),
+            )
+            .with_seed(41),
+        )
+        .unwrap()
+    else {
+        panic!("caller-owned timezone pair must publish")
+    };
+    assert_eq!(sdk.manifest().deserialize::<Value>().unwrap(), manifest);
+    for file in files {
+        let path = file["path"].as_str().unwrap();
+        assert_eq!(
+            fs::read(sdk.output_root().join(path)).unwrap(),
+            fs::read(f.root.join("cli-output").join(path)).unwrap()
+        );
+    }
+    assert!(
+        product
+            .validate(ValidateRequest::new(sdk.output_root()))
+            .unwrap()
+            .is_valid()
+    );
+
+    let report = command(&[
+        "report".into(),
+        "cli-output".into(),
+        "--format".into(),
+        "json".into(),
+        "--cli-api".into(),
+        "1.0.0".into(),
+    ]);
+    let report = &report["result"]["report"];
+    valid("coverage-report-v2.schema.json", report);
+    assert_eq!(report["coverage_matrix"].as_array().unwrap().len(), 2);
+    assert_eq!(
+        report["grouped_coverage"]["metadata_temporal_boundary_ids"]["positive_max"],
+        1
+    );
+    assert_eq!(
+        report["grouped_coverage"]["metadata_temporal_boundary_ids"]["negative_min"],
+        1
+    );
+    assert_eq!(
+        report["grouped_coverage"]["metadata_timezone_offsets_from_utc"]["+1400"],
+        1
+    );
+    assert_eq!(
+        report["grouped_coverage"]["metadata_timezone_offsets_from_utc"]["-1200"],
+        1
+    );
+    assert_eq!(
+        product
+            .report(ReportRequest::new(sdk.output_root()))
+            .unwrap()
+            .deserialize::<Value>()
+            .unwrap(),
+        *report
+    );
+
+    let mut tampered = manifest;
+    tampered["files"][0]["expected_metadata"]["temporal"]["combined_da_tm_utc"] =
+        json!("2000-01-01T00:00:00.000000Z");
+    fs::write(
+        f.root.join("cli-output/manifest.json"),
+        serde_json::to_vec_pretty(&tampered).unwrap(),
+    )
+    .unwrap();
+    let validation = product
+        .validate(ValidateRequest::new(f.root.join("cli-output")))
+        .unwrap();
+    assert!(!validation.is_valid());
+    assert!(
+        validation
+            .failures()
+            .iter()
+            .any(|failure| failure.contains("metadata_temporal_combined_utc"))
     );
 }
 

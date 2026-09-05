@@ -1,0 +1,77 @@
+{
+  "corpus_definition_bundle_schema_version": "1.0.0",
+  "definition_id": "fixture.generic-timezone-sc",
+  "definition_version": "1.0.0",
+  "profiles": [
+    {
+      "profile_id": "smoke",
+      "scope": "valid",
+      "members": []
+    },
+    {
+      "profile_id": "core",
+      "scope": "valid",
+      "members": [
+        "caller/temporal/offset-extrema"
+      ]
+    },
+    {
+      "profile_id": "extended",
+      "scope": "valid",
+      "members": []
+    },
+    {
+      "profile_id": "legacy",
+      "scope": "legacy",
+      "members": []
+    },
+    {
+      "profile_id": "stress",
+      "scope": "stress",
+      "members": []
+    },
+    {
+      "profile_id": "negative",
+      "scope": "expected_invalid",
+      "members": []
+    },
+    {
+      "profile_id": "fuzz",
+      "scope": "fuzz",
+      "members": []
+    },
+    {
+      "profile_id": "all",
+      "scope": "valid",
+      "union_of": [
+        "smoke",
+        "core",
+        "extended"
+      ],
+      "optional_profile": "stress",
+      "members": []
+    }
+  ],
+  "registry": {
+    "path": "cases/registry.json",
+    "size_bytes": 857,
+    "sha256": "006699cd14cb64603e73e2978ddb58c981b292e3c95f4f7c4917f9721160b4b9"
+  },
+  "cases": [
+    {
+      "case_id": "caller/temporal/offset-extrema",
+      "recipe_id": "caller_offset_pair",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/caller_offset_pair.json",
+        "size_bytes": 5212,
+        "sha256": "9ab7151663f058f57b897b594111ff062f64f087be738fad86e12b1be3f7901d"
+      },
+      "dependencies": [],
+      "evidence_ids": [],
+      "asset_ids": []
+    }
+  ],
+  "evidence": [],
+  "assets": []
+}

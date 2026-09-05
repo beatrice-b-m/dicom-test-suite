@@ -4,9 +4,9 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 277,
-    "rust_test_entries": 1513,
+    "rust_test_entries": 1517,
     "integration_source_groups": 189,
-    "integration_test_entries": 938,
+    "integration_test_entries": 939,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
   },
   "enums": {
@@ -1276,7 +1276,7 @@
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 34,
+      "entry_count": 37,
       "entries": [
         "caller_owned_us_multiframe_fixture_is_admitted_by_structure",
         "caller_owned_nm_multiframe_fixture_is_admitted_by_structure",
@@ -1287,6 +1287,9 @@
         "external_cr_capability_is_name_independent_and_fail_closed",
         "external_native_projection_capabilities_are_name_independent_and_fail_closed",
         "external_metadata3_capability_is_name_independent_and_fail_closed",
+        "external_timezone_capability_is_name_independent_and_fail_closed",
+        "caller_owned_timezone_fixture_is_admitted_by_structure",
+        "caller_owned_timezone_fixture_rejects_registry_modality_contradiction",
         "external_sc_capability_is_bounded_name_independent_and_fail_closed",
         "external_nonsquare_sc_capability_is_name_independent_and_fail_closed",
         "minimal_bundle_loads_with_stable_exact_byte_identity",
@@ -1313,7 +1316,7 @@
         "negative_and_fuzz_dependencies_cannot_cross_legacy_or_stress_boundaries",
         "excessive_undeclared_inventory_fails_without_buffering_all_names"
       ],
-      "entry_digest": "23c4f6ae399a0ac643f2cd0acc1f75d46010cd35ff7ea2339f990dd4fedb390a"
+      "entry_digest": "692cc659e839c8a7bed61d21b1b0ff799a6fb2b16fe7b0c047467e218f567c1f"
     },
     {
       "source": "tests/corpus_plan.rs",
@@ -1860,7 +1863,7 @@
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 19,
+      "entry_count": 20,
       "entries": [
         "loaded_capabilities_are_verified_destination_free_and_sdk_consistent",
         "caller_named_ct_cli_is_sdk_identical_strictly_valid_and_reported",
@@ -1878,11 +1881,12 @@
         "caller_owned_us_multiframe_cli_sdk_and_report_are_identical",
         "caller_owned_nm_multiframe_cli_sdk_and_report_are_identical",
         "caller_owned_nonsquare_sc_cli_sdk_strict_and_report_are_identical",
+        "caller_owned_timezone_sc_cli_sdk_strict_and_report_are_identical",
         "caller_named_pet_cli_is_sdk_identical_strictly_valid_and_reported",
         "caller_named_xa_xrf_cli_is_sdk_identical_strictly_valid_and_reported",
         "caller_named_vl_photo_cli_is_sdk_identical_strictly_valid_and_reported"
       ],
-      "entry_digest": "bdd4c754983757bbe661e99d44fee8ddbf8326710c61ad0770a208bfc5bb3cde"
+      "entry_digest": "e165abe019fcea8dd4d64614c1f6480aad21feccab2b30ee7249f5acf4e5e2ca"
     },
     {
       "source": "tests/frame_codec_service.rs",

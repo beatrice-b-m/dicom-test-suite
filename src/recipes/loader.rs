@@ -21,6 +21,7 @@ use super::enhanced::{
     enhanced_input_from_recipe,
 };
 use super::error::RecipeCatalogError;
+use super::metadata_sc::inspect_timezone_boundary_capability;
 use super::model::{CaseRecipe, MetadataScParameters, RecipeKind, StringValueSource};
 use super::presentation::{
     PRESENTATION_ADVANCED_PROVIDER_ID, PRESENTATION_ALGORITHM_PROVIDER_ID, PresentationPlanInput,
@@ -857,6 +858,8 @@ fn validate_metadata_sc_contract(
             "native.metadata_sc_plan stores static values in typed artifact contracts",
         ));
     }
+    let timezone_capability =
+        inspect_timezone_boundary_capability(recipe).map_err(|message| semantic(path, message))?;
     let declared_kind = recipe
         .dicom
         .as_ref()
@@ -870,6 +873,9 @@ fn validate_metadata_sc_contract(
             }
             MetadataScParameters::EmptyType2 { .. } => Some("empty_type2"),
             MetadataScParameters::PrivateCreators { .. } => Some("private_creators"),
+            MetadataScParameters::TimezoneBoundary(_) if timezone_capability.is_some() => {
+                Some("timezone_boundary")
+            }
             _ => None,
         });
     let expected_kind = if let Some(kind) = declared_kind {
@@ -879,7 +885,6 @@ fn validate_metadata_sc_contract(
             "metadata/sc/utf8_person_name" | "metadata/sc/iso2022_person_name_component_groups" => {
                 "person_name"
             }
-            "metadata/sc/timezone_boundaries" => "timezone_boundary",
             "metadata/sc/empty_type2_attributes" => "empty_type2",
             "metadata/sc/long_multivalue_text_numeric_strings" => "string_boundaries",
             "metadata/sc/private_creator_blocks" => "private_creators",
@@ -1744,6 +1749,22 @@ fn validate_registry_bindings(
             && case.requirements.features.is_empty()
             && case.requirements.external_codecs.is_empty()
             && validate_metadata_sc_contract(Path::new(&recipe.recipe_id), recipe)?;
+        let name_independent_timezone = inspect_timezone_boundary_capability(recipe)
+            .map_err(|message| RecipeCatalogError::Completeness {
+                message: format!(
+                    "{} has invalid timezone capability: {message}",
+                    case.case_id
+                ),
+            })?
+            .is_some();
+        if name_independent_timezone && case.modality.as_deref() != Some("OT") {
+            return Err(RecipeCatalogError::Completeness {
+                message: format!(
+                    "{} registry modality contradicts timezone SC capability",
+                    case.case_id
+                ),
+            });
+        }
         let name_independent_ct = recipe.plan_provider_id == "native.classic_plan"
             && inspect_ct_capability(recipe)
                 .map_err(|error| RecipeCatalogError::Completeness {

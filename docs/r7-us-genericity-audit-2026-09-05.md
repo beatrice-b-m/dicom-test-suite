@@ -51,3 +51,20 @@ uses unqualified US and must remain meaningful when that capability is admitted.
 Read-only source audit found no other required compatibility file. No build,
 native execution or standards lookup ran; existing source-pinned evidence is
 preserved. Diff check passed.
+
+## Preimplementation review refinements — 2026-09-05
+
+A second read-only review confirms that single-frame parameter validation
+currently checks counts without proving the complete bounded pixel contract.
+Require frames1, stored typeu8, positive checked dimensions, byte-range samples,
+matching extrema and exactly one computed frame hash. Preserve logical instance
+with source role `primary` (CR instead uses role `instance`). Require absent
+fragments_per_frame and encoding-provider override alongside native policies.
+
+Explicitly exclude classic_projection MR, ICC and semantic_labels fields,
+nonempty standards append, implementation-version projection, public profile
+membership, qualification/mutation payloads, attribute operations and unrelated
+artifact projections. Test absent/null and populated overrides independently.
+Provider optional series/body-part fields remain absent. Shared typed validation
+is already suitable; early typed shared planning dispatch is still required.
+No implementation or execution is claimed by this refinement.

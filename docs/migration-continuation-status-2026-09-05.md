@@ -1632,3 +1632,22 @@ provisional corpus_definition/loader.rs path was corrected by inventory before
 edits. Loadersemantic/registry admission and earlysharedtypeddispatch plus
 SDKpublication/strict/report tests precede independentpublicproof/currentguides.
 Root runs mappedbroadergroups after reviewedcommit; no overlappingVLchanges.
+
+## XA/XRF loader integration exposes two admission seams — 2026-09-05
+
+Focused SDK integration failed0/1 in1.95s after18.51scompile, preserved
+/private/tmp/xa-loader-focused.log. A qualified XA tuple with a visible-light
+caller name reached curated_execution.rs validate_vl_projection_classic's
+historical vl/ prefix and decoded projection parameters as VL. No capability
+acceptance follows from this failed source test. Root verified the exact branch.
+The coherent integration ownership expands by only src/curated_execution.rs,
+using the qualified inspector before that historical VL branch; existing VL
+behavior remains unchanged. No broader execution refactor is authorized.
+
+Independent review also found RegistryCase lacks modality, while manifest
+projection follows registry modality. Within the already-owned loader, add a
+backward-compatible optional modality field and fail closed unless inspected
+XA/XRF parameters agree exactly with XA/RF registry modality. Missing/crossed
+modality regressions cover both cases and must not fall through name admission.
+The five-file unit remains uncommitted pending corrected focused tests, expanded
+route review and proportional verification. Public fixtures/guides remain held.

@@ -1,0 +1,124 @@
+{
+  "case_recipe_schema_version": "0.1.0",
+  "recipe_id": "caller_name",
+  "recipe_version": "0.1.0",
+  "binding": {
+    "case_id": "caller/metadata/name"
+  },
+  "kind": "dicom",
+  "plan_provider_id": "native.metadata_sc_plan",
+  "planning_order": 900,
+  "projection_order": 900,
+  "dependencies": [],
+  "provider_parameters": {},
+  "validation_rule_ids": [
+    "validation.sc.pixel",
+    "validation.metadata.person_name"
+  ],
+  "projection_rule_ids": [
+    "projection.curated"
+  ],
+  "dicom": {
+    "artifacts": [
+      {
+        "logical_id": "instance",
+        "order": 0,
+        "template": {
+          "template_id": "classic/secondary-capture/monochrome",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "instance",
+          "path": "independent/name.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {},
+        "secondary_capture": {
+          "rows": 2,
+          "columns": 2,
+          "frames": 1,
+          "samples_per_pixel": 1,
+          "photometric_interpretation": "MONOCHROME2",
+          "bits_allocated": 8,
+          "bits_stored": 8,
+          "high_bit": 7,
+          "pixel_representation": 0,
+          "pixel_data_vr": "OB",
+          "stored_value_type": "u8",
+          "stored_values": [
+            0,
+            85,
+            170,
+            255
+          ],
+          "frame_sha256": [
+            "03b722a15d4658be01f1eb9def5e8be124710cc0e88842f78107abfda3e23ea8"
+          ],
+          "visual_pattern": "2x2_monochrome_gradient_with_utf8_patient_name",
+          "semantic_note": "UTF-8 Person Name preserves alphabetic and ideographic component groups",
+          "pixel_min": 0,
+          "pixel_max": 255
+        },
+        "metadata_sc": {
+          "kind": "person_name",
+          "specific_character_sets": [
+            "ISO_IR 192"
+          ],
+          "patient_name_decoded": "Wang^XiaoDong=王^小東",
+          "patient_name_raw_hex": "57616E675E5869616F446F6E673DE78E8B5EE5B08FE69DB1",
+          "patient_name_raw_sha256": "64a9d3d6b55142162489a8679e8643caa94efcff26dd30bf24650ac5186c1382",
+          "native_unicode_round_trip": true,
+          "component_groups": [
+            {
+              "kind": "alphabetic",
+              "decoded_value": "Wang^XiaoDong",
+              "components": [
+                "Wang",
+                "XiaoDong",
+                "",
+                "",
+                ""
+              ]
+            },
+            {
+              "kind": "ideographic",
+              "decoded_value": "王^小東",
+              "components": [
+                "王",
+                "小東",
+                "",
+                "",
+                ""
+              ]
+            }
+          ]
+        },
+        "attribute_operations": [],
+        "content": {
+          "provider_id": "content.metadata.person_name",
+          "parameters": {}
+        },
+        "validation_rule_ids": [
+          "validation.sc.pixel",
+          "validation.metadata.person_name"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "minimal_secondary_capture",
+          "native_ob_pixel_data"
+        ]
+      }
+    ]
+  }
+}

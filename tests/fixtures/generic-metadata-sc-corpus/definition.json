@@ -1,0 +1,132 @@
+{
+  "corpus_definition_bundle_schema_version": "1.0.0",
+  "definition_id": "fixture.generic-metadata-sc",
+  "definition_version": "1.0.0",
+  "profiles": [
+    {
+      "profile_id": "smoke",
+      "scope": "valid",
+      "members": []
+    },
+    {
+      "profile_id": "core",
+      "scope": "valid",
+      "members": [
+        "caller/metadata/name",
+        "caller/metadata/empty",
+        "caller/metadata/private"
+      ]
+    },
+    {
+      "profile_id": "extended",
+      "scope": "valid",
+      "members": []
+    },
+    {
+      "profile_id": "legacy",
+      "scope": "legacy",
+      "members": []
+    },
+    {
+      "profile_id": "stress",
+      "scope": "stress",
+      "members": []
+    },
+    {
+      "profile_id": "negative",
+      "scope": "expected_invalid",
+      "members": []
+    },
+    {
+      "profile_id": "fuzz",
+      "scope": "fuzz",
+      "members": []
+    },
+    {
+      "profile_id": "all",
+      "scope": "valid",
+      "union_of": [
+        "smoke",
+        "core",
+        "extended"
+      ],
+      "optional_profile": "stress"
+    }
+  ],
+  "registry": {
+    "path": "cases/registry.json",
+    "size_bytes": 5488,
+    "sha256": "7910a15480e7e70033c5418123c9bf8e3093225b0bfb25fe6bad33570fed9d09"
+  },
+  "cases": [
+    {
+      "case_id": "caller/metadata/name",
+      "recipe_id": "caller_name",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/caller_name.json",
+        "size_bytes": 3574,
+        "sha256": "871c8d577698a6d64098ae7ceca7212488192754b80ca52fcea7380e8a32b6ae"
+      },
+      "dependencies": [],
+      "evidence_ids": [
+        "source-note.phase-2-utf8-person-name"
+      ],
+      "asset_ids": []
+    },
+    {
+      "case_id": "caller/metadata/empty",
+      "recipe_id": "caller_empty",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/caller_empty.json",
+        "size_bytes": 3346,
+        "sha256": "a00e61bfcecddb699a08600b9b663ad9ac8c21ab66f8359237391afc2e27e87a"
+      },
+      "dependencies": [],
+      "evidence_ids": [
+        "source-note.phase-2-empty-type2-attributes"
+      ],
+      "asset_ids": []
+    },
+    {
+      "case_id": "caller/metadata/private",
+      "recipe_id": "caller_private",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/caller_private.json",
+        "size_bytes": 4321,
+        "sha256": "87c8b6dad600b9a23338f3f9c51085755f167816ec811dc66c9afc51115ccbbf"
+      },
+      "dependencies": [],
+      "evidence_ids": [
+        "source-note.phase-2-private-creator-blocks"
+      ],
+      "asset_ids": []
+    }
+  ],
+  "evidence": [
+    {
+      "evidence_id": "source-note.phase-2-utf8-person-name",
+      "media_type": "text/markdown",
+      "path": "evidence/phase-2-utf8-person-name.md",
+      "size_bytes": 2274,
+      "sha256": "e60139eda8c7d5bbb0c94e3fe94680542cee80f1828febb573ac4be2bdfeba8d"
+    },
+    {
+      "evidence_id": "source-note.phase-2-empty-type2-attributes",
+      "media_type": "text/markdown",
+      "path": "evidence/phase-2-empty-type2-attributes.md",
+      "size_bytes": 2879,
+      "sha256": "850e4b84c16f9aeb40074819dcf5864313e2726ded8884ef4cdcaff5c571b65c"
+    },
+    {
+      "evidence_id": "source-note.phase-2-private-creator-blocks",
+      "media_type": "text/markdown",
+      "path": "evidence/phase-2-private-creator-blocks.md",
+      "size_bytes": 3565,
+      "sha256": "3afe345d1151e2a5e8673e5a194e40d2461355f6f48c07a1113489f6f5dfe388"
+    }
+  ],
+  "assets": []
+}

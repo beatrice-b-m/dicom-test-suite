@@ -2,6 +2,8 @@
 mod generic_ct_bundle;
 #[path = "support/generic_dx_mg_bundle.rs"]
 mod generic_dx_mg_bundle;
+#[path = "support/generic_metadata_sc_bundle.rs"]
+mod generic_metadata_sc_bundle;
 
 use serde_json::{Value, json};
 use std::{
@@ -717,6 +719,313 @@ fn caller_named_dx_mg_cli_is_sdk_identical_strictly_valid_and_reported() {
         assert_eq!(raw.len(), size);
         let digest = Command::new("python3").args(["-c", "import hashlib,pathlib,sys;print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())"])
             .arg(original.0.join("generated/dx-mg-original").join(file["path"].as_str().unwrap()))
+            .output().unwrap();
+        assert!(digest.status.success());
+        assert!(digest.stderr.is_empty());
+        assert_eq!(String::from_utf8(digest.stdout).unwrap().trim(), hash);
+    }
+}
+
+#[test]
+fn caller_named_metadata_sc_cli_is_sdk_identical_strictly_valid_and_reported() {
+    let fixture = generic_metadata_sc_bundle::GenericMetadataScBundle::new();
+    let command = |args: &[&str]| {
+        Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
+            .args(args)
+            .env("PATH", "")
+            .current_dir(&fixture.root)
+            .output()
+            .unwrap()
+    };
+    let assessed = command(&[
+        "capabilities",
+        "--corpus",
+        "./definition.json",
+        "--asset-root",
+        "members",
+        "--profile",
+        "core",
+        "--case-id",
+        generic_metadata_sc_bundle::CASE_IDS[0],
+        "--case-id",
+        generic_metadata_sc_bundle::CASE_IDS[1],
+        "--case-id",
+        generic_metadata_sc_bundle::CASE_IDS[2],
+        "--seed",
+        "1",
+        "--parallelism",
+        "4",
+        "--format",
+        "json",
+    ]);
+    assert!(
+        assessed.status.success(),
+        "{}",
+        String::from_utf8_lossy(&assessed.stderr)
+    );
+    assert!(assessed.stderr.is_empty());
+    let assessed: Value = serde_json::from_slice(&assessed.stdout).unwrap();
+    valid("cli-success-envelope.schema.json", &assessed);
+    valid("capabilities-result-v3.schema.json", &assessed["result"]);
+    assert_eq!(
+        assessed["result"]["loaded_corpus"]["assessment"]["parallelism"],
+        4
+    );
+    assert_eq!(
+        assessed["result"]["loaded_corpus"]["assessment"]["artifact_ids"],
+        json!([
+            "curated_caller_name_instance",
+            "curated_caller_empty_instance",
+            "curated_caller_private_instance"
+        ])
+    );
+    let sdk_capabilities = DicomTestSuite::embedded()
+        .unwrap()
+        .capabilities_with_corpus(
+            InspectCorpusRequest::from_file(&fixture.descriptor, &fixture.members)
+                .with_selection(generic_metadata_sc_bundle::selector())
+                .with_seed(1)
+                .with_parallelism(4),
+        )
+        .unwrap();
+    assert_eq!(
+        assessed["result"],
+        serde_json::to_value(sdk_capabilities).unwrap()
+    );
+    assert_eq!(
+        assessed["result"]["loaded_corpus"]["assessment"]["publication"],
+        "not_run"
+    );
+    assert_eq!(
+        assessed["result"]["loaded_corpus"]["assessment"]["validation"],
+        "not_run"
+    );
+    let generated = command(&[
+        "generate",
+        "--corpus",
+        "./definition.json",
+        "--asset-root",
+        "members",
+        "--profile",
+        "core",
+        "--case-id",
+        generic_metadata_sc_bundle::CASE_IDS[0],
+        "--case-id",
+        generic_metadata_sc_bundle::CASE_IDS[1],
+        "--case-id",
+        generic_metadata_sc_bundle::CASE_IDS[2],
+        "--seed",
+        "1",
+        "--parallelism",
+        "4",
+        "--out",
+        "cli-output",
+        "--format",
+        "json",
+        "--cli-api",
+        "1.0.0",
+    ]);
+    assert!(
+        generated.status.success(),
+        "{}",
+        String::from_utf8_lossy(&generated.stderr)
+    );
+    assert!(generated.stderr.is_empty());
+    let generated: Value = serde_json::from_slice(&generated.stdout).unwrap();
+    valid("cli-success-envelope.schema.json", &generated);
+    valid("generation-result-v3.schema.json", &generated["result"]);
+    assert_eq!(generated["command"], "generate");
+    assert_eq!(generated["result"]["outcome"], "published");
+    assert_eq!(generated["result"]["emitted_file_count"], 3);
+    assert_eq!(generated["result"]["selected_case_count"], 3);
+    assert_eq!(generated["result"]["direct_case_count"], 3);
+    assert_eq!(generated["result"]["dependency_case_count"], 0);
+    assert_eq!(generated["result"]["validation_status"], "passed");
+    assert_eq!(generated["result"]["publication_status"], "published");
+
+    let cli_manifest: Value =
+        serde_json::from_slice(&fs::read(fixture.root.join("cli-output/manifest.json")).unwrap())
+            .unwrap();
+    assert_eq!(
+        generated["result"]["identity_projection"],
+        cli_manifest["identity_projection"]
+    );
+    valid("manifest-v2.schema.json", &cli_manifest);
+    generic_metadata_sc_bundle::assert_manifest(&cli_manifest, &fixture.identity);
+    fixture.assert_closure("cli-output");
+
+    let product = DicomTestSuite::embedded().unwrap();
+    let GenerateCorpusOutcome::Published(sdk) = product
+        .generate_corpus(
+            GenerateCorpusRequest::from_file(
+                &fixture.descriptor,
+                &fixture.members,
+                fixture.root.join("sdk-output"),
+                generic_metadata_sc_bundle::selector(),
+            )
+            .with_seed(1)
+            .with_parallelism(4),
+        )
+        .unwrap()
+    else {
+        panic!("public SDK must publish the same caller metadata SC capability")
+    };
+    let sdk_manifest: Value = sdk.manifest().deserialize().unwrap();
+    assert_eq!(sdk_manifest, cli_manifest);
+    assert_eq!(
+        fs::read(fixture.root.join("cli-output/manifest.json")).unwrap(),
+        fs::read(sdk.output_root().join("manifest.json")).unwrap()
+    );
+    assert_eq!(
+        sdk.corpus_plan_sha256(),
+        generated["result"]["corpus_plan_sha256"]
+    );
+    fixture.assert_closure("sdk-output");
+    for path in generic_metadata_sc_bundle::DICOM_PATHS {
+        assert_eq!(
+            fs::read(fixture.root.join("cli-output").join(path),).unwrap(),
+            fs::read(sdk.output_root().join(path)).unwrap()
+        );
+    }
+
+    for file in cli_manifest["files"].as_array().unwrap() {
+        for output in [
+            fixture.root.join("cli-output"),
+            sdk.output_root().to_path_buf(),
+        ] {
+            generic_metadata_sc_bundle::assert_payload_hash(
+                &output.join(file["path"].as_str().unwrap()),
+                &file["size_bytes"],
+                &file["sha256"],
+            );
+        }
+    }
+
+    let validated = command(&["validate", "cli-output", "--format", "json"]);
+    assert!(
+        validated.status.success(),
+        "{}",
+        String::from_utf8_lossy(&validated.stderr)
+    );
+    assert!(validated.stderr.is_empty());
+    let validated: Value = serde_json::from_slice(&validated.stdout).unwrap();
+    valid("cli-success-envelope.schema.json", &validated);
+    valid("validation-result.schema.json", &validated["result"]);
+    assert_eq!(validated["command"], "validate");
+    assert_eq!(validated["result"]["valid"], true);
+    assert_eq!(validated["result"]["files_checked"], 3);
+    assert_eq!(validated["result"]["failures"], json!([]));
+    let sdk_validation = product
+        .validate(ValidateRequest::new(sdk.output_root()))
+        .unwrap();
+    assert!(sdk_validation.is_valid());
+    assert_eq!(sdk_validation.files_checked(), 3);
+
+    let reported = command(&[
+        "report",
+        "cli-output",
+        "--format",
+        "json",
+        "--cli-api",
+        "1.0.0",
+    ]);
+    assert!(
+        reported.status.success(),
+        "{}",
+        String::from_utf8_lossy(&reported.stderr)
+    );
+    assert!(reported.stderr.is_empty());
+    let reported: Value = serde_json::from_slice(&reported.stdout).unwrap();
+    valid("cli-success-envelope.schema.json", &reported);
+    valid("report-result-v2.schema.json", &reported["result"]);
+    assert_eq!(reported["command"], "report");
+    let cli_report = &reported["result"]["report"];
+    valid("coverage-report-v2.schema.json", cli_report);
+    assert_eq!(cli_report["source_manifest"], cli_manifest);
+    assert_eq!(
+        cli_report["evidence"],
+        json!({"class":"manifest_projection", "validation":"not_assessed", "independent_conformance":"not_assessed", "payloads_reopened":false})
+    );
+    assert_eq!(cli_report["summary"]["emitted_files"], 3);
+    let sdk_report = product
+        .report(ReportRequest::new(sdk.output_root()))
+        .unwrap();
+    assert_eq!(
+        sdk_report.kind(),
+        synth_dicom_gen::sdk::ReportKind::ExternalCorpus
+    );
+    assert_eq!(sdk_report.deserialize::<Value>().unwrap(), *cli_report);
+    // Preserve the accepted three historical payloads through an exact external selection.
+    let original = Fixture::new();
+    let ids = generic_metadata_sc_bundle::ORIGINAL_IDS;
+    original.generate(
+        "metadata-original",
+        "core",
+        &[
+            "--seed",
+            "1",
+            "--parallelism",
+            "4",
+            "--case-id",
+            ids[0],
+            "--case-id",
+            ids[1],
+            "--case-id",
+            ids[2],
+        ],
+    );
+    let old: Value = serde_json::from_slice(
+        &fs::read(original.0.join("generated/metadata-original/manifest.json")).unwrap(),
+    )
+    .unwrap();
+    let files = old["files"].as_array().unwrap();
+    assert_eq!(files.len(), 3);
+    let expected = [
+        (
+            ids[0],
+            978,
+            "b1334cff9865e0a8f4e6d9af50f15fd043beea971c98be596fbaa9d200936ac9",
+        ),
+        (
+            ids[1],
+            932,
+            "7f457e4f9593a8d41dff970d32de86c8b5493841546dd6d60b219f311a7abc7c",
+        ),
+        (
+            ids[2],
+            1114,
+            "5a0726a68554bb55a6dc5f7a74f639138dc365e8a46f444013303261705141e9",
+        ),
+    ];
+    for (original_file, caller_file) in files.iter().zip(cli_manifest["files"].as_array().unwrap())
+    {
+        for key in [
+            "expected_metadata",
+            "expected_semantics",
+            "image",
+            "pixel_data",
+            "standards_evidence",
+        ] {
+            assert_eq!(
+                original_file[key], caller_file[key],
+                "preserved metadata semantic field {key}"
+            );
+        }
+    }
+    for (file, (case_id, size, hash)) in files.iter().zip(expected) {
+        assert_eq!(file["case_id"], case_id);
+        assert_eq!(file["size_bytes"], size);
+        assert_eq!(file["sha256"], hash);
+        let raw = fs::read(
+            original
+                .0
+                .join("generated/metadata-original")
+                .join(file["path"].as_str().unwrap()),
+        )
+        .unwrap();
+        assert_eq!(raw.len(), size);
+        let digest = Command::new("python3").args(["-c", "import hashlib,pathlib,sys;print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())"])
+            .arg(original.0.join("generated/metadata-original").join(file["path"].as_str().unwrap()))
             .output().unwrap();
         assert!(digest.status.success());
         assert!(digest.stderr.is_empty());

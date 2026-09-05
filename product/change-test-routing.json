@@ -23,6 +23,11 @@
         {"target": "cli_sdk__nonfast", "module": "report_cli"}
       ]
     },
+    "generic_metadata_sc_public_contract": {
+      "commands": [
+        {"target": "cli_sdk__nonfast", "module": "external_corpus_cli"}
+      ]
+    },
     "generic_dx_mg_public_contract": {
       "commands": [
         {"target": "cli_sdk__nonfast", "module": "external_corpus_cli"}
@@ -430,6 +435,12 @@
       "id": "test-harness-roots",
       "prefixes": ["tests/harnesses/"],
       "all_ordinary": true
+    },
+    {
+      "id": "generic-metadata-sc-public-contract",
+      "exact": ["tests/support/generic_metadata_sc_bundle.rs"],
+      "prefixes": ["tests/fixtures/generic-metadata-sc-corpus/"],
+      "bundles": ["generic_metadata_sc_public_contract"]
     },
     {
       "id": "generic-dx-mg-public-contract",

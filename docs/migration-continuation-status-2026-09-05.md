@@ -1670,3 +1670,22 @@ route/private/tmp/xa-loader-expanded-route.json retains four mapped groups:
 corpus_definition30, captured_input4, corpus_generation subsystem and engine
 corpus_plan. Root is running these at clean6ddbb95 before source integration
 acceptance; no standalone public proof or guide acceptance yet.
+
+## XA/XRF mapped integration checks accepted — 2026-09-05
+
+Root four expanded-route groups passed at6ddbb95 source (only status docs
+advanced during checks): corpus_definition30/45.67s, captured_input4/5.39s,
+corpus_generation92/27.64s and engine corpus_plan22/0.79s. Whole84.687249208s;
+compile0.05/0.04/2.25/1.56s. Logs and command timings:
+/private/tmp/r7-xa-xrf-loader-root-subsystem-20260905.log and .json. Fast was
+not repeated. This accepts bounded loader/execution integration, not standalone
+public evidence. No pin changes or historical capture relabeling.
+
+Next one-owner public proof owns six generic-xa-xrf-corpus fixture members
+(descriptor/registry/two recipes/two unchanged notes), a source-bound semantic
+oracle, support module, external_corpus_cli test and exact five ownership/
+routing/checker/spelling metadata files. Neutralcaller acquisition angiography/
+fluoroscopy use planning900/901, projection902/903 and independent paths.
+CLI/SDK complete equality, strict2files and original source-pair reproduction
+must pass; observed caller hashes freeze before final rerun. No guide edits
+until this proof and broader public module are accepted.

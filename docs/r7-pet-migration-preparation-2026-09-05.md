@@ -46,3 +46,26 @@ Root owns this decision and dated status; source author and read-only helper
 reviewer have no overlapping writes. Granular commits and proportional checks
 apply in each repository. No US/multiframe/NM, enhanced PET, optional codec,
 viewer or release claim expands through this preparation. R7 remains open.
+
+## Read-only genericity refinement after source acceptance
+
+The current reopened PET validator locks the source2x2 U16 values and BQML
+activity tuple. The first genericity correction must preserve these bounds,
+not admit values that generation accepts and reopening rejects. An inspector
+should recognize PET template or typed family intent, require the complete
+native tuple and fixed synthetic PT/HEAD/series metadata, and reject crossed
+markers, nonfinite/invalid numeric strings, unsupported extensions and bad
+count/range/extrema/hash before casts or projection. The shared nuclear
+algorithm alone does not identify PET.
+
+Planner inspection precedes historical owned_family/order checks; loader and
+shared dispatch then return before MR/CR/nuclear/VL name matchers. Existing
+execution/projection select typed Pet, and reopened validation selects actual
+PET IOD evidence rather than the historical PET case name. Preserve all three
+required empty sequences and source conditional absences. No SUV or clinical
+quantitative-accuracy claim follows from the fixed rescale/calibration fields.
+
+This read-only audit suggests planner/test ownership, then loader/shared tests,
+then standalone public fixture/proof, each separately assigned after preceding
+acceptance. It implements nothing and does not waive baseline/import/parity
+prerequisites. US multiframe, NM, RLE and enhanced PET retain separate paths.

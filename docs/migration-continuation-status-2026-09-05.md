@@ -2428,7 +2428,7 @@ boundary. It adds no calibrated or patient-space geometry, codec, multiframe,
 independent-conformance, viewer, Heavy, package, release or complete-R7 claim.
 R7 remains open, and R8/R9 remain held behind their dependencies.
 
-## Timezone-boundary SC caller capability implemented — 2026-09-05
+## Timezone-boundary SC caller capability accepted — 2026-09-05
 
 Generator `9fc8c1e` admits the complete two-artifact timezone-extrema Secondary
 Capture contract by its typed declaration rather than case ID, recipe ID,
@@ -2452,6 +2452,14 @@ generator evidence; current-source deterministic tests remain a distinct
 domain.
 
 Focused typed-loader, historical generation/strict/report, public CLI/SDK,
-routing and ownership checks passed. No corpus import, availability, parity,
-independent conformance, viewer, Heavy, package, release or complete-R7 claim
-is made. R7 remains open, and R8/R9 remain held behind their dependencies.
+routing and ownership checks passed. Review found the first capabilities
+assertion misplaced in the US multiframe public test; `87070b5` moved it into
+the timezone test before generation and restored the US test. Both exact tests
+then passed. The complete mapped ordinary range from `b9e4d2d` through
+`87070b5` passed 37 corpus-definition, four captured-planning, 20 external-
+corpus, 92 corpus-generation and 22 corpus-plan checks. The misplaced proof is
+retained as review history rather than relabeled as a pass.
+
+No corpus import, availability, parity, independent conformance, viewer, Heavy,
+package, release or complete-R7 claim is made by this generator acceptance.
+R7 remains open, and R8/R9 remain held behind their dependencies.

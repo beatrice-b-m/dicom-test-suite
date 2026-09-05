@@ -512,6 +512,182 @@ fn external_metadata3_capability_is_name_independent_and_fail_closed() {
 }
 
 #[test]
+fn external_sc_capability_is_bounded_name_independent_and_fail_closed() {
+    let sources = [
+        "mono1_u8_explicit_le",
+        "mono2_u8_explicit_le",
+        "mono2_u16_explicit_le",
+        "mono2_i16_explicit_le",
+        "mono2_u16_padding_explicit_le",
+        "mono2_u16_tiny_1x1_explicit_le",
+        "mono2_u16_rect_2x3_explicit_le",
+        "mono2_u16_odd_3x3_explicit_le",
+        "palette_color_u8_explicit_le",
+        "rgb_planar0_explicit_le",
+        "rgb_planar1_explicit_le",
+        "ybr_full_planar0_explicit_le",
+        "ybr_full_422_explicit_le",
+    ];
+    for (index, suffix) in sources.into_iter().enumerate() {
+        let source = format!("classic/sc/{suffix}");
+        for (variant, target) in ["caller/sc/independent", "metadata/sc/timezone_boundaries"]
+            .into_iter()
+            .enumerate()
+        {
+            let root = one_case_bundle(
+                &format!("sc-positive-{index}-{variant}"),
+                &source,
+                target,
+                "caller_sc",
+                |recipe| {
+                    recipe["planning_order"] = 900.into();
+                    recipe["projection_order"] = 900.into();
+                    recipe["dicom"]["artifacts"][0]["output"]["path"] =
+                        "independent/image.dcm".into();
+                },
+            );
+            let bundle = CorpusDefinitionBundle::load(&root).unwrap();
+            let catalog =
+                crate::recipes::RecipeCatalog::from_verified_bundle(&bundle, Path::new("."))
+                    .unwrap();
+            assert!(catalog.binding_for_case(target).is_some());
+            fs::remove_dir_all(root).unwrap();
+        }
+    }
+    let source = "classic/sc/mono2_u8_explicit_le";
+    for mutation in 0..21 {
+        assert_one_case_rejected(
+            &format!("sc-crossed-{mutation}"),
+            source,
+            "caller/sc/invalid",
+            |recipe| {
+                let artifact = &mut recipe["dicom"]["artifacts"][0];
+                match mutation {
+                    0 => {
+                        artifact["template"]["template_id"] = "classic/secondary-capture/rgb".into()
+                    }
+                    1 => artifact
+                        .as_object_mut()
+                        .unwrap()
+                        .remove("template")
+                        .map(|_| ())
+                        .unwrap(),
+                    2 => artifact["template"]["template_version"] = "2.0.0".into(),
+                    3 => artifact["content"]["provider_id"] = "content.native_pixels".into(),
+                    4 => artifact["validation_rule_ids"] = serde_json::json!([]),
+                    5 => artifact["secondary_capture"]["high_bit"] = 65535.into(),
+                    6 => artifact["encoding"]["transfer_syntax_uid"] = "1.2.840.10008.1.2".into(),
+                    7 => artifact["output"]["path"] = "../escape.dcm".into(),
+                    8 => artifact["encoding"]["item_length_policy"] = "undefined".into(),
+                    9 => artifact["secondary_capture"]["frames"] = 2.into(),
+                    10 => artifact["secondary_capture"]["samples_per_pixel"] = 3.into(),
+                    11 => {
+                        artifact["classic_projection"] = serde_json::json!({"family":"ct", "expected_capabilities":[], "visual_pattern":"crossed", "include_implementation_version_name":false})
+                    }
+                    12 => {
+                        let mut extra = artifact.clone();
+                        extra["order"] = 1.into();
+                        extra["logical_id"] = "second".into();
+                        extra["output"]["path"] = "other/second.dcm".into();
+                        recipe["dicom"]["artifacts"]
+                            .as_array_mut()
+                            .unwrap()
+                            .push(extra);
+                    }
+                    13 => recipe["validation_rule_ids"] = serde_json::json!([]),
+                    14 => artifact["projection_rule_ids"] = serde_json::json!([]),
+                    15 => {
+                        artifact["metadata_sc"] = serde_json::json!({"kind":"empty_type2", "attributes":[{"tag":"0010,0010", "keyword":"PatientName", "vr":"PN"}]})
+                    }
+                    16 => {
+                        artifact["secondary_capture"]["integer_word"] = serde_json::json!({"byte_order":"little", "covers_full_unsigned_range":true})
+                    }
+                    17 => {
+                        artifact["secondary_capture"]["encapsulation_projection"] = serde_json::json!({"offset_origin":"first_fragment_item", "item_header_bytes":8})
+                    }
+                    18 => {
+                        artifact["secondary_capture"]["bit_packing"] = serde_json::json!({"bit_order":"least_significant_bit_first", "frame_boundary_policy":"continuous", "significant_bits":32, "significant_packed_bytes":4, "unused_high_bits":0, "value_field_padding_bytes":0, "frame_start_bit_offsets":[0]})
+                    }
+                    19 => {
+                        artifact["nonsquare_geometry"] = serde_json::json!({"variant_id":"pixel_spacing", "pixel_spacing":["0.6","0.3"], "row_to_column_ratio":2.0, "calibrated":false, "patient_space_geometry_present":false})
+                    }
+                    _ => {
+                        artifact["attribute_operations"] = serde_json::json!([{"operation":"set", "tag":"0010,0020", "vr":"LO", "value":"caller"}])
+                    }
+                }
+            },
+        );
+    }
+    assert_one_case_rejected(
+        "sc-malformed-historical-name",
+        source,
+        "classic/sc/misleading-name",
+        |recipe| {
+            recipe["dicom"]["artifacts"][0]["content"]["provider_id"] =
+                "content.native_pixels".into();
+        },
+    );
+    for (index, (source, rule)) in [
+        (
+            "classic/sc/palette_color_u8_explicit_le",
+            "validation.sc.palette",
+        ),
+        ("classic/sc/rgb_planar1_explicit_le", "validation.sc.color"),
+        (
+            "classic/sc/mono2_u16_padding_explicit_le",
+            "validation.sc.padding",
+        ),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        for level in ["recipe", "artifact"] {
+            assert_one_case_rejected(
+                &format!("sc-rule-{index}-{level}"),
+                source,
+                "caller/sc/invalid",
+                |recipe| {
+                    let value = if level == "recipe" {
+                        &mut recipe["validation_rule_ids"]
+                    } else {
+                        &mut recipe["dicom"]["artifacts"][0]["validation_rule_ids"]
+                    };
+                    value.as_array_mut().unwrap().retain(|id| id != rule);
+                },
+            );
+        }
+    }
+    for (index, source) in [
+        "classic/sc/mono2_u8_rle_lossless",
+        "classic/sc/mono2_u8_multiframe_rle_lossless",
+        "classic/sc/mono2_u1_native",
+        "classic/sc/mono2_u32_explicit_le",
+        "classic/sc/nonsquare_pixel_spacing",
+        "encapsulation/sc/eot_single_fragment_multiframe",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let root = one_case_bundle(
+            &format!("sc-legacy-{index}"),
+            source,
+            source,
+            "historical_sc",
+            |_| {},
+        );
+        let bundle = CorpusDefinitionBundle::load(&root).unwrap();
+        crate::recipes::RecipeCatalog::from_verified_bundle(&bundle, Path::new(".")).unwrap();
+        fs::remove_dir_all(root).unwrap();
+        assert_one_case_rejected(
+            &format!("sc-unsupported-{index}"),
+            source,
+            "caller/sc/not-qualified",
+            |_| {},
+        );
+    }
+}
+
+#[test]
 fn minimal_bundle_loads_with_stable_exact_byte_identity() {
     let first = CorpusDefinitionBundle::load(fixture()).unwrap();
     let relocated = temp("relocated");

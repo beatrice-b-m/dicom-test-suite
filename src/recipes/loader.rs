@@ -1250,12 +1250,12 @@ fn validate_private_creators(
 fn validate_secondary_capture_contract(
     path: &Path,
     recipe: &CaseRecipe,
-) -> Result<(), RecipeCatalogError> {
+) -> Result<bool, RecipeCatalogError> {
     if !matches!(
         recipe.plan_provider_id.as_str(),
         "native.sc_plan" | "native.exceptional_sc_plan"
     ) {
-        return Ok(());
+        return Ok(false);
     }
     let dicom = recipe
         .dicom
@@ -1344,7 +1344,7 @@ fn validate_secondary_capture_contract(
         })?;
         if sc.bits_stored == 0
             || sc.bits_stored > sc.bits_allocated
-            || sc.high_bit + 1 != sc.bits_stored
+            || sc.high_bit.checked_add(1) != Some(sc.bits_stored)
         {
             return Err(semantic(path, "invalid Secondary Capture bit contract"));
         }
@@ -1480,7 +1480,113 @@ fn validate_secondary_capture_contract(
             ));
         }
     }
-    Ok(())
+    let bounded = is_name_independent_sc(recipe);
+    if recipe.plan_provider_id == "native.sc_plan"
+        && !bounded
+        && !recipe.binding.case_id.starts_with("classic/sc/")
+        && recipe.binding.case_id != "encapsulation/sc/eot_single_fragment_multiframe"
+    {
+        return Err(semantic(
+            path,
+            "native.sc_plan requires a qualified caller tuple or historical specialized binding",
+        ));
+    }
+    Ok(bounded)
+}
+
+/// The already-validated, bounded native single-frame SC capability tuple.
+fn is_name_independent_sc(recipe: &CaseRecipe) -> bool {
+    if recipe.plan_provider_id != "native.sc_plan" || recipe.planning_order.is_none() {
+        return false;
+    }
+    let Some(dicom) = &recipe.dicom else {
+        return false;
+    };
+    let [artifact] = dicom.artifacts.as_slice() else {
+        return false;
+    };
+    let Some(sc) = &artifact.secondary_capture else {
+        return false;
+    };
+    let has_rule = |rule: &str| {
+        recipe.validation_rule_ids.iter().any(|id| id == rule)
+            && artifact.validation_rule_ids.iter().any(|id| id == rule)
+    };
+    let color = |planar: &[u8], subsampling: &str| {
+        sc.color.as_ref().is_some_and(|color| {
+            color
+                .planar_configuration
+                .is_some_and(|value| planar.contains(&value))
+                && color.chroma_subsampling == subsampling
+        })
+    };
+    let photometric = sc.photometric_interpretation.as_str();
+    let mono = matches!(photometric, "MONOCHROME1" | "MONOCHROME2");
+    let shape = match (
+        photometric,
+        sc.stored_value_type.as_str(),
+        sc.samples_per_pixel,
+    ) {
+        ("MONOCHROME1", "u8", 1) | ("MONOCHROME2", "u8" | "u16" | "i16", 1) => {
+            sc.color.is_none() && sc.palette.is_none()
+        }
+        ("PALETTE COLOR", "u8", 1) => {
+            sc.color.is_none() && sc.palette.is_some() && sc.padding.is_none()
+        }
+        ("RGB", "u8", 3) => color(&[0, 1], "none") && sc.palette.is_none() && sc.padding.is_none(),
+        ("YBR_FULL", "u8", 3) => {
+            color(&[0], "none") && sc.palette.is_none() && sc.padding.is_none()
+        }
+        ("YBR_FULL_422", "u8", 3) => {
+            color(&[0], "horizontal_2_to_1")
+                && sc.columns % 2 == 0
+                && sc.palette.is_none()
+                && sc.padding.is_none()
+        }
+        _ => false,
+    };
+    let template_id = if mono {
+        "classic/secondary-capture/monochrome"
+    } else {
+        "classic/secondary-capture/rgb"
+    };
+    shape
+        && sc.rows > 0
+        && sc.columns > 0
+        && sc.frames == 1
+        && sc.bit_packing.is_none()
+        && sc.integer_word.is_none()
+        && sc.encapsulation_projection.is_none()
+        && sc.pixel_data_vr == if sc.bits_allocated == 8 { "OB" } else { "OW" }
+        && artifact.template.as_ref().is_some_and(|template| {
+            template.template_id == template_id && template.template_version == "1.0.0"
+        })
+        && artifact.encoding.transfer_syntax_uid == "1.2.840.10008.1.2.1"
+        && artifact.encoding.sequence_length_policy == "default"
+        && artifact.encoding.item_length_policy == "default"
+        && artifact.encoding.offset_table_policy == "none"
+        && artifact.encoding.fragmentation_policy == "native"
+        && artifact.encoding.fragments_per_frame.is_none()
+        && artifact
+            .encoding
+            .non_template_encoding_provider_id
+            .is_none()
+        && artifact.metadata_sc.is_none()
+        && artifact.classic_projection.is_none()
+        && artifact.nonsquare_geometry.is_none()
+        && artifact.attribute_operations.is_empty()
+        && has_rule("validation.sc.pixel")
+        && (sc.padding.is_none() || has_rule("validation.sc.padding"))
+        && (sc.palette.is_none() || has_rule("validation.sc.palette"))
+        && (sc.color.is_none() || has_rule("validation.sc.color"))
+        && recipe
+            .projection_rule_ids
+            .iter()
+            .any(|id| id == "projection.curated")
+        && artifact
+            .projection_rule_ids
+            .iter()
+            .any(|id| id == "projection.curated")
 }
 
 fn validate_registry_bindings(
@@ -1570,7 +1676,8 @@ fn validate_registry_bindings(
             && expected_kind == RecipeKind::Dicom
             && case.requirements.features.is_empty()
             && case.requirements.external_codecs.is_empty()
-            && (case.case_id.starts_with("classic/sc/")
+            && (validate_secondary_capture_contract(Path::new(&recipe.recipe_id), recipe)?
+                || case.case_id.starts_with("classic/sc/")
                 || case.case_id == "encapsulation/sc/eot_single_fragment_multiframe");
         let migrated_exceptional_sc = recipe.plan_provider_id == "native.exceptional_sc_plan"
             && expected_kind == RecipeKind::Dicom

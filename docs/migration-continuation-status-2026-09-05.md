@@ -1277,3 +1277,19 @@ from pending external evidence. Historical fixture adaptation is the next
 two-file unit, followed by full ordinary discovery and the selected availability
 checker/capture. No native run occurred in these units; pins remain unchanged.
 PET parity and caller genericity remain unopened; R7 remains incomplete.
+
+## PET ordinary integration accepted — 2026-09-05
+
+Corpus9dc1dfa adapts only US/CR synthetic fixture modules, authenticating
+live0.8 and source PET members before byte-exact0.7 reversal and existing
+older-content chains. Production verifiers are unchanged.193 focused synthetic
+tests passed6.501s (tool-output-only); root full diff review/diffcheck accepted.
+Full ordinary discovery at clean9dc1dfa passed564/12.703s, retained log
+/private/tmp/r7-pet-postimport-ordinary-20260905.log. Corpusb814078 records
+acceptance; current docs7505846 reflect the completed integration.
+
+The next two-file R7.5 unit owns only verify_pet_availability.py and its test.
+It must bind accepted baseline2 plus complete live0.8 identity and report only
+selected planning readiness. Source34 rows and live23 rows are distinct dated
+inventories; the PET note participates in closed bundle identity. Capture and
+parity remain subsequent sequential units. No native/build run occurred here.

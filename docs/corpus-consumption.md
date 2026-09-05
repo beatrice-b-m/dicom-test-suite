@@ -154,6 +154,17 @@ artifacts. Do not replace the accepted embedded multiframe oracle or its origina
 generator/reporter pins with caller-output evidence. RLE, independent
 conformance, viewer observations, packaging and release remain separate gates.
 
+## Caller-defined native Nuclear Medicine bundle handoff
+
+The bounded [native NM contract](generation-guide.md#caller-defined-native-nuclear-medicine-multiframe)
+uses the same descriptor/member-root, selected-case capability, manifest,
+strict-validation and report2 handoff. Preserve caller metadata, Image Type,
+pixel spacing, window and detector sequences, dimension vectors, duration,
+counts, ordered frame hashes and the exact definition identity. Do not replace
+the accepted embedded NM payload oracle or its independent evidence with this
+same-project caller proof; codec, viewer, package and release gates remain
+separate.
+
 ## Choose A Corpus Level
 
 ### Broadest valid file corpus

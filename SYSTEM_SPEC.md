@@ -1099,6 +1099,15 @@ odd native semantic payload, while per-frame slicing and hashing exclude the pad
 and remain checked O(1) operations. Legacy schema identities and the embedded
 four-frame payload oracle remain unchanged.
 
+Native Nuclear Medicine additionally requires
+`classic/nuclear-medicine@1.0.0`, native content, the shared nuclear
+algorithm/projection and typed NM multiframe parameters. Its inspector binds
+caller provider metadata, U16 pixels and hashes, Image Type, positive spacing,
+one-based energy-window/detector dimensions, finite detector geometry, duration
+and accumulated counts without consulting names, paths or orders. Loader,
+planning, V2 manifest structure and reopened validation use the typed contract;
+the legacy schema and original four-frame payload oracle remain unchanged.
+
 Native PET additionally requires `classic/pet@1.0.0`, native content, shared
 nuclear algorithm/projection and typed PET parameters. Its inspector binds all
 20 synthetic provider fields and the exact source 2×2 U16 pixel, frame hash,

@@ -430,6 +430,36 @@ The unrelated-name example is
 the same `capabilities`, `generate`, `validate` and `report` commands above.
 Always choose a fresh output root.
 
+#### Caller-defined native Nuclear Medicine multiframe
+
+The complete `classic/nuclear-medicine@1.0.0`, native-content,
+`algorithm.classic_nuclear`, nuclear-projection and typed
+`family = "nuclear_medicine"` tuple admits one native Explicit VR Little Endian
+U16/OW multiframe artifact. Caller case and recipe names, logical identity,
+role, safe path, orders, patient/study/series/equipment/acquisition metadata,
+Image Type, positive pixel spacing, energy windows, detectors, dimension
+vectors, duration, accumulated counts and pixels do not select the planner.
+
+The contract accepts 2 through 65,535 frames. Dimensions, sample cardinality,
+U16 range, extrema, accumulated counts and ordered little-endian frame hashes
+must agree. Energy-window and detector indexes are contiguous and one-based;
+every vector index is in range. Windows have ordered finite bounds. Detector
+positions are finite and orientations are orthonormal; collimator terms and
+numeric value representations are bounded. Frame Increment Pointer remains the
+ordered Energy Window Vector then Detector Vector algorithm invariant.
+Incomplete, crossed or registry-modality-contradictory tuples reject before
+publication.
+
+The unrelated-name example is
+`tests/fixtures/generic-nm-multiframe-corpus`: use `definition.json`, asset root
+`members`, case `caller/acquisition/rotating-study`, profile `core`, seed 1 and
+parallelism 4 with the same `capabilities`, `generate`, `validate` and `report`
+commands above and a fresh output root. CLI and SDK outputs are identical;
+strict validation reopens the payload and report2 remains a manifest
+projection. The legacy schema and original four-frame payload oracle are
+unchanged. This adds no codec, clinical quantitative, independent-conformance,
+viewer, package or release evidence.
+
 #### Caller-defined native PET
 
 The external CLI and SDK accept the complete `classic/pet@1.0.0` native tuple:

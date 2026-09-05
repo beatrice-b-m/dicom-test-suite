@@ -127,6 +127,12 @@ pixels, including legal zero padding for an odd semantic payload. See the
 [US contracts](docs/generation-guide.md#caller-defined-native-ultrasound) for
 their historical, RLE and independent-evidence boundaries.
 
+Caller-defined native Nuclear Medicine supports one bounded native U16/OW
+multiframe image with caller-owned metadata, Image Type, spacing, energy-window
+and detector dimensions, geometry, timing, paths and pixels. See the
+[NM contract](docs/generation-guide.md#caller-defined-native-nuclear-medicine-multiframe);
+the original four-frame payload and independent evidence remain separate.
+
 Caller-defined native PET supports one fixed 2×2 U16/OW activity image through
 `classic/pet@1.0.0`, with caller-owned names, paths and ordering. The
 [PET contract](docs/generation-guide.md#caller-defined-native-pet) preserves

@@ -319,6 +319,12 @@ offline pydicom 3.0.2 environment managed by locked `uv` independently decodes
 the `(4, 2, 2)` array and all NM dimensions; its Part 10 rewrite is
 byte-identical and retains the same clean validator results.
 
+The later caller-owned NM capability is a separate same-project contract. It
+admits unrelated names and caller metadata, spacing, dimensions, geometry,
+timing and U16 pixels through the complete typed native tuple, with V2 external
+manifest structure, CLI/SDK equality and reopened strict validation. It does
+not relabel the accepted four-frame payload or the independent evidence above.
+
 ### PET rescaled activity concentration
 
 `classic/pet/rescaled_activity_explicit_le` is an implemented `core`

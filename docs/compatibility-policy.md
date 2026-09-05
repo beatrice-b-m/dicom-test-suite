@@ -182,6 +182,13 @@ payload and corpus receipts remain separate identities. These accepted-input,
 padding and rejection corrections remain within unreleased0.2.0 and do not
 update independent qualification.
 
+The bounded native NM tuple admits caller-owned metadata, Image Type, spacing,
+energy-window and detector dimensions, timing and U16 frames through the
+complete `classic/nuclear-medicine@1.0.0` native nuclear contract. External
+manifest2 carries structural generic NM rules while the legacy schema identity
+and original payload oracle remain frozen. This is additive same-project
+CLI/SDK capability, not new independent, clinical, codec or release evidence.
+
 The bounded native PET tuple adds caller identity/order/path independence for
 one `classic/pet@1.0.0` artifact while preserving the exact source U16 activity,
 geometry, timing, numeric spellings and synthetic metadata contract. Its

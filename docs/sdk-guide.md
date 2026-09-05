@@ -173,6 +173,16 @@ report2 separately projects the manifest. Its three one-byte semantic frames
 exercise legal zero padding without extending the accepted embedded cine's
 historical evidence identity.
 
+### Caller-defined native Nuclear Medicine multiframe
+
+The same SDK requests accept `caller/acquisition/rotating-study` from
+`tests/fixtures/generic-nm-multiframe-corpus`. Its complete typed NM tuple owns
+metadata, spacing, three energy windows, two detectors, dimension vectors,
+timing and three U16 frames independently of names and paths. Capability
+inspection and CLI/SDK generation agree on the manifest and bytes; reopened
+strict validation checks the payload and report2 projects the manifest. This
+does not replace the historical four-frame oracle or add independent evidence.
+
 ### Caller-defined native PET
 
 The same `InspectCorpusRequest` and `GenerateCorpusRequest` interfaces accept

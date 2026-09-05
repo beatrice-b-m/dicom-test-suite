@@ -56,6 +56,13 @@ US-looking name grants neither profile membership nor historical, codec,
 independent-conformance or viewer evidence. See the
 [US contract](../docs/generation-guide.md#caller-defined-native-ultrasound-multiframe).
 
+The bounded native Nuclear Medicine multiframe contract accepts caller names,
+metadata, identities, spacing, dimension sequences and vectors, detector
+geometry, timing and U16 pixels only through the complete typed tuple. An
+NM-looking name grants no profile, codec, clinical, independent-conformance or
+viewer evidence. See the
+[NM contract](../docs/generation-guide.md#caller-defined-native-nuclear-medicine-multiframe).
+
 ## Case ID Format
 
 Case IDs are stable, human-readable, path-safe identifiers:

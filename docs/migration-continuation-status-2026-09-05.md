@@ -2335,3 +2335,29 @@ successful or failed evidence. This accepts only the US-multiframe-local
 R7.1/R7.2/R7.3/R7.5 boundary: no RLE, independent conformance, viewer, Heavy,
 package, release, complete-R7, R8 or R9 claim follows. R7 remains open; the next
 ordinary core closure is derived from executable inventory.
+
+## NM multiframe caller capability accepted — 2026-09-05
+
+Generator `93384dc` admits a complete caller-owned classic NM multiframe tuple
+by template/family, native content, algorithm, projection, transfer syntax,
+provider metadata, timing, dimensions, geometry and pixel evidence—not case ID,
+recipe ID, path or order. The unrelated-name three-frame fixture supplies its
+own logical identity, output role/path, patient/study/equipment/acquisition
+metadata, pixel spacing, energy windows, detectors, frame vectors, durations,
+counts and native pixels. CLI and SDK generation produce identical manifests
+and payloads from an unrelated working directory, strict validation reopens the
+result, and report2 projects the same caller-owned semantic contract.
+
+Only manifest V2 gains the reusable structural NM contract. Manifest V1 and the
+frozen legacy assembly namespace retain their accepted identities, while the
+historical `classic/nm/multiframe_explicit_le` payload remains exactly 1,482
+bytes with SHA `6f0f857…cc82d`. Focused planner, loader, schema, public CLI/SDK,
+historical payload and resource-identity checks passed; the full library suite
+passed 547 tests with six expected ignored entries. Routing and ownership
+checks also passed.
+
+This accepts the generator-local caller-capability boundary only. It does not
+create or relabel corpus import, availability, parity, native-tool,
+independent-conformance, viewer, Heavy, package, release, complete-R7, R8 or R9
+evidence. All original generator/reporter pins and retained successful and
+failed artifacts remain unchanged. R7 remains open.

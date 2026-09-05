@@ -377,7 +377,7 @@ provider/content extensions and unrelated projection fields are excluded.
 
 This capability emits no calibration region. Template calibration evidence does
 not establish a region in this case. Historical RLE, multiframe US, PET and NM
-retain their separate contracts. Typed US admission precedes historical family
+retain their separate contracts. Typed single-frame US admission precedes historical family
 name matchers; external validation follows declared evidence and captured
 definition profiles. CLI/SDK equality and reopened strict validation are
 same-project evidence; report2 projects the manifest without adding independent
@@ -396,6 +396,39 @@ to the supported executable's absolute path and use a fresh output root:
 "$GENERATOR" validate generated/us-proof --format json
 "$GENERATOR" report generated/us-proof --format json --cli-api 1.0.0
 ```
+
+#### Caller-defined native ultrasound multiframe
+
+The distinct multiframe tuple uses
+`classic/ultrasound/multiframe@1.0.0`, typed
+`family = "ultrasound_multiframe"`, `content.native_pixels`,
+`algorithm.classic_nuclear` and nuclear classic projection. It admits exactly
+one native Explicit VR Little Endian artifact with 2 through 65,535 U8/OB
+MONOCHROME2 frames. Caller-owned case and recipe names, logical identity, role,
+orders, safe path, patient/study/series/equipment/acquisition metadata and body
+part do not select the planner.
+
+The recipe declares a nonempty Image Type, Frame Increment Pointer
+`0018,1063`, positive Frame Time, and the exact arithmetic sequence of relative
+frame times from zero. Checked dimensions, frame count, sample cardinality,
+extrema, semantic payload hash and ordered per-frame hashes must all agree.
+Lossy Image Compression remains `00`; color data, spatially related frames and
+region calibration remain false. Incomplete or crossed tuples reject before
+publication.
+
+An odd semantic payload is stored with the one DICOM-required zero pad byte.
+Frame and payload hashes cover semantic bytes only, and strict validation
+rejects a nonzero pad. The accepted embedded four-frame cine keeps its original
+binary and report1 evidence identities; this caller capability and report2
+projection do not relabel them or establish RLE, independent conformance,
+viewer, package or release evidence.
+
+The unrelated-name example is
+`tests/fixtures/generic-us-multiframe-corpus`. From that directory, use
+`definition.json`, asset root `members`, case
+`caller/acquisition/cardiac-cine`, profile `core`, seed 1 and parallelism 4 with
+the same `capabilities`, `generate`, `validate` and `report` commands above.
+Always choose a fresh output root.
 
 #### Caller-defined native PET
 

@@ -138,6 +138,22 @@ required. Report2 is a manifest projection, while strict validation reopens the
 payload. Keep this curated CR evidence separate from qualified CR composition,
 RLE, viewer observations and independent conformance.
 
+## Caller-defined native ultrasound bundle handoff
+
+The bounded [native US contract](generation-guide.md#caller-defined-native-ultrasound)
+accepts distinct single-frame and multiframe tuples. For multiframe handoff,
+preserve the exact definition identity, caller metadata, Image Type, Frame
+Increment Pointer, Frame Time, ordered relative times, semantic payload hash and
+ordered frame hashes. A legal stored zero pad byte is transport structure, not
+an additional sample; consumers must reject a nonzero pad and must not include
+the pad in semantic frame hashes.
+
+Handoff the descriptor/member root, selected-case capabilities result, generated
+manifest, strict reopened validation and report2 projection as separate
+artifacts. Do not replace the accepted embedded multiframe oracle or its original
+generator/reporter pins with caller-output evidence. RLE, independent
+conformance, viewer observations, packaging and release remain separate gates.
+
 ## Choose A Corpus Level
 
 ### Broadest valid file corpus

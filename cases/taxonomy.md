@@ -49,6 +49,13 @@ by the complete typed capability, never by an MR-looking name, and do not widen
 RLE, enhanced/multiframe, independent-conformance or viewer evidence. See the
 [MR contract](../docs/generation-guide.md#caller-defined-native-mr-series).
 
+The bounded native US multiframe contract likewise accepts caller names,
+metadata, identities, timing, orders, paths and ordered U8 frames only when the
+complete typed template/content/algorithm/projection tuple is present. A
+US-looking name grants neither profile membership nor historical, codec,
+independent-conformance or viewer evidence. See the
+[US contract](../docs/generation-guide.md#caller-defined-native-ultrasound-multiframe).
+
 ## Case ID Format
 
 Case IDs are stable, human-readable, path-safe identifiers:

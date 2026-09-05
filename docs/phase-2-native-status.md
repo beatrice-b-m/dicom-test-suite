@@ -377,6 +377,15 @@ decodes the `(4, 4, 4)` unsigned array and every ordered frame hash. Its
 read/write/read output is byte-identical and retains the same clean validator
 results.
 
+The later caller-capability qualification does not replace that historical
+oracle. A structurally selected `classic/ultrasound/multiframe@1.0.0` tuple can
+instead carry caller-owned identities, metadata, Image Type, timing, path and
+ordered frames through the public CLI and SDK. Its unrelated-name proof uses
+three one-byte semantic frames stored in a four-byte zero-padded Value Field;
+strict validation hashes only semantic bytes and rejects nonzero padding. This
+is same-project caller-boundary evidence, not an additional independent
+conformance or viewer result.
+
 ### XA monoplane cardiac projection
 
 `classic/xa/monoplane_explicit_le` is an implemented `core` X-Ray

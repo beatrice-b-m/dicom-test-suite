@@ -160,8 +160,18 @@ extend RLE, viewer or independent conformance evidence.
 and fixed synthetic provider metadata. Caller names, explicit paths and unique
 orders are independent of dispatch. CLI and SDK agree on capabilities, complete
 manifests, payloads and reports, with separate reopened strict validation.
-Calibration-region, multiframe, RLE and independent-evidence claims remain
-scoped to their respective qualifications.
+Calibration-region, RLE and independent-evidence claims remain scoped to their
+respective qualifications.
+
+The distinct multiframe tuple uses
+`classic/ultrasound/multiframe@1.0.0` with caller-owned provider metadata,
+Image Type, Frame Time, relative times and ordered U8 frames. The fixture at
+`tests/fixtures/generic-us-multiframe-corpus` selects
+`caller/acquisition/cardiac-cine`; capability inspection and CLI/SDK generation
+agree on its manifest and payload, strict validation reopens the file, and
+report2 separately projects the manifest. Its three one-byte semantic frames
+exercise legal zero padding without extending the accepted embedded cine's
+historical evidence identity.
 
 ### Caller-defined native PET
 

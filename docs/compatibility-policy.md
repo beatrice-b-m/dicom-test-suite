@@ -169,15 +169,18 @@ does not interpret case/recipe names. The embedded oblique payload oracle and
 named RLE bridge retain separate identities; public CLI/SDK proof adds no
 codec, independent-conformance, viewer, package or release qualification.
 
-The bounded native US tuple combines its single-frame template@1 with native
-content, shared nuclear algorithm/projection, checked U8 pixels and fixed
-synthetic provider metadata. Its [generation contract](generation-guide.md#caller-defined-native-ultrasound)
-permits caller identity/order/path changes while retaining source semantics and
-recipe/template versions. External manifest2 separates structural file rules
-from historical case-name policies; runtime validation follows declared evidence
-and captured profile/qualification scope. These accepted-input and rejection
-corrections remain within unreleased0.2.0 and do not update pinned corpus
-binaries, legacy schemas or independent qualification.
+The bounded native US capability has distinct single-frame and multiframe
+template@1 tuples with native content and the shared nuclear
+algorithm/projection. The single-frame tuple retains fixed synthetic metadata;
+the multiframe tuple binds caller metadata, timing and ordered U8 frames. Its
+[generation contract](generation-guide.md#caller-defined-native-ultrasound)
+permits caller identity/order/path changes while requiring the complete typed
+shape; names, orders and paths do not dispatch it. External manifest2 separates
+structural file rules from historical case-name policies. Multiframe fields are
+V2-only, and legacy schema identity remains frozen. The original multiframe
+payload and corpus receipts remain separate identities. These accepted-input,
+padding and rejection corrections remain within unreleased0.2.0 and do not
+update independent qualification.
 
 The bounded native PET tuple adds caller identity/order/path independence for
 one `classic/pet@1.0.0` artifact while preserving the exact source U16 activity,

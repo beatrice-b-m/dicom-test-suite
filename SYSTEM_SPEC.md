@@ -1085,7 +1085,19 @@ loader and planning dispatch precede historical family-name matchers. External
 manifest validation selects declared contracts and captured profile evidence.
 Caller identity/order/path changes preserve source pixel and semantic contracts;
 public CLI/SDK proof separately checks reopened validation and report projection.
-This does not extend calibration-region, multiframe, RLE or independent evidence.
+This does not extend calibration-region, RLE or independent evidence.
+
+Native multiframe US requires the distinct
+`classic/ultrasound/multiframe@1.0.0` template, native content, shared nuclear
+algorithm/projection and typed multiframe family together. The inspector binds
+caller provider metadata, Image Type, exact Frame Time arithmetic, 2 through
+65,535 checked U8 frames, semantic payload hash and ordered frame hashes.
+Loader, planning and V2 manifest validation use that complete structure rather
+than names, paths or orders; the exact historical tuple alone retains its
+bounded compatibility fallback. Materialization stores one zero pad byte for an
+odd native semantic payload, while per-frame slicing and hashing exclude the pad
+and remain checked O(1) operations. Legacy schema identities and the embedded
+four-frame payload oracle remain unchanged.
 
 Native PET additionally requires `classic/pet@1.0.0`, native content, shared
 nuclear algorithm/projection and typed PET parameters. Its inspector binds all

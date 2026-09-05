@@ -120,10 +120,12 @@ pixels. See the [MR contract](docs/generation-guide.md#caller-defined-native-mr-
 for the complete tuple and the separate historical byte-parity, codec and
 independent-evidence boundaries.
 
-Caller-defined native ultrasound supports one U8/OB MONOCHROME2 frame through
-a bounded typed contract, with caller-owned names, paths and ordering. See the
-[US contract](docs/generation-guide.md#caller-defined-native-ultrasound) for its
-fixed synthetic metadata and separate multiframe/RLE evidence boundaries.
+Caller-defined native ultrasound supports a bounded single-frame U8/OB
+MONOCHROME2 contract and a distinct native multiframe cine contract. The latter
+accepts caller-owned metadata, identities, timing, paths and ordered frame
+pixels, including legal zero padding for an odd semantic payload. See the
+[US contracts](docs/generation-guide.md#caller-defined-native-ultrasound) for
+their historical, RLE and independent-evidence boundaries.
 
 Caller-defined native PET supports one fixed 2×2 U16/OW activity image through
 `classic/pet@1.0.0`, with caller-owned names, paths and ordering. The

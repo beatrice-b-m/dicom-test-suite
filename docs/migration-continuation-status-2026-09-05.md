@@ -2292,3 +2292,46 @@ generator/reporter pins and every successful or failed retained artifact remain
 unchanged. No RLE/enhanced/multiframe MR, independent conformance, viewer,
 Heavy, package, release, complete-R7, R8 or R9 claim follows. R7 remains open;
 the next ordinary core closure must be derived from the executable inventory.
+
+## US multiframe migration and caller capability accepted — 2026-09-05
+
+Corpus `e06b74d` imports the source-exact classic US multiframe recipe and bumps
+the live definition to 0.12.0. Executable registry data reports 29 implemented
+cases: 3 smoke and 26 core. The closed 38-file definition is 242,962 bytes with
+descriptor SHA `6992c437…9785`, registry SHA `84b3f4be…6b93` and framed
+identity `0687979e…8665`. Baseline3 at
+`artifacts/r7-native-us-multiframe-baseline3-20260905`, receipt
+`605b458e…1c95`, retains the original pins, one selected 1,158-byte payload SHA
+`6f97371d…06d`, 33 skips and 34 report rows. Baseline1 failed during generation
+and baseline2 failed during report; both remain retained evidence.
+
+Availability preparation `2cb0d99` passed at
+`artifacts/r7-us-multiframe-availability1-20260905`, receipt
+`01abc09c…abe2`: exactly one 2.116-second capabilities call found one ready
+case/artifact/path without generation, validation, report or retry. Parity
+preparation `afb541e` passed at
+`artifacts/r7-native-us-multiframe-parity1-20260905`, receipt
+`e59dd1f9…7caa`. Two selected public-runner calls emitted identical 1,158-byte
+payloads, canonical manifest SHA `26e2f0e8…3da7`, canonical report SHA
+`028fd412…3c3a` and full-files SHA `1c268f7f…cfcd`; the whole job took 11.064
+seconds. Report1 baseline evidence and report2 manifest projection remain
+distinct, and strict reopened validation remains separate evidence.
+
+Generator `5d8bf55` admits the complete caller-owned multiframe tuple by
+template, native content, nuclear algorithm/projection, provider shape, timing
+and pixel structure—not case ID, recipe ID, path or order. Its unrelated-name
+proof covers checked odd-byte zero padding, O(1) frame slicing through 65,535
+frames, V2-only external fields, CLI/SDK equality, strict validation and report2
+projection. Follow-ups `3746899` and `1187d25` preserve immediate ordinary
+ownership routing and the established even-length validation message. The
+mapped ordinary suite from `d714a5f8` through `1187d25` passed every routed
+command, including 92 corpus-generation, 139 engine and 86 schema/resource
+tests. Independent review found no remaining capability defect.
+
+The original generator pin `232b9de…a5f` and artifact `4ca0c6d6…7768`, and
+reporter pin `c2ffe41…cdb` and artifact `c56f49b0…383`, remain unchanged. The
+new source qualification does not relabel those binaries or any retained
+successful or failed evidence. This accepts only the US-multiframe-local
+R7.1/R7.2/R7.3/R7.5 boundary: no RLE, independent conformance, viewer, Heavy,
+package, release, complete-R7, R8 or R9 claim follows. R7 remains open; the next
+ordinary core closure is derived from executable inventory.

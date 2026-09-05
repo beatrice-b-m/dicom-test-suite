@@ -21,6 +21,11 @@ case "$manifest_version" in
         }
         ;;
     2.0.0|3.0.0)
+        jq -e '.product.name == "synth-dicom-gen" and
+               .version_result.product.name == "synth-dicom-gen"' "$manifest" >/dev/null || {
+            echo "release manifest product identity must be synth-dicom-gen" >&2
+            exit 4
+        }
         jq -e --arg expected_capabilities "$manifest_version" '
           def sha256: type == "string" and test("^[0-9a-f]{64}$");
           def runtime_valid:
@@ -30,8 +35,6 @@ case "$manifest_version" in
             (.executable_sha256 | sha256) and
             (.version | type == "string" and length > 0) and
             (.invocation_sha256 | sha256);
-          .product.name == "synth-dicom-gen" and
-          .version_result.product.name == "synth-dicom-gen" and
           .version_result.version_result_schema_version == "2.0.0" and
           .capabilities_result.capabilities_result_schema_version == $expected_capabilities and
           (.identity_domains | type == "object") and

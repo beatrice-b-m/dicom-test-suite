@@ -57,6 +57,8 @@ fn changelog_has_explicit_standalone_migration_actions() {
 #[test]
 fn release_scripts_default_to_clean_locked_target_bound_artifacts() {
     let builder = fs::read_to_string("scripts/build-release-archive.sh").unwrap();
+    let manifest_validator =
+        fs::read_to_string("scripts/validate-release-manifest.sh").unwrap();
     let verifier = fs::read_to_string("scripts/verify-release-archive.sh").unwrap();
     for required in [
         "release archives require a clean worktree",
@@ -80,12 +82,14 @@ fn release_scripts_default_to_clean_locked_target_bound_artifacts() {
         "archive checksum does not match",
         "unsafe manifest path",
         "payload checksum differs",
-        "release manifest product identity must be synth-dicom-gen",
         "installed release binary product identity must be synth-dicom-gen",
         "verification=passed",
     ] {
         assert!(verifier.contains(required), "verifier omits {required}");
     }
+    assert!(
+        manifest_validator.contains("release manifest product identity must be synth-dicom-gen")
+    );
 }
 
 #[test]

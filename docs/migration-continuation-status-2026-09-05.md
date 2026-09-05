@@ -1521,3 +1521,24 @@ No retries or pin changes. Six-file content0.9 data import is now assigned to
 one owner, with full source authentication and byte-exact0.8 reversal before
 review. Static/CI/availability/parity and generic capability remain sequential
 later tasks; R7 open, R8/R9 held.
+
+## XA/XRF data and static routing accepted — 2026-09-05
+
+Corpus dataa4b3a2c imports exact six files as content0.9; acceptance eed5ec0.
+Dated25 cases/33 files197183 bytes, descriptor15025/
+339e0338356478d7798ffec0801e635c694f7ccae8b656dcdc24defd4fd77fb2,
+registry68958/9c90351350d0d9e773902cfee834214ec428273b8f1722125497fb645fa11128,
+framed f8f221b1c1e14c66cdfbee356fdb48f6b17b5f311227072d66c04b3e46281d0d.
+Exact0.8 reversal and original29-member preservation passed0.192109s; root
+replay0.199670s plus independent immutable-source row/member authentication.
+Static91edc96 passed19/0.236s; CI71a7792 passed64/1.549s. Both reviewed and
+committed separately. Historical fixtures are the next two-file owned unit.
+
+Root route dry-run initially named71a7792 after HEAD advanced to52ef4fa and
+failed ci.candidate.dirty before any execution. Correct exactHEAD preview
+52ef4fa against19a3ddd passed0.391258s, selecting smoke3+XA/XRF2 under all,
+no dependencies, fixed configured parallelism2. This is route preview only;
+no generation/acquisition occurred. Logs /private/tmp/r7-xa-xrf-import-ci-preview-
+20260905.json (empty failed stdout) and corrected-20260905.json; stderr failure
+was tool-output-only. Fresh named evidence root remains unused. Native selected
+availability/parity and source genericity remain unopened; R7 open/R8R9 held.

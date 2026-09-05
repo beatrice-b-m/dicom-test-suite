@@ -144,3 +144,10 @@ ownership. A changed runtime boundary must not defer its new cheap regression
 solely because the existing containing module is classified heavy. This adds
 product/change-test-routing.json and its Python routing test to the owner's
 files; it does not select native WSI or full stress qualification.
+
+The router enforces source-level ownership and rejects an ordinary carveout
+inside a Nightly-owned source. Keep that fail-closed rule. Put the two bounded
+regressions in src/validation_wsi_reduced_reader_tests.rs, loaded as a nested
+test module from the existing sparse fixture module, with its own ordinary
+ownership record and exact route. Existing sparse tests remain Nightly. This
+adds only a test source and module declaration, not a routing-policy exception.

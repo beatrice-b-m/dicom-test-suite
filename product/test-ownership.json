@@ -2562,7 +2562,7 @@
       "entries": [
         "current_target_archive_is_manifest_bound_and_relocatable"
       ],
-      "entry_digest": "5a227dfe7a79fd19d40cf2237ab7549fd3799c092730e8f79e3ad231330c8ffc"
+      "entry_digest": "7b5d5e26c1b9a260538dc09026dc0d29ef33e5d136dd22fc828ac1bc00f216d2"
     },
     {
       "source": "tests/release_process.rs",
@@ -2577,7 +2577,7 @@
         "release_scripts_default_to_clean_locked_target_bound_artifacts",
         "release_binary_override_contract_rejects_unbound_candidates"
       ],
-      "entry_digest": "94688d4ae6a2daa22087c5e0370d650572a7af514d72a1430499ab71776a6ff6"
+      "entry_digest": "054004e36333ff1ece18d2e9d7142cbe9d1f917859bc675378bf117d4bd5cf2a"
     },
     {
       "source": "tests/report_cli.rs",

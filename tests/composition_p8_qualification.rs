@@ -84,6 +84,67 @@ fn projection(manifest: &Value) -> BTreeMap<String, Value> {
         .collect()
 }
 
+fn assert_external_provider_byte_identity(manifest: &Value) {
+    // These are the five byte-stable catalog roots whose final serialization
+    // is delegated to the pinned highdicom/pydicom provider. Keep their byte
+    // identities and resolved plans diagnostic alongside the whole-catalog
+    // projection, which separately freezes every entry's UIDs, content, and
+    // references.
+    let expected = BTreeMap::from([
+        (
+            "derived/segmentation/wsi-tile",
+            (
+                "d28d13e5a2d31a5ac46c95149f6b12f2f1893e507faeb35cc37b1ceb4e4d4e46",
+                "094260e3acb92661a383acd1e8d573f8547831127fd962a75337829edad58979",
+            ),
+        ),
+        (
+            "derived/parametric-map/float32",
+            (
+                "917d4bc15ec4573664797d07a420d757958a16ee04ac5c24fe18877b68168ce0",
+                "9d3086c6a278eebe9595a0c8f3816f608ac0d1d7db7191bf9d9115fb683b5028",
+            ),
+        ),
+        (
+            "derived/parametric-map/float64",
+            (
+                "29fc5eb8ea34ad2d38a8b7bf07daa1166c03659905d942c4fd0e51386fd27c8c",
+                "460aa8295d10c77ccf9a52e4c1121aa10433ae0b176abb39100cfdd8a7c86236",
+            ),
+        ),
+        (
+            "derived/structured-report/comprehensive-3d",
+            (
+                "84ef159744958c686c3ad5208332c7e03d869784815eb9b356406cfdbf9d6bf4",
+                "f70f80eb969ad73c30e32c1b11b8f080767aad41eed6b59bc6a3360983ea7d86",
+            ),
+        ),
+        (
+            "derived/structured-report/tid1500",
+            (
+                "5b10c8ba8f66d2293514d711ec77bdd7ef2da2a08a49ebddea875aba96e0f85c",
+                "103c3be614c2dd2caac169ea9b9726d1ee85ea87df39dbbee0cf104acfb4355c",
+            ),
+        ),
+    ]);
+    let actual = manifest["composition"]["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|entry| {
+            let template_id = entry["template_id"].as_str().unwrap();
+            expected.contains_key(template_id).then_some((
+                template_id,
+                (
+                    entry["sha256"].as_str().unwrap(),
+                    entry["resolved_plan_sha256"].as_str().unwrap(),
+                ),
+            ))
+        })
+        .collect::<BTreeMap<_, _>>();
+    assert_eq!(actual, expected);
+}
+
 fn assert_independent_routes_are_accounted(catalog: &TemplateCatalog) {
     let evidence: Value =
         serde_json::from_slice(&fs::read("templates/qualification-evidence.json").unwrap())
@@ -166,6 +227,7 @@ fn every_qualified_default_and_bundle_passes_p8_reproducibility_validation_and_r
     }
 
     assert_eq!(projection(&sequential), projection(&parallel));
+    assert_external_provider_byte_identity(&sequential);
     for manifest in [&sequential, &parallel] {
         assert_eq!(
             manifest["run"]["corpus_plan_sha256"]

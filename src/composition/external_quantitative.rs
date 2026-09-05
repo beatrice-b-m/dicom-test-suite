@@ -409,7 +409,7 @@ pub(crate) fn controlled_metadata(model_name: &str) -> ControlledMetadata {
         patient_id: "DTS-PATIENT-001".into(),
         manufacturer: "dicom-test-suite".into(),
         model_name: model_name.into(),
-        software_versions: env!("CARGO_PKG_VERSION").into(),
+        software_versions: crate::BYTE_STABLE_OUTPUT_VERSION.into(),
         study_date: "20260101".into(),
         study_time: "000000".into(),
         content_date: "20260101".into(),

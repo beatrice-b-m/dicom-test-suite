@@ -2164,3 +2164,22 @@ This is source-only evidence, not execution. Next owner exactci/local-ci.json
 and test_ci_routing.py registers sourcepaths underfixedsmoke policy; no
 MRcapture/helper/import yet. CorpuscurrentVLoverview640fb4d completed
 disjointly. R7open/R8R9held.
+
+## MR source routing and baseline preparation assigned — 2026-09-05
+
+Corpus1ed8cde changes only ci/local-ci.json and test_ci_routing.py, registering
+MR provenance/test under existingfixedsmoke policy. Routing72/2.097s and
+source6/0.051s passed; /private/tmp/mr-source-ci-routing.log and
+mr-source-ci-provenance.log. Rootdiff/cleancommit/log verified. No MR
+selection/import/native result is implied.
+
+Next owner only new capture_native_mr_baseline.py and its synthetic test.
+Corrected capture source/pin/cache/mode/finalizer/replay closures must be
+retained while distinguishing1directcase/3generatedfiles/strict3/report3/
+33skips. Source-native decodedhash vector is empty, so no2nativefindings.
+Fullsourcefinding/report/rawmetadata assertions and actualsharedUID/
+distinctSOP/obliquegeometry3slice closure are independent of record-only
+count/index findings. Synthetic fixtures derive exact sourcewriter/UID
+branches rather than copying photographic flags. Independent source/helper
+review precedes CI/fullordinary/readiness; noMRnativecapture allowed yet.
+R7open/R8R9held.

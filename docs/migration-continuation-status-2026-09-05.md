@@ -1797,3 +1797,30 @@ tests/test_ci_routing.py to register the two helper paths as ordinary-only.
 Source-provenance fixed-smoke routing remains unchanged. CI review, complete
 ordinary verification and clean readiness precede the first fresh native run.
 R7 remains open; R8/R9 held.
+
+## VL photographic first capture retained as failed — 2026-09-05
+
+Ordinary CI registration80a2a0e passed67 routing tests1.653s. Full ordinary
+682/21.066s found the clean-clone audit lacked this helper's exact struct
+allowance. Correctioncc3467f passed6 tests0.171s; corrected full ordinary
+682/21.353s passed. Both /private/tmp/r7-vl-photo-prebaseline-ordinary-20260905.log
+and r7-vl-photo-prebaseline-ordinary-corrected-20260905.log remain retained.
+Clean corpus readinessb4121c5 recorded unchanged pins and exact two-case scope.
+
+Root launched the reviewed fresh artifacts/r7-native-vl-photo-baseline1-20260905
+once. Generation exited0 in1.288103s, but the helper rejected raw0040,0555
+as invalid/truncated. Strict validation/report were not invoked. Receipt
+42765bytes SHAeaf0e0fd5385626e1dd331d3f9c9b3818596e8a607ecafc06de60ae28f4ca002
+records whole4.889129542s; generator/reporter acquisition1.646836959/1.597069958s.
+All original evidence and /private/tmp/r7-native-vl-photo-baseline1-20260905
+.stdout.json/.stderr.txt are preserved. No retry started.
+
+Observed generated RGB994bytes SHA
+e5d16461a94e4d38570069f1d521c07d896ff8443bd5557e98f09f62f6ee8e3f;
+palette1090bytes SHA
+48a5e1bad2aac8ce40a9273937d595ae39f55256ad6bc39279394cb488fd83e1.
+Both Acquisition Context sequences encode SQ with undefined length followed
+immediately by zero-length sequence delimiter. These are failed-run
+observations, not accepted baseline or validation evidence. Exact helper/test
+owner and independent read-only reviewer are checking source encoding before
+a bounded correction, offline replay and renewed readiness. R7 open/R8R9 held.

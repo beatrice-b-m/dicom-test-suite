@@ -2207,3 +2207,32 @@ Next exact2fileimportaudit unit registers this helper's struct allowance,
 then separate2fileordinaryrouting unit before fullordinary/readiness.
 Knownallowlist requirement addressed before incurring an avoidable failing
 fullsuite. R7open/R8R9held.
+
+## MR three-file embedded baseline accepted — 2026-09-05
+
+Importaudit311ef8b6/0.229s and ordinaryroutingb9ef8e873/2.600s passed.
+Fullordinary758/37.470s passed cleanb9ef8e8;
+/private/tmp/r7-mr-prebaseline-ordinary-20260905.log. Rootpreflight6inputs/
+34sourcerows/3files/pins/freshroot0.179600209s passed; readiness6c23be4.
+
+Firstfresh artifacts/r7-native-mr-baseline1-20260905 passed. Receipt78306 SHA
+cad5d8128468b853b3d3f3a1e9a3e5a31faec48a76ef155c26f0cfd7d6cb3186;
+manifest176834 SHAcfd4c1e13a52ec67eaf1a12f083b482a551a2a2ba52b08ca967851c9de978488;
+report737074 SHAa26c988ca1572f8eb5715c46aeada10c97264a6e599e40c6bc3bd1db38875b18;
+expectations2596 SHAe1c2ccafe818575991cada63fc16db93de4f87aa8c3badf1d0b2abb18da5a0b3.
+Slices1/2/3 bytes1242/1256/1256, hashes respectively
+2e09dbf4579a540266a1f2ece7a22f6443212e053ce4dc726bf8600f087b7417,
+7ac2ca87b25903cb5f362f3e0a0c60d5d864059080ea749e1d0be32e344ec99e,
+05c27a2fa708093b3b3b0a329bfed00d9e821b7818733838cf04d1c4f6567bfa.
+Generation1.965545041s/strict0.282662875s/report1.37962575s/whole7.900457208s.
+24nonreceiptfiles141408417logical/141467648allocated bytes.
+
+Independent offline3filereplay, strict3/report36 and162Gitmode/blob/size/
+hashbindings passed2.295347s; originalpin/stat/inventory/finalizers0.054378s.
+Auditorinitialwrongvalidate.jsonlookup correctedactualvalidate.stdout and
+report.stdout without evidencechange or nativecall. ActualrawthreeUID/
+geometrygroup, full47internal+4standards each andpath-keyedobservations
+authenticated. Receipt unchanged. Logs/private/tmp/r7-native-mr-baseline1-20260905
+.stdout.json/.stderr.txt retained. This is same-project embedded evidence;
+nextsource-exact corpusimport, availability/parity andsourcegenericity remain
+sequential gates. R7open/R8R9held.

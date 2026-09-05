@@ -2142,3 +2142,25 @@ is read-only. Separate owner updates corpusREADME/AGENTS/status currentVL
 overview, disjoint from newMRfiles. No MRnative/import/sourcecapability/CI
 changes assigned yet. MRplanner classic_mr_cr is separate fromVL but shared
 loader/execution/publicproof must remain sequential. R7open/R8R9held.
+
+## MR three-instance source provenance accepted — 2026-09-05
+
+Corpus9d69c61 adds exact provenance/test files; final172985bytes SHA
+14ecee69c465057b54a85733becc565ce99382738f9134e05433c7c097f6c2fa,
+canonicala126e2d354e6b18599011683f4a35d229b3f81a58ba731d13eee83eae917cca5.
+Sixpuretests0.050s passed. Root15Gitmode/blob/size/hash bindings authenticated
+in0.198986s; independent fullsource/projection/report/groupreview accepted.
+Final label correction photographic-to-MR template changes no source bytes.
+No generatedhash/size/readiness claims or notes imported. Full34core snapshot
+and1selected/directcase versus3artifacts/frames and33skips explicit.
+
+MR22findings include record-only slice count/index; pinnedexecutor passes
+empty native decodedhashes, omitting2native findings. ActualgroupUID/geometry
+closure must be checked independently by later helper. SharedUIDindex0/
+SOPindices0..2 and projectedindices1..3 remain distinct. SevenlexicalMR
+reportfields/numericspacing are source-derived; genericexpectedgeometry and
+seriesorganization axes remain null because source emits only semanticflags.
+This is source-only evidence, not execution. Next owner exactci/local-ci.json
+and test_ci_routing.py registers sourcepaths underfixedsmoke policy; no
+MRcapture/helper/import yet. CorpuscurrentVLoverview640fb4d completed
+disjointly. R7open/R8R9held.

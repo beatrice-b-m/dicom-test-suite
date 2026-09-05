@@ -772,3 +772,35 @@ independent18 tests0.888s and source validation/report review passed. Routing
 and import60 tests1.037s; root full ordinary531 tests11.024s. No native capture,
 import or build occurred. This preparation used disjoint corpus files while
 the sequential US generator planner was implemented.
+
+## US bounded planner accepted — 2026-09-05
+
+Planner71c11d1 owns classic_nuclear, its existing pure tests and exact ownership/
+spelling records. Typed native US inspection requires the complete template/
+algorithm/provider/projection/encoding contract, safe caller path and orders,
+checked single-frame U8 dimensions/range/extrema/hash, source semantics and
+synthetic provider metadata. Independent review identified arbitrary patient/
+acquisition metadata as outside the bounded qualification; exact17 source
+provider values and absent optional fields now reject overrides with mutations.
+Caller case/recipe identity, path and orders remain independent. Exact historical
+RLE exemption and nuclear/PET/multiframe routes remain separate.
+
+Final focused pure2 tests passed0.33s after18.51s compile; ownership1489 passed
+0.53s, spelling1016 passed1.24s and diff checks passed. Spelling changes only
+the retained manufacturer occurrence1-to2 and derived count/class/hash,
+`34d65c5a569866138c36e47eb5b6b44235adc8e6e1b9cbcc578d9531960dcb24`;
+this preserves source payload metadata, not an old public product name. All
+Cargo/routing commands used the explicit low-debug nonincremental task target.
+No native generation or loader/shared change occurred in this planner unit.
+
+Commit discipline correction: root status commitaf0a52b unintentionally included
+three planner files already staged by the owner in the shared index. Corrective
+d602c7b reversed only those files without rewriting history, then restored their
+exact saved contents. Subsequent provider review/fix and the complete planner
+were committed independently at71c11d1 with explicit path-limited --only. No
+work was discarded; future commits use explicit owned path limits as well as
+selective staging. The original mixed commit remains visible, not amended.
+
+Next is sequential loader admission, typed shared planning precedence and actual
+SDK bundle validation. US public caller proof and final guidance remain pending;
+R7 is incomplete and the corpus pin remains unchanged.

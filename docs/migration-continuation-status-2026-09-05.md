@@ -2039,3 +2039,29 @@ and ownershipledger: typedphoto admission, registryXC equality and execution
 dispatch before names. Focused SDK generation/strict/report collision tests
 then Fast and rootmappedgroups precede acceptance. No publicfixture/guides/
 heavy or codec qualification yet. R7open/R8R9held.
+
+## VL photographic loader/execution accepted — 2026-09-05
+
+Generator7d065d7 changes exact loader/curatedplan/execution/bundleSDKtest/
+ownership files. Alladmissionseams use completephotoinspector; registryXC
+is required and typedexecution precedes case-name routing. Bothphotos with
+neutral/exactXA/WSI/ICC names generate, strictlyvalidate and report throughSDK.
+Missing/crossedregistry and malformedtuple tests reject; priorXA/ICC/RLE
+behavior preserved. Root/independent fullsource/test review passed.
+
+First two focused invocations selected0tests (compile18.47/19.09s); retained
+/private/tmp/vl-photo-loader-focused.log and focused2.log are nonverification.
+Correct lib corpus_definition::tests unique test passed1/50.71s warm0.04s,
+focused3.log. Fast15/2.10+73/1.94 compile1.15s passed, loader-fast.log;
+ownership1497 and diff passed. Target1185364to1185584KiB(+220).
+Root exactfourmappedgroups at clean7d065d7 passed30/55.29s,4/5.28s,
+92/27.93s,22/0.83s; compile0.04/0.04/0.04/2.23s, whole92.439128792s.
+Logs/measurement /private/tmp/r7-vl-photo-loader-root-subsystem-20260905.log
+and .json. Clean granular commit/log verification passed.
+
+Next owner standalonepublicproof only: generic-vl-photo-corpus fourmember
+fixture, independent semanticsoracle, supportedSDKsupport, existingexternal
+CLItest and exactrouting/ownership/spelling metadata. Lexicalselectorpalette
+beforeRGB deliberately differs from fileexecutionRGBbeforepalette. Full
+CLI/SDK caps/manifest/report/rawbytes/strict2 and originalsourcehashes must
+pass before currentguides/catalogclarification. R7open/R8R9held.

@@ -421,8 +421,13 @@ fn current_target_archive_is_manifest_bound_and_relocatable() {
         product_version
     );
     assert_eq!(
-        manifest["version_result"]["product_resources"]["origin"],
+        manifest["version_result"]["identity_domains"]["migration"]["legacy_resource_origin"],
         "embedded"
+    );
+    assert!(
+        manifest["version_result"]
+            .get("product_resources")
+            .is_none()
     );
 
     for file in manifest["files"].as_array().unwrap() {

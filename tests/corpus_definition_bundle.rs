@@ -135,6 +135,26 @@ fn one_case_bundle(
         "optional_profile": "stress"
     })))
     .collect::<Vec<_>>();
+    let mut evidence = Vec::new();
+    for note in registry["cases"][0]["standards_evidence"]
+        .as_array()
+        .unwrap()
+    {
+        if note["source"] != "local-source-note" {
+            continue;
+        }
+        let source_path = note["query"].as_str().unwrap();
+        let basename = Path::new(source_path)
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap();
+        let bytes = fs::read(source_path).unwrap();
+        let path = format!("evidence/{basename}");
+        fs::create_dir_all(root.join("evidence")).unwrap();
+        fs::write(root.join(&path), &bytes).unwrap();
+        evidence.push(serde_json::json!({"evidence_id":format!("source-note.{}", basename.trim_end_matches(".md")), "media_type":"text/markdown", "path":path, "size_bytes":bytes.len(), "sha256":crate::sha256_hex(&bytes)}));
+    }
     let descriptor = serde_json::json!({
         "corpus_definition_bundle_schema_version": "1.0.0",
         "definition_id": "fixture.ct-capability",
@@ -155,10 +175,10 @@ fn one_case_bundle(
                 "sha256": crate::sha256_hex(&recipe_bytes)
             },
             "dependencies": [],
-            "evidence_ids": [],
+            "evidence_ids": evidence.iter().map(|note| note["evidence_id"].clone()).collect::<Vec<_>>(),
             "asset_ids": []
         }],
-        "evidence": [],
+        "evidence": evidence,
         "assets": []
     });
     fs::write(
@@ -329,6 +349,165 @@ fn external_dx_mg_capability_is_name_independent_and_fail_closed() {
                 },
             );
         }
+    }
+}
+
+#[test]
+fn external_metadata3_capability_is_name_independent_and_fail_closed() {
+    let sources = [
+        "metadata/sc/utf8_person_name",
+        "metadata/sc/empty_type2_attributes",
+        "metadata/sc/private_creator_blocks",
+    ];
+    for (index, source) in sources.into_iter().enumerate() {
+        for (variant, target) in [
+            "caller/metadata/independent",
+            "metadata/sc/timezone_boundaries",
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let root = one_case_bundle(
+                &format!("metadata3-positive-{index}-{variant}"),
+                source,
+                target,
+                "independent_metadata",
+                |recipe| {
+                    recipe["planning_order"] = 950.into();
+                    recipe["projection_order"] = 950.into();
+                    recipe["dicom"]["artifacts"][0]["output"]["path"] = "caller/data.dcm".into();
+                    if index == 1 {
+                        recipe["dicom"]["artifacts"][0]["metadata_sc"]["attributes"]
+                            .as_array_mut()
+                            .unwrap()
+                            .truncate(1);
+                    }
+                },
+            );
+            let bundle = CorpusDefinitionBundle::load(&root).unwrap();
+            let catalog =
+                crate::recipes::RecipeCatalog::from_verified_bundle(&bundle, Path::new("."))
+                    .unwrap();
+            assert!(catalog.binding_for_case(target).is_some());
+            fs::remove_dir_all(root).unwrap();
+        }
+        for mutation in 0..15 {
+            assert_one_case_rejected(
+                &format!("metadata3-partial-{index}-{mutation}"),
+                source,
+                "caller/metadata/invalid",
+                |recipe| {
+                    let artifact = &mut recipe["dicom"]["artifacts"][0];
+                    match mutation {
+                        0 => artifact["template"]["template_id"] = "classic/ct".into(),
+                        1 => artifact["template"]["template_version"] = "2.0.0".into(),
+                        2 => artifact["content"]["provider_id"] = "content.native_pixels".into(),
+                        3 => artifact["algorithm_provider_id"] = "algorithm.classic_ct".into(),
+                        4 => artifact["encoding"]["sequence_length_policy"] = "defined".into(),
+                        5 => artifact["encoding"]["item_length_policy"] = "undefined".into(),
+                        6 => artifact["output"]["path"] = "../escape.dcm".into(),
+                        7 => {
+                            artifact["secondary_capture"]["stored_values"] = serde_json::json!([0])
+                        }
+                        8 => {
+                            artifact["validation_rule_ids"] =
+                                serde_json::json!(["validation.sc.pixel"])
+                        }
+                        9 => artifact
+                            .as_object_mut()
+                            .unwrap()
+                            .remove("metadata_sc")
+                            .map(|_| ())
+                            .unwrap(),
+                        10 => {
+                            recipe["validation_rule_ids"] =
+                                serde_json::json!(["validation.sc.pixel"])
+                        }
+                        11 => recipe["plan_provider_id"] = "native.sc_plan".into(),
+                        12 => {
+                            artifact["classic_projection"] = serde_json::json!({"family":"ct", "expected_capabilities":[], "visual_pattern":"crossed", "include_implementation_version_name":false})
+                        }
+                        13 => artifact["secondary_capture"]["high_bit"] = 65535.into(),
+                        _ => {
+                            let extra = artifact.clone();
+                            recipe["dicom"]["artifacts"]
+                                .as_array_mut()
+                                .unwrap()
+                                .push(extra);
+                        }
+                    }
+                },
+            );
+        }
+    }
+    for mutation in 0..4 {
+        assert_one_case_rejected(
+            &format!("metadata3-utf8-{mutation}"),
+            sources[0],
+            "caller/metadata/invalid",
+            |recipe| {
+                let pn = &mut recipe["dicom"]["artifacts"][0]["metadata_sc"];
+                match mutation {
+                    0 => pn["native_unicode_round_trip"] = false.into(),
+                    1 => pn["specific_character_sets"] = serde_json::json!(["ISO_IR 100"]),
+                    2 => {
+                        pn["patient_name_raw_hex"] = "41".into();
+                        pn["patient_name_raw_sha256"] = crate::sha256_hex(b"A").into();
+                    }
+                    _ => {
+                        pn["patient_name_raw_hex"] =
+                            format!("{}0", pn["patient_name_raw_hex"].as_str().unwrap()).into()
+                    }
+                }
+            },
+        );
+    }
+    for mutation in 0..5 {
+        assert_one_case_rejected(
+            &format!("metadata3-type2-{mutation}"),
+            sources[1],
+            "caller/metadata/invalid",
+            |recipe| {
+                let attributes = recipe["dicom"]["artifacts"][0]["metadata_sc"]["attributes"]
+                    .as_array_mut()
+                    .unwrap();
+                match mutation {
+                    0 => attributes.clear(),
+                    1 => attributes.push(attributes[0].clone()),
+                    2 => {
+                        attributes[0] = serde_json::json!({"tag":"0008,0018", "keyword":"SOPInstanceUID", "vr":"UI"})
+                    }
+                    3 => attributes[0]["keyword"] = "PatientID".into(),
+                    _ => attributes[0]["vr"] = "LO".into(),
+                }
+            },
+        );
+    }
+    for (index, source) in [
+        "metadata/sc/iso2022_person_name_component_groups",
+        "metadata/sc/timezone_boundaries",
+        "metadata/sc/long_multivalue_text_numeric_strings",
+        "metadata/sc/defined_undefined_sequence_lengths",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let root = one_case_bundle(
+            &format!("metadata-legacy-{index}"),
+            source,
+            source,
+            "legacy_metadata",
+            |_| {},
+        );
+        let bundle = CorpusDefinitionBundle::load(&root).unwrap();
+        crate::recipes::RecipeCatalog::from_verified_bundle(&bundle, Path::new(".")).unwrap();
+        fs::remove_dir_all(root).unwrap();
+        assert_one_case_rejected(
+            &format!("metadata-not-migrated-{index}"),
+            source,
+            "caller/metadata/not-qualified",
+            |_| {},
+        );
     }
 }
 

@@ -806,7 +806,7 @@ fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), Recip
 fn validate_metadata_sc_contract(
     path: &Path,
     recipe: &CaseRecipe,
-) -> Result<(), RecipeCatalogError> {
+) -> Result<bool, RecipeCatalogError> {
     if recipe.plan_provider_id != "native.metadata_sc_plan" {
         if recipe.dicom.as_ref().is_some_and(|dicom| {
             dicom
@@ -819,7 +819,7 @@ fn validate_metadata_sc_contract(
                 "metadata_sc parameters require native.metadata_sc_plan",
             ));
         }
-        return Ok(());
+        return Ok(false);
     }
     if !recipe.provider_parameters.is_empty() {
         return Err(semantic(
@@ -827,20 +827,39 @@ fn validate_metadata_sc_contract(
             "native.metadata_sc_plan stores static values in typed artifact contracts",
         ));
     }
-    let expected_kind = match recipe.binding.case_id.as_str() {
-        "metadata/sc/utf8_person_name" | "metadata/sc/iso2022_person_name_component_groups" => {
-            "person_name"
-        }
-        "metadata/sc/timezone_boundaries" => "timezone_boundary",
-        "metadata/sc/empty_type2_attributes" => "empty_type2",
-        "metadata/sc/long_multivalue_text_numeric_strings" => "string_boundaries",
-        "metadata/sc/private_creator_blocks" => "private_creators",
-        "metadata/sc/defined_undefined_sequence_lengths" => "sequence_lengths",
-        _ => {
-            return Err(semantic(
-                path,
-                "native.metadata_sc_plan has an unsupported case binding",
-            ));
+    let declared_kind = recipe
+        .dicom
+        .as_ref()
+        .and_then(|dicom| dicom.artifacts.first())
+        .and_then(|artifact| artifact.metadata_sc.as_ref())
+        .and_then(|metadata| match metadata {
+            MetadataScParameters::PersonName(pn)
+                if pn.specific_character_sets == ["ISO_IR 192"] =>
+            {
+                Some("person_name")
+            }
+            MetadataScParameters::EmptyType2 { .. } => Some("empty_type2"),
+            MetadataScParameters::PrivateCreators { .. } => Some("private_creators"),
+            _ => None,
+        });
+    let expected_kind = if let Some(kind) = declared_kind {
+        kind
+    } else {
+        match recipe.binding.case_id.as_str() {
+            "metadata/sc/utf8_person_name" | "metadata/sc/iso2022_person_name_component_groups" => {
+                "person_name"
+            }
+            "metadata/sc/timezone_boundaries" => "timezone_boundary",
+            "metadata/sc/empty_type2_attributes" => "empty_type2",
+            "metadata/sc/long_multivalue_text_numeric_strings" => "string_boundaries",
+            "metadata/sc/private_creator_blocks" => "private_creators",
+            "metadata/sc/defined_undefined_sequence_lengths" => "sequence_lengths",
+            _ => {
+                return Err(semantic(
+                    path,
+                    "native.metadata_sc_plan has an unsupported case binding",
+                ));
+            }
         }
     };
     let expected_artifact_count =
@@ -860,6 +879,21 @@ fn validate_metadata_sc_contract(
         ));
     }
     for artifact in &dicom.artifacts {
+        if declared_kind.is_some()
+            && (!artifact.template.as_ref().is_some_and(|template| {
+                template.template_id == "classic/secondary-capture/monochrome"
+                    && template.template_version == "1.0.0"
+            }) || !artifact.attribute_operations.is_empty()
+                || artifact.classic_projection.is_some()
+                || artifact.nonsquare_geometry.is_some()
+                || artifact.encoding.sequence_length_policy != "default"
+                || artifact.encoding.item_length_policy != "default")
+        {
+            return Err(semantic(
+                path,
+                "metadata3 requires the complete monochrome SC template@1 contract",
+            ));
+        }
         if artifact.output.path.is_none() || artifact.output.provider_derived == Some(true) {
             return Err(semantic(
                 path,
@@ -912,6 +946,22 @@ fn validate_metadata_sc_contract(
         let (actual_kind, content_provider, validation_rule) = match metadata {
             MetadataScParameters::PersonName(person_name) => {
                 validate_person_name_metadata(path, person_name)?;
+                if declared_kind.is_some()
+                    || recipe.binding.case_id != "metadata/sc/iso2022_person_name_component_groups"
+                {
+                    let raw = decode_upper_hex(&person_name.patient_name_raw_hex)
+                        .ok_or_else(|| semantic(path, "UTF-8 Person Name raw hex is invalid"))?;
+                    if person_name.specific_character_sets != ["ISO_IR 192"]
+                        || !person_name.native_unicode_round_trip
+                        || raw != person_name.patient_name_decoded.as_bytes()
+                        || person_name.patient_name_raw_hex.len() % 2 != 0
+                    {
+                        return Err(semantic(
+                            path,
+                            "UTF-8 Person Name must exactly round-trip its declared raw bytes",
+                        ));
+                    }
+                }
                 (
                     "person_name",
                     "content.metadata.person_name",
@@ -939,10 +989,20 @@ fn validate_metadata_sc_contract(
                     .iter()
                     .map(|item| &item.tag)
                     .collect::<BTreeSet<_>>();
-                if attributes.is_empty() || tags.len() != attributes.len() {
+                let qualified = attributes.iter().all(|item| {
+                    matches!(
+                        (item.tag.as_str(), item.keyword.as_str(), item.vr.as_str()),
+                        ("0010,0010", "PatientName", "PN")
+                            | ("0010,0030", "PatientBirthDate", "DA")
+                            | ("0010,0040", "PatientSex", "CS")
+                            | ("0008,0090", "ReferringPhysicianName", "PN")
+                            | ("0008,0050", "AccessionNumber", "SH")
+                    )
+                });
+                if attributes.is_empty() || tags.len() != attributes.len() || !qualified {
                     return Err(semantic(
                         path,
-                        "empty Type 2 tags must be nonempty and unique",
+                        "empty Type 2 attributes must be a nonempty unique subset of qualified tag/keyword/VR tuples",
                     ));
                 }
                 (
@@ -1017,7 +1077,7 @@ fn validate_metadata_sc_contract(
             ));
         }
     }
-    Ok(())
+    Ok(true)
 }
 
 fn validate_metadata_pixel_contract(
@@ -1026,7 +1086,7 @@ fn validate_metadata_pixel_contract(
 ) -> Result<(), RecipeCatalogError> {
     if pixels.bits_stored == 0
         || pixels.bits_stored > pixels.bits_allocated
-        || pixels.high_bit + 1 != pixels.bits_stored
+        || pixels.high_bit.checked_add(1) != Some(pixels.bits_stored)
     {
         return Err(semantic(path, "invalid metadata SC bit contract"));
     }
@@ -1527,7 +1587,7 @@ fn validate_registry_bindings(
             && expected_kind == RecipeKind::Dicom
             && case.requirements.features.is_empty()
             && case.requirements.external_codecs.is_empty()
-            && case.case_id.starts_with("metadata/sc/");
+            && validate_metadata_sc_contract(Path::new(&recipe.recipe_id), recipe)?;
         let name_independent_ct = recipe.plan_provider_id == "native.classic_plan"
             && inspect_ct_capability(recipe)
                 .map_err(|error| RecipeCatalogError::Completeness {

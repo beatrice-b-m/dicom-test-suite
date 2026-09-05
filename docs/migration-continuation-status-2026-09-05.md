@@ -1724,3 +1724,29 @@ whole33.332077125s at cleane7c7090; log/measurement
 Next owner has only six current guides (README/generation/SDK/system spec/
 compatibility/taxonomy); exact documented commands require fresh root verification
 before complete bounded XA/XRF source capability acceptance. Pin unchanged.
+
+## Bounded XA/XRF source capability accepted — 2026-09-05
+
+Six current guides1bc01b5 document the full fixed native projection tuple,
+all nine source provider fields, caller identities/uniqueorders/safepaths and
+six-member fixture with both source notes. Root review corrected wording to
+avoid implying RLE/enhanced qualification. Recipe/template/bundle/manifest/
+report versions and original corpus artifact pin remain unchanged.
+
+Root exercised all four exact commands from fresh unrelated
+/private/tmp/r7-xa-xrf-docs-blqjr5sh with emptyPATH: capabilities1.290276792s,
+generation1.094210334s, strict2files0.328862708s, report0.1907165s. Bothcaller
+payloads matched1158/2af0a736db7962661e050d24355ebe01031e1746ce2565b0a6a51a7a1bfce917
+and1150/b32181b1c252bf944d23ae2dba6dd5abede323fc63dbab3616d08fbd3abce3ac.
+Retained11 files327625logical/344064allocated bytes; measurement
+/private/tmp/r7-xa-xrf-docs-measurement-20260905.json. Diff and clean six-file
+commit verification passed.
+
+XA/XRF-local R7.1/R7.2/R7.3/R7.5 boundaries are accepted: corpus source-exact
+content0.9, selected availability and migrated parity; source planner106fa37,
+loader/execution6ddbb95, standalonepublicproofe7c7090 and guides1bc01b5.
+This adds no independent conformance/viewer/clinical/calibrated/cine or codec
+qualification. R7 remains incomplete; R8/R9 held. Next ordinary native slice
+is VL2, whose independent source preparation is accepted but baseline helper
+and execution remain unopened. Shared classic-VL capability changes remain
+sequential after this completed XA/XRF boundary.

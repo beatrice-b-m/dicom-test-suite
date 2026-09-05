@@ -1,0 +1,87 @@
+{
+  "corpus_definition_bundle_schema_version": "1.0.0",
+  "definition_id": "fixture.generic-pet",
+  "definition_version": "1.0.0",
+  "profiles": [
+    {
+      "profile_id": "smoke",
+      "scope": "valid",
+      "members": []
+    },
+    {
+      "profile_id": "core",
+      "scope": "valid",
+      "members": [
+        "caller/acquisition/activity"
+      ]
+    },
+    {
+      "profile_id": "extended",
+      "scope": "valid",
+      "members": []
+    },
+    {
+      "profile_id": "legacy",
+      "scope": "legacy",
+      "members": []
+    },
+    {
+      "profile_id": "stress",
+      "scope": "stress",
+      "members": []
+    },
+    {
+      "profile_id": "negative",
+      "scope": "expected_invalid",
+      "members": []
+    },
+    {
+      "profile_id": "fuzz",
+      "scope": "fuzz",
+      "members": []
+    },
+    {
+      "profile_id": "all",
+      "scope": "valid",
+      "union_of": [
+        "smoke",
+        "core",
+        "extended"
+      ],
+      "optional_profile": "stress",
+      "members": []
+    }
+  ],
+  "registry": {
+    "path": "cases/registry.json",
+    "size_bytes": 3063,
+    "sha256": "05af8264d58553464fddbae7805abcb96ca9c441e87ce38c229272b6176857e6"
+  },
+  "cases": [
+    {
+      "case_id": "caller/acquisition/activity",
+      "recipe_id": "caller_activity",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/caller_activity.json",
+        "size_bytes": 4420,
+        "sha256": "bd5420525a6fa518d2f7195e7900417852b7564578e28dc64584a3d4b771d20d"
+      },
+      "dependencies": [],
+      "evidence_ids": [
+        "source-note.phase-2-pet-rescaled-activity"
+      ],
+      "asset_ids": []
+    }
+  ],
+  "evidence": [
+    {
+      "path": "evidence/phase-2-pet-rescaled-activity.md",
+      "size_bytes": 4958,
+      "sha256": "288c02f8eee37bd4590ab3c9d1d2866d9fca01299179e74c11bb88024e088959",
+      "evidence_id": "source-note.phase-2-pet-rescaled-activity",
+      "media_type": "text/markdown"
+    }
+  ],
+  "assets": []
+}

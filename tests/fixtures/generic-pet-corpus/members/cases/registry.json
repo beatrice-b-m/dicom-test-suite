@@ -1,0 +1,105 @@
+{
+  "case_registry_schema_version": "0.2.0",
+  "cases": [
+    {
+      "case_id": "caller/acquisition/activity",
+      "artifact_kind": "dicom_instance",
+      "status": "implemented",
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "modality",
+        "quantitative",
+        "pixels"
+      ],
+      "roadmap": null,
+      "blockers": [],
+      "profiles": [
+        "core"
+      ],
+      "recipe_id": "caller_activity",
+      "recipe_version": "0.1.0",
+      "iod_name": "PET Image",
+      "sop_class_name": "Positron Emission Tomography Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.128",
+      "modality": "PT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid PositronEmissionTomographyImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Positron Emission Tomography Image Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Positron Emission Tomography Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.21.3-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module PET Series",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-60"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module PET Isotope",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-61"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module PET Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-63"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_defined_terms Units --context PET Series",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "sect_C.8.9.1.1.3"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-2-pet-rescaled-activity.md",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "sect_C.8.9"
+        }
+      ]
+    }
+  ]
+}

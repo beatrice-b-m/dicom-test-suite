@@ -71,6 +71,12 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
         self.assertIn(command, self.commands(self.select(force_all=True)))
         self.assertNotIn(command, self.commands(self.select("cases/registry.json")))
 
+    def test_generic_pet_proof_routes_to_public_consumer_module(self):
+        for path in ["tests/support/generic_pet_bundle.rs", "tests/fixtures/generic-pet-semantics.json", "tests/fixtures/generic-pet-corpus/definition.json"]:
+            result = self.select(path)
+            self.assertEqual(result["bundle_ids"], ["generic_pet_public_contract"])
+            self.assertEqual(self.commands(result), ["cargo test --locked --no-default-features --test cli_sdk__nonfast external_corpus_cli::"])
+
     def test_generic_us_proof_routes_to_public_consumer_module(self):
         for path in ["tests/support/generic_us_bundle.rs", "tests/fixtures/generic-us-semantics.json", "tests/fixtures/generic-us-corpus/definition.json"]:
             result = self.select(path)

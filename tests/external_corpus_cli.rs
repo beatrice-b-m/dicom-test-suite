@@ -6,6 +6,8 @@ mod generic_ct_bundle;
 mod generic_dx_mg_bundle;
 #[path = "support/generic_metadata_sc_bundle.rs"]
 mod generic_metadata_sc_bundle;
+#[path = "support/generic_pet_bundle.rs"]
+mod generic_pet_bundle;
 #[path = "support/generic_sc_bundle.rs"]
 mod generic_sc_bundle;
 #[path = "support/generic_us_bundle.rs"]
@@ -1854,6 +1856,182 @@ fn caller_named_us_cli_is_sdk_identical_strictly_valid_and_reported() {
             assert_eq!(file["sha256"], row["source_sha256"]);
             generic_us_bundle::assert_semantics(file, row);
             generic_us_bundle::assert_payload(
+                &root.join(file["path"].as_str().unwrap()),
+                &row["source_size_bytes"],
+                &row["source_sha256"],
+            );
+        }
+    }
+}
+
+#[test]
+fn caller_named_pet_cli_is_sdk_identical_strictly_valid_and_reported() {
+    let f = generic_pet_bundle::GenericPetBundle::new();
+    let command = |args: &[String]| {
+        let raw = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
+            .args(args)
+            .current_dir(&f.root)
+            .env("PATH", "")
+            .output()
+            .unwrap();
+        assert!(
+            raw.status.success(),
+            "{}",
+            String::from_utf8_lossy(&raw.stderr)
+        );
+        assert!(raw.stderr.is_empty());
+        let value: Value = serde_json::from_slice(&raw.stdout).unwrap();
+        valid("cli-success-envelope.schema.json", &value);
+        value
+    };
+    let product = DicomTestSuite::embedded().unwrap();
+    let assessed = command(&f.selection_args("capabilities"));
+    valid("capabilities-result-v3.schema.json", &assessed["result"]);
+    let sdk_assessment = product
+        .capabilities_with_corpus(
+            InspectCorpusRequest::from_file(&f.descriptor, &f.members)
+                .with_selection(generic_pet_bundle::selector())
+                .with_seed(1)
+                .with_parallelism(4),
+        )
+        .unwrap();
+    assert_eq!(
+        assessed["result"],
+        serde_json::to_value(sdk_assessment).unwrap()
+    );
+    let oracle = generic_pet_bundle::oracle();
+    let rows = oracle["cases"].as_array().unwrap();
+    let assessment = &assessed["result"]["loaded_corpus"]["assessment"];
+    assert_eq!(assessment["publication"], "not_run");
+    assert_eq!(assessment["validation"], "not_run");
+    assert_eq!(assessment["parallelism"], 4);
+    assert_eq!(
+        assessment["artifact_ids"],
+        json!(
+            rows.iter()
+                .map(|r| format!("curated_{}_instance", r["recipe_id"].as_str().unwrap()))
+                .collect::<Vec<_>>()
+        )
+    );
+    assert!(!f.root.join("cli-output").exists());
+    let mut args = f.selection_args("generate");
+    args.extend(["--out", "cli-output", "--cli-api", "1.0.0"].map(str::to_owned));
+    let generated = command(&args);
+    valid("generation-result-v3.schema.json", &generated["result"]);
+    assert_eq!(generated["result"]["outcome"], "published");
+    assert_eq!(generated["result"]["emitted_file_count"], 1);
+    assert_eq!(generated["result"]["direct_case_count"], 1);
+    assert_eq!(generated["result"]["dependency_case_count"], 0);
+    assert_eq!(generated["result"]["validation_status"], "passed");
+    let cli_raw = fs::read(f.root.join("cli-output/manifest.json")).unwrap();
+    let manifest: Value = serde_json::from_slice(&cli_raw).unwrap();
+    valid("manifest-v2.schema.json", &manifest);
+    generic_pet_bundle::assert_manifest(&manifest, &f.identity);
+    f.assert_closure("cli-output");
+    let GenerateCorpusOutcome::Published(sdk) = product
+        .generate_corpus(
+            GenerateCorpusRequest::from_file(
+                &f.descriptor,
+                &f.members,
+                f.root.join("sdk-output"),
+                generic_pet_bundle::selector(),
+            )
+            .with_seed(1)
+            .with_parallelism(4),
+        )
+        .unwrap()
+    else {
+        panic!("caller PET must publish")
+    };
+    assert_eq!(sdk.manifest().deserialize::<Value>().unwrap(), manifest);
+    assert_eq!(
+        sdk.corpus_plan_sha256(),
+        generated["result"]["corpus_plan_sha256"]
+    );
+    assert_eq!(
+        fs::read(sdk.output_root().join("manifest.json")).unwrap(),
+        cli_raw
+    );
+    f.assert_closure("sdk-output");
+    for file in manifest["files"].as_array().unwrap() {
+        let path = file["path"].as_str().unwrap();
+        assert_eq!(
+            fs::read(f.root.join("cli-output").join(path)).unwrap(),
+            fs::read(sdk.output_root().join(path)).unwrap()
+        );
+        for root in [f.root.join("cli-output"), sdk.output_root().to_path_buf()] {
+            generic_pet_bundle::assert_payload(
+                &root.join(path),
+                &file["size_bytes"],
+                &file["sha256"],
+            );
+        }
+    }
+    let validation = command(&["validate", "cli-output", "--format", "json"].map(str::to_owned));
+    valid("validation-result.schema.json", &validation["result"]);
+    assert_eq!(validation["result"]["valid"], true);
+    assert_eq!(validation["result"]["files_checked"], 1);
+    assert_eq!(validation["result"]["failures"], json!([]));
+    let sdk_validation = product
+        .validate(ValidateRequest::new(sdk.output_root()))
+        .unwrap();
+    assert!(sdk_validation.is_valid());
+    assert_eq!(sdk_validation.files_checked(), 1);
+    let report = command(
+        &[
+            "report",
+            "cli-output",
+            "--format",
+            "json",
+            "--cli-api",
+            "1.0.0",
+        ]
+        .map(str::to_owned),
+    );
+    valid("report-result-v2.schema.json", &report["result"]);
+    valid(
+        "coverage-report-v2.schema.json",
+        &report["result"]["report"],
+    );
+    let report = &report["result"]["report"];
+    assert_eq!(report["source_manifest"], manifest);
+    assert_eq!(report["summary"]["emitted_files"], 1);
+    assert_eq!(
+        report["evidence"],
+        json!({"class":"manifest_projection","validation":"not_assessed","independent_conformance":"not_assessed","payloads_reopened":false})
+    );
+    assert_eq!(
+        product
+            .report(ReportRequest::new(sdk.output_root()))
+            .unwrap()
+            .deserialize::<Value>()
+            .unwrap(),
+        *report
+    );
+    let original = Fixture::new();
+    for profile in ["core"] {
+        let selected = rows
+            .iter()
+            .filter(|r| r["profile"] == profile)
+            .collect::<Vec<_>>();
+        let mut extra = vec!["--seed", "1", "--parallelism", "4"];
+        for row in &selected {
+            extra.extend(["--case-id", row["source_case"].as_str().unwrap()]);
+        }
+        let name = format!("pet-original-{profile}");
+        original.generate(&name, profile, &extra);
+        let root = original.0.join("generated").join(&name);
+        let historical: Value =
+            serde_json::from_slice(&fs::read(root.join("manifest.json")).unwrap()).unwrap();
+        let files = historical["files"].as_array().unwrap();
+        assert_eq!(files.len(), selected.len());
+        assert_eq!(historical["run"]["profile"], profile);
+        for (file, row) in files.iter().zip(selected) {
+            assert_eq!(file["case_id"], row["source_case"]);
+            assert_eq!(file["size_bytes"], row["source_size_bytes"]);
+            assert_eq!(file["sha256"], row["source_sha256"]);
+            generic_pet_bundle::assert_semantics(file, row);
+            generic_pet_bundle::assert_payload(
                 &root.join(file["path"].as_str().unwrap()),
                 &row["source_size_bytes"],
                 &row["source_sha256"],

@@ -1,0 +1,127 @@
+{
+  "oracle_version": "1.0.0",
+  "source_receipt_sha256": "0aec8cb252130433ba4626bf9c46d219f088e95fe5e3c7c3de958d2acd57c164",
+  "parity_receipt_sha256": "6bb4c99b48bb97baa7d6c9b4eccc20a627017800f1397761a9188a0c68190a7d",
+  "cases": [
+    {
+      "source_case": "classic/pet/rescaled_activity_explicit_le",
+      "caller_case": "caller/acquisition/activity",
+      "recipe_id": "caller_activity",
+      "output_path": "independent/activity.dcm",
+      "profile": "core",
+      "source_size_bytes": 1414,
+      "source_sha256": "78ced6c57926cafc6538ebf65459bb9efd7ecbb9a3c4ec90b28b4457cc795ce6",
+      "recipe_parameters": {
+        "bits_allocated": 16,
+        "bits_stored": 16,
+        "columns": 2,
+        "frames": 1,
+        "geometry": {
+          "image_orientation_patient": "1\\0\\0\\0\\1\\0",
+          "image_position_patient": "0\\0\\0",
+          "pixel_spacing": "4\\4",
+          "slice_thickness": "4"
+        },
+        "high_bit": 15,
+        "pet_activity": {
+          "activity_values_bqml": [
+            0.0,
+            250.0,
+            500.0,
+            1000.0
+          ],
+          "rescale_intercept": 0.0,
+          "rescale_slope": 2.5,
+          "stored_values": [
+            0,
+            100,
+            200,
+            400
+          ],
+          "units": "BQML"
+        },
+        "photometric_interpretation": "MONOCHROME2",
+        "pixel_representation": 0,
+        "pixel_values": [
+          0,
+          100,
+          200,
+          400
+        ],
+        "rows": 2,
+        "samples_per_pixel": 1
+      },
+      "image": {
+        "bits_allocated": 16,
+        "bits_stored": 16,
+        "columns": 2,
+        "frames": 1,
+        "high_bit": 15,
+        "photometric_interpretation": "MONOCHROME2",
+        "pixel_representation": 0,
+        "planar_configuration": null,
+        "rows": 2,
+        "samples_per_pixel": 1
+      },
+      "pixel_data": {
+        "frame_count": 1,
+        "frame_hashes": [
+          "03ec353fd2407afb09c8d65712ef9aa30f03c8243f6f3f1675dca7ea5f6a4784"
+        ],
+        "native_or_encapsulated": "native",
+        "value_length": 8,
+        "vr": "OW"
+      },
+      "expected_semantics": {
+        "body_part_examined": "HEAD",
+        "image_type": "ORIGINAL\\PRIMARY",
+        "pixel_max": 400,
+        "pixel_min": 0,
+        "rescale": {
+          "intercept": 0.0,
+          "slope": 2.5,
+          "type": "BQML"
+        },
+        "synthetic_data": "YES"
+      },
+      "expected_pet_activity": {
+        "activity_values_bqml": [
+          0.0,
+          250.0,
+          500.0,
+          1000.0
+        ],
+        "actual_frame_duration_ms": 60000,
+        "corrected_image": [
+          "DCAL"
+        ],
+        "counts_source": "EMISSION",
+        "decay_correction": "NONE",
+        "dose_calibration_factor": 1.0,
+        "frame_reference_time_ms": 30000.0,
+        "image_index": 1,
+        "image_type": [
+          "ORIGINAL",
+          "PRIMARY"
+        ],
+        "number_of_slices": 1,
+        "radiopharmaceutical_information_item_count": 0,
+        "rescale_intercept": 0.0,
+        "rescale_slope": 2.5,
+        "series_type": [
+          "STATIC",
+          "IMAGE"
+        ],
+        "stored_values": [
+          0,
+          100,
+          200,
+          400
+        ],
+        "units": "BQML"
+      },
+      "caller_size_bytes": 1388,
+      "caller_sha256": "b9d243306f6d9cbc4d475efd6d206ec668adadd290634505bba1c7c45b322bda"
+    }
+  ]
+}

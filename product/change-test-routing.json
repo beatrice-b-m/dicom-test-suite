@@ -16,6 +16,9 @@
     "unrouted_lib_groups": "All-configured-ordinary runs only list-proven representative lib prefixes; remaining ordinary lib groups stay explicit deferred evidence."
   },
   "bundles": {
+    "generic_pet_public_contract": {
+      "commands": [{"target": "cli_sdk__nonfast", "module": "external_corpus_cli"}]
+    },
     "generic_us_public_contract": {
       "commands": [{"target": "cli_sdk__nonfast", "module": "external_corpus_cli"}]
     },
@@ -200,6 +203,13 @@
     }
   },
   "rules": [
+    {
+      "id": "generic-pet-public-contract",
+      "exact": ["tests/support/generic_pet_bundle.rs", "tests/fixtures/generic-pet-semantics.json"],
+      "prefixes": ["tests/fixtures/generic-pet-corpus/"],
+      "bundles": ["generic_pet_public_contract"]
+    },
+
     {
       "id": "generic-us-public-contract",
       "exact": ["tests/support/generic_us_bundle.rs", "tests/fixtures/generic-us-semantics.json"],

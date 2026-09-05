@@ -1094,6 +1094,19 @@ all eight historical VL routes remain intact. The six-member public fixture
 retains both source notes and compares CLI/SDK output with separate strict
 validation. This adds no calibrated geometry, cine or enhanced-object evidence.
 
+Native photographic admission likewise binds the complete source-qualified
+`vl/photographic@1.0.0`, XC/SOP, nine provider fields, native encoding and
+single primary artifact contract. The fixed 2×2 RGB and palette artifacts
+retain their exact samples, hashes, palette, determinism, stressors, semantic
+labels, inline standards evidence and implementation-version flag. Caller
+identity, unique scheduling/projection orders and safe output path are the
+variable inputs. Registry XC agreement and typed planning/execution precede
+historical names; exact historical ICC/RLE recipes retain their existing routes.
+The four-member public fixture has no notes, assets or dependencies and proves
+CLI/SDK equality with separate strict validation. Direct composition retains
+its interleaved RGB8 qualification and `rgb()` default; the fixed palette recipe
+contract does not widen template defaults or arbitrary palette support.
+
 Native metadata SC admission also recognizes typed UTF-8 Person Name,
 qualified EmptyType2 and PrivateCreators independently of case/recipe names.
 The conjunctive contract binds `native.metadata_sc_plan`, one monochrome SC

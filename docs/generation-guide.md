@@ -470,6 +470,69 @@ from an unrelated directory:
 "$GENERATOR" report "$PROJECTION_OUTPUT" --format json --cli-api 1.0.0
 ```
 
+#### Caller-defined native photographic images
+
+The external CLI and SDK accept the two fixed 2×2 photographic contracts
+through `native.classic_plan`, `vl/photographic@1.0.0`, parameter-free
+`content.native_pixels`, `algorithm.classic_vl_projection` and the complete
+source `vl_projection` artifact. Photographic template, typed XC modality or
+Photographic Image Storage SOP declares intent; crossed or partial tuples
+reject. The registry must agree on XC and SOP
+`1.2.840.10008.5.1.4.1.1.77.1.4`, declare `rust_native`/`rust_native` and require
+no external codec or feature.
+
+Each recipe has one logical `instance`, artifact order zero, role `primary_1`,
+shared validation/curated projection rules and an explicit safe output path.
+Case and recipe IDs and unique planning/projection orders are caller-owned.
+Encoding stays native Explicit VR Little Endian with default sequence/item
+length policies, no offset table or fragment count, zero-filled preamble and
+standard file meta. Dependencies, mutations, qualification, profile overrides,
+attribute operations, extra content inputs and unrelated artifact fields reject.
+The full source artifact also fixes byte-stable determinism, stressors,
+capabilities, visual and semantic labels, inline standards evidence and
+`include_implementation_version_name = true`.
+
+Both variants preserve native U8/OB pixels. RGB has three interleaved samples,
+planar configuration zero and the exact red/green/blue/white 2×2 pattern.
+Palette has one sample, no Planar Configuration and exact indices `[0,1,2,3]`
+with descriptor `[4,0,16]` and the fixed 16-bit red/green/blue lookup tables.
+Stored values, extrema, frame hashes and source UID file indices remain fixed.
+All nine provider values are fixed: patient name `DICOMTEST^SMOKE`, ID
+`DICOMTEST-SMOKE-001`, birth date `19700101`, sex `O`, study date `20260101`,
+time `000000`, study ID `SMOKE`, manufacturer `dicom-test-suite` and software
+versions `0.1.0`. The manufacturer is a retained synthetic payload value.
+The empty Acquisition Context sequence and `DICOMTS010` implementation version
+remain part of the byte-preserving source contract.
+
+This recipe capability is separate from direct composition: the catalog's
+qualified photographic template remains native interleaved RGB8 and its
+`rgb()` default is unchanged. The fixed palette recipe does not establish
+arbitrary palette composition, ICC, RLE or other VL-family support. Exact
+historical ICC/RLE recipes retain their prior routes. Inspection establishes
+selected availability only; generation and strict validation are same-project
+evidence, while report2 is a manifest projection that does not reopen payloads
+or establish independent conformance or viewer interoperability. Existing
+versions and pinned corpus binaries are unchanged.
+
+The committed four-member fixture contains only its descriptor, registry and
+two recipes. Set `GENERATOR` to the executable's absolute path,
+`PHOTO_FIXTURE` to the absolute path of
+`tests/fixtures/generic-vl-photo-corpus`, and `PHOTO_OUTPUT` to a fresh absolute
+output path. Run these commands from an unrelated directory. Canonical
+selector/ledger order is palette then RGB; planning orders 900/901 and
+projection orders 902/903 emit RGB then palette to
+`independent/rgb.dcm` and `independent/palette.dcm`.
+
+```sh
+"$GENERATOR" capabilities --corpus "$PHOTO_FIXTURE/definition.json" --asset-root "$PHOTO_FIXTURE/members" \
+  --profile core --case-id caller/photo/palette --case-id caller/photo/rgb --seed 1 --parallelism 4 --format json
+"$GENERATOR" generate --corpus "$PHOTO_FIXTURE/definition.json" --asset-root "$PHOTO_FIXTURE/members" \
+  --profile core --case-id caller/photo/palette --case-id caller/photo/rgb --seed 1 --parallelism 4 \
+  --out "$PHOTO_OUTPUT" --format json
+"$GENERATOR" validate "$PHOTO_OUTPUT" --format json
+"$GENERATOR" report "$PHOTO_OUTPUT" --format json --cli-api 1.0.0
+```
+
 #### Caller-defined Secondary Capture metadata
 
 The external CLI and SDK accept independently named recipes for these typed

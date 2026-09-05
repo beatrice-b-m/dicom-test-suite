@@ -130,6 +130,13 @@ images with caller-owned names, paths and ordering. The
 preserves synthetic metadata and projection geometry; it adds no calibrated
 patient-space, cine or enhanced-object qualification.
 
+Caller-defined photographic RGB and palette images support the two fixed 2×2
+native U8 contracts with caller-owned names, orders and paths. The
+[photographic contract](docs/generation-guide.md#caller-defined-native-photographic-images)
+preserves all synthetic metadata and source projection flags. This recipe
+capability is separate from the photographic composition template's qualified
+interleaved RGB8 default; it adds no arbitrary palette or ICC/RLE capability.
+
 Caller-defined Secondary Capture metadata supports UTF-8 Person Name, qualified
 empty Type 2 attributes and private creator blocks through typed native
 contracts. Case/recipe names and output paths are caller-owned; metadata,

@@ -33,6 +33,15 @@ local source notes remain in the submitted bundle; naming does not add cine,
 calibrated geometry or enhanced-object evidence. See the
 [XA/XRF contract](../docs/generation-guide.md#caller-defined-native-xa-and-xrf).
 
+The two fixed native photographic contracts accept caller case/recipe IDs,
+unique planning/projection orders and safe paths. Their four-member fixture
+contains only a descriptor, registry and two recipes; no note or asset is
+required. Canonical selector/ledger order is palette then RGB, while recipe
+orders emit RGB then palette. These naming freedoms preserve the source-fixed
+2×2 pixel and metadata contracts; they do not extend photographic composition
+beyond its qualified RGB8 default. See the
+[photographic contract](../docs/generation-guide.md#caller-defined-native-photographic-images).
+
 ## Case ID Format
 
 Case IDs are stable, human-readable, path-safe identifiers:

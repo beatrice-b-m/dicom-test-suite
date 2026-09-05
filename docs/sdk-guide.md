@@ -189,6 +189,20 @@ payloads, manifest and report agree; strict payload validation remains separate
 from report projection. Calibrated geometry, cine and codec evidence remain
 outside this bounded native contract.
 
+### Caller-defined native photographic images
+
+Use the same `InspectCorpusRequest` and `GenerateCorpusRequest` interfaces with
+`tests/fixtures/generic-vl-photo-corpus/definition.json` and explicit member
+root `members`. Select `caller/photo/palette` and `caller/photo/rgb` in core.
+The [photographic contract](generation-guide.md#caller-defined-native-photographic-images)
+binds the full source artifact, nine synthetic provider fields and fixed 2×2
+RGB or palette pixels while allowing caller identities, orders and safe paths.
+Its four members contain no notes, assets or dependencies. Canonical selection
+is palette-first; emitted file order is RGB-first. CLI/SDK capabilities, raw
+manifests, payloads and reports agree; strict validation reopens both payloads
+separately from report2 projection. This fixed recipe capability leaves direct
+composition's RGB8 qualification/default and historical ICC/RLE routes intact.
+
 ### Caller-defined Secondary Capture metadata
 
 The same inspection and `GenerateCorpusRequest` interfaces accept independently

@@ -92,6 +92,15 @@ checkout. It does not cover `native.stress_ct_plan`, other classic or VL
 families, independent conformance, viewer interoperability, or a qualified
 release.
 
+Caller-defined DX and mammography cases also use a complete capability tuple:
+`native.classic_plan`, parameter-free `content.native_pixels`,
+`algorithm.classic_dx_mg`, `classic_projection.family = "dx_mg"`, and the
+matching qualified template at version `1.0.0`. Each recipe declares one
+`instance` artifact at order zero, strict typed parameters, a unique planning
+order and an explicit caller path. Case and recipe names do not select the
+planner. See the [generation guide](docs/generation-guide.md#caller-defined-dx-and-mammography)
+for the three supported templates and preserved evidence limits.
+
 All three public generation workflows use one plan-first spine. `generate`
 resolves registry-selected, versioned case recipes into an immutable
 `CorpusPlan`; `compose` resolves caller specifications and qualified templates

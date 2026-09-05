@@ -114,6 +114,21 @@ sibling checkout. This boundary excludes `native.stress_ct_plan`, other
 classic/VL family genericity, independent conformance, viewer interoperability,
 and release qualification.
 
+### Caller-defined DX and mammography
+
+`GenerateCorpusRequest` also accepts caller-named DX/MG definitions through
+`native.classic_plan`, `content.native_pixels`, `algorithm.classic_dx_mg` and
+`classic_projection.family = "dx_mg"`. The matching version1 template and
+strict typed family/presentation parameters must agree; see the
+[generation contract](generation-guide.md#caller-defined-dx-and-mammography).
+The registry provider remains `rust_native`/`rust_native` without feature or
+codec requirements. One `instance` artifact at order zero is required; its
+output path and the case/recipe names and unique planning order are caller-owned.
+Partial tuples fail closed. Use the same inspection, generation, validation and
+report requests above; no internal-module import or sibling lookup is needed.
+This preserves the historical DX/MG pixel and VR contracts and supplies
+same-project evidence only.
+
 ## Inspect a caller-owned corpus before submitting
 
 ```rust

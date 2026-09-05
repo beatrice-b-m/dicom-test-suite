@@ -213,8 +213,38 @@ integrity and path rules.
 This is a black-box CLI and supported `synth_dicom_gen::sdk` contract. It does
 not authorize implementation-module imports or sibling-path discovery, and it
 does not claim `native.stress_ct_plan`, generic support for another classic or
-VL family, independent DICOM conformance, viewer interoperability, package or
+VL family through this CT tuple, independent DICOM conformance, viewer interoperability, package or
 release qualification.
+
+#### Caller-defined DX and mammography
+
+The same external CLI and SDK support these native single-instance templates:
+
+| Template at version `1.0.0` | Typed family and presentation intent |
+| --- | --- |
+| `classic/dx/for-presentation` | `dx`, `FOR PRESENTATION` |
+| `classic/mammography/for-presentation` | `mammography`, `FOR PRESENTATION` |
+| `classic/mammography/for-processing` | `mammography`, `FOR PROCESSING` |
+
+The registry uses `rust_native`/`rust_native`, `dicom_instance`, and empty
+feature/codec requirements. The DICOM recipe uses `native.classic_plan`,
+parameter-free `content.native_pixels`, `algorithm.classic_dx_mg`, and
+`classic_projection.family = "dx_mg"`. Template, family, presentation intent
+and strict typed parameters must all agree. Any template, algorithm or
+projection marker declares intent; incomplete or crossed tuples are rejected.
+
+Each recipe has exactly one logical artifact named `instance` at order zero.
+Case ID, recipe ID, planning/projection order and explicit output path are
+caller-owned; planning order remains mandatory and globally unique. Existing
+pixel, encoding, shutter and mammography constraints remain enforced, including
+the declared historical Field of View Dimensions DS VR contract. This migration
+does not change those bytes or establish independent IOD conformance.
+
+Select these definitions with the same `generate --corpus`, `--profile core`
+and repeated `--case-id` options shown above. CLI and SDK produce external
+manifest2/report2 with separate strict-validation evidence. Other classic/VL
+families and stress are not generalized by this DX/MG contract; release and
+viewer qualification remain separate.
 
 Inspect the same caller-owned bundle without an output path:
 

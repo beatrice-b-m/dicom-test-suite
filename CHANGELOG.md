@@ -23,6 +23,10 @@ change a CLI API, request, manifest, report, template, or provider version.
 - Caller-defined classic CT corpus recipes through a fail-closed capability
   tuple that is independent of embedded names, planning order, and output
   paths, available through the external corpus CLI and supported Rust SDK.
+- Caller-defined DX/MG corpus recipes through matching native capability tuples,
+  with explicit caller paths, strict partial-tuple rejection, CLI/SDK parity and
+  preserved historical payload hashes. Malformed dimension overflow returns a
+  contract error.
 
 ### Changed
 

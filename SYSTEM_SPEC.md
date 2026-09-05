@@ -1019,7 +1019,7 @@ valid recipes return this plan before file creation. Static recipe differences
 are stored under `cases/recipes/`; named typed providers implement bounded
 algorithms without receiving an output directory.
 
-The first supported caller-defined native family is classic CT. Dispatch is
+The caller-defined classic CT capability dispatch is
 conjunctive and independent of case ID, recipe ID, planning order, and output
 path: the registry row declares `rust_native`/`rust_native`, DICOM with no
 feature or codec requirements; the recipe declares `native.classic_plan`; and
@@ -1028,9 +1028,20 @@ every artifact declares `classic/ct@1.0.0`, parameter-free
 typed parameters, and an explicit output. Any CT marker with an incomplete or
 mixed tuple fails closed. `planning_order` remains mandatory and globally
 unique for migrated recipes but is not a planner discriminator. This public
-CLI/SDK boundary excludes `native.stress_ct_plan`, other classic/VL families,
+CLI/SDK CT boundary excludes `native.stress_ct_plan`, other classic/VL families,
 internal-module or sibling-checkout coupling, and all independent conformance,
 viewer, package, and release claims.
+
+DX/MG dispatch additionally recognizes `native.classic_plan`, parameter-free
+`content.native_pixels`, `algorithm.classic_dx_mg`, DX/MG classic projection,
+and a matching version1 DX presentation or mammography presentation/processing
+template. Strict typed family, pixel and presentation constraints remain
+unchanged. One logical `instance` artifact at order zero has an explicit caller
+path; case/recipe names and unique planning order no longer select the family.
+Incomplete or crossed tuples fail before readiness or publication. The
+historical declared DS VR exception is preserved, without adding independent
+conformance credit. The shared loader and executor serve this public CLI/SDK
+contract without corpus-specific imports.
 
 `Part10Materializer` is the only ordinary valid DICOM writer. The executor may
 normalize a full Part 10 object only at an explicitly named external-provider

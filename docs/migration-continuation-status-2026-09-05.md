@@ -189,3 +189,74 @@ inspected; this bounded guard does not require replaying the accepted migrated
 parity run. Diff check passed. Root owns only the provider, its test digest,
 existing test and this status entry; in-progress public fixture work is owned
 separately and excluded from this commit.
+
+## R7.2/R7.3 DX/MG genericity accepted — 2026-09-05
+
+Generator commits `d7d3a78`, `8ff5d6e`, `368a18b`, `66ec6ca` and
+`b345ce5` establish DX/MG-local genericity through the supported CLI and SDK.
+The exact tuple binds native plan/content/algorithm providers, DX/MG projection,
+version1 template and strict typed family/parameters. Partial/crossed tuples
+and overflowing dimensions reject safely. One `instance` artifact at order0
+remains required; arbitrary case/recipe names, unique planning order and an
+explicit caller path no longer determine dispatch. Historical parameter/VR
+contracts and recipe/template versions remain unchanged.
+
+The standalone fixture has five documents totaling29,453 bytes. Descriptor
+SHA-256 is `60528101a95fa25b27ef19e99a5e8811688ddf9737798030d516b4a8c356f90b`;
+framed definition identity is
+`40d6fa4aba53a857f1f0f15808cc069f2604f128405f0740f312e89946e08d7b`.
+Runtime copies those documents into an unrelated temporary directory; the support
+module imports product code only through `synth_dicom_gen::sdk`. Case IDs are
+`caller/acquisition/digital`, `caller/acquisition/presentation` and
+`caller/acquisition/processing`, with distinct planning orders900–902.
+CLI and SDK capabilities agree completely. Both generate the same manifest,
+plan and payloads, pass separate strict validation, and return identical report2
+projections. Frozen payload identities in generation order are:
+
+| Output | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `independent/image-1.dcm` | 1578 | `c9c18f9bc81b83cadd9b94ebf2624c58392de050a1aefc12ab1498de105a9471` |
+| `independent/image-2.dcm` | 1536 | `6af836bc12a1fe6656588c3e8af351708fa9b9e131adcec0bed37125cf8e2a36` |
+| `independent/image-0.dcm` | 1482 | `3b62a81fb80067bcf87194ae5d964751adc71ec26b92345578489f13725138e4` |
+
+A separate exact original-three selection matches accepted baseline5 payload
+hashes and sizes1586/1546/1496. The caller payloads intentionally differ because
+caller names participate in UIDs and metadata. No output change was hidden by
+normalizing payloads or narrowing the historical byte comparison.
+
+The new test is independently named
+`external_corpus_cli::caller_named_dx_mg_cli_is_sdk_identical_strictly_valid_and_reported`.
+Review rejected attaching it to the CT entry because that would hide ownership
+and add unrelated work to focused CT checks. Final exact DX/MG execution
+passed1/1 in12.70s after2.37s compilation. Before this entry-only separation,
+the full CLI module passed7/7 in26.10s (build2.61s). Final listing proves eight
+individually selectable CLI entries, including separate CT/DX/MG proofs.
+Ownership passes1483 total/921 integration entries; routing tests passed29/29
+in24.581s and diff checks passed. Root reviewed the fixture, imports, complete
+manifest/report comparison and direct historical-byte oracle; an independent
+reviewer found no remaining defect after test separation.
+
+Storage limitation: routing's internal list-only Cargo invocation accidentally
+used the pre-existing default target (20.94s plus0.12s listing compilation).
+Its observed total was11,519,240 KiB; the explicit proof target was851,544 KiB.
+Those are totals, not measured incremental cost attributable to this unit;
+no budget claim is made for the default tree and it was not deleted. Public
+proof execution used `/private/tmp/dts-dx-mg-genericity-target` with debug0 and
+incremental0. No generated DICOM, ordinary report/manifest or build tree was
+committed.
+
+Root documented the exact tuple and remaining limitations in README, system
+specification, generation/SDK guides, compatibility policy and changelog.
+Four focused documentation tests passed in0.01s (build0.30s). A fresh copied
+fixture at `/private/tmp/r7-dx-mg-docs-e1ltzduz` exercised profile-core generation,
+strict validation and report through the documented CLI forms in2.0228s,
+0.3048s and0.1576s: three generated files, three strictly checked, no failures.
+This run used parallelism2, supplementing the proof's parallelism4; no new
+cross-parallelism equality claim is inferred from that command check. The
+complete temporary command example used326,221 logical/352,256 allocated bytes.
+
+This accepts only DX/MG R7.2/R7.3, not all R7. The corpus lock and accepted
+migration proof still bind source232b9de; they are not relabeled as later-source
+runs. Metadata and other family genericity, remaining migration slices,
+reverse-dependency removal, independent conformance, viewer behavior, R8/R9,
+packaging and terminal release qualification remain open.

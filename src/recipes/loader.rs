@@ -5,6 +5,7 @@ use std::path::{Component, Path, PathBuf};
 use serde::Deserialize;
 use serde_json::Value;
 
+use super::classic_ct::inspect_ct_capability;
 use super::codec_registry::{
     BACKENDS, TransferSyntaxBackendRegistry, encoding_provider_matches, recipe_encoding_provider_id,
 };
@@ -590,8 +591,38 @@ fn validate_shape(path: &Path, recipe: &CaseRecipe) -> Result<(), RecipeCatalogE
     validate_registered_ids(path, recipe)?;
     validate_secondary_capture_contract(path, recipe)?;
     validate_metadata_sc_contract(path, recipe)?;
+    validate_classic_ct_contract(path, recipe)?;
     validate_advanced_contract(path, recipe)?;
     Ok(())
+}
+
+fn validate_classic_ct_contract(
+    path: &Path,
+    recipe: &CaseRecipe,
+) -> Result<(), RecipeCatalogError> {
+    if recipe.plan_provider_id != "native.classic_plan" {
+        return Ok(());
+    }
+    match inspect_ct_capability(recipe).map_err(|error| semantic(path, error.to_string()))? {
+        Some(_) => recipe
+            .planning_order
+            .map(|_| ())
+            .ok_or_else(|| semantic(path, "declared CT recipe requires planning_order")),
+        None => {
+            let case_id = recipe.binding.case_id.as_str();
+            if case_id.starts_with("classic/")
+                || case_id.starts_with("geometry/ct/")
+                || (case_id.starts_with("vl/") && !case_id.starts_with("vl/wsi/"))
+            {
+                Ok(())
+            } else {
+                Err(semantic(
+                    path,
+                    "native.classic_plan has an unsupported non-CT case binding",
+                ))
+            }
+        }
+    }
 }
 
 fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), RecipeCatalogError> {
@@ -1493,13 +1524,20 @@ fn validate_registry_bindings(
             && case.requirements.features.is_empty()
             && case.requirements.external_codecs.is_empty()
             && case.case_id.starts_with("metadata/sc/");
+        let name_independent_ct = recipe.plan_provider_id == "native.classic_plan"
+            && inspect_ct_capability(recipe)
+                .map_err(|error| RecipeCatalogError::Completeness {
+                    message: format!("{} has invalid CT capability: {error}", case.case_id),
+                })?
+                .is_some();
         let migrated_classic = recipe.plan_provider_id == "native.classic_plan"
             && case.provider.kind == "rust_native"
             && case.provider.id == "rust_native"
             && expected_kind == RecipeKind::Dicom
             && case.requirements.features.is_empty()
             && case.requirements.external_codecs.is_empty()
-            && (case.case_id.starts_with("classic/")
+            && (name_independent_ct
+                || case.case_id.starts_with("classic/")
                 || case.case_id.starts_with("geometry/ct/")
                 || (case.case_id.starts_with("vl/") && !case.case_id.starts_with("vl/wsi/")));
         let migrated_advanced = matches!(

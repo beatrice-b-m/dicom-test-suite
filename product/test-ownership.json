@@ -3,8 +3,8 @@
   "scope": {
     "rust_test_targets": 22,
     "integration_test_targets": 20,
-    "rust_test_entry_groups": 273,
-    "rust_test_entries": 1474,
+    "rust_test_entry_groups": 274,
+    "rust_test_entries": 1477,
     "integration_source_groups": 189,
     "integration_test_entries": 918,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
@@ -1272,8 +1272,10 @@
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 23,
+      "entry_count": 25,
       "entries": [
+        "external_ct_capability_is_name_independent_and_integrity_bound",
+        "external_ct_capability_is_fail_closed_without_broadening_classic_names",
         "minimal_bundle_loads_with_stable_exact_byte_identity",
         "manifest_bytes_are_identity_bearing",
         "explicit_descriptor_inputs_are_equivalent_relocatable_and_output_free",
@@ -1298,7 +1300,7 @@
         "negative_and_fuzz_dependencies_cannot_cross_legacy_or_stress_boundaries",
         "excessive_undeclared_inventory_fails_without_buffering_all_names"
       ],
-      "entry_digest": "7281ed5814e42c908a0a6cf93bdc7c479477a4c843f3cfe4b88d4355e8d478bb"
+      "entry_digest": "a7e4797399b6e21b7cb3e1fc1ef197b7e2470883782c3d41fa5053b263a09974"
     },
     {
       "source": "tests/corpus_plan.rs",
@@ -3811,6 +3813,18 @@
         "fails_closed_on_unverified_actual_identity"
       ],
       "entry_digest": "e6b2f43f782a3425a17ef8b5e9514c40871572b6527dd71b7b2a20869693fb7e"
+    },
+    {
+      "source": "src/curated_plan.rs",
+      "target": "synth_dicom_gen",
+      "domain": "engine",
+      "verification_class": "subsystem",
+      "cost_tier": "ordinary",
+      "entry_count": 1,
+      "entries": [
+        "ct_capability_dispatch_is_name_independent_and_fail_closed"
+      ],
+      "entry_digest": "4612cf9b4c4d1ada2f3b95d67cae30193975517b876dacb71a705416a49fceeb"
     },
     {
       "source": "src/encapsulation.rs",

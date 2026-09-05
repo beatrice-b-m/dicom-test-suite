@@ -62,6 +62,234 @@ fn rewrite_registry(root: &Path, registry: &serde_json::Value, manifest: &mut se
     .unwrap();
 }
 
+const CT_CASE: &str = "classic/ct/mono2_i16_rescale_12bit_explicit_le";
+const DX_CASE: &str = "classic/dx/display_shutter_mono2_u16_explicit_le";
+
+fn one_case_bundle(
+    name: &str,
+    source_case: &str,
+    target_case: &str,
+    target_recipe_id: &str,
+    mutate: impl FnOnce(&mut serde_json::Value),
+) -> PathBuf {
+    let root = temp(name);
+    let registry: serde_json::Value =
+        serde_json::from_slice(&fs::read("cases/registry.json").unwrap()).unwrap();
+    let mut row = registry["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["case_id"] == source_case)
+        .unwrap()
+        .clone();
+    let source_recipe_id = row["recipe_id"].as_str().unwrap();
+    let source_recipe_path = walk(Path::new("cases/recipes"))
+        .into_iter()
+        .find(|path| {
+            path.is_file()
+                && serde_json::from_slice::<serde_json::Value>(&fs::read(path).unwrap())
+                    .ok()
+                    .is_some_and(|value| value["recipe_id"] == source_recipe_id)
+        })
+        .unwrap();
+    let mut recipe: serde_json::Value =
+        serde_json::from_slice(&fs::read(source_recipe_path).unwrap()).unwrap();
+    recipe["binding"]["case_id"] = target_case.into();
+    recipe["recipe_id"] = target_recipe_id.into();
+    mutate(&mut recipe);
+
+    row["case_id"] = target_case.into();
+    row["recipe_id"] = target_recipe_id.into();
+    row["profiles"] = serde_json::json!(["core"]);
+    let registry = serde_json::json!({
+        "case_registry_schema_version": registry["case_registry_schema_version"],
+        "cases": [row]
+    });
+    let recipe_path = "cases/recipes/caller.json";
+    fs::create_dir_all(root.join("cases/recipes")).unwrap();
+    let recipe_bytes = serde_json::to_vec(&recipe).unwrap();
+    fs::write(root.join(recipe_path), &recipe_bytes).unwrap();
+    let registry_bytes = serde_json::to_vec(&registry).unwrap();
+    fs::write(root.join("cases/registry.json"), &registry_bytes).unwrap();
+    let profiles = [
+        ("smoke", "valid"),
+        ("core", "valid"),
+        ("extended", "valid"),
+        ("legacy", "legacy"),
+        ("stress", "stress"),
+        ("negative", "expected_invalid"),
+        ("fuzz", "fuzz"),
+    ]
+    .into_iter()
+    .map(|(profile_id, scope)| {
+        serde_json::json!({
+            "profile_id": profile_id,
+            "scope": scope,
+            "members": if profile_id == "core" { vec![target_case] } else { vec![] }
+        })
+    })
+    .chain(std::iter::once(serde_json::json!({
+        "profile_id": "all",
+        "scope": "valid",
+        "union_of": ["smoke", "core", "extended"],
+        "optional_profile": "stress"
+    })))
+    .collect::<Vec<_>>();
+    let descriptor = serde_json::json!({
+        "corpus_definition_bundle_schema_version": "1.0.0",
+        "definition_id": "fixture.ct-capability",
+        "definition_version": "1.0.0",
+        "profiles": profiles,
+        "registry": {
+            "path": "cases/registry.json",
+            "size_bytes": registry_bytes.len(),
+            "sha256": crate::sha256_hex(&registry_bytes)
+        },
+        "cases": [{
+            "case_id": target_case,
+            "recipe_id": target_recipe_id,
+            "recipe_version": recipe["recipe_version"],
+            "recipe": {
+                "path": recipe_path,
+                "size_bytes": recipe_bytes.len(),
+                "sha256": crate::sha256_hex(&recipe_bytes)
+            },
+            "dependencies": [],
+            "evidence_ids": [],
+            "asset_ids": []
+        }],
+        "evidence": [],
+        "assets": []
+    });
+    fs::write(
+        root.join("corpus-definition.json"),
+        serde_json::to_vec(&descriptor).unwrap(),
+    )
+    .unwrap();
+    root
+}
+
+fn assert_one_case_rejected(
+    name: &str,
+    source_case: &str,
+    target_case: &str,
+    mutate: impl FnOnce(&mut serde_json::Value),
+) {
+    let root = one_case_bundle(name, source_case, target_case, "caller_recipe", mutate);
+    let error = CorpusDefinitionBundle::load(&root).unwrap_err();
+    assert!(
+        matches!(&error, CorpusDefinitionError::Closure(_)),
+        "{error}"
+    );
+    assert_eq!(error.code(), "resource.document.invalid", "{error}");
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn external_ct_capability_is_name_independent_and_integrity_bound() {
+    for (name, case_id) in [
+        ("renamed-ct", "caller/arbitrary/signed-ct"),
+        ("misleading-ct", "classic/dx/caller-named-ct"),
+    ] {
+        let root = one_case_bundle(name, CT_CASE, case_id, "caller_signed_ct", |recipe| {
+            recipe["planning_order"] = 900.into();
+        });
+        let bundle = CorpusDefinitionBundle::load(&root).unwrap();
+        let catalog =
+            crate::recipes::RecipeCatalog::from_verified_bundle(&bundle, Path::new(".")).unwrap();
+        assert_eq!(bundle.manifest().cases[0].case_id, case_id);
+        assert_eq!(bundle.manifest().cases[0].recipe_id, "caller_signed_ct");
+        assert!(catalog.binding_for_case(case_id).is_some());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    let legacy = one_case_bundle("legacy-dx", DX_CASE, DX_CASE, "caller_dx", |_| {});
+    let bundle = CorpusDefinitionBundle::load(&legacy).unwrap();
+    crate::recipes::RecipeCatalog::from_verified_bundle(&bundle, Path::new(".")).unwrap();
+    fs::remove_dir_all(legacy).unwrap();
+}
+
+#[test]
+fn external_ct_capability_is_fail_closed_without_broadening_classic_names() {
+    assert_one_case_rejected("ct-algorithm", CT_CASE, "caller/ct/algorithm", |recipe| {
+        recipe["dicom"]["artifacts"][0]["algorithm_provider_id"] = "algorithm.classic_dx_mg".into();
+    });
+    assert_one_case_rejected(
+        "ct-missing-algorithm",
+        CT_CASE,
+        "caller/ct/missing-algorithm",
+        |recipe| {
+            recipe["dicom"]["artifacts"][0]
+                .as_object_mut()
+                .unwrap()
+                .remove("algorithm_provider_id");
+        },
+    );
+    assert_one_case_rejected("ct-template", CT_CASE, "caller/ct/template", |recipe| {
+        recipe["dicom"]["artifacts"][0]["template"]["template_id"] =
+            "classic/dx/for-presentation".into();
+    });
+    assert_one_case_rejected("ct-version", CT_CASE, "caller/ct/version", |recipe| {
+        recipe["dicom"]["artifacts"][0]["template"]["template_version"] = "2.0.0".into();
+    });
+    assert_one_case_rejected("ct-content", CT_CASE, "caller/ct/content", |recipe| {
+        recipe["dicom"]["artifacts"][0]["content"]["provider_id"] = "content.case_default".into();
+    });
+    assert_one_case_rejected("ct-projection", CT_CASE, "caller/ct/projection", |recipe| {
+        recipe["dicom"]["artifacts"][0]["classic_projection"]["family"] = "dx_mg".into();
+    });
+    assert_one_case_rejected(
+        "ct-provider-params",
+        CT_CASE,
+        "caller/ct/provider-params",
+        |recipe| {
+            recipe["provider_parameters"]["unexpected"] = true.into();
+        },
+    );
+    assert_one_case_rejected(
+        "ct-artifact-params",
+        CT_CASE,
+        "caller/ct/artifact-params",
+        |recipe| {
+            recipe["dicom"]["artifacts"][0]["parameters"]["unexpected"] = true.into();
+        },
+    );
+    assert_one_case_rejected(
+        "ct-missing-order",
+        CT_CASE,
+        "caller/ct/missing-order",
+        |recipe| {
+            recipe.as_object_mut().unwrap().remove("planning_order");
+        },
+    );
+    assert_one_case_rejected(
+        "ct-plan-provider",
+        CT_CASE,
+        "caller/ct/plan-provider",
+        |recipe| {
+            recipe["plan_provider_id"] = "native.sc_plan".into();
+        },
+    );
+    assert_one_case_rejected("ct-mixed", CT_CASE, "caller/ct/mixed", |recipe| {
+        let mut second = recipe["dicom"]["artifacts"][0].clone();
+        second["order"] = 1.into();
+        second["logical_id"] = "mixed".into();
+        second["output"]["path"] = "caller/mixed.dcm".into();
+        second["algorithm_provider_id"] = "algorithm.classic_dx_mg".into();
+        recipe["dicom"]["artifacts"]
+            .as_array_mut()
+            .unwrap()
+            .push(second);
+    });
+
+    assert_one_case_rejected(
+        "classic-name-only",
+        DX_CASE,
+        "caller/arbitrary/not-ct",
+        |_| {},
+    );
+}
+
 #[test]
 fn minimal_bundle_loads_with_stable_exact_byte_identity() {
     let first = CorpusDefinitionBundle::load(fixture()).unwrap();

@@ -644,3 +644,40 @@ multiply claimed. Full CR R7.2/R7.3 acceptance remains open. A separate owner
 will add typed-CR short-circuiting before historical matchers and regressions
 for misleading PET/VL names, preserving MR/RLE behavior. Existing proof remains
 valid for its tested scope; it is not relabeled as universal name independence.
+
+## CR genericity and current guidance accepted — 2026-09-05
+
+Dispatcher correction `ba97c38` gives an inspected CR tuple precedence over
+historical nuclear/VL names; its regression covers PET/VL/MR collisions and
+crossed algorithms. Projection guard `689dbc1` rejects MR/ICC fields, appended
+standards evidence, implementation-version overrides and profile overrides,
+while requiring the source CR semantic labels. Root and independent review
+accepted both corrections. The exact historical RLE path remains separate.
+Current documentation `5754046` explains these bounds and the distinct
+composition defaults without changing catalog bytes or template identity.
+
+Final affected routing after `689dbc1` passed29 bundle tests in12.05s,92
+generation tests in27.88s and22 planning tests in0.81s; compiles19.07/2.49/1.63s,
+whole65.8542s. Log: `/var/folders/b9/w6_2zsyn4t1c8q1b3dyp8jbr0000gn/T/r7-cr-final-route-txunosd7.log`.
+The exact public caller CR CLI/SDK proof passed1/1 in10.43s after2.18s compile.
+Documentation routing was inspected; unconditional Fast passed15/15 in2.15s
+and73/73 in1.95s after1.15s compile. All Cargo/routing commands inherited the
+explicit low-debug, nonincremental task target. Diff checks passed.
+
+The documented generate/validate/report workflow was exercised from fresh
+`/private/tmp/r7-cr-docs-sirie3ha`, with the standalone CR bundle and its core
+profile, seed1 and parallelism2. Commands succeeded in1.088045/0.289319/0.152172s.
+Generation published; reopened validation checked one valid file with no
+failures; report2 retained the selected CR case. Actual1300-byte payload SHA
+`cd4c473583688813b83d63581218e278fef4671ffd6287114711c97c7994e9b6` matched the
+public oracle. The11 files before the exercise receipt occupied190196 logical
+and208896 allocated bytes. This checks documented syntax and bounded payload
+stability, not full-manifest equality across parallelism settings.
+
+Together with the separately accepted original baseline, content0.6 import,
+public availability and migrated parity, this closes the bounded native CR
+R7.1/R7.2/R7.3/R7.5 slice. Same-project evidence remains distinct from viewer,
+codec/provider, independent and release qualifications. Neither pinned native
+artifact is relabeled with this source capability. R7 remains incomplete;
+R8/R9 have not begun. US baseline is the next sequential slice. Corpus ordinary
+verification at `bd41ca8` passed457 tests in8.472s without native generation.

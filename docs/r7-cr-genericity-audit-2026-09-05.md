@@ -76,3 +76,14 @@ and forthcoming CR documentation must state both scopes explicitly. The earlier
 observation remains historical, but no unresolved pixel-shape contradiction or
 catalog correction is claimed. Read-only policy/source review; no runtime or
 new qualification occurred. Diff check passed.
+
+## Accepted bounded implementation — 2026-09-05
+
+Planner `edab9b8`, loader/shared validation `4c6e973`, standalone public proof
+`6e4a4a1`, dispatch precedence `ba97c38` and projection guard `689dbc1` now
+implement and verify this bounded native capability. The earlier audit's
+shared-planning assessment was incomplete: nuclear/VL historical dispatch
+required the explicit typed-CR short circuit. Current guidance is `5754046`.
+Final measurements and evidence limits are recorded in
+[migration continuation](migration-continuation-status-2026-09-05.md#cr-genericity-and-current-guidance-accepted--2026-09-05).
+This accepts the native CR slice, not the full R7 migration.

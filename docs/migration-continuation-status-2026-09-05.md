@@ -1550,3 +1550,26 @@ Root full ordinary at clean72a5df4 passed619/16.307s; log
 /private/tmp/r7-xa-xrf-postimport-ordinary-20260905.log. Corpus3ca2d78 records
 acceptance and next two-file read-only availability-checker ownership. No native
 availability or generic source capability is claimed from this integration.
+
+## XA/XRF selected planning availability accepted — 2026-09-05
+
+Corpus checker384555a/captureb298b4a passed14/1.003s and15/0.174s synthetic;
+pure authentication0.019035/0.078028s, independent checker0.018377s and capture
+reviews accepted. CIaf7a93e uses ordinary-only helper ownership in run_ci.py,
+correcting the initially proposed shared-smoke config before edits. Routing65/
+1.563s and fullordinary649/17.377s passed. Actual mixed CI preview0.417941s
+selected fixedsmoke3 solely for sharedCI edits; no native execution.
+
+Fresh availability1 at5ada6bd passed one exact XA/XRF2/core/seed1/parallelism4
+assessment, accepted corpuse5e5d5e. Receipt131748/
+e62d7147e0624d266ba4f48e6a7d64e02f97aec1ec366fc4147937b71b03fcec;
+response136802/0a08d82801ba6f2d89d3f182cba3afdb2db9de4a9dfcfb1a3973d32efcd015bc.
+Both artifactsready; publication/validationnot_run; content0.9 and baselineplan
+unchanged. Whole3.898246125s, capabilities1.891218s/acquisition1.669733s/
+binding0.023690s. Retained44 files73824874logical/73904128allocated excluding
+receipt,146 archivedsourceobjects. Independentoffline0.168579s passedcomplete
+response/closure/finalizers; archivepermissionassumption correctedreadonly.
+Logs /private/tmp/r7-xa-xrf-availability1-20260905.stdout.json and stderr.txt;
+fullordinary /private/tmp/r7-xa-xrf-preavailability-ordinary-20260905.log.
+Nextowner has only new parityhelper/tests; actualtwo-runparity and source
+capability remain unopened. R7 remains incomplete; R8/R9 held.

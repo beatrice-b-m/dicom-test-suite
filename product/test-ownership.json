@@ -3836,7 +3836,7 @@
         "dx_mg_capability_dispatch_ignores_misleading_case_names",
         "ct_capability_dispatch_is_name_independent_and_fail_closed"
       ],
-      "entry_digest": "492338cb33bb43c955963387f80306eda9177621dd9f0bf9195b18bf13fade6b"
+      "entry_digest": "94f60cd61398b4fa441b2719a1b28f426ada6f37f822474a65b03ae51435ed0c"
     },
     {
       "source": "src/encapsulation.rs",

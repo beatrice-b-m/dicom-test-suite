@@ -1,0 +1,221 @@
+{
+  "case_registry_schema_version": "0.2.0",
+  "cases": [
+    {
+      "case_id": "caller/photo/rgb",
+      "status": "implemented",
+      "profiles": [
+        "core"
+      ],
+      "recipe_id": "caller_photo_rgb",
+      "recipe_version": "0.1.0",
+      "iod_name": "VL Photographic Image",
+      "sop_class_name": "VL Photographic Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.4",
+      "modality": "XC",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class VL Photographic Image Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod VL Photographic Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.32.4-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "resolve_attribute_context PhotometricInterpretation --iod VL Photographic Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-77"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element PlanarConfiguration",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "object_family": "visible_light",
+      "compatibility_axes": [
+        "modality",
+        "pixels",
+        "visible_light"
+      ],
+      "artifact_kind": "dicom_instance"
+    },
+    {
+      "case_id": "caller/photo/palette",
+      "status": "implemented",
+      "profiles": [
+        "core"
+      ],
+      "recipe_id": "caller_photo_palette",
+      "recipe_version": "0.1.0",
+      "iod_name": "VL Photographic Image",
+      "sop_class_name": "VL Photographic Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.4",
+      "modality": "XC",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class VL Photographic Image Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod VL Photographic Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.32.4-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod VL Photographic Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.32.4-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 table_C.8-77",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-77"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.7.6.3.1.5",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "sect_C.7.6.3.1.5"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element RedPaletteColorLookupTableDescriptor",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element GreenPaletteColorLookupTableDescriptor",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element BluePaletteColorLookupTableDescriptor",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element RedPaletteColorLookupTableData",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element GreenPaletteColorLookupTableData",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element BluePaletteColorLookupTableData",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "resolve_attribute_context PhotometricInterpretation --iod VL Photographic Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-77"
+        }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "object_family": "visible_light",
+      "compatibility_axes": [
+        "modality",
+        "pixels",
+        "visible_light"
+      ],
+      "artifact_kind": "dicom_instance"
+    }
+  ]
+}

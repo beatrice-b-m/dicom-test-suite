@@ -4635,14 +4635,30 @@
       "count": 1,
       "owner": "dicom-payload-contract",
       "reason": "The caller metadata fixture and static oracle preserve the accepted private-creator payload bytes; this is not product naming or an environment alias."
+    },
+    {
+      "path": "tests/fixtures/generic-vl-photo-corpus/members/cases/recipes/caller_photo_palette.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/fixtures/generic-vl-photo-corpus/members/cases/recipes/caller_photo_rgb.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
     }
   ],
   "retained_snapshot": {
-    "match_count": 1077,
-    "sha256": "a9968acf8ed9a53f711615c6ed24b5f9936f7e486bd5db7a01a02fa78136c96c",
+    "match_count": 1079,
+    "sha256": "630eb9bb842efba63ed5a1b907427cb356ce995373c0c615c6a418dade0baa6e",
     "by_class": {
       "dicom_payload_identifier": 203,
-      "legacy_payload_schema_fixture_or_evidence": 429,
+      "legacy_payload_schema_fixture_or_evidence": 431,
       "locked_python_module_or_backend": 148,
       "qualified_adapter_environment": 155,
       "qualified_adapter_or_test_fixture": 142

@@ -16,6 +16,9 @@
     "unrouted_lib_groups": "All-configured-ordinary runs only list-proven representative lib prefixes; remaining ordinary lib groups stay explicit deferred evidence."
   },
   "bundles": {
+    "generic_vl_photo_public_contract": {
+      "commands": [{"target": "cli_sdk__nonfast", "module": "external_corpus_cli"}]
+    },
     "generic_xa_xrf_public_contract": {
       "commands": [{"target": "cli_sdk__nonfast", "module": "external_corpus_cli"}]
     },
@@ -207,6 +210,13 @@
     }
   },
   "rules": [
+    {
+      "id": "generic-vl-photo-public-contract",
+      "exact": ["tests/support/generic_vl_photo_bundle.rs", "tests/fixtures/generic-vl-photo-semantics.json"],
+      "prefixes": ["tests/fixtures/generic-vl-photo-corpus/"],
+      "bundles": ["generic_vl_photo_public_contract"]
+    },
+
     {
       "id": "generic-xa-xrf-public-contract",
       "exact": ["tests/support/generic_xa_xrf_bundle.rs", "tests/fixtures/generic-xa-xrf-semantics.json"],

@@ -71,6 +71,12 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
         self.assertIn(command, self.commands(self.select(force_all=True)))
         self.assertNotIn(command, self.commands(self.select("cases/registry.json")))
 
+    def test_generic_vl_photo_proof_routes_to_public_consumer_module(self):
+        for path in ["tests/support/generic_vl_photo_bundle.rs", "tests/fixtures/generic-vl-photo-semantics.json", "tests/fixtures/generic-vl-photo-corpus/definition.json"]:
+            result = self.select(path)
+            self.assertEqual(result["bundle_ids"], ["generic_vl_photo_public_contract"])
+            self.assertEqual(self.commands(result), ["cargo test --locked --no-default-features --test cli_sdk__nonfast external_corpus_cli::"])
+
     def test_generic_xa_xrf_proof_routes_to_public_consumer_module(self):
         for path in ["tests/support/generic_xa_xrf_bundle.rs", "tests/fixtures/generic-xa-xrf-semantics.json", "tests/fixtures/generic-xa-xrf-corpus/definition.json"]:
             result = self.select(path)

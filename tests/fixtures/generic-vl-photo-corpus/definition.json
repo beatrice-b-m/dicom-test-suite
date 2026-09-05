@@ -1,0 +1,91 @@
+{
+  "corpus_definition_bundle_schema_version": "1.0.0",
+  "definition_id": "fixture.generic-vl-photo",
+  "definition_version": "1.0.0",
+  "profiles": [
+    {
+      "profile_id": "smoke",
+      "scope": "valid",
+      "members": []
+    },
+    {
+      "profile_id": "core",
+      "scope": "valid",
+      "members": [
+        "caller/photo/palette",
+        "caller/photo/rgb"
+      ]
+    },
+    {
+      "profile_id": "extended",
+      "scope": "valid",
+      "members": []
+    },
+    {
+      "profile_id": "legacy",
+      "scope": "legacy",
+      "members": []
+    },
+    {
+      "profile_id": "stress",
+      "scope": "stress",
+      "members": []
+    },
+    {
+      "profile_id": "negative",
+      "scope": "expected_invalid",
+      "members": []
+    },
+    {
+      "profile_id": "fuzz",
+      "scope": "fuzz",
+      "members": []
+    },
+    {
+      "profile_id": "all",
+      "scope": "valid",
+      "union_of": [
+        "smoke",
+        "core",
+        "extended"
+      ],
+      "optional_profile": "stress",
+      "members": []
+    }
+  ],
+  "registry": {
+    "path": "cases/registry.json",
+    "size_bytes": 6525,
+    "sha256": "c1ae1edfc9c971997790c38c2857c316e52618358fdb375216a53931312e0e95"
+  },
+  "cases": [
+    {
+      "case_id": "caller/photo/rgb",
+      "recipe_id": "caller_photo_rgb",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/caller_photo_rgb.json",
+        "size_bytes": 4331,
+        "sha256": "3803a2170fadbc7b243a8c7ffa0527548e60d2768f3919e14884aae58e26c5e5"
+      },
+      "dependencies": [],
+      "asset_ids": [],
+      "evidence_ids": []
+    },
+    {
+      "case_id": "caller/photo/palette",
+      "recipe_id": "caller_photo_palette",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/caller_photo_palette.json",
+        "size_bytes": 4441,
+        "sha256": "beca26dc1358bd13214b65475aac495f26496503b2e19f35dc289403672967df"
+      },
+      "dependencies": [],
+      "asset_ids": [],
+      "evidence_ids": []
+    }
+  ],
+  "evidence": [],
+  "assets": []
+}

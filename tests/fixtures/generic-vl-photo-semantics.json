@@ -1,0 +1,721 @@
+{
+  "oracle_version": "1.0.0",
+  "source_receipt_sha256": "6ba6acb4251c3c97bcab36762e5dd68d3ab7cca1492fb24fcf11f5243d2d32c1",
+  "parity_receipt_sha256": "af400bbd6097d7eb51eb84739b34841769d83e2c2d7f466196fa41c8b120b68c",
+  "cases": [
+    {
+      "source_case": "vl/photo/rgb_planar0_explicit_le",
+      "caller_case": "caller/photo/rgb",
+      "recipe_id": "caller_photo_rgb",
+      "output_path": "independent/rgb.dcm",
+      "profile": "core",
+      "source_size_bytes": 994,
+      "source_sha256": "e5d16461a94e4d38570069f1d521c07d896ff8443bd5557e98f09f62f6ee8e3f",
+      "modality": "XC",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.4",
+      "recipe_parameters": {
+        "bits_allocated": 8,
+        "bits_stored": 8,
+        "columns": 2,
+        "palette": null,
+        "photometric_interpretation": "RGB",
+        "pixel_padding": null,
+        "pixel_values": [
+          255,
+          0,
+          0,
+          0,
+          255,
+          0,
+          0,
+          0,
+          255,
+          255,
+          255,
+          255
+        ],
+        "planar_configuration": 0,
+        "rows": 2,
+        "samples_per_pixel": 3
+      },
+      "image": {
+        "bits_allocated": 8,
+        "bits_stored": 8,
+        "columns": 2,
+        "frames": 1,
+        "high_bit": 7,
+        "photometric_interpretation": "RGB",
+        "pixel_representation": 0,
+        "planar_configuration": 0,
+        "rows": 2,
+        "samples_per_pixel": 3
+      },
+      "pixel_data": {
+        "frame_count": 1,
+        "frame_hashes": [
+          "6733cdd08e5c7ef0453e2759ef0d28fbd43ea2aa7883b55422a13dac38e23ecc"
+        ],
+        "native_or_encapsulated": "native",
+        "value_length": 12,
+        "vr": "OB"
+      },
+      "expected_semantics": {
+        "conversion_type": null,
+        "image_type": "ORIGINAL\\PRIMARY",
+        "lossy_image_compression": "00",
+        "lossy_image_compression_method": null,
+        "lossy_image_compression_ratio": null,
+        "photometric_semantics": "VL Photographic RGB samples are interleaved color-by-pixel",
+        "pixel_max": 255,
+        "pixel_min": 0,
+        "pixel_padding": null,
+        "synthetic_data": "YES"
+      },
+      "expected_capabilities": [
+        "open_file",
+        "read_metadata",
+        "render_native_pixels"
+      ],
+      "expected_visual_checks": {
+        "pattern": "2x2_vl_photo_rgb_red_green_blue_white"
+      },
+      "known_stressors": [
+        "vl_photographic_image_storage",
+        "vl_rgb_pixels",
+        "native_ob_pixel_data"
+      ],
+      "standards_evidence": [
+        {
+          "anchor": "table_B.5-1",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.4",
+          "query": "lookup_sop_class VL Photographic Image Storage",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_A.32.4-1",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.3",
+          "query": "list_modules_for_iod VL Photographic Image",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_C.8-77",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.3",
+          "query": "resolve_attribute_context PhotometricInterpretation --iod VL Photographic Image",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_6-1",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.6",
+          "query": "lookup_data_element PlanarConfiguration",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_A-1",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.6",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_A.32.4-1",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.3",
+          "query": "lookup_iod VL Photographic Image",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_C.8-77",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.3",
+          "query": "list_attributes_for_module VL Image --expand-macros",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_C.7.6.14-1",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.3",
+          "query": "list_attributes_for_module Acquisition Context --expand-macros",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "sect_C.7.6.3.1.3",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.3",
+          "query": "retrieve_standard_text sect_C.7.6.3.1.3",
+          "source": "dicom-standard-kb"
+        }
+      ],
+      "validation": {
+        "external": [],
+        "internal": [
+          {
+            "message": "File has a 128-byte preamble followed by the DICM marker.",
+            "name": "part10_preamble",
+            "status": "passed"
+          },
+          {
+            "message": "File Meta Information Transfer Syntax UID matches the recipe.",
+            "name": "file_meta_transfer_syntax",
+            "status": "passed"
+          },
+          {
+            "message": "Dataset SOP Class UID, File Meta SOP Class UID, and recipe SOP Class UID match.",
+            "name": "sop_class_uid_consistency",
+            "status": "passed"
+          },
+          {
+            "message": "File Meta SOP Class UID matches the dataset SOP Class UID.",
+            "name": "media_storage_sop_class_uid",
+            "status": "passed"
+          },
+          {
+            "message": "Dataset SOP Instance UID, File Meta SOP Instance UID, and manifest UID match.",
+            "name": "sop_instance_uid_consistency",
+            "status": "passed"
+          },
+          {
+            "message": "File Meta SOP Instance UID matches the dataset SOP Instance UID.",
+            "name": "media_storage_sop_instance_uid",
+            "status": "passed"
+          },
+          {
+            "message": "File Meta Implementation Class UID matches the deterministic generator UID.",
+            "name": "implementation_class_uid",
+            "status": "passed"
+          },
+          {
+            "message": "Synthetic Data is present and set to YES.",
+            "name": "synthetic_data",
+            "status": "passed"
+          },
+          {
+            "message": "Rows matches the recipe.",
+            "name": "rows",
+            "status": "passed"
+          },
+          {
+            "message": "Columns matches the recipe.",
+            "name": "columns",
+            "status": "passed"
+          },
+          {
+            "message": "Samples per Pixel matches the recipe.",
+            "name": "samples_per_pixel",
+            "status": "passed"
+          },
+          {
+            "message": "Photometric Interpretation matches the recipe.",
+            "name": "photometric_interpretation",
+            "status": "passed"
+          },
+          {
+            "message": "Bits Allocated matches the recipe.",
+            "name": "bits_allocated",
+            "status": "passed"
+          },
+          {
+            "message": "Bits Allocated is 1 or a multiple of 8 for native Pixel Data.",
+            "name": "bits_allocated_native_shape",
+            "status": "passed"
+          },
+          {
+            "message": "Bits Stored matches the recipe.",
+            "name": "bits_stored",
+            "status": "passed"
+          },
+          {
+            "message": "Bits Stored is less than or equal to Bits Allocated.",
+            "name": "bits_stored_within_bits_allocated",
+            "status": "passed"
+          },
+          {
+            "message": "High Bit matches Bits Stored - 1.",
+            "name": "high_bit",
+            "status": "passed"
+          },
+          {
+            "message": "High Bit equals Bits Stored - 1.",
+            "name": "high_bit_consistency",
+            "status": "passed"
+          },
+          {
+            "message": "Pixel Representation matches the recipe.",
+            "name": "pixel_representation",
+            "status": "passed"
+          },
+          {
+            "message": "Planar Configuration matches the recipe.",
+            "name": "planar_configuration",
+            "status": "passed"
+          },
+          {
+            "message": "Samples per Pixel is consistent with Photometric Interpretation.",
+            "name": "photometric_samples_per_pixel",
+            "status": "passed"
+          },
+          {
+            "message": "Planar Configuration presence is consistent with Samples per Pixel.",
+            "name": "photometric_planar_configuration_presence",
+            "status": "passed"
+          },
+          {
+            "message": "Pixel Data VR matches the recipe.",
+            "name": "pixel_data_vr",
+            "status": "passed"
+          },
+          {
+            "message": "Native Pixel Data length matches rows * columns * frames * samples per pixel * bytes per sample.",
+            "name": "native_pixel_data_length",
+            "status": "passed"
+          },
+          {
+            "message": "The curated dataset resolved through the shared composition plan before Part 10 materialization.",
+            "name": "curated_composition_plan",
+            "status": "passed"
+          }
+        ],
+        "standards": [
+          {
+            "message": "SOP Class UID matches VL Photographic Image Storage in the 2026b reference.",
+            "name": "vl_photographic_image_sop_class",
+            "status": "passed"
+          },
+          {
+            "message": "Transfer Syntax UID matches Explicit VR Little Endian in the 2026b reference.",
+            "name": "explicit_vr_little_endian_transfer_syntax",
+            "status": "passed"
+          },
+          {
+            "message": "Synthetic Data (0008,001C) is present with value YES.",
+            "name": "synthetic_data_attribute",
+            "status": "passed"
+          },
+          {
+            "message": "Image Pixel attributes match the native pixel recipe.",
+            "name": "image_pixel_description",
+            "status": "passed"
+          }
+        ],
+        "status": "passed"
+      },
+      "references": [],
+      "implementation_version_name": "DICOMTS010",
+      "caller_size_bytes": 990,
+      "caller_sha256": "73a249bf51e6e47910d629c16c579cf1ec61beff3e9547e72273764b3ab45354"
+    },
+    {
+      "source_case": "vl/photo/palette_color_explicit_le",
+      "caller_case": "caller/photo/palette",
+      "recipe_id": "caller_photo_palette",
+      "output_path": "independent/palette.dcm",
+      "profile": "core",
+      "source_size_bytes": 1090,
+      "source_sha256": "48a5e1bad2aac8ce40a9273937d595ae39f55256ad6bc39279394cb488fd83e1",
+      "modality": "XC",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.4",
+      "recipe_parameters": {
+        "bits_allocated": 8,
+        "bits_stored": 8,
+        "columns": 2,
+        "palette": {
+          "blue_data_value_length": 8,
+          "descriptor": [
+            4,
+            0,
+            16
+          ],
+          "green_data_value_length": 8,
+          "red_data_value_length": 8
+        },
+        "photometric_interpretation": "PALETTE COLOR",
+        "pixel_padding": null,
+        "pixel_values": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "planar_configuration": null,
+        "rows": 2,
+        "samples_per_pixel": 1
+      },
+      "image": {
+        "bits_allocated": 8,
+        "bits_stored": 8,
+        "columns": 2,
+        "frames": 1,
+        "high_bit": 7,
+        "photometric_interpretation": "PALETTE COLOR",
+        "pixel_representation": 0,
+        "planar_configuration": null,
+        "rows": 2,
+        "samples_per_pixel": 1
+      },
+      "pixel_data": {
+        "frame_count": 1,
+        "frame_hashes": [
+          "054edec1d0211f624fed0cbca9d4f9400b0e491c43742af2c5b0abebf0c990d8"
+        ],
+        "native_or_encapsulated": "native",
+        "value_length": 4,
+        "vr": "OB"
+      },
+      "expected_semantics": {
+        "conversion_type": null,
+        "image_type": "ORIGINAL\\PRIMARY",
+        "lossy_image_compression": "00",
+        "lossy_image_compression_method": null,
+        "lossy_image_compression_ratio": null,
+        "photometric_semantics": "VL Photographic stored pixel values index 16-bit RGB palette lookup tables",
+        "pixel_max": 3,
+        "pixel_min": 0,
+        "pixel_padding": null,
+        "synthetic_data": "YES"
+      },
+      "expected_capabilities": [
+        "open_file",
+        "read_metadata",
+        "render_native_pixels"
+      ],
+      "expected_visual_checks": {
+        "pattern": "2x2_vl_photo_palette_red_green_blue_white"
+      },
+      "known_stressors": [
+        "vl_photographic_image_storage",
+        "vl_palette_color_pixels",
+        "native_ob_pixel_data",
+        "palette_color_pixels"
+      ],
+      "standards_evidence": [
+        {
+          "anchor": "table_B.5-1",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.4",
+          "query": "lookup_sop_class VL Photographic Image Storage",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_A.32.4-1",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.3",
+          "query": "lookup_iod VL Photographic Image",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_A.32.4-1",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.3",
+          "query": "list_modules_for_iod VL Photographic Image",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_A-1",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.6",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_C.8-77",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.3",
+          "query": "retrieve_standard_text PS3.3 table_C.8-77",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "sect_C.7.6.3.1.5",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.3",
+          "query": "retrieve_standard_text PS3.3 sect_C.7.6.3.1.5",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_6-1",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.6",
+          "query": "lookup_data_element RedPaletteColorLookupTableDescriptor",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_6-1",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.6",
+          "query": "lookup_data_element GreenPaletteColorLookupTableDescriptor",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_6-1",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.6",
+          "query": "lookup_data_element BluePaletteColorLookupTableDescriptor",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_6-1",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.6",
+          "query": "lookup_data_element RedPaletteColorLookupTableData",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_6-1",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.6",
+          "query": "lookup_data_element GreenPaletteColorLookupTableData",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_6-1",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.6",
+          "query": "lookup_data_element BluePaletteColorLookupTableData",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_C.8-77",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.3",
+          "query": "resolve_attribute_context PhotometricInterpretation --iod VL Photographic Image",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_C.8-77",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.3",
+          "query": "list_attributes_for_module VL Image --expand-macros",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_C.7.6.14-1",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.3",
+          "query": "list_attributes_for_module Acquisition Context --expand-macros",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "sect_C.7.6.3.1.5",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.3",
+          "query": "retrieve_standard_text sect_C.7.6.3.1.5",
+          "source": "dicom-standard-kb"
+        }
+      ],
+      "validation": {
+        "external": [],
+        "internal": [
+          {
+            "message": "File has a 128-byte preamble followed by the DICM marker.",
+            "name": "part10_preamble",
+            "status": "passed"
+          },
+          {
+            "message": "File Meta Information Transfer Syntax UID matches the recipe.",
+            "name": "file_meta_transfer_syntax",
+            "status": "passed"
+          },
+          {
+            "message": "Dataset SOP Class UID, File Meta SOP Class UID, and recipe SOP Class UID match.",
+            "name": "sop_class_uid_consistency",
+            "status": "passed"
+          },
+          {
+            "message": "File Meta SOP Class UID matches the dataset SOP Class UID.",
+            "name": "media_storage_sop_class_uid",
+            "status": "passed"
+          },
+          {
+            "message": "Dataset SOP Instance UID, File Meta SOP Instance UID, and manifest UID match.",
+            "name": "sop_instance_uid_consistency",
+            "status": "passed"
+          },
+          {
+            "message": "File Meta SOP Instance UID matches the dataset SOP Instance UID.",
+            "name": "media_storage_sop_instance_uid",
+            "status": "passed"
+          },
+          {
+            "message": "File Meta Implementation Class UID matches the deterministic generator UID.",
+            "name": "implementation_class_uid",
+            "status": "passed"
+          },
+          {
+            "message": "Synthetic Data is present and set to YES.",
+            "name": "synthetic_data",
+            "status": "passed"
+          },
+          {
+            "message": "Rows matches the recipe.",
+            "name": "rows",
+            "status": "passed"
+          },
+          {
+            "message": "Columns matches the recipe.",
+            "name": "columns",
+            "status": "passed"
+          },
+          {
+            "message": "Samples per Pixel matches the recipe.",
+            "name": "samples_per_pixel",
+            "status": "passed"
+          },
+          {
+            "message": "Photometric Interpretation matches the recipe.",
+            "name": "photometric_interpretation",
+            "status": "passed"
+          },
+          {
+            "message": "Bits Allocated matches the recipe.",
+            "name": "bits_allocated",
+            "status": "passed"
+          },
+          {
+            "message": "Bits Allocated is 1 or a multiple of 8 for native Pixel Data.",
+            "name": "bits_allocated_native_shape",
+            "status": "passed"
+          },
+          {
+            "message": "Bits Stored matches the recipe.",
+            "name": "bits_stored",
+            "status": "passed"
+          },
+          {
+            "message": "Bits Stored is less than or equal to Bits Allocated.",
+            "name": "bits_stored_within_bits_allocated",
+            "status": "passed"
+          },
+          {
+            "message": "High Bit matches Bits Stored - 1.",
+            "name": "high_bit",
+            "status": "passed"
+          },
+          {
+            "message": "High Bit equals Bits Stored - 1.",
+            "name": "high_bit_consistency",
+            "status": "passed"
+          },
+          {
+            "message": "Pixel Representation matches the recipe.",
+            "name": "pixel_representation",
+            "status": "passed"
+          },
+          {
+            "message": "Planar Configuration is absent for single-sample pixel data.",
+            "name": "planar_configuration_absent",
+            "status": "passed"
+          },
+          {
+            "message": "Samples per Pixel is consistent with Photometric Interpretation.",
+            "name": "photometric_samples_per_pixel",
+            "status": "passed"
+          },
+          {
+            "message": "Planar Configuration presence is consistent with Samples per Pixel.",
+            "name": "photometric_planar_configuration_presence",
+            "status": "passed"
+          },
+          {
+            "message": "Pixel Data VR matches the recipe.",
+            "name": "pixel_data_vr",
+            "status": "passed"
+          },
+          {
+            "message": "Native Pixel Data length matches rows * columns * frames * samples per pixel * bytes per sample.",
+            "name": "native_pixel_data_length",
+            "status": "passed"
+          },
+          {
+            "message": "Palette Color Lookup Table Descriptor matches the recipe.",
+            "name": "red_palette_lut_descriptor",
+            "status": "passed"
+          },
+          {
+            "message": "Palette Color Lookup Table Descriptor matches the recipe.",
+            "name": "green_palette_lut_descriptor",
+            "status": "passed"
+          },
+          {
+            "message": "Palette Color Lookup Table Descriptor matches the recipe.",
+            "name": "blue_palette_lut_descriptor",
+            "status": "passed"
+          },
+          {
+            "message": "Palette Color Lookup Table Data VR and length match the recipe.",
+            "name": "red_palette_lut_data",
+            "status": "passed"
+          },
+          {
+            "message": "Palette Color Lookup Table Data VR and length match the recipe.",
+            "name": "green_palette_lut_data",
+            "status": "passed"
+          },
+          {
+            "message": "Palette Color Lookup Table Data VR and length match the recipe.",
+            "name": "blue_palette_lut_data",
+            "status": "passed"
+          },
+          {
+            "message": "The curated dataset resolved through the shared composition plan before Part 10 materialization.",
+            "name": "curated_composition_plan",
+            "status": "passed"
+          }
+        ],
+        "standards": [
+          {
+            "message": "SOP Class UID matches VL Photographic Image Storage in the 2026b reference.",
+            "name": "vl_photographic_image_sop_class",
+            "status": "passed"
+          },
+          {
+            "message": "Transfer Syntax UID matches Explicit VR Little Endian in the 2026b reference.",
+            "name": "explicit_vr_little_endian_transfer_syntax",
+            "status": "passed"
+          },
+          {
+            "message": "Synthetic Data (0008,001C) is present with value YES.",
+            "name": "synthetic_data_attribute",
+            "status": "passed"
+          },
+          {
+            "message": "Image Pixel attributes match the native pixel recipe.",
+            "name": "image_pixel_description",
+            "status": "passed"
+          }
+        ],
+        "status": "passed"
+      },
+      "references": [],
+      "implementation_version_name": "DICOMTS010",
+      "caller_size_bytes": 1088,
+      "caller_sha256": "398c76875dce5c135dcca9532293b4e3911885f3987cc044ec76386c525a8192"
+    }
+  ]
+}

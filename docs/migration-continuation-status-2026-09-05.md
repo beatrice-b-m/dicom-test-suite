@@ -1065,3 +1065,54 @@ Read-only review nevertheless found the reduced-stress WSI reopened-reader
 regression described in b9b51a6. Ordinary suite success does not waive it.
 That bounded correction precedes US standalone public proof and full external
 boundary acceptance. R7 remains open; R8 and R9 have not begun.
+
+## Reduced WSI reader correction accepted — 2026-09-05
+
+6383f6c repairs reopening of the existing qualified reduced WSI case. Private
+context is minted only after approved run qualification validation and complete
+captured generated three-file membership, source levels/dimensions/spacing and
+shared valid UIDs. Both applicability and deeper WSI dispatch require the bound
+file; mixed ordinary evidence rejects. Existing legacy dispatch and reduced
+payload checks remain intact. Root and independent review accepted the seven
+owned files; no schema, recipe, pinned binary or generation bytes changed.
+
+Two regressions use actual source planning/projection with explicitly synthetic
+observations, plus a bounded196608-byte fixture adapted from existing WSI test
+helpers. They reject incomplete/crossed groups, qualification/profile/path/UID
+mutations and actual DICOM matrix/Pyramid UID changes. They are not an executed
+native stress run or full-scale qualification. A separate ordinary-owned test
+source and exact two-test route retain the existing sparse module's Nightly
+classification; routing policy itself remains unchanged.
+
+Initial2 tests passed0.65s after18.61s compile. Full sparse6 passed0.68s after
+19.02s compile (whole20.402s); runtime stress1 passed0.00s. After source extraction,
+exact2 passed0.65s, with18.05s compilation during list probing. Final routing32
+passed3.080s, ownership277 groups/1494 entries and spelling1065 passed, and diff
+passed. Logs /private/tmp/r7-reduced-wsi-reader-focused.log,
+/private/tmp/r7-reduced-wsi-reader-final.log,
+/private/tmp/r7-reduced-wsi-reader-routed-corrected.log and
+/private/tmp/r7-reduced-wsi-reader-routing-final.log.
+
+A formatter invocation recursively changed114 unowned source files. Automatic
+approval review rejected broad restoration without proof. Independent
+reproduction of rustfmt(HEAD) matched all114 working files byte for byte, zero
+unmatched; verified-path restoration was then approved. Proof remains at
+/private/tmp/r7-wsi-format-exact-proof.json. Incidental formatting inside owned
+files was also removed. No other source writer was active and no such changes
+were committed. The initial ordinary route inside a Nightly-owned source failed
+32 routing tests with2 failures/63 errors, preserving the router's fail-closed
+boundary. A nested module path compile error and then one expected bundle/count
+assertion were corrected before the final32 pass.
+
+Root inspected the80-command affected preview, including the exact new two-test
+route and explicit deferred evidence. The previous completed79-command ordinary
+selection remains applicable to unchanged scopes; after this local correction
+root ran corpus-generation92/27.53s after18.93s compile and Fast15/2.12s plus
+73/1.98s after1.16s compile at clean6383f6c. Whole53.146008s; log
+/private/tmp/r7-reduced-wsi-reader-root-fast-20260905.log and preview
+/private/tmp/r7-reduced-wsi-reader-root-preview-20260905.json. Task target measured
+1178772KiB; default target untouched. Worktree was clean after verification.
+
+This closes the bounded external reader correction and permits standalone US
+public proof. US full genericity acceptance still requires that proof and current
+guides. No native WSI, full stress, package, release or viewer evidence is added.

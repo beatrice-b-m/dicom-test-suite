@@ -5784,14 +5784,21 @@ command was repeated. The final command was:
 /usr/bin/time -p cargo test --locked --all-targets --no-default-features
 ```
 
-It passed at `bb86ac1` in 305.84s real, 1441.39s user and 101.99s sys. The
-library target reported 533 passed and six ignored. The ordinary
-nightly-labelled harnesses executed, including release nonfast 14/14 and schema
-subsystem 86/86, but the six R2.3 Heavy test bodies remained ignored. No Heavy
-qualification script was invoked. This is therefore an exact ordinary
-regression pass only: it is not a Nightly Heavy or release-candidate run and
-does not establish independent conformance, viewer interoperability, package
-qualification, cross-target support, or any terminal acceptance row by itself.
+The first passing run began from a clean `bb86ac1`, but the status edit and
+`bda2282` commit occurred while its later test binaries were still executing.
+Its 305.84s real, 1441.39s user and 101.99s sys result is therefore retained
+only as a passing mixed-revision diagnostic, not exact-revision acceptance.
+
+An uninterrupted repeat with clean, unchanged HEAD
+`bda2282458e46250a1e92c3b897ab157406a9468` passed in 293.95s real, 1414.70s
+user and 97.54s sys. The library target reported 533 passed and six ignored.
+The ordinary nightly-labelled harnesses executed, including release nonfast
+14/14 and schema subsystem 86/86, but the six R2.3 Heavy test bodies remained
+ignored. No Heavy qualification script was invoked. This uninterrupted run is
+therefore exact ordinary regression acceptance only: it is not a Nightly Heavy
+or release-candidate run and does not establish independent conformance,
+viewer interoperability, package qualification, cross-target support, or any
+terminal acceptance row by itself.
 The status-only follow-up passed change routing, `git diff --check`,
 `release_ci__fast` 15/15 and `schema_resources__fast` 73/73; release-candidate
 evidence remained explicitly deferred.

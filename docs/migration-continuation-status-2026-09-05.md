@@ -760,3 +760,15 @@ Original private runtime `/private/tmp/r7-us-parity-0gvj4oig` remains retained.
 No retry, build or broader qualification occurred. US genericity now proceeds
 planner, loader/shared dispatch, then public caller proof in separate units;
 the original corpus artifact pin is unchanged and R7 remains incomplete.
+
+## Disjoint XA/XRF helper preparation checkpoint — 2026-09-05
+
+Corpus helper6eaef7c and exact ordinary routing8114ff9 are accepted at6960be9.
+Source-static two-case/32-skip guards preserve66XA/120XRF internal findings,
+four standards findings each, nested equipment geometry and explicit report
+nulls/presence. Raw absence checks remain bounded byte markers for frozen
+payloads, not a general parser. Owner18 tests0.884s/provenance6 tests0.049s;
+independent18 tests0.888s and source validation/report review passed. Routing
+and import60 tests1.037s; root full ordinary531 tests11.024s. No native capture,
+import or build occurred. This preparation used disjoint corpus files while
+the sequential US generator planner was implemented.

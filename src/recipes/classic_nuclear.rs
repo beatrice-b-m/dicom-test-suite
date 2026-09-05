@@ -299,12 +299,139 @@ impl ClassicFamilyProvider<&ClassicNuclearArtifactParameters> for NuclearFamilyP
     }
 }
 
+/// Inspect only the qualified native single-frame US tuple, independent of names.
+pub(crate) fn inspect_us_capability(
+    recipe: &CaseRecipe,
+) -> Result<Option<ClassicNuclearArtifactParameters>, ClassicNuclearPlanError> {
+    let Some(dicom) = &recipe.dicom else {
+        return Ok(None);
+    };
+    if !dicom.artifacts.iter().any(|a| {
+        a.template
+            .as_ref()
+            .is_some_and(|t| t.template_id == "classic/ultrasound/single-frame")
+            || a.parameters.get("family").and_then(Value::as_str) == Some("ultrasound_single_frame")
+    }) {
+        return Ok(None);
+    }
+    if dicom.artifacts.len() != 1 {
+        return Err(contract("US requires one artifact"));
+    }
+    let a = &dicom.artifacts[0];
+    if recipe.recipe_id == "us_mono2_u8_rle_lossless"
+        && recipe.binding.case_id == "classic/us/mono2_u8_rle_lossless"
+        && recipe.planning_order == Some(404)
+        && a.encoding.transfer_syntax_uid == "1.2.840.10008.1.2.5"
+    {
+        return Ok(None);
+    }
+    let has = |v: &[String], s: &str| v.len() == 1 && v[0] == s;
+    if recipe.kind != super::RecipeKind::Dicom
+        || recipe.plan_provider_id != PLAN_PROVIDER
+        || recipe.planning_order.is_none()
+        || recipe.projection_order.is_none()
+        || recipe.mutation.is_some()
+        || recipe.qualification.is_some()
+        || !recipe.dependencies.is_empty()
+        || !has(&recipe.validation_rule_ids, "validation.shared")
+        || !has(&recipe.projection_rule_ids, "projection.curated")
+        || a.logical_id != "instance"
+        || a.order != 0
+        || a.output.role != "primary"
+        || a.output.path.is_none()
+        || a.output.provider_derived == Some(true)
+        || a.public_profile_membership.is_some()
+        || a.template.as_ref().is_none_or(|t| {
+            t.template_id != "classic/ultrasound/single-frame" || t.template_version != "1.0.0"
+        })
+        || a.content.provider_id != CONTENT_PROVIDER
+        || !a.content.parameters.is_empty()
+        || a.algorithm_provider_id.as_deref() != Some(ALGORITHM_PROVIDER)
+        || a.classic_projection.as_ref().is_none_or(|p| {
+            p.family != super::ClassicProjectionFamily::Nuclear
+                || p.mr.is_some()
+                || p.icc.is_some()
+                || p.semantic_labels.is_some()
+                || !p.standards_evidence_append.is_empty()
+                || p.include_implementation_version_name
+        })
+        || !a.attribute_operations.is_empty()
+        || a.secondary_capture.is_some()
+        || a.metadata_sc.is_some()
+        || a.nonsquare_geometry.is_some()
+        || !has(&a.validation_rule_ids, "validation.shared")
+        || !has(&a.projection_rule_ids, "projection.curated")
+        || a.encoding.transfer_syntax_uid != "1.2.840.10008.1.2.1"
+        || a.encoding.non_template_encoding_provider_id.is_some()
+        || a.encoding.fragments_per_frame.is_some()
+        || a.encoding.sequence_length_policy != "default"
+        || a.encoding.item_length_policy != "default"
+        || a.encoding.offset_table_policy != "none"
+        || a.encoding.fragmentation_policy != "native"
+        || a.encoding.preamble_policy.as_deref() != Some("zero_filled")
+        || a.encoding.file_meta_policy.as_deref() != Some("standard")
+    {
+        return Err(contract("complete native US tuple required"));
+    }
+    OutputRelativePath::new(a.output.path.clone().expect("explicit US output"))?;
+    let provider: ClassicNuclearProviderParameters = decode(
+        Value::Object(recipe.provider_parameters.clone()),
+        "provider_parameters",
+    )?;
+    if provider.modality != "US"
+        || provider.series_date.is_some()
+        || provider.series_time.is_some()
+        || provider.body_part_examined.is_some()
+    {
+        return Err(contract("bounded US provider contract"));
+    }
+    let parameters: ClassicNuclearArtifactParameters =
+        decode(Value::Object(a.parameters.clone()), "artifact parameters")?;
+    let ClassicNuclearArtifactParameters::UltrasoundSingleFrame {
+        pixels,
+        image_type,
+        lossy_image_compression,
+        ultrasound_color_data_present,
+    } = &parameters
+    else {
+        return Err(contract("US single-frame parameters required"));
+    };
+    let count = usize::from(pixels.rows)
+        .checked_mul(usize::from(pixels.columns))
+        .ok_or_else(|| contract("US dimensions overflow"))?;
+    if pixels.rows == 0
+        || pixels.columns == 0
+        || pixels.frames != 1
+        || pixels.stored_value_type != "u8"
+        || count != pixels.stored_values.len()
+        || pixels.stored_values.iter().any(|v| !(0..=255).contains(v))
+        || pixels.stored_values.iter().min().copied() != Some(pixels.pixel_min)
+        || pixels.stored_values.iter().max().copied() != Some(pixels.pixel_max)
+        || pixels.frame_sha256.len() != 1
+        || image_type != &["ORIGINAL", "PRIMARY"]
+        || lossy_image_compression != "00"
+        || *ultrasound_color_data_present != 0
+    {
+        return Err(contract("bounded US pixels and semantics"));
+    }
+    let bytes: Vec<u8> = pixels.stored_values.iter().map(|v| *v as u8).collect();
+    if crate::sha256_hex(&bytes) != pixels.frame_sha256[0] {
+        return Err(contract("US frame hash"));
+    }
+    Ok(Some(parameters))
+}
+
 pub fn plan_nuclear_recipe(
     recipe: &CaseRecipe,
     standards_lock_sha256: &str,
     seed: u64,
 ) -> Result<Option<Vec<ClassicInstanceRequest>>, ClassicNuclearPlanError> {
-    let Some(family) = owned_family(&recipe.binding.case_id) else {
+    let native_us = inspect_us_capability(recipe)?.is_some();
+    let Some(family) = (if native_us {
+        Some(Family::UltrasoundSingle)
+    } else {
+        owned_family(&recipe.binding.case_id)
+    }) else {
         return Ok(None);
     };
     if recipe.plan_provider_id != PLAN_PROVIDER {
@@ -312,11 +439,13 @@ pub fn plan_nuclear_recipe(
             "owned nuclear recipe requires native.classic_plan",
         ));
     }
-    if !(400..=404).contains(
-        &recipe
-            .planning_order
-            .ok_or_else(|| contract("owned nuclear recipe requires planning_order"))?,
-    ) {
+    if !native_us
+        && !(400..=404).contains(
+            &recipe
+                .planning_order
+                .ok_or_else(|| contract("owned nuclear recipe requires planning_order"))?,
+        )
+    {
         return Err(contract(
             "owned nuclear planning_order is outside 400..=404",
         ));

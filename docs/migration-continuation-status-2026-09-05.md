@@ -1750,3 +1750,26 @@ qualification. R7 remains incomplete; R8/R9 held. Next ordinary native slice
 is VL2, whose independent source preparation is accepted but baseline helper
 and execution remain unopened. Shared classic-VL capability changes remain
 sequential after this completed XA/XRF boundary.
+
+## VL photographic baseline preparation assigned — 2026-09-05
+
+After complete bounded XA/XRF source acceptance, the next R7 slice is exactly
+VL photographic RGB planar0 and palette color. Existing source-only812b24d
+provenance is retained. One owner has only new capture_native_vl_photo_baseline.py
+and tests/test_native_vl_photo_baseline.py. Corrected two-case capture guards
+remain: full source/input/cache/output/mode/failure closure and offline replay2.
+Source assertions bind32 skips,25RGB/31palette internal findings plus4 standards,
+full typed projections/report, exact12-byteRGB/4-bytepalette and three16-bit OW
+channels/descriptors, empty Acquisition Context sequence, absentICC. Both source
+implementation-version flags intentionally remove native-frame finding names;
+raw frame hashes are still checked. Report object_type is vl and lossy marker00,
+not XA's classic/null values. Do not invent endoscopy/microscopy findings.
+
+The template catalog's RGB-only limitation conflicts with the historical source
+palette case; preserve that explicit boundary rather than changing the template
+or claiming generic palette qualification. No case notes/assets/dependencies
+are imported; the template composition note remains engine provenance. No
+whole-file hash or size is known until a reviewed fresh native capture.
+Synthetic independent literal expectations and guards precede CI/fullordinary/
+readiness; native VL execution and source capability edits remain unopened.
+Corpus current-overview docs are disjoint from these new helper/test files.

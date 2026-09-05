@@ -1,0 +1,244 @@
+{
+  "corpus_definition_bundle_schema_version": "1.0.0",
+  "definition_id": "fixture.generic-sc",
+  "definition_version": "1.0.0",
+  "profiles": [
+    {
+      "profile_id": "smoke",
+      "scope": "valid",
+      "members": []
+    },
+    {
+      "profile_id": "core",
+      "scope": "valid",
+      "members": [
+        "caller/pixels/mono2_u8",
+        "caller/pixels/mono1_u8",
+        "caller/pixels/rgb_planar0",
+        "caller/pixels/rgb_planar1",
+        "caller/pixels/palette_color_u8",
+        "caller/pixels/ybr_full_planar0",
+        "caller/pixels/ybr_full_422",
+        "caller/pixels/mono2_u16",
+        "caller/pixels/mono2_i16",
+        "caller/pixels/mono2_u16_odd_3x3",
+        "caller/pixels/mono2_u16_rect_2x3",
+        "caller/pixels/mono2_u16_tiny_1x1",
+        "caller/pixels/mono2_u16_padding"
+      ]
+    },
+    {
+      "profile_id": "extended",
+      "scope": "valid",
+      "members": []
+    },
+    {
+      "profile_id": "legacy",
+      "scope": "legacy",
+      "members": []
+    },
+    {
+      "profile_id": "stress",
+      "scope": "stress",
+      "members": []
+    },
+    {
+      "profile_id": "negative",
+      "scope": "expected_invalid",
+      "members": []
+    },
+    {
+      "profile_id": "fuzz",
+      "scope": "fuzz",
+      "members": []
+    },
+    {
+      "profile_id": "all",
+      "scope": "valid",
+      "union_of": [
+        "smoke",
+        "core",
+        "extended"
+      ],
+      "optional_profile": "stress"
+    }
+  ],
+  "registry": {
+    "path": "cases/registry.json",
+    "size_bytes": 29302,
+    "sha256": "cadabc92c60a371731251c81a3d445be288ee65aedd2b5a41506b41379cc36f4"
+  },
+  "cases": [
+    {
+      "case_id": "caller/pixels/mono2_u8",
+      "recipe_id": "caller_mono2_u8",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/caller_mono2_u8.json",
+        "size_bytes": 2409,
+        "sha256": "32fcdc4f9eb9de74c7d4f1d4145dd664414771532ef3e7cf74e6d91d097cf7ec"
+      },
+      "dependencies": [],
+      "evidence_ids": [],
+      "asset_ids": []
+    },
+    {
+      "case_id": "caller/pixels/mono1_u8",
+      "recipe_id": "caller_mono1_u8",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/caller_mono1_u8.json",
+        "size_bytes": 2417,
+        "sha256": "8f046612a41aa7f3f00a6520d040c6688adc1e7f65d8eb582f655eb1bfd7a3fb"
+      },
+      "dependencies": [],
+      "evidence_ids": [],
+      "asset_ids": []
+    },
+    {
+      "case_id": "caller/pixels/rgb_planar0",
+      "recipe_id": "caller_rgb_planar0",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/caller_rgb_planar0.json",
+        "size_bytes": 2713,
+        "sha256": "c0760bd76e9307f531cb2a39b883701e51a0ff21ebcc89141542e75d30441cc3"
+      },
+      "dependencies": [],
+      "evidence_ids": [],
+      "asset_ids": []
+    },
+    {
+      "case_id": "caller/pixels/rgb_planar1",
+      "recipe_id": "caller_rgb_planar1",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/caller_rgb_planar1.json",
+        "size_bytes": 2729,
+        "sha256": "bfd19f9e2ac106125d043c8221e1596054d4548fec71d351425aadbc74270fb3"
+      },
+      "dependencies": [],
+      "evidence_ids": [],
+      "asset_ids": []
+    },
+    {
+      "case_id": "caller/pixels/palette_color_u8",
+      "recipe_id": "caller_palette_color_u8",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/caller_palette_color_u8.json",
+        "size_bytes": 3013,
+        "sha256": "e93f04a8c12fd98406c17cbe5308de60ffd360084d5d864ebb5cab514e5d70f6"
+      },
+      "dependencies": [],
+      "evidence_ids": [],
+      "asset_ids": []
+    },
+    {
+      "case_id": "caller/pixels/ybr_full_planar0",
+      "recipe_id": "caller_ybr_full_planar0",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/caller_ybr_full_planar0.json",
+        "size_bytes": 2780,
+        "sha256": "146c9e12065d0958d1d55f04737c67f0175e165e8363af9e53eac82a809effb4"
+      },
+      "dependencies": [],
+      "evidence_ids": [],
+      "asset_ids": []
+    },
+    {
+      "case_id": "caller/pixels/ybr_full_422",
+      "recipe_id": "caller_ybr_full_422",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/caller_ybr_full_422.json",
+        "size_bytes": 2726,
+        "sha256": "66b70b1b225778dc0d270289671bdaddb6be11fb3d72bb555f0e483066a80b5d"
+      },
+      "dependencies": [],
+      "evidence_ids": [],
+      "asset_ids": []
+    },
+    {
+      "case_id": "caller/pixels/mono2_u16",
+      "recipe_id": "caller_mono2_u16",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/caller_mono2_u16.json",
+        "size_bytes": 2453,
+        "sha256": "ff07aaaa382c2707b458a8d03d52669f0e7298a7363c762093e7cf5329eb45e4"
+      },
+      "dependencies": [],
+      "evidence_ids": [],
+      "asset_ids": []
+    },
+    {
+      "case_id": "caller/pixels/mono2_i16",
+      "recipe_id": "caller_mono2_i16",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/caller_mono2_i16.json",
+        "size_bytes": 2469,
+        "sha256": "907b9093d310091493c81f792b6ad26e072015cfaf3ba7e437c4c84ff82c9a50"
+      },
+      "dependencies": [],
+      "evidence_ids": [],
+      "asset_ids": []
+    },
+    {
+      "case_id": "caller/pixels/mono2_u16_odd_3x3",
+      "recipe_id": "caller_mono2_u16_odd_3x3",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/caller_mono2_u16_odd_3x3.json",
+        "size_bytes": 2538,
+        "sha256": "f69a3eea033961e6d974be65268cc4bfff2508b0e3b6c7bcab93f449bfe94a99"
+      },
+      "dependencies": [],
+      "evidence_ids": [],
+      "asset_ids": []
+    },
+    {
+      "case_id": "caller/pixels/mono2_u16_rect_2x3",
+      "recipe_id": "caller_mono2_u16_rect_2x3",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/caller_mono2_u16_rect_2x3.json",
+        "size_bytes": 2504,
+        "sha256": "b797810590c17f5bbc27a13696105c9a2b190f0be94dbfddb4247ab064c30f81"
+      },
+      "dependencies": [],
+      "evidence_ids": [],
+      "asset_ids": []
+    },
+    {
+      "case_id": "caller/pixels/mono2_u16_tiny_1x1",
+      "recipe_id": "caller_mono2_u16_tiny_1x1",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/caller_mono2_u16_tiny_1x1.json",
+        "size_bytes": 2438,
+        "sha256": "0480d1ca64bf947e6494520c817c750666846affa954629d90ff8b16b92927a8"
+      },
+      "dependencies": [],
+      "evidence_ids": [],
+      "asset_ids": []
+    },
+    {
+      "case_id": "caller/pixels/mono2_u16_padding",
+      "recipe_id": "caller_mono2_u16_padding",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/caller_mono2_u16_padding.json",
+        "size_bytes": 2643,
+        "sha256": "fe2bf3c562501d2b3bf964f99bbd04fda197dd6274c96ee3259722dee69cde93"
+      },
+      "dependencies": [],
+      "evidence_ids": [],
+      "asset_ids": []
+    }
+  ],
+  "evidence": [],
+  "assets": []
+}

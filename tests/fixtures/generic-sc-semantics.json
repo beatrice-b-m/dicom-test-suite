@@ -1,0 +1,846 @@
+{
+  "oracle_version": "1.0.0",
+  "source_receipt_sha256": "d51a36d70b20d37caf2f42711feb3a259fe2a781c525f577d05a7cb85b6ada85",
+  "cases": [
+    {
+      "source_case": "classic/sc/mono2_u8_explicit_le",
+      "caller_case": "caller/pixels/mono2_u8",
+      "recipe_id": "caller_mono2_u8",
+      "output_path": "independent/mono2_u8.dcm",
+      "profile": "smoke",
+      "source_size_bytes": 926,
+      "source_sha256": "fce766bcbb4b4aa79cfb3fa0c3b5e4ef888b11c0708fad713b9cde8d41ec6a15",
+      "image": {
+        "bits_allocated": 8,
+        "bits_stored": 8,
+        "columns": 2,
+        "frames": 1,
+        "high_bit": 7,
+        "photometric_interpretation": "MONOCHROME2",
+        "pixel_representation": 0,
+        "planar_configuration": null,
+        "rows": 2,
+        "samples_per_pixel": 1
+      },
+      "pixel_data": {
+        "frame_count": 1,
+        "frame_hashes": [
+          "03b722a15d4658be01f1eb9def5e8be124710cc0e88842f78107abfda3e23ea8"
+        ],
+        "native_or_encapsulated": "native",
+        "value_length": 4,
+        "vr": "OB"
+      },
+      "expected_semantics": {
+        "conversion_type": "SYN",
+        "image_type": null,
+        "lossy_image_compression": "00",
+        "lossy_image_compression_method": null,
+        "lossy_image_compression_ratio": null,
+        "photometric_semantics": "minimum sample value displays as black",
+        "pixel_max": 255,
+        "pixel_min": 0,
+        "pixel_padding": null,
+        "synthetic_data": "YES"
+      },
+      "recipe_parameters": {
+        "bits_allocated": 8,
+        "bits_stored": 8,
+        "columns": 2,
+        "palette": null,
+        "photometric_interpretation": "MONOCHROME2",
+        "pixel_padding": null,
+        "pixel_values": [
+          0,
+          85,
+          170,
+          255
+        ],
+        "planar_configuration": null,
+        "rows": 2,
+        "samples_per_pixel": 1
+      },
+      "caller_size_bytes": 928,
+      "caller_sha256": "1a6e2a6345f0c68de020d43c0eaef3148ac1ec52fe3f926b621a00dcdfd28c63"
+    },
+    {
+      "source_case": "classic/sc/mono1_u8_explicit_le",
+      "caller_case": "caller/pixels/mono1_u8",
+      "recipe_id": "caller_mono1_u8",
+      "output_path": "independent/mono1_u8.dcm",
+      "profile": "smoke",
+      "source_size_bytes": 926,
+      "source_sha256": "76dc5208b139899fcb87bbf7ec9edf1a323000a91c4015de9ef8bde7bd344ecc",
+      "image": {
+        "bits_allocated": 8,
+        "bits_stored": 8,
+        "columns": 2,
+        "frames": 1,
+        "high_bit": 7,
+        "photometric_interpretation": "MONOCHROME1",
+        "pixel_representation": 0,
+        "planar_configuration": null,
+        "rows": 2,
+        "samples_per_pixel": 1
+      },
+      "pixel_data": {
+        "frame_count": 1,
+        "frame_hashes": [
+          "03b722a15d4658be01f1eb9def5e8be124710cc0e88842f78107abfda3e23ea8"
+        ],
+        "native_or_encapsulated": "native",
+        "value_length": 4,
+        "vr": "OB"
+      },
+      "expected_semantics": {
+        "conversion_type": "SYN",
+        "image_type": null,
+        "lossy_image_compression": "00",
+        "lossy_image_compression_method": null,
+        "lossy_image_compression_ratio": null,
+        "photometric_semantics": "minimum sample value displays as white",
+        "pixel_max": 255,
+        "pixel_min": 0,
+        "pixel_padding": null,
+        "synthetic_data": "YES"
+      },
+      "recipe_parameters": {
+        "bits_allocated": 8,
+        "bits_stored": 8,
+        "columns": 2,
+        "palette": null,
+        "photometric_interpretation": "MONOCHROME1",
+        "pixel_padding": null,
+        "pixel_values": [
+          0,
+          85,
+          170,
+          255
+        ],
+        "planar_configuration": null,
+        "rows": 2,
+        "samples_per_pixel": 1
+      },
+      "caller_size_bytes": 930,
+      "caller_sha256": "7ba9c30122eca559442f43204ea284846fef64ff317ce37a9aa44a97f9743d80"
+    },
+    {
+      "source_case": "classic/sc/rgb_planar0_explicit_le",
+      "caller_case": "caller/pixels/rgb_planar0",
+      "recipe_id": "caller_rgb_planar0",
+      "output_path": "independent/rgb_planar0.dcm",
+      "profile": "smoke",
+      "source_size_bytes": 938,
+      "source_sha256": "33de9448509431fda27005cbf83c79977f1c3ebadb669ae1dedf1a225742f3c5",
+      "image": {
+        "bits_allocated": 8,
+        "bits_stored": 8,
+        "columns": 2,
+        "frames": 1,
+        "high_bit": 7,
+        "photometric_interpretation": "RGB",
+        "pixel_representation": 0,
+        "planar_configuration": 0,
+        "rows": 2,
+        "samples_per_pixel": 3
+      },
+      "pixel_data": {
+        "frame_count": 1,
+        "frame_hashes": [
+          "6733cdd08e5c7ef0453e2759ef0d28fbd43ea2aa7883b55422a13dac38e23ecc"
+        ],
+        "native_or_encapsulated": "native",
+        "value_length": 12,
+        "vr": "OB"
+      },
+      "expected_semantics": {
+        "conversion_type": "SYN",
+        "image_type": null,
+        "lossy_image_compression": "00",
+        "lossy_image_compression_method": null,
+        "lossy_image_compression_ratio": null,
+        "photometric_semantics": "RGB samples are interleaved color-by-pixel",
+        "pixel_max": 255,
+        "pixel_min": 0,
+        "pixel_padding": null,
+        "synthetic_data": "YES"
+      },
+      "recipe_parameters": {
+        "bits_allocated": 8,
+        "bits_stored": 8,
+        "columns": 2,
+        "palette": null,
+        "photometric_interpretation": "RGB",
+        "pixel_padding": null,
+        "pixel_values": [
+          255,
+          0,
+          0,
+          0,
+          255,
+          0,
+          0,
+          0,
+          255,
+          255,
+          255,
+          255
+        ],
+        "planar_configuration": 0,
+        "rows": 2,
+        "samples_per_pixel": 3
+      },
+      "caller_size_bytes": 942,
+      "caller_sha256": "e8422233be51a6b494b8913a11bad4fe536f87ca682e907af6974fd2ed0dd981"
+    },
+    {
+      "source_case": "classic/sc/rgb_planar1_explicit_le",
+      "caller_case": "caller/pixels/rgb_planar1",
+      "recipe_id": "caller_rgb_planar1",
+      "output_path": "independent/rgb_planar1.dcm",
+      "profile": "core",
+      "source_size_bytes": 938,
+      "source_sha256": "861669d2292ca14ba541eb51aeaa9c94ec928f7152ad9593a3e96835cf81213f",
+      "image": {
+        "bits_allocated": 8,
+        "bits_stored": 8,
+        "columns": 2,
+        "frames": 1,
+        "high_bit": 7,
+        "photometric_interpretation": "RGB",
+        "pixel_representation": 0,
+        "planar_configuration": 1,
+        "rows": 2,
+        "samples_per_pixel": 3
+      },
+      "pixel_data": {
+        "frame_count": 1,
+        "frame_hashes": [
+          "66843ae5761077ba7eed93ef8377e8c050533757c00dcb37bf6e1d3e0f74868d"
+        ],
+        "native_or_encapsulated": "native",
+        "value_length": 12,
+        "vr": "OB"
+      },
+      "expected_semantics": {
+        "conversion_type": "SYN",
+        "image_type": null,
+        "lossy_image_compression": "00",
+        "lossy_image_compression_method": null,
+        "lossy_image_compression_ratio": null,
+        "photometric_semantics": "RGB samples are stored contiguously by color plane",
+        "pixel_max": 255,
+        "pixel_min": 0,
+        "pixel_padding": null,
+        "synthetic_data": "YES"
+      },
+      "recipe_parameters": {
+        "bits_allocated": 8,
+        "bits_stored": 8,
+        "columns": 2,
+        "palette": null,
+        "photometric_interpretation": "RGB",
+        "pixel_padding": null,
+        "pixel_values": [
+          255,
+          0,
+          0,
+          255,
+          0,
+          255,
+          0,
+          255,
+          0,
+          0,
+          255,
+          255
+        ],
+        "planar_configuration": 1,
+        "rows": 2,
+        "samples_per_pixel": 3
+      },
+      "caller_size_bytes": 940,
+      "caller_sha256": "ff3a49cd1cfea13737cda7c7beedffb3902094a73652d7ae0c30c0b407d1cf30"
+    },
+    {
+      "source_case": "classic/sc/palette_color_u8_explicit_le",
+      "caller_case": "caller/pixels/palette_color_u8",
+      "recipe_id": "caller_palette_color_u8",
+      "output_path": "independent/palette_color_u8.dcm",
+      "profile": "core",
+      "source_size_bytes": 1038,
+      "source_sha256": "cdd73985dad18607e713426894b8b27da6ca2744114826d9ef99f5a8bb1517c1",
+      "image": {
+        "bits_allocated": 8,
+        "bits_stored": 8,
+        "columns": 2,
+        "frames": 1,
+        "high_bit": 7,
+        "photometric_interpretation": "PALETTE COLOR",
+        "pixel_representation": 0,
+        "planar_configuration": null,
+        "rows": 2,
+        "samples_per_pixel": 1
+      },
+      "pixel_data": {
+        "frame_count": 1,
+        "frame_hashes": [
+          "054edec1d0211f624fed0cbca9d4f9400b0e491c43742af2c5b0abebf0c990d8"
+        ],
+        "native_or_encapsulated": "native",
+        "value_length": 4,
+        "vr": "OB"
+      },
+      "expected_semantics": {
+        "conversion_type": "SYN",
+        "image_type": null,
+        "lossy_image_compression": "00",
+        "lossy_image_compression_method": null,
+        "lossy_image_compression_ratio": null,
+        "photometric_semantics": "stored pixel values index 16-bit RGB palette lookup tables",
+        "pixel_max": 3,
+        "pixel_min": 0,
+        "pixel_padding": null,
+        "synthetic_data": "YES"
+      },
+      "recipe_parameters": {
+        "bits_allocated": 8,
+        "bits_stored": 8,
+        "columns": 2,
+        "palette": {
+          "blue_data_value_length": 8,
+          "descriptor": [
+            4,
+            0,
+            16
+          ],
+          "green_data_value_length": 8,
+          "red_data_value_length": 8
+        },
+        "photometric_interpretation": "PALETTE COLOR",
+        "pixel_padding": null,
+        "pixel_values": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "planar_configuration": null,
+        "rows": 2,
+        "samples_per_pixel": 1
+      },
+      "caller_size_bytes": 1042,
+      "caller_sha256": "3116bea72e21d7ce77b1288f6ff07bd772fd794436d841d3f612ce90fb872a1d"
+    },
+    {
+      "source_case": "classic/sc/ybr_full_planar0_explicit_le",
+      "caller_case": "caller/pixels/ybr_full_planar0",
+      "recipe_id": "caller_ybr_full_planar0",
+      "output_path": "independent/ybr_full_planar0.dcm",
+      "profile": "core",
+      "source_size_bytes": 948,
+      "source_sha256": "62a456d07c747554fddf291bfa5462f2456f1287896daecf631290aa9db74b53",
+      "image": {
+        "bits_allocated": 8,
+        "bits_stored": 8,
+        "columns": 2,
+        "frames": 1,
+        "high_bit": 7,
+        "photometric_interpretation": "YBR_FULL",
+        "pixel_representation": 0,
+        "planar_configuration": 0,
+        "rows": 2,
+        "samples_per_pixel": 3
+      },
+      "pixel_data": {
+        "frame_count": 1,
+        "frame_hashes": [
+          "f885f3d530d77e836b897cf6b123f8c90366dcaafba6300ff56c2c4cc8fa0ad3"
+        ],
+        "native_or_encapsulated": "native",
+        "value_length": 12,
+        "vr": "OB"
+      },
+      "expected_semantics": {
+        "conversion_type": "SYN",
+        "image_type": null,
+        "lossy_image_compression": "00",
+        "lossy_image_compression_method": null,
+        "lossy_image_compression_ratio": null,
+        "photometric_semantics": "YBR_FULL samples are interleaved color-by-pixel",
+        "pixel_max": 255,
+        "pixel_min": 21,
+        "pixel_padding": null,
+        "synthetic_data": "YES"
+      },
+      "recipe_parameters": {
+        "bits_allocated": 8,
+        "bits_stored": 8,
+        "columns": 2,
+        "palette": null,
+        "photometric_interpretation": "YBR_FULL",
+        "pixel_padding": null,
+        "pixel_values": [
+          76,
+          85,
+          255,
+          150,
+          44,
+          21,
+          29,
+          255,
+          107,
+          255,
+          128,
+          128
+        ],
+        "planar_configuration": 0,
+        "rows": 2,
+        "samples_per_pixel": 3
+      },
+      "caller_size_bytes": 952,
+      "caller_sha256": "6f69d39fd8283fdcb0d87313775af279f0fc86ccf329be4a7e2944df21408691"
+    },
+    {
+      "source_case": "classic/sc/ybr_full_422_explicit_le",
+      "caller_case": "caller/pixels/ybr_full_422",
+      "recipe_id": "caller_ybr_full_422",
+      "output_path": "independent/ybr_full_422.dcm",
+      "profile": "core",
+      "source_size_bytes": 944,
+      "source_sha256": "2328ac11ed7367c0ae66060302dae1c8e257457e801d2659f45af32bf6023876",
+      "image": {
+        "bits_allocated": 8,
+        "bits_stored": 8,
+        "columns": 2,
+        "frames": 1,
+        "high_bit": 7,
+        "photometric_interpretation": "YBR_FULL_422",
+        "pixel_representation": 0,
+        "planar_configuration": 0,
+        "rows": 2,
+        "samples_per_pixel": 3
+      },
+      "pixel_data": {
+        "frame_count": 1,
+        "frame_hashes": [
+          "1376171ffe1b8b279bf253221e6da6b8345f4b9f337110738d86c67804d4430e"
+        ],
+        "native_or_encapsulated": "native",
+        "value_length": 8,
+        "vr": "OB"
+      },
+      "expected_semantics": {
+        "conversion_type": "SYN",
+        "image_type": null,
+        "lossy_image_compression": "00",
+        "lossy_image_compression_method": null,
+        "lossy_image_compression_ratio": null,
+        "photometric_semantics": "YBR_FULL_422 stores horizontally downsampled chroma with Planar Configuration 0",
+        "pixel_max": 255,
+        "pixel_min": 29,
+        "pixel_padding": null,
+        "synthetic_data": "YES"
+      },
+      "recipe_parameters": {
+        "bits_allocated": 8,
+        "bits_stored": 8,
+        "columns": 2,
+        "palette": null,
+        "photometric_interpretation": "YBR_FULL_422",
+        "pixel_padding": null,
+        "pixel_values": [
+          76,
+          150,
+          65,
+          138,
+          29,
+          255,
+          192,
+          118
+        ],
+        "planar_configuration": 0,
+        "rows": 2,
+        "samples_per_pixel": 3
+      },
+      "caller_size_bytes": 946,
+      "caller_sha256": "fe316c169bc0d930c2e3379560fc6c57c2af6f081f6029d13183fa76140cfd84"
+    },
+    {
+      "source_case": "classic/sc/mono2_u16_explicit_le",
+      "caller_case": "caller/pixels/mono2_u16",
+      "recipe_id": "caller_mono2_u16",
+      "output_path": "independent/mono2_u16.dcm",
+      "profile": "core",
+      "source_size_bytes": 930,
+      "source_sha256": "c4c172764c96d3b01cb639ad66acd463ea1aeec2e39c8217573e3e0cb110ca0f",
+      "image": {
+        "bits_allocated": 16,
+        "bits_stored": 16,
+        "columns": 2,
+        "frames": 1,
+        "high_bit": 15,
+        "photometric_interpretation": "MONOCHROME2",
+        "pixel_representation": 0,
+        "planar_configuration": null,
+        "rows": 2,
+        "samples_per_pixel": 1
+      },
+      "pixel_data": {
+        "frame_count": 1,
+        "frame_hashes": [
+          "d08bba5811a12539ff2f0d8c7ec743f442798f3340e8f865835601fb81944688"
+        ],
+        "native_or_encapsulated": "native",
+        "value_length": 8,
+        "vr": "OW"
+      },
+      "expected_semantics": {
+        "conversion_type": "SYN",
+        "image_type": null,
+        "lossy_image_compression": "00",
+        "lossy_image_compression_method": null,
+        "lossy_image_compression_ratio": null,
+        "photometric_semantics": "16-bit unsigned MONOCHROME2 samples span the full stored range",
+        "pixel_max": 65535,
+        "pixel_min": 0,
+        "pixel_padding": null,
+        "synthetic_data": "YES"
+      },
+      "recipe_parameters": {
+        "bits_allocated": 16,
+        "bits_stored": 16,
+        "columns": 2,
+        "palette": null,
+        "photometric_interpretation": "MONOCHROME2",
+        "pixel_padding": null,
+        "pixel_values": [
+          0,
+          21845,
+          43690,
+          65535
+        ],
+        "planar_configuration": null,
+        "rows": 2,
+        "samples_per_pixel": 1
+      },
+      "caller_size_bytes": 934,
+      "caller_sha256": "fedd689a71ffb29cd910cf26da68c275bc9bd48438658210ee5fe8a9b5936041"
+    },
+    {
+      "source_case": "classic/sc/mono2_i16_explicit_le",
+      "caller_case": "caller/pixels/mono2_i16",
+      "recipe_id": "caller_mono2_i16",
+      "output_path": "independent/mono2_i16.dcm",
+      "profile": "core",
+      "source_size_bytes": 930,
+      "source_sha256": "26a49fd4ab9e6eefc1726fbaf8a765ad5da7be1d0f47604057f460bf58815cba",
+      "image": {
+        "bits_allocated": 16,
+        "bits_stored": 16,
+        "columns": 2,
+        "frames": 1,
+        "high_bit": 15,
+        "photometric_interpretation": "MONOCHROME2",
+        "pixel_representation": 1,
+        "planar_configuration": null,
+        "rows": 2,
+        "samples_per_pixel": 1
+      },
+      "pixel_data": {
+        "frame_count": 1,
+        "frame_hashes": [
+          "44ac584d7bbb2f47135279082b44859e6f231a48b361803f53a1fdb2e9784406"
+        ],
+        "native_or_encapsulated": "native",
+        "value_length": 8,
+        "vr": "OW"
+      },
+      "expected_semantics": {
+        "conversion_type": "SYN",
+        "image_type": null,
+        "lossy_image_compression": "00",
+        "lossy_image_compression_method": null,
+        "lossy_image_compression_ratio": null,
+        "photometric_semantics": "16-bit signed MONOCHROME2 samples use 2's complement representation",
+        "pixel_max": 32767,
+        "pixel_min": -32768,
+        "pixel_padding": null,
+        "synthetic_data": "YES"
+      },
+      "recipe_parameters": {
+        "bits_allocated": 16,
+        "bits_stored": 16,
+        "columns": 2,
+        "palette": null,
+        "photometric_interpretation": "MONOCHROME2",
+        "pixel_padding": null,
+        "pixel_values": [
+          -32768,
+          -10923,
+          10922,
+          32767
+        ],
+        "planar_configuration": null,
+        "rows": 2,
+        "samples_per_pixel": 1
+      },
+      "caller_size_bytes": 934,
+      "caller_sha256": "0863d4bf3051f493ee9624e0d117227bd3d098d15335f9cc5a1ac47db2c06c90"
+    },
+    {
+      "source_case": "classic/sc/mono2_u16_odd_3x3_explicit_le",
+      "caller_case": "caller/pixels/mono2_u16_odd_3x3",
+      "recipe_id": "caller_mono2_u16_odd_3x3",
+      "output_path": "independent/mono2_u16_odd_3x3.dcm",
+      "profile": "core",
+      "source_size_bytes": 948,
+      "source_sha256": "9d99aef1f5fded5beb3fb263c7556f35154c31f58963f5017fa81339748c2fd0",
+      "image": {
+        "bits_allocated": 16,
+        "bits_stored": 16,
+        "columns": 3,
+        "frames": 1,
+        "high_bit": 15,
+        "photometric_interpretation": "MONOCHROME2",
+        "pixel_representation": 0,
+        "planar_configuration": null,
+        "rows": 3,
+        "samples_per_pixel": 1
+      },
+      "pixel_data": {
+        "frame_count": 1,
+        "frame_hashes": [
+          "e0cb19ca992a1039ba743bb99cec01c1c53c194904ceb05bff5c18ba8f586117"
+        ],
+        "native_or_encapsulated": "native",
+        "value_length": 18,
+        "vr": "OW"
+      },
+      "expected_semantics": {
+        "conversion_type": "SYN",
+        "image_type": null,
+        "lossy_image_compression": "00",
+        "lossy_image_compression_method": null,
+        "lossy_image_compression_ratio": null,
+        "photometric_semantics": "odd rows and columns use unsigned 16-bit MONOCHROME2 samples",
+        "pixel_max": 8,
+        "pixel_min": 0,
+        "pixel_padding": null,
+        "synthetic_data": "YES"
+      },
+      "recipe_parameters": {
+        "bits_allocated": 16,
+        "bits_stored": 16,
+        "columns": 3,
+        "palette": null,
+        "photometric_interpretation": "MONOCHROME2",
+        "pixel_padding": null,
+        "pixel_values": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "planar_configuration": null,
+        "rows": 3,
+        "samples_per_pixel": 1
+      },
+      "caller_size_bytes": 952,
+      "caller_sha256": "ecb816e9a19bb9747e0c1a16e779a349cd1329d16b34e7c3d81311aea6a4cc53"
+    },
+    {
+      "source_case": "classic/sc/mono2_u16_rect_2x3_explicit_le",
+      "caller_case": "caller/pixels/mono2_u16_rect_2x3",
+      "recipe_id": "caller_mono2_u16_rect_2x3",
+      "output_path": "independent/mono2_u16_rect_2x3.dcm",
+      "profile": "core",
+      "source_size_bytes": 944,
+      "source_sha256": "5cf5066061f99e0f0ca51b2d9a20535fc8b7b5565b9d6491c1869e31ba629e6d",
+      "image": {
+        "bits_allocated": 16,
+        "bits_stored": 16,
+        "columns": 3,
+        "frames": 1,
+        "high_bit": 15,
+        "photometric_interpretation": "MONOCHROME2",
+        "pixel_representation": 0,
+        "planar_configuration": null,
+        "rows": 2,
+        "samples_per_pixel": 1
+      },
+      "pixel_data": {
+        "frame_count": 1,
+        "frame_hashes": [
+          "d19c56fe954b4adbb040580d9ae4e98a692b51f8e2cab91d7ddecb903cec9204"
+        ],
+        "native_or_encapsulated": "native",
+        "value_length": 12,
+        "vr": "OW"
+      },
+      "expected_semantics": {
+        "conversion_type": "SYN",
+        "image_type": null,
+        "lossy_image_compression": "00",
+        "lossy_image_compression_method": null,
+        "lossy_image_compression_ratio": null,
+        "photometric_semantics": "rectangular native Pixel Data uses Rows and Columns from the recipe",
+        "pixel_max": 5,
+        "pixel_min": 0,
+        "pixel_padding": null,
+        "synthetic_data": "YES"
+      },
+      "recipe_parameters": {
+        "bits_allocated": 16,
+        "bits_stored": 16,
+        "columns": 3,
+        "palette": null,
+        "photometric_interpretation": "MONOCHROME2",
+        "pixel_padding": null,
+        "pixel_values": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "planar_configuration": null,
+        "rows": 2,
+        "samples_per_pixel": 1
+      },
+      "caller_size_bytes": 948,
+      "caller_sha256": "4f646db5085f500c0d8a3e8fc7d1414bc80624bfeee4949a60998f4f625ffb63"
+    },
+    {
+      "source_case": "classic/sc/mono2_u16_tiny_1x1_explicit_le",
+      "caller_case": "caller/pixels/mono2_u16_tiny_1x1",
+      "recipe_id": "caller_mono2_u16_tiny_1x1",
+      "output_path": "independent/mono2_u16_tiny_1x1.dcm",
+      "profile": "core",
+      "source_size_bytes": 934,
+      "source_sha256": "9284444a8d8ece444ac1693d8ebc180b2563ec044ad17d89d8ad61909e45ed2c",
+      "image": {
+        "bits_allocated": 16,
+        "bits_stored": 16,
+        "columns": 1,
+        "frames": 1,
+        "high_bit": 15,
+        "photometric_interpretation": "MONOCHROME2",
+        "pixel_representation": 0,
+        "planar_configuration": null,
+        "rows": 1,
+        "samples_per_pixel": 1
+      },
+      "pixel_data": {
+        "frame_count": 1,
+        "frame_hashes": [
+          "ca2fd00fa001190744c15c317643ab092e7048ce086a243e2be9437c898de1bb"
+        ],
+        "native_or_encapsulated": "native",
+        "value_length": 2,
+        "vr": "OW"
+      },
+      "expected_semantics": {
+        "conversion_type": "SYN",
+        "image_type": null,
+        "lossy_image_compression": "00",
+        "lossy_image_compression_method": null,
+        "lossy_image_compression_ratio": null,
+        "photometric_semantics": "very small native Pixel Data uses a single unsigned 16-bit sample",
+        "pixel_max": 65535,
+        "pixel_min": 65535,
+        "pixel_padding": null,
+        "synthetic_data": "YES"
+      },
+      "recipe_parameters": {
+        "bits_allocated": 16,
+        "bits_stored": 16,
+        "columns": 1,
+        "palette": null,
+        "photometric_interpretation": "MONOCHROME2",
+        "pixel_padding": null,
+        "pixel_values": [
+          65535
+        ],
+        "planar_configuration": null,
+        "rows": 1,
+        "samples_per_pixel": 1
+      },
+      "caller_size_bytes": 938,
+      "caller_sha256": "a855818fa55f5f87e4f6be4b0e3582e51fbfb877370dce08fee9bca03f24e2fd"
+    },
+    {
+      "source_case": "classic/sc/mono2_u16_padding_explicit_le",
+      "caller_case": "caller/pixels/mono2_u16_padding",
+      "recipe_id": "caller_mono2_u16_padding",
+      "output_path": "independent/mono2_u16_padding.dcm",
+      "profile": "core",
+      "source_size_bytes": 958,
+      "source_sha256": "14742d67c22ba30f35e1e0bcfec81a5b3bf57cd17b9b9dcb18326d8303f3ccd4",
+      "image": {
+        "bits_allocated": 16,
+        "bits_stored": 16,
+        "columns": 2,
+        "frames": 1,
+        "high_bit": 15,
+        "photometric_interpretation": "MONOCHROME2",
+        "pixel_representation": 0,
+        "planar_configuration": null,
+        "rows": 2,
+        "samples_per_pixel": 1
+      },
+      "pixel_data": {
+        "frame_count": 1,
+        "frame_hashes": [
+          "4fb6e962586de84574b87b29ee9eee37aef624c1d1f9a28b7793ef784bfc604a"
+        ],
+        "native_or_encapsulated": "native",
+        "value_length": 8,
+        "vr": "OW"
+      },
+      "expected_semantics": {
+        "conversion_type": "SYN",
+        "image_type": null,
+        "lossy_image_compression": "00",
+        "lossy_image_compression_method": null,
+        "lossy_image_compression_ratio": null,
+        "photometric_semantics": "Pixel Padding Value 0 identifies a padded unsigned MONOCHROME2 sample",
+        "pixel_max": 3000,
+        "pixel_min": 0,
+        "pixel_padding": {
+          "range_limit": 0,
+          "value": 0
+        },
+        "synthetic_data": "YES"
+      },
+      "recipe_parameters": {
+        "bits_allocated": 16,
+        "bits_stored": 16,
+        "columns": 2,
+        "palette": null,
+        "photometric_interpretation": "MONOCHROME2",
+        "pixel_padding": {
+          "range_limit": 0,
+          "value": 0
+        },
+        "pixel_values": [
+          0,
+          1000,
+          2000,
+          3000
+        ],
+        "planar_configuration": null,
+        "rows": 2,
+        "samples_per_pixel": 1
+      },
+      "caller_size_bytes": 962,
+      "caller_sha256": "0103706b5c805cd7684a2bdae99550f25c88fa3c6ab8d3b08684f3175cae861f"
+    }
+  ]
+}

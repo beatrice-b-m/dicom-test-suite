@@ -1,0 +1,90 @@
+{
+  "case_recipe_schema_version": "0.1.0",
+  "recipe_id": "caller_mono2_u16_rect_2x3",
+  "recipe_version": "0.1.0",
+  "binding": {
+    "case_id": "caller/pixels/mono2_u16_rect_2x3"
+  },
+  "kind": "dicom",
+  "plan_provider_id": "native.sc_plan",
+  "planning_order": 910,
+  "projection_order": 910,
+  "dependencies": [],
+  "provider_parameters": {},
+  "validation_rule_ids": [
+    "validation.sc.pixel"
+  ],
+  "projection_rule_ids": [
+    "projection.curated"
+  ],
+  "dicom": {
+    "artifacts": [
+      {
+        "logical_id": "instance",
+        "order": 0,
+        "template": {
+          "template_id": "classic/secondary-capture/monochrome",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "instance",
+          "path": "independent/mono2_u16_rect_2x3.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {},
+        "secondary_capture": {
+          "rows": 2,
+          "columns": 3,
+          "frames": 1,
+          "samples_per_pixel": 1,
+          "photometric_interpretation": "MONOCHROME2",
+          "bits_allocated": 16,
+          "bits_stored": 16,
+          "high_bit": 15,
+          "pixel_representation": 0,
+          "pixel_data_vr": "OW",
+          "stored_value_type": "u16",
+          "stored_values": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "frame_sha256": [
+            "d19c56fe954b4adbb040580d9ae4e98a692b51f8e2cab91d7ddecb903cec9204"
+          ],
+          "visual_pattern": "2x3_monochrome_u16_rect_gradient",
+          "semantic_note": "rectangular native Pixel Data uses Rows and Columns from the recipe",
+          "pixel_min": 0,
+          "pixel_max": 5
+        },
+        "attribute_operations": [],
+        "content": {
+          "provider_id": "content.sc.pixel_pattern",
+          "parameters": {}
+        },
+        "validation_rule_ids": [
+          "validation.sc.pixel"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "minimal_secondary_capture",
+          "native_ob_pixel_data"
+        ]
+      }
+    ]
+  }
+}

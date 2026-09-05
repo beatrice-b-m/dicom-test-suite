@@ -1,0 +1,106 @@
+{
+  "case_recipe_schema_version": "0.1.0",
+  "recipe_id": "caller_ultrasound_cine",
+  "recipe_version": "0.1.0",
+  "binding": { "case_id": "caller/acquisition/cardiac-cine" },
+  "kind": "dicom",
+  "plan_provider_id": "native.classic_plan",
+  "planning_order": 973,
+  "projection_order": 811,
+  "dependencies": [],
+  "provider_parameters": {
+    "patient_name": "CALLER^CINE",
+    "patient_id": "SUBJECT-CINE-42",
+    "patient_birth_date": "19880229",
+    "patient_sex": "F",
+    "study_date": "20260905",
+    "study_time": "123456",
+    "study_id": "CINE-STUDY",
+    "accession_number": "ACC-CINE",
+    "referring_physician_name": "REFERRER^CALLER",
+    "modality": "US",
+    "series_number": "17",
+    "series_date": "20260905",
+    "series_time": "123500",
+    "manufacturer": "Caller Imaging",
+    "manufacturer_model_name": "Portable Cine 7",
+    "software_versions": "42.5",
+    "acquisition_number": "8",
+    "acquisition_date": "20260905",
+    "acquisition_time": "123501",
+    "instance_number": "23",
+    "body_part_examined": "HEART"
+  },
+  "validation_rule_ids": ["validation.shared"],
+  "projection_rule_ids": ["projection.curated"],
+  "dicom": {
+    "artifacts": [{
+      "logical_id": "cine_loop",
+      "order": 0,
+      "template": {
+        "template_id": "classic/ultrasound/multiframe",
+        "template_version": "1.0.0"
+      },
+      "output": {
+        "role": "motion_review",
+        "path": "independent/caller-cine.dcm"
+      },
+      "encoding": {
+        "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+        "sequence_length_policy": "default",
+        "item_length_policy": "default",
+        "offset_table_policy": "none",
+        "fragmentation_policy": "native",
+        "preamble_policy": "zero_filled",
+        "file_meta_policy": "standard"
+      },
+      "parameters": {
+        "family": "ultrasound_multiframe",
+        "pixels": {
+          "rows": 1,
+          "columns": 1,
+          "frames": 3,
+          "stored_value_type": "u8",
+          "stored_values": [1, 2, 3],
+          "pixel_min": 1,
+          "pixel_max": 3,
+          "frame_sha256": [
+            "4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a",
+            "dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986",
+            "084fed08b978af4d7d196a7446a86b58009e636b611db16211b65a9aadff29c5"
+          ]
+        },
+        "image_type": ["DERIVED", "SECONDARY", "CARDIAC", "CINE"],
+        "frame_increment_pointer": "0018,1063",
+        "frame_time_ms": 75,
+        "frame_relative_times_ms": [0, 75, 150],
+        "payload_sha256": "039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81",
+        "lossy_image_compression": "00",
+        "color_data_present": false,
+        "spatially_related_frames": false,
+        "region_calibrated": false
+      },
+      "attribute_operations": [],
+      "content": { "provider_id": "content.native_pixels", "parameters": {} },
+      "validation_rule_ids": ["validation.shared"],
+      "projection_rule_ids": ["projection.curated"],
+      "determinism": "byte_stable",
+      "stressors": ["caller_cine", "three_frames", "native_u8_pixels"],
+      "algorithm_provider_id": "algorithm.classic_nuclear",
+      "classic_projection": {
+        "family": "nuclear",
+        "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels", "navigate_multiframe", "interpret_frame_time"],
+        "visual_pattern": "three_frame_caller_pattern",
+        "standards_evidence_append": [{
+          "anchor": "table_A.7-1",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.3",
+          "query": "lookup_iod Ultrasound Multi-frame Image",
+          "source": "dicom-standard-kb"
+        }],
+        "include_implementation_version_name": false
+      }
+    }]
+  }
+}

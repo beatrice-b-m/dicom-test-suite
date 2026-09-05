@@ -17050,15 +17050,18 @@ fn expected_pixel_data_length(
 ) -> (&'static str, &'static str, usize) {
     let bytes_per_sample = usize::from(expected.bits_allocated).div_ceil(8);
     match expected.pixel_data_length_formula {
-        PixelDataLengthFormula::ContiguousSamples => (
-            "native_pixel_data_length",
-            "Native Pixel Data length matches rows * columns * frames * samples per pixel * bytes per sample.",
-            usize::from(expected.rows)
+        PixelDataLengthFormula::ContiguousSamples => {
+            let semantic_length = usize::from(expected.rows)
                 * usize::from(expected.columns)
                 * usize::from(expected.frames)
                 * usize::from(expected.samples_per_pixel)
-                * bytes_per_sample,
-        ),
+                * bytes_per_sample;
+            (
+                "native_pixel_data_length",
+                "Native Pixel Data length matches the even-padded contiguous sample Value Field.",
+                semantic_length + (semantic_length % 2),
+            )
+        }
         PixelDataLengthFormula::YbrFull422 => (
             "native_ybr_full_422_pixel_data_length",
             "Native YBR_FULL_422 Pixel Data length matches rows * columns * frames * 2 * bytes per sample.",
@@ -17120,7 +17123,16 @@ fn validate_native_frame_hashes(
         expected.decoded_frame_hashes.len(),
         usize::from(expected.frames),
     );
-    if frame_length == 0 || pixel_bytes.len() != frame_length * usize::from(expected.frames) {
+    let semantic_length = frame_length * usize::from(expected.frames);
+    let expected_value_length = if matches!(
+        expected.pixel_data_length_formula,
+        PixelDataLengthFormula::ContiguousSamples
+    ) {
+        semantic_length + (semantic_length % 2)
+    } else {
+        semantic_length
+    };
+    if frame_length == 0 || pixel_bytes.len() != expected_value_length {
         check(
             results,
             false,
@@ -17130,7 +17142,16 @@ fn validate_native_frame_hashes(
         );
         return;
     }
-    let actual_hashes = pixel_bytes
+    if expected_value_length != semantic_length {
+        check(
+            results,
+            pixel_bytes.get(semantic_length).copied() == Some(0),
+            "native_pixel_data_padding",
+            "Odd native Pixel Data has exactly one zero Value Field pad byte.",
+            "Odd native Pixel Data does not end in the required zero Value Field pad byte.",
+        );
+    }
+    let actual_hashes = pixel_bytes[..semantic_length]
         .chunks_exact(frame_length)
         .map(sha256_hex)
         .collect::<Vec<_>>();

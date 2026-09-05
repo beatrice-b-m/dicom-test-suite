@@ -213,6 +213,58 @@
   },
   "additionalProperties": false,
   "$defs": {
+    "expected_us_multiframe": {
+      "type": "object",
+      "required": [
+        "image_type", "frame_increment_pointer", "frame_time_ms",
+        "frame_relative_times_ms", "frame_count", "frames",
+        "spatially_related_frames", "color_data_present", "region_calibrated",
+        "lossy_image_compression"
+      ],
+      "properties": {
+        "image_type": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "maxItems": 16
+        },
+        "frame_increment_pointer": { "const": "0018,1063" },
+        "frame_time_ms": { "type": "number", "exclusiveMinimum": 0 },
+        "frame_relative_times_ms": {
+          "type": "array",
+          "items": { "type": "number", "minimum": 0 },
+          "minItems": 2,
+          "maxItems": 65535
+        },
+        "frame_count": { "type": "integer", "minimum": 2, "maximum": 65535 },
+        "frames": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/expected_us_frame" },
+          "minItems": 2,
+          "maxItems": 65535
+        },
+        "spatially_related_frames": { "const": false },
+        "color_data_present": { "const": false },
+        "region_calibrated": { "const": false },
+        "lossy_image_compression": { "const": "00" }
+      },
+      "additionalProperties": false
+    },
+    "expected_us_frame": {
+      "type": "object",
+      "required": ["frame_number", "frame_sha256", "pixel_values"],
+      "properties": {
+        "frame_number": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "frame_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "pixel_values": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 0, "maximum": 255 },
+          "minItems": 1,
+          "maxItems": 4294836225
+        }
+      },
+      "additionalProperties": false
+    },
     "external_file": {
       "type": "object",
       "required": [
@@ -356,7 +408,7 @@
           "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_enhanced_pet"
         },
         "expected_us_multiframe": {
-          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_us_multiframe"
+          "$ref": "#/$defs/expected_us_multiframe"
         },
         "expected_xa_projection": {
           "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_xa_projection"

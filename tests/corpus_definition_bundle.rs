@@ -66,6 +66,87 @@ const CT_CASE: &str = "classic/ct/mono2_i16_rescale_12bit_explicit_le";
 const DX_CASE: &str = "classic/dx/display_shutter_mono2_u16_explicit_le";
 const MR_CASE: &str = "classic/mr/multislice_oblique_explicit_le";
 
+#[test]
+fn caller_owned_us_multiframe_fixture_is_admitted_by_structure() {
+    let fixture = PathBuf::from("tests/fixtures/generic-us-multiframe-corpus");
+    let inspected = crate::sdk::DicomTestSuite::embedded()
+        .unwrap()
+        .inspect_corpus(
+            crate::sdk::InspectCorpusRequest::from_file(
+                fixture.join("definition.json"),
+                fixture.join("members"),
+            )
+            .with_selection(crate::sdk::CorpusSelector::CaseIds {
+                profile: "core".into(),
+                include_stress: false,
+                case_ids: vec!["caller/acquisition/cardiac-cine".into()],
+            })
+            .with_seed(1)
+            .with_parallelism(4),
+        )
+        .unwrap();
+    assert_eq!(
+        inspected.corpus_definition_identity()["definition_id"],
+        "fixture.generic-us-multiframe"
+    );
+    let output = std::env::temp_dir().join(format!(
+        "synth-dicom-gen-generic-us-multiframe-{}",
+        std::process::id()
+    ));
+    let _ = fs::remove_dir_all(&output);
+    crate::sdk::DicomTestSuite::embedded()
+        .unwrap()
+        .generate_corpus(crate::sdk::GenerateCorpusRequest::from_file(
+            fixture.join("definition.json"),
+            fixture.join("members"),
+            &output,
+            crate::sdk::CorpusSelector::CaseIds {
+                profile: "core".into(),
+                include_stress: false,
+                case_ids: vec!["caller/acquisition/cardiac-cine".into()],
+            },
+        ))
+        .unwrap();
+    let validation = crate::sdk::DicomTestSuite::embedded()
+        .unwrap()
+        .validate(crate::sdk::ValidateRequest::new(&output))
+        .unwrap();
+    assert!(validation.is_valid(), "{:?}", validation.failures());
+    fs::remove_dir_all(output).unwrap();
+
+    let contradictory = one_case_bundle(
+        "us-multiframe-registry-modality",
+        "classic/us/multiframe_explicit_le",
+        "caller/acquisition/contradictory-cine",
+        "caller_contradictory_cine",
+        |recipe| {
+            recipe["planning_order"] = 973.into();
+            recipe["projection_order"] = 811.into();
+            recipe["provider_parameters"]["manufacturer_model_name"] = "Caller Cine Model".into();
+            recipe["dicom"]["artifacts"][0]["output"]["path"] =
+                "independent/contradictory-cine.dcm".into();
+        },
+    );
+    let mut descriptor: serde_json::Value =
+        serde_json::from_slice(&fs::read(contradictory.join("corpus-definition.json")).unwrap())
+            .unwrap();
+    let mut registry: serde_json::Value =
+        serde_json::from_slice(&fs::read(contradictory.join("cases/registry.json")).unwrap())
+            .unwrap();
+    registry["cases"][0]["modality"] = "NM".into();
+    rewrite_registry(&contradictory, &registry, &mut descriptor);
+    let bundle = CorpusDefinitionBundle::load(&contradictory).unwrap();
+    let error =
+        crate::recipes::RecipeCatalog::from_verified_bundle(&bundle, Path::new(".")).unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("registry modality contradicts US capability"),
+        "{error}"
+    );
+    fs::remove_dir_all(contradictory).unwrap();
+}
+
 fn make_mr_caller_owned(recipe: &mut serde_json::Value) {
     recipe["planning_order"] = 900.into();
     recipe["projection_order"] = 901.into();

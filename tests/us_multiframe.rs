@@ -282,17 +282,17 @@ fn validator_rejects_tampered_us_multiframe_contract() {
         (
             "/expected_us_multiframe/image_type/2",
             json!("CARDIAC"),
-            "us_multiframe_image_type_manifest_contract",
+            "us_multiframe_image_type",
         ),
         (
             "/expected_semantics/body_part_examined",
             json!("CHEST"),
-            "us_multiframe_body_part_examined_manifest_contract",
+            "us_multiframe_body_part_examined",
         ),
         (
             "/expected_us_multiframe/frame_count",
             json!(3),
-            "us_multiframe_frame_count_manifest_contract",
+            "us_multiframe_image_frames_manifest_contract",
         ),
         (
             "/expected_us_multiframe/frame_increment_pointer",
@@ -302,7 +302,7 @@ fn validator_rejects_tampered_us_multiframe_contract() {
         (
             "/expected_us_multiframe/frame_time_ms",
             json!(50.0),
-            "us_multiframe_frame_time_manifest_contract",
+            "us_multiframe_frame_time",
         ),
         (
             "/expected_us_multiframe/frame_relative_times_ms/2",
@@ -337,7 +337,7 @@ fn validator_rejects_tampered_us_multiframe_contract() {
         (
             "/expected_us_multiframe/frames/0/pixel_values/0",
             json!(1),
-            "us_multiframe_pixel_values_manifest_contract",
+            "us_multiframe_pixel_values",
         ),
         (
             "/expected_us_multiframe/frames/0/frame_sha256",

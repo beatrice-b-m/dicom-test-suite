@@ -448,6 +448,135 @@ fn nuclear_planning_is_output_free_strict_and_excludes_enhanced_pet() {
 }
 
 #[test]
+fn us_multiframe_planning_is_caller_owned_and_fail_closed() {
+    let (catalog, _, lock_hash) = load();
+    let historical = catalog
+        .recipes()
+        .values()
+        .find(|recipe| recipe.binding.case_id == "classic/us/multiframe_explicit_le")
+        .unwrap();
+    let mut source = serde_json::to_value(historical).unwrap();
+    source["recipe_id"] = serde_json::json!("cine_recipe_with_no_historical_name");
+    source["binding"]["case_id"] = serde_json::json!("caller/acquisition/cardiac-cine");
+    source["planning_order"] = serde_json::json!(973);
+    source["projection_order"] = serde_json::json!(811);
+    source["provider_parameters"] = serde_json::json!({
+        "patient_name": "CALLER^CINE", "patient_id": "SUBJECT-CINE-42",
+        "patient_birth_date": "19880229", "patient_sex": "F",
+        "study_date": "20260905", "study_time": "123456", "study_id": "CINE-STUDY",
+        "accession_number": "ACC-CINE", "referring_physician_name": "REFERRER^CALLER",
+        "modality": "US", "series_number": "17", "series_date": "20260905",
+        "series_time": "123500", "manufacturer": "Caller Imaging",
+        "manufacturer_model_name": "Portable Cine 7", "software_versions": "42.5",
+        "acquisition_number": "8", "acquisition_date": "20260905",
+        "acquisition_time": "123501", "instance_number": "23",
+        "body_part_examined": "HEART"
+    });
+    let artifact = &mut source["dicom"]["artifacts"][0];
+    artifact["logical_id"] = serde_json::json!("cine_loop");
+    artifact["order"] = serde_json::json!(0);
+    artifact["output"]["role"] = serde_json::json!("motion_review");
+    artifact["output"]["path"] = serde_json::json!("independent/caller-cine.dcm");
+    artifact["classic_projection"]["visual_pattern"] =
+        serde_json::json!("three_frame_caller_pattern");
+    let values = vec![1_u8, 3, 5, 7, 9, 11, 2, 4, 6, 8, 10, 12, 12, 10, 8, 6, 4, 2];
+    let frame_hashes = values.chunks(6).map(sha256_hex).collect::<Vec<_>>();
+    artifact["parameters"] = serde_json::json!({
+        "family": "ultrasound_multiframe",
+        "pixels": {"rows": 3, "columns": 2, "frames": 3, "stored_value_type": "u8",
+            "stored_values": values, "pixel_min": 1, "pixel_max": 12,
+            "frame_sha256": frame_hashes},
+        "image_type": ["DERIVED", "SECONDARY", "CARDIAC", "CINE"],
+        "frame_increment_pointer": "0018,1063", "frame_time_ms": 75,
+        "frame_relative_times_ms": [0, 75, 150],
+        "payload_sha256": sha256_hex(&values), "lossy_image_compression": "00",
+        "color_data_present": false, "spatially_related_frames": false,
+        "region_calibrated": false
+    });
+
+    let recipe = serde_json::from_value(source.clone()).unwrap();
+    let request = plan_nuclear_recipe(&recipe, &lock_hash, 7)
+        .unwrap()
+        .unwrap()
+        .remove(0);
+    assert_eq!(request.logical_id, "cine_loop");
+    assert_eq!(request.order, 0);
+    assert_eq!(
+        request.output_relative_path.as_str(),
+        "independent/caller-cine.dcm"
+    );
+    assert_eq!(request.common.series.modality, "US");
+    assert_eq!(
+        request.common.equipment.manufacturer_model_name,
+        synth_dicom_gen::recipes::ElementPresence::Value("Portable Cine 7".into())
+    );
+
+    for (pointer, replacement) in [
+        ("/provider_parameters/modality", serde_json::json!("NM")),
+        (
+            "/provider_parameters/manufacturer_model_name",
+            serde_json::json!(""),
+        ),
+        (
+            "/provider_parameters/body_part_examined",
+            serde_json::json!(""),
+        ),
+        (
+            "/provider_parameters/instance_number",
+            serde_json::json!("0"),
+        ),
+        (
+            "/dicom/artifacts/0/template/template_version",
+            serde_json::json!("2.0.0"),
+        ),
+        (
+            "/dicom/artifacts/0/output/path",
+            serde_json::json!("../escape.dcm"),
+        ),
+        (
+            "/dicom/artifacts/0/parameters/pixels/frames",
+            serde_json::json!(1),
+        ),
+        (
+            "/dicom/artifacts/0/parameters/pixels/stored_values/0",
+            serde_json::json!(256),
+        ),
+        (
+            "/dicom/artifacts/0/parameters/pixels/frame_sha256/0",
+            serde_json::json!("bad"),
+        ),
+        (
+            "/dicom/artifacts/0/parameters/frame_time_ms",
+            serde_json::json!(0),
+        ),
+        (
+            "/dicom/artifacts/0/parameters/frame_relative_times_ms/2",
+            serde_json::json!(149),
+        ),
+        (
+            "/dicom/artifacts/0/parameters/image_type",
+            serde_json::json!([]),
+        ),
+        (
+            "/dicom/artifacts/0/parameters/payload_sha256",
+            serde_json::json!("bad"),
+        ),
+        (
+            "/dicom/artifacts/0/parameters/color_data_present",
+            serde_json::json!(true),
+        ),
+    ] {
+        let mut bad = source.clone();
+        *bad.pointer_mut(pointer).unwrap() = replacement;
+        let bad = serde_json::from_value(bad).unwrap();
+        assert!(
+            plan_nuclear_recipe(&bad, &lock_hash, 7).is_err(),
+            "{pointer}"
+        );
+    }
+}
+
+#[test]
 fn direct_nuclear_plans_match_current_bytes_and_manifest_facts() {
     let generated_root = temp_path("legacy");
     let planned_root = temp_path("planned");

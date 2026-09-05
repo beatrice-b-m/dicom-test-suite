@@ -9,7 +9,9 @@ use serde_json::Value;
 use super::classic_ct::inspect_ct_capability;
 use super::classic_dx_mg::inspect_dx_mg_capability;
 use super::classic_mr_cr::{inspect_cr_capability, inspect_mr_capability};
-use super::classic_nuclear::{inspect_pet_capability, inspect_us_capability};
+use super::classic_nuclear::{
+    inspect_pet_capability, inspect_us_capability, inspect_us_multiframe_capability,
+};
 use super::codec_registry::{
     BACKENDS, TransferSyntaxBackendRegistry, encoding_provider_matches, recipe_encoding_provider_id,
 };
@@ -614,6 +616,8 @@ fn validate_classic_capability_contract(
     let cr = inspect_cr_capability(recipe).map_err(|error| semantic(path, error.to_string()))?;
     let mr = inspect_mr_capability(recipe).map_err(|error| semantic(path, error.to_string()))?;
     let us = inspect_us_capability(recipe).map_err(|error| semantic(path, error.to_string()))?;
+    let us_multiframe = inspect_us_multiframe_capability(recipe)
+        .map_err(|error| semantic(path, error.to_string()))?;
     let pet = inspect_pet_capability(recipe).map_err(|error| semantic(path, error.to_string()))?;
     let xa_xrf =
         inspect_xa_xrf_capability(recipe).map_err(|error| semantic(path, error.to_string()))?;
@@ -624,6 +628,7 @@ fn validate_classic_capability_contract(
         || cr.is_some()
         || mr.is_some()
         || us.is_some()
+        || us_multiframe.is_some()
         || pet.is_some()
         || xa_xrf.is_some()
         || photo.is_some()
@@ -1753,6 +1758,25 @@ fn validate_registry_bindings(
                     message: format!("{} has invalid US capability: {error}", case.case_id),
                 })?
                 .is_some();
+        let name_independent_us_multiframe = recipe.plan_provider_id == "native.classic_plan"
+            && inspect_us_multiframe_capability(recipe)
+                .map_err(|error| RecipeCatalogError::Completeness {
+                    message: format!(
+                        "{} has invalid US multi-frame capability: {error}",
+                        case.case_id
+                    ),
+                })?
+                .is_some();
+        if (name_independent_us || name_independent_us_multiframe)
+            && case.modality.as_deref() != Some("US")
+        {
+            return Err(RecipeCatalogError::Completeness {
+                message: format!(
+                    "{} registry modality contradicts US capability",
+                    case.case_id
+                ),
+            });
+        }
         let name_independent_pet = recipe.plan_provider_id == "native.classic_plan"
             && inspect_pet_capability(recipe)
                 .map_err(|error| RecipeCatalogError::Completeness {
@@ -1808,6 +1832,7 @@ fn validate_registry_bindings(
                 || name_independent_cr
                 || name_independent_mr
                 || name_independent_us
+                || name_independent_us_multiframe
                 || name_independent_pet
                 || name_independent_xa_xrf
                 || name_independent_photo

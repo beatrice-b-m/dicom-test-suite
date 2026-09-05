@@ -704,6 +704,8 @@ mod external_manifest_contract_tests {
             }
         }
         rebase(&mut expected);
+        expected["properties"]["expected_us_multiframe"]["$ref"] =
+            json!("#/$defs/expected_us_multiframe");
         assert_eq!(external["$defs"]["external_file"], expected);
         assert_eq!(
             external["properties"]["files"]["items"]["$ref"],
@@ -727,12 +729,17 @@ mod external_manifest_contract_tests {
                 "{key}"
             );
         }
+        let mut generic_schema = external["$defs"]["external_file"].clone();
+        generic_schema["$defs"] = json!({
+            "expected_us_multiframe": external["$defs"]["expected_us_multiframe"].clone(),
+            "expected_us_frame": external["$defs"]["expected_us_frame"].clone()
+        });
         let generic_validator = jsonschema::options()
             .with_resource(
                 LEGACY_MANIFEST_ID,
                 jsonschema::Resource::from_contents(legacy.clone()).unwrap(),
             )
-            .build(&external["$defs"]["external_file"])
+            .build(&generic_schema)
             .unwrap();
         let mut legacy_file = legacy.clone();
         legacy_file["$ref"] = json!("#/$defs/file");

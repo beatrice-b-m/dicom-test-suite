@@ -52,7 +52,8 @@ use crate::recipes::classic_mr_cr::{
     inspect_cr_capability, inspect_mr_capability, plan_mr_cr_recipe,
 };
 use crate::recipes::classic_nuclear::{
-    inspect_pet_capability, inspect_us_capability, plan_nuclear_recipe,
+    inspect_pet_capability, inspect_us_capability, inspect_us_multiframe_capability,
+    plan_nuclear_recipe,
 };
 use crate::recipes::classic_vl_projection::{
     inspect_vl_photo_capability, inspect_xa_xrf_capability, plan_vl_projection_recipe,
@@ -4607,6 +4608,24 @@ fn classic_requests(
         return Ok((requests, None, None));
     }
     if inspect_us_capability(recipe)
+        .map_err(|error| CuratedPlanError::ClassicPlan {
+            recipe_id: recipe.recipe_id.clone(),
+            message: error.to_string(),
+        })?
+        .is_some()
+    {
+        let requests = plan_nuclear_recipe(recipe, standards_lock_sha256, seed)
+            .map_err(|error| CuratedPlanError::ClassicPlan {
+                recipe_id: recipe.recipe_id.clone(),
+                message: error.to_string(),
+            })?
+            .ok_or_else(|| CuratedPlanError::ClassicProviderCardinality {
+                recipe_id: recipe.recipe_id.clone(),
+                matches: 0,
+            })?;
+        return Ok((requests, None, None));
+    }
+    if inspect_us_multiframe_capability(recipe)
         .map_err(|error| CuratedPlanError::ClassicPlan {
             recipe_id: recipe.recipe_id.clone(),
             message: error.to_string(),

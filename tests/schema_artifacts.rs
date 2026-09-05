@@ -1636,40 +1636,65 @@ fn manifest_schema_types_enhanced_pet_expectations() {
 
 #[test]
 fn manifest_schema_types_ultrasound_multiframe_expectations() {
-    let schema = read_json("schemas/manifest.schema.json");
+    let legacy = read_json("schemas/manifest.schema.json");
+    let schema = read_json("schemas/manifest-v2.schema.json");
     let us_schema = serde_json::json!({
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$ref": "#/$defs/expected_us_multiframe",
-        "$defs": schema["$defs"].clone(),
+        "$defs": {
+            "expected_us_multiframe": schema["$defs"]["expected_us_multiframe"].clone(),
+            "expected_us_frame": schema["$defs"]["expected_us_frame"].clone()
+        },
     });
     let validator =
         jsonschema::validator_for(&us_schema).expect("US expectation schema should compile");
-    let mut expectations = ultrasound_multiframe_expectations();
-    assert!(validator.is_valid(&expectations));
-
-    expectations["frame_increment_pointer"] = serde_json::json!("0018,1065");
-    expectations["frame_relative_times_ms"][2] = serde_json::json!(250.0);
-    expectations["frames"][1]["frame_number"] = serde_json::json!(3);
-    expectations["frames"][2]["frame_sha256"] =
-        serde_json::json!("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
-    expectations["frames"][3]["pixel_values"][13] = serde_json::json!(80);
-    expectations["spatially_related_frames"] = serde_json::json!(true);
-    expectations["color_data_present"] = serde_json::json!(true);
-    expectations["region_calibrated"] = serde_json::json!(true);
-    expectations["lossy_image_compression"] = serde_json::json!("01");
-    expectations["unexpected"] = serde_json::json!(true);
-    let errors = validator.iter_errors(&expectations).collect::<Vec<_>>();
-    assert!(
-        errors.len() >= 10,
-        "pointer, timing, frame order, hashes, pixels, explicit non-claims, loss history, and unknown fields must be rejected: {errors:?}"
-    );
+    let historical = ultrasound_multiframe_expectations();
+    assert!(validator.is_valid(&historical));
+    let caller = serde_json::json!({
+        "image_type": ["DERIVED", "SECONDARY", "CARDIAC", "CINE"],
+        "frame_increment_pointer": "0018,1063",
+        "frame_time_ms": 75.0,
+        "frame_relative_times_ms": [0.0, 75.0, 150.0],
+        "frame_count": 3,
+        "frames": [
+            {"frame_number": 1, "frame_sha256": "371b2950c0517824ea869b51a6cb3cfd72cc37e5cab5c8223796985ef192250d", "pixel_values": [1,3,5,7,9,11]},
+            {"frame_number": 2, "frame_sha256": "dcacc1c325e73a67b38405997345f18e77077abf9c2181da8f535ad103d776ce", "pixel_values": [2,4,6,8,10,12]},
+            {"frame_number": 3, "frame_sha256": "4c280421af2167fecfed261f9a7f2502280addb31183f83b180162bb61190ce5", "pixel_values": [12,10,8,6,4,2]}
+        ],
+        "spatially_related_frames": false,
+        "color_data_present": false,
+        "region_calibrated": false,
+        "lossy_image_compression": "00"
+    });
+    assert!(validator.is_valid(&caller));
+    for (pointer, value) in [
+        ("/image_type", serde_json::json!([])),
+        ("/frame_increment_pointer", serde_json::json!("0018,1065")),
+        ("/frame_time_ms", serde_json::json!(0)),
+        ("/frame_relative_times_ms/1", serde_json::json!(-1)),
+        ("/frame_count", serde_json::json!(1)),
+        ("/frames/0/frame_number", serde_json::json!(0)),
+        ("/frames/0/frame_sha256", serde_json::json!("bad")),
+        ("/frames/0/pixel_values/0", serde_json::json!(256)),
+        ("/spatially_related_frames", serde_json::json!(true)),
+        ("/color_data_present", serde_json::json!(true)),
+        ("/region_calibrated", serde_json::json!(true)),
+        ("/lossy_image_compression", serde_json::json!("01")),
+    ] {
+        let mut bad = caller.clone();
+        *bad.pointer_mut(pointer).unwrap() = value;
+        assert!(!validator.is_valid(&bad), "{pointer}");
+    }
+    let mut unexpected = caller.clone();
+    unexpected["unexpected"] = serde_json::json!(true);
+    assert!(!validator.is_valid(&unexpected));
 
     assert_eq!(
-        schema.pointer("/$defs/file/properties/expected_us_multiframe/$ref"),
+        schema.pointer("/$defs/external_file/properties/expected_us_multiframe/$ref"),
         Some(&Value::String("#/$defs/expected_us_multiframe".to_string()))
     );
 
-    let us_case_rule = schema
+    let us_case_rule = legacy
         .pointer("/$defs/file/allOf")
         .and_then(Value::as_array)
         .and_then(|rules| {

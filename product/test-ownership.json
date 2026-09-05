@@ -4,9 +4,9 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 277,
-    "rust_test_entries": 1502,
+    "rust_test_entries": 1506,
     "integration_source_groups": 189,
-    "integration_test_entries": 931,
+    "integration_test_entries": 933,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
   },
   "enums": {
@@ -563,13 +563,14 @@
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 3,
+      "entry_count": 4,
       "entries": [
         "nuclear_catalog_owns_exact_historical_slice",
         "nuclear_planning_is_output_free_strict_and_excludes_enhanced_pet",
+        "us_multiframe_planning_is_caller_owned_and_fail_closed",
         "direct_nuclear_plans_match_current_bytes_and_manifest_facts"
       ],
-      "entry_digest": "fcb4ab38058878bcf87af889f64edbb638e30d2f62220a9b9add8ea5c22c99cf"
+      "entry_digest": "2347b8c54fe3d99a21c7278a6906a69f2bc609c79689e0cf29b2d42e979c80f5"
     },
     {
       "source": "tests/classic_plan_contracts.rs",
@@ -1274,8 +1275,9 @@
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 31,
+      "entry_count": 32,
       "entries": [
+        "caller_owned_us_multiframe_fixture_is_admitted_by_structure",
         "external_ct_capability_is_name_independent_and_integrity_bound",
         "external_mr_capability_is_name_independent_and_registry_bound",
         "external_ct_capability_is_fail_closed_without_broadening_classic_names",
@@ -1308,7 +1310,7 @@
         "negative_and_fuzz_dependencies_cannot_cross_legacy_or_stress_boundaries",
         "excessive_undeclared_inventory_fails_without_buffering_all_names"
       ],
-      "entry_digest": "7850898b64efbde7bebfb97da27c789efa60e1cd92231f358b4d61c43297dbb4"
+      "entry_digest": "612340144a0ab0b178a1d28d51c245a11c30a4730efdefb26b93f5dd85f22306"
     },
     {
       "source": "tests/corpus_plan.rs",
@@ -1855,7 +1857,7 @@
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 16,
+      "entry_count": 17,
       "entries": [
         "loaded_capabilities_are_verified_destination_free_and_sdk_consistent",
         "caller_named_ct_cli_is_sdk_identical_strictly_valid_and_reported",
@@ -1870,11 +1872,12 @@
         "caller_named_cr_cli_is_sdk_identical_strictly_valid_and_reported",
         "caller_named_mr_cli_is_sdk_identical_strictly_valid_and_reported",
         "caller_named_us_cli_is_sdk_identical_strictly_valid_and_reported",
+        "caller_owned_us_multiframe_cli_sdk_and_report_are_identical",
         "caller_named_pet_cli_is_sdk_identical_strictly_valid_and_reported",
         "caller_named_xa_xrf_cli_is_sdk_identical_strictly_valid_and_reported",
         "caller_named_vl_photo_cli_is_sdk_identical_strictly_valid_and_reported"
       ],
-      "entry_digest": "302de96cdb449e4a4e9ce815ddc1204b1fb807dc2e56562c065d7769e3a87252"
+      "entry_digest": "b4888b5e2d3cd99d40f6c8bdbadb8687cd48db179564f8767da5ba149cf1c4f9"
     },
     {
       "source": "tests/frame_codec_service.rs",
@@ -2816,7 +2819,7 @@
         "manifest_schema_types_exact_rt_radiation_set_expectations",
         "manifest_schema_scopes_second_generation_rt_expectations_to_their_cases"
       ],
-      "entry_digest": "6910a92a239a49dea02604fa91962d55d5c9ffc2101bb4d5daceb9fe5bc89278",
+      "entry_digest": "9182c7133e9083b8568cdaf664cf714b53c67e3de76ecf1afd03cebf0f10994d",
       "fast_cost_exemption": "Static JSON Schema validation; WSI names do not generate a corpus."
     },
     {
@@ -3218,7 +3221,7 @@
         "us_multiframe_vertical_slice_is_exact_byte_stable_and_reported",
         "validator_rejects_tampered_us_multiframe_contract"
       ],
-      "entry_digest": "14c33bd9521c9ff87fa219da96471edf93e3057f11fad7cbfb64c27f48dda887"
+      "entry_digest": "f5b3d290d9d9d256e67ff61e63124f30f6d37acb1d8800600aeefc0641ed6629"
     },
     {
       "source": "tests/validate_cli.rs",
@@ -3821,18 +3824,6 @@
       "entry_digest": "de9e11f3c7d71aa86175cc92c76a66c61c086aac816cf474503e5bdf7a37167e"
     },
     {
-      "source": "src/curated_manifest.rs",
-      "target": "synth_dicom_gen",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem",
-      "cost_tier": "ordinary",
-      "entry_count": 1,
-      "entries": [
-        "pyramid_projection_uses_typed_complete_independent_groups"
-      ],
-      "entry_digest": "6c5845441e34c45e4790b0f7b5d7aadf6b29b67b2c41ca8c643448924a33df43"
-    },
-    {
       "source": "src/curated_manifest/qualification.rs",
       "target": "synth_dicom_gen",
       "domain": "corpus_generation",
@@ -3845,6 +3836,30 @@
         "fails_closed_on_unverified_actual_identity"
       ],
       "entry_digest": "e6b2f43f782a3425a17ef8b5e9514c40871572b6527dd71b7b2a20869693fb7e"
+    },
+    {
+      "source": "src/curated_manifest/stress.rs",
+      "target": "synth_dicom_gen",
+      "domain": "corpus_generation",
+      "verification_class": "nightly",
+      "cost_tier": "heavy",
+      "entry_count": 1,
+      "entries": [
+        "stress_projection_requires_captured_typed_complete_evidence"
+      ],
+      "entry_digest": "39e4eed85779655184c948f32e8ee039e8242076c7a4020e78b800d4429f7e4b"
+    },
+    {
+      "source": "src/curated_manifest.rs",
+      "target": "synth_dicom_gen",
+      "domain": "corpus_generation",
+      "verification_class": "subsystem",
+      "cost_tier": "ordinary",
+      "entry_count": 1,
+      "entries": [
+        "pyramid_projection_uses_typed_complete_independent_groups"
+      ],
+      "entry_digest": "6c5845441e34c45e4790b0f7b5d7aadf6b29b67b2c41ca8c643448924a33df43"
     },
     {
       "source": "src/curated_plan.rs",
@@ -3894,7 +3909,7 @@
         "mutation_of_an_internal_shared_root_fails_closed_on_reuse",
         "one_handle_reuses_one_tree_across_batch_generate_validate_report_and_compose"
       ],
-      "entry_digest": "5d8f476f0a5ce15fbfecd5fe2f1a35ab1ee8bad11ab721515dc0525bc409dc66"
+      "entry_digest": "935567d6263d3ce664a7faed6c4fca5b197661c8b23c6ca69fcfde42fd5d717e"
     },
     {
       "source": "src/executor/evidence.rs",
@@ -4221,7 +4236,7 @@
         "cargo_lock_perturbation_changes_only_toolchain_and_legacy_provenance",
         "external_runtime_identity_requires_successful_typed_execution_evidence"
       ],
-      "entry_digest": "80026cdca0ba78b965463b9d0b9750c849b6b001a90d3a451cb23b2ae4ba7060"
+      "entry_digest": "175b6e5b78441ae9798157c7240d9552030cbaa7f85f1a7bb76702c8db6e5a24"
     },
     {
       "source": "src/lib.rs",
@@ -4229,8 +4244,9 @@
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 76,
+      "entry_count": 77,
       "entries": [
+        "us_multiframe_frame_slicing_is_checked_and_linear_at_u16_cardinality",
         "strict_eot_contract_compares_ov_values_and_padding_sensitive_offsets",
         "eot_report_projection_requires_the_exact_case_scoped_oracle",
         "vl_single_frame_manifest_contract_is_exact_and_case_scoped",
@@ -4308,7 +4324,7 @@
         "encapsulated_stl_manifest_contract_is_exact_and_case_scoped",
         "encapsulated_stl_report_projects_payload_geometry_and_grouped_evidence"
       ],
-      "entry_digest": "b1731573c2b8f129bb4339c9dd4d7aeee50ff58f96e6b0a8b50be26ad9d9a0d9"
+      "entry_digest": "4e7d142a634f284553f667d0f24fa0665edb6873833cb802efb40a93e837c2f8"
     },
     {
       "source": "src/manifest_contract.rs",
@@ -4326,7 +4342,7 @@
         "dependency_graph_is_closed_acyclic_and_reachable",
         "runtime_ids_remain_unique"
       ],
-      "entry_digest": "a3c3c49a45498eb848466c83865380085c7372aac670fc2a2e14fdd6d0260ac7"
+      "entry_digest": "e9a36190f504314245dc71043ba142a2ba6c8d94e11a2da3bfa35708318670da"
     },
     {
       "source": "src/media.rs",
@@ -4725,6 +4741,19 @@
       "entry_digest": "8aa8cf8bd714294a784fb248d44256a16623ac98946dc2e2a317c39aec78cea9"
     },
     {
+      "source": "src/validation_wsi_reduced_reader_tests.rs",
+      "target": "synth_dicom_gen",
+      "domain": "standards_validation",
+      "verification_class": "nightly",
+      "cost_tier": "heavy",
+      "entry_count": 2,
+      "entries": [
+        "reduced_wsi_context_requires_source_projected_complete_evidence",
+        "reduced_wsi_reopened_context_preserves_payload_checks"
+      ],
+      "entry_digest": "d01ae46e3b8324044e64eaae77880ab889c0e6de16e16c1149954fc7d22f74d0"
+    },
+    {
       "source": "src/validation_wsi_tile_segmentation_tests.rs",
       "target": "synth_dicom_gen",
       "domain": "standards_validation",
@@ -4781,31 +4810,6 @@
         "general_ecg_contract_serializes_exact_ordered_groups"
       ],
       "entry_digest": "96a42f770446f349a15f2ed62cb8f2c192522c5877761b3e2322940f4f69c4a5"
-    },
-    {
-      "source": "src/curated_manifest/stress.rs",
-      "target": "synth_dicom_gen",
-      "domain": "corpus_generation",
-      "verification_class": "subsystem",
-      "cost_tier": "ordinary",
-      "entry_count": 1,
-      "entries": [
-        "stress_projection_requires_captured_typed_complete_evidence"
-      ],
-      "entry_digest": "39e4eed85779655184c948f32e8ee039e8242076c7a4020e78b800d4429f7e4b"
-    },
-    {
-      "source": "src/validation_wsi_reduced_reader_tests.rs",
-      "target": "synth_dicom_gen",
-      "domain": "standards_validation",
-      "verification_class": "subsystem",
-      "cost_tier": "ordinary",
-      "entry_count": 2,
-      "entries": [
-        "reduced_wsi_context_requires_source_projected_complete_evidence",
-        "reduced_wsi_reopened_context_preserves_payload_checks"
-      ],
-      "entry_digest": "d01ae46e3b8324044e64eaae77880ab889c0e6de16e16c1149954fc7d22f74d0"
     }
   ]
 }

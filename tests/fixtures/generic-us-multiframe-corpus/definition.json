@@ -1,0 +1,35 @@
+{
+  "corpus_definition_bundle_schema_version": "1.0.0",
+  "definition_id": "fixture.generic-us-multiframe",
+  "definition_version": "1.0.0",
+  "profiles": [
+    { "profile_id": "smoke", "scope": "valid", "members": [] },
+    { "profile_id": "core", "scope": "valid", "members": ["caller/acquisition/cardiac-cine"] },
+    { "profile_id": "extended", "scope": "valid", "members": [] },
+    { "profile_id": "legacy", "scope": "legacy", "members": [] },
+    { "profile_id": "stress", "scope": "stress", "members": [] },
+    { "profile_id": "negative", "scope": "expected_invalid", "members": [] },
+    { "profile_id": "fuzz", "scope": "fuzz", "members": [] },
+    { "profile_id": "all", "scope": "valid", "union_of": ["smoke", "core", "extended"], "optional_profile": "stress", "members": [] }
+  ],
+  "registry": {
+    "path": "cases/registry.json",
+    "size_bytes": 2504,
+    "sha256": "ac614bf82f96ecf82a71c31072c43875595ccc0981154ed9efdc4c1a85de528f"
+  },
+  "cases": [{
+    "case_id": "caller/acquisition/cardiac-cine",
+    "recipe_id": "caller_ultrasound_cine",
+    "recipe_version": "0.1.0",
+    "recipe": {
+      "path": "cases/recipes/caller_ultrasound_cine.json",
+      "size_bytes": 3794,
+      "sha256": "7b71ff71e1033a6b4b5d8bb042ee29f8254324d753e7c4045cf1c5b313bb90cb"
+    },
+    "dependencies": [],
+    "evidence_ids": [],
+    "asset_ids": []
+  }],
+  "evidence": [],
+  "assets": []
+}

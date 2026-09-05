@@ -14,6 +14,8 @@ mod generic_pet_bundle;
 mod generic_sc_bundle;
 #[path = "support/generic_us_bundle.rs"]
 mod generic_us_bundle;
+#[path = "support/generic_us_multiframe_bundle.rs"]
+mod generic_us_multiframe_bundle;
 #[path = "support/generic_vl_photo_bundle.rs"]
 mod generic_vl_photo_bundle;
 #[path = "support/generic_xa_xrf_bundle.rs"]
@@ -2036,6 +2038,131 @@ fn caller_named_us_cli_is_sdk_identical_strictly_valid_and_reported() {
             );
         }
     }
+}
+
+#[test]
+fn caller_owned_us_multiframe_cli_sdk_and_report_are_identical() {
+    let f = generic_us_multiframe_bundle::GenericUsMultiframeBundle::new();
+    let command = |args: &[String]| {
+        let raw = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
+            .args(args)
+            .current_dir(&f.root)
+            .env("PATH", "")
+            .output()
+            .unwrap();
+        assert!(
+            raw.status.success(),
+            "{}",
+            String::from_utf8_lossy(&raw.stderr)
+        );
+        assert!(raw.stderr.is_empty());
+        let value: Value = serde_json::from_slice(&raw.stdout).unwrap();
+        valid("cli-success-envelope.schema.json", &value);
+        value
+    };
+    let product = DicomTestSuite::embedded().unwrap();
+    let cli = command(&f.args("generate", Some("cli-output")));
+    valid("generation-result-v3.schema.json", &cli["result"]);
+    assert_eq!(cli["result"]["validation_status"], "passed");
+    let cli_manifest_bytes = fs::read(f.root.join("cli-output/manifest.json")).unwrap();
+    let cli_manifest: Value = serde_json::from_slice(&cli_manifest_bytes).unwrap();
+    valid("manifest-v2.schema.json", &cli_manifest);
+    generic_us_multiframe_bundle::assert_manifest(&cli_manifest);
+    generic_us_multiframe_bundle::assert_payload(
+        &f.root.join("cli-output/independent/caller-cine.dcm"),
+    );
+
+    let GenerateCorpusOutcome::Published(sdk) = product
+        .generate_corpus(
+            GenerateCorpusRequest::from_file(
+                &f.descriptor,
+                &f.members,
+                f.root.join("sdk-output"),
+                generic_us_multiframe_bundle::selector(),
+            )
+            .with_seed(1)
+            .with_parallelism(4),
+        )
+        .unwrap()
+    else {
+        panic!("caller-owned US multiframe must publish")
+    };
+    assert_eq!(sdk.manifest().deserialize::<Value>().unwrap(), cli_manifest);
+    assert_eq!(
+        fs::read(sdk.output_root().join("manifest.json")).unwrap(),
+        cli_manifest_bytes
+    );
+    assert_eq!(
+        fs::read(sdk.output_root().join("independent/caller-cine.dcm")).unwrap(),
+        fs::read(f.root.join("cli-output/independent/caller-cine.dcm")).unwrap()
+    );
+    generic_us_multiframe_bundle::assert_payload(
+        &sdk.output_root().join("independent/caller-cine.dcm"),
+    );
+
+    let validation = command(&["validate", "cli-output", "--format", "json"].map(str::to_owned));
+    valid("validation-result.schema.json", &validation["result"]);
+    assert_eq!(validation["result"]["valid"], true);
+    assert_eq!(validation["result"]["files_checked"], 1);
+    let sdk_validation = product
+        .validate(ValidateRequest::new(sdk.output_root()))
+        .unwrap();
+    assert!(sdk_validation.is_valid());
+
+    let report = command(
+        &[
+            "report",
+            "cli-output",
+            "--format",
+            "json",
+            "--cli-api",
+            "1.0.0",
+        ]
+        .map(str::to_owned),
+    );
+    valid("report-result-v2.schema.json", &report["result"]);
+    valid(
+        "coverage-report-v2.schema.json",
+        &report["result"]["report"],
+    );
+    generic_us_multiframe_bundle::assert_report(&report["result"]["report"]);
+    assert_eq!(
+        product
+            .report(ReportRequest::new(sdk.output_root()))
+            .unwrap()
+            .deserialize::<Value>()
+            .unwrap(),
+        report["result"]["report"]
+    );
+
+    let payload_path = f.root.join("cli-output/independent/caller-cine.dcm");
+    let mut padded = fs::read(&payload_path).unwrap();
+    assert_eq!(
+        padded.last(),
+        Some(&0),
+        "odd Pixel Data must have a zero pad byte"
+    );
+    *padded.last_mut().unwrap() = 0x7f;
+    fs::write(&payload_path, &padded).unwrap();
+    let mut pad_corrupt_manifest = cli_manifest.clone();
+    pad_corrupt_manifest["files"][0]["sha256"] = synth_dicom_gen::sha256_hex(&padded).into();
+    fs::write(
+        f.root.join("cli-output/manifest.json"),
+        serde_json::to_vec(&pad_corrupt_manifest).unwrap(),
+    )
+    .unwrap();
+    let pad_validation = product
+        .validate(ValidateRequest::new(f.root.join("cli-output")))
+        .unwrap();
+    assert!(!pad_validation.is_valid());
+    assert!(
+        pad_validation
+            .failures()
+            .iter()
+            .any(|failure| failure.contains("pixel_padding")),
+        "{:?}",
+        pad_validation.failures()
+    );
 }
 
 #[test]

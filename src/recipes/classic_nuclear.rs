@@ -46,11 +46,20 @@ pub struct ClassicNuclearProviderParameters {
     #[serde(default)]
     pub body_part_examined: Option<String>,
     pub manufacturer: String,
+    #[serde(default)]
+    pub manufacturer_model_name: Option<String>,
     pub software_versions: String,
     pub acquisition_number: String,
     pub acquisition_date: String,
     pub acquisition_time: String,
     pub instance_number: String,
+}
+
+/// Fully decoded native US multi-frame capability, selected without names.
+#[derive(Debug, Clone)]
+pub(crate) struct UsMultiframeCapability {
+    pub provider: ClassicNuclearProviderParameters,
+    pub parameters: ClassicNuclearArtifactParameters,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -429,6 +438,215 @@ pub(crate) fn inspect_us_capability(
     Ok(Some(parameters))
 }
 
+/// Inspect the complete native US multi-frame tuple without consulting caller
+/// case names, recipe names, paths, or planning order as selectors.
+pub(crate) fn inspect_us_multiframe_capability(
+    recipe: &CaseRecipe,
+) -> Result<Option<UsMultiframeCapability>, ClassicNuclearPlanError> {
+    let Some(dicom) = &recipe.dicom else {
+        return Ok(None);
+    };
+    let declared = dicom.artifacts.iter().any(|artifact| {
+        artifact
+            .template
+            .as_ref()
+            .is_some_and(|template| template.template_id == "classic/ultrasound/multiframe")
+            || artifact.parameters.get("family").and_then(Value::as_str)
+                == Some("ultrasound_multiframe")
+    });
+    if !declared {
+        return Ok(None);
+    }
+    if dicom.artifacts.len() != 1 {
+        return Err(contract("US multi-frame requires one artifact"));
+    }
+    let artifact = &dicom.artifacts[0];
+    let has = |values: &[String], expected: &str| values.len() == 1 && values[0] == expected;
+    if recipe.kind != super::RecipeKind::Dicom
+        || recipe.plan_provider_id != PLAN_PROVIDER
+        || recipe.planning_order.is_none()
+        || recipe.projection_order.is_none()
+        || recipe.mutation.is_some()
+        || recipe.qualification.is_some()
+        || !recipe.dependencies.is_empty()
+        || !has(&recipe.validation_rule_ids, "validation.shared")
+        || !has(&recipe.projection_rule_ids, "projection.curated")
+        || artifact.logical_id.is_empty()
+        || artifact.order != 0
+        || artifact.output.role.is_empty()
+        || artifact.output.path.is_none()
+        || artifact.output.provider_derived == Some(true)
+        || artifact.public_profile_membership.is_some()
+        || artifact.template.as_ref().is_none_or(|template| {
+            template.template_id != "classic/ultrasound/multiframe"
+                || template.template_version != "1.0.0"
+        })
+        || artifact.content.provider_id != CONTENT_PROVIDER
+        || !artifact.content.parameters.is_empty()
+        || artifact.algorithm_provider_id.as_deref() != Some(ALGORITHM_PROVIDER)
+        || artifact
+            .classic_projection
+            .as_ref()
+            .is_none_or(|projection| {
+                projection.family != super::ClassicProjectionFamily::Nuclear
+                    || projection.mr.is_some()
+                    || projection.icc.is_some()
+                    || projection.semantic_labels.is_some()
+                    || projection.include_implementation_version_name
+            })
+        || !artifact.attribute_operations.is_empty()
+        || artifact.secondary_capture.is_some()
+        || artifact.metadata_sc.is_some()
+        || artifact.nonsquare_geometry.is_some()
+        || !has(&artifact.validation_rule_ids, "validation.shared")
+        || !has(&artifact.projection_rule_ids, "projection.curated")
+        || artifact.encoding.transfer_syntax_uid != "1.2.840.10008.1.2.1"
+        || artifact
+            .encoding
+            .non_template_encoding_provider_id
+            .is_some()
+        || artifact.encoding.fragments_per_frame.is_some()
+        || artifact.encoding.sequence_length_policy != "default"
+        || artifact.encoding.item_length_policy != "default"
+        || artifact.encoding.offset_table_policy != "none"
+        || artifact.encoding.fragmentation_policy != "native"
+        || artifact.encoding.preamble_policy.as_deref() != Some("zero_filled")
+        || artifact.encoding.file_meta_policy.as_deref() != Some("standard")
+    {
+        return Err(contract("complete native US multi-frame tuple required"));
+    }
+    OutputRelativePath::new(
+        artifact
+            .output
+            .path
+            .clone()
+            .expect("checked US multi-frame path"),
+    )?;
+    let provider: ClassicNuclearProviderParameters = decode(
+        Value::Object(recipe.provider_parameters.clone()),
+        "provider_parameters",
+    )?;
+    let historical_missing_model = recipe.recipe_id == "classic_us_multiframe_explicit_le"
+        && recipe.binding.case_id == "classic/us/multiframe_explicit_le"
+        && recipe.planning_order == Some(402)
+        && provider.manufacturer_model_name.is_none();
+    let required = [
+        provider.patient_name.as_str(),
+        provider.patient_id.as_str(),
+        provider.patient_birth_date.as_str(),
+        provider.patient_sex.as_str(),
+        provider.study_date.as_str(),
+        provider.study_time.as_str(),
+        provider.study_id.as_str(),
+        provider.series_number.as_str(),
+        provider.manufacturer.as_str(),
+        provider.software_versions.as_str(),
+        provider.acquisition_number.as_str(),
+        provider.acquisition_date.as_str(),
+        provider.acquisition_time.as_str(),
+        provider.instance_number.as_str(),
+    ];
+    if required.iter().any(|value| value.is_empty())
+        || provider.modality != "US"
+        || provider
+            .body_part_examined
+            .as_deref()
+            .is_none_or(str::is_empty)
+        || provider
+            .manufacturer_model_name
+            .as_deref()
+            .is_none_or(str::is_empty)
+            && !historical_missing_model
+        || provider.series_date.as_deref().is_some_and(str::is_empty)
+        || provider.series_time.as_deref().is_some_and(str::is_empty)
+        || !provider
+            .instance_number
+            .parse::<u64>()
+            .is_ok_and(|value| value > 0)
+    {
+        return Err(contract("bounded US multi-frame provider contract"));
+    }
+    let parameters: ClassicNuclearArtifactParameters = decode(
+        Value::Object(artifact.parameters.clone()),
+        "artifact parameters",
+    )?;
+    let ClassicNuclearArtifactParameters::UltrasoundMultiframe {
+        pixels,
+        image_type,
+        frame_increment_pointer,
+        frame_time_ms,
+        frame_relative_times_ms,
+        payload_sha256,
+        lossy_image_compression,
+        color_data_present,
+        spatially_related_frames,
+        region_calibrated,
+    } = &parameters
+    else {
+        return Err(contract("US multi-frame parameters required"));
+    };
+    let frame_size = usize::from(pixels.rows)
+        .checked_mul(usize::from(pixels.columns))
+        .ok_or_else(|| contract("US multi-frame dimensions overflow"))?;
+    let count = frame_size
+        .checked_mul(
+            usize::try_from(pixels.frames)
+                .map_err(|_| contract("US multi-frame count overflow"))?,
+        )
+        .ok_or_else(|| contract("US multi-frame count overflow"))?;
+    if pixels.rows == 0
+        || pixels.columns == 0
+        || pixels.frames < 2
+        || pixels.frames > u32::from(u16::MAX)
+        || pixels.stored_value_type != "u8"
+        || pixels.stored_values.len() != count
+        || pixels
+            .stored_values
+            .iter()
+            .any(|value| !(0..=255).contains(value))
+        || pixels.stored_values.iter().min().copied() != Some(pixels.pixel_min)
+        || pixels.stored_values.iter().max().copied() != Some(pixels.pixel_max)
+        || pixels.frame_sha256.len() != pixels.frames as usize
+        || image_type.is_empty()
+        || image_type.len() > 16
+        || image_type.iter().any(String::is_empty)
+        || frame_increment_pointer != "0018,1063"
+        || *frame_time_ms == 0
+        || frame_relative_times_ms.len() != pixels.frames as usize
+        || lossy_image_compression != "00"
+        || *color_data_present
+        || *spatially_related_frames
+        || *region_calibrated
+    {
+        return Err(contract("bounded US multi-frame pixels and semantics"));
+    }
+    for (index, relative) in frame_relative_times_ms.iter().enumerate() {
+        let expected = u32::try_from(index)
+            .ok()
+            .and_then(|index| index.checked_mul(*frame_time_ms));
+        if expected != Some(*relative) {
+            return Err(contract("US multi-frame relative timing"));
+        }
+    }
+    let bytes = pixels
+        .stored_values
+        .iter()
+        .map(|value| *value as u8)
+        .collect::<Vec<_>>();
+    if crate::sha256_hex(&bytes) != *payload_sha256
+        || bytes
+            .chunks(frame_size)
+            .map(crate::sha256_hex)
+            .ne(pixels.frame_sha256.iter().cloned())
+    {
+        return Err(contract("US multi-frame pixel hashes"));
+    }
+    Ok(Some(UsMultiframeCapability {
+        provider,
+        parameters,
+    }))
+}
+
 pub(crate) fn inspect_pet_capability(
     recipe: &CaseRecipe,
 ) -> Result<Option<ClassicNuclearArtifactParameters>, ClassicNuclearPlanError> {
@@ -530,9 +748,12 @@ pub fn plan_nuclear_recipe(
     seed: u64,
 ) -> Result<Option<Vec<ClassicInstanceRequest>>, ClassicNuclearPlanError> {
     let native_us = inspect_us_capability(recipe)?.is_some();
+    let native_us_multiframe = inspect_us_multiframe_capability(recipe)?;
     let native_pet = inspect_pet_capability(recipe)?.is_some();
     let Some(family) = (if native_us {
         Some(Family::UltrasoundSingle)
+    } else if native_us_multiframe.is_some() {
+        Some(Family::UltrasoundMultiframe)
     } else if native_pet {
         Some(Family::Pet)
     } else {
@@ -546,6 +767,7 @@ pub fn plan_nuclear_recipe(
         ));
     }
     if !native_us
+        && native_us_multiframe.is_none()
         && !native_pet
         && !(400..=404).contains(
             &recipe
@@ -557,20 +779,30 @@ pub fn plan_nuclear_recipe(
             "owned nuclear planning_order is outside 400..=404",
         ));
     }
-    let provider: ClassicNuclearProviderParameters = decode(
-        Value::Object(recipe.provider_parameters.clone()),
-        "provider_parameters",
-    )?;
+    let provider: ClassicNuclearProviderParameters = if let Some(capability) = &native_us_multiframe
+    {
+        capability.provider.clone()
+    } else {
+        decode(
+            Value::Object(recipe.provider_parameters.clone()),
+            "provider_parameters",
+        )?
+    };
     let artifact = recipe
         .dicom
         .as_ref()
         .and_then(|dicom| (dicom.artifacts.len() == 1).then(|| &dicom.artifacts[0]))
         .ok_or_else(|| contract("owned nuclear recipe requires exactly one artifact"))?;
     validate_artifact(artifact, family)?;
-    let parameters: ClassicNuclearArtifactParameters = decode(
-        Value::Object(artifact.parameters.clone()),
-        "artifact parameters",
-    )?;
+    let parameters: ClassicNuclearArtifactParameters = native_us_multiframe
+        .map(|capability| capability.parameters)
+        .map(Ok)
+        .unwrap_or_else(|| {
+            decode(
+                Value::Object(artifact.parameters.clone()),
+                "artifact parameters",
+            )
+        })?;
     if family_of_parameters(&parameters) != family {
         return Err(contract("case binding and typed nuclear family differ"));
     }
@@ -615,7 +847,12 @@ pub fn plan_nuclear_recipe(
         frame_of_reference,
         equipment: EquipmentModuleInput {
             manufacturer: ElementPresence::Value(provider.manufacturer.clone()),
-            manufacturer_model_name: ElementPresence::Value(recipe.recipe_id.clone()),
+            manufacturer_model_name: ElementPresence::Value(
+                provider
+                    .manufacturer_model_name
+                    .clone()
+                    .unwrap_or_else(|| recipe.recipe_id.clone()),
+            ),
             software_versions: ElementPresence::Value(provider.software_versions.clone()),
         },
         image: ImageModuleInput {

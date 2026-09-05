@@ -7717,7 +7717,8 @@ fn validate_floating_manifest_image_pixel_data(
         * usize::from(columns)
         * usize::from(samples_per_pixel)
         * spec.bytes_per_sample;
-    let expected_value_length = frame_length * usize::from(frames);
+    let semantic_value_length = frame_length * usize::from(frames);
+    let expected_value_length = semantic_value_length + (semantic_value_length % 2);
     validate_equal(
         failures,
         relative_path,
@@ -7738,7 +7739,16 @@ fn validate_floating_manifest_image_pixel_data(
         expected_value_length as u64,
     );
     if pixel_bytes.len() == expected_value_length {
-        for (frame_index, frame) in pixel_bytes.chunks_exact(frame_length).enumerate() {
+        if expected_value_length != semantic_value_length
+            && pixel_bytes.get(semantic_value_length).copied() != Some(0)
+        {
+            failures.push(format!(
+                "{relative_path}: {}_padding: expected zero pad byte",
+                spec.pixel_check
+            ));
+        }
+        let semantic_bytes = &pixel_bytes[..semantic_value_length];
+        for (frame_index, frame) in semantic_bytes.chunks_exact(frame_length).enumerate() {
             let expected_hash = frame_hashes
                 .get(frame_index)
                 .and_then(Value::as_str)
@@ -7827,21 +7837,25 @@ fn validate_native_pixel_data_manifest(
         "photometric_interpretation must be a string",
     )?;
     let bytes_per_sample = usize::from(bits_allocated).div_ceil(8);
-    let expected_native_length = if bits_allocated == 1 {
+    let (expected_native_length, semantic_native_length) = if bits_allocated == 1 {
         let value_bits = usize::from(rows)
             * usize::from(columns)
             * usize::from(frames)
             * usize::from(samples_per_pixel);
         let value_length = value_bits.div_ceil(8);
-        value_length + (value_length % 2)
+        let padded = value_length + (value_length % 2);
+        (padded, padded)
     } else if photometric == "YBR_FULL_422" {
-        usize::from(rows) * usize::from(columns) * usize::from(frames) * 2 * bytes_per_sample
+        let length =
+            usize::from(rows) * usize::from(columns) * usize::from(frames) * 2 * bytes_per_sample;
+        (length, length)
     } else {
-        usize::from(rows)
+        let semantic = usize::from(rows)
             * usize::from(columns)
             * usize::from(frames)
             * usize::from(samples_per_pixel)
-            * bytes_per_sample
+            * bytes_per_sample;
+        (semantic + (semantic % 2), semantic)
     };
     validate_equal(
         failures,
@@ -7851,9 +7865,19 @@ fn validate_native_pixel_data_manifest(
         expected_native_length,
     );
 
+    if expected_native_length != semantic_native_length
+        && pixel_bytes.get(semantic_native_length).copied() != Some(0)
+    {
+        failures.push(format!(
+            "{relative_path}: native_pixel_data_padding: expected zero pad byte"
+        ));
+    }
     if bits_allocated != 1 && expected_native_length == pixel_bytes.len() && frames > 0 {
-        let frame_length = expected_native_length / usize::from(frames);
-        for (frame_index, frame) in pixel_bytes.chunks_exact(frame_length).enumerate() {
+        let frame_length = semantic_native_length / usize::from(frames);
+        for frame_index in 0..usize::from(frames) {
+            let Some(frame) = native_frame_slice(pixel_bytes, frame_length, frame_index) else {
+                break;
+            };
             let expected_hash = frame_hashes
                 .get(frame_index)
                 .and_then(Value::as_str)
@@ -10861,28 +10885,6 @@ fn validate_ultrasound_multiframe_standard_elements(
     file: &Value,
     obj: &OpenedObject,
 ) -> Result<(), ValidateError> {
-    const LOCKED_IMAGE_TYPE: [&str; 4] = ["ORIGINAL", "PRIMARY", "ABDOMINAL", "0001"];
-    const LOCKED_FRAME_HASHES: [&str; 4] = [
-        "be422fa58b70ec0d940f28a4dba3dadac62d4583b9ecba1e73d65b37ee9733e7",
-        "303d53edfa9bf6eeeb81dba8a6a4c1a9c2e1cb0ea773f90afb583d1132d88eee",
-        "7f8a6e2fa2665b2465075b9e0cf86dfb0646f6f21a2a647525476e5bb6e489bb",
-        "8c213da26d1c57661b68238ac5c1f1d9417f661e0ab578846bf84040e753f650",
-    ];
-    const LOCKED_FRAMES: [[u16; 16]; 4] = [
-        [
-            0, 16, 32, 48, 16, 64, 80, 64, 32, 80, 255, 80, 48, 64, 80, 64,
-        ],
-        [
-            0, 16, 32, 48, 16, 64, 80, 64, 32, 80, 80, 255, 48, 64, 80, 80,
-        ],
-        [
-            0, 16, 32, 48, 16, 64, 80, 64, 32, 80, 80, 80, 48, 64, 255, 80,
-        ],
-        [
-            0, 16, 32, 48, 16, 64, 80, 64, 32, 80, 80, 80, 48, 255, 80, 64,
-        ],
-    ];
-
     let expected = file
         .pointer("/expected_us_multiframe")
         .ok_or(ValidateError::ManifestShape {
@@ -10896,13 +10898,11 @@ fn validate_ultrasound_multiframe_standard_elements(
         "/image_type",
         "US multi-frame image_type must be a string array",
     )?;
-    validate_equal_debug(
-        failures,
-        relative_path,
-        "us_multiframe_image_type_manifest_contract",
-        image_type.clone(),
-        LOCKED_IMAGE_TYPE.map(str::to_string).to_vec(),
-    );
+    if image_type.is_empty() || image_type.len() > 16 || image_type.iter().any(String::is_empty) {
+        failures.push(format!(
+            "{relative_path}: us_multiframe_image_type_manifest_contract: expected nonempty bounded values"
+        ));
+    }
     let image_type_string = image_type.join("\\");
     validate_equal(
         failures,
@@ -10931,13 +10931,11 @@ fn validate_ultrasound_multiframe_standard_elements(
         "/expected_semantics/body_part_examined",
         "US multi-frame expected_semantics body_part_examined must be a string",
     )?;
-    validate_equal(
-        failures,
-        relative_path,
-        "us_multiframe_body_part_examined_manifest_contract",
-        body_part_examined,
-        "ABDOMEN",
-    );
+    if body_part_examined.is_empty() {
+        failures.push(format!(
+            "{relative_path}: us_multiframe_body_part_examined_manifest_contract: expected nonempty value"
+        ));
+    }
     match element_str_for_validate(obj, tags::BODY_PART_EXAMINED) {
         Ok(actual) => validate_equal(
             failures,
@@ -10964,13 +10962,12 @@ fn validate_ultrasound_multiframe_standard_elements(
         "/frame_count",
         "US multi-frame frame_count must be an integer",
     )?;
-    validate_equal(
-        failures,
-        relative_path,
-        "us_multiframe_frame_count_manifest_contract",
-        frame_count,
-        4,
-    );
+    if !(2..=u64::from(u16::MAX)).contains(&frame_count) {
+        failures.push(format!(
+            "{relative_path}: us_multiframe_frame_count_manifest_contract: expected 2..={} frames",
+            u16::MAX
+        ));
+    }
     for (pointer, name) in [
         (
             "/image/frames",
@@ -11000,7 +10997,7 @@ fn validate_ultrasound_multiframe_standard_elements(
         obj,
         tags::NUMBER_OF_FRAMES,
         "us_multiframe_number_of_frames",
-        frame_count as u16,
+        u16::try_from(frame_count).unwrap_or(0),
     );
 
     let pointer = manifest_str(
@@ -11042,13 +11039,11 @@ fn validate_ultrasound_multiframe_standard_elements(
         "/frame_time_ms",
         "US multi-frame frame_time_ms must be numeric",
     )?;
-    validate_equal(
-        failures,
-        relative_path,
-        "us_multiframe_frame_time_manifest_contract",
-        frame_time,
-        100.0,
-    );
+    if !frame_time.is_finite() || frame_time <= 0.0 {
+        failures.push(format!(
+            "{relative_path}: us_multiframe_frame_time_manifest_contract: expected positive finite value"
+        ));
+    }
     match element_f64_for_validate(obj, tags::FRAME_TIME) {
         Ok(actual) => validate_equal(
             failures,
@@ -11168,32 +11163,41 @@ fn validate_ultrasound_multiframe_standard_elements(
         ));
     }
 
-    for (pointer, name, locked) in [
-        ("/image/rows", "us_multiframe_rows_manifest_contract", 4),
-        (
-            "/image/columns",
-            "us_multiframe_columns_manifest_contract",
-            4,
-        ),
-        (
-            "/pixel_data/value_length",
-            "us_multiframe_value_length_manifest_contract",
-            64,
-        ),
-    ] {
-        validate_equal(
-            failures,
-            relative_path,
-            name,
-            manifest_u64(
-                manifest_path,
-                file,
-                pointer,
-                "US multi-frame image contract must be an integer",
-            )?,
-            locked,
-        );
+    let rows = manifest_u64(
+        manifest_path,
+        file,
+        "/image/rows",
+        "US multi-frame rows must be an integer",
+    )?;
+    let columns = manifest_u64(
+        manifest_path,
+        file,
+        "/image/columns",
+        "US multi-frame columns must be an integer",
+    )?;
+    if rows == 0 || rows > u64::from(u16::MAX) || columns == 0 || columns > u64::from(u16::MAX) {
+        failures.push(format!(
+            "{relative_path}: us_multiframe_dimensions_manifest_contract: invalid dimensions"
+        ));
     }
+    let semantic_length = rows
+        .checked_mul(columns)
+        .and_then(|value| value.checked_mul(frame_count));
+    let expected_value_field_length =
+        semantic_length.and_then(|value| value.checked_add(value % 2));
+    let declared_length = manifest_u64(
+        manifest_path,
+        file,
+        "/pixel_data/value_length",
+        "US multi-frame value_length must be an integer",
+    )?;
+    validate_equal_debug(
+        failures,
+        relative_path,
+        "us_multiframe_value_length_manifest_contract",
+        Some(declared_length),
+        expected_value_field_length,
+    );
     validate_equal(
         failures,
         relative_path,
@@ -11225,12 +11229,12 @@ fn validate_ultrasound_multiframe_standard_elements(
         "/pixel_data/frame_hashes",
         "US multi-frame pixel_data frame_hashes must be strings",
     )?;
-    validate_equal_debug(
+    validate_equal(
         failures,
         relative_path,
         "us_multiframe_frame_hashes_manifest_contract",
-        manifest_hashes.clone(),
-        LOCKED_FRAME_HASHES.map(str::to_string).to_vec(),
+        manifest_hashes.len(),
+        frame_count as usize,
     );
     let frames = manifest_array(
         manifest_path,
@@ -11264,8 +11268,24 @@ fn validate_ultrasound_multiframe_standard_elements(
         relative_path,
         "us_multiframe_pixel_byte_length",
         pixel_bytes.len(),
-        64,
+        usize::try_from(declared_length).unwrap_or(usize::MAX),
     );
+    let semantic_length = semantic_length
+        .and_then(|value| usize::try_from(value).ok())
+        .unwrap_or(0);
+    let semantic_pixel_bytes = pixel_bytes.get(..semantic_length).unwrap_or_default();
+    let padding_bytes = declared_length.saturating_sub(semantic_length as u64);
+    if padding_bytes > 1
+        || (padding_bytes == 1 && pixel_bytes.get(semantic_length).copied() != Some(0))
+    {
+        failures.push(format!(
+            "{relative_path}: us_multiframe_pixel_padding: expected one zero pad byte for odd semantic payloads"
+        ));
+    }
+    let frame_size = rows
+        .checked_mul(columns)
+        .and_then(|value| usize::try_from(value).ok())
+        .unwrap_or(0);
     for (index, frame) in frames.iter().enumerate() {
         validate_equal(
             failures,
@@ -11285,17 +11305,11 @@ fn validate_ultrasound_multiframe_standard_elements(
             "/pixel_values",
             "US multi-frame pixel_values must be unsigned integers",
         )?;
-        let locked_values = LOCKED_FRAMES
-            .get(index)
-            .map(|values| values.to_vec())
-            .unwrap_or_default();
-        validate_equal_debug(
-            failures,
-            relative_path,
-            "us_multiframe_pixel_values_manifest_contract",
-            values.clone(),
-            locked_values,
-        );
+        if values.len() != frame_size || values.iter().any(|value| *value > u16::from(u8::MAX)) {
+            failures.push(format!(
+                "{relative_path}: us_multiframe_pixel_values_manifest_contract: frame {index} shape/range differs"
+            ));
+        }
         let frame_hash = manifest_str(
             manifest_path,
             frame,
@@ -11311,7 +11325,7 @@ fn validate_ultrasound_multiframe_standard_elements(
                 pixel_hash,
             );
         }
-        if let Some(actual) = pixel_bytes.chunks_exact(16).nth(index) {
+        if let Some(actual) = native_frame_slice(semantic_pixel_bytes, frame_size, index) {
             validate_equal_debug(
                 failures,
                 relative_path,
@@ -11332,27 +11346,27 @@ fn validate_ultrasound_multiframe_standard_elements(
         }
     }
 
+    let payload_hash = manifest_str(
+        manifest_path,
+        file,
+        "/recipe/recipe_parameters/payload_sha256",
+        "US multi-frame payload_sha256 must be a string",
+    )?;
     validate_equal(
         failures,
         relative_path,
         "us_multiframe_payload_hash_manifest_contract",
-        manifest_str(
-            manifest_path,
-            file,
-            "/recipe/recipe_parameters/payload_sha256",
-            "US multi-frame payload_sha256 must be a string",
-        )?,
-        "060e2c56c9728f787339515ef16bc8c1adfbfb4fb85b2d2c18f115c17b439bc9",
-    );
-    validate_equal(
-        failures,
-        relative_path,
-        "us_multiframe_payload_hash",
-        sha256_hex(pixel_bytes.as_ref()),
-        "060e2c56c9728f787339515ef16bc8c1adfbfb4fb85b2d2c18f115c17b439bc9",
+        sha256_hex(semantic_pixel_bytes),
+        payload_hash,
     );
 
     Ok(())
+}
+
+fn native_frame_slice(bytes: &[u8], frame_size: usize, index: usize) -> Option<&[u8]> {
+    let start = index.checked_mul(frame_size)?;
+    let end = start.checked_add(frame_size)?;
+    (frame_size > 0).then(|| bytes.get(start..end)).flatten()
 }
 
 fn validate_nuclear_medicine_standard_elements(
@@ -36601,6 +36615,22 @@ mod tests {
     use dicom_object::{InMemDicomObject, meta::FileMetaTableBuilder};
     use dicom_transfer_syntax_registry::{TransferSyntaxIndex, TransferSyntaxRegistry};
 
+    #[test]
+    fn us_multiframe_frame_slicing_is_checked_and_linear_at_u16_cardinality() {
+        let bytes = (0..usize::from(u16::MAX))
+            .map(|index| index as u8)
+            .collect::<Vec<_>>();
+        for index in 0..bytes.len() {
+            assert_eq!(
+                native_frame_slice(&bytes, 1, index),
+                Some(&bytes[index..index + 1])
+            );
+        }
+        assert!(native_frame_slice(&bytes, 1, bytes.len()).is_none());
+        assert!(native_frame_slice(&bytes, usize::MAX, 2).is_none());
+        assert!(native_frame_slice(&bytes, 0, 0).is_none());
+    }
+
     fn eot_test_object(offsets: Vec<u64>, lengths: Vec<u64>) -> OpenedObject {
         let mut obj = InMemDicomObject::new_empty();
         obj.put(DataElement::new(
@@ -40547,7 +40577,7 @@ mod tests {
                 "classic/us/multiframe_explicit_le",
                 "/expected_us_multiframe/image_type/2",
                 serde_json::json!("CARDIAC"),
-                "us_multiframe_image_type_manifest_contract",
+                "us_multiframe_image_type_semantics_manifest_contract",
             ),
         ] {
             assert_guard(

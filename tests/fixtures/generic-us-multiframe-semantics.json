@@ -1,0 +1,50 @@
+{
+  "oracle_version": "1.0.0",
+  "historical_source": {
+    "case_id": "classic/us/multiframe_explicit_le",
+    "sha256": "6f97371d5746d00e10ddadbdf436a29717a7bc241f53993a5fa9bc21ea41206d",
+    "payload_sha256": "060e2c56c9728f787339515ef16bc8c1adfbfb4fb85b2d2c18f115c17b439bc9"
+  },
+  "caller": {
+    "case_id": "caller/acquisition/cardiac-cine",
+    "recipe_id": "caller_ultrasound_cine",
+    "logical_id": "cine_loop",
+    "role": "motion_review",
+    "output_path": "independent/caller-cine.dcm",
+    "profile": "core",
+    "size_bytes": 1112,
+    "sha256": "5c6ca4daea7d68eaeea0aea037132bc90fbb8e38826121685431584bfb4bfa7c",
+    "image": {
+      "rows": 1, "columns": 1, "frames": 3, "samples_per_pixel": 1,
+      "photometric_interpretation": "MONOCHROME2", "bits_allocated": 8,
+      "bits_stored": 8, "high_bit": 7, "pixel_representation": 0,
+      "planar_configuration": null
+    },
+    "pixel_data": {
+      "frame_count": 3,
+      "frame_hashes": [
+        "4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a",
+        "dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986",
+        "084fed08b978af4d7d196a7446a86b58009e636b611db16211b65a9aadff29c5"
+      ],
+      "native_or_encapsulated": "native", "value_length": 4, "vr": "OB"
+    },
+    "expected_semantics": {
+      "body_part_examined": "HEART",
+      "image_type": "DERIVED\\SECONDARY\\CARDIAC\\CINE",
+      "pixel_min": 1, "pixel_max": 3, "synthetic_data": "YES"
+    },
+    "expected_us_multiframe": {
+      "image_type": ["DERIVED", "SECONDARY", "CARDIAC", "CINE"],
+      "frame_increment_pointer": "0018,1063", "frame_time_ms": 75.0,
+      "frame_relative_times_ms": [0.0, 75.0, 150.0], "frame_count": 3,
+      "frames": [
+        {"frame_number": 1, "frame_sha256": "4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a", "pixel_values": [1]},
+        {"frame_number": 2, "frame_sha256": "dbc1b4c900ffe48d575b5da5c638040125f65db0fe3e24494b76ea986457d986", "pixel_values": [2]},
+        {"frame_number": 3, "frame_sha256": "084fed08b978af4d7d196a7446a86b58009e636b611db16211b65a9aadff29c5", "pixel_values": [3]}
+      ],
+      "spatially_related_frames": false, "color_data_present": false,
+      "region_calibrated": false, "lossy_image_compression": "00"
+    }
+  }
+}

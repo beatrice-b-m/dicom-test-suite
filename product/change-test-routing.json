@@ -43,6 +43,11 @@
       "commands": [{"target": "composition__subsystem", "scope": "ordinary"}],
       "deferred": ["native_provider_contract"]
     },
+    "generation_spine_audit": {
+      "commands": [
+        {"target": "corpus_generation__subsystem", "module": "unified_generation_spine_audit"}
+      ]
+    },
     "conformance": {
       "commands": [{"target": "conformance_interoperability__subsystem"}]
     },
@@ -361,6 +366,11 @@
       "id": "composition",
       "prefixes": ["src/composition/"],
       "bundles": ["composition"]
+    },
+    {
+      "id": "external-provider-byte-stability",
+      "exact": ["src/composition/external_quantitative.rs"],
+      "bundles": ["generation_spine_audit"]
     },
     {
       "id": "conformance",

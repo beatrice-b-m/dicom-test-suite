@@ -274,6 +274,27 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
                     commands,
                 )
 
+    def test_external_quantitative_changes_route_byte_stability_spine_audit(self):
+        path = "src/composition/external_quantitative.rs"
+        result = self.select(path)
+        self.assertEqual(
+            result["bundle_ids"],
+            ["composition", "generation_spine_audit"],
+        )
+        self.assertEqual(
+            result["matched_rules"][path],
+            ["composition", "external-provider-byte-stability"],
+        )
+        commands = self.commands(result)
+        self.assertIn(
+            "cargo test --locked --no-default-features --test corpus_generation__subsystem unified_generation_spine_audit::",
+            commands,
+        )
+        self.assertNotIn(
+            "cargo test --locked --no-default-features --test corpus_generation__subsystem",
+            commands,
+        )
+
     def test_assembly_identity_schemas_route_live_producers_readers_and_schema_checks(self):
         for schema in [
             "schemas/assembly-result-v2.schema.json",

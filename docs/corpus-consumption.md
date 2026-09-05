@@ -127,6 +127,17 @@ internals or locate a sibling checkout. This contract excludes
 viewer results, and release qualification; record those separately when they
 are actually run.
 
+## Caller-defined CR bundle handoff
+
+The bounded [native CR contract](generation-guide.md#caller-defined-computed-radiography)
+uses the same descriptor/member-root, manifest, strict-validation and report
+handoff. Preserve the exact definition identity, selected case IDs and generator
+artifact identity. Caller names and paths are independent of historical family
+names; native U8/OB overlay/LUT parameters and the complete typed tuple remain
+required. Report2 is a manifest projection, while strict validation reopens the
+payload. Keep this curated CR evidence separate from qualified CR composition,
+RLE, viewer observations and independent conformance.
+
 ## Choose A Corpus Level
 
 ### Broadest valid file corpus

@@ -108,6 +108,12 @@ order and an explicit caller path. Case and recipe names do not select the
 planner. See the [generation guide](docs/generation-guide.md#caller-defined-dx-and-mammography)
 for the three supported templates and preserved evidence limits.
 
+Caller-defined computed radiography uses a bounded native U8/OB capability with
+an overlay and modality/VOI LUTs. Typed dispatch preserves caller names, paths
+and ordering, including names resembling other historical families. See the
+[CR contract](docs/generation-guide.md#caller-defined-computed-radiography) for
+the complete tuple and its separate composition/RLE evidence boundaries.
+
 Caller-defined Secondary Capture metadata supports UTF-8 Person Name, qualified
 empty Type 2 attributes and private creator blocks through typed native
 contracts. Case/recipe names and output paths are caller-owned; metadata,

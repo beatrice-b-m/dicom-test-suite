@@ -1052,6 +1052,18 @@ historical declared DS VR exception is preserved, without adding independent
 conformance credit. The shared loader and executor serve this public CLI/SDK
 contract without corpus-specific imports.
 
+Native CR additionally requires the complete classic/cr@1 native content,
+shared MR/CR algorithm and projection tuple, one explicit instance, U8/OB
+pixels and bounded overlay/four-entry LUT parameters. CR intent is inferred
+from the template or CR-specific parameters, never the shared algorithm alone.
+The inspector enforces checked counts/hash/extrema, padding and encoding; the
+loader admits caller identities and shared planning returns before historical
+nuclear/VL matchers. Shared validation gives CR precedence over MR-style names.
+The existing named RLE path and qualified composition12-in16 defaults retain
+their separate contracts; the curated U8 route changes neither catalog bytes
+nor template version. Public CLI/SDK payload/manifest/report equality remains
+same-project evidence with separately reopened strict validation.
+
 Native metadata SC admission also recognizes typed UTF-8 Person Name,
 qualified EmptyType2 and PrivateCreators independently of case/recipe names.
 The conjunctive contract binds `native.metadata_sc_plan`, one monochrome SC

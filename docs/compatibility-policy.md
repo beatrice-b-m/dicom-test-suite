@@ -20,7 +20,7 @@ necessarily change every other contract.
 | Composition request | `0.1.0` | `composition_spec_schema_version` and its accepted document semantics. |
 | Structural-assembly request | `1.0.0` when introduced | `assembly_request_schema_version` and its accepted document semantics. |
 | Curated manifest | `1.0.0` (reader retains `0.2.0` and `0.3.0`) | `manifest_schema_version` for registry-led runs. Version `1.0.0` adds split identity projection; older readers remain legacy-only and never synthesize split identities. |
-| External corpus SDK | Evidence accessors `1.0.0`; bundle `1.0.0`, manifest/report `2.0.0` | `GenerateCorpusRequest` requires explicit member root and selector. Published, Planned, and NoExecutableCases are distinct; previews have no manifest or standalone JSON schema. Lossless preview ledger/identity fields use manifest2 meanings with preview-only ready. SDK and CLI generation/validate/report support external2. Caller-defined native SC, classic CT, DX/MG and bounded metadata SC dispatch is bound to the complete documented capability tuple, not case/recipe names, order, or output path. |
+| External corpus SDK | Evidence accessors `1.0.0`; bundle `1.0.0`, manifest/report `2.0.0` | `GenerateCorpusRequest` requires explicit member root and selector. Published, Planned, and NoExecutableCases are distinct; previews have no manifest or standalone JSON schema. Lossless preview ledger/identity fields use manifest2 meanings with preview-only ready. SDK and CLI generation/validate/report support external2. Caller-defined native SC, classic CT, DX/MG, bounded CR and metadata SC dispatch is bound to the complete documented capability tuple, not case/recipe names, order, or output path. |
 | External corpus CLI results | Generation `3.0.0`; report `2.0.0` | External-only CLI API1 results preserve explicit nonpublication, full selection/identity evidence and strict report2 payloads. Embedded generation2 and legacy report1 schemas/producers remain unchanged. Capabilities3 advertises loaded-corpus assessment and complete version windows; frozen capabilities1/2 are not reinterpreted. |
 | Capability discovery | `3.0.0` producer; 1/2/3 schema compatibility | Optional loaded-corpus inspection retains one verified identity and destination-free selected planning facts; registry status and installed declarations never imply execution success. |
 | Release manifest | `3.0.0` producer; 1/2/3 verifier | Release2 embeds capabilities2; release3 embeds capabilities3, both with version2 and exact domain equality. Frozen predecessor schemas remain unchanged. Contract tests do not qualify a release archive. |
@@ -150,6 +150,14 @@ input capability and compatible input-safety correction in unreleased0.2.0.
 Recipe/template versions and historical payloads are unchanged. Existing
 ISO2022, timezone, string-boundary and sequence-length admission remains scoped
 as before. Public consumer proof does not update a corpus generator pin.
+
+The bounded CR tuple uses native U8/OB pixels, one classic/cr@1 artifact and
+explicit overlay/four-entry modality/VOI LUT parameters under the shared MR/CR
+algorithm. Complete typed inspection takes precedence over historical names.
+Its [generation contract](generation-guide.md#caller-defined-computed-radiography)
+preserves existing bytes and version domains. Qualified CR composition retains
+its12-in16 default; documentation scoping does not change catalog identity or
+merge that evidence with curated CR, RLE or independent validation.
 
 ## 4. Version negotiation and rejection
 

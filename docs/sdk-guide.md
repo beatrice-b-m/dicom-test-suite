@@ -140,6 +140,18 @@ report requests above; no internal-module import or sibling lookup is needed.
 This preserves the historical DX/MG pixel and VR contracts and supplies
 same-project evidence only.
 
+### Caller-defined computed radiography
+
+The same `InspectCorpusRequest` and `GenerateCorpusRequest` interfaces accept
+bounded native CR through the complete
+[CR contract](generation-guide.md#caller-defined-computed-radiography).
+One `classic/cr@1.0.0` artifact uses native U8/OB pixels, a bounded overlay and
+four-entry modality/VOI LUTs. Case/recipe names, explicit path and unique order
+are caller-owned; typed CR takes precedence over historical family names.
+Separate strict validation and report2 projection preserve their evidence roles.
+The curated capability does not change the qualified composition default or
+extend RLE, viewer or independent conformance evidence.
+
 ### Caller-defined Secondary Capture metadata
 
 The same inspection and `GenerateCorpusRequest` interfaces accept independently

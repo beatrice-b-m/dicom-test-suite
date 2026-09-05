@@ -33,6 +33,9 @@ change a CLI API, request, manifest, report, template, or provider version.
 - Caller-defined UTF-8 Person Name, qualified empty Type 2 and private-creator
   SC metadata recipes, with complete typed admission, fixed CLI/SDK payload
   oracles, preserved historical bytes and overflow-safe high-bit validation.
+- Caller-defined native CR with bounded overlay/LUT parameters, checked pixel
+  contracts and typed precedence over historical MR/PET/VL names, with fixed
+  CLI/SDK payload evidence and preserved original bytes.
 
 ### Changed
 

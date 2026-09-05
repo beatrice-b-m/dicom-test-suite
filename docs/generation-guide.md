@@ -283,6 +283,41 @@ manifest2/report2 with separate strict-validation evidence. Other classic/VL
 families and stress are not generalized by this DX/MG contract; release and
 viewer qualification remain separate.
 
+#### Caller-defined computed radiography
+
+The external CLI and SDK accept a bounded native CR capability through
+`native.classic_plan`, `classic/cr@1.0.0`, parameter-free
+`content.native_pixels`, `algorithm.classic_mr_cr` and
+`classic_projection.family = "mr_cr"`. The registry declares
+`rust_native`/`rust_native`, `dicom_instance` and no feature/codec requirements.
+A CR template or CR overlay/LUT parameters declares intent; partial, mixed and
+crossed tuples reject. The shared MR/CR algorithm alone does not identify CR.
+
+Declare one logical `instance` artifact at order zero with role `instance`, an
+explicit safe path and caller-owned case/recipe names and planning/projection
+orders. Planning order remains required and globally unique. Both recipe and
+artifact use `validation.shared` and `projection.curated`. Provider/content
+parameter extensions, dependencies, attribute/profile overrides and unrelated
+artifact projections are excluded. CR semantic labels are required; MR/ICC
+projection fields, appended standards evidence and implementation-version
+projection overrides are outside this bounded capability.
+
+The typed CR parameters describe one U8/OB MONOCHROME2 frame, checked dimensions,
+sample range/extrema and frame hash. Overlay geometry matches the image, with
+type G, origin `[1,1]`, bits allocated1/bit position0, even-byte padding and zero
+unused bits. Both LUT descriptors are `[4,0,16]` with eight data bytes; modality
+LUT type is `US` and VOI LUT type is absent. Encoding is native Explicit VR
+Little Endian with default sequence/item lengths, no offsets or fragment count,
+zero-filled preamble and standard file meta.
+
+Typed CR dispatch precedes historical name matchers, including misleading MR,
+PET or VL names. The named RLE route remains separately qualified. The catalog
+limitation describes qualified CR composition, whose default is unsigned12-bit
+in16-bit; this curated U8/OB capability does not expand composition qualification.
+Use the same external `generate`, separate `validate` and `report` commands
+above. CLI/SDK byte and manifest equality is same-project evidence; report2
+projects the manifest and adds no independent conformance or viewer result.
+
 #### Caller-defined Secondary Capture metadata
 
 The external CLI and SDK accept independently named recipes for these typed

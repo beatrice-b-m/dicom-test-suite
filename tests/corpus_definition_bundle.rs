@@ -751,6 +751,15 @@ fn external_native_projection_capabilities_are_name_independent_and_fail_closed(
             assert_eq!(file["case_id"], case_id);
             assert_eq!(file["dicom"]["modality"], modality);
             assert_eq!(report["coverage_report_schema_version"], "2.0.0");
+            if case_id == "vl/wsi/pyramid_multiresolution" {
+                let coverage = &report["coverage_matrix"][0];
+                assert!(coverage["wsi_pyramid_role"].is_null());
+                assert!(coverage["wsi_pyramid_member_count"].is_null());
+                assert_eq!(
+                    report["grouped_coverage"]["wsi_pyramid_roles"],
+                    serde_json::json!({})
+                );
+            }
             if modality == "XC" {
                 assert_eq!(file["image"]["rows"], 2);
                 assert_eq!(file["image"]["columns"], 2);

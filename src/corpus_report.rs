@@ -22,8 +22,16 @@ pub(crate) fn project(manifest: &Value) -> Result<Value, String> {
     let mut coverage_matrix = Vec::with_capacity(files.len());
     let mut grouped_coverage = crate::GroupedCoverage::default();
     for file in files {
-        let row = crate::generated_coverage_row(Path::new("manifest.json"), file, profile)
-            .map_err(|error| error.to_string())?;
+        // Report2 is declaration-driven. Suppress legacy report1's curated
+        // case-name inference, then restore the caller's identity fields.
+        let case_id = file["case_id"].as_str().unwrap();
+        let mut projection_file = file.clone();
+        projection_file["case_id"] = "external/report2/declaration-driven".into();
+        let mut row =
+            crate::generated_coverage_row(Path::new("manifest.json"), &projection_file, profile)
+                .map_err(|error| error.to_string())?;
+        row["case_id"] = case_id.into();
+        row["object_type"] = case_id.split('/').next().unwrap_or(case_id).into();
         grouped_coverage.record(&row);
         coverage_matrix.push(row);
     }

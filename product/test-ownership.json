@@ -1313,7 +1313,7 @@
         "negative_and_fuzz_dependencies_cannot_cross_legacy_or_stress_boundaries",
         "excessive_undeclared_inventory_fails_without_buffering_all_names"
       ],
-      "entry_digest": "db5c37e555207ed8329541715fd1178e0b8e302a540a211f27ba69e536642bf7"
+      "entry_digest": "23c4f6ae399a0ac643f2cd0acc1f75d46010cd35ff7ea2339f990dd4fedb390a"
     },
     {
       "source": "tests/corpus_plan.rs",

@@ -2395,6 +2395,9 @@ Follow-up review binds that report2 proof to the actual two-row
 generic spacing fields, and to all seven dedicated grouped maps while generic
 Pixel/Imager Pixel Spacing maps remain empty. Per-field and per-group mutations
 fail the public proof; the complete source manifest remains separately retained.
+Report2 also suppresses legacy report1 case-name inference while building those
+rows, then restores caller identities, so a misleading caller ID cannot activate
+an unrelated curated WSI contract.
 
 Only manifest V2 gains the reusable structural contract. Manifest V1 and the
 frozen legacy assembly namespace remain unchanged. The current embedded

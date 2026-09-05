@@ -524,7 +524,7 @@
         "dx_mg_parameters_are_strict_and_semantic_corruption_is_rejected",
         "dx_mg_recipe_documents_are_resolved_and_schema_strict"
       ],
-      "entry_digest": "64dc6c27b9ef7cc874aea83a892b65d5318c5ef87c2497f34aeda762bc760d18"
+      "entry_digest": "4f118d973f0a322668cbd7c2292e46acbc505066bd9561ba6748dd301d3a790b"
     },
     {
       "source": "tests/classic_first_wave_part10_parity.rs",

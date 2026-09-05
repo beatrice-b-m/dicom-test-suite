@@ -32,3 +32,27 @@ and encoding overrides, checked dimensions/hash/extrema and finite geometry.
 Preserve XA's deliberate removal of four inapplicable non-claim manifest fields.
 A fresh source-bound implementation audit remains required at that later gate;
 this record does not permit overlapping US compatibility work.
+
+## Read-only refinement before native baseline
+
+After bounded PET acceptance, independent source review confirms the later
+XA/XRF caller inspector should recognize the complete template/modality/SOP
+tuple; shared classic-VL algorithm alone is insufficient. Keep nine source
+provider fields, fixed4×4 U8/OB samples/hash/extrema, exact geometry strings and
+non-claim flags, one instance/order0/primary_1 and safe caller paths/orders.
+XA retains HEART/80/GR/4 with angles15/-10; XRF retains ABDOMEN/70/SC/1 and
+column angle10. Both retain spacing0.2, distances1200/800 and magnification1.5.
+Exact source equality prevents unchecked size/cast/nonfinite projection inputs.
+
+Sequential later ownership remains planner/inspector/pure tests, then
+loader/shared admission plus SDK bundle tests, then independent two-case public
+proof and guides. Projection already follows registry XA/RF modality; bind
+registry/template/parameter agreement, preserve XA's four field removals and
+inline standards append, and keep all eight historical VL routes unchanged.
+Actual-IOD reopened validation has no identified name gate.
+
+This audit implements nothing. Source review found baseline helper findings
+need68XA/122XRF because both native-frame checks are retained; replay count and
+report type/presence guards also require correction before first capture.
+Corpusc0da432 records the exact two-file helper correction ownership. Baseline,
+import and migrated parity remain prerequisites for any source capability edit.

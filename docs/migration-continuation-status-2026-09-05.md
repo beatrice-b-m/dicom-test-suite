@@ -554,3 +554,30 @@ curated CR uses its separately qualified U8/OB recipe. The CR audit now clarifie
 both routes. Catalog/template version and bytes remain unchanged, avoiding an
 unnecessary template-domain identity change. This is documentation clarification
 under compatibility policy, not a new template or generation qualification.
+
+## CR bounded planner accepted — 2026-09-05
+
+Generator `edab9b8` adds `inspect_cr_capability` before historical MR/CR
+recipe dispatch. Assigned ownership was limited to the planner, existing pure
+planner tests and their ownership digest. Root and independent reviewer accepted
+the final complete native tuple, checked U8 dimensions/count/range/min/max/hash,
+overlay geometry/packing/unused bits and bounded four-entry16-bit LUT structure.
+The inspector rejects crossed/mixed contracts, unrelated projections and native
+fragment counts. Caller identity, explicit path and planning/projection order
+are independent of historical names; the exact named CR-RLE route and pure MR
+remain on their historical validation path. No broader codec capability follows.
+
+An initial compile identified optional policy fields; corrected checks use
+optional string access. Review identified the missing fragment-count exclusion,
+which was added with mutation coverage before commit. Final focused pure suite
+passed6/6 in0.02s after18.40s compile; ownership1487 passed0.27s and diff checks
+passed. All Cargo/routing invocations used the explicit low-debug, nonincremental
+`/private/tmp/dts-dx-mg-genericity-target`. No generation or broad qualification
+ran; no claim is made from intermediate compile runs. Earlier owned checks and
+review remained within the same bounded planner task.
+
+Loader/shared validation and public caller proof remain pending. Their next
+owner is assigned only loader, shared dispatch and relevant bundle/shared tests
+plus exact ownership/routing records, after the planner's accepted commit.
+MR-prefix validation must defer to the inspected CR tuple. Catalog/template
+bytes stay unchanged under the documented composition/curated scope distinction.

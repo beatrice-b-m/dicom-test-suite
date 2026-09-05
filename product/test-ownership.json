@@ -3841,8 +3841,8 @@
       "source": "src/curated_manifest/stress.rs",
       "target": "synth_dicom_gen",
       "domain": "corpus_generation",
-      "verification_class": "nightly",
-      "cost_tier": "heavy",
+      "verification_class": "subsystem",
+      "cost_tier": "ordinary",
       "entry_count": 1,
       "entries": [
         "stress_projection_requires_captured_typed_complete_evidence"
@@ -4744,8 +4744,8 @@
       "source": "src/validation_wsi_reduced_reader_tests.rs",
       "target": "synth_dicom_gen",
       "domain": "standards_validation",
-      "verification_class": "nightly",
-      "cost_tier": "heavy",
+      "verification_class": "subsystem",
+      "cost_tier": "ordinary",
       "entry_count": 2,
       "entries": [
         "reduced_wsi_context_requires_source_projected_complete_evidence",

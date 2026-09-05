@@ -501,3 +501,49 @@ Static CR content0.6.0 import is assigned to the corpus agent (recipe, registry,
 descriptor and static tests only). Verifier/CI compatibility integration follows
 sequentially, then public-loader availability, migrated parity and genericity.
 R7 remains incomplete and R8/R9 have not begun. Documentation diff check passed.
+
+## CR1 import, selected availability and migrated parity accepted — 2026-09-05
+
+Corpus data `dc08491`, static tests `fd0ac5d` and CI `e7f798f` establish the exact
+source-preserving content0.6 CR1 addition. Root authenticated prior entries and
+raw CR recipe. Descriptor12073 bytes SHA
+`2248f04046f388bf3914cfc473adad0969e337d0b83670b9c918ec23536d8c80`, registry57239
+bytes SHA `f597311d2fa942de6b633a9b4d78c25fb0e6100bbf397e257084c4de30b413c2`;
+derived snapshot21 cases/26 files/144330 bytes. Historical availability test
+adaptation `f1e02e7` preserves exact old identities. See corpus590f41f for focused
+static/routing/runner tests and rejected mutation coverage.
+
+Reviewed loader helpers43b7f04/cd84762/07ebf52 preceded one exact loading-only
+run from11fcd95. Accepted corpusda1a8b0 binds receipt104700 bytes SHA
+`669f6796f5e9a2fd25ff0a89eb1b4a02ee994c8183defa4f5c041872a8760ecf`, framed
+bundle `56838de5e7dea97bb1816193baad72f973758e58631065835df57cacadab689b`.
+CR1 was ready at core/seed1/parallelism4, publication/validation not_run.
+Capabilities1.892188s, whole3.903346s;37 files72255090 logical/72314880 allocated
+bytes. Independent retained replay0.082645s passed. Full ordinary425 tests
+passed7.188s after exact struct-import and disjoint US path-routing fixes;
+the earlier failed synthetic runs remain recorded in the corpus status.
+
+Reviewed parity07aafe7 and readiness9f7b4e0 then performed exactly two CR1
+public-runner calls. Corpus acceptancee0dd96e binds receipt257702 bytes SHA
+`98b514fe0a15a4eeee7ba0a1240d4d89dea75d019b5dd35a4fbb3f0caaa75d24` at
+`artifacts/r7-native-cr-parity1-20260905`. Calls3.913546/3.477539s, whole10.244171s.
+Both1306-byte payloads reproduce embedded SHA
+`c76c07478ba42de9093918bc50ed53c6a99eaabee571187ba4d8e4a4c7bdd075`;77421-byte
+manifests match SHA `c28ea96884d4b14b94d5c37a36da630811a5617d92e79020fc14c54f6e24852e`,
+86868-byte reports match SHA
+`77d04cc3c756d304bee06a81c154fa03357abc78a2442cd7d9f3557f2b82a76f`.
+Full file projections preserve semantics, UIDs, standards and validation;
+33 old skips and the narrow manifest1-to2 boundary remain explicit. Root and
+independent reviewer authenticated203 retained files; offline comparisons and
+repeat equality passed0.722538s. Evidence excluding receipt occupies358089039
+logical/358481920 allocated bytes, with a duplicate private runtime retained at
+`/private/tmp/r7-cr-parity-859d0i7p`. No capture rerun followed an initial reviewer
+script mistake about null-returning finalizers.
+
+No generator build, pin update, viewer, independent conformance, Heavy or
+release qualification occurred. Source-only US provenance518f9c7 was prepared
+in disjoint files, independently authenticated13 objects/full34-core context
+in0.178s and accepted corpus13fc1ae; no US import/runtime is implied.
+CR genericity now proceeds sequentially: planner/pure tests, loader/dispatch,
+then caller CLI/SDK proof. The CR template wording discrepancy remains a
+separate policy review. R7 is incomplete; R8/R9 have not begun. Diff check passed.

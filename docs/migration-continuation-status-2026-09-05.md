@@ -1354,3 +1354,30 @@ snapshot, exact recipes/notes and typed projection/validation/report semantics.
 No native execution, helper, data import, provider implementation, template or
 public compatibility change is included. Review and granular source-only commit
 precede any later helper work. PET loader/public proof ordering is unchanged.
+
+## PET planner unit accepted — 2026-09-05
+
+Generator9d2a83b adds inspect_pet_capability and early typed nuclear planning
+with exact source provider20/parameter contracts before casts. Caller names,
+orders and safe paths are accepted; source-fixed DS spelling, U16 samples/hash,
+activity, geometry, timing and encoding/projection exclusions remain bounded.
+Root and independent review accepted; final tests explicitly reject slope2.50
+and fragment override. Only planner/test and exact ownership/spelling records
+changed. Pure planning1/0.32s (initial compile18.70s, final1.44s), catalog1/0.27s
+(warmcompile0.11s), Fast15+73 passed (compile1.12s, schema1.95s; release15 elapsed
+unavailable). Ownership1495/spelling1067 and diff passed. Spelling snapshot
+dfcad8f465e5f2e0c40c4fc1fba5dc3d857973b0466c9b77ffed54755deb902d adds only
+the preserved synthetic manufacturer occurrence. Route preview
+/private/tmp/pet-planner-route.json includes the materializing nuclear third
+entry, which remains deferred; this unit ran only assigned pure filters/Fast.
+
+Next sequential loader/shared-dispatch unit owns src/recipes/loader.rs,
+src/curated_plan.rs, tests/corpus_definition_bundle.rs and only affected exact
+records in product/test-ownership.json, product/change-test-routing.json and
+tests/test_change_test_routing.py if test inventory changes require them.
+Admit complete PET tuples/registry bindings and return typed PET plans before
+historical family matchers. Extend closed bundle/shared tests with caller and
+misleading names, complete valid publication/strict validation and partial tuple
+rejection. Existing external schema/runtime fixes stay unchanged; public
+standalone fixture and guides follow separately. Same isolated Cargo target
+and proportional routing apply. Corpus210e3ae now reflects accepted PET parity.

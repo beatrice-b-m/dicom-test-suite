@@ -830,3 +830,31 @@ correct. External manifest2 still references legacy file conditionals, including
 coupling is a separate sequential public compatibility unit, not a waived
 genericity gate. No schema changed in108a2cc; no full name-independent
 publication or final US genericity claim is made yet.
+
+## External manifest structure accepted; runtime scope open — 2026-09-05
+
+Schema a1d1e12 implements decision abab694. Independent structural review
+confirmed the external file definition preserves every generic property,
+required field, evidence reference and validity branch, removing only the 36
+historical case-ID conditionals. Legacy and v1 schemas remain byte-identical.
+Seven manifest tests passed in 2.43s after 18.22s compile; SDK exact PET-ID and
+VL-namespace publication, reopened validation and reporting passed in 4.64s
+after 18.39s compile. Ownership 1490, spelling 1065, routing preview and diff
+checks passed. Broader overlapping verification follows the immediate runtime
+correction to avoid rebuilding the same compatibility surface twice.
+
+Manifest v2 is now 18266 bytes, SHA-256
+`7818bdc5324bd7fa49dbeadfcee9293ec5a74c7e820b6ea7cb672c13a6238dfc`.
+The unchanged 81-member resource inventory totals 1518044 bytes, identity
+`21711587ab6cc02e8f5dec11dfbd221e6f52a4bffaf798d3efecea612a380811`,
+independently recomputed from source member paths, sizes and hashes. Initial
+tests stopped at the old frozen resource oracle before validation; only the
+current source oracle was refreshed. Pinned native artifacts are unchanged.
+
+An exact ICC VL case-ID US publication passed schema validation but reopened
+validation failed after 3.15s: the historical ICC validator requires ICC evidence
+based on case name. This is an explicit remaining runtime boundary, not an
+accepted full genericity claim. A read-only inventory of reachable validation
+and reporting dispatch precedes its sequential fix; declared evidence and
+legacy requirements must remain checked. US public caller proof, R7 completion
+and R8/R9 remain pending.

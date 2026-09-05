@@ -1505,3 +1505,19 @@ XA/XRF2 core seed1 selection and retained failure evidence. Final read-only
 readiness review precedes execution. No native result is claimed here.
 R7 remains open; public compatibility changes will follow baseline/import/parity
 sequentially. VL source preparation remains disjoint and execution unopened.
+
+## XA/XRF embedded baseline accepted — 2026-09-05
+
+Corpus19a3ddd records independently accepted baseline1 at source f31da39.
+Receipt78289/f9a5e8cadd320856fd320b17f0cafb4f552b9796327d4b10ca5eac6a363caeaf;
+XA1172/7efc114021a4a292e7170055f92948823844192d3f3609509a73b8e2b97dc824,
+XRF1166/da7415ddb66c2cce4a3e8c27eb4f5a04a6f03b3bfb9402346fe13a41fadf30ff.
+Exactly one selected generation1.293554s, strict0.226742s and separate pinned
+report0.917813s; whole6.0138355s. Retained23 nonreceipt files141322505 logical/
+141373440 allocated bytes under artifacts/r7-native-xa-xrf-baseline1-20260905.
+Independent offline replay0.274596s authenticated138 source objects and complete
+closure, findings68/122 plus4 standards each,32 skips and all finalizers.
+No retries or pin changes. Six-file content0.9 data import is now assigned to
+one owner, with full source authentication and byte-exact0.8 reversal before
+review. Static/CI/availability/parity and generic capability remain sequential
+later tasks; R7 open, R8/R9 held.

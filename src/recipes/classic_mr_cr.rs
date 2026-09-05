@@ -85,20 +85,156 @@ pub struct CrArtifactParameters {
     pub voi_lut: LutParameters,
 }
 
+/// Inspect native CR intent without interpreting caller case or recipe names.
+pub(crate) fn inspect_cr_capability(
+    recipe: &CaseRecipe,
+) -> Result<Option<CrArtifactParameters>, ClassicMrCrPlanError> {
+    let Some(dicom) = &recipe.dicom else {
+        return Ok(None);
+    };
+    let intent = dicom.artifacts.iter().any(|a| {
+        a.template
+            .as_ref()
+            .is_some_and(|t| t.template_id == "classic/cr")
+            || ["overlay", "modality_lut", "voi_lut"]
+                .iter()
+                .any(|key| a.parameters.contains_key(*key))
+    });
+    if !intent {
+        return Ok(None);
+    }
+    if dicom.artifacts.len() != 1 {
+        return Err(ClassicMrCrPlanError::Contract("CR single artifact"));
+    }
+    let a = &dicom.artifacts[0];
+    // Keep the existing named compressed qualification on its historical path.
+    if recipe.recipe_id == "cr_overlay_modality_voi_rle_lossless"
+        && recipe.binding.case_id == "classic/cr/overlay_modality_voi_rle_lossless"
+        && recipe.planning_order == Some(501)
+        && a.encoding.transfer_syntax_uid == "1.2.840.10008.1.2.5"
+    {
+        return Ok(None);
+    }
+    let has = |values: &[String], expected: &str| values.len() == 1 && values[0] == expected;
+    if recipe.plan_provider_id != PROVIDER_ID
+        || recipe.kind != super::RecipeKind::Dicom
+        || recipe.mutation.is_some()
+        || recipe.qualification.is_some()
+        || recipe.planning_order.is_none()
+        || recipe.projection_order.is_none()
+        || !recipe.provider_parameters.is_empty()
+        || !recipe.dependencies.is_empty()
+        || !has(&recipe.validation_rule_ids, "validation.shared")
+        || !has(&recipe.projection_rule_ids, "projection.curated")
+        || a.logical_id != "instance"
+        || a.order != 0
+        || a.output.role != "instance"
+        || a.output.provider_derived == Some(true)
+        || a.output.path.is_none()
+        || a.template
+            .as_ref()
+            .is_none_or(|t| t.template_id != "classic/cr" || t.template_version != "1.0.0")
+        || a.content.provider_id != CONTENT_PROVIDER_ID
+        || !a.content.parameters.is_empty()
+        || a.algorithm_provider_id.as_deref() != Some(CR_ALGORITHM_ID)
+        || a.classic_projection
+            .as_ref()
+            .is_none_or(|p| p.family != super::ClassicProjectionFamily::MrCr)
+        || !a.attribute_operations.is_empty()
+        || a.secondary_capture.is_some()
+        || a.metadata_sc.is_some()
+        || a.nonsquare_geometry.is_some()
+        || !has(&a.validation_rule_ids, "validation.shared")
+        || !has(&a.projection_rule_ids, "projection.curated")
+        || a.encoding.transfer_syntax_uid != "1.2.840.10008.1.2.1"
+        || a.encoding.non_template_encoding_provider_id.is_some()
+        || a.encoding.fragments_per_frame.is_some()
+        || a.encoding.sequence_length_policy != "default"
+        || a.encoding.item_length_policy != "default"
+        || a.encoding.offset_table_policy != "none"
+        || a.encoding.fragmentation_policy != "native"
+        || a.encoding.preamble_policy.as_deref() != Some("zero_filled")
+        || a.encoding.file_meta_policy.as_deref() != Some("standard")
+    {
+        return Err(ClassicMrCrPlanError::Contract("complete native CR tuple"));
+    }
+    OutputRelativePath::new(a.output.path.clone().expect("explicit CR output"))?;
+    let p: CrArtifactParameters = parameters(a)?;
+    let count = p
+        .rows
+        .checked_mul(p.columns)
+        .ok_or(ClassicMrCrPlanError::CrStructure)?;
+    let overlay_len = count
+        .checked_add(7)
+        .and_then(|n| n.checked_div(8))
+        .and_then(|n| n.checked_add(n % 2))
+        .ok_or(ClassicMrCrPlanError::CrStructure)?;
+    if p.rows == 0
+        || p.columns == 0
+        || p.rows > u16::MAX.into()
+        || p.columns > u16::MAX.into()
+        || usize::try_from(count).ok() != Some(p.stored_values.len())
+        || p.stored_values.iter().any(|v| !(0..=255).contains(v))
+        || p.stored_values.iter().min().copied() != Some(p.pixel_min)
+        || p.stored_values.iter().max().copied() != Some(p.pixel_max)
+        || p.overlay.rows as u32 != p.rows
+        || p.overlay.columns as u32 != p.columns
+        || p.overlay.overlay_type != "G"
+        || p.overlay.origin != [1, 1]
+        || p.overlay.bits_allocated != 1
+        || p.overlay.bit_position != 0
+        || usize::try_from(overlay_len).ok() != Some(p.overlay.data.len())
+        || p.modality_lut.descriptor != [4, 0, 16]
+        || p.voi_lut.descriptor != [4, 0, 16]
+        || p.modality_lut.data.len() != 8
+        || p.voi_lut.data.len() != 8
+        || p.modality_lut.lut_type.as_deref() != Some("US")
+        || p.voi_lut.lut_type.is_some()
+    {
+        return Err(ClassicMrCrPlanError::CrStructure);
+    }
+    // Unused overlay bits and even-length padding must not invent extra pixels.
+    for bit in u64::from(count)..(p.overlay.data.len() as u64 * 8) {
+        if p.overlay.data[(bit / 8) as usize] & (1 << (bit % 8)) != 0 {
+            return Err(ClassicMrCrPlanError::CrStructure);
+        }
+    }
+    let bytes: Vec<u8> = p.stored_values.iter().map(|v| *v as u8).collect();
+    if crate::sha256_hex(&bytes) != p.frame_sha256 {
+        return Err(ClassicMrCrPlanError::Contract("CR frame hash"));
+    }
+    Ok(Some(p))
+}
+
 pub fn plan_mr_cr_recipe(
     recipe: &CaseRecipe,
     standards_lock_sha256: &str,
     seed: u64,
 ) -> Result<Option<Vec<ClassicInstanceRequest>>, ClassicMrCrPlanError> {
-    let family = match recipe.recipe_id.as_str() {
-        "mr_multislice_oblique" | "mr_mono2_u16_rle_lossless" => Family::Mr,
-        "cr_overlay_modality_voi" | "cr_overlay_modality_voi_rle_lossless" => Family::Cr,
-        _ => return Ok(None),
+    let native_cr = inspect_cr_capability(recipe)?.is_some();
+    let family = if native_cr {
+        Family::Cr
+    } else {
+        match recipe.recipe_id.as_str() {
+            "mr_multislice_oblique" | "mr_mono2_u16_rle_lossless" => Family::Mr,
+            "cr_overlay_modality_voi" | "cr_overlay_modality_voi_rle_lossless" => Family::Cr,
+            _ => return Ok(None),
+        }
     };
     if recipe.plan_provider_id != PROVIDER_ID {
         return Err(ClassicMrCrPlanError::Contract("plan_provider_id"));
     }
-    let topology = expected_topology(recipe)?;
+    let topology = if native_cr {
+        vec![ExpectedArtifact {
+            logical_id: "instance",
+            order: 0,
+            path: "",
+            transfer_syntax_uid: "1.2.840.10008.1.2.1",
+            template_id: "classic/cr",
+        }]
+    } else {
+        expected_topology(recipe)?
+    };
     let dicom = recipe
         .dicom
         .as_ref()
@@ -149,7 +285,7 @@ pub fn plan_mr_cr_recipe(
             || artifact.logical_id != expected.logical_id
             || artifact.order != expected.order
             || artifact.output.role != expected.logical_id
-            || artifact.output.path.as_deref() != Some(expected.path)
+            || (!native_cr && artifact.output.path.as_deref() != Some(expected.path))
             || artifact.encoding.transfer_syntax_uid != expected.transfer_syntax_uid
             || artifact
                 .template

@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use synth_dicom_gen::composition::{AttributeOperation, AttributeValue, PrimitiveValue};
 use synth_dicom_gen::recipes::classic_mr_cr::{ClassicMrCrPlanError, plan_mr_cr_recipe};
-use synth_dicom_gen::recipes::{CaseRecipe, ClassicPlanError, OrderedSeriesProvider};
+use synth_dicom_gen::recipes::{CaseRecipe, OrderedSeriesProvider};
 use synth_dicom_gen::uid::{DeterministicUidInput, UidRole, deterministic_uid};
 
 const LOCK_HASH: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
@@ -133,6 +133,74 @@ fn mr_rle_reuses_exact_native_object_plan() {
 
 #[test]
 fn cr_plan_contains_exact_overlay_and_lut_sequences() {
+    let source = load("cases/recipes/classic/cr/cr_overlay_modality_voi.json");
+    for name in ["caller/radiography", "classic/mr/misleading"] {
+        let mut renamed = source.clone();
+        renamed.binding.case_id = name.into();
+        renamed.recipe_id = "caller_recipe".into();
+        renamed.planning_order = Some(900);
+        renamed.projection_order = Some(901);
+        renamed.dicom.as_mut().unwrap().artifacts[0].output.path =
+            Some("independent/cr.dcm".into());
+        let requests = plan_mr_cr_recipe(&renamed, LOCK_HASH, 9).unwrap().unwrap();
+        assert_eq!(requests.len(), 1);
+        assert_eq!(
+            requests[0].output_relative_path.as_str(),
+            "independent/cr.dcm"
+        );
+        let planned = OrderedSeriesProvider.plan(requests).unwrap();
+        assert_eq!(planned[0].pixels.content.unpadded_bytes, [0, 1, 2, 3]);
+    }
+    for (field, value) in [
+        ("rows", serde_json::json!(65536)),
+        ("columns", serde_json::json!(u32::MAX)),
+        ("pixel_min", serde_json::json!(-1)),
+        ("stored_values", serde_json::json!([0, 1, 2, 256])),
+        ("frame_sha256", serde_json::json!("00".repeat(32))),
+    ] {
+        let mut bad = source.clone();
+        bad.dicom.as_mut().unwrap().artifacts[0]
+            .parameters
+            .insert(field.into(), value);
+        assert!(plan_mr_cr_recipe(&bad, LOCK_HASH, 0).is_err(), "{field}");
+    }
+    for (section, field, value) in [
+        ("overlay", "data", serde_json::json!([9, 1])),
+        ("overlay", "origin", serde_json::json!([0, 0])),
+        ("modality_lut", "descriptor", serde_json::json!([3, 0, 16])),
+        ("voi_lut", "data", serde_json::json!([0, 1])),
+        ("voi_lut", "lut_type", serde_json::json!("US")),
+    ] {
+        let mut bad = source.clone();
+        bad.dicom.as_mut().unwrap().artifacts[0]
+            .parameters
+            .get_mut(section)
+            .unwrap()[field] = value;
+        assert!(
+            plan_mr_cr_recipe(&bad, LOCK_HASH, 0).is_err(),
+            "{section}.{field}"
+        );
+    }
+    for cross in 0..7 {
+        let mut bad = source.clone();
+        let a = &mut bad.dicom.as_mut().unwrap().artifacts[0];
+        match cross {
+            0 => a.template.as_mut().unwrap().template_id = "classic/mr".into(),
+            1 => a.classic_projection = None,
+            2 => a.content.provider_id = "content.case_default".into(),
+            3 => a.algorithm_provider_id = None,
+            4 => a.output.path = Some("../escape.dcm".into()),
+            5 => a.encoding.fragments_per_frame = Some(2),
+            _ => {
+                let duplicate = a.clone();
+                bad.dicom.as_mut().unwrap().artifacts.push(duplicate);
+            }
+        }
+        assert!(
+            plan_mr_cr_recipe(&bad, LOCK_HASH, 0).is_err(),
+            "cross {cross}"
+        );
+    }
     for (path, planning_order) in [
         ("cases/recipes/classic/cr/cr_overlay_modality_voi.json", 500),
         (
@@ -186,10 +254,9 @@ fn provider_rejects_unknown_parameters_hash_drift_and_order_collisions() {
     drift.dicom.as_mut().unwrap().artifacts[0]
         .parameters
         .insert("frame_sha256".into(), serde_json::json!("00".repeat(32)));
-    let requests = plan_mr_cr_recipe(&drift, LOCK_HASH, 0).unwrap().unwrap();
     assert!(matches!(
-        OrderedSeriesProvider.plan(requests),
-        Err(ClassicPlanError::NativePixel(_))
+        plan_mr_cr_recipe(&drift, LOCK_HASH, 0),
+        Err(ClassicMrCrPlanError::Contract("CR frame hash"))
     ));
 
     let mut collision = load("cases/recipes/classic/mr/mr_multislice_oblique.json");

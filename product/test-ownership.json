@@ -553,7 +553,7 @@
         "planning_is_output_free_and_source_has_no_generator_or_writer_dependency",
         "non_owned_recipe_is_ignored"
       ],
-      "entry_digest": "55ce7f596455a85da34dbf103005e3548fd24ee96e0b24c89b7d0098f9f5f609"
+      "entry_digest": "ed4260b980a5b7b59ca252d383c383717c6073dc9e66d537c9cc67f7ec46f3bb"
     },
     {
       "source": "tests/classic_nuclear_plan.rs",

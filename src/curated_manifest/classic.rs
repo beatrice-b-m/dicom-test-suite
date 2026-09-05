@@ -474,6 +474,7 @@ fn nuclear(ctx: &CuratedArtifactProjectionContext) -> Result<Facts, CuratedManif
         ClassicNuclearArtifactParameters::NuclearMedicine {
             pixels,
             image_type,
+            pixel_spacing,
             energy_window_vector,
             detector_vector,
             energy_windows,
@@ -492,7 +493,7 @@ fn nuclear(ctx: &CuratedArtifactProjectionContext) -> Result<Facts, CuratedManif
             nuclear_base(
                 &pixels,
                 recipe,
-                json!({"synthetic_data":"YES","body_part_examined":body_part,"pixel_min":pixels.pixel_min,"pixel_max":pixels.pixel_max}),
+                json!({"synthetic_data":"YES","body_part_examined":body_part,"pixel_spacing_mm":numbers(&pixel_spacing)?,"pixel_min":pixels.pixel_min,"pixel_max":pixels.pixel_max}),
                 specials,
             )
         }

@@ -11444,14 +11444,22 @@ fn validate_nuclear_medicine_standard_elements(
         )?
         .to_string(),
     );
-    validate_str_element(
-        failures,
-        relative_path,
-        obj,
-        tags::PIXEL_SPACING,
-        "nm_pixel_spacing_type2",
-        "4\\4",
-    );
+    let pixel_spacing = manifest_f64_array(
+        manifest_path,
+        file,
+        "/expected_semantics/pixel_spacing_mm",
+        "NM pixel_spacing_mm must be a numeric array",
+    )?;
+    match element_f64_values_for_validate(obj, tags::PIXEL_SPACING) {
+        Ok(actual) => validate_equal_debug(
+            failures,
+            relative_path,
+            "nm_pixel_spacing_type2",
+            actual,
+            pixel_spacing,
+        ),
+        Err(err) => failures.push(format!("{relative_path}: nm_pixel_spacing_type2: {err}")),
+    }
 
     let pointer_strings = manifest_string_array(
         manifest_path,

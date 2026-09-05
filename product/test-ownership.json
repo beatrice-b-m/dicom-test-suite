@@ -4,9 +4,9 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 277,
-    "rust_test_entries": 1506,
+    "rust_test_entries": 1510,
     "integration_source_groups": 189,
-    "integration_test_entries": 933,
+    "integration_test_entries": 936,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
   },
   "enums": {
@@ -563,14 +563,15 @@
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 4,
+      "entry_count": 5,
       "entries": [
         "nuclear_catalog_owns_exact_historical_slice",
         "nuclear_planning_is_output_free_strict_and_excludes_enhanced_pet",
         "us_multiframe_planning_is_caller_owned_and_fail_closed",
+        "nm_multiframe_planning_is_caller_owned_and_fail_closed",
         "direct_nuclear_plans_match_current_bytes_and_manifest_facts"
       ],
-      "entry_digest": "2347b8c54fe3d99a21c7278a6906a69f2bc609c79689e0cf29b2d42e979c80f5"
+      "entry_digest": "e63f6c30631ba9e9e3e4ee8812f5e6dd9872d15af92dfbc3ae0a919057861535"
     },
     {
       "source": "tests/classic_plan_contracts.rs",
@@ -1275,9 +1276,10 @@
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 32,
+      "entry_count": 33,
       "entries": [
         "caller_owned_us_multiframe_fixture_is_admitted_by_structure",
+        "caller_owned_nm_multiframe_fixture_is_admitted_by_structure",
         "external_ct_capability_is_name_independent_and_integrity_bound",
         "external_mr_capability_is_name_independent_and_registry_bound",
         "external_ct_capability_is_fail_closed_without_broadening_classic_names",
@@ -1310,7 +1312,7 @@
         "negative_and_fuzz_dependencies_cannot_cross_legacy_or_stress_boundaries",
         "excessive_undeclared_inventory_fails_without_buffering_all_names"
       ],
-      "entry_digest": "612340144a0ab0b178a1d28d51c245a11c30a4730efdefb26b93f5dd85f22306"
+      "entry_digest": "e450fb2bd6504f402c03e1c1d19ca2fbdf590be49069018881d55b406968912f"
     },
     {
       "source": "tests/corpus_plan.rs",
@@ -1857,7 +1859,7 @@
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 17,
+      "entry_count": 18,
       "entries": [
         "loaded_capabilities_are_verified_destination_free_and_sdk_consistent",
         "caller_named_ct_cli_is_sdk_identical_strictly_valid_and_reported",
@@ -1873,11 +1875,12 @@
         "caller_named_mr_cli_is_sdk_identical_strictly_valid_and_reported",
         "caller_named_us_cli_is_sdk_identical_strictly_valid_and_reported",
         "caller_owned_us_multiframe_cli_sdk_and_report_are_identical",
+        "caller_owned_nm_multiframe_cli_sdk_and_report_are_identical",
         "caller_named_pet_cli_is_sdk_identical_strictly_valid_and_reported",
         "caller_named_xa_xrf_cli_is_sdk_identical_strictly_valid_and_reported",
         "caller_named_vl_photo_cli_is_sdk_identical_strictly_valid_and_reported"
       ],
-      "entry_digest": "b4888b5e2d3cd99d40f6c8bdbadb8687cd48db179564f8767da5ba149cf1c4f9"
+      "entry_digest": "c4f562e61d14b24cf7c23ae52e121704d6d323583f5d8eefcb7ab93cdfca24f8"
     },
     {
       "source": "tests/frame_codec_service.rs",
@@ -2743,7 +2746,7 @@
       "domain": "schema_resources",
       "verification_class": "fast",
       "cost_tier": "ordinary",
-      "entry_count": 73,
+      "entry_count": 74,
       "entries": [
         "committed_schema_files_are_parseable_json_schema_documents",
         "committed_schema_files_compile",
@@ -2768,6 +2771,7 @@
         "manifest_schema_types_nonsquare_spacing_variants",
         "manifest_schema_locks_nonsquare_case_image_and_pixel_contract",
         "manifest_schema_types_nuclear_medicine_multiframe_expectations",
+        "manifest_v2_schema_types_caller_owned_nuclear_medicine_multiframe",
         "manifest_schema_types_pet_activity_expectations",
         "manifest_schema_types_enhanced_pet_expectations",
         "manifest_schema_types_ultrasound_multiframe_expectations",
@@ -2819,7 +2823,7 @@
         "manifest_schema_types_exact_rt_radiation_set_expectations",
         "manifest_schema_scopes_second_generation_rt_expectations_to_their_cases"
       ],
-      "entry_digest": "9182c7133e9083b8568cdaf664cf714b53c67e3de76ecf1afd03cebf0f10994d",
+      "entry_digest": "3ac7470e801c8e9e626a379796361c36ddcd84280772082a3274b8f4097bcf56",
       "fast_cost_exemption": "Static JSON Schema validation; WSI names do not generate a corpus."
     },
     {
@@ -3909,7 +3913,7 @@
         "mutation_of_an_internal_shared_root_fails_closed_on_reuse",
         "one_handle_reuses_one_tree_across_batch_generate_validate_report_and_compose"
       ],
-      "entry_digest": "935567d6263d3ce664a7faed6c4fca5b197661c8b23c6ca69fcfde42fd5d717e"
+      "entry_digest": "c54991c42bfb0a23719a7daac65061ea0bb990863695f9529fb8a0cfe18b8232"
     },
     {
       "source": "src/executor/evidence.rs",
@@ -4236,7 +4240,7 @@
         "cargo_lock_perturbation_changes_only_toolchain_and_legacy_provenance",
         "external_runtime_identity_requires_successful_typed_execution_evidence"
       ],
-      "entry_digest": "175b6e5b78441ae9798157c7240d9552030cbaa7f85f1a7bb76702c8db6e5a24"
+      "entry_digest": "825a445c6f4fd3b399d5af43d710616fc33e00d965fcb589c7b476b0eea2377a"
     },
     {
       "source": "src/lib.rs",
@@ -4342,7 +4346,7 @@
         "dependency_graph_is_closed_acyclic_and_reachable",
         "runtime_ids_remain_unique"
       ],
-      "entry_digest": "e9a36190f504314245dc71043ba142a2ba6c8d94e11a2da3bfa35708318670da"
+      "entry_digest": "c7312d1c282d5419ec343ba629dc8322adf7272185f72e5193a21cb3276d3dfc"
     },
     {
       "source": "src/media.rs",

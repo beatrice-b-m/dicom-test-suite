@@ -147,6 +147,84 @@ fn caller_owned_us_multiframe_fixture_is_admitted_by_structure() {
     fs::remove_dir_all(contradictory).unwrap();
 }
 
+#[test]
+fn caller_owned_nm_multiframe_fixture_is_admitted_by_structure() {
+    let fixture = PathBuf::from("tests/fixtures/generic-nm-multiframe-corpus");
+    let selector = crate::sdk::CorpusSelector::CaseIds {
+        profile: "core".into(),
+        include_stress: false,
+        case_ids: vec!["caller/acquisition/rotating-study".into()],
+    };
+    let inspected = crate::sdk::DicomTestSuite::embedded()
+        .unwrap()
+        .inspect_corpus(
+            crate::sdk::InspectCorpusRequest::from_file(
+                fixture.join("definition.json"),
+                fixture.join("members"),
+            )
+            .with_selection(selector.clone())
+            .with_seed(1)
+            .with_parallelism(4),
+        )
+        .unwrap();
+    assert_eq!(
+        inspected.corpus_definition_identity()["definition_id"],
+        "fixture.generic-nm-multiframe"
+    );
+    let output = std::env::temp_dir().join(format!(
+        "synth-dicom-gen-generic-nm-multiframe-{}",
+        std::process::id()
+    ));
+    let _ = fs::remove_dir_all(&output);
+    crate::sdk::DicomTestSuite::embedded()
+        .unwrap()
+        .generate_corpus(crate::sdk::GenerateCorpusRequest::from_file(
+            fixture.join("definition.json"),
+            fixture.join("members"),
+            &output,
+            selector,
+        ))
+        .unwrap();
+    let validation = crate::sdk::DicomTestSuite::embedded()
+        .unwrap()
+        .validate(crate::sdk::ValidateRequest::new(&output))
+        .unwrap();
+    assert!(validation.is_valid(), "{:?}", validation.failures());
+    fs::remove_dir_all(output).unwrap();
+
+    let contradictory = one_case_bundle(
+        "nm-multiframe-registry-modality",
+        "classic/nm/multiframe_explicit_le",
+        "caller/acquisition/contradictory-counts",
+        "caller_contradictory_counts",
+        |recipe| {
+            recipe["planning_order"] = 981.into();
+            recipe["projection_order"] = 817.into();
+            recipe["provider_parameters"]["manufacturer_model_name"] = "Caller NM Model".into();
+            recipe["dicom"]["artifacts"][0]["output"]["path"] =
+                "caller-results/contradictory-counts.dcm".into();
+        },
+    );
+    let mut descriptor: serde_json::Value =
+        serde_json::from_slice(&fs::read(contradictory.join("corpus-definition.json")).unwrap())
+            .unwrap();
+    let mut registry: serde_json::Value =
+        serde_json::from_slice(&fs::read(contradictory.join("cases/registry.json")).unwrap())
+            .unwrap();
+    registry["cases"][0]["modality"] = "US".into();
+    rewrite_registry(&contradictory, &registry, &mut descriptor);
+    let bundle = CorpusDefinitionBundle::load(&contradictory).unwrap();
+    let error =
+        crate::recipes::RecipeCatalog::from_verified_bundle(&bundle, Path::new(".")).unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("registry modality contradicts NM capability"),
+        "{error}"
+    );
+    fs::remove_dir_all(contradictory).unwrap();
+}
+
 fn make_mr_caller_owned(recipe: &mut serde_json::Value) {
     recipe["planning_order"] = 900.into();
     recipe["projection_order"] = 901.into();

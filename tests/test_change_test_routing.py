@@ -107,6 +107,12 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
             self.assertEqual(result["bundle_ids"], ["generic_us_multiframe_public_contract"])
             self.assertEqual(self.commands(result), ["cargo test --locked --no-default-features --test cli_sdk__nonfast external_corpus_cli::"])
 
+    def test_generic_nm_multiframe_proof_routes_to_public_consumer_module(self):
+        for path in ["tests/support/generic_nm_multiframe_bundle.rs", "tests/fixtures/generic-nm-multiframe-semantics.json", "tests/fixtures/generic-nm-multiframe-corpus/definition.json"]:
+            result = self.select(path)
+            self.assertEqual(result["bundle_ids"], ["generic_nm_multiframe_public_contract"])
+            self.assertEqual(self.commands(result), ["cargo test --locked --no-default-features --test cli_sdk__nonfast external_corpus_cli::"])
+
     def test_representative_surfaces_select_only_owning_bundles(self):
         fixtures = {
             "src/executor/engine.rs": (
@@ -727,7 +733,7 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
         process_source = (ROOT / "src/generation_backends/process.rs").read_text(encoding="utf-8")
         self.assertEqual(process_source.count("#[ignore ="), 6)
 
-    def test_corpus_definition_route_lists_all_thirty_two_owned_tests(self):
+    def test_corpus_definition_route_lists_all_thirty_three_owned_tests(self):
         selected = self.select("tests/corpus_definition_bundle.rs")
         commands = [
             command
@@ -736,7 +742,7 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
         ]
         self.assertEqual(len(commands), 1)
         self.assertEqual(commands[0]["source"], "tests/corpus_definition_bundle.rs")
-        self.assertEqual(commands[0]["list_count"], 32)
+        self.assertEqual(commands[0]["list_count"], 33)
 
         listing = subprocess.check_output(
             [
@@ -751,7 +757,7 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
             for line in listing
             if line.startswith("corpus_definition::tests::") and line.endswith(": test")
         ]
-        self.assertEqual(len(observed), 32)
+        self.assertEqual(len(observed), 33)
         self.assertEqual(len(observed), commands[0]["list_count"])
 
     def test_current_tracked_executable_surfaces_are_routed_or_explicitly_ignored(self):

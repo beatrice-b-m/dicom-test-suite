@@ -1,0 +1,119 @@
+{
+  "case_recipe_schema_version": "0.1.0",
+  "recipe_id": "caller_rotating_counts",
+  "recipe_version": "0.1.0",
+  "binding": { "case_id": "caller/acquisition/rotating-study" },
+  "kind": "dicom",
+  "plan_provider_id": "native.classic_plan",
+  "planning_order": 981,
+  "projection_order": 817,
+  "dependencies": [],
+  "provider_parameters": {
+    "patient_name": "CALLER^NUCLEAR",
+    "patient_id": "SUBJECT-NM-77",
+    "patient_birth_date": "19840312",
+    "patient_sex": "F",
+    "study_date": "20260905",
+    "study_time": "151200",
+    "study_id": "SPECT-STUDY",
+    "accession_number": "NM-ACCESSION",
+    "referring_physician_name": "ORDERING^CLINICIAN",
+    "modality": "NM",
+    "series_number": "31",
+    "series_date": "20260905",
+    "series_time": "151215",
+    "manufacturer": "Caller Nuclear Systems",
+    "manufacturer_model_name": "Orbit Three",
+    "software_versions": "8.4",
+    "acquisition_number": "9",
+    "acquisition_date": "20260905",
+    "acquisition_time": "151220",
+    "instance_number": "14",
+    "body_part_examined": "CHEST"
+  },
+  "validation_rule_ids": ["validation.shared"],
+  "projection_rule_ids": ["projection.curated"],
+  "dicom": {
+    "artifacts": [{
+      "logical_id": "rotating_counts",
+      "order": 0,
+      "template": {
+        "template_id": "classic/nuclear-medicine",
+        "template_version": "1.0.0"
+      },
+      "output": {
+        "role": "quantitative_review",
+        "path": "caller-results/orbit-counts.dcm"
+      },
+      "encoding": {
+        "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+        "sequence_length_policy": "default",
+        "item_length_policy": "default",
+        "offset_table_policy": "none",
+        "fragmentation_policy": "native",
+        "preamble_policy": "zero_filled",
+        "file_meta_policy": "standard"
+      },
+      "parameters": {
+        "family": "nuclear_medicine",
+        "pixels": {
+          "rows": 3,
+          "columns": 2,
+          "frames": 3,
+          "stored_value_type": "u16",
+          "stored_values": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18],
+          "pixel_min": 1,
+          "pixel_max": 18,
+          "frame_sha256": [
+            "b1cd5bf03b9488553472b7264c8d53326d8d6b2aa42ab53e2d0f27387db492d5",
+            "4340f6059049b4bda5b40078d00eba8b5d9cd84178f8392bd7b29db6e66c48fc",
+            "d1291ca4067b6fd71fc925d06589de588d4777d1865412a43fe5d82ef40faeda"
+          ]
+        },
+        "image_type": ["DERIVED", "SECONDARY", "TOMO"],
+        "pixel_spacing": ["2.5", "3.25"],
+        "energy_window_vector": [3, 1, 2],
+        "detector_vector": [2, 1, 2],
+        "energy_windows": [
+          { "index": 1, "name": "Lower", "lower_limit_kev": "70", "upper_limit_kev": "90" },
+          { "index": 2, "name": "Middle", "lower_limit_kev": "91", "upper_limit_kev": "110" },
+          { "index": 3, "name": "Upper", "lower_limit_kev": "111", "upper_limit_kev": "140" }
+        ],
+        "detectors": [
+          {
+            "index": 1,
+            "collimator_type": "FANB",
+            "focal_distance_mm": "250",
+            "start_angle_degrees": "45",
+            "image_orientation_patient": ["0", "1", "0", "-1", "0", "0"],
+            "image_position_patient": ["10", "20", "30"]
+          },
+          {
+            "index": 2,
+            "collimator_type": "CONE",
+            "focal_distance_mm": "500",
+            "start_angle_degrees": "225",
+            "image_orientation_patient": ["0", "0", "1", "0", "1", "0"],
+            "image_position_patient": ["-5", "12", "40"]
+          }
+        ],
+        "actual_frame_duration_ms": 750,
+        "counts_accumulated": 171
+      },
+      "attribute_operations": [],
+      "content": { "provider_id": "content.native_pixels", "parameters": {} },
+      "validation_rule_ids": ["validation.shared"],
+      "projection_rule_ids": ["projection.curated"],
+      "determinism": "byte_stable",
+      "stressors": ["caller_nm", "three_frames", "native_u16_pixels"],
+      "algorithm_provider_id": "algorithm.classic_nuclear",
+      "classic_projection": {
+        "family": "nuclear",
+        "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels", "navigate_multiframe", "interpret_nm_dimensions"],
+        "visual_pattern": "three_frame_rotating_counts",
+        "standards_evidence_append": [],
+        "include_implementation_version_name": false
+      }
+    }]
+  }
+}

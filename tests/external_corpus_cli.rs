@@ -8,6 +8,8 @@ mod generic_dx_mg_bundle;
 mod generic_metadata_sc_bundle;
 #[path = "support/generic_mr_bundle.rs"]
 mod generic_mr_bundle;
+#[path = "support/generic_nm_multiframe_bundle.rs"]
+mod generic_nm_multiframe_bundle;
 #[path = "support/generic_pet_bundle.rs"]
 mod generic_pet_bundle;
 #[path = "support/generic_sc_bundle.rs"]
@@ -2162,6 +2164,124 @@ fn caller_owned_us_multiframe_cli_sdk_and_report_are_identical() {
             .any(|failure| failure.contains("pixel_padding")),
         "{:?}",
         pad_validation.failures()
+    );
+}
+
+#[test]
+fn caller_owned_nm_multiframe_cli_sdk_and_report_are_identical() {
+    let f = generic_nm_multiframe_bundle::GenericNmMultiframeBundle::new();
+    let command = |args: &[String]| {
+        let raw = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
+            .args(args)
+            .current_dir(&f.root)
+            .env("PATH", "")
+            .output()
+            .unwrap();
+        assert!(
+            raw.status.success(),
+            "{}",
+            String::from_utf8_lossy(&raw.stderr)
+        );
+        assert!(raw.stderr.is_empty());
+        let value: Value = serde_json::from_slice(&raw.stdout).unwrap();
+        valid("cli-success-envelope.schema.json", &value);
+        value
+    };
+    let product = DicomTestSuite::embedded().unwrap();
+    let capabilities = command(&f.args("capabilities", None));
+    assert_eq!(
+        capabilities["result"]["loaded_corpus"]["assessment"]["selector"]["case_ids"],
+        json!(["caller/acquisition/rotating-study"])
+    );
+
+    let cli = command(&f.args("generate", Some("cli-output")));
+    valid("generation-result-v3.schema.json", &cli["result"]);
+    assert_eq!(cli["result"]["validation_status"], "passed");
+    let cli_manifest_bytes = fs::read(f.root.join("cli-output/manifest.json")).unwrap();
+    let cli_manifest: Value = serde_json::from_slice(&cli_manifest_bytes).unwrap();
+    valid("manifest-v2.schema.json", &cli_manifest);
+    generic_nm_multiframe_bundle::assert_manifest(&cli_manifest);
+    generic_nm_multiframe_bundle::assert_payload(
+        &f.root.join("cli-output/caller-results/orbit-counts.dcm"),
+    );
+
+    let GenerateCorpusOutcome::Published(sdk) = product
+        .generate_corpus(
+            GenerateCorpusRequest::from_file(
+                &f.descriptor,
+                &f.members,
+                f.root.join("sdk-output"),
+                generic_nm_multiframe_bundle::selector(),
+            )
+            .with_seed(1)
+            .with_parallelism(4),
+        )
+        .unwrap()
+    else {
+        panic!("caller-owned NM multiframe must publish")
+    };
+    assert_eq!(sdk.manifest().deserialize::<Value>().unwrap(), cli_manifest);
+    assert_eq!(
+        fs::read(sdk.output_root().join("manifest.json")).unwrap(),
+        cli_manifest_bytes
+    );
+    assert_eq!(
+        fs::read(sdk.output_root().join("caller-results/orbit-counts.dcm")).unwrap(),
+        fs::read(f.root.join("cli-output/caller-results/orbit-counts.dcm")).unwrap()
+    );
+
+    let validation = command(&["validate", "cli-output", "--format", "json"].map(str::to_owned));
+    valid("validation-result.schema.json", &validation["result"]);
+    assert_eq!(validation["result"]["valid"], true);
+    assert!(
+        product
+            .validate(ValidateRequest::new(sdk.output_root()))
+            .unwrap()
+            .is_valid()
+    );
+
+    let report = command(
+        &[
+            "report",
+            "cli-output",
+            "--format",
+            "json",
+            "--cli-api",
+            "1.0.0",
+        ]
+        .map(str::to_owned),
+    );
+    valid("report-result-v2.schema.json", &report["result"]);
+    valid(
+        "coverage-report-v2.schema.json",
+        &report["result"]["report"],
+    );
+    generic_nm_multiframe_bundle::assert_report(&report["result"]["report"]);
+    assert_eq!(
+        product
+            .report(ReportRequest::new(sdk.output_root()))
+            .unwrap()
+            .deserialize::<Value>()
+            .unwrap(),
+        report["result"]["report"]
+    );
+
+    let mut tampered = cli_manifest;
+    tampered["files"][0]["expected_semantics"]["pixel_spacing_mm"] = json!([9.0, 9.0]);
+    fs::write(
+        f.root.join("cli-output/manifest.json"),
+        serde_json::to_vec_pretty(&tampered).unwrap(),
+    )
+    .unwrap();
+    let validation = product
+        .validate(ValidateRequest::new(f.root.join("cli-output")))
+        .unwrap();
+    assert!(!validation.is_valid());
+    assert!(
+        validation
+            .failures()
+            .iter()
+            .any(|failure| failure.contains("nm_pixel_spacing_type2"))
     );
 }
 

@@ -1,0 +1,27 @@
+{
+  "corpus_definition_bundle_schema_version": "1.0.0",
+  "definition_id": "fixture.generic-nm-multiframe",
+  "definition_version": "1.0.0",
+  "profiles": [
+    { "profile_id": "smoke", "scope": "valid", "members": [] },
+    { "profile_id": "core", "scope": "valid", "members": ["caller/acquisition/rotating-study"] },
+    { "profile_id": "extended", "scope": "valid", "members": [] },
+    { "profile_id": "legacy", "scope": "legacy", "members": [] },
+    { "profile_id": "stress", "scope": "stress", "members": [] },
+    { "profile_id": "negative", "scope": "expected_invalid", "members": [] },
+    { "profile_id": "fuzz", "scope": "fuzz", "members": [] },
+    { "profile_id": "all", "scope": "valid", "union_of": ["smoke", "core", "extended"], "optional_profile": "stress", "members": [] }
+  ],
+  "registry": { "path": "cases/registry.json", "size_bytes": 1895, "sha256": "c87586a3add31a8affc3e698600d843f68acfb87472f0c252f698ed9fae0632b" },
+  "cases": [{
+    "case_id": "caller/acquisition/rotating-study",
+    "recipe_id": "caller_rotating_counts",
+    "recipe_version": "0.1.0",
+    "recipe": { "path": "cases/recipes/caller_rotating_counts.json", "size_bytes": 4406, "sha256": "b18319a71305313c916bb634e4801ddf147d2ed83447cc4907b780974c8d7f8b" },
+    "dependencies": [],
+    "evidence_ids": [],
+    "asset_ids": []
+  }],
+  "evidence": [],
+  "assets": []
+}

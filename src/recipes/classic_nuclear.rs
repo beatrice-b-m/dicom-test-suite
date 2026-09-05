@@ -62,6 +62,13 @@ pub(crate) struct UsMultiframeCapability {
     pub parameters: ClassicNuclearArtifactParameters,
 }
 
+/// Fully decoded native NM multi-frame capability, selected without names.
+#[derive(Debug, Clone)]
+pub(crate) struct NmMultiframeCapability {
+    pub provider: ClassicNuclearProviderParameters,
+    pub parameters: ClassicNuclearArtifactParameters,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ClassicNuclearPixels {
@@ -647,6 +654,282 @@ pub(crate) fn inspect_us_multiframe_capability(
     }))
 }
 
+/// Inspect the complete native Nuclear Medicine multi-frame tuple without
+/// consulting caller case names, recipe names, paths, or orders as selectors.
+pub(crate) fn inspect_nm_multiframe_capability(
+    recipe: &CaseRecipe,
+) -> Result<Option<NmMultiframeCapability>, ClassicNuclearPlanError> {
+    let Some(dicom) = &recipe.dicom else {
+        return Ok(None);
+    };
+    let declared = dicom.artifacts.iter().any(|artifact| {
+        artifact
+            .template
+            .as_ref()
+            .is_some_and(|template| template.template_id == "classic/nuclear-medicine")
+            || artifact.parameters.get("family").and_then(Value::as_str) == Some("nuclear_medicine")
+    });
+    if !declared {
+        return Ok(None);
+    }
+    if dicom.artifacts.len() != 1 {
+        return Err(contract("NM multi-frame requires one artifact"));
+    }
+    let artifact = &dicom.artifacts[0];
+    let has = |values: &[String], expected: &str| values.len() == 1 && values[0] == expected;
+    if recipe.kind != super::RecipeKind::Dicom
+        || recipe.plan_provider_id != PLAN_PROVIDER
+        || recipe.planning_order.is_none()
+        || recipe.projection_order.is_none()
+        || recipe.mutation.is_some()
+        || recipe.qualification.is_some()
+        || !recipe.dependencies.is_empty()
+        || !has(&recipe.validation_rule_ids, "validation.shared")
+        || !has(&recipe.projection_rule_ids, "projection.curated")
+        || artifact.logical_id.is_empty()
+        || artifact.order != 0
+        || artifact.output.role.is_empty()
+        || artifact.output.path.is_none()
+        || artifact.output.provider_derived == Some(true)
+        || artifact.public_profile_membership.is_some()
+        || artifact.template.as_ref().is_none_or(|template| {
+            template.template_id != "classic/nuclear-medicine"
+                || template.template_version != "1.0.0"
+        })
+        || artifact.content.provider_id != CONTENT_PROVIDER
+        || !artifact.content.parameters.is_empty()
+        || artifact.algorithm_provider_id.as_deref() != Some(ALGORITHM_PROVIDER)
+        || artifact
+            .classic_projection
+            .as_ref()
+            .is_none_or(|projection| {
+                projection.family != super::ClassicProjectionFamily::Nuclear
+                    || projection.mr.is_some()
+                    || projection.icc.is_some()
+                    || projection.semantic_labels.is_some()
+                    || !projection.standards_evidence_append.is_empty()
+                    || projection.include_implementation_version_name
+            })
+        || !artifact.attribute_operations.is_empty()
+        || artifact.secondary_capture.is_some()
+        || artifact.metadata_sc.is_some()
+        || artifact.nonsquare_geometry.is_some()
+        || !has(&artifact.validation_rule_ids, "validation.shared")
+        || !has(&artifact.projection_rule_ids, "projection.curated")
+        || artifact.encoding.transfer_syntax_uid != "1.2.840.10008.1.2.1"
+        || artifact
+            .encoding
+            .non_template_encoding_provider_id
+            .is_some()
+        || artifact.encoding.fragments_per_frame.is_some()
+        || artifact.encoding.sequence_length_policy != "default"
+        || artifact.encoding.item_length_policy != "default"
+        || artifact.encoding.offset_table_policy != "none"
+        || artifact.encoding.fragmentation_policy != "native"
+        || artifact.encoding.preamble_policy.as_deref() != Some("zero_filled")
+        || artifact.encoding.file_meta_policy.as_deref() != Some("standard")
+    {
+        return Err(contract("complete native NM multi-frame tuple required"));
+    }
+    OutputRelativePath::new(
+        artifact
+            .output
+            .path
+            .clone()
+            .expect("checked NM multi-frame path"),
+    )?;
+    let provider: ClassicNuclearProviderParameters = decode(
+        Value::Object(recipe.provider_parameters.clone()),
+        "provider_parameters",
+    )?;
+    let historical_missing_model = recipe.recipe_id == "classic_nm_multiframe_explicit_le"
+        && recipe.binding.case_id == "classic/nm/multiframe_explicit_le"
+        && recipe.planning_order == Some(400)
+        && provider.manufacturer_model_name.is_none();
+    let required = [
+        provider.patient_name.as_str(),
+        provider.patient_id.as_str(),
+        provider.patient_birth_date.as_str(),
+        provider.patient_sex.as_str(),
+        provider.study_date.as_str(),
+        provider.study_time.as_str(),
+        provider.study_id.as_str(),
+        provider.series_number.as_str(),
+        provider.manufacturer.as_str(),
+        provider.software_versions.as_str(),
+        provider.acquisition_number.as_str(),
+        provider.acquisition_date.as_str(),
+        provider.acquisition_time.as_str(),
+        provider.instance_number.as_str(),
+    ];
+    if required.iter().any(|value| value.is_empty())
+        || provider.modality != "NM"
+        || provider
+            .body_part_examined
+            .as_deref()
+            .is_none_or(str::is_empty)
+        || provider
+            .manufacturer_model_name
+            .as_deref()
+            .is_none_or(str::is_empty)
+            && !historical_missing_model
+        || provider.series_date.as_deref().is_some_and(str::is_empty)
+        || provider.series_time.as_deref().is_some_and(str::is_empty)
+        || !provider
+            .instance_number
+            .parse::<u64>()
+            .is_ok_and(|value| value > 0)
+    {
+        return Err(contract("bounded NM multi-frame provider contract"));
+    }
+    let parameters: ClassicNuclearArtifactParameters = decode(
+        Value::Object(artifact.parameters.clone()),
+        "artifact parameters",
+    )?;
+    validate_nm_multiframe_parameters(&parameters)?;
+    Ok(Some(NmMultiframeCapability {
+        provider,
+        parameters,
+    }))
+}
+
+fn validate_nm_multiframe_parameters(
+    parameters: &ClassicNuclearArtifactParameters,
+) -> Result<(), ClassicNuclearPlanError> {
+    let ClassicNuclearArtifactParameters::NuclearMedicine {
+        pixels,
+        image_type,
+        pixel_spacing,
+        energy_window_vector,
+        detector_vector,
+        energy_windows,
+        detectors,
+        actual_frame_duration_ms,
+        counts_accumulated,
+    } = parameters
+    else {
+        return Err(contract("NM multi-frame parameters required"));
+    };
+    let frame_size = usize::from(pixels.rows)
+        .checked_mul(usize::from(pixels.columns))
+        .ok_or_else(|| contract("NM multi-frame dimensions overflow"))?;
+    let count = frame_size
+        .checked_mul(
+            usize::try_from(pixels.frames)
+                .map_err(|_| contract("NM multi-frame count overflow"))?,
+        )
+        .ok_or_else(|| contract("NM multi-frame count overflow"))?;
+    let parse_finite = |value: &str| value.parse::<f64>().ok().filter(|value| value.is_finite());
+    if pixels.rows == 0
+        || pixels.columns == 0
+        || pixels.frames < 2
+        || pixels.frames > u32::from(u16::MAX)
+        || pixels.stored_value_type != "u16"
+        || pixels.stored_values.len() != count
+        || pixels
+            .stored_values
+            .iter()
+            .any(|value| !(0..=i64::from(u16::MAX)).contains(value))
+        || pixels.stored_values.iter().min().copied() != Some(pixels.pixel_min)
+        || pixels.stored_values.iter().max().copied() != Some(pixels.pixel_max)
+        || pixels.frame_sha256.len() != pixels.frames as usize
+        || image_type.is_empty()
+        || image_type.len() > 16
+        || image_type
+            .iter()
+            .any(|value| value.is_empty() || value.len() > 16)
+        || pixel_spacing
+            .iter()
+            .any(|value| value.len() > 16 || parse_finite(value).is_none_or(|value| value <= 0.0))
+        || energy_window_vector.len() != pixels.frames as usize
+        || detector_vector.len() != pixels.frames as usize
+        || energy_windows.is_empty()
+        || energy_windows.len() > usize::from(u16::MAX)
+        || detectors.is_empty()
+        || detectors.len() > usize::from(u16::MAX)
+        || *actual_frame_duration_ms == 0
+    {
+        return Err(contract("bounded NM multi-frame pixels and semantics"));
+    }
+    let mut sum = 0_u64;
+    let mut bytes = Vec::with_capacity(count.saturating_mul(2));
+    for value in &pixels.stored_values {
+        let value = u16::try_from(*value).map_err(|_| contract("NM U16 sample range"))?;
+        sum = sum
+            .checked_add(u64::from(value))
+            .ok_or_else(|| contract("NM accumulated counts overflow"))?;
+        bytes.extend_from_slice(&value.to_le_bytes());
+    }
+    if sum != u64::from(*counts_accumulated)
+        || bytes
+            .chunks(frame_size * 2)
+            .map(crate::sha256_hex)
+            .ne(pixels.frame_sha256.iter().cloned())
+    {
+        return Err(contract("NM counts or frame hashes"));
+    }
+    if energy_window_vector
+        .iter()
+        .any(|index| *index == 0 || usize::from(*index) > energy_windows.len())
+        || detector_vector
+            .iter()
+            .any(|index| *index == 0 || usize::from(*index) > detectors.len())
+    {
+        return Err(contract("NM dimension vector index bounds"));
+    }
+    for (offset, window) in energy_windows.iter().enumerate() {
+        let lower = parse_finite(&window.lower_limit_kev);
+        let upper = parse_finite(&window.upper_limit_kev);
+        if usize::from(window.index) != offset + 1
+            || window.name.is_empty()
+            || window.name.len() > 16
+            || lower.is_none_or(|value| value < 0.0)
+            || upper.is_none_or(|value| value <= 0.0)
+            || lower.zip(upper).is_none_or(|(lower, upper)| lower >= upper)
+        {
+            return Err(contract("NM energy window contract"));
+        }
+    }
+    const COLLIMATORS: [&str; 9] = [
+        "PARA", "PINH", "FANB", "CONE", "SLNT", "ASTG", "DIVG", "NONE", "UNKN",
+    ];
+    for (offset, detector) in detectors.iter().enumerate() {
+        let orientation = detector
+            .image_orientation_patient
+            .iter()
+            .map(|value| (value.len() <= 16).then(|| parse_finite(value)).flatten())
+            .collect::<Option<Vec<_>>>();
+        let position_is_finite = detector
+            .image_position_patient
+            .iter()
+            .all(|value| value.len() <= 16 && parse_finite(value).is_some());
+        let orthonormal = orientation.as_deref().is_some_and(|values| {
+            let row = &values[..3];
+            let column = &values[3..];
+            let dot = row.iter().zip(column).map(|(a, b)| a * b).sum::<f64>();
+            let row_norm = row.iter().map(|value| value * value).sum::<f64>();
+            let column_norm = column.iter().map(|value| value * value).sum::<f64>();
+            (row_norm - 1.0).abs() <= 1e-6 && (column_norm - 1.0).abs() <= 1e-6 && dot.abs() <= 1e-6
+        });
+        if usize::from(detector.index) != offset + 1
+            || !COLLIMATORS.contains(&detector.collimator_type.as_str())
+            || !detector
+                .focal_distance_mm
+                .parse::<u64>()
+                .is_ok_and(|_| !detector.focal_distance_mm.is_empty())
+            || detector.focal_distance_mm.len() > 12
+            || parse_finite(&detector.start_angle_degrees)
+                .is_none_or(|value| !(0.0..360.0).contains(&value))
+            || detector.start_angle_degrees.len() > 16
+            || !orthonormal
+            || !position_is_finite
+        {
+            return Err(contract("NM detector contract"));
+        }
+    }
+    Ok(())
+}
+
 pub(crate) fn inspect_pet_capability(
     recipe: &CaseRecipe,
 ) -> Result<Option<ClassicNuclearArtifactParameters>, ClassicNuclearPlanError> {
@@ -749,11 +1032,14 @@ pub fn plan_nuclear_recipe(
 ) -> Result<Option<Vec<ClassicInstanceRequest>>, ClassicNuclearPlanError> {
     let native_us = inspect_us_capability(recipe)?.is_some();
     let native_us_multiframe = inspect_us_multiframe_capability(recipe)?;
+    let native_nm_multiframe = inspect_nm_multiframe_capability(recipe)?;
     let native_pet = inspect_pet_capability(recipe)?.is_some();
     let Some(family) = (if native_us {
         Some(Family::UltrasoundSingle)
     } else if native_us_multiframe.is_some() {
         Some(Family::UltrasoundMultiframe)
+    } else if native_nm_multiframe.is_some() {
+        Some(Family::NuclearMedicine)
     } else if native_pet {
         Some(Family::Pet)
     } else {
@@ -768,6 +1054,7 @@ pub fn plan_nuclear_recipe(
     }
     if !native_us
         && native_us_multiframe.is_none()
+        && native_nm_multiframe.is_none()
         && !native_pet
         && !(400..=404).contains(
             &recipe
@@ -779,15 +1066,21 @@ pub fn plan_nuclear_recipe(
             "owned nuclear planning_order is outside 400..=404",
         ));
     }
-    let provider: ClassicNuclearProviderParameters = if let Some(capability) = &native_us_multiframe
-    {
-        capability.provider.clone()
-    } else {
-        decode(
-            Value::Object(recipe.provider_parameters.clone()),
-            "provider_parameters",
-        )?
-    };
+    let provider: ClassicNuclearProviderParameters = native_us_multiframe
+        .as_ref()
+        .map(|capability| capability.provider.clone())
+        .or_else(|| {
+            native_nm_multiframe
+                .as_ref()
+                .map(|capability| capability.provider.clone())
+        })
+        .map(Ok)
+        .unwrap_or_else(|| {
+            decode(
+                Value::Object(recipe.provider_parameters.clone()),
+                "provider_parameters",
+            )
+        })?;
     let artifact = recipe
         .dicom
         .as_ref()
@@ -796,6 +1089,7 @@ pub fn plan_nuclear_recipe(
     validate_artifact(artifact, family)?;
     let parameters: ClassicNuclearArtifactParameters = native_us_multiframe
         .map(|capability| capability.parameters)
+        .or_else(|| native_nm_multiframe.map(|capability| capability.parameters))
         .map(Ok)
         .unwrap_or_else(|| {
             decode(

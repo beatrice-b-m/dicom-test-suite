@@ -1537,6 +1537,71 @@ fn manifest_schema_types_nuclear_medicine_multiframe_expectations() {
 }
 
 #[test]
+fn manifest_v2_schema_types_caller_owned_nuclear_medicine_multiframe() {
+    let schema = read_json("schemas/manifest-v2.schema.json");
+    let nm_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_nm_multiframe",
+        "$defs": {
+            "expected_nm_multiframe": schema["$defs"]["expected_nm_multiframe"].clone(),
+            "expected_nm_energy_window": schema["$defs"]["expected_nm_energy_window"].clone(),
+            "expected_nm_detector": schema["$defs"]["expected_nm_detector"].clone(),
+            "expected_nm_frame_dimension": schema["$defs"]["expected_nm_frame_dimension"].clone()
+        }
+    });
+    let validator = jsonschema::validator_for(&nm_schema).unwrap();
+    let hash = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    let value = serde_json::json!({
+        "image_type": ["DERIVED", "SECONDARY", "TOMO"],
+        "frame_increment_pointers": ["0054,0010", "0054,0020"],
+        "energy_window_vector": [3, 1, 2],
+        "detector_vector": [2, 1, 2],
+        "number_of_energy_windows": 3,
+        "number_of_detectors": 2,
+        "energy_windows": [
+            {"index":1,"name":"Lower","lower_limit_kev":70.0,"upper_limit_kev":90.0},
+            {"index":2,"name":"Middle","lower_limit_kev":91.0,"upper_limit_kev":110.0},
+            {"index":3,"name":"Upper","lower_limit_kev":111.0,"upper_limit_kev":140.0}
+        ],
+        "detectors": [
+            {"index":1,"collimator_type":"FANB","focal_distance_mm":250.0,"start_angle_degrees":45.0,
+             "image_orientation_patient":[0,1,0,-1,0,0],"image_position_patient":[10,20,30]},
+            {"index":2,"collimator_type":"CONE","focal_distance_mm":500.0,"start_angle_degrees":225.0,
+             "image_orientation_patient":[0,0,1,0,1,0],"image_position_patient":[-5,12,40]}
+        ],
+        "actual_frame_duration_ms": 750,
+        "counts_accumulated": 171,
+        "frame_dimensions": [
+            {"frame_number":1,"energy_window_index":3,"detector_index":2,"frame_sha256":hash},
+            {"frame_number":2,"energy_window_index":1,"detector_index":1,"frame_sha256":hash},
+            {"frame_number":3,"energy_window_index":2,"detector_index":2,"frame_sha256":hash}
+        ]
+    });
+    assert!(validator.is_valid(&value));
+    for pointer in [
+        "/image_type/0",
+        "/frame_increment_pointers/1",
+        "/energy_window_vector/0",
+        "/detectors/0/collimator_type",
+        "/frame_dimensions/0/frame_sha256",
+    ] {
+        let mut bad = value.clone();
+        *bad.pointer_mut(pointer).unwrap() = match pointer {
+            "/image_type/0" => serde_json::json!(""),
+            "/frame_increment_pointers/1" => serde_json::json!("0054,0070"),
+            "/energy_window_vector/0" => serde_json::json!(0),
+            "/detectors/0/collimator_type" => serde_json::json!("BAD"),
+            _ => serde_json::json!("bad"),
+        };
+        assert!(!validator.is_valid(&bad), "{pointer}");
+    }
+    assert_eq!(
+        schema.pointer("/$defs/external_file/properties/expected_nm_multiframe/$ref"),
+        Some(&Value::String("#/$defs/expected_nm_multiframe".into()))
+    );
+}
+
+#[test]
 fn manifest_schema_types_pet_activity_expectations() {
     let schema = read_json("schemas/manifest.schema.json");
     let pet_schema = serde_json::json!({

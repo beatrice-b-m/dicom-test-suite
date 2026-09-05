@@ -577,6 +577,165 @@ fn us_multiframe_planning_is_caller_owned_and_fail_closed() {
 }
 
 #[test]
+fn nm_multiframe_planning_is_caller_owned_and_fail_closed() {
+    let (catalog, _, lock_hash) = load();
+    let historical = catalog
+        .recipes()
+        .values()
+        .find(|recipe| recipe.binding.case_id == "classic/nm/multiframe_explicit_le")
+        .unwrap();
+    let mut source = serde_json::to_value(historical).unwrap();
+    source["recipe_id"] = serde_json::json!("spect_recipe_without_catalog_name");
+    source["binding"]["case_id"] = serde_json::json!("caller/acquisition/rotating-study");
+    source["planning_order"] = serde_json::json!(981);
+    source["projection_order"] = serde_json::json!(817);
+    source["provider_parameters"] = serde_json::json!({
+        "patient_name": "CALLER^NUCLEAR", "patient_id": "SUBJECT-NM-77",
+        "patient_birth_date": "19840312", "patient_sex": "F",
+        "study_date": "20260905", "study_time": "151200", "study_id": "SPECT-STUDY",
+        "accession_number": "NM-ACCESSION", "referring_physician_name": "ORDERING^CLINICIAN",
+        "modality": "NM", "series_number": "31", "series_date": "20260905",
+        "series_time": "151215", "manufacturer": "Caller Nuclear Systems",
+        "manufacturer_model_name": "Orbit Three", "software_versions": "8.4",
+        "acquisition_number": "9", "acquisition_date": "20260905",
+        "acquisition_time": "151220", "instance_number": "14",
+        "body_part_examined": "CHEST"
+    });
+    let artifact = &mut source["dicom"]["artifacts"][0];
+    artifact["logical_id"] = serde_json::json!("rotating_counts");
+    artifact["output"]["role"] = serde_json::json!("quantitative_review");
+    artifact["output"]["path"] = serde_json::json!("caller-results/orbit-counts.dcm");
+    artifact["classic_projection"]["visual_pattern"] =
+        serde_json::json!("three_frame_rotating_counts");
+    let values = (1_i64..=18).collect::<Vec<_>>();
+    let frame_hashes = values
+        .chunks(6)
+        .map(|frame| {
+            let bytes = frame
+                .iter()
+                .flat_map(|value| (*value as u16).to_le_bytes())
+                .collect::<Vec<_>>();
+            sha256_hex(&bytes)
+        })
+        .collect::<Vec<_>>();
+    artifact["parameters"] = serde_json::json!({
+        "family": "nuclear_medicine",
+        "pixels": {"rows": 3, "columns": 2, "frames": 3, "stored_value_type": "u16",
+            "stored_values": values, "pixel_min": 1, "pixel_max": 18,
+            "frame_sha256": frame_hashes},
+        "image_type": ["DERIVED", "SECONDARY", "TOMO"],
+        "pixel_spacing": ["2.5", "3.25"],
+        "energy_window_vector": [3, 1, 2], "detector_vector": [2, 1, 2],
+        "energy_windows": [
+            {"index": 1, "name": "Lower", "lower_limit_kev": "70", "upper_limit_kev": "90"},
+            {"index": 2, "name": "Middle", "lower_limit_kev": "91", "upper_limit_kev": "110"},
+            {"index": 3, "name": "Upper", "lower_limit_kev": "111", "upper_limit_kev": "140"}
+        ],
+        "detectors": [
+            {"index": 1, "collimator_type": "FANB", "focal_distance_mm": "250",
+             "start_angle_degrees": "45", "image_orientation_patient": ["0", "1", "0", "-1", "0", "0"],
+             "image_position_patient": ["10", "20", "30"]},
+            {"index": 2, "collimator_type": "CONE", "focal_distance_mm": "500",
+             "start_angle_degrees": "225", "image_orientation_patient": ["0", "0", "1", "0", "1", "0"],
+             "image_position_patient": ["-5", "12", "40"]}
+        ],
+        "actual_frame_duration_ms": 750, "counts_accumulated": 171
+    });
+
+    let recipe = serde_json::from_value(source.clone()).unwrap();
+    let request = plan_nuclear_recipe(&recipe, &lock_hash, 7)
+        .unwrap()
+        .unwrap()
+        .remove(0);
+    assert_eq!(request.logical_id, "rotating_counts");
+    assert_eq!(
+        request.output_relative_path.as_str(),
+        "caller-results/orbit-counts.dcm"
+    );
+    assert_eq!(request.common.series.modality, "NM");
+
+    for (pointer, replacement) in [
+        ("/provider_parameters/modality", serde_json::json!("US")),
+        (
+            "/provider_parameters/manufacturer_model_name",
+            serde_json::json!(""),
+        ),
+        (
+            "/provider_parameters/instance_number",
+            serde_json::json!("0"),
+        ),
+        (
+            "/dicom/artifacts/0/template/template_version",
+            serde_json::json!("2.0.0"),
+        ),
+        (
+            "/dicom/artifacts/0/output/path",
+            serde_json::json!("../escape.dcm"),
+        ),
+        (
+            "/dicom/artifacts/0/parameters/pixels/frames",
+            serde_json::json!(1),
+        ),
+        (
+            "/dicom/artifacts/0/parameters/pixels/stored_values/0",
+            serde_json::json!(65536),
+        ),
+        (
+            "/dicom/artifacts/0/parameters/pixels/frame_sha256/0",
+            serde_json::json!("bad"),
+        ),
+        (
+            "/dicom/artifacts/0/parameters/image_type",
+            serde_json::json!([]),
+        ),
+        (
+            "/dicom/artifacts/0/parameters/pixel_spacing/0",
+            serde_json::json!("0"),
+        ),
+        (
+            "/dicom/artifacts/0/parameters/energy_window_vector/0",
+            serde_json::json!(4),
+        ),
+        (
+            "/dicom/artifacts/0/parameters/detector_vector/0",
+            serde_json::json!(0),
+        ),
+        (
+            "/dicom/artifacts/0/parameters/energy_windows/1/index",
+            serde_json::json!(3),
+        ),
+        (
+            "/dicom/artifacts/0/parameters/energy_windows/0/upper_limit_kev",
+            serde_json::json!("60"),
+        ),
+        (
+            "/dicom/artifacts/0/parameters/detectors/0/collimator_type",
+            serde_json::json!("BAD"),
+        ),
+        (
+            "/dicom/artifacts/0/parameters/detectors/0/image_orientation_patient/3",
+            serde_json::json!("0"),
+        ),
+        (
+            "/dicom/artifacts/0/parameters/actual_frame_duration_ms",
+            serde_json::json!(0),
+        ),
+        (
+            "/dicom/artifacts/0/parameters/counts_accumulated",
+            serde_json::json!(170),
+        ),
+    ] {
+        let mut bad = source.clone();
+        *bad.pointer_mut(pointer).unwrap() = replacement;
+        let bad = serde_json::from_value(bad).unwrap();
+        assert!(
+            plan_nuclear_recipe(&bad, &lock_hash, 7).is_err(),
+            "{pointer}"
+        );
+    }
+}
+
+#[test]
 fn direct_nuclear_plans_match_current_bytes_and_manifest_facts() {
     let generated_root = temp_path("legacy");
     let planned_root = temp_path("planned");

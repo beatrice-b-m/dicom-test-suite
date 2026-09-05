@@ -706,6 +706,12 @@ mod external_manifest_contract_tests {
         rebase(&mut expected);
         expected["properties"]["expected_us_multiframe"]["$ref"] =
             json!("#/$defs/expected_us_multiframe");
+        expected["properties"]["expected_nm_multiframe"]["$ref"] =
+            json!("#/$defs/expected_nm_multiframe");
+        expected["allOf"]
+            .as_array_mut()
+            .unwrap()
+            .push(external["$defs"]["external_file"]["allOf"][1].clone());
         assert_eq!(external["$defs"]["external_file"], expected);
         assert_eq!(
             external["properties"]["files"]["items"]["$ref"],
@@ -732,7 +738,11 @@ mod external_manifest_contract_tests {
         let mut generic_schema = external["$defs"]["external_file"].clone();
         generic_schema["$defs"] = json!({
             "expected_us_multiframe": external["$defs"]["expected_us_multiframe"].clone(),
-            "expected_us_frame": external["$defs"]["expected_us_frame"].clone()
+            "expected_us_frame": external["$defs"]["expected_us_frame"].clone(),
+            "expected_nm_multiframe": external["$defs"]["expected_nm_multiframe"].clone(),
+            "expected_nm_energy_window": external["$defs"]["expected_nm_energy_window"].clone(),
+            "expected_nm_detector": external["$defs"]["expected_nm_detector"].clone(),
+            "expected_nm_frame_dimension": external["$defs"]["expected_nm_frame_dimension"].clone()
         });
         let generic_validator = jsonschema::options()
             .with_resource(

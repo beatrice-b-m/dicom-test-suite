@@ -61,3 +61,27 @@ curated generation and direct tests, not reopened manifest validation. They
 remain for later RT genericity migration; this correction does not claim those
 generation capabilities are already independent. Legacy report paths remain
 untouched. No native WSI or RT qualification ran during this inventory.
+
+## Qualification activation refinement
+
+Unit3 forwards explicit kind into stress qualification validation. For external
+manifests, derive stress membership from selection_ledger case_definition
+profiles, not a stress/ prefix or unbound file profile_membership. Require each
+stress qualification to belong to a captured stress case before checking the
+existing approved reduced recipe, actual/requested scale, byte totals and
+resource ceilings. Preserve curated prefix activation and unavailable outcomes;
+a captured unavailable case without files does not become a passed run.
+
+Bind each external file's profile_membership to its captured definition as a
+set (schema already rejects duplicates). This prevents contradictory report
+profile evidence and keeps runtime selection grounded in the captured contract.
+The existing negative/fuzz evidence/profile checks remain unchanged. This unit
+does not introduce generic stress generation or relax approved reduced recipes.
+
+Extend ordinary US collision checks with stress/caller and the exact historical
+enhanced-CT stress ID. Pure tests cover neutral-name stress requiring evidence,
+core cases rejecting attached stress qualifications, valid reduced evidence,
+missing/duplicate/forged evidence and ceilings, plus unavailable rows. Extend
+external manifest tests with profile-membership tampering. Run unit3 only after
+unit2 acceptance; shared validation and manifest files cannot be edited in
+parallel across those units.

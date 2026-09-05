@@ -685,9 +685,9 @@ mod snapshot_cache_tests {
         let elapsed = started.elapsed();
         assert_eq!(first.root(), second.root());
         assert_eq!(first.root(), third.root());
-        assert_eq!(file_inventory(first.root()), (261, 2_918_678));
+        assert_eq!(file_inventory(first.root()), (261, 2_931_302));
         eprintln!(
-            "current_snapshot operations=3 roots=1 files_written=261 bytes_written=2918678 elapsed_us={}",
+            "current_snapshot operations=3 roots=1 files_written=261 bytes_written=2931302 elapsed_us={}",
             elapsed.as_micros()
         );
     }
@@ -766,7 +766,7 @@ mod snapshot_cache_tests {
         );
         assert!(!failed_root.expect("writer observed snapshot root").exists());
         let snapshot = resources.shared_snapshot().unwrap();
-        assert_eq!(file_inventory(snapshot.root()), (261, 2_918_678));
+        assert_eq!(file_inventory(snapshot.root()), (261, 2_931_302));
     }
 
     #[test]
@@ -851,7 +851,7 @@ mod snapshot_cache_tests {
             resources.shared_snapshot().unwrap().root(),
             shared_root.as_path()
         );
-        assert_eq!(file_inventory(&shared_root), (261, 2_918_678));
+        assert_eq!(file_inventory(&shared_root), (261, 2_931_302));
 
         fs::remove_dir_all(workspace).unwrap();
     }

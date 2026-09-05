@@ -119,6 +119,11 @@ a bounded typed contract, with caller-owned names, paths and ordering. See the
 [US contract](docs/generation-guide.md#caller-defined-native-ultrasound) for its
 fixed synthetic metadata and separate multiframe/RLE evidence boundaries.
 
+Caller-defined native PET supports one fixed 2×2 U16/OW activity image through
+`classic/pet@1.0.0`, with caller-owned names, paths and ordering. The
+[PET contract](docs/generation-guide.md#caller-defined-native-pet) preserves
+synthetic BQML values and metadata; it does not qualify SUV or clinical dosing.
+
 Caller-defined Secondary Capture metadata supports UTF-8 Person Name, qualified
 empty Type 2 attributes and private creator blocks through typed native
 contracts. Case/recipe names and output paths are caller-owned; metadata,

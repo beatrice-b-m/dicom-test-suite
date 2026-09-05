@@ -21,7 +21,11 @@ These naming conventions describe the committed registry. The documented
 caller-defined capabilities use complete typed contracts rather than interpreting
 a caller's case-name segments. External file profile membership is bound to the
 captured corpus definition; a historical-looking name does not grant stress or
-other qualification evidence. Schema identity and path rules still apply.
+other qualification evidence. Schema identity and path rules still apply. The
+bounded native PET capability likewise preserves its fixed synthetic activity
+and metadata tuple while accepting caller identities, orders and safe paths;
+its local standards note remains part of the submitted bundle. See the
+[PET contract](../docs/generation-guide.md#caller-defined-native-pet).
 
 ## Case ID Format
 

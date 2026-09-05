@@ -364,6 +364,60 @@ to the supported executable's absolute path and use a fresh output root:
 "$GENERATOR" report generated/us-proof --format json --cli-api 1.0.0
 ```
 
+#### Caller-defined native PET
+
+The external CLI and SDK accept the complete `classic/pet@1.0.0` native tuple:
+`native.classic_plan`, parameter-free `content.native_pixels`,
+`algorithm.classic_nuclear`, nuclear classic projection and typed `family: pet`.
+The registry declares `rust_native`/`rust_native`, `dicom_instance`, PET Image
+Storage and modality `PT`, with no feature or external-codec requirements.
+The PET template or typed family declares intent; incomplete and crossed tuples
+reject. The shared nuclear algorithm alone does not identify PET.
+
+Use one logical artifact `instance`, order zero, role `primary` and an explicit
+safe output path. Case/recipe names and required unique planning/projection
+orders are caller-owned. Recipe and artifact both require `validation.shared`
+and `projection.curated`. The accepted fixture uses orders 900 and 901.
+Encoding is native Explicit VR Little Endian with default sequence/item lengths,
+no offsets or fragment count, zero-filled preamble and standard file meta.
+Dependencies, attribute/profile overrides, content extensions and unrelated
+projection fields are excluded.
+
+The pixel and parameter contract is fixed to the source recipe: 2×2×1 U16/OW
+MONOCHROME2, values `[0, 100, 200, 400]`, extrema 0/400 and their exact frame
+hash. Image Type is `ORIGINAL\PRIMARY`; units are `BQML`, Counts Source is
+`EMISSION`, Series Type is `STATIC\IMAGE`, Corrected Image is `DCAL` and
+Decay Correction is `NONE`. The source strings for calibration factor,
+intercept/slope, frame reference time and duration are respectively `1`, `0`,
+`2.5`, `30000` and `60000`. Activity values are `[0, 250, 500, 1000]`; slice
+count and image index are one. Spacing is `4\4`, orientation
+`1\0\0\0\1\0`, position `0\0\0` and thickness `4`. Alternate numeric
+spellings are outside this bounded contract.
+
+All 20 synthetic provider fields remain source-fixed, including patient, study,
+equipment and acquisition metadata, populated series date/time and body part
+`HEAD`. Required empty sequences and conditional tag absences remain intact.
+These synthetic BQML/rescale fields do not establish SUV, administered-dose or
+clinical quantitative accuracy. US, NM, multiframe PET and codec qualifications
+retain their separate contracts. CLI/SDK equality and reopened strict
+validation are same-project evidence; report2 projects the manifest without
+reopening payloads or adding independent conformance results.
+
+The committed four-member fixture includes its local PET standards note. Set
+`GENERATOR` to the supported executable's absolute path, `PET_FIXTURE` to the
+absolute path of `tests/fixtures/generic-pet-corpus`, and `PET_OUTPUT` to a fresh
+absolute output path. These commands can run from an unrelated directory:
+
+```sh
+"$GENERATOR" capabilities --corpus "$PET_FIXTURE/definition.json" --asset-root "$PET_FIXTURE/members" \
+  --profile core --case-id caller/acquisition/activity --seed 1 --parallelism 4 --format json
+"$GENERATOR" generate --corpus "$PET_FIXTURE/definition.json" --asset-root "$PET_FIXTURE/members" \
+  --profile core --case-id caller/acquisition/activity --seed 1 --parallelism 4 \
+  --out "$PET_OUTPUT" --format json
+"$GENERATOR" validate "$PET_OUTPUT" --format json
+"$GENERATOR" report "$PET_OUTPUT" --format json --cli-api 1.0.0
+```
+
 #### Caller-defined Secondary Capture metadata
 
 The external CLI and SDK accept independently named recipes for these typed

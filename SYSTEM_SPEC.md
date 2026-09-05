@@ -1074,6 +1074,17 @@ Caller identity/order/path changes preserve source pixel and semantic contracts;
 public CLI/SDK proof separately checks reopened validation and report projection.
 This does not extend calibration-region, multiframe, RLE or independent evidence.
 
+Native PET additionally requires `classic/pet@1.0.0`, native content, shared
+nuclear algorithm/projection and typed PET parameters. Its inspector binds all
+20 synthetic provider fields and the exact source 2×2 U16 pixel, frame hash,
+geometry, timing and BQML/rescale tuple before numeric conversion. Numeric
+string spellings remain fixed. One explicit primary instance admits caller
+identity/order/path through loader and early shared dispatch; reopened
+validation selects the actual PET IOD contract. The public four-member fixture
+includes its source note and proves CLI/SDK equality with separate strict
+validation. No SUV, clinical quantitative accuracy or other nuclear family
+qualification is added.
+
 Native metadata SC admission also recognizes typed UTF-8 Person Name,
 qualified EmptyType2 and PrivateCreators independently of case/recipe names.
 The conjunctive contract binds `native.metadata_sc_plan`, one monochrome SC

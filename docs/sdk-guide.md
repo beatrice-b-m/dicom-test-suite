@@ -163,6 +163,19 @@ manifests, payloads and reports, with separate reopened strict validation.
 Calibration-region, multiframe, RLE and independent-evidence claims remain
 scoped to their respective qualifications.
 
+### Caller-defined native PET
+
+The same `InspectCorpusRequest` and `GenerateCorpusRequest` interfaces accept
+`caller/acquisition/activity` from `tests/fixtures/generic-pet-corpus`, using
+`definition.json` and its explicit `members` root. Select that case under
+`core`, seed 1 and parallelism 4. The complete
+[PET contract](generation-guide.md#caller-defined-native-pet) preserves one
+fixed 2×2 U16 activity image, exact source parameter spellings and all synthetic
+provider metadata while permitting caller identity, order and output path.
+The four-member fixture includes the PET standards note. CLI/SDK capabilities,
+raw manifests, payloads and full reports agree; reopened strict validation is
+separate. This is synthetic BQML evidence, with no SUV or clinical dosing claim.
+
 ### Caller-defined Secondary Capture metadata
 
 The same inspection and `GenerateCorpusRequest` interfaces accept independently

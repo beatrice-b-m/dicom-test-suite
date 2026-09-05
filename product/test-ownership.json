@@ -1278,7 +1278,7 @@
         "external_ct_capability_is_fail_closed_without_broadening_classic_names",
         "external_dx_mg_capability_is_name_independent_and_fail_closed",
         "external_cr_capability_is_name_independent_and_fail_closed",
-        "external_us_and_pet_capabilities_are_name_independent_and_fail_closed",
+        "external_native_projection_capabilities_are_name_independent_and_fail_closed",
         "external_metadata3_capability_is_name_independent_and_fail_closed",
         "external_sc_capability_is_bounded_name_independent_and_fail_closed",
         "minimal_bundle_loads_with_stable_exact_byte_identity",
@@ -1305,7 +1305,7 @@
         "negative_and_fuzz_dependencies_cannot_cross_legacy_or_stress_boundaries",
         "excessive_undeclared_inventory_fails_without_buffering_all_names"
       ],
-      "entry_digest": "810b43ac5c7b2836f2900a8f9fb117bd965e91371bd1aac4522c95b71564fe3d"
+      "entry_digest": "7b6533e7e79f39702d79d40ace52d6d3b998ef35a31986652f151b6cfc80465e"
     },
     {
       "source": "tests/corpus_plan.rs",

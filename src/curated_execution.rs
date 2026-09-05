@@ -4683,7 +4683,11 @@ fn validate_vl_projection_classic(
     codec_decoded_hashes: &[&str],
     encapsulated: bool,
 ) -> Result<TypedValidationReport, ServiceInvocationError> {
-    if context.case_recipe.binding.case_id.starts_with("vl/") {
+    let qualified_projection =
+        crate::recipes::classic_vl_projection::inspect_xa_xrf_capability(&context.case_recipe)
+            .map_err(|error| service_error("validation", error))?
+            .is_some();
+    if !qualified_projection && context.case_recipe.binding.case_id.starts_with("vl/") {
         let item: VlArtifactParameters = serde_json::from_value(parameters)
             .map_err(|error| service_error("validation", error))?;
         let photometric = match item.photometric_interpretation {

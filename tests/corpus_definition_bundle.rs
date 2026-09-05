@@ -406,7 +406,122 @@ fn external_cr_capability_is_name_independent_and_fail_closed() {
 }
 
 #[test]
-fn external_us_and_pet_capabilities_are_name_independent_and_fail_closed() {
+fn external_native_projection_capabilities_are_name_independent_and_fail_closed() {
+    for (family, source, modality) in [
+        ("xa", "classic/xa/monoplane_explicit_le", "XA"),
+        ("xrf", "classic/xrf/monoplane_explicit_le", "RF"),
+    ] {
+        for (name, case_id) in [
+            ("caller", "caller/projection/native"),
+            ("vl", "vl/wsi/pyramid_multiresolution"),
+            ("pet", "classic/pet/rescaled_activity_explicit_le"),
+        ] {
+            let label = format!("{family}-{name}");
+            let root = one_case_bundle(&label, source, case_id, "caller_activity", |recipe| {
+                recipe["planning_order"] = 900.into();
+                recipe["projection_order"] = 901.into();
+                recipe["dicom"]["artifacts"][0]["output"]["path"] = "images/activity.dcm".into();
+            });
+            let descriptor_path = root.join("corpus-definition.json");
+            let registry_path = root.join("cases/registry.json");
+            let original_descriptor: serde_json::Value =
+                serde_json::from_slice(&fs::read(&descriptor_path).unwrap()).unwrap();
+            let original_registry: serde_json::Value =
+                serde_json::from_slice(&fs::read(&registry_path).unwrap()).unwrap();
+            for wrong in [Some("US"), None] {
+                let mut registry = original_registry.clone();
+                if let Some(value) = wrong {
+                    registry["cases"][0]["modality"] = value.into();
+                } else {
+                    registry["cases"][0]
+                        .as_object_mut()
+                        .unwrap()
+                        .remove("modality");
+                }
+                let mut descriptor = original_descriptor.clone();
+                rewrite_registry(&root, &registry, &mut descriptor);
+                match CorpusDefinitionBundle::load(&root) {
+                    Ok(bundle) => assert!(
+                        crate::recipes::RecipeCatalog::from_verified_bundle(
+                            &bundle,
+                            Path::new(".")
+                        )
+                        .is_err()
+                    ),
+                    Err(_) => {}
+                }
+            }
+            let mut descriptor = original_descriptor;
+            rewrite_registry(&root, &original_registry, &mut descriptor);
+            let bundle = CorpusDefinitionBundle::load(&root).unwrap();
+            let catalog =
+                crate::recipes::RecipeCatalog::from_verified_bundle(&bundle, Path::new("."))
+                    .unwrap();
+            assert!(catalog.binding_for_case(case_id).is_some());
+            let root = root.canonicalize().unwrap();
+            let output = root.with_extension("output");
+            let sdk = crate::sdk::DicomTestSuite::embedded().unwrap();
+            sdk.generate_corpus(crate::sdk::GenerateCorpusRequest::from_file(
+                root.join("corpus-definition.json"),
+                &root,
+                &output,
+                crate::sdk::CorpusSelector::CaseIds {
+                    profile: "core".into(),
+                    include_stress: false,
+                    case_ids: vec![case_id.into()],
+                },
+            ))
+            .unwrap();
+            let validation = sdk
+                .validate(crate::sdk::ValidateRequest::new(&output))
+                .unwrap();
+            assert!(validation.is_valid(), "{validation:?}");
+            assert_eq!(validation.files_checked(), 1);
+            let report: serde_json::Value = sdk
+                .report(crate::sdk::ReportRequest::new(&output))
+                .unwrap()
+                .deserialize()
+                .unwrap();
+            let file = &report["source_manifest"]["files"][0];
+            assert_eq!(file["case_id"], case_id);
+            assert_eq!(file["dicom"]["modality"], modality);
+            assert_eq!(report["coverage_report_schema_version"], "2.0.0");
+            let geometry = &file[if modality == "XA" {
+                "expected_xa_projection"
+            } else {
+                "expected_xrf_projection"
+            }];
+            assert_eq!(
+                geometry["body_part_examined"],
+                if modality == "XA" { "HEART" } else { "ABDOMEN" }
+            );
+            assert_eq!(
+                geometry["imager_pixel_spacing_mm"],
+                serde_json::json!([0.2, 0.2])
+            );
+            assert_eq!(geometry["patient_space_geometry_present"], false);
+            assert!(output.join("images/activity.dcm").is_file());
+            fs::remove_dir_all(output).unwrap();
+            fs::remove_dir_all(root).unwrap();
+            for field in ["template", "algorithm_provider_id", "classic_projection"] {
+                assert_one_case_rejected(
+                    &format!("{label}-missing-{field}"),
+                    source,
+                    case_id,
+                    |recipe| {
+                        recipe["dicom"]["artifacts"][0]
+                            .as_object_mut()
+                            .unwrap()
+                            .remove(field);
+                    },
+                );
+            }
+            assert_one_case_rejected(&format!("{label}-crossed"), source, case_id, |recipe| {
+                recipe["dicom"]["artifacts"][0]["algorithm_provider_id"] =
+                    "algorithm.classic_ct".into();
+            });
+        }
+    }
     const PET: &str = "classic/pet/rescaled_activity_explicit_le";
     for (label, case_id) in [
         ("pet-caller", "caller/activity/native"),

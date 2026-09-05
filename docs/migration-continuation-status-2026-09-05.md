@@ -804,3 +804,29 @@ selective staging. The original mixed commit remains visible, not amended.
 Next is sequential loader admission, typed shared planning precedence and actual
 SDK bundle validation. US public caller proof and final guidance remain pending;
 R7 is incomplete and the corpus pin remains unchanged.
+
+## US loader accepted; external schema coupling remains open — 2026-09-05
+
+Loader108a2cc adds full typed US admission and returns its shared plan before
+historical family matchers. Actual SDK generation/reopened validation covers
+four independent or misleading namespace inputs; exact historical PET/VL IDs
+and MR recipe names have pure planning precedence coverage. CT's name-only
+negative control now uses still-unqualified NM. Independent review accepted
+this bounded scope, not arbitrary historical-ID publication.
+
+Focused generation1 test passed4.03s, exact-name planning1 in1.17s, CT control1
+in0.26s and exact30-entry routing1 in0.073s; ownership1490 and diff checks passed.
+Root inspected and executed the overlapping route:30 bundle tests12.75s,
+4 captured-plan tests5.23s,92 generation tests27.43s after19.02s compile and
+22 plan tests0.81s after1.63s compile, whole68.291674s. Log:
+`/var/folders/b9/w6_2zsyn4t1c8q1b3dyp8jbr0000gn/T/r7-us-loader-route-px1grkr5.log`.
+Explicit low-debug/nonincremental task target was used throughout; broad Heavy
+and release evidence remained deferred.
+
+An initial exact PET-ID US publication test failed after1.89s with
+validation.manifest.invalid: legacy schema expected PET Image. Planning was
+correct. External manifest2 still references legacy file conditionals, including
+36 historical case-ID policies and one generic validity branch. The schema
+coupling is a separate sequential public compatibility unit, not a waived
+genericity gate. No schema changed in108a2cc; no full name-independent
+publication or final US genericity claim is made yet.

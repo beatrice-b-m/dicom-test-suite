@@ -1,6 +1,10 @@
 # R7 accepted SC slices: remaining genericity audit — 2026-09-05
 
-Source-only audit at generator `ea4d151`, reviewed by root. Existing smoke/core
+Follow-up: bounded admission `29ac276` and standalone public proof `f073d7e`
+are accepted; see the [continuation record](migration-continuation-status-2026-09-05.md).
+Historical specialized fallbacks and full R7 ownership removal remain open.
+
+The following preserves the source-only audit at generator `ea4d151`, reviewed by root. Existing smoke/core
 migration acceptance is unchanged. This is neither new runtime evidence nor
 completion of R7.2/R7.3.
 

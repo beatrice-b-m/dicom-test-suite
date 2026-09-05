@@ -34,7 +34,7 @@ evidence entry before dependent work starts.
 | R7.1/R7.5 DX/MG3 | Repair existing parity comparator and tests; review; freeze clean corpus commit; execute two exact selected-case public-runner calls; independently inspect retained receipt | Full baseline payload/manifest semantics and repeat equality; separate strict validation and report projection; Corpus PR synthetic preparation followed by explicit parity execution |
 | R7.2/R7.3 DX/MG | Capability tuple in generator `src/recipes/classic_dx_mg.rs`; sequential loader/planner integration; standalone CLI/SDK tests and guides | Independently named cases and paths work; partial tuples fail closed; owning Subsystem and public-consumer verification |
 | R7.2/R7.3 metadata | Typed variant admission in `src/recipes/metadata_sc.rs` and loader; separate standalone fixtures | Preserve one/two-artifact and pixel/metadata constraints while removing exact case-ID dispatch; Subsystem plus public-consumer evidence |
-| R7.1–R7.5 remaining core | Close accepted smoke/core SC genericity first (see the 2026-09-05 SC audit), then CR1, US1, PET1, XA/XRF2, VL2; then paired variants, multiframe and series/geometry, one closure at a time | For each: source freeze, embedded baseline, exact import/routing, loaded availability, migrated/repeat parity, then genericity; no simultaneous shared loader changes |
+| R7.1–R7.5 remaining core | Bounded smoke/core SC genericity accepted at f073d7e; next CR1, US1, PET1, XA/XRF2, VL2; then paired variants, multiframe and series/geometry, one closure at a time | For each: source freeze, embedded baseline, exact import/routing, loaded availability, migrated/repeat parity, then genericity; no simultaneous shared loader changes |
 | R7.1–R7.5 extended and relationships | Query registry and recipe closures; freeze family-specific inventory before assigning files; migrate ordinary native and derived relationships separately | Explicit reference closure, source notes, full semantic comparison and availability; owning Corpus PR/Subsystem gates |
 | R7.1–R7.5 codecs/providers | Partition by feature, provider and dependency closure; move definitions then qualify generic capabilities through supported boundaries | Preserve byte/semantic determinism classes, executable fingerprints and missing-runtime outcomes; selected feature/provider gates at explicit cadence |
 | R7.4/R7.5 isolated scopes | Separate legacy, negative, fuzz, stress, media and protocol units with named source/consumer owners | Expected-invalid, payload-free, reduced-scale and independent/peer evidence remain isolated; applicable explicit qualification slices |
@@ -419,3 +419,61 @@ Root authenticated existing core parity receipt99483 bytes SHA-256
 all retained smoke3 payloads (2790 bytes) and core10 payloads (9512 bytes).
 Their separate historical selections and identities remain unchanged; the
 future caller proof must not infer combined-manifest parity from those arrays.
+
+## R7 bounded native SC genericity accepted — 2026-09-05
+
+Admission `29ac276` and public proof `f073d7e` establish caller-defined native
+single-frame SC for the13 migrated pixel/layout shapes. Root and independent
+review found no remaining actionable defect after fixing the complete semantic
+oracle digest. Historical namespace/EOT fallback remains broader and is not
+newly generalized. Recipe/template versions and original payloads are unchanged.
+
+The standalone bundle has15 documents,70145 bytes, descriptor SHA-256
+`5f2c0ecb9ea828598d84a079d5f11cbd154148d8fd7bfae3bf14f7e086b78f63` and
+framed identity `32726bd36c65de1aee646aa694c1451261e5137e7b88e14889ea026283009f28`.
+It intentionally places all13 caller cases in core; original historical smoke3
+and core10 selections remain separate. Exact closure, independent identities,
+paths and planning/projection orders are checked. Product imports are SDK-only;
+CLI runs from an unrelated private directory with empty PATH.
+
+The targeted [semantic oracle](../tests/fixtures/generic-sc-semantics.json)
+is SHA-256 `f3cb9b1ba11c0d363a43254463883d74093e727caf94b03ed761af74912f597d`.
+It fixes all caller sizes/hashes (12348 payload bytes), historical sizes/hashes,
+image/pixel-data, recipe parameters and semantic projections by mapped case.
+Root independently authenticated all historical fields against the retained
+accepted arrays; the test verifies the complete oracle hash without a runtime
+sibling/evidence dependency. No ordinary run manifest was copied into the fixture.
+
+CLI/SDK complete capabilities, raw manifests, actual payload bytes and report2
+projections agree. Independent SHA-256 checks open every CLI and SDK payload;
+separate strict validation checks13 files. The same test reproduces original
+smoke3 (2790 bytes) and core10 (9512 bytes) through separate exact selections.
+This is neither combined historical-manifest parity nor independent conformance.
+
+The final digest-bound test passed1/1 in15.54s (build2.19s). After selective
+staging, unconditional Fast passed15/15 in2.11s and73/73 in2.00s (build0.04s),
+spelling audit passed1015 matches in1.29s, ownership1487 passed in0.23s, and
+routing29/29 passed in3.04s. Staged diff checks passed. All Cargo subprocesses
+used the explicit low-debug, nonincremental task target, measured855044 KiB
+(875565056 bytes). The pre-existing default target11519240 KiB was untouched;
+no incremental-cost claim is made for it. No generated payload was tracked.
+
+Root updated current README, system specification, generation/SDK guides,
+compatibility policy and changelog. Four documentation checks passed in0.00s
+(build0.04s). A fresh copied bundle at `/private/tmp/r7-sc-docs-ssbn8b51`
+generated13 files with profilecore/seed1/parallelism2. All13 actual payload
+hashes equal the frozen parallelism4 oracle, a bounded payload comparison only.
+The command harness accidentally added unsupported `--cli-api` to `validate`;
+that request rejected syntax after successful generation. The failed request
+is retained. Correct documented validation then passed13 files in0.3018s, and
+report with its supported envelope flag passed in0.1593s without regeneration.
+The first harness took2.1276s including the syntax failure; isolated generation
+timing was not retained. The example occupies624647 logical/704512 allocated
+bytes. No full-manifest cross-parallelism or resource-scaling claim is inferred.
+
+This accepts only bounded SC R7.2/R7.3. Remaining classic families, specialized
+scopes, embedded removal, R8/R9 and terminal release evidence remain open.
+In parallel, disjoint source-only CR provenance was committed in corpus
+`459f15e` and independently accepted at `3e5256b`: exact34-row source core
+snapshot and11 source objects authenticated against232b9de. It caused no live
+import or runtime execution. CR baseline preparation is the next sequential unit.

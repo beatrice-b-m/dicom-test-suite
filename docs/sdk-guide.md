@@ -94,6 +94,17 @@ uses this facade and emits generation-result3/report-result2 in CLI API1.
 Capabilities `3.0.0` advertises these external producer and validation windows;
 the earlier capability schemas remain frozen.
 
+### Caller-defined native Secondary Capture
+
+The same `InspectCorpusRequest` and `GenerateCorpusRequest` interfaces accept
+the bounded [native SC contract](generation-guide.md#caller-defined-native-secondary-capture).
+It binds `native.sc_plan`, one native single-frame artifact, parameter-free
+`content.sc.pixel_pattern`, a matching monochrome/RGB SC template@1 and the
+qualified pixel/layout/validation tuple. Case/recipe names, unique planning
+orders and explicit safe paths are caller-owned. CLI/SDK manifests and payloads
+agree, with separate strict validation and report2 projection. Historical
+specialized namespace fallbacks remain outside this bounded genericity claim.
+
 ### Caller-defined classic CT
 
 The external runner accepts a name-, order-, and output-independent classic CT

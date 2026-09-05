@@ -1019,6 +1019,15 @@ valid recipes return this plan before file creation. Static recipe differences
 are stored under `cases/recipes/`; named typed providers implement bounded
 algorithms without receiving an output directory.
 
+Bounded caller-defined SC admission combines `native.sc_plan`, one single-frame
+artifact, parameter-free `content.sc.pixel_pattern`, a matching monochrome/RGB
+SC template@1 and native Explicit VR Little Endian encoding. Pixel layout and
+both-level pixel/specialized validation rules must agree; unrelated optional
+contracts are excluded. Case/recipe names and explicit paths do not dispatch
+this tuple. Nonhistorical partial tuples reject during shared validation.
+Historical namespace/EOT fallbacks remain broader during migration and do not
+gain genericity through this bounded capability. High-bit arithmetic is checked.
+
 The caller-defined classic CT capability dispatch is
 conjunctive and independent of case ID, recipe ID, planning order, and output
 path: the registry row declares `rust_native`/`rust_native`, DICOM with no

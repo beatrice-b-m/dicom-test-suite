@@ -188,6 +188,43 @@ Capabilities `3.0.0` advertises the external generation3/manifest2/report2
 producer and validation windows; capabilities1/2 remain frozen. Embedded `generate` without `--corpus`
 continues to emit generation-result `2.0.0` and curated manifest `1.0.0`.
 
+#### Caller-defined native Secondary Capture
+
+Caller-owned bundles support these native single-frame SC shapes independently
+of case/recipe names and output paths:
+
+| Pixel shape | Template at `1.0.0` |
+| --- | --- |
+| MONOCHROME1 unsigned 8-bit | `classic/secondary-capture/monochrome` |
+| MONOCHROME2 unsigned 8/16-bit or signed 16-bit, including qualified padding | `classic/secondary-capture/monochrome` |
+| PALETTE COLOR unsigned 8-bit | `classic/secondary-capture/rgb` |
+| RGB unsigned 8-bit, planar 0 or 1 | `classic/secondary-capture/rgb` |
+| YBR_FULL unsigned 8-bit, planar 0 | `classic/secondary-capture/rgb` |
+| YBR_FULL_422 unsigned 8-bit, planar 0 and even column count | `classic/secondary-capture/rgb` |
+
+The registry declares `rust_native`/`rust_native`, `dicom_instance`, and empty
+feature/external-codec requirements. The DICOM recipe uses `native.sc_plan`,
+empty provider parameters and exactly one artifact with positive dimensions,
+one frame and an explicit safe output path. Artifact parameters are empty;
+content is parameter-free `content.sc.pixel_pattern`. Planning order remains
+required and globally unique. The typed pixel values, bit contract, hashes,
+palette/padding/color declarations and matching template must agree.
+
+Encoding is native Explicit VR Little Endian, with OB for 8-bit or OW for
+16-bit pixels, default sequence/item policies, no offset table or fragment
+count, native fragmentation, zero-filled preamble and standard file meta.
+Recipe and artifact require `validation.sc.pixel`, applicable
+`validation.sc.palette`, `.padding` or `.color`, and `projection.curated`.
+No algorithm, external encoding provider, attribute override, metadata,
+classic projection, nonsquare geometry, bit-packing, integer-word or
+encapsulation-projection block belongs to this tuple.
+
+Use the external generation, validation and reporting forms above. Caller
+profile membership remains bundle-owned. Partial nonhistorical caller tuples
+fail closed; historical namespace and EOT admission remain broader during
+migration. This boundary does not generalize their codec, multiframe, geometry,
+stress or exceptional contracts and supplies same-project evidence only.
+
 #### Caller-defined classic CT capability
 
 A caller-owned bundle can select the native classic CT planner without

@@ -77,6 +77,13 @@ modules remain visible during migration but are not standalone compatibility
 surfaces, as recorded by the
 [dated Rust API audit](docs/rust-api-compatibility-audit-2026-08-31.md).
 
+Caller-defined native single-frame Secondary Capture supports qualified
+monochrome, signed pixels, padding, palette, RGB and YBR shapes through a
+complete typed capability tuple. Explicit paths, case/recipe names and unique
+planning orders are caller-owned. See the
+[SC contract](docs/generation-guide.md#caller-defined-native-secondary-capture)
+for supported shapes and historical fallback boundaries.
+
 Caller-owned corpus-definition bundles may define classic CT cases without
 reusing an embedded case ID, recipe ID, planning order, or output path. The
 supported discriminator is the complete capability tuple: registry provider

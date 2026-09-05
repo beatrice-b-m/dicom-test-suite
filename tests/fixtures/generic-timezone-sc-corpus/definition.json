@@ -64,8 +64,8 @@
       "recipe_version": "0.1.0",
       "recipe": {
         "path": "cases/recipes/caller_offset_pair.json",
-        "size_bytes": 5212,
-        "sha256": "9ab7151663f058f57b897b594111ff062f64f087be738fad86e12b1be3f7901d"
+        "size_bytes": 5208,
+        "sha256": "4bc5799679dc915a8ee3a23a4c1e8cf5d9d4727794fa4680df5cc34c317de4f2"
       },
       "dependencies": [],
       "evidence_ids": [],

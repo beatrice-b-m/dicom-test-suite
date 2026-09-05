@@ -22,7 +22,7 @@
     "artifacts": [
       {
         "logical_id": "east_edge",
-        "order": 0,
+      "order": 1,
         "template": {
           "template_id": "classic/secondary-capture/monochrome",
           "template_version": "1.0.0"
@@ -97,7 +97,7 @@
       },
       {
         "logical_id": "west_edge",
-        "order": 1,
+      "order": 0,
         "template": {
           "template_id": "classic/secondary-capture/monochrome",
           "template_version": "1.0.0"

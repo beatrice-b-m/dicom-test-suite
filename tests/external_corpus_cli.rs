@@ -2067,6 +2067,11 @@ fn caller_owned_us_multiframe_cli_sdk_and_report_are_identical() {
         value
     };
     let product = DicomTestSuite::embedded().unwrap();
+    let capabilities = command(&f.args("capabilities", None));
+    assert_eq!(
+        capabilities["result"]["loaded_corpus"]["assessment"]["selector"]["case_ids"],
+        json!(["caller/temporal/offset-extrema"])
+    );
     let cli = command(&f.args("generate", Some("cli-output")));
     valid("generation-result-v3.schema.json", &cli["result"]);
     assert_eq!(cli["result"]["validation_status"], "passed");
@@ -2452,20 +2457,20 @@ fn caller_owned_timezone_sc_cli_sdk_strict_and_report_are_identical() {
     let files = manifest["files"].as_array().unwrap();
     assert_eq!(files.len(), 2);
     assert_eq!(files[0]["case_id"], "caller/temporal/offset-extrema");
-    assert_eq!(files[0]["path"], "caller/clocks/east.dcm");
-    assert_eq!(files[1]["path"], "caller/clocks/west.dcm");
-    assert_eq!(files[0]["frame_of_reference_uid"], Value::Null);
-    assert_eq!(files[1]["frame_of_reference_uid"], Value::Null);
-    assert_eq!(files[0]["references"], json!([]));
-    assert_eq!(files[1]["references"], json!([]));
-    assert_eq!(
-        files[0]["expected_metadata"]["temporal"]["boundary_id"],
-        "positive_max"
-    );
-    assert_eq!(
-        files[1]["expected_metadata"]["temporal"]["boundary_id"],
-        "negative_min"
-    );
+    let positive = files
+        .iter()
+        .find(|file| file["expected_metadata"]["temporal"]["boundary_id"] == "positive_max")
+        .unwrap();
+    let negative = files
+        .iter()
+        .find(|file| file["expected_metadata"]["temporal"]["boundary_id"] == "negative_min")
+        .unwrap();
+    assert_eq!(positive["path"], "caller/clocks/east.dcm");
+    assert_eq!(negative["path"], "caller/clocks/west.dcm");
+    for file in files {
+        assert_eq!(file["frame_of_reference_uid"], Value::Null);
+        assert_eq!(file["references"], json!([]));
+    }
 
     let GenerateCorpusOutcome::Published(sdk) = product
         .generate_corpus(
@@ -2506,7 +2511,31 @@ fn caller_owned_timezone_sc_cli_sdk_strict_and_report_are_identical() {
     ]);
     let report = &report["result"]["report"];
     valid("coverage-report-v2.schema.json", report);
-    assert_eq!(report["coverage_matrix"].as_array().unwrap().len(), 2);
+    let rows = report["coverage_matrix"].as_array().unwrap();
+    assert_eq!(rows.len(), 2);
+    let projected = rows
+        .iter()
+        .map(|row| {
+            json!({
+                "boundary": row["metadata_temporal_boundary_id"],
+                "offset": row["metadata_timezone_offset_from_utc"],
+                "date": row["metadata_da_values"],
+                "time": row["metadata_tm_values"],
+                "date_time": row["metadata_dt_values"],
+                "normalized": row["metadata_temporal_normalized_utc"]
+            })
+        })
+        .collect::<Vec<_>>();
+    assert!(projected.contains(&json!({
+        "boundary":"positive_max", "offset":"+1400", "date":"20321231",
+        "time":"235958.123456", "date_time":"20321231235958.123456+1400",
+        "normalized":"2032-12-31T09:59:58.123456Z"
+    })));
+    assert!(projected.contains(&json!({
+        "boundary":"negative_min", "offset":"-1200", "date":"20330101",
+        "time":"000001.654321", "date_time":"20330101000001.654321-1200",
+        "normalized":"2033-01-01T12:00:01.654321Z"
+    })));
     assert_eq!(
         report["grouped_coverage"]["metadata_temporal_boundary_ids"]["positive_max"],
         1

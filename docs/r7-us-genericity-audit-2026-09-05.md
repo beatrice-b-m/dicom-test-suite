@@ -81,3 +81,18 @@ name-only US negative control with still-unqualified native NM multiframe.
 Ownership and exact bundle routing records follow changed test entries. This
 read-only mapping does not implement the loader; planner acceptance remains its
 prerequisite. Corpus US parity is independently accepted atb41443d.
+
+## Public caller proof preparation — 2026-09-05
+
+Read-only preparation selects neutral caller/acquisition/ultrasound, recipe
+caller_ultrasound, planning900/projection901 and independent/ultrasound.dcm.
+Keep core, logical instance/order0/roleprimary and all qualified source US
+provider/pixel parameters. After loader acceptance, a closed three-member
+fixture, targeted semantic oracle and SDK-only support will compare empty-PATH
+CLI and SDK capabilities, complete manifests/reports and actual payload hashes.
+Freeze caller hash only after observation; separately preserve original US1
+1006-byte e616b8c983c59640a62fa081f636acea554ce681edde3fc8dd53a3c15098c30b.
+Retained baseline/parity authenticate source fields; no ordinary manifest or
+ignored runtime dependency belongs in the fixture. Exact tests, ownership,
+routing, spelling and Fast complete that later boundary. No files or generated
+evidence were created by this read-only preparation.

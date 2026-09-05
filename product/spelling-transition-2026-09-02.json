@@ -2400,7 +2400,7 @@
       "path": "src/recipes/classic_nuclear.rs",
       "token": "dicom-test-suite",
       "class": "legacy_payload_schema_fixture_or_evidence",
-      "count": 1,
+      "count": 2,
       "owner": "compatibility-or-immutable-evidence",
       "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
     },
@@ -4606,11 +4606,11 @@
     }
   ],
   "retained_snapshot": {
-    "match_count": 1015,
-    "sha256": "5fe2af89ae2679bf0f068610a120c71825614eb0a9a8e5030fb121b4025fd649",
+    "match_count": 1016,
+    "sha256": "34d65c5a569866138c36e47eb5b6b44235adc8e6e1b9cbcc578d9531960dcb24",
     "by_class": {
       "dicom_payload_identifier": 203,
-      "legacy_payload_schema_fixture_or_evidence": 367,
+      "legacy_payload_schema_fixture_or_evidence": 368,
       "locked_python_module_or_backend": 148,
       "qualified_adapter_environment": 155,
       "qualified_adapter_or_test_fixture": 142

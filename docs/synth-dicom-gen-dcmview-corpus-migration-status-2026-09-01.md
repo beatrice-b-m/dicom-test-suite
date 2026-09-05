@@ -5626,6 +5626,126 @@ still depend on classic/CT case-name prefixes and the reserved planning-order
 range, so independently named generic CT dispatch requires a separate reviewed
 generator change before embedded ownership can be removed.
 
+## R7.2/R7.3 CT1-local genericity accepted — 2026-09-04
+
+Generator commits `932c93c508a13582d108c0126c67146b1d4bca8d`
+(planner), `800efab2f322d60738d197c253be2965a8fd85cd` (loader),
+`61c47fce535f8068848906fc8e335cb3bb06eacc` (standalone SDK/CLI
+proof), `82be8c8d5f1ee546315b2d07e24feea05f03d29b` (exact byte oracle)
+and `a03354d11b03a03a30c6589da43d880bda039063` (corrected routing
+count) close the reviewed CT1-local R7.2/R7.3 genericity boundary.
+
+Planning and loaded-corpus admission now recognize the complete stable tuple:
+provider `native.classic_plan`, template `classic/ct@1.0.0`, content
+`content.native_pixels` with empty parameters, algorithm
+`algorithm.classic_ct`, projection family `ct`, and the strict typed
+provider/artifact parameters. Any CT marker makes partial or mixed tuples fail
+closed. The exact accepted tuple no longer relies on caller case ID, recipe ID,
+output namespace or a reserved planning-order range: the proof uses
+`caller/arbitrary/signed-ct`, recipe `caller_signed_ct`, output
+`caller/arbitrary/signed-ct/caller-instance.dcm`, and planning/projection order
+900. Case and recipe strings still intentionally participate in deterministic
+identity and metadata; they no longer select CT capability.
+
+The planner tests reject wrong or missing algorithm, template/version,
+content, projection, provider, planning order, provider/artifact parameters and
+mixed multi-artifact tuples. CT dispatch short-circuits before transitional
+name matchers. Non-CT `native.classic_plan` fallthrough remains bounded to its
+existing named families, DX and other classic behavior is unchanged, and
+stress CT remains on separate provider `native.stress_ct_plan`. Legacy and
+stress selections were regression-tested but were not generalized by this
+slice.
+
+The standalone fixture is exactly three files / 6,498 bytes / three
+directories and contains no embedded-resource or sibling-repository
+dependency:
+
+| Member | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `definition.json` | 1,607 | `1f33541dfba0df229be6e3d9d3aadc405d842f8842cb7ca7eff9ea7cf29efb5d` |
+| `members/cases/registry.json` | 991 | `efb0c68ba6fa5c9b8b417e23b24934e031ef3cb8e503af356b2fff2bb3c69359` |
+| `members/cases/recipes/caller-signed-ct.json` | 3,900 | `63b3b00b0577d7e0b227e11250471d6763e25ca596b766e51c0e0690c43051db` |
+
+Its verified identity is `fixture.generic-ct` version `1.0.0`, schema1,
+manifest SHA-256
+`1f33541dfba0df229be6e3d9d3aadc405d842f8842cb7ca7eff9ea7cf29efb5d`,
+and framed corpus-definition SHA-256
+`8e99cc8d2983f3063583e7f2bf558380a7cdbb9d2001772ec00f4ec5f5079544`.
+The fixture has no dependency, evidence or asset members and contains none of
+the migrated CT case, recipe-path or output-path strings. Its support
+compilation unit imports product code only through `synth_dicom_gen::sdk`; the
+CLI proof invokes `CARGO_BIN_EXE_synth-dicom-gen` as a black box.
+
+SDK inspection and CLI/SDK generation agree on exact plan SHA-256
+`d3a5a83f33caf7abdce7a6df5c3675754e48e40e78d17968fe83236b1fdfadb4`.
+Each generates exactly one direct selected file and zero dependencies. The
+1,194-byte Part 10 file SHA-256 is
+`c292a81584998e9afe56330545f455c8894684e475c817d60c1c93ef755e1ce1`;
+the recipe frame SHA-256 is
+`d3e8d5fb105307e91174c36e8413e25cb8494efc509628cf515819478b217121`.
+Manual measurement of the caller output records a 68,966-byte raw manifest2,
+SHA-256
+`290879c1929ce97dc081c33ad7ffbf6702afa89206ceebe7c4278c9d27c1bd29`.
+The SDK and CLI manifests and payloads compare exactly, and output closure is
+only the DICOM plus `manifest.json` under the arbitrary caller namespace.
+
+Generation-time validation records all file checks passed. Separate SDK and
+CLI strict validation each check exactly one file, return valid and have zero
+failures. Their report2 projections preserve the complete source manifest and
+verified identity, with one logical/direct/generated case, zero dependencies,
+one emitted file, `manifest_projection`, validation and independent
+conformance `not_assessed`, and `payloads_reopened: false`. These are
+same-project generation, validation and reporting boundaries, not independent
+conformance.
+
+Accepted routed and focused verification was:
+
+| Scope | Result | Time |
+| --- | ---: | ---: |
+| captured planning library route | 4/4 | 5.30s |
+| external CLI module route | 7/7 | 22.60s |
+| SDK corpus module route | 8/8 | 45.62s |
+| corpus-generation subsystem route | 92/92 | 43.30s |
+| engine corpus-plan module route | 22/22 | 0.77s |
+| corpus-definition library route | 25/25 | 9.46s |
+| planner exact unit | 1/1 | 0.51s |
+| loader adversarial units | 2/2 | 0.46s |
+| SDK standalone CT proof | 1/1 | 2.56s |
+| CLI standalone CT proof | 1/1 | 6.25s |
+| historical CT byte-projection oracle | 1/1 | 4.48s |
+| routing regression after count correction | 28/28 | 2.698s |
+
+Ownership passes 22 targets / 274 entry groups / 1,479 entries, including 920
+integration entries; its SHA-256 is
+`2876a19c05af104903d95e406163b646ce35fcef0675bed633b7d215b9671d0f`.
+The corrected routing configuration SHA-256 is
+`ad90a2c6faff0ba69fc530ae93f4277293c48fe9e4d361b032398f937bce1367`.
+The bounded predecessor-to-`a03354d` route selects exactly the six routed
+commands above plus unconditional Fast coverage and preserves explicit Heavy,
+future external-corpus and release-candidate deferrals. The corpus-definition
+route now binds declared, actual-list and regression counts at 25/25/25.
+Formatting, routing and diff checks passed and the worktree was clean.
+
+The exact ordinary command `cargo test --locked --all-targets
+--no-default-features` is recorded as a non-passing diagnostic, not acceptance
+evidence. At `a03354d` Cargo stopped after the library target in approximately
+30.2–30.65s: 538 tests were observed, with 530 passed, two failed and six
+ignored; later test binaries did not run. The exact unrelated failures were
+`composition::manifest::tests::projects_the_same_plan_used_by_the_writer_without_case_identity`
+(`Schema("\\"1.0.0\\" was expected")` at `manifest.rs:1105`) and
+`tests::validate_generated_root_rejects_parent_traversal` (expected substring
+`safe relative path` at `lib.rs:39143`). Both reproduced identically from a
+clean archive of prepatch HEAD
+`c0914fbfccf065cfee8e62aaf6b7421e98d97f08`, establishing that they predate
+and are unrelated to this CT change. This does not imply a full ordinary pass.
+No Heavy body ran.
+
+This accepts R7.2/R7.3 only for the exact CT1 capability tuple and its
+standalone SDK/CLI proof. Reverse-dependency cleanup and removal of the
+embedded CT recipe remain separate work. Other classic/VL, series, codec,
+stress and legacy families, whole-core migration, independent conformance,
+viewer interoperability, packaging and release qualification remain open.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

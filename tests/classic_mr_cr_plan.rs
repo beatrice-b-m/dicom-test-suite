@@ -181,6 +181,60 @@ fn cr_plan_contains_exact_overlay_and_lut_sequences() {
             "{section}.{field}"
         );
     }
+    let mr = load("cases/recipes/classic/mr/mr_multislice_oblique.json")
+        .dicom
+        .unwrap()
+        .artifacts[0]
+        .classic_projection
+        .as_ref()
+        .unwrap()
+        .mr
+        .clone();
+    let icc = load("cases/recipes/vl/photo/vl_photo_rgb_icc_profile_explicit_le.json")
+        .dicom
+        .unwrap()
+        .artifacts[0]
+        .classic_projection
+        .as_ref()
+        .unwrap()
+        .icc
+        .clone();
+    assert!(mr.is_some() && icc.is_some());
+    for override_kind in 0..9 {
+        let mut bad = source.clone();
+        let projection = bad.dicom.as_mut().unwrap().artifacts[0]
+            .classic_projection
+            .as_mut()
+            .unwrap();
+        match override_kind {
+            0 => projection.mr = mr.clone(),
+            1 => projection.icc = icc.clone(),
+            2 => projection.include_implementation_version_name = true,
+            3 => projection.semantic_labels = None,
+            4 => projection.semantic_labels.as_mut().unwrap().overlay_pattern = None,
+            5 => projection.semantic_labels.as_mut().unwrap().modality_lut = None,
+            6 => projection.semantic_labels.as_mut().unwrap().voi_lut = None,
+            7 => {
+                projection
+                    .semantic_labels
+                    .as_mut()
+                    .unwrap()
+                    .photometric_semantics = Some("override".into())
+            }
+            _ => {
+                bad.dicom.as_mut().unwrap().artifacts[0].public_profile_membership =
+                    Some(vec!["core".into()])
+            }
+        }
+        assert!(
+            plan_mr_cr_recipe(&bad, LOCK_HASH, 0).is_err(),
+            "override {override_kind}"
+        );
+    }
+    let mut appended = serde_json::to_value(&source).unwrap();
+    appended["dicom"]["artifacts"][0]["classic_projection"]["standards_evidence_append"] = serde_json::json!([{"source":"test", "part":"PS3.3", "anchor":"test", "edition":"2026b", "query":"test", "covered":true}]);
+    let appended: CaseRecipe = serde_json::from_value(appended).unwrap();
+    assert!(plan_mr_cr_recipe(&appended, LOCK_HASH, 0).is_err());
     for cross in 0..7 {
         let mut bad = source.clone();
         let a = &mut bad.dicom.as_mut().unwrap().artifacts[0];

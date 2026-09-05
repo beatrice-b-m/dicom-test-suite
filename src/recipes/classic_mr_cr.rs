@@ -122,6 +122,7 @@ pub(crate) fn inspect_cr_capability(
         || recipe.qualification.is_some()
         || recipe.planning_order.is_none()
         || recipe.projection_order.is_none()
+        || a.public_profile_membership.is_some()
         || !recipe.provider_parameters.is_empty()
         || !recipe.dependencies.is_empty()
         || !has(&recipe.validation_rule_ids, "validation.shared")
@@ -137,9 +138,19 @@ pub(crate) fn inspect_cr_capability(
         || a.content.provider_id != CONTENT_PROVIDER_ID
         || !a.content.parameters.is_empty()
         || a.algorithm_provider_id.as_deref() != Some(CR_ALGORITHM_ID)
-        || a.classic_projection
-            .as_ref()
-            .is_none_or(|p| p.family != super::ClassicProjectionFamily::MrCr)
+        || a.classic_projection.as_ref().is_none_or(|p| {
+            p.family != super::ClassicProjectionFamily::MrCr
+                || p.mr.is_some()
+                || p.icc.is_some()
+                || !p.standards_evidence_append.is_empty()
+                || p.include_implementation_version_name
+                || p.semantic_labels.as_ref().is_none_or(|labels| {
+                    labels.overlay_pattern.is_none()
+                        || labels.modality_lut.is_none()
+                        || labels.voi_lut.is_none()
+                        || labels.photometric_semantics.is_some()
+                })
+        })
         || !a.attribute_operations.is_empty()
         || a.secondary_capture.is_some()
         || a.metadata_sc.is_some()

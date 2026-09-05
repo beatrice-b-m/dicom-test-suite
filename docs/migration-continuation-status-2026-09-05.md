@@ -384,3 +384,38 @@ passed in0.000s. The inventory route was inspected; it selects unconditional
 Fast only. Both Fast targets then passed15/15 in2.19s and73/73 in2.09s,
 build0.04s, under the same explicit task target. Diff checks passed. No native
 proof was replayed. This closes the inventory omission in metadata acceptance.
+
+## R7 SC admission checkpoint — 2026-09-05
+
+Generator `29ac276` admits a complete bounded native single-frame SC tuple
+independently of caller names. It covers the13 migrated smoke/core shapes:
+monochrome8/16-bit signed or unsigned as qualified, palette8, RGB planar0/1,
+YBR_FULL planar0 and even-width YBR_FULL_422. Matching monochrome/RGB template@1,
+content, encoding, pixel/color topology, both-level pixel/specialized rules and
+projection remain required. Bit packing, integer-word, encapsulation metadata,
+unrelated overrides and other topologies are excluded. High-bit arithmetic is
+checked. Partial nonhistorical caller tuples reject during shared validation;
+legacy namespace and EOT fallback remain broader and are explicitly outside
+this bounded genericity claim.
+
+The implementation agent owned loader/bundle tests and exact ownership/routing.
+Root and an independent read-only reviewer found no actionable defect after
+review additions. The focused28-test bundle suite passed in11.88s after19.96s
+compilation; routing29/29 passed in3.034s, ownership1486 entries passed, and
+staged diff/log checks passed. No generation occurred in that unit.
+
+Root inspected and executed the loader/bundle route:28 bundle tests passed
+in11.77s, four captured-input tests in5.41s,92 corpus subsystem tests in29.35s
+(build20.81s), and22 corpus-plan tests in0.83s (build1.71s). The first Fast run
+exposed the preceding metadata inventory omission, corrected separately in
+`cd5443c`; final unconditional Fast passed15/15 and73/73 as recorded above.
+The shared low-debug, nonincremental target measured855280 KiB
+(875806720 bytes) before Fast. No Heavy, provider, whole-profile or release
+execution ran. A separate standalone13-case CLI/SDK proof is next; admission
+alone does not accept SC genericity or close R7.
+
+Root authenticated existing core parity receipt99483 bytes SHA-256
+`d51a36d70b20d37caf2f42711feb3a259fe2a781c525f577d05a7cb85b6ada85` and
+all retained smoke3 payloads (2790 bytes) and core10 payloads (9512 bytes).
+Their separate historical selections and identities remain unchanged; the
+future caller proof must not infer combined-manifest parity from those arrays.

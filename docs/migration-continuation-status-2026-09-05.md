@@ -1773,3 +1773,27 @@ whole-file hash or size is known until a reviewed fresh native capture.
 Synthetic independent literal expectations and guards precede CI/fullordinary/
 readiness; native VL execution and source capability edits remain unopened.
 Corpus current-overview docs are disjoint from these new helper/test files.
+
+## VL photographic baseline helper accepted — 2026-09-05
+
+Corpus commit3147569 contains exactly the new capture helper and its synthetic
+test module (1984 lines added). Final24 pure source/synthetic tests passed
+3.343s; log/private/tmp/vl-baseline-final-tests2.log. Root staged scope/diff
+review and independent source review passed; granular commit/log verified.
+The first18-test run failed on a stale XA report mutation in1.114s; corrected
+18 passed2.123s, expanded24 passed3.322s then final24 passed3.343s after
+per-provider-tag mutation coverage. No native VL execution occurred.
+
+The final guards bind nine raw provider values/VRs, complete source projections,
+25/31 internal findings, exact RGB/palette payloads and wrong-VR conditional
+palette/planar absences. Report isolation checks presence and null values for
+40 US/PET fields plus XA/XRF,57 WSI,17 ICC and5 general fields. Source-default
+multiple-optical-path fields are null for these photographic recipes. These
+are bounded raw-byte observations and same-project expectations, not independent
+conformance. Whole-file hashes remain unobserved until native capture.
+
+Next bounded owner has only corpus scripts/run_ci.py and
+tests/test_ci_routing.py to register the two helper paths as ordinary-only.
+Source-provenance fixed-smoke routing remains unchanged. CI review, complete
+ordinary verification and clean readiness precede the first fresh native run.
+R7 remains open; R8/R9 held.

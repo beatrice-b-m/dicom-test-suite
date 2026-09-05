@@ -547,3 +547,10 @@ in0.178s and accepted corpus13fc1ae; no US import/runtime is implied.
 CR genericity now proceeds sequentially: planner/pure tests, loader/dispatch,
 then caller CLI/SDK proof. The CR template wording discrepancy remains a
 separate policy review. R7 is incomplete; R8/R9 have not begun. Diff check passed.
+
+CR template policy follow-up (2026-09-05): the apparent pixel-depth discrepancy
+is resolved by scope. Qualified composition defaults are unsigned12-in16;
+curated CR uses its separately qualified U8/OB recipe. The CR audit now clarifies
+both routes. Catalog/template version and bytes remain unchanged, avoiding an
+unnecessary template-domain identity change. This is documentation clarification
+under compatibility policy, not a new template or generation qualification.

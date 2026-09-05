@@ -56,3 +56,23 @@ The original4013-byte recipe remains SHA-256
 
 Verification: read-only source/recipe/template inspection by the assigned
 agent and root, no Cargo, generated output or build storage. Diff check passed.
+
+## Follow-up: template qualification scopes — 2026-09-05
+
+The later policy/source review resolves the apparent wording discrepancy above.
+`src/composition/family.rs` selects unsigned12-bit-in16-bit for the qualified
+CR composition route and its default pixel plan. The curated MR/CR planner's
+U8/OB route has separate recipe/provider qualification. These are different
+routes; replacing the catalog limitation with U8-only would misdescribe the
+composition contract.
+
+Preserve `classic/cr@1.0.0` and catalog bytes. Compatibility policy permits a
+documentation clarification and requires template version changes when changed
+defaults alter deterministic output; no default or accepted content changes here.
+Its qualification policy separately preserves curated and composition evidence.
+Catalog prose edits would still change template-domain/discovery/manifest hashes
+through `src/identity.rs`, creating an unnecessary identity migration. Current
+and forthcoming CR documentation must state both scopes explicitly. The earlier
+observation remains historical, but no unresolved pixel-shape contradiction or
+catalog correction is claimed. Read-only policy/source review; no runtime or
+new qualification occurred. Diff check passed.

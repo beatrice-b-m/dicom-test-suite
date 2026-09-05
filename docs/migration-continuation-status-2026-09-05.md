@@ -2065,3 +2065,35 @@ CLItest and exactrouting/ownership/spelling metadata. Lexicalselectorpalette
 beforeRGB deliberately differs from fileexecutionRGBbeforepalette. Full
 CLI/SDK caps/manifest/report/rawbytes/strict2 and originalsourcehashes must
 pass before currentguides/catalogclarification. R7open/R8R9held.
+
+## VL photographic standalone public proof accepted — 2026-09-05
+
+Generator646f30c owns12fixture/oracle/support/publictest/routing/ownership/
+spelling files. Fourmemberfixture17347bytes framed SHA
+133a2312df485a2f3875af4b7484c81325d3d76bd1291231180e2ce8b23d6421;
+oracle23976 SHA
+7c392a41768638be10e1cb4fb432a96f7d066d84c672111b9164f7e9c40b0165.
+Caller/photo/rgb andpalette use planning900/901, projection902/903 and
+independentpaths. Canonicalpalette-first selection differs fromRGB-first
+fileexecution. Fullsourceoracle25/31findings+4standards and bothoriginal
+994/1090bytehashes authenticated independently before firstpublicrun.
+
+Observation1/10.66s compile2.29s passed; frozenfinal1/10.71s passed,
+/private/tmp/vl-photo-public-observe.log and -final.log. Unconditionalcaller
+RGB990 SHA73a249bf51e6e47910d629c16c579cf1ec61beff3e9547e72273764b3ab45354;
+palette1088 SHA398c76875dce5c135dcca9532293b4e3911885f3987cc044ec76386c525a8192.
+CompleteCLIemptyPATH/unrelatedcwd and supportedSDK caps/rawmanifest/report/
+payload/strict2 equality passed with rawSQ/UIDversion assertions.
+Fast15/2.13+73/1.90 warm0.04s; routing36/3.386; ownership1498.
+Spelling1079 SHA630eb9bb842efba63ed5a1b907427cb356ce995373c0c615c6a418dade0baa6e
+adds exactly2source manufacturer exceptions. Target1185884KiB(+300).
+Rootfullmappedpublicmodule15/35.81s warm0.04s, whole35.91407625s at clean
+646f30c; /private/tmp/r7-vl-photo-public-root-subsystem-20260905.log/.json.
+Independentfinalreview/diff/cleancommit/log checks passed.
+
+Six currentguides assigned next. Read-only catalog audit resolves scope
+without catalog edits: direct composition family retains RGB8defaults and
+qualification; separate source-fixed recipe capability additionally proves
+bounded2x2palette. No arbitrarypalette composition or catalog/default/version
+widening follows. Exact documented commands require freshroot verification
+before fullVL source capability acceptance. R7open/R8R9held.

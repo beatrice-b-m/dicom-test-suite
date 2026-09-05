@@ -608,3 +608,39 @@ This accepts internal admission/dispatch only. The next separate unit is a
 closed caller CR fixture plus public CLI/SDK proof with actual payload hashes,
 full manifest/report equality and historical CR payload preservation. No corpus
 pin changes, template identity migration or terminal R7 acceptance is implied.
+
+## CR standalone proof accepted for tested names; dispatch gap open — 2026-09-05
+
+Public proof6e4a4a1 adds a closed three-file caller fixture, targeted semantic
+oracle, SDK-only support and one separately selectable CLI/SDK test. The fixture
+has10055 bytes; descriptor SHA
+`7dcc1359ac74edbb40357e31453239c7517b5e1c33b4d9e85ff4b0bbd8219264`, framed identity
+`c101481618e81ad2bdd273d5821313f5c630e5b852081f8bb5a7ed162872aa48`.
+Case `classic/mr/caller-radiography`, recipe `caller_radiography`, planning900,
+projection901 and `independent/radiography.dcm` exercise caller identity and the
+MR-prefix validation correction. Typed CR parameters remain source-exact.
+
+Oracle SHA `5ebae3fbf82ccacf52a1b782cdef53b5f046e8eff53d8a513ad64ac3349f1be6`
+is independently hashed and pinned in support. Root authenticated its image,
+pixel, recipe and semantic fields plus actual original1306-byte payload against
+the accepted baseline. Independent review authenticated source registry/recipe
+transformations. Observed caller1300-byte SHA
+`cd4c473583688813b83d63581218e278fef4671ffd6287114711c97c7994e9b6` is frozen;
+original SHA `c76c07478ba42de9093918bc50ed53c6a99eaabee571187ba4d8e4a4c7bdd075`
+is reproduced separately. Actual CLI/SDK payload hashes, full capabilities/raw
+manifests/report projections and strict validation agree; no runtime sibling
+or ignored-artifact dependency and no ordinary manifest is committed.
+
+First proof1/1 passed10.48s after2.19s compile; final frozen proof1/1 passed10.64s
+after2.20s compile. Fast15/73 passed2.11/1.97s, routing29 passed3.045s,
+ownership1489 total/924 integration and staged spelling1015 passed. Diff checks
+passed. Explicit low-debug target measured859128 KiB; no generated payload
+was tracked. This is bounded same-project public evidence for its tested names.
+
+The disjoint US read-only audit exposed a further CR dispatcher gap:
+`classic_requests` continues into historical nuclear/VL matchers after CR.
+A qualified CR caller using an existing PET/VL case name can be rejected or
+multiply claimed. Full CR R7.2/R7.3 acceptance remains open. A separate owner
+will add typed-CR short-circuiting before historical matchers and regressions
+for misleading PET/VL names, preserving MR/RLE behavior. Existing proof remains
+valid for its tested scope; it is not relabeled as universal name independence.

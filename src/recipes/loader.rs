@@ -1,4 +1,4 @@
-use super::classic_vl_projection::inspect_xa_xrf_capability;
+use super::classic_vl_projection::{inspect_vl_photo_capability, inspect_xa_xrf_capability};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -616,12 +616,15 @@ fn validate_classic_capability_contract(
     let pet = inspect_pet_capability(recipe).map_err(|error| semantic(path, error.to_string()))?;
     let xa_xrf =
         inspect_xa_xrf_capability(recipe).map_err(|error| semantic(path, error.to_string()))?;
+    let photo =
+        inspect_vl_photo_capability(recipe).map_err(|error| semantic(path, error.to_string()))?;
     match ct.is_some()
         || dx_mg.is_some()
         || cr.is_some()
         || us.is_some()
         || pet.is_some()
         || xa_xrf.is_some()
+        || photo.is_some()
     {
         true => recipe
             .planning_order
@@ -1761,6 +1764,23 @@ fn validate_registry_bindings(
                 });
             }
         }
+        let name_independent_photo = recipe.plan_provider_id == "native.classic_plan"
+            && inspect_vl_photo_capability(recipe)
+                .map_err(|error| RecipeCatalogError::Completeness {
+                    message: format!(
+                        "{} has invalid photographic capability: {error}",
+                        case.case_id
+                    ),
+                })?
+                .is_some();
+        if name_independent_photo && case.modality.as_deref() != Some("XC") {
+            return Err(RecipeCatalogError::Completeness {
+                message: format!(
+                    "{} registry modality contradicts photographic capability",
+                    case.case_id
+                ),
+            });
+        }
         let migrated_classic = recipe.plan_provider_id == "native.classic_plan"
             && case.provider.kind == "rust_native"
             && case.provider.id == "rust_native"
@@ -1773,6 +1793,7 @@ fn validate_registry_bindings(
                 || name_independent_us
                 || name_independent_pet
                 || name_independent_xa_xrf
+                || name_independent_photo
                 || case.case_id.starts_with("classic/")
                 || case.case_id.starts_with("geometry/ct/")
                 || (case.case_id.starts_with("vl/") && !case.case_id.starts_with("vl/wsi/")));

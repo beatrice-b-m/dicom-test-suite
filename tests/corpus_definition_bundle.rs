@@ -410,12 +410,24 @@ fn external_native_projection_capabilities_are_name_independent_and_fail_closed(
     for (family, source, modality) in [
         ("xa", "classic/xa/monoplane_explicit_le", "XA"),
         ("xrf", "classic/xrf/monoplane_explicit_le", "RF"),
+        ("photo-rgb", "vl/photo/rgb_planar0_explicit_le", "XC"),
+        ("photo-palette", "vl/photo/palette_color_explicit_le", "XC"),
     ] {
-        for (name, case_id) in [
-            ("caller", "caller/projection/native"),
-            ("vl", "vl/wsi/pyramid_multiresolution"),
-            ("pet", "classic/pet/rescaled_activity_explicit_le"),
-        ] {
+        let names: &[(&str, &str)] = if modality == "XC" {
+            &[
+                ("caller", "caller/photo/native"),
+                ("xa", "classic/xa/monoplane_explicit_le"),
+                ("wsi", "vl/wsi/pyramid_multiresolution"),
+                ("icc", "vl/photo/rgb_icc_profile_explicit_le"),
+            ]
+        } else {
+            &[
+                ("caller", "caller/projection/native"),
+                ("vl", "vl/wsi/pyramid_multiresolution"),
+                ("pet", "classic/pet/rescaled_activity_explicit_le"),
+            ]
+        };
+        for &(name, case_id) in names {
             let label = format!("{family}-{name}");
             let root = one_case_bundle(&label, source, case_id, "caller_activity", |recipe| {
                 recipe["planning_order"] = 900.into();
@@ -486,20 +498,36 @@ fn external_native_projection_capabilities_are_name_independent_and_fail_closed(
             assert_eq!(file["case_id"], case_id);
             assert_eq!(file["dicom"]["modality"], modality);
             assert_eq!(report["coverage_report_schema_version"], "2.0.0");
-            let geometry = &file[if modality == "XA" {
-                "expected_xa_projection"
+            if modality == "XC" {
+                assert_eq!(file["image"]["rows"], 2);
+                assert_eq!(file["image"]["columns"], 2);
+                assert_eq!(
+                    file["image"]["photometric_interpretation"],
+                    if family == "photo-rgb" {
+                        "RGB"
+                    } else {
+                        "PALETTE COLOR"
+                    }
+                );
+                assert!(file.get("expected_xa_projection").is_none());
+                assert!(file.get("expected_xrf_projection").is_none());
+                assert!(file.get("expected_icc_profile").is_none());
             } else {
-                "expected_xrf_projection"
-            }];
-            assert_eq!(
-                geometry["body_part_examined"],
-                if modality == "XA" { "HEART" } else { "ABDOMEN" }
-            );
-            assert_eq!(
-                geometry["imager_pixel_spacing_mm"],
-                serde_json::json!([0.2, 0.2])
-            );
-            assert_eq!(geometry["patient_space_geometry_present"], false);
+                let geometry = &file[if modality == "XA" {
+                    "expected_xa_projection"
+                } else {
+                    "expected_xrf_projection"
+                }];
+                assert_eq!(
+                    geometry["body_part_examined"],
+                    if modality == "XA" { "HEART" } else { "ABDOMEN" }
+                );
+                assert_eq!(
+                    geometry["imager_pixel_spacing_mm"],
+                    serde_json::json!([0.2, 0.2])
+                );
+                assert_eq!(geometry["patient_space_geometry_present"], false);
+            }
             assert!(output.join("images/activity.dcm").is_file());
             fs::remove_dir_all(output).unwrap();
             fs::remove_dir_all(root).unwrap();

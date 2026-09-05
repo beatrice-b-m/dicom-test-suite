@@ -2427,3 +2427,31 @@ This accepts only the nonsquare-SC-local reusable-generator
 boundary. It adds no calibrated or patient-space geometry, codec, multiframe,
 independent-conformance, viewer, Heavy, package, release or complete-R7 claim.
 R7 remains open, and R8/R9 remain held behind their dependencies.
+
+## Timezone-boundary SC caller capability implemented — 2026-09-05
+
+Generator `9fc8c1e` admits the complete two-artifact timezone-extrema Secondary
+Capture contract by its typed declaration rather than case ID, recipe ID,
+logical identity, role, path or artifact order. The unrelated public fixture
+owns its dates, times, normalized UTC instants, names, paths and 2×2 U8 pixels;
+CLI and SDK output is identical, separate strict validation reopens both files,
+and report2 projects both boundary and offset groups. Loader adversaries reject
+incomplete pairs, duplicate boundaries, malformed or padded DA/TM/DT/SH values,
+offset/minute/UTC contradictions, pixel/hash contradictions and registry
+modality disagreement.
+
+Accepted source preparation remains `f9472bf74211039a681cd0a00ee61fd4c125d7d4`.
+The original-pin seed-1 baseline2 is a separate immutable evidence domain:
+receipt `7f8c2f1270d510e69e09633f9ef5ac534ca2798bcb42bbb086e413d050e205bb`
+records the 1,008-byte positive artifact at
+`0756d9a2012289ce0ac1377235e03a8da01882300feac2c9edb117af1aca1834`
+and the 1,012-byte negative artifact at
+`73ffa2b41839899dd1e7bb4c1f3d6cd1171b53daec9d9698e83e5d5fdc9e8687`.
+Those original generator/reporter pins and bytes are not relabeled as current
+generator evidence; current-source deterministic tests remain a distinct
+domain.
+
+Focused typed-loader, historical generation/strict/report, public CLI/SDK,
+routing and ownership checks passed. No corpus import, availability, parity,
+independent conformance, viewer, Heavy, package, release or complete-R7 claim
+is made. R7 remains open, and R8/R9 remain held behind their dependencies.

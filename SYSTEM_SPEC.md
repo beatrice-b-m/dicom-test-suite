@@ -1150,13 +1150,17 @@ its interleaved RGB8 qualification and `rgb()` default; the fixed palette recipe
 contract does not widen template defaults or arbitrary palette support.
 
 Native metadata SC admission also recognizes typed UTF-8 Person Name,
-qualified EmptyType2 and PrivateCreators independently of case/recipe names.
-The conjunctive contract binds `native.metadata_sc_plan`, one monochrome SC
-template@1 artifact, matching parameter-free metadata content, native Explicit
+qualified EmptyType2, PrivateCreators and the complete two-instance timezone
+extrema pair independently of case/recipe names. The conjunctive contract binds
+`native.metadata_sc_plan`, one monochrome SC template@1 artifact for singleton
+variants or exactly two for the timezone pair, matching parameter-free metadata content, native Explicit
 VR Little Endian encoding and required pixel/metadata validation rules. UTF-8
 raw bytes exactly encode the declared PN; Type2 fields are restricted to the
-five qualified Patient/General Study tuples. Other metadata variants retain
-their existing admission rules. CLI/SDK equality, strict validation and report
+five qualified Patient/General Study tuples. The timezone contract binds valid
+unpadded DA/TM/DT/SH lexical values, both legal offset extrema, declared minutes,
+consistent UTC normalization and caller-owned native 2×2 U8 pixels, without a
+Frame of Reference or references. Other metadata variants retain their existing
+admission rules. CLI/SDK equality, strict validation and report
 projection are separate same-project evidence; source-pinned corpus runs do
 not acquire qualification from a later generator capability change.
 

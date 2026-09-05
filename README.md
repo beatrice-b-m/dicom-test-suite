@@ -159,9 +159,10 @@ capability is separate from the photographic composition template's qualified
 interleaved RGB8 default; it adds no arbitrary palette or ICC/RLE capability.
 
 Caller-defined Secondary Capture metadata supports UTF-8 Person Name, qualified
-empty Type 2 attributes and private creator blocks through typed native
-contracts. Case/recipe names and output paths are caller-owned; metadata,
-encoding and validation constraints remain enforced. See the
+empty Type 2 attributes, private creator blocks, and a two-instance pair at the
+legal `+1400`/`-1200` timezone extrema through typed native contracts.
+Case/recipe names, logical IDs, roles, paths, temporal values and pixels are
+caller-owned; metadata, encoding and validation constraints remain enforced. See the
 [metadata contract](docs/generation-guide.md#caller-defined-secondary-capture-metadata).
 
 All three public generation workflows use one plan-first spine. `generate`

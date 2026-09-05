@@ -668,15 +668,18 @@ metadata variants:
 | `person_name` | `content.metadata.person_name` | Exactly `ISO_IR 192`; raw bytes equal the decoded PN's UTF-8 bytes and `native_unicode_round_trip` is true |
 | `empty_type2` | `content.metadata.empty_type2` | Nonempty unique subset of the qualified tag/keyword/VR tuples below |
 | `private_creators` | `content.metadata.private_creators` | Existing typed private-block allocation, value and hash checks |
+| `timezone_boundary` | `content.metadata.timezone_boundary` | Exactly one `positive_max` (`+1400`, 840 minutes) and one `negative_min` (`-1200`, -720 minutes), with consistent DA/TM/DT normalization |
 
 The registry declares `rust_native`/`rust_native`, `dicom_instance`, and no
 feature or external-codec requirements. The DICOM recipe uses
-`native.metadata_sc_plan` with empty provider parameters and exactly one
-artifact using `classic/secondary-capture/monochrome@1.0.0`. Its explicit output
+`native.metadata_sc_plan` with empty provider parameters and one artifact for
+the first three variants, or exactly two artifacts for the timezone pair, using
+`classic/secondary-capture/monochrome@1.0.0`. Its explicit output
 path and case/recipe names are caller-owned; planning order remains required
 and globally unique. Artifact and content parameter maps are empty. Both recipe
 and artifact require `validation.sc.pixel` and the matching
-`validation.metadata.person_name`, `.empty_type2` or `.private_creators` rule.
+`validation.metadata.person_name`, `.empty_type2`, `.private_creators` or
+`.timezone` rule.
 
 Qualified empty Type 2 tuples are PatientName (`0010,0010`, PN), PatientBirthDate
 (`0010,0030`, DA), PatientSex (`0010,0040`, CS), ReferringPhysicianName
@@ -687,8 +690,13 @@ Validated SC pixel semantics and native Explicit VR Little Endian encoding
 remain required, with default sequence/item lengths, native fragmentation, no
 offset table, zero-filled preamble and standard file meta. No algorithm,
 attribute overrides, classic projection or nonsquare geometry is admitted.
-Partial and crossed contracts fail closed. ISO2022, timezone, string-boundary
-and sequence-length variants retain their existing admission rules.
+Timezone artifacts use native 2×2 single-frame U8/OB MONOCHROME2 pixels whose
+four caller-owned samples, range and SHA-256 agree. DA, TM, DT and SH inputs are
+ASCII, unpadded and within their VR limits; DT and the instance-wide offset must
+agree, and both DA/TM and DT must normalize to the declared UTC instant. The
+pair has no Frame of Reference or references. Partial and crossed contracts
+fail closed. ISO2022, string-boundary and sequence-length variants retain their
+existing admission rules.
 
 Use the same `generate --corpus`, explicit member root, profile and case
 selection forms above, then separate `validate` and `report` commands. Report2

@@ -1651,3 +1651,22 @@ XA/XRF parameters agree exactly with XA/RF registry modality. Missing/crossed
 modality regressions cover both cases and must not fall through name admission.
 The five-file unit remains uncommitted pending corrected focused tests, expanded
 route review and proportional verification. Public fixtures/guides remain held.
+
+## XA/XRF loader/execution integration committed — 2026-09-05
+
+Generator6ddbb95 owns exactly loader, curated_plan, curated_execution,
+corpus_definition_bundle tests and ownership digest. Qualified XA/XRF takes
+typed admission/planning/execution paths before historical names. Registry
+modality must agree explicitly; missing/crossed values fail without fallback.
+SDK cases cover both families with neutral, exactWSI and exactPET names plus
+publication/strict1file/report2 and recipe/provider/projection failures.
+Root full diff and independent corrected review accepted.
+
+Corrected focusedSDK1/41.28s compile18.32s passed; priorfailure remains in
+/private/tmp/xa-loader-focused.log, success/private/tmp/xa-loader-corrected.log.
+Fast15/2.17s+73/1.97s compile20.64s passed, /private/tmp/xa-loader-fast.log;
+ownership1496/diff/cleancommit passed. Target1184260KiB. Expanded five-path
+route/private/tmp/xa-loader-expanded-route.json retains four mapped groups:
+corpus_definition30, captured_input4, corpus_generation subsystem and engine
+corpus_plan. Root is running these at clean6ddbb95 before source integration
+acceptance; no standalone public proof or guide acceptance yet.

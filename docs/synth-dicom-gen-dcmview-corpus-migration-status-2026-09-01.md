@@ -5541,6 +5541,91 @@ not establish migrated parity, viewer or independent-conformance behavior,
 whole-core readiness, R7.2/R7.3 genericity, packaging or release qualification.
 The next bounded CT boundary is the separately reviewed migrated parity proof.
 
+## R7 CT1 migrated parity accepted — 2026-09-04
+
+Corpus commits `5eef29c68e4cfc0cb44ab0a63ce932eba9193a24` and
+`29adf18430f0f97bb4dd08cd934e2459e2964235` add and route the bounded CT1
+parity proof; `b3b2ed06452ae8acbcdbec55d4ed1757755ea77f` records its accepted
+evidence and `776f59c0267b3926156a45b026804561e5cd6fec` updates the current
+corpus guidance. The proof ran once
+from clean source `29adf18430f0f97bb4dd08cd934e2459e2964235`. Its complete retained
+evidence is `artifacts/r7-native-ct-parity1-20260904`; the214,692-byte receipt
+SHA-256 is
+`589283faeb834c9074bfe9065f46a90668783adfe33840289c1386eb364d11ce`.
+
+The9.841235333-second job executed exactly four outer commands: a source
+archive in0.023593250s, an isolated snapshot-import check in0.116439500s, and
+two identical explicit CT-only public-runner calls in3.897124833s and
+3.409951709s. Each runner used profile `core`, seed1, parallelism4 and only
+`classic/ct/mono2_i16_rescale_12bit_explicit_le` from an empty private cwd
+with `PATH=""`. Each performed one external-corpus generation, one strict
+same-generator validation and one report2; all commands exited0, all stderr
+streams were empty, and no command was retried. No build, network, smoke,
+whole-core or additional native call ran.
+
+Both runs emitted the same1,198-byte DICOM SHA-256
+`b7a7e95dced9092c23e56815b6083e4b630f557bcb1508d55ef82d4d8fb7e732`.
+Their74,640-byte raw manifests are identical at SHA-256
+`767363c3ce60d6c68293064d69c6f95b4d840eca6d45e8cd3d42cd6334f5a2d2`;
+the parsed manifest canonicalizes to56,610 bytes/SHA-256
+`79633200bd93fc7b31e932b6579e7077f90677e8f4dc7714bd203b981840ab12`.
+The complete file object is9,221 canonical bytes/SHA-256
+`82fd8a1658aa588cff6ae2644ee1e2538bf60fc6df03a2d7d1ed14e40030dcbd`
+and the one-row direct ledger is2,639 canonical bytes/SHA-256
+`f5c9bb9163498541d17edb7f0a0879c54dc5fc9217f306298d43a10a87798725`.
+The manifest1-to-manifest2 difference is limited to the declared external run
+kind/selector, verified corpus identity and replacement of the complete33-row
+unselected bookkeeping by that one direct generated row.
+
+Both83,967-byte raw reports are identical at SHA-256
+`d9fd7719a1c17d4c313aacc0e352260677d3f588695ff933f23f2f4f8129202b`;
+the exact report2 projection canonicalizes to60,630 bytes/SHA-256
+`0914a95222e31ab8abedbcd32173c80e14025871bd2d092c0d622acebbb038c9`.
+Each validation-result1 checked one file, returned valid with zero failures,
+and preserved the accepted CT pixel, UID, semantic, standards and full-file
+baseline. Report2 records one logical/direct/generated case and one emitted
+file, with zero dependencies or qualifications. It remains a manifest
+projection with validation and independent conformance `not_assessed` and
+`payloads_reopened: false`; the distinct strict-validation result is not
+rewritten into the report.
+
+The proof reauthenticated baseline receipt
+`e34a25ca0bb2720dab0d5736bb08f51736fcfb169e0db54608ce10b3c5c3da51`,
+availability receipt
+`2c50290fe972004483bf274a70929cecb7d597a887ddb28e1e4c1dad44ff7f5d`,
+the22-member/106,636-byte content0.4.0 corpus and framed corpus identity
+`ccd14b73d81cf9d6f49f950174331cb418824e8888fb476768365a623b4b6d79`.
+It used the unchanged69,314,672-byte generator SHA-256
+`4ca0c6d6a8e4cbab81b7005b4354c7ff558c44747e00f41d22d3abbfd50b7768`
+from source `232b9de41f97ee95abe1ecc40b6b8b70ebeeea5f`, product0.2.0,
+aarch64-apple-darwin, no enabled features. The1,464,320-byte clean-source
+archive SHA-256 is
+`b5c6cc2680403ae4c66688d83b94ccb7a6a3b2a42cdc9375a6813f35638e0960`.
+
+Before the receipt, the evidence root held173 regular files/354,939,023
+logical/355,303,424 allocated bytes. The original and retained runtime trees
+each held164 files and55 directories, with353,324,302 logical and353,677,312
+allocated bytes; bytes, closure, modes and owners matched. Source, original
+artifact, copied inputs, cache, unrelated cwd, both output roots and both
+eight-file sidecar roots passed all final guards.
+
+Independent semantic replay passed14 check groups in0.368613083s. A separate
+read-only Draft2020 audit validated all57 generator and8 corpus schemas against
+their meta-schemas and85 applicable retained instances in1.59s. The generator
+schema set has no coverage-report1.1 schema, so the historical baseline
+report1.1 remains hash- and semantic-bound rather than schema-qualified;
+purpose-specific receipts, baseline projections and parity binding records
+likewise have no standalone schemas. Neither independent audit launched a
+native process.
+
+This accepts exact same-project migrated parity for CT1 through the public
+runner. It does not establish independent conformance, viewer behavior,
+interoperability, package/release qualification, whole-core or wider classic
+coverage. R7.2/R7.3 also remain open: current CT recipe admission and planning
+still depend on classic/CT case-name prefixes and the reserved planning-order
+range, so independently named generic CT dispatch requires a separate reviewed
+generator change before embedded ownership can be removed.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

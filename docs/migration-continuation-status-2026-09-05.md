@@ -1318,3 +1318,24 @@ and validation not_run in this assessment. Pins and full0.8 identity unchanged.
 Next two-file parity helper unit retains entire historical PET file and exactly
 two public selections; no PET-specific normalization is needed. Parity and
 caller genericity remain pending; R7 incomplete.
+
+## PET parity accepted; first planner unit opened — 2026-09-05
+
+Corpus308105b parity helper passed13/0.325s and actual retained authentication
+0.202827s after corrected draft substitutions. CIa9fb70b passed61/1.192s; full
+ordinary608/14.186s passed, log /private/tmp/r7-pet-preparity-ordinary-20260905.log.
+Readinessa9e5865 bound exactly two public PET runner calls. Fresh parity1
+receipt296514 SHA256
+6bb4c99b48bb97baa7d6c9b4eccc20a627017800f1397761a9188a0c68190a7d
+passed3.902212s/3.463542s, whole10.154198417s. Both1414-byte payloads match
+baseline78ced6c5; complete file projection5f980091 remains unchanged.
+Independent audit authenticated231 retained files/136 source archive objects,
+both baseline/report2/repeat comparisons and request/sidecar/finalizer checks;
+comparison0.304033s plus final sidecar0.160968s. Corpus5ff38c3 records full
+hashes and sizes. Original /private/tmp/r7-pet-parity-t4pk6rkl is retained.
+
+PET-local migrated parity is accepted without repinning artifacts or claiming
+viewer/independent/release evidence. First source planner ownership is now
+explicit in the PET preparation document; loader and public proof stay
+sequential. No new provider family or widened quantitative contract is admitted.
+R7 remains incomplete.

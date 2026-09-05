@@ -69,3 +69,23 @@ This read-only audit suggests planner/test ownership, then loader/shared tests,
 then standalone public fixture/proof, each separately assigned after preceding
 acceptance. It implements nothing and does not waive baseline/import/parity
 prerequisites. US multiframe, NM, RLE and enhanced PET retain separate paths.
+
+## First planner unit opened after migrated parity acceptance
+
+Corpus5ff38c3 accepts exact two-run PET parity against the original pin, after
+data/static/CI/availability gates. The next R7.2/R7.3 unit owns only
+src/recipes/classic_nuclear.rs and tests/classic_nuclear_plan.rs, plus that
+test's exact ownership digest in product/test-ownership.json and any necessary
+exact preserved manufacturer occurrence in product/spelling-transition-2026-09-02.json.
+No other ownership records or spelling policy changes are included.
+
+Add bounded typed PET inspection before historical identity/order matching.
+Keep the source-fixed pixel/activity/geometry/timing and synthetic metadata
+contract described above, with explicit caller orders and safe output paths.
+Extend output-free admission tests, including crossed identity/template/family,
+invalid numeric/hash/count inputs and preserved US/NM/multiframe routing.
+Inspect the changed-path router first; run pure nuclear catalog/planning filters
+in engine__subsystem, ownership/spelling checks and proportional Fast coverage.
+Use the established isolated CARGO_TARGET_DIR with incremental/debug disabled.
+Do not run the materializing nuclear byte/manifest test in this planner-only
+unit. Loader/shared dispatch and public proof follow in separate owned commits.

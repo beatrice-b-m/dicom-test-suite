@@ -1542,3 +1542,11 @@ no generation/acquisition occurred. Logs /private/tmp/r7-xa-xrf-import-ci-previe
 20260905.json (empty failed stdout) and corrected-20260905.json; stderr failure
 was tool-output-only. Fresh named evidence root remains unused. Native selected
 availability/parity and source genericity remain unopened; R7 open/R8R9 held.
+
+Historical fixtures72a5df4 authenticate0.9→0.8→older exact byte bindings in only
+two test files; production retained checkers remain unchanged. Affected141
+synthetic tests passed5.914s (initial test typo/error translation corrected).
+Root full ordinary at clean72a5df4 passed619/16.307s; log
+/private/tmp/r7-xa-xrf-postimport-ordinary-20260905.log. Corpus3ca2d78 records
+acceptance and next two-file read-only availability-checker ownership. No native
+availability or generic source capability is claimed from this integration.

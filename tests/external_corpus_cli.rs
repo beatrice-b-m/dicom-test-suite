@@ -2067,11 +2067,6 @@ fn caller_owned_us_multiframe_cli_sdk_and_report_are_identical() {
         value
     };
     let product = DicomTestSuite::embedded().unwrap();
-    let capabilities = command(&f.args("capabilities", None));
-    assert_eq!(
-        capabilities["result"]["loaded_corpus"]["assessment"]["selector"]["case_ids"],
-        json!(["caller/temporal/offset-extrema"])
-    );
     let cli = command(&f.args("generate", Some("cli-output")));
     valid("generation-result-v3.schema.json", &cli["result"]);
     assert_eq!(cli["result"]["validation_status"], "passed");
@@ -2448,6 +2443,11 @@ fn caller_owned_timezone_sc_cli_sdk_strict_and_report_are_identical() {
         serde_json::from_slice::<Value>(&raw.stdout).unwrap()
     };
     let product = DicomTestSuite::embedded().unwrap();
+    let capabilities = command(&f.args("capabilities", None));
+    assert_eq!(
+        capabilities["result"]["loaded_corpus"]["assessment"]["selector"]["case_ids"],
+        json!(["caller/temporal/offset-extrema"])
+    );
     let cli = command(&f.args("generate", Some("cli-output")));
     assert_eq!(cli["result"]["validation_status"], "passed");
     assert_eq!(cli["result"]["emitted_file_count"], 2);

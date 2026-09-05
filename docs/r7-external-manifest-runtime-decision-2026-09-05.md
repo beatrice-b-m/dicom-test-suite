@@ -114,3 +114,25 @@ before runtime checks, preserving approved reduced recipes and exact prior
 evidence. Otherwise the exact historical stress caller regression would fail
 before reaching runtime validation. Payload-free qualification projection is
 already gated by PlannedArtifact::Qualification and does not affect US files.
+
+## Reduced WSI reopened-reader correction
+
+After unit3, a read-only audit confirmed an additional unit2 regression: the
+existing reduced-stress WSI projection emits expected_semantics rather than an
+ordinary expected_wsi_* contract. Both external reader dispatch layers reject
+it. The shared-template projection correction alone does not repair reopening.
+
+Derive private reduced-WSI reader context only after run-level qualification
+validation, from captured stress membership and the validated approved
+wsi_pyramid qualification. Bind the complete three-file level chain and its
+shared identities and bounded source semantics. Forward that context through
+file applicability and the deeper WSI selector; reject mixed ordinary evidence.
+Names, file profiles and a shared pyramid UID alone cannot grant this context.
+Retain legacy dispatch and the existing reduced Part10/pixel/matrix checks.
+
+This correction owns src/lib.rs, src/validation.rs, focused existing WSI tests
+and ownership metadata, sequentially before the standalone US public proof.
+Bounded synthetic and existing payload fixtures must exercise the dispatch and
+negative cases. They do not constitute native stress qualification or full-scale
+resource evidence. Root owns this decision and status record; implementation
+and independent read-only review have separate owners.

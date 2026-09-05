@@ -2192,10 +2192,20 @@ pub(crate) fn validate_manifest_wsi_file(path: &Path, file: &Value) -> Result<()
     )
 }
 
+#[cfg(test)]
 pub(crate) fn validate_manifest_wsi_file_for_kind(
     kind: crate::manifest_contract::ManifestContractKind,
     path: &Path,
     file: &Value,
+) -> Result<(), GenerateError> {
+    validate_manifest_wsi_file_with_context(kind, path, file, None)
+}
+
+pub(crate) fn validate_manifest_wsi_file_with_context(
+    kind: crate::manifest_contract::ManifestContractKind,
+    path: &Path,
+    file: &Value,
+    reduced_wsi: Option<&crate::ReducedStressWsiContext>,
 ) -> Result<(), GenerateError> {
     let required_str = |pointer: &str| -> Result<&str, GenerateError> {
         file.pointer(pointer)
@@ -2279,7 +2289,20 @@ pub(crate) fn validate_manifest_wsi_file_for_kind(
         Stress,
         Unsupported(&'a str),
     }
-    let dispatch = if kind == crate::manifest_contract::ManifestContractKind::ExternalCorpus {
+    let dispatch = if let Some(context) = reduced_wsi {
+        if kind != crate::manifest_contract::ManifestContractKind::ExternalCorpus
+            || context.file != *file
+            || crate::ORDINARY_WSI_EVIDENCE
+                .iter()
+                .any(|field| file.get(*field).is_some())
+        {
+            return Err(manifest_wsi_error(
+                path,
+                "reduced WSI context conflicts with file evidence",
+            ));
+        }
+        WsiContract::Stress
+    } else if kind == crate::manifest_contract::ManifestContractKind::ExternalCorpus {
         let fields = [
             ("expected_wsi_tiled_full", WsiContract::Full),
             ("expected_wsi_tiled_sparse", WsiContract::Sparse),

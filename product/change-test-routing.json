@@ -16,6 +16,11 @@
     "unrouted_lib_groups": "All-configured-ordinary runs only list-proven representative lib prefixes; remaining ordinary lib groups stay explicit deferred evidence."
   },
   "bundles": {
+    "reduced_wsi_reader": {
+      "commands": [
+        {"kind":"lib", "module":"validation::wsi_tiled_sparse_tests::reduced_reader_tests", "source":"src/validation_wsi_reduced_reader_tests.rs", "list_count":2}
+      ]
+    },
     "stress_projection": {
       "commands": [
         {"kind":"lib", "module":"curated_manifest::stress::stress_projection_tests", "source":"src/curated_manifest/stress.rs", "list_count":1}
@@ -192,6 +197,7 @@
     }
   },
   "rules": [
+    {"id":"reduced-wsi-reader", "exact":["src/lib.rs", "src/validation.rs", "src/validation_wsi_tiled_sparse_tests.rs", "src/validation_wsi_reduced_reader_tests.rs"], "bundles":["reduced_wsi_reader"]},
     {"id":"stress-projection", "exact":["src/curated_manifest/stress.rs"], "bundles":["stress_projection"]},
     {
       "id": "pyramid-projection",

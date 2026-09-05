@@ -1380,7 +1380,7 @@ fn validate_loaded_manifest_root(
 
     validate_negative_profile_isolation(&manifest_path, &manifest, files)?;
     validate_fuzz_profile_qualification(&manifest_path, &manifest, files)?;
-    validate_stress_profile_qualifications_for_kind(kind, &manifest_path, &manifest, files)?;
+    let reduced_wsi = reduced_stress_wsi_contexts(kind, manifest_path, manifest, files)?;
 
     let mut failures = Vec::new();
     validate_wsi_pyramid_manifest_group_for_kind(kind, &manifest_path, files)?;
@@ -1394,7 +1394,14 @@ fn validate_loaded_manifest_root(
                 &mut failures,
             )?;
         }
-        validate_manifest_file(kind, root_dir, &manifest_path, file, &mut failures)?;
+        validate_manifest_file(
+            kind,
+            root_dir,
+            &manifest_path,
+            file,
+            reduced_wsi.get(file["path"].as_str().unwrap_or("")),
+            &mut failures,
+        )?;
     }
     validate_declared_corpus_files(root_dir, &declared_paths, &mut failures)?;
     geometry::validate_manifest_geometry(root_dir, files, &mut failures);
@@ -3175,13 +3182,239 @@ fn validate_spatial_registration_manifest_closure(
     Ok(())
 }
 
+// Minted only from a validated run and complete approved reduced WSI group.
+// Keeping the full file binding prevents reusing the context for crossed evidence.
+struct ReducedStressWsiContext {
+    file: Value,
+}
+
+const ORDINARY_WSI_EVIDENCE: [&str; 6] = [
+    "expected_wsi_tiled_full",
+    "expected_wsi_tiled_sparse",
+    "expected_wsi_multiple_optical_paths",
+    "expected_wsi_pyramid",
+    "wsi_pyramid_role",
+    "wsi_pyramid_ordinal",
+];
+
+fn reduced_stress_wsi_contexts(
+    kind: manifest_contract::ManifestContractKind,
+    manifest_path: &Path,
+    manifest: &Value,
+    files: &[Value],
+) -> Result<BTreeMap<String, ReducedStressWsiContext>, ValidateError> {
+    validate_stress_profile_qualifications_for_kind(kind, manifest_path, manifest, files)?;
+    let mut contexts = BTreeMap::new();
+    if kind != manifest_contract::ManifestContractKind::ExternalCorpus {
+        return Ok(contexts);
+    }
+    let invalid = || ValidateError::ManifestShape {
+        path: manifest_path.to_path_buf(),
+        message: "external reduced WSI requires its authenticated complete three-level contract",
+    };
+    for qualification in manifest["qualifications"].as_array().ok_or_else(invalid)? {
+        if qualification["kind"] != "stress_case_run" || qualification["recipe"] != "wsi_pyramid" {
+            continue;
+        }
+        let case_id = qualification["case_id"].as_str().ok_or_else(invalid)?;
+        let rows: Vec<_> = manifest["selection_ledger"]
+            .as_array()
+            .ok_or_else(invalid)?
+            .iter()
+            .filter(|row| row["case_id"] == case_id)
+            .collect();
+        if rows.len() != 1 || rows[0]["outcome"] != "generated" {
+            return Err(invalid());
+        }
+        let members: Vec<_> = files
+            .iter()
+            .filter(|file| file["case_id"] == case_id)
+            .collect();
+        if members.len() != 3 {
+            return Err(invalid());
+        }
+        let paths: BTreeSet<_> = members
+            .iter()
+            .map(|file| file["path"].as_str().ok_or_else(invalid))
+            .collect::<Result<_, _>>()?;
+        let captured_paths: Vec<_> = rows[0]["artifact_paths"]
+            .as_array()
+            .ok_or_else(invalid)?
+            .iter()
+            .map(|path| path.as_str().ok_or_else(invalid))
+            .collect::<Result<_, _>>()?;
+        if paths.len() != 3
+            || captured_paths.len() != 3
+            || paths != captured_paths.into_iter().collect()
+        {
+            return Err(invalid());
+        }
+        let mut levels = BTreeSet::new();
+        for file in &members {
+            let level = file
+                .pointer("/recipe/recipe_parameters/level_index")
+                .and_then(Value::as_u64)
+                .ok_or_else(invalid)?;
+            if level > 2
+                || !levels.insert(level)
+                || ORDINARY_WSI_EVIDENCE
+                    .iter()
+                    .any(|field| file.get(*field).is_some())
+            {
+                return Err(invalid());
+            }
+            let (edge, frames, spacing) = [
+                (1024, 16, "0.0005\\0.0005"),
+                (512, 4, "0.001\\0.001"),
+                (256, 1, "0.002\\0.002"),
+            ][level as usize];
+            for (pointer, expected) in [
+                (
+                    "/dicom/iod_name",
+                    serde_json::json!("VL Whole Slide Microscopy Image"),
+                ),
+                (
+                    "/dicom/sop_class_uid",
+                    serde_json::json!("1.2.840.10008.5.1.4.1.1.77.1.6"),
+                ),
+                (
+                    "/dicom/transfer_syntax_uid",
+                    serde_json::json!("1.2.840.10008.1.2.1"),
+                ),
+                (
+                    "/recipe/recipe_parameters/scale",
+                    serde_json::json!("reduced"),
+                ),
+                (
+                    "/recipe/recipe_parameters/level_number",
+                    serde_json::json!(level + 1),
+                ),
+                (
+                    "/recipe/recipe_parameters/pyramid_levels",
+                    serde_json::json!(3),
+                ),
+                (
+                    "/recipe/recipe_parameters/total_pixel_matrix_rows",
+                    serde_json::json!(edge),
+                ),
+                (
+                    "/recipe/recipe_parameters/total_pixel_matrix_columns",
+                    serde_json::json!(edge),
+                ),
+                (
+                    "/recipe/recipe_parameters/tile_rows",
+                    serde_json::json!(256),
+                ),
+                (
+                    "/recipe/recipe_parameters/tile_columns",
+                    serde_json::json!(256),
+                ),
+                (
+                    "/recipe/recipe_parameters/frames",
+                    serde_json::json!(frames),
+                ),
+                (
+                    "/recipe/recipe_parameters/pixel_spacing",
+                    serde_json::json!(spacing),
+                ),
+                (
+                    "/recipe/recipe_parameters/native_payload_bytes",
+                    serde_json::json!(256 * 256 * 3 * frames),
+                ),
+                ("/image/rows", serde_json::json!(256)),
+                ("/image/columns", serde_json::json!(256)),
+                ("/image/frames", serde_json::json!(frames)),
+                ("/image/samples_per_pixel", serde_json::json!(3)),
+                (
+                    "/image/photometric_interpretation",
+                    serde_json::json!("RGB"),
+                ),
+                ("/image/bits_allocated", serde_json::json!(8)),
+                ("/image/bits_stored", serde_json::json!(8)),
+                ("/image/high_bit", serde_json::json!(7)),
+                ("/image/pixel_representation", serde_json::json!(0)),
+                ("/image/planar_configuration", serde_json::json!(0)),
+                (
+                    "/expected_semantics/synthetic_data",
+                    serde_json::json!("YES"),
+                ),
+                (
+                    "/expected_semantics/image_type",
+                    serde_json::json!(["ORIGINAL", "PRIMARY", "VOLUME", "NONE"]),
+                ),
+                (
+                    "/expected_semantics/shared_study_series_frame_of_reference",
+                    serde_json::json!(true),
+                ),
+                ("/expected_semantics/tiled_full", serde_json::json!(true)),
+                (
+                    "/expected_semantics/ordered_level",
+                    serde_json::json!(level + 1),
+                ),
+                ("/expected_semantics/level_count", serde_json::json!(3)),
+                (
+                    "/expected_semantics/physical_extent_mm",
+                    serde_json::json!([0.512, 0.512]),
+                ),
+            ] {
+                if file.pointer(pointer) != Some(&expected) {
+                    return Err(invalid());
+                }
+            }
+            for pointer in [
+                "/uids/study_instance_uid",
+                "/uids/series_instance_uid",
+                "/uids/frame_of_reference_uid",
+                "/expected_semantics/shared_pyramid_uid",
+            ] {
+                let uid = file
+                    .pointer(pointer)
+                    .and_then(Value::as_str)
+                    .ok_or_else(invalid)?;
+                if !is_manifest_uid(uid) || file.pointer(pointer) != members[0].pointer(pointer) {
+                    return Err(invalid());
+                }
+            }
+            contexts.insert(
+                file["path"].as_str().ok_or_else(invalid)?.to_owned(),
+                ReducedStressWsiContext {
+                    file: (*file).clone(),
+                },
+            );
+        }
+    }
+    Ok(contexts)
+}
+
+#[cfg(test)]
 fn validate_external_family_evidence_scope(
     kind: manifest_contract::ManifestContractKind,
     manifest_path: &Path,
     file: &Value,
 ) -> Result<(), ValidateError> {
+    validate_external_family_evidence_scope_with_context(kind, manifest_path, file, None)
+}
+
+fn validate_external_family_evidence_scope_with_context(
+    kind: manifest_contract::ManifestContractKind,
+    manifest_path: &Path,
+    file: &Value,
+    reduced_wsi: Option<&ReducedStressWsiContext>,
+) -> Result<(), ValidateError> {
     if kind != manifest_contract::ManifestContractKind::ExternalCorpus {
         return Ok(());
+    }
+    if let Some(context) = reduced_wsi {
+        if context.file != *file
+            || ORDINARY_WSI_EVIDENCE
+                .iter()
+                .any(|field| file.get(*field).is_some())
+        {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "reduced WSI context conflicts with file evidence",
+            });
+        }
     }
     let iod = file.pointer("/dicom/iod_name").and_then(Value::as_str);
     for (field, allowed) in [
@@ -3237,7 +3470,7 @@ fn validate_external_family_evidence_scope(
     }
     for (active, fields) in [
         (
-            iod == Some("VL Whole Slide Microscopy Image"),
+            iod == Some("VL Whole Slide Microscopy Image") && reduced_wsi.is_none(),
             &[
                 "expected_wsi_tiled_full",
                 "expected_wsi_tiled_sparse",
@@ -3292,9 +3525,10 @@ fn validate_manifest_file(
     root_dir: &Path,
     manifest_path: &Path,
     file: &Value,
+    reduced_wsi: Option<&ReducedStressWsiContext>,
     failures: &mut Vec<String>,
 ) -> Result<(), ValidateError> {
-    validate_external_family_evidence_scope(kind, manifest_path, file)?;
+    validate_external_family_evidence_scope_with_context(kind, manifest_path, file, reduced_wsi)?;
     let relative_path = manifest_str(manifest_path, file, "/path", "file path must be a string")?;
     validate_external_scalar_evidence_layout(kind, relative_path, file, failures);
     validate_vl_single_frame_manifest_contract_for_kind(kind, manifest_path, file)?;
@@ -3431,7 +3665,7 @@ fn validate_manifest_file(
         expected_sop_instance,
     );
     validate_standard_baseline_elements(failures, relative_path, manifest_path, file, &obj)?;
-    validate_family_standard_elements_for_kind(
+    validate_family_standard_elements_with_context(
         kind,
         failures,
         relative_path,
@@ -3439,6 +3673,7 @@ fn validate_manifest_file(
         manifest_path,
         file,
         &obj,
+        reduced_wsi,
     )?;
     metadata::validate_manifest_metadata(
         kind,
@@ -9954,6 +10189,7 @@ fn validate_standard_baseline_elements(
     Ok(())
 }
 
+#[cfg(test)]
 fn validate_family_standard_elements_for_kind(
     kind: manifest_contract::ManifestContractKind,
     failures: &mut Vec<String>,
@@ -9962,6 +10198,28 @@ fn validate_family_standard_elements_for_kind(
     manifest_path: &Path,
     file: &Value,
     obj: &OpenedObject,
+) -> Result<(), ValidateError> {
+    validate_family_standard_elements_with_context(
+        kind,
+        failures,
+        relative_path,
+        path,
+        manifest_path,
+        file,
+        obj,
+        None,
+    )
+}
+
+fn validate_family_standard_elements_with_context(
+    kind: manifest_contract::ManifestContractKind,
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    path: &Path,
+    manifest_path: &Path,
+    file: &Value,
+    obj: &OpenedObject,
+    reduced_wsi: Option<&ReducedStressWsiContext>,
 ) -> Result<(), ValidateError> {
     match manifest_str(
         manifest_path,
@@ -10144,7 +10402,9 @@ fn validate_family_standard_elements_for_kind(
             obj,
         )?,
         "VL Whole Slide Microscopy Image" => {
-            if let Err(error) = validation::validate_manifest_wsi_file_for_kind(kind, path, file) {
+            if let Err(error) =
+                validation::validate_manifest_wsi_file_with_context(kind, path, file, reduced_wsi)
+            {
                 failures.push(format!("{relative_path}: wsi_semantic_contract: {error}"));
             }
         }

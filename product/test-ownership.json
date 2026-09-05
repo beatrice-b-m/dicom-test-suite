@@ -3,8 +3,8 @@
   "scope": {
     "rust_test_targets": 22,
     "integration_test_targets": 20,
-    "rust_test_entry_groups": 276,
-    "rust_test_entries": 1492,
+    "rust_test_entry_groups": 277,
+    "rust_test_entries": 1494,
     "integration_source_groups": 189,
     "integration_test_entries": 924,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
@@ -4759,7 +4759,7 @@
         "rejects_sparse_manifest_contract_drift",
         "persisted_manifest_validation_rejects_sparse_geometry_mutation"
       ],
-      "entry_digest": "a527be519739a16be62b8924404bc48bd980b45d2206189e8300eb9e6b602d06"
+      "entry_digest": "f8178a58c37424a759d13b71976b77d6b87573caf96209a287682dc8a9322fc1"
     },
     {
       "source": "src/waveform_manifest.rs",
@@ -4785,6 +4785,19 @@
         "stress_projection_requires_captured_typed_complete_evidence"
       ],
       "entry_digest": "39e4eed85779655184c948f32e8ee039e8242076c7a4020e78b800d4429f7e4b"
+    },
+    {
+      "source": "src/validation_wsi_reduced_reader_tests.rs",
+      "target": "synth_dicom_gen",
+      "domain": "standards_validation",
+      "verification_class": "subsystem",
+      "cost_tier": "ordinary",
+      "entry_count": 2,
+      "entries": [
+        "reduced_wsi_context_requires_source_projected_complete_evidence",
+        "reduced_wsi_reopened_context_preserves_payload_checks"
+      ],
+      "entry_digest": "d01ae46e3b8324044e64eaae77880ab889c0e6de16e16c1149954fc7d22f74d0"
     }
   ]
 }

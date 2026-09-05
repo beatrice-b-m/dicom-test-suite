@@ -539,3 +539,6 @@ fn put_sequence(obj: &mut InMemDicomObject, tag: dicom_core::Tag, items: Vec<InM
 fn cleanup(path: PathBuf) {
     let _ = fs::remove_file(path);
 }
+
+#[path = "validation_wsi_reduced_reader_tests.rs"]
+mod reduced_reader_tests;

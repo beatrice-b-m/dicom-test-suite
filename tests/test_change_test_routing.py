@@ -59,6 +59,18 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
         self.assertEqual(len(selected), 1)
         self.assertEqual(selected[0]["list_count"], 1)
 
+    def test_reduced_wsi_reader_selects_only_bounded_regressions(self):
+        command = "cargo test --locked --no-default-features --lib validation::wsi_tiled_sparse_tests::reduced_reader_tests::"
+        for path in ["src/lib.rs", "src/validation.rs", "src/validation_wsi_tiled_sparse_tests.rs", "src/validation_wsi_reduced_reader_tests.rs"]:
+            result = self.select(path)
+            self.assertIn(command, self.commands(result))
+            selected = [entry for entry in result["commands"] if entry.get("module") == "validation::wsi_tiled_sparse_tests::reduced_reader_tests"]
+            self.assertEqual(len(selected), 1)
+            self.assertEqual(selected[0]["list_count"], 2)
+            self.assertNotIn("cargo test --locked --no-default-features --lib validation::wsi_tiled_sparse_tests::", self.commands(result))
+        self.assertIn(command, self.commands(self.select(force_all=True)))
+        self.assertNotIn(command, self.commands(self.select("cases/registry.json")))
+
     def test_representative_surfaces_select_only_owning_bundles(self):
         fixtures = {
             "src/executor/engine.rs": (
@@ -451,13 +463,13 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
                 result = self.select(changed)
                 self.assertEqual(
                     result["bundle_ids"],
-                    ["byte_stable_validation", "corpus"],
+                    ["byte_stable_validation", "corpus"] + (["reduced_wsi_reader"] if changed == "src/validation.rs" else []),
                 )
                 commands = self.commands(result)
                 self.assertEqual(commands[:8], validation_commands)
                 self.assertEqual(
                     sum(command["list_count"] for command in result["commands"] if command.get("kind") == "lib"),
-                    36,
+                    38 if changed == "src/validation.rs" else 36,
                 )
                 self.assertEqual(
                     [item["id"] for item in result["deferred_evidence"]],

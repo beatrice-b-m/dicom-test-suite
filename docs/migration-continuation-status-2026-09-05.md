@@ -1018,3 +1018,50 @@ binding and complete two-file correction; working tree was clean afterward.
 No native WSI generation or full-scale resource qualification occurred. Broad
 overlapping verification remains due after unit3, avoiding another duplicate
 full route for this pure correction. Unit3 may now resume.
+
+## Captured stress activation and ordinary verification — 2026-09-05
+
+Unit3 c36fa03 binds external stress qualification to captured definition
+profiles, binds file profiles as sets, and requires complete approved typed
+stress projection intent. Qualification artifacts remain distinct from file
+artifacts. Required reduced SameProject obligations, recipe/plan/output
+identities, transfer syntaxes, cardinality and resource ceilings remain checked.
+Unavailable cases do not become passes; ordinary US cases with historical
+stress names publish and reopen without acquiring stress semantics.
+
+Final focused10 Rust entries passed: pure stress projection1/0.84s, runtime
+stress1/0.00s, external manifest7/2.54s after18.38s compile, and US SDK1/29.94s.
+Routing31 passed3.122s; ownership1492 entries/276 groups passed0.257s; spelling
+1065 and diff passed. Initial private parser access, test enum and lifetime
+compile errors were corrected. A dependency test fixture needed its file profile
+updated with the captured owner profile; an obsolete test-target invocation ran
+no tests and was replaced by the exact library filter. Logs:
+/private/tmp/r7-unit3-final-focused.log and
+/private/tmp/r7-unit3-final-corrected.log. Independent and root reviews accepted
+the implementation and evidence bindings.
+
+The inspected all-ordinary selection contained79 commands. Initial execution
+at c36fa03 passed the first21 groups, then identity passed3/4 and exposed the
+remaining frozen schema-domain size oracle. d3bdef2 changes only that test oracle
+and its ownership digest:58 schema members,1117572 bytes, SHA256
+f6bf12057061673a9914bd2c3928cc9526568cb7a7ba732c21cb4eb2bc74502f.
+Root independently recomputed the identity framing; the prior value was
+reproduced with the pre-separation manifest2 schema. Identity4 passed1.37s
+after18.26s compile (whole20.273s); ownership1492 and diff passed. Production
+identity algorithms and pinned artifacts did not change.
+
+The initial log is /private/tmp/r7-external-runtime-allordinary-fast-20260905.log
+(filesystem write span57.230666s, not a process stopwatch). At clean d3bdef2,
+regenerated selection matched the saved preview exactly. Commands22–78 and
+Fast then all passed in274.667284s, avoiding repetition of the accepted prefix
+and separately corrected identity group. Fast passed15 plus73 tests. Log:
+/private/tmp/r7-external-runtime-allordinary-remainder-fast-20260905.log; preview:
+/private/tmp/r7-external-runtime-allordinary-preview-20260905.json. Source edits
+and parallel builds stayed paused during this run. This is ordinary same-project
+evidence; heavy, codec feature matrix, native provider, isolated SDK consumer,
+Nightly, release and future external-corpus evidence remain deferred.
+
+Read-only review nevertheless found the reduced-stress WSI reopened-reader
+regression described in b9b51a6. Ordinary suite success does not waive it.
+That bounded correction precedes US standalone public proof and full external
+boundary acceptance. R7 remains open; R8 and R9 have not begun.

@@ -1064,6 +1064,16 @@ their separate contracts; the curated U8 route changes neither catalog bytes
 nor template version. Public CLI/SDK payload/manifest/report equality remains
 same-project evidence with separately reopened strict validation.
 
+Native single-frame US additionally requires its template@1, native content,
+shared nuclear algorithm/projection and typed ultrasound family together. One
+explicit primary instance uses checked U8 pixels and fixed synthetic provider
+metadata. The inspector rejects partial tuples and unsupported extensions;
+loader and planning dispatch precede historical family-name matchers. External
+manifest validation selects declared contracts and captured profile evidence.
+Caller identity/order/path changes preserve source pixel and semantic contracts;
+public CLI/SDK proof separately checks reopened validation and report projection.
+This does not extend calibration-region, multiframe, RLE or independent evidence.
+
 Native metadata SC admission also recognizes typed UTF-8 Person Name,
 qualified EmptyType2 and PrivateCreators independently of case/recipe names.
 The conjunctive contract binds `native.metadata_sc_plan`, one monochrome SC

@@ -318,6 +318,52 @@ Use the same external `generate`, separate `validate` and `report` commands
 above. CLI/SDK byte and manifest equality is same-project evidence; report2
 projects the manifest and adds no independent conformance or viewer result.
 
+#### Caller-defined native ultrasound
+
+The external CLI and SDK accept one `classic/ultrasound/single-frame@1.0.0`
+artifact through `native.classic_plan`, parameter-free `content.native_pixels`,
+`algorithm.classic_nuclear` and `classic_projection.family = "nuclear"`. The
+registry declares `rust_native`/`rust_native`, `dicom_instance` and no feature or
+codec requirements. Either the US template or typed `ultrasound_single_frame`
+family declares intent; incomplete and crossed tuples reject.
+
+Use logical artifact `instance`, order zero and role `primary`, an explicit safe
+path, and caller-owned case/recipe names and planning/projection orders. Both
+orders are required and unique among migrated recipes. Recipe and artifact use
+`validation.shared` and `projection.curated`. The bounded provider retains its
+qualified fixed synthetic patient, study, equipment and acquisition metadata;
+optional series date/time and body-part fields remain absent.
+
+Pixels are one native U8/OB MONOCHROME2 frame with positive checked dimensions,
+exact sample count, byte-range values, matching extrema and one computed frame
+hash. Image Type is `ORIGINAL\PRIMARY`, Lossy Image Compression is `00`, and
+Ultrasound Color Data Present is zero. Encoding is Explicit VR Little Endian,
+default sequence/item lengths, no offsets or fragment count, zero-filled
+preamble and standard file meta. Dependencies, attribute/profile overrides,
+provider/content extensions and unrelated projection fields are excluded.
+
+This capability emits no calibration region. Template calibration evidence does
+not establish a region in this case. Historical RLE, multiframe US, PET and NM
+retain their separate contracts. Typed US admission precedes historical family
+name matchers; external validation follows declared evidence and captured
+definition profiles. CLI/SDK equality and reopened strict validation are
+same-project evidence; report2 projects the manifest without adding independent
+conformance or viewer results.
+
+For a caller bundle selecting `caller/acquisition/ultrasound`, run these from
+the directory containing `definition.json` and `corpus-members`. Set `GENERATOR`
+to the supported executable's absolute path and use a fresh output root:
+
+```sh
+"$GENERATOR" capabilities --corpus ./definition.json --asset-root corpus-members \
+  --profile core --case-id caller/acquisition/ultrasound --seed 1 --parallelism 4 --format json
+"$GENERATOR" generate --corpus ./definition.json --asset-root corpus-members \
+  --profile core --case-id caller/acquisition/ultrasound --seed 1 --parallelism 4 \
+  --out generated/us-proof --format json
+"$GENERATOR" validate generated/us-proof --format json
+"$GENERATOR" report generated/us-proof --format json --cli-api 1.0.0
+```
+
 #### Caller-defined Secondary Capture metadata
 
 The external CLI and SDK accept independently named recipes for these typed

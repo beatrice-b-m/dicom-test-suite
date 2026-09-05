@@ -114,6 +114,11 @@ and ordering, including names resembling other historical families. See the
 [CR contract](docs/generation-guide.md#caller-defined-computed-radiography) for
 the complete tuple and its separate composition/RLE evidence boundaries.
 
+Caller-defined native ultrasound supports one U8/OB MONOCHROME2 frame through
+a bounded typed contract, with caller-owned names, paths and ordering. See the
+[US contract](docs/generation-guide.md#caller-defined-native-ultrasound) for its
+fixed synthetic metadata and separate multiframe/RLE evidence boundaries.
+
 Caller-defined Secondary Capture metadata supports UTF-8 Person Name, qualified
 empty Type 2 attributes and private creator blocks through typed native
 contracts. Case/recipe names and output paths are caller-owned; metadata,

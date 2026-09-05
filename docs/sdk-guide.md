@@ -152,6 +152,17 @@ Separate strict validation and report2 projection preserve their evidence roles.
 The curated capability does not change the qualified composition default or
 extend RLE, viewer or independent conformance evidence.
 
+### Caller-defined native ultrasound
+
+`InspectCorpusRequest` and `GenerateCorpusRequest` also accept the bounded
+[native US contract](generation-guide.md#caller-defined-native-ultrasound): one
+`classic/ultrasound/single-frame@1.0.0` artifact with checked native U8 pixels
+and fixed synthetic provider metadata. Caller names, explicit paths and unique
+orders are independent of dispatch. CLI and SDK agree on capabilities, complete
+manifests, payloads and reports, with separate reopened strict validation.
+Calibration-region, multiframe, RLE and independent-evidence claims remain
+scoped to their respective qualifications.
+
 ### Caller-defined Secondary Capture metadata
 
 The same inspection and `GenerateCorpusRequest` interfaces accept independently

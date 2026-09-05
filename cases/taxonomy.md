@@ -17,6 +17,12 @@ plan providers are named only for algorithmic construction. A binding resolves
 to a plan before any retained file is written. This recipe namespace is also
 distinct from both case IDs and caller-visible template IDs.
 
+These naming conventions describe the committed registry. The documented
+caller-defined capabilities use complete typed contracts rather than interpreting
+a caller's case-name segments. External file profile membership is bound to the
+captured corpus definition; a historical-looking name does not grant stress or
+other qualification evidence. Schema identity and path rules still apply.
+
 ## Case ID Format
 
 Case IDs are stable, human-readable, path-safe identifiers:

@@ -1874,3 +1874,24 @@ Static contract update now owns only tests/test_smoke_definition.py; CI and
 historical fixture transitions follow sequentially. Import acceptance does
 not establish runtime availability or migrated parity. Baseline acceptance
 corpus07d5fc9 with label clarification3b2c33c remains dated. R7open/R8R9held.
+
+## VL import static and routing contracts accepted — 2026-09-05
+
+Corpus b515fd9 owns only tests/test_smoke_definition.py:21 tests0.330s,
+/private/tmp/vl-static-tests.log. Authenticated VL provenance and bothsource
+rows/recipebytes/no-note closure; exact0.9 reversal and historical0.3.1
+construction retained. Rehashed metadata/recipe and closure mutations reject.
+Root complete diff review and granular commit/log checks passed.
+
+Corpus89352f3 owns only scripts/run_ci.py and tests/test_ci_routing.py:
+69 tests1.974s, /private/tmp/vl-import-ci-tests.log. Explicit known-version
+membership admits0.10 without lexical comparison. Transition routes fixed
+smoke3+VL2 underall; eachrecipe routes exactlyonecore. Source row/recipe/
+asset/dependency/evidence drift rejects; helperpaths stay ordinary-only.
+Root full diff review and granular commit/log checks passed.
+
+Historical fixtures now own only tests/test_xa_xrf_availability.py and
+tests/test_pet_availability.py: an authenticated live0.10-to0.9 reversal
+will feed original XA and existing PET-to-older chains. Production historical
+verifiers remain frozen. Complete ordinary verification waits for this
+sequential fixture update; no further native work has started. R7open/R8R9held.

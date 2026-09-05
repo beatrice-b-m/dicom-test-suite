@@ -994,3 +994,27 @@ Unit3 qualification activation may now proceed, including stress postprojection
 and captured-profile binding. Full overlapping ordinary verification and US
 standalone public caller proof remain due. No pinned artifact, schema, WSI
 qualification or broader generic WSI generation claim changed.
+
+## Reduced WSI shared-template correction — 2026-09-05
+
+Before unit3 writes, read-only preparation identified that reduced-stress WSI
+shares the ordinary pyramid volume template. A source plan-only regression
+confirmed c445839 incorrectly claimed that three-volume chain: one test failed
+0.63s after18.18s compile with captured recipe/plan mismatch. No payload was
+materialized. Unit3 paused while this newly identified overlap was corrected.
+
+Corrective3d0aedc recognizes only the complete typed reduced WSI level chain:
+three unique bounded levels/edges, native provider/algorithm, ordered-level
+dependencies, source and resolved templates/SOP/transfer syntax/roles, bounded
+matrix dimensions and required SameProject reduced qualification obligation.
+Names and profiles do not bypass ordinary projection. Mixed, partial and crossed
+contracts still reject. The existing reduced projection remains responsible
+for its own evidence; this check does not grant new stress capability.
+
+Final pure1 test passed0.64s after18.53s compile; intermediate typed-only test
+passed0.64s after18.77s compile before the final obligation guard. Ownership1491
+and diff passed. Independent reviewer and root accepted the exact obligation
+binding and complete two-file correction; working tree was clean afterward.
+No native WSI generation or full-scale resource qualification occurred. Broad
+overlapping verification remains due after unit3, avoiding another duplicate
+full route for this pure correction. Unit3 may now resume.

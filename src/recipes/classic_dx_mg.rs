@@ -370,10 +370,18 @@ fn validate_parameters(
             recipe.binding.case_id
         )));
     }
+    let sample_count = parameters
+        .rows
+        .checked_mul(parameters.columns)
+        .and_then(|count| usize::try_from(count).ok())
+        .ok_or_else(|| {
+            ClassicDxMgPlanError::Contract(
+                "pixel dimensions exceed the supported sample count".into(),
+            )
+        })?;
     if parameters.rows == 0
         || parameters.columns == 0
-        || parameters.stored_values.len()
-            != usize::try_from(parameters.rows * parameters.columns).unwrap_or(usize::MAX)
+        || parameters.stored_values.len() != sample_count
         || parameters.pixel_min != parameters.stored_values.iter().copied().min().unwrap_or(0)
         || parameters.pixel_max != parameters.stored_values.iter().copied().max().unwrap_or(0)
         || parameters.expected_frame_sha256.len() != 64

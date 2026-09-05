@@ -268,6 +268,15 @@ fn dx_mg_planning_is_output_free_and_frontend_neutral() {
 
 #[test]
 fn dx_mg_parameters_are_strict_and_semantic_corruption_is_rejected() {
+    for mut recipe in owned_recipes() {
+        let parameters = &mut recipe.dicom.as_mut().unwrap().artifacts[0].parameters;
+        parameters.insert("rows".into(), Value::from(65536));
+        parameters.insert("columns".into(), Value::from(65536));
+        assert!(matches!(
+            plan_dx_mg_recipe(&recipe, STANDARDS_LOCK_SHA256, SEED),
+            Err(ClassicDxMgPlanError::Contract(_))
+        ));
+    }
     dx_mg_capability_accepts_independent_names_orders_and_paths();
     dx_mg_capability_rejects_partial_and_crossed_tuples();
     let recipes = owned_recipes();

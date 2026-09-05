@@ -172,3 +172,20 @@ checks (801,714,176 bytes), below the ordinary 4-GiB ceiling. No Heavy,
 all-profile, provider, package or release command ran. Public caller-owned
 CLI/SDK generation proof and documentation remain the next sequential unit;
 this checkpoint alone does not close DX/MG genericity or wider R7.
+
+### DX/MG malformed-dimension guard
+
+Before public consumer execution, independent source review found unchecked
+`u32` multiplication of caller rows/columns in DX/MG inspection. The root
+replaced it with checked multiplication/conversion returning a contract error,
+with a 65536-by-65536 malformed-input regression across the three variants.
+No pixel allocation is needed to test rejection. Existing valid recipe bytes
+and semantics are unchanged. Wrong SOP parameters already fail qualified
+template resolution before the ready ledger or publication.
+
+The existing strict-parameter test passed1/1 in0.78s after20.32s compilation
+using the shared explicit low-debug, nonincremental target. The route was
+inspected; this bounded guard does not require replaying the accepted migrated
+parity run. Diff check passed. Root owns only the provider, its test digest,
+existing test and this status entry; in-progress public fixture work is owned
+separately and excluded from this commit.

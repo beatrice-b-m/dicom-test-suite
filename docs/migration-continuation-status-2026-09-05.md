@@ -1689,3 +1689,38 @@ fluoroscopy use planning900/901, projection902/903 and independent paths.
 CLI/SDK complete equality, strict2files and original source-pair reproduction
 must pass; observed caller hashes freeze before final rerun. No guide edits
 until this proof and broader public module are accepted.
+
+## XA/XRF standalone public proof accepted — 2026-09-05
+
+Generatore7c7090 owns14 exact proof/fixture/routing/ownership/spelling files.
+Six fixture members33636 bytes, definition2733/
+d79d009d5b7b490a31e86b3099352b3e08a425f94dd1a8f0bce39a881d5d009d;
+angiography recipe4613/dde699170472343e7491f40c9d1d3f1c59983d06fce812479d51185e31310477;
+fluoroscopy recipe4254/4ac804049acc89c318f666063020e1db8c1261bc6988f57ec7c3b733e78820c3;
+registry5540/212a73ac4b27bd3a2b4e3dc2229daf37663414427f001d8512f07f4306f86b24.
+Both original notes unchanged7968/90a8bf89…cfc2e and8528/963cb047…143b5
+(full identities in corpus ledger). Framed
+ e2865f216e27b022e8a0a584a178df617cd89bf92a19b67f471e1cb0d836b18a.
+Full oracle12253/3050d0560e49e73971c8ed99eb67a817d6c207b33f9ea7284d6ca20e162b7e2c
+independently authenticates source recipe/image/pixel/semantics/geometry/standards.
+CallerXA1158/2af0a736db7962661e050d24355ebe01031e1746ce2565b0a6a51a7a1bfce917;
+callerXRF1150/b32181b1c252bf944d23ae2dba6dd5abede323fc63dbab3616d08fbd3abce3ac.
+Full CLI/SDK capabilities/manifests/reports/payload equality and strict2 each,
+plus original source-pair1172/1166 reproduction, passed unconditionally.
+
+Two construction count errors were corrected before acceptance: artifactcount2
+failed0.04s beforegeneration; direct/emittedcount1 failed5.67s aftergeneration.
+Logs/private/tmp/xa-public-first.log and xa-public-observe.log preserved;
+complete observationxa-public-observe2.log passed1/10.68s compile2.27s.
+Frozenfinal1/10.71s compile2.26s; Fast15/2.22s+73/1.99s warm0.04s; logs
+/private/tmp/xa-public-final.log and xa-public-fast.log. Ownership1497/
+integration927, routing1/0.010s, spelling1072 SHA
+8b620d3792a7d1c15ad607256cf6a7b4404d52b06862577447b9682314cd4c20;
+target1184520KiB. Diff/root/independent review and clean granular commit passed.
+Root full mapped cli_sdk__nonfast external_corpus_cli14/33.24s,
+whole33.332077125s at cleane7c7090; log/measurement
+/private/tmp/r7-xa-xrf-public-root-subsystem-20260905.log and .json.
+
+Next owner has only six current guides (README/generation/SDK/system spec/
+compatibility/taxonomy); exact documented commands require fresh root verification
+before complete bounded XA/XRF source capability acceptance. Pin unchanged.

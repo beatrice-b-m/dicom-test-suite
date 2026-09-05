@@ -1252,3 +1252,28 @@ row/core membership and two members; existing0.7 bytes and artifact pins must
 remain recoverable by authenticated byte-exact reversal. Static tests, CI,
 historical fixtures, selected availability and two-run parity remain sequential
 units. Caller genericity still waits for those gates; R7 remains incomplete.
+
+## PET data/static/CI units accepted — 2026-09-05
+
+Corpus1acb178 imports exact PET source data as0.8 in four files. Closed29
+members164618 bytes; descriptor13397 SHA256
+495ccb407846052cabdafb81059e113446e965e787e1c5edecd6b58a501414d9;
+registry63447 SHA256
+9ddf8a28ca23c2b7e4c6ce3194f2da42ba04f8cf910f8d00f456c124455b4760;
+framed e9738a9596c1345c0ce96abd1af7f4a9bf875c07a820e701337178d384b55bcd.
+Pure source/closure/exact0.7 reversal passed0.175821s, retained verifier/result
+/private/tmp/verify-pet-content-import.py and
+/private/tmp/pet-content-import-verification.json. Independent review and root
+direct immutable-Git byte comparison accepted. Corpus e94228a records full data
+measurements, initial unsupported-version static failures and source boundaries.
+
+Static5f29d9e then passed18/0.168s with exact PET recipe/note/source inventory
+and adversarial rehashed drift checks, resolving that module's earlier failures.
+CI6cbb395 passed59/1.156s with fixed smoke3+PET1/all transition and isolated
+recipe/note PET1/core ownership; historical versions and source-note mappings
+remain exact. Root reviewed each diff; granular commits/diffchecks passed.
+Status8ecf2a1/ff1c3a6 and current docs5639e70 distinguish accepted data/static/CI
+from pending external evidence. Historical fixture adaptation is the next
+two-file unit, followed by full ordinary discovery and the selected availability
+checker/capture. No native run occurred in these units; pins remain unchanged.
+PET parity and caller genericity remain unopened; R7 remains incomplete.

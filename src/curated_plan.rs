@@ -4554,6 +4554,16 @@ fn classic_requests(
         // second planner to claim, or reject, a valid CT capability.
         return Ok((requests, None, None));
     }
+    if let Some(requests) =
+        plan_dx_mg_recipe(recipe, standards_lock_sha256, seed).map_err(|error| {
+            CuratedPlanError::ClassicPlan {
+                recipe_id: recipe.recipe_id.clone(),
+                message: error.to_string(),
+            }
+        })?
+    {
+        return Ok((requests, None, None));
+    }
     let mut matched = Vec::new();
     macro_rules! try_provider {
         ($provider:expr) => {
@@ -4565,7 +4575,6 @@ fn classic_requests(
             }
         };
     }
-    try_provider!(plan_dx_mg_recipe(recipe, standards_lock_sha256, seed));
     try_provider!(plan_mr_cr_recipe(recipe, standards_lock_sha256, seed));
     try_provider!(plan_nuclear_recipe(recipe, standards_lock_sha256, seed));
     try_provider!(plan_vl_projection_recipe(
@@ -4618,6 +4627,27 @@ mod classic_ct_capability_tests {
             classic_requests(recipe, &lock_hash(), 1).is_err(),
             "malformed declared CT tuple must fail closed"
         );
+    }
+
+    #[test]
+    fn dx_mg_capability_dispatch_ignores_misleading_case_names() {
+        for source in [
+            DX_CASE,
+            "classic/mg/for_presentation_mono1_u16_12bit_explicit_le",
+            "classic/mg/for_processing_mono2_u16_12bit_implicit_le",
+        ] {
+            let mut input = recipe(source);
+            input.binding.case_id = "classic/mr/caller-projection".into();
+            input.recipe_id = "caller_projection".into();
+            input.planning_order = Some(900);
+            input.dicom.as_mut().unwrap().artifacts[0].output.path =
+                Some("images/projection.dcm".into());
+            let direct = plan_dx_mg_recipe(&input, &lock_hash(), 1).unwrap().unwrap();
+            assert_eq!(classic_requests(&input, &lock_hash(), 1).unwrap().0, direct);
+            input.dicom.as_mut().unwrap().artifacts[0].algorithm_provider_id =
+                Some("algorithm.classic_ct".into());
+            assert!(classic_requests(&input, &lock_hash(), 1).is_err());
+        }
     }
 
     #[test]

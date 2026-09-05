@@ -284,10 +284,52 @@ fn external_ct_capability_is_fail_closed_without_broadening_classic_names() {
 
     assert_one_case_rejected(
         "classic-name-only",
-        DX_CASE,
+        "classic/cr/overlay_modality_voi_explicit_le",
         "caller/arbitrary/not-ct",
         |_| {},
     );
+}
+
+#[test]
+fn external_dx_mg_capability_is_name_independent_and_fail_closed() {
+    for (index, source) in [
+        DX_CASE,
+        "classic/mg/for_presentation_mono1_u16_12bit_explicit_le",
+        "classic/mg/for_processing_mono2_u16_12bit_implicit_le",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let case_id = format!("caller/projection/acquisition-{index}");
+        let root = one_case_bundle(
+            &format!("generic-dx-mg-{index}"),
+            source,
+            &case_id,
+            "caller_projection",
+            |recipe| {
+                recipe["planning_order"] = 900.into();
+                recipe["dicom"]["artifacts"][0]["output"]["path"] = "images/projection.dcm".into();
+            },
+        );
+        let bundle = CorpusDefinitionBundle::load(&root).unwrap();
+        let catalog =
+            crate::recipes::RecipeCatalog::from_verified_bundle(&bundle, Path::new(".")).unwrap();
+        assert!(catalog.binding_for_case(&case_id).is_some());
+        fs::remove_dir_all(root).unwrap();
+        for field in ["template", "algorithm_provider_id", "classic_projection"] {
+            assert_one_case_rejected(
+                &format!("partial-dx-mg-{index}-{field}"),
+                source,
+                &case_id,
+                |recipe| {
+                    recipe["dicom"]["artifacts"][0]
+                        .as_object_mut()
+                        .unwrap()
+                        .remove(field);
+                },
+            );
+        }
+    }
 }
 
 #[test]

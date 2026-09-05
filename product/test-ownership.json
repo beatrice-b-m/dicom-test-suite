@@ -4,7 +4,7 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 274,
-    "rust_test_entries": 1480,
+    "rust_test_entries": 1482,
     "integration_source_groups": 189,
     "integration_test_entries": 920,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
@@ -1272,10 +1272,11 @@
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 25,
+      "entry_count": 26,
       "entries": [
         "external_ct_capability_is_name_independent_and_integrity_bound",
         "external_ct_capability_is_fail_closed_without_broadening_classic_names",
+        "external_dx_mg_capability_is_name_independent_and_fail_closed",
         "minimal_bundle_loads_with_stable_exact_byte_identity",
         "manifest_bytes_are_identity_bearing",
         "explicit_descriptor_inputs_are_equivalent_relocatable_and_output_free",
@@ -1300,7 +1301,7 @@
         "negative_and_fuzz_dependencies_cannot_cross_legacy_or_stress_boundaries",
         "excessive_undeclared_inventory_fails_without_buffering_all_names"
       ],
-      "entry_digest": "a7e4797399b6e21b7cb3e1fc1ef197b7e2470883782c3d41fa5053b263a09974"
+      "entry_digest": "9696322b7fb125d52ffa40eb53f0d1572b831baaa369c5ea8a15dd5e35462019"
     },
     {
       "source": "tests/corpus_plan.rs",
@@ -3823,11 +3824,12 @@
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 1,
+      "entry_count": 2,
       "entries": [
+        "dx_mg_capability_dispatch_ignores_misleading_case_names",
         "ct_capability_dispatch_is_name_independent_and_fail_closed"
       ],
-      "entry_digest": "4612cf9b4c4d1ada2f3b95d67cae30193975517b876dacb71a705416a49fceeb"
+      "entry_digest": "492338cb33bb43c955963387f80306eda9177621dd9f0bf9195b18bf13fade6b"
     },
     {
       "source": "src/encapsulation.rs",

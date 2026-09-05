@@ -133,3 +133,42 @@ strict validation is separate captured evidence. DX/MG genericity (R7.2/R7.3),
 remaining corpus slices, embedded removal, viewer behavior, R8/R9 and terminal
 release qualification remain open. Accepted evidence must not be relabeled as
 qualification of a later generator pin or corpus definition.
+
+## R7.2/R7.3 DX/MG planner and admission checkpoint
+
+Module commit `d7d3a78` and ownership follow-up `8ff5d6e` replace case-prefix
+selection with the complete DX/MG template/provider/content/algorithm/projection
+contract. Explicit caller paths are accepted; historical recipes and parameter
+semantics remain unchanged. Three pure planner tests passed in 0.63s after a
+27.37s initial clean compilation and 1.65s warm build. Assertions were added
+within the existing four owned test entries. The root reviewed both commits.
+
+The subsequent loader/shared-dispatch unit admits these exact tuples under
+independent case/recipe names and dispatches before unrelated historical family
+matchers. Partial or crossed tuples fail closed. New bundle and dispatch tests
+cover all three variants, explicit caller paths and a misleading MR case name;
+the non-generic negative control now uses CR. A separate read-only integration
+review found no actionable defect. Root owns loader, shared planner, bundle
+tests and their exact ownership/routing metadata for this unit.
+
+Verification used `CARGO_TARGET_DIR=/private/tmp/dts-dx-mg-genericity-target`,
+`CARGO_INCREMENTAL=0`, `CARGO_PROFILE_TEST_DEBUG=0` and
+`CARGO_PROFILE_DEV_DEBUG=0`:
+
+| Command scope | Result | Test time |
+| --- | --- | --- |
+| `--lib corpus_definition::tests::` | 26 passed | 10.92s routed; initial focused build 21.37s and test 10.94s |
+| `--lib curated_plan::classic_ct_capability_tests::` | 2 passed | 0.52s |
+| `--lib curated_plan::captured_input_tests::` | 4 passed | 6.38s |
+| `--test corpus_generation__subsystem` | 92 passed | 31.29s, build23.41s |
+| `--test engine__subsystem corpus_plan::` | 22 passed | 0.81s, build1.74s |
+| `test_change_test_routing.py` | 29 passed | 2.946s |
+| `--test release_ci__fast` | 15 passed | 2.18s |
+| `--test schema_resources__fast` | 73 passed | 2.26s |
+
+The dry-run route preceded execution. Ownership validation, rustfmt and
+`git diff --check` passed. The shared target measured 782,924 KiB after Fast
+checks (801,714,176 bytes), below the ordinary 4-GiB ceiling. No Heavy,
+all-profile, provider, package or release command ran. Public caller-owned
+CLI/SDK generation proof and documentation remain the next sequential unit;
+this checkpoint alone does not close DX/MG genericity or wider R7.

@@ -4571,13 +4571,45 @@
       "count": 1,
       "owner": "compatibility-or-immutable-evidence",
       "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/fixtures/generic-metadata-sc-corpus/members/cases/recipes/caller_private.json",
+      "token": "DTS_PRIVATE_ALPHA",
+      "class": "dicom_payload_identifier",
+      "count": 2,
+      "owner": "dicom-payload-contract",
+      "reason": "The caller metadata fixture and static oracle preserve the accepted private-creator payload bytes; this is not product naming or an environment alias."
+    },
+    {
+      "path": "tests/fixtures/generic-metadata-sc-corpus/members/cases/recipes/caller_private.json",
+      "token": "DTS_PRIVATE_BETA",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The caller metadata fixture and static oracle preserve the accepted private-creator payload bytes; this is not product naming or an environment alias."
+    },
+    {
+      "path": "tests/support/generic_metadata_sc_bundle.rs",
+      "token": "DTS_PRIVATE_ALPHA",
+      "class": "dicom_payload_identifier",
+      "count": 2,
+      "owner": "dicom-payload-contract",
+      "reason": "The caller metadata fixture and static oracle preserve the accepted private-creator payload bytes; this is not product naming or an environment alias."
+    },
+    {
+      "path": "tests/support/generic_metadata_sc_bundle.rs",
+      "token": "DTS_PRIVATE_BETA",
+      "class": "dicom_payload_identifier",
+      "count": 1,
+      "owner": "dicom-payload-contract",
+      "reason": "The caller metadata fixture and static oracle preserve the accepted private-creator payload bytes; this is not product naming or an environment alias."
     }
   ],
   "retained_snapshot": {
-    "match_count": 1009,
-    "sha256": "a2fe4f341c85acb9f56b0c2084244252b5ab17ed57dc7cc9ac4c9ed3a0e09d50",
+    "match_count": 1015,
+    "sha256": "5fe2af89ae2679bf0f068610a120c71825614eb0a9a8e5030fb121b4025fd649",
     "by_class": {
-      "dicom_payload_identifier": 197,
+      "dicom_payload_identifier": 203,
       "legacy_payload_schema_fixture_or_evidence": 367,
       "locked_python_module_or_backend": 148,
       "qualified_adapter_environment": 155,

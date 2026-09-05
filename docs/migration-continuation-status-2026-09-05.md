@@ -365,3 +365,22 @@ remain open. A read-only lookup located clean viewer checkout
 `/Users/beatrice/AgentFiles/projects/dcm-view` at43c2cadc2cef813a15a9621e1fc8ad7b56ca0784.
 Its current compatibility campaigns are opt-in and reference the historical
 checkout model. No viewer edit, build, execution or R8 acceptance occurred.
+
+### Metadata fixture spelling-inventory correction — 2026-09-05
+
+The next unconditional Fast run caught four unlisted path/token records in the
+metadata proof: preserved private-creator identifiers in the new recipe and
+static oracle. The payload proof remained valid, but its post-fixture spelling
+inventory was incomplete. Root registered exactly those four occurrences
+(six matches) as `dicom_payload_identifier`, with an explicit byte-preservation
+reason, without changing payloads, renaming tokens or weakening the checker.
+Existing records retain their order and meanings. The resulting snapshot is
+1015 matches, SHA-256
+`5fe2af89ae2679bf0f068610a120c71825614eb0a9a8e5030fb121b4025fd649`.
+
+The initial Fast run was14 passed/1 failed in2.16s and stopped before the second
+target. After correction, spelling audit passed and its four synthetic tests
+passed in0.000s. The inventory route was inspected; it selects unconditional
+Fast only. Both Fast targets then passed15/15 in2.19s and73/73 in2.09s,
+build0.04s, under the same explicit task target. Diff checks passed. No native
+proof was replayed. This closes the inventory omission in metadata acceptance.

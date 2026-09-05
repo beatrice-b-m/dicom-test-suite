@@ -4536,6 +4536,20 @@ fn classic_requests(
             })?;
         return Ok((output.requests, Some(output.resources), Some(output.policy)));
     }
+    if let Some(requests) =
+        plan_ct_recipe(recipe, standards_lock_sha256, seed).map_err(|error| {
+            CuratedPlanError::ClassicPlan {
+                recipe_id: recipe.recipe_id.clone(),
+                message: error.to_string(),
+            }
+        })?
+    {
+        // CT is selected by its stable provider/template/content/algorithm/
+        // projection tuple. Short-circuit before the remaining transitional
+        // case-name family matchers so an arbitrary caller name cannot cause a
+        // second planner to claim, or reject, a valid CT capability.
+        return Ok((requests, None, None));
+    }
     let mut matched = Vec::new();
     macro_rules! try_provider {
         ($provider:expr) => {
@@ -4547,7 +4561,6 @@ fn classic_requests(
             }
         };
     }
-    try_provider!(plan_ct_recipe(recipe, standards_lock_sha256, seed));
     try_provider!(plan_dx_mg_recipe(recipe, standards_lock_sha256, seed));
     try_provider!(plan_mr_cr_recipe(recipe, standards_lock_sha256, seed));
     try_provider!(plan_nuclear_recipe(recipe, standards_lock_sha256, seed));
@@ -4567,6 +4580,134 @@ fn classic_requests(
         None,
         None,
     ))
+}
+
+#[cfg(test)]
+mod classic_ct_capability_tests {
+    use super::*;
+    use crate::recipes::ClassicProjectionFamily;
+
+    const CT_CASE: &str = "classic/ct/mono2_i16_rescale_12bit_explicit_le";
+    const DX_CASE: &str = "classic/dx/display_shutter_mono2_u16_explicit_le";
+
+    fn recipe(case_id: &str) -> CaseRecipe {
+        let catalog = RecipeCatalog::load(
+            "cases/recipes",
+            "cases/registry.json",
+            "templates/catalog.json",
+        )
+        .unwrap();
+        let identity = catalog.binding_for_case(case_id).unwrap();
+        catalog.recipes()[identity].clone()
+    }
+
+    fn lock_hash() -> String {
+        sha256_hex(&fs::read("standards.lock.json").unwrap())
+    }
+
+    fn rejected(recipe: &CaseRecipe) {
+        assert!(
+            classic_requests(recipe, &lock_hash(), 1).is_err(),
+            "malformed declared CT tuple must fail closed"
+        );
+    }
+
+    #[test]
+    fn ct_capability_dispatch_is_name_independent_and_fail_closed() {
+        let original = recipe(CT_CASE);
+        let direct = plan_ct_recipe(&original, &lock_hash(), 1).unwrap().unwrap();
+        assert_eq!(
+            classic_requests(&original, &lock_hash(), 1).unwrap().0,
+            direct
+        );
+
+        let mut renamed = original.clone();
+        renamed.binding.case_id = "caller/example/signed-ct".into();
+        renamed.recipe_id = "caller_signed_ct".into();
+        renamed.planning_order = Some(900);
+        let renamed_plan = classic_requests(&renamed, &lock_hash(), 1).unwrap().0;
+        assert_eq!(renamed_plan.len(), 1);
+
+        let mut misleading = renamed.clone();
+        misleading.binding.case_id = "classic/dx/caller-named-ct".into();
+        misleading.recipe_id = "caller_named_ct_under_dx".into();
+        assert_eq!(
+            classic_requests(&misleading, &lock_hash(), 1)
+                .unwrap()
+                .0
+                .len(),
+            1
+        );
+
+        let mut wrong_algorithm = renamed.clone();
+        wrong_algorithm.dicom.as_mut().unwrap().artifacts[0].algorithm_provider_id =
+            Some("algorithm.classic_dx_mg".into());
+        rejected(&wrong_algorithm);
+
+        let mut wrong_template = renamed.clone();
+        wrong_template.dicom.as_mut().unwrap().artifacts[0]
+            .template
+            .as_mut()
+            .unwrap()
+            .template_id = "classic/dx/for-presentation".into();
+        rejected(&wrong_template);
+
+        let mut wrong_template_version = renamed.clone();
+        wrong_template_version.dicom.as_mut().unwrap().artifacts[0]
+            .template
+            .as_mut()
+            .unwrap()
+            .template_version = "2.0.0".into();
+        rejected(&wrong_template_version);
+
+        let mut wrong_content = renamed.clone();
+        wrong_content.dicom.as_mut().unwrap().artifacts[0]
+            .content
+            .provider_id = "content.case_default".into();
+        rejected(&wrong_content);
+
+        let mut wrong_projection = renamed.clone();
+        wrong_projection.dicom.as_mut().unwrap().artifacts[0]
+            .classic_projection
+            .as_mut()
+            .unwrap()
+            .family = ClassicProjectionFamily::DxMg;
+        rejected(&wrong_projection);
+
+        let mut wrong_provider_parameters = renamed.clone();
+        wrong_provider_parameters
+            .provider_parameters
+            .insert("untyped_escape_hatch".into(), Value::Bool(true));
+        rejected(&wrong_provider_parameters);
+
+        let mut wrong_plan_provider = renamed.clone();
+        wrong_plan_provider.plan_provider_id = "native.sc_plan".into();
+        rejected(&wrong_plan_provider);
+
+        let mut wrong_artifact_parameters = renamed.clone();
+        wrong_artifact_parameters.dicom.as_mut().unwrap().artifacts[0]
+            .parameters
+            .insert("untyped_escape_hatch".into(), Value::Bool(true));
+        rejected(&wrong_artifact_parameters);
+
+        let mut mixed = recipe("geometry/ct/duplicate_missing_instance_number");
+        mixed.dicom.as_mut().unwrap().artifacts[1].algorithm_provider_id =
+            Some("algorithm.classic_dx_mg".into());
+        rejected(&mixed);
+
+        let unrelated = recipe(DX_CASE);
+        assert!(
+            crate::recipes::classic_ct::inspect_ct_capability(&unrelated)
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            !classic_requests(&unrelated, &lock_hash(), 1)
+                .unwrap()
+                .0
+                .is_empty()
+        );
+    }
 }
 
 fn generation_evidence_plan() -> EvidencePlan {

@@ -7,9 +7,10 @@ use serde_json::Value;
 
 use super::{
     CLASSIC_PIXEL_SLOT, CaseRecipe, ClassicFamilyProvider, ClassicInstanceRequest,
-    ClassicPixelRequest, ClassicPlanError, CommonModuleRequest, ElementPresence,
-    EquipmentModuleInput, FamilyModuleFragment, FrameOfReferenceModuleInput, ImageModuleInput,
-    PatientModuleInput, RescalePlan, SeriesModuleInput, StudyModuleInput, WindowPlan,
+    ClassicPixelRequest, ClassicPlanError, ClassicProjectionFamily, CommonModuleRequest,
+    ElementPresence, EquipmentModuleInput, FamilyModuleFragment, FrameOfReferenceModuleInput,
+    ImageModuleInput, PatientModuleInput, RescalePlan, SeriesModuleInput, StudyModuleInput,
+    WindowPlan,
 };
 use crate::composition::{
     AttributeAddress, AttributeOperation, AttributeValue, DicomVr, PrimitiveValue,
@@ -132,6 +133,17 @@ struct ClassicCtFamilyRequest<'a> {
     multi_instance_series: bool,
 }
 
+/// A fully decoded caller CT contract selected by stable capability IDs.
+///
+/// This deliberately contains no case or recipe name. The external corpus
+/// loader can therefore reuse the same discriminator without granting a case
+/// namespace authority over provider dispatch.
+#[derive(Debug)]
+pub(crate) struct ClassicCtCapability {
+    provider: ClassicCtProviderParameters,
+    artifacts: Vec<ClassicCtArtifactParameters>,
+}
+
 impl ClassicFamilyProvider<ClassicCtFamilyRequest<'_>> for ClassicCtFamilyProvider {
     const PROVIDER_ID: &'static str = ALGORITHM_PROVIDER_ID;
 
@@ -190,41 +202,26 @@ impl ClassicFamilyProvider<ClassicCtFamilyRequest<'_>> for ClassicCtFamilyProvid
     }
 }
 
-/// Resolve an owned CT recipe into complete ordered, filesystem-free requests.
+/// Resolve a declared CT capability into complete ordered, filesystem-free requests.
 pub fn plan_ct_recipe(
     recipe: &CaseRecipe,
     standards_lock_sha256: &str,
     seed: u64,
 ) -> Result<Option<Vec<ClassicInstanceRequest>>, ClassicCtPlanError> {
-    if !is_owned_case(&recipe.binding.case_id) {
+    let Some(capability) = inspect_ct_capability(recipe)? else {
         return Ok(None);
-    }
-    if recipe.plan_provider_id != PROVIDER_ID {
-        return Err(contract(format!(
-            "owned CT recipe requires {PROVIDER_ID}, got {}",
-            recipe.plan_provider_id
-        )));
-    }
-    let planning_order = recipe
+    };
+    recipe
         .planning_order
-        .ok_or_else(|| contract("owned CT recipe requires planning_order"))?;
-    if !(200..=206).contains(&planning_order) {
-        return Err(contract(
-            "owned CT planning_order is outside reserved range 200..=206",
-        ));
-    }
-    let provider: ClassicCtProviderParameters = decode_object(
-        Value::Object(recipe.provider_parameters.clone()),
-        "provider_parameters",
-    )?;
-    validate_provider(&provider)?;
+        .ok_or_else(|| contract("declared CT recipe requires planning_order"))?;
+    let ClassicCtCapability {
+        provider,
+        artifacts: parameters,
+    } = capability;
     let dicom = recipe
         .dicom
         .as_ref()
-        .ok_or_else(|| contract("owned CT recipe requires DICOM artifacts"))?;
-    if dicom.artifacts.is_empty() {
-        return Err(contract("owned CT recipe requires at least one artifact"));
-    }
+        .expect("inspected CT capability has DICOM artifacts");
 
     let study_instance_uid = uid(
         recipe,
@@ -251,19 +248,7 @@ pub fn plan_ct_recipe(
         role: UidRole::ImplementationClass,
     });
     let mut requests = Vec::with_capacity(dicom.artifacts.len());
-    for (expected_order, artifact) in dicom.artifacts.iter().enumerate() {
-        if artifact.order as usize != expected_order {
-            return Err(contract(
-                "CT artifacts must have contiguous zero-based order",
-            ));
-        }
-        validate_artifact_contract(artifact)?;
-        let parameters: ClassicCtArtifactParameters = decode_object(
-            Value::Object(artifact.parameters.clone()),
-            "artifact parameters",
-        )?;
-        validate_artifact_parameters(&parameters, artifact.order)?;
-
+    for (artifact, parameters) in dicom.artifacts.iter().zip(parameters.iter()) {
         let series_instance_uid = uid(
             recipe,
             standards_lock_sha256,
@@ -327,7 +312,7 @@ pub fn plan_ct_recipe(
         };
         let family = ClassicCtFamilyProvider.plan_family(ClassicCtFamilyRequest {
             provider: &provider,
-            artifact: &parameters,
+            artifact: parameters,
             multi_instance_series: dicom.artifacts.len() > 1,
         })?;
         let pixels = &parameters.pixels;
@@ -387,6 +372,78 @@ pub fn plan_ct_recipe(
     }
     validate_series_contract(&provider, &requests)?;
     Ok(Some(requests))
+}
+
+/// Identify and decode the CT member of the shared classic provider family.
+///
+/// Any CT marker declares intent. Once declared, every stable member of the
+/// tuple must agree and every typed parameter object must decode and validate;
+/// a partial or mixed tuple is an error rather than an opportunity for another
+/// case-name-based family planner to claim the recipe.
+pub(crate) fn inspect_ct_capability(
+    recipe: &CaseRecipe,
+) -> Result<Option<ClassicCtCapability>, ClassicCtPlanError> {
+    let Some(dicom) = recipe.dicom.as_ref() else {
+        return Ok(None);
+    };
+    let declared = dicom.artifacts.iter().any(|artifact| {
+        artifact.algorithm_provider_id.as_deref() == Some(ALGORITHM_PROVIDER_ID)
+            || artifact
+                .template
+                .as_ref()
+                .is_some_and(|template| template.template_id == TEMPLATE_ID)
+            || artifact
+                .classic_projection
+                .as_ref()
+                .is_some_and(|projection| projection.family == ClassicProjectionFamily::Ct)
+    });
+    if !declared {
+        return Ok(None);
+    }
+    if recipe.plan_provider_id != PROVIDER_ID {
+        return Err(contract(format!(
+            "declared CT recipe requires {PROVIDER_ID}, got {}",
+            recipe.plan_provider_id
+        )));
+    }
+    if dicom.artifacts.is_empty() {
+        return Err(contract(
+            "declared CT recipe requires at least one artifact",
+        ));
+    }
+    let provider: ClassicCtProviderParameters = decode_object(
+        Value::Object(recipe.provider_parameters.clone()),
+        "provider_parameters",
+    )?;
+    validate_provider(&provider)?;
+    let mut parameters = Vec::with_capacity(dicom.artifacts.len());
+    for (expected_order, artifact) in dicom.artifacts.iter().enumerate() {
+        if artifact.order as usize != expected_order {
+            return Err(contract(
+                "CT artifacts must have contiguous zero-based order",
+            ));
+        }
+        validate_artifact_contract(artifact)?;
+        if !artifact
+            .classic_projection
+            .as_ref()
+            .is_some_and(|projection| projection.family == ClassicProjectionFamily::Ct)
+        {
+            return Err(contract(
+                "CT artifact requires classic_projection family ct",
+            ));
+        }
+        let decoded: ClassicCtArtifactParameters = decode_object(
+            Value::Object(artifact.parameters.clone()),
+            "artifact parameters",
+        )?;
+        validate_artifact_parameters(&decoded, artifact.order)?;
+        parameters.push(decoded);
+    }
+    Ok(Some(ClassicCtCapability {
+        provider,
+        artifacts: parameters,
+    }))
 }
 
 fn validate_artifact_contract(
@@ -541,10 +598,6 @@ fn decode_object<T: for<'de> Deserialize<'de>>(
         field,
         message: error.to_string(),
     })
-}
-
-fn is_owned_case(case_id: &str) -> bool {
-    case_id.starts_with("classic/ct/") || case_id.starts_with("geometry/ct/")
 }
 
 fn contract(message: impl Into<String>) -> ClassicCtPlanError {

@@ -5854,6 +5854,70 @@ terminal qualification are still open. No native generation or Heavy
 qualification ran for this checkpoint, and the R7 summary state remains in
 progress.
 
+## R7 DX/MG3 availability capture prepared — 2026-09-04
+
+Corpus commits `b269bbb362e3249af839a1010c751cfd56db5ba5`,
+`d1d0bc94a41e53e0beb6070e9333b2c5a0329522`,
+`36e62439e45d43b85ebf7f3218c9ce2e5bb487d7`,
+`3ea8b62836608d3ce8c8d522a4f3106098fbc450`, and
+`062abe196e6672c2d922c4803e945a84956549af` prepare the bounded DX/MG3
+availability assessment after static import. They add a pure retained-response
+checker, a separate one-shot capture entrypoint, exact evidence-local cache
+authentication, and fail-closed ordinary routing. The live content0.5 bundle
+is exactly 25 members/135,416 bytes with framed definition identity
+`c826f39f14e525f0b9c8e465d64ca6c7a9f4389c25df82128fd2a68c3825fec3`.
+
+The checker authenticates accepted baseline5 receipt SHA-256
+`30e08de9edf9b9976c093aaceb7c2309cf401d500b4845c680763ddcebd57cd7`,
+raw manifest SHA-256
+`fff0af9aad79ee895eafbe079869b4d88cae724123704351ed11d34df6507803`,
+and corpus plan SHA-256
+`f21d3d3d66a845099b0a930d5588e529bc839ebf0df17172453d252880591483`.
+The authenticated plan contains exactly the MG for-presentation, MG
+for-processing, and DX display-shutter outputs, in that execution order, with
+the three retained output SHA-256 values
+`5a379a14abb40d2a0b6741e0bb87f77c48278853ebe7f953650b15c20cb9e2e5`,
+`0b975741103e16dffe60ad9a3e01431dc39d24e16802605ddb6c27801ac6afa1`,
+and `2b2155795d10c4c76fea2793f0d9a5b73fcdefe6931f3813291be1f10c4ad8c4`.
+It also binds generator source
+`232b9de41f97ee95abe1ecc40b6b8b70ebeeea5f` and the unchanged
+69,314,672-byte artifact SHA-256
+`4ca0c6d6a8e4cbab81b7005b4354c7ff558c44747e00f41d22d3abbfd50b7768`.
+
+The prepared capture targets the fresh, as-yet absent evidence root
+`artifacts/r7-dx-mg-availability1-20260904` and is deliberately a distinct
+authority boundary:
+
+```sh
+python3 scripts/capture_dx_mg_availability.py \
+  --generator-artifact artifacts/r5-native-candidate/synth-dicom-gen \
+  --baseline-root artifacts/r7-native-dx-mg-baseline5-20260904 \
+  --evidence-root artifacts/r7-dx-mg-availability1-20260904
+```
+
+If later executed, that entrypoint permits exactly one `capabilities`
+command for profile core, seed1, parallelism4 and the three explicit DX/MG case
+IDs from an unrelated private working directory with empty `PATH`; it permits
+no retry, generation, validation, report, publication or viewer command. The
+pure checker launches no subprocess and can only authenticate a retained
+response, pinned acquisition, exact copied content0.5 bundle, and the accepted
+baseline plan. The cache hardening requires the acquired binary to reside in
+the evidence root's exact private cache path and rejects an otherwise
+byte-identical cache substitution.
+
+Preparation verification passed the combined DX/MG checks 25/25, the capture
+suite 14/14, the retained verifier suite 12/12, CT regressions 24/24, metadata
+availability 14/14, and routing 40/40. The full corpus ordinary suite passed
+346/346 in approximately 4.860s. Four helper/test path route probes selected
+ordinary tests only, with no native command or generation; the unchanged
+configuration SHA-256 was
+`757e335e8790572908f1f39f0d8ce255d26240e872c935507adab9c830ac891e`.
+
+This checkpoint is preparation only. No DX/MG public-loader availability
+response has been captured, and it establishes no generation, migrated parity,
+independent conformance, viewer behavior or Heavy qualification. Those remain
+separate sequential evidence boundaries.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

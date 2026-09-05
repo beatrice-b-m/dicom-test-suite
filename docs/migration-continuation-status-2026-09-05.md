@@ -885,3 +885,37 @@ audit: scalar/metadata context, reference/VL/WSI/STL context, then qualification
 isolation. Unit1 owner may now edit; runtime reporting requires no change.
 This completes affected schema subsystem verification, not US genericity or
 release evidence. Retained corpus executable and parity identities are unchanged.
+
+## External runtime unit1 accepted — 2026-09-05
+
+Commit844eb7c forwards manifest contract context through file/pixel and metadata
+validation. External U32/U1/ICC/nonsquare evidence activates by declaration;
+legacy names retain required-evidence and wrong-scope checks. A precheck rejects
+declared scalar evidence outside native integer image layouts, including absent,
+float and encapsulated forms. Independent review found this potential bypass
+during implementation; it was corrected before commit. Explicit null evidence
+does not disappear. Metadata temporal/sequence groups remain complete within
+each caller case, rejecting cross-case completion and extra absent members.
+
+Eight additional historical scalar/metadata identities pass actual US SDK
+publication, reopened strict validation and report source-evidence absence
+assertions. Renamed declared scalar evidence and tampered/null/empty contracts
+retain validation; legacy failures and nonnative nonsquare are covered. Final
+focused17 tests passed13.38s after0.11s warm compile; compile/list18.62s. Earlier
+9-test filter passed0.01s after18.18s compile; an initial missing test import
+compile failure was corrected before these results. Ownership1490 and diff
+checks passed; only existing entry digests and accurate metadata test naming
+changed. Independent reviewer and root accepted the complete owned diff.
+
+Root inspected the broad src/lib.rs routing preview at
+/private/tmp/r7-runtime-unit1-route-preview-20260905.json. Its all-ordinary
+overlap will run once after the three sequential runtime units; immediate
+proportional checks passed corpus-generation92 tests27.80s and Fast15 tests
+1.52s plus73 tests2.05s, compile18.90s. Log:
+/private/tmp/r7-runtime-unit1-subsystem-fast-20260905.log. Explicit task target
+measured916124KiB; default target untouched. No Heavy or release gate ran.
+
+Unit2 may now proceed with evidence-based reference/VL/WSI/STL and deeper WSI/
+tile-SEG/SR dispatch, as refined ind00e95a. Unit3 qualification isolation and
+full US public caller proof remain pending. No full arbitrary-name genericity
+or completed R7 claim follows from this bounded acceptance.

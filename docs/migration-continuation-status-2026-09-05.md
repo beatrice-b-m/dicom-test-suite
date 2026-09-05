@@ -477,3 +477,27 @@ In parallel, disjoint source-only CR provenance was committed in corpus
 `459f15e` and independently accepted at `3e5256b`: exact34-row source core
 snapshot and11 source objects authenticated against232b9de. It caused no live
 import or runtime execution. CR baseline preparation is the next sequential unit.
+
+## CR1 embedded baseline accepted — 2026-09-05
+
+After the bounded SC gate, corpus helper `8c4c0fa`, wording correction `0241bfb`
+and reviewed readiness `2f40eab` preceded one exact CR1/core/seed1/parallelism4
+capture. Corpus acceptance `378b935` binds the full record. Receipt is49293
+bytes, SHA-256 `1e8f489341d60babbdebd859a1bf3bd36c4937e9c0daeba70295e67fbd940350`,
+at corpus `artifacts/r7-native-cr-baseline1-20260905/receipt.json`.
+The single1306-byte Part10 hash is
+`c76c07478ba42de9093918bc50ed53c6a99eaabee571187ba4d8e4a4c7bdd075`.
+Generation/strict-validation/report passed in1.303777/0.231281/0.931742s,
+whole job6.083096s. All33 unselected source rows remain explicit; native pixels,
+overlay, both LUTs and44 internal/4 standards findings matched frozen source.
+Root authenticated all22 retained files; a separate offline replay passed0.18s.
+Evidence excluding receipt uses141219013 logical/141271040 allocated bytes.
+
+This uses original source232b9de generator plus the separately pinned report-only
+artifact, with no build, retry, viewer, independent conformance or release claim.
+CR template limitation text conflicts with the actual U8/OB recipe; source bytes
+remain preserved as explained in `r7-cr-genericity-audit-2026-09-05.md`.
+Static CR content0.6.0 import is assigned to the corpus agent (recipe, registry,
+descriptor and static tests only). Verifier/CI compatibility integration follows
+sequentially, then public-loader availability, migrated parity and genericity.
+R7 remains incomplete and R8/R9 have not begun. Documentation diff check passed.

@@ -48,6 +48,17 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
         self.assertIn(command, self.commands(self.select(force_all=True)))
         self.assertNotIn(command, self.commands(self.select("cases/registry.json")))
 
+    def test_stress_projection_adds_only_its_pure_check(self):
+        command = "cargo test --locked --no-default-features --lib curated_manifest::stress::stress_projection_tests::"
+        result = self.select("src/curated_manifest/stress.rs")
+        self.assertEqual(result["bundle_ids"], ["corpus", "stress_projection"])
+        self.assertIn(command, self.commands(result))
+        self.assertIn(command, self.commands(self.select(force_all=True)))
+        self.assertNotIn(command, self.commands(self.select("cases/registry.json")))
+        selected = [entry for entry in result["commands"] if entry.get("module") == "curated_manifest::stress::stress_projection_tests"]
+        self.assertEqual(len(selected), 1)
+        self.assertEqual(selected[0]["list_count"], 1)
+
     def test_representative_surfaces_select_only_owning_bundles(self):
         fixtures = {
             "src/executor/engine.rs": (

@@ -409,6 +409,12 @@ fn external_cr_capability_is_name_independent_and_fail_closed() {
 fn external_us_capability_is_name_independent_and_fail_closed() {
     const US: &str = "classic/us/mono2_u8_explicit_le";
     for (label, case_id, recipe_id) in [
+        ("stress-prefix-us", "stress/caller", "caller_ultrasound"),
+        (
+            "stress-exact-us",
+            "stress/enhanced-ct/many_frames",
+            "caller_ultrasound",
+        ),
         (
             "family-collision-0",
             "vl/endoscopic/rgb_explicit_le",

@@ -16,6 +16,11 @@
     "unrouted_lib_groups": "All-configured-ordinary runs only list-proven representative lib prefixes; remaining ordinary lib groups stay explicit deferred evidence."
   },
   "bundles": {
+    "stress_projection": {
+      "commands": [
+        {"kind":"lib", "module":"curated_manifest::stress::stress_projection_tests", "source":"src/curated_manifest/stress.rs", "list_count":1}
+      ]
+    },
     "pyramid_projection": {
       "commands": [
         {"kind": "lib", "module": "curated_manifest::pyramid_projection_tests", "source": "src/curated_manifest.rs", "list_count": 1}
@@ -187,6 +192,7 @@
     }
   },
   "rules": [
+    {"id":"stress-projection", "exact":["src/curated_manifest/stress.rs"], "bundles":["stress_projection"]},
     {
       "id": "pyramid-projection",
       "exact": ["src/curated_manifest.rs"],

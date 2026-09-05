@@ -3,8 +3,8 @@
   "scope": {
     "rust_test_targets": 22,
     "integration_test_targets": 20,
-    "rust_test_entry_groups": 275,
-    "rust_test_entries": 1491,
+    "rust_test_entry_groups": 276,
+    "rust_test_entries": 1492,
     "integration_source_groups": 189,
     "integration_test_entries": 924,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
@@ -1305,7 +1305,7 @@
         "negative_and_fuzz_dependencies_cannot_cross_legacy_or_stress_boundaries",
         "excessive_undeclared_inventory_fails_without_buffering_all_names"
       ],
-      "entry_digest": "930a4ca03cb982af0d7ec60e8bd9f336fbcd1a5b567110674bad25646b653e77"
+      "entry_digest": "95bb8cb07822c84778fbc13710bc1a94293dea368c4aea8708c1b071735e3caa"
     },
     {
       "source": "tests/corpus_plan.rs",
@@ -4300,7 +4300,7 @@
         "encapsulated_stl_manifest_contract_is_exact_and_case_scoped",
         "encapsulated_stl_report_projects_payload_geometry_and_grouped_evidence"
       ],
-      "entry_digest": "8b1c897c1373f6655f6f415e93982aa8dba1101b9d01121606d8b07eb64c5f31"
+      "entry_digest": "b1731573c2b8f129bb4339c9dd4d7aeee50ff58f96e6b0a8b50be26ad9d9a0d9"
     },
     {
       "source": "src/manifest_contract.rs",
@@ -4318,7 +4318,7 @@
         "dependency_graph_is_closed_acyclic_and_reachable",
         "runtime_ids_remain_unique"
       ],
-      "entry_digest": "e0930b9a9b61c6b9b563771056f34d02d07a1a303d4143be398db18951f08c0f"
+      "entry_digest": "a3c3c49a45498eb848466c83865380085c7372aac670fc2a2e14fdd6d0260ac7"
     },
     {
       "source": "src/media.rs",
@@ -4773,6 +4773,18 @@
         "general_ecg_contract_serializes_exact_ordered_groups"
       ],
       "entry_digest": "96a42f770446f349a15f2ed62cb8f2c192522c5877761b3e2322940f4f69c4a5"
+    },
+    {
+      "source": "src/curated_manifest/stress.rs",
+      "target": "synth_dicom_gen",
+      "domain": "corpus_generation",
+      "verification_class": "subsystem",
+      "cost_tier": "ordinary",
+      "entry_count": 1,
+      "entries": [
+        "stress_projection_requires_captured_typed_complete_evidence"
+      ],
+      "entry_digest": "39e4eed85779655184c948f32e8ee039e8242076c7a4020e78b800d4429f7e4b"
     }
   ]
 }

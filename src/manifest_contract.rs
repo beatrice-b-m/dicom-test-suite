@@ -491,6 +491,26 @@ fn validate_external_selection(value: &Value) -> Result<(), ManifestContractErro
                 "file lacks unique generated ledger ownership",
             ));
         }
+        let profiles = |value: &Value| -> Result<BTreeSet<String>, ManifestContractError> {
+            value
+                .as_array()
+                .ok_or_else(|| contract_error("file profile membership must be an array"))?
+                .iter()
+                .map(|profile| {
+                    profile
+                        .as_str()
+                        .map(str::to_owned)
+                        .ok_or_else(|| contract_error("profile must be a string"))
+                })
+                .collect()
+        };
+        if profiles(&file["profile_membership"])?
+            != profiles(&rows[id]["case_definition"]["profiles"])?
+        {
+            return Err(contract_error(
+                "file profile membership differs from captured case definition",
+            ));
+        }
         evidenced.insert(id);
     }
     if files.len() != owned.len() {
@@ -659,11 +679,9 @@ mod external_manifest_contract_tests {
         let mut expected = legacy["$defs"]["file"].clone();
         let branches = expected["allOf"].as_array_mut().unwrap();
         assert_eq!(branches.len(), 37);
-        assert!(
-            branches[1..]
-                .iter()
-                .all(|b| b["if"]["properties"].get("case_id").is_some())
-        );
+        assert!(branches[1..]
+            .iter()
+            .all(|b| b["if"]["properties"].get("case_id").is_some()));
         branches.truncate(1);
         fn rebase(value: &mut Value) {
             match value {
@@ -868,11 +886,36 @@ mod external_manifest_contract_tests {
 
     #[test]
     fn artifact_ownership_and_qualification_evidence_are_closed() {
+        let mut original = fixture();
+        original["selection_ledger"][0]["case_definition"]["profiles"] = json!(["smoke", "core"]);
+        original["files"][0]["profile_membership"] = json!(["smoke", "core"]);
+        validate_external_corpus_manifest(&original).unwrap();
+        for profiles in [
+            json!([]),
+            json!(["smoke"]),
+            json!(["stress"]),
+            json!(["smoke", "core", "extended", "negative"]),
+        ] {
+            let mut bad = original.clone();
+            bad["files"][0]["profile_membership"] = profiles;
+            assert!(validate_external_corpus_manifest(&bad).is_err());
+        }
+        let mut reordered = original.clone();
+        reordered["files"][0]["profile_membership"]
+            .as_array_mut()
+            .unwrap()
+            .reverse();
+        assert_ne!(
+            reordered["files"][0]["profile_membership"],
+            original["files"][0]["profile_membership"]
+        );
+        validate_external_corpus_manifest(&reordered).unwrap();
+
         // Relationship checks run only after full schema validation in production.
         let mut value = json!({
             "run":{"profile":"smoke","include_stress":false,"selector":{"kind":"profile"}},
             "selection_ledger":[{"case_id":"a","case_definition":{"case_id":"a","status":"implemented","profiles":["smoke"]},"selection":"direct","registry_status":"implemented","outcome":"generated","reason_code":null,"artifact_paths":["a.dcm"],"dependency_case_ids":[]}],
-            "files":[{"case_id":"a","path":"a.dcm"}],"qualifications":[]
+            "files":[{"case_id":"a","path":"a.dcm","profile_membership":["smoke"]}],"qualifications":[]
         });
         validate_external_selection(&value).unwrap();
         for files in [
@@ -919,6 +962,7 @@ mod external_manifest_contract_tests {
                 let mut changed = value.clone();
                 changed["run"]["profile"] = json!(owner);
                 changed["selection_ledger"][0]["case_definition"]["profiles"] = json!([owner]);
+                changed["files"][0]["profile_membership"] = json!([owner]);
                 changed["selection_ledger"][1]["case_definition"]["profiles"] = json!([target]);
                 let allowed = target == "smoke" || (owner != "smoke" && owner == target);
                 assert_eq!(

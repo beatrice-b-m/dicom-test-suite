@@ -1380,7 +1380,7 @@ fn validate_loaded_manifest_root(
 
     validate_negative_profile_isolation(&manifest_path, &manifest, files)?;
     validate_fuzz_profile_qualification(&manifest_path, &manifest, files)?;
-    validate_stress_profile_qualifications(&manifest_path, &manifest, files)?;
+    validate_stress_profile_qualifications_for_kind(kind, &manifest_path, &manifest, files)?;
 
     let mut failures = Vec::new();
     validate_wsi_pyramid_manifest_group_for_kind(kind, &manifest_path, files)?;
@@ -1561,7 +1561,22 @@ fn validate_fuzz_profile_qualification(
     Ok(())
 }
 
+#[cfg(test)]
 fn validate_stress_profile_qualifications(
+    manifest_path: &Path,
+    manifest: &Value,
+    files: &[Value],
+) -> Result<(), ValidateError> {
+    validate_stress_profile_qualifications_for_kind(
+        manifest_contract::ManifestContractKind::CuratedGeneration,
+        manifest_path,
+        manifest,
+        files,
+    )
+}
+
+fn validate_stress_profile_qualifications_for_kind(
+    kind: manifest_contract::ManifestContractKind,
     manifest_path: &Path,
     manifest: &Value,
     files: &[Value],
@@ -1587,6 +1602,37 @@ fn validate_stress_profile_qualifications(
         })
         .collect::<Vec<_>>();
 
+    let mut captured_stress = BTreeSet::new();
+    if kind == manifest_contract::ManifestContractKind::ExternalCorpus {
+        let ledger = manifest
+            .get("selection_ledger")
+            .and_then(Value::as_array)
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "external stress scope requires captured selection ledger",
+            })?;
+        for row in ledger {
+            if row
+                .pointer("/case_definition/profiles")
+                .and_then(Value::as_array)
+                .is_some_and(|profiles| profiles.iter().any(|p| p == "stress"))
+            {
+                captured_stress.insert(manifest_str(
+                    manifest_path,
+                    row,
+                    "/case_id",
+                    "captured case_id must be a string",
+                )?);
+            }
+        }
+    }
+    let is_stress = |case_id: &str| {
+        if kind == manifest_contract::ManifestContractKind::ExternalCorpus {
+            captured_stress.contains(case_id)
+        } else {
+            case_id.starts_with("stress/")
+        }
+    };
     let include_stress = manifest
         .pointer("/run/include_stress")
         .and_then(Value::as_bool)
@@ -1596,7 +1642,7 @@ fn validate_stress_profile_qualifications(
         let contains_stress_files = files.iter().any(|file| {
             file.get("case_id")
                 .and_then(Value::as_str)
-                .is_some_and(|case_id| case_id.starts_with("stress/"))
+                .is_some_and(is_stress)
         });
         if !stress_qualifications.is_empty() || contains_stress_files {
             return Err(ValidateError::ManifestShape {
@@ -1615,6 +1661,12 @@ fn validate_stress_profile_qualifications(
                 message: "stress qualification case_id must be a string",
             },
         )?;
+        if !is_stress(case_id) {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "stress qualification must belong to a captured stress case",
+            });
+        }
         if !qualified_case_ids.insert(case_id) {
             return Err(ValidateError::ManifestShape {
                 path: manifest_path.to_path_buf(),
@@ -1711,7 +1763,7 @@ fn validate_stress_profile_qualifications(
     for case_id in files.iter().filter_map(|file| {
         file.get("case_id")
             .and_then(Value::as_str)
-            .filter(|case_id| case_id.starts_with("stress/"))
+            .filter(|case_id| is_stress(case_id))
     }) {
         if !qualified_case_ids.contains(case_id) {
             return Err(ValidateError::ManifestShape {
@@ -41214,6 +41266,96 @@ mod tests {
         )
         .expect("exact reduced stress evidence should pass");
 
+        let external = manifest_contract::ManifestContractKind::ExternalCorpus;
+        let mut captured = manifest.clone();
+        captured["selection_ledger"] = serde_json::json!([{"case_id":file["case_id"], "case_definition":{"profiles":["stress"]}, "outcome":"generated"}]);
+        validate_stress_profile_qualifications_for_kind(
+            external,
+            Path::new("manifest.json"),
+            &captured,
+            std::slice::from_ref(&file),
+        )
+        .unwrap();
+        let mut core = captured.clone();
+        core["selection_ledger"][0]["case_definition"]["profiles"] = serde_json::json!(["core"]);
+        assert!(
+            validate_stress_profile_qualifications_for_kind(
+                external,
+                Path::new("manifest.json"),
+                &core,
+                std::slice::from_ref(&file)
+            )
+            .is_err()
+        );
+        core["qualifications"] = serde_json::json!([]);
+        core["run"]["profile"] = Value::from("core");
+        validate_stress_profile_qualifications_for_kind(
+            external,
+            Path::new("manifest.json"),
+            &core,
+            std::slice::from_ref(&file),
+        )
+        .unwrap();
+        core["run"] = serde_json::json!({"profile":"all", "include_stress":true});
+        validate_stress_profile_qualifications_for_kind(
+            external,
+            Path::new("manifest.json"),
+            &core,
+            std::slice::from_ref(&file),
+        )
+        .unwrap();
+        let mut neutral = captured.clone();
+        neutral["selection_ledger"][0]["case_id"] = Value::from("caller/neutral");
+        neutral["qualifications"] = serde_json::json!([]);
+        let neutral_file = serde_json::json!({"case_id":"caller/neutral", "size_bytes":123});
+        assert!(
+            validate_stress_profile_qualifications_for_kind(
+                external,
+                Path::new("manifest.json"),
+                &neutral,
+                &[neutral_file]
+            )
+            .is_err()
+        );
+        let mut unavailable = captured.clone();
+        unavailable["selection_ledger"][0]["outcome"] = Value::from("unavailable");
+        unavailable["qualifications"] = serde_json::json!([]);
+        validate_stress_profile_qualifications_for_kind(
+            external,
+            Path::new("manifest.json"),
+            &unavailable,
+            &[],
+        )
+        .unwrap();
+        for mutation in 0..4 {
+            let mut bad = captured.clone();
+            match mutation {
+                0 => {
+                    let duplicate = bad["qualifications"][0].clone();
+                    bad["qualifications"]
+                        .as_array_mut()
+                        .unwrap()
+                        .push(duplicate);
+                }
+                1 => bad["qualifications"][0]["observation"]["output_bytes"] = Value::from(122),
+                2 => {
+                    bad["qualifications"][0]["resource_envelope"]["output_bytes"] = Value::from(122)
+                }
+                _ => {
+                    bad["qualifications"][0]["resource_envelope"]["case_wall_milliseconds"] =
+                        Value::from(1)
+                }
+            }
+            assert!(
+                validate_stress_profile_qualifications_for_kind(
+                    external,
+                    Path::new("manifest.json"),
+                    &bad,
+                    std::slice::from_ref(&file)
+                )
+                .is_err()
+            );
+        }
         let mut combined = manifest.clone();
         combined["run"] = serde_json::json!({"profile": "all", "include_stress": true});
         validate_stress_profile_qualifications(

@@ -1157,7 +1157,7 @@ mod tests {
     #[test]
     fn schema_rejects_current_identity_as_legacy_product_resources() {
         let path = std::env::temp_dir().join(format!(
-            "dts-composition-resource-identity-{}-{}.dcm",
+            "synth-dicom-gen-composition-resource-identity-{}-{}.dcm",
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));

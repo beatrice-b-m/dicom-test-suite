@@ -1177,3 +1177,24 @@ calibration coverage or add independent conformance, viewer, package or release
 evidence. R7 remains incomplete. PET1 source preparation is the next sequential
 ordinary-native slice; XA/XRF source/helper preparation remains independently
 accepted without native execution.
+
+## PET source preparation accepted — 2026-09-05
+
+Corpus51ed60b records upstream US acceptance without changing its pin. PET1
+source-only corpus0ff5bd4 now freezes15 immutable232b9de objects, the complete
+34-row core snapshot, exact recipe/note and source-derived semantics. Provenance
+146787 bytes SHA256
+f19da711d5a438f4ae2fb2508b93acf4c9cf3fe57dd688912d43920050592fab;
+recipe4486/aa5bb7c928daa315242c9b144b01fafcb68fbfd87d4e8edace475822edc6db9e;
+note4958/288c02f8eee37bd4590ab3c9d1d2866d9fca01299179e74c11bb88024e088959.
+Six pure tests passed0.035s. Root authenticated15Git objects/modes/hashes plus
+full34 rows/selected row in0.212950s; independent review confirmed35 PET check
+names, complete activity/geometry/timing/empty-sequence contracts and14 report
+values. Diff and clean two-file commit inspection passed.
+
+The helper audit fixes classic PET standards label sop_class_uid and report
+lossy_image_compression=null despite raw00. Its next bounded two-file helper
+unit must preserve those exact contracts, full33 skips and existing one-shot
+two-pin capture/failure guards. Native generation, import, availability, parity
+and PET caller genericity have not run. Preparation decision c95a46c remains
+the sequential task map; source status is also recorded in the corpus ledger.

@@ -68,3 +68,16 @@ artifact projections. Test absent/null and populated overrides independently.
 Provider optional series/body-part fields remain absent. Shared typed validation
 is already suitable; early typed shared planning dispatch is still required.
 No implementation or execution is claimed by this refinement.
+
+## Loader integration preparation after parity — 2026-09-05
+
+Read-only review identifies loader validate_classic_capability_contract and
+registry migrated_classic admission as the two typed-US seams. In curated_plan,
+return inspected US after typed CT/DX/CR but before historical MR/CR, nuclear
+and VL matchers. Cover PET/VL case names and MR recipe names. Existing typed
+nuclear execution validation needs no change. Bundle tests must prove actual
+generation/reopened validation plus partial/crossed rejection; replace the CT
+name-only US negative control with still-unqualified native NM multiframe.
+Ownership and exact bundle routing records follow changed test entries. This
+read-only mapping does not implement the loader; planner acceptance remains its
+prerequisite. Corpus US parity is independently accepted atb41443d.

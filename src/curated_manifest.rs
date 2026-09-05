@@ -874,6 +874,9 @@ fn project_wsi_pyramid_group(
             .push(index);
     }
     for indexes in groups.values() {
+        if is_complete_reduced_stress_pyramid(context, &artifacts, indexes) {
+            continue;
+        }
         let has_intent = indexes.iter().any(|index| {
             let ctx = &context.artifacts[*index];
             let template_intent = ctx
@@ -964,6 +967,82 @@ fn project_wsi_pyramid_group(
         project_wsi_pyramid_members(context, &artifacts, entries, indexes)?;
     }
     Ok(())
+}
+
+// Reduced stress WSI uses the same volume template but has its own per-file
+// projector and qualification contract. Only the complete typed level chain is
+// disjoint from the ordinary volume/thumbnail/label compatibility projection.
+fn is_complete_reduced_stress_pyramid(
+    context: &CuratedScProjectionContext,
+    artifacts: &[&ManifestProjectionArtifact],
+    indexes: &[usize],
+) -> bool {
+    if indexes.len() != 3 {
+        return false;
+    }
+    let mut levels = BTreeSet::new();
+    indexes.iter().all(|index| {
+        let ctx = &context.artifacts[*index];
+        let PlannedArtifact::Dicom(planned) = &artifacts[*index].planned else {
+            return false;
+        };
+        let Ok(item) = wsi_artifact_parameters(ctx) else {
+            return false;
+        };
+        let WsiPixelAlgorithm::ReducedStress { level_index, edge } = item.pixel_algorithm else {
+            return false;
+        };
+        let expected_edge = match level_index {
+            0 => 1024,
+            1 => 512,
+            2 => 256,
+            _ => return false,
+        };
+        levels.insert(level_index)
+            && edge == expected_edge
+            && item.level == level_index as u32
+            && item.file_index == level_index
+            && ctx.case_recipe.plan_provider_id == "native.wsi_plan"
+            && ctx.case_recipe.provider_parameters.get("dependency_mode")
+                == Some(&json!("ordered_level_chain"))
+            && ctx.artifact_recipe.algorithm_provider_id.as_deref() == Some("algorithm.wsi")
+            && ctx.artifact_recipe.content.provider_id == "content.native_pixels"
+            && ctx
+                .artifact_recipe
+                .template
+                .as_ref()
+                .is_some_and(|template| {
+                    template.template_id == "vl/wsi/pyramid-volume"
+                        && template.template_version == "1.0.0"
+                })
+            && planned.instance.template_id.0 == "vl/wsi/pyramid-volume"
+            && planned.instance.template_version.to_string() == "1.0.0"
+            && planned.instance.sop_class_uid == "1.2.840.10008.5.1.4.1.1.77.1.6"
+            && planned.instance.transfer_syntax_uid == "1.2.840.10008.1.2.1"
+            && planned.evidence.obligations.iter().any(|obligation| {
+                obligation.obligation_id == "curated_generation_validation"
+                    && obligation.route_id == "shared_corpus_executor"
+                    && obligation.required
+                    && obligation.independence
+                        == crate::corpus_plan::EvidenceIndependence::SameProject
+                    && obligation.parameters.get("qualification_scale") == Some(&json!("reduced"))
+                    && obligation.parameters.get("full_scale_available") == Some(&json!(false))
+                    && obligation
+                        .parameters
+                        .get("full_scale_reason")
+                        .and_then(Value::as_str)
+                        .is_some_and(|reason| !reason.trim().is_empty())
+            })
+            && ctx.artifact_recipe.output.role == "volume"
+            && planned.output.role == "volume"
+            && item.kind == crate::recipes::WholeSlideArtifactKind::Volume
+            && item.parameters.pyramid_membership
+            && item.parameters.rows == 256
+            && item.parameters.columns == 256
+            && u32::from(item.parameters.frames) == (edge / 256) * (edge / 256)
+            && item.parameters.matrix_rows == edge
+            && item.parameters.matrix_columns == edge
+    })
 }
 
 fn project_wsi_pyramid_members(
@@ -4138,6 +4217,92 @@ mod pyramid_projection_tests {
                 "mutation {mutation}"
             );
         }
+        let stress = provider
+            .plan(&CuratedScPlanRequest {
+                selection: CuratedScSelection::CaseIds(vec!["stress/wsi/large_pyramid".into()]),
+                seed: 7,
+                max_parallelism: 1,
+            })
+            .unwrap();
+        let mut stress_input = input.clone();
+        for (pair, planned) in stress_input
+            .artifacts
+            .iter_mut()
+            .zip(&stress.plan.artifacts)
+        {
+            pair.planned = planned.clone();
+        }
+        let mut stress_entries = blank();
+        project_wsi_pyramid_group(&stress.projection, &stress_input, &mut stress_entries)
+            .expect("typed reduced stress pyramid must retain its independent projection");
+        assert_eq!(stress_entries, blank());
+        let mut renamed_stress = stress.projection.clone();
+        for ctx in &mut renamed_stress.artifacts {
+            ctx.registry_case.case_id = "caller/reduced-chain".into();
+            ctx.registry_case.profiles = vec!["core".into()];
+        }
+        project_wsi_pyramid_group(&renamed_stress, &stress_input, &mut stress_entries).unwrap();
+        assert_eq!(
+            stress_entries,
+            blank(),
+            "disjoint recognition uses neither names nor profiles"
+        );
+        for mutation in 0..6 {
+            let mut changed = stress.projection.clone();
+            match mutation {
+                0 => {
+                    changed.artifacts[0]
+                        .case_recipe
+                        .provider_parameters
+                        .insert("dependency_mode".into(), json!("volume_root"));
+                }
+                1 => {
+                    changed.artifacts[0].artifact_recipe.parameters.insert(
+                        "pixel_algorithm".into(),
+                        json!({"algorithm":"tiled_color_quadrants"}),
+                    );
+                }
+                2 => {
+                    changed.artifacts[0].artifact_recipe.parameters.insert(
+                        "pixel_algorithm".into(),
+                        json!({"algorithm":"reduced_stress","level_index":1,"edge":512}),
+                    );
+                }
+                3 => changed.artifacts[0].artifact_recipe.template = None,
+                4 => changed.artifacts[0].registry_case.case_id = "caller/incomplete".into(),
+                _ => changed.artifacts[0].artifact_recipe.algorithm_provider_id = None,
+            }
+            assert!(
+                project_wsi_pyramid_group(&changed, &stress_input, &mut blank()).is_err(),
+                "reduced mutation {mutation}"
+            );
+        }
+        for mutation in 0..3 {
+            let mut changed = stress_input.clone();
+            let PlannedArtifact::Dicom(first) = &mut changed.artifacts[0].planned else {
+                unreachable!()
+            };
+            match mutation {
+                0 => first.evidence.obligations.clear(),
+                1 => {
+                    first.evidence.obligations[0]
+                        .parameters
+                        .insert("qualification_scale".into(), json!("full"));
+                }
+                _ => first.evidence.obligations[0].route_id = "unrelated".into(),
+            }
+            assert!(project_wsi_pyramid_group(&stress.projection, &changed, &mut blank()).is_err());
+        }
+        let mut wrong_stress_plan = stress_input.clone();
+        let PlannedArtifact::Dicom(first) = &mut wrong_stress_plan.artifacts[0].planned else {
+            unreachable!()
+        };
+        first.instance.template_id.0 = "vl/wsi/pyramid-thumbnail".into();
+        assert!(
+            project_wsi_pyramid_group(&stress.projection, &wrong_stress_plan, &mut blank())
+                .is_err()
+        );
+
         let mut changed_input = input.clone();
         let PlannedArtifact::Dicom(first) = &mut changed_input.artifacts[0].planned else {
             unreachable!()

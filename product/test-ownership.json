@@ -3822,7 +3822,7 @@
       "entries": [
         "pyramid_projection_uses_typed_complete_independent_groups"
       ],
-      "entry_digest": "832e9f09004b3b94a9c17cf601c6d76856e0da74b3d5149fba49b2416ba99d02"
+      "entry_digest": "6c5845441e34c45e4790b0f7b5d7aadf6b29b67b2c41ca8c643448924a33df43"
     },
     {
       "source": "src/curated_manifest/qualification.rs",

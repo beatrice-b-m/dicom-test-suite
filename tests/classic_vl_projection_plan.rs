@@ -104,6 +104,115 @@ fn planning_is_output_free_uses_shared_slot_and_rejects_corruption() {
         assert_eq!(requests[0].pixels.slot, CLASSIC_PIXEL_SLOT);
         assert!(!absent.exists());
     }
+    for source in owned(&catalog).into_iter().filter(|r| {
+        r.binding.case_id.starts_with("classic/xa/")
+            || r.binding.case_id.starts_with("classic/xrf/")
+    }) {
+        for name in ["caller/projection", "vl/photo/caller", "classic/mr/caller"] {
+            let mut recipe = source.clone();
+            recipe.binding.case_id = name.into();
+            recipe.recipe_id = "caller_projection".into();
+            recipe.planning_order = Some(900);
+            recipe.projection_order = Some(901);
+            recipe.dicom.as_mut().unwrap().artifacts[0].output.path =
+                Some("independent/projection.dcm".into());
+            let plan = plan_vl_projection_recipe(&recipe, &lock_hash, 7)
+                .unwrap()
+                .unwrap();
+            assert_eq!(plan.len(), 1);
+            assert_eq!(
+                plan[0].output_relative_path.as_str(),
+                "independent/projection.dcm"
+            );
+        }
+        let mut crossed = source.clone();
+        let template = crossed.dicom.as_mut().unwrap().artifacts[0]
+            .template
+            .as_mut()
+            .unwrap();
+        template.template_id = if template.template_id == "classic/xa" {
+            "classic/xrf"
+        } else {
+            "classic/xa"
+        }
+        .into();
+        assert!(plan_vl_projection_recipe(&crossed, &lock_hash, 7).is_err());
+        let mut unknown = source.clone();
+        unknown
+            .provider_parameters
+            .insert("unsupported".into(), serde_json::json!(true));
+        assert!(plan_vl_projection_recipe(&unknown, &lock_hash, 7).is_err());
+        let value = serde_json::to_value(source).unwrap();
+        for section in ["provider_parameters", "parameters"] {
+            let pointer = if section == "parameters" {
+                "/dicom/artifacts/0/parameters"
+            } else {
+                "/provider_parameters"
+            };
+            for key in value.pointer(pointer).unwrap().as_object().unwrap().keys() {
+                let mut changed = value.clone();
+                changed
+                    .pointer_mut(pointer)
+                    .unwrap()
+                    .as_object_mut()
+                    .unwrap()
+                    .remove(key);
+                if let Ok(recipe) = serde_json::from_value(changed) {
+                    assert!(
+                        plan_vl_projection_recipe(&recipe, &lock_hash, 7).is_err(),
+                        "missing {key}"
+                    );
+                }
+            }
+        }
+        for (pointer, replacement) in [
+            (
+                "/dicom/artifacts/0/parameters/rows",
+                serde_json::json!(4294967295u32),
+            ),
+            (
+                "/dicom/artifacts/0/parameters/stored_values",
+                serde_json::json!([256]),
+            ),
+            (
+                "/dicom/artifacts/0/parameters/frame_sha256",
+                serde_json::json!("bad"),
+            ),
+            (
+                "/dicom/artifacts/0/parameters/kvp",
+                serde_json::json!("NaN"),
+            ),
+            (
+                "/dicom/artifacts/0/parameters/distance_source_to_detector",
+                serde_json::json!("1200.0"),
+            ),
+            (
+                "/dicom/artifacts/0/template/template_id",
+                serde_json::json!("classic/mr"),
+            ),
+            (
+                "/dicom/artifacts/0/output/path",
+                serde_json::json!("../escape.dcm"),
+            ),
+            (
+                "/dicom/artifacts/0/classic_projection/include_implementation_version_name",
+                serde_json::json!(true),
+            ),
+        ] {
+            let mut changed = value.clone();
+            *changed.pointer_mut(pointer).unwrap() = replacement;
+            let recipe = serde_json::from_value(changed).unwrap();
+            assert!(
+                plan_vl_projection_recipe(&recipe, &lock_hash, 7).is_err(),
+                "{pointer}"
+            );
+        }
+        let mut recipe = source.clone();
+        recipe.dicom.as_mut().unwrap().artifacts[0]
+            .encoding
+            .fragments_per_frame = Some(1);
+        assert!(plan_vl_projection_recipe(&recipe, &lock_hash, 7).is_err());
+    }
     let mut corrupt = owned(&catalog)[0].clone();
     corrupt.dicom.as_mut().unwrap().artifacts[0]
         .parameters

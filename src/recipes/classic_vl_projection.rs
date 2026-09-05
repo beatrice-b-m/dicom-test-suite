@@ -168,11 +168,119 @@ pub struct ProjectionNonClaims {
     pub xa_positioner_angles_present: bool,
 }
 
+pub(crate) fn inspect_xa_xrf_capability(
+    recipe: &CaseRecipe,
+) -> Result<Option<ProjectionArtifactParameters>, ClassicVlProjectionPlanError> {
+    let Some(dicom) = &recipe.dicom else {
+        return Ok(None);
+    };
+    if !dicom.artifacts.iter().any(|a| {
+        a.template
+            .as_ref()
+            .is_some_and(|t| matches!(t.template_id.as_str(), "classic/xa" | "classic/xrf"))
+            || matches!(
+                a.parameters.get("modality").and_then(Value::as_str),
+                Some("XA" | "RF")
+            )
+            || matches!(
+                a.parameters.get("sop_class_uid").and_then(Value::as_str),
+                Some(XA_STORAGE | XRF_STORAGE)
+            )
+    }) {
+        return Ok(None);
+    }
+    if dicom.artifacts.len() != 1 {
+        return Err(contract("XA/XRF requires one artifact"));
+    }
+    let a = &dicom.artifacts[0];
+    let has = |v: &[String], s: &str| v.len() == 1 && v[0] == s;
+    if recipe.kind != super::RecipeKind::Dicom
+        || recipe.plan_provider_id != PLAN_PROVIDER_ID
+        || recipe.planning_order.is_none()
+        || recipe.projection_order.is_none()
+        || recipe.mutation.is_some()
+        || recipe.qualification.is_some()
+        || !recipe.dependencies.is_empty()
+        || !has(&recipe.validation_rule_ids, "validation.shared")
+        || !has(&recipe.projection_rule_ids, "projection.curated")
+        || a.logical_id != "instance"
+        || a.order != 0
+        || a.output.role != "primary_1"
+        || a.output.path.is_none()
+        || a.output.provider_derived == Some(true)
+        || a.public_profile_membership.is_some()
+        || a.template.as_ref().is_none_or(|t| {
+            !matches!(t.template_id.as_str(), "classic/xa" | "classic/xrf")
+                || t.template_version != "1.0.0"
+        })
+        || a.content.provider_id != CONTENT_PROVIDER_ID
+        || !a.content.parameters.is_empty()
+        || a.algorithm_provider_id.as_deref() != Some(ALGORITHM_ID)
+        || !a.attribute_operations.is_empty()
+        || a.secondary_capture.is_some()
+        || a.metadata_sc.is_some()
+        || a.nonsquare_geometry.is_some()
+        || !has(&a.validation_rule_ids, "validation.shared")
+        || !has(&a.projection_rule_ids, "projection.curated")
+        || a.encoding.transfer_syntax_uid != "1.2.840.10008.1.2.1"
+        || a.encoding.non_template_encoding_provider_id.is_some()
+        || a.encoding.fragments_per_frame.is_some()
+        || a.encoding.sequence_length_policy != "default"
+        || a.encoding.item_length_policy != "default"
+        || a.encoding.offset_table_policy != "none"
+        || a.encoding.fragmentation_policy != "native"
+        || a.encoding.preamble_policy.as_deref() != Some("zero_filled")
+        || a.encoding.file_meta_policy.as_deref() != Some("standard")
+    {
+        return Err(contract("complete native XA/XRF tuple required"));
+    }
+    OutputRelativePath::new(a.output.path.clone().expect("explicit XA/XRF output"))?;
+    // Only these source-qualified native tuples are exposed to caller identities.
+    // Exact typed equality rejects malformed numeric strings and range/hash drift
+    // before the historical planner performs casts or numeric projection.
+    let is_xa = a.template.as_ref().unwrap().template_id == "classic/xa";
+    let (provider_value, parameter_value, projection_value) = if is_xa {
+        (
+            serde_json::json!({"patient_name": "DTS^Synthetic^Patient001", "patient_id": "DTS-PATIENT-001", "patient_birth_date": "19700101", "patient_sex": "O", "study_date": "20260101", "study_time": "000000", "study_id": "DTS-XA", "manufacturer": "dicom-test-suite", "software_versions": "0.1.0"}),
+            serde_json::json!({"modality": "XA", "sop_class_uid": "1.2.840.10008.5.1.4.1.1.12.1", "rows": 4, "columns": 4, "stored_values": [0, 16, 32, 48, 16, 64, 96, 64, 32, 96, 255, 96, 48, 64, 96, 64], "pixel_min": 0, "pixel_max": 255, "frame_sha256": "0b9c742cc3fafec4c1d0240048d27210f2da155b3574458ae26035ffa488c00e", "image_type": ["ORIGINAL", "PRIMARY", "SINGLE PLANE"], "body_part_examined": "HEART", "pixel_intensity_relationship": "LIN", "lossy_image_compression": "00", "kvp": "80", "radiation_setting": "GR", "exposure": "4", "imager_pixel_spacing": ["0.2", "0.2"], "distance_source_to_detector": "1200", "distance_source_to_patient": "800", "estimated_magnification_factor": "1.5", "positioner_primary_angle": "15", "positioner_secondary_angle": "-10", "non_claims": {"laterality_present": false, "multiframe_cine": false, "biplane_data_present": false, "contrast_used": false, "subtraction_applied": false, "table_position_present": false, "table_motion_present": false, "table_tilt_present": false, "tomography_present": false, "patient_space_geometry_present": false, "pixel_spacing_calibrated": false, "xa_positioner_angles_present": false}}),
+            serde_json::json!({"family": "vl_projection", "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels", "interpret_projection_geometry"], "visual_pattern": "single_plane_synthetic_angiographic_projection", "standards_evidence_append": [{"anchor": "table_C.8-26", "covered": true, "edition": "2026b", "part": "PS3.3", "query": "list_attributes_for_module X-Ray Image; X-Ray Acquisition; XA Positioner", "source": "dicom-standard-kb"}], "include_implementation_version_name": false}),
+        )
+    } else {
+        (
+            serde_json::json!({"patient_name": "DTS^Synthetic^Patient001", "patient_id": "DTS-PATIENT-001", "patient_birth_date": "19700101", "patient_sex": "O", "study_date": "20260101", "study_time": "000000", "study_id": "DTS-XRF", "manufacturer": "dicom-test-suite", "software_versions": "0.1.0"}),
+            serde_json::json!({"modality": "RF", "sop_class_uid": "1.2.840.10008.5.1.4.1.1.12.2", "rows": 4, "columns": 4, "stored_values": [0, 16, 32, 48, 16, 64, 96, 64, 32, 96, 255, 96, 48, 64, 96, 64], "pixel_min": 0, "pixel_max": 255, "frame_sha256": "0b9c742cc3fafec4c1d0240048d27210f2da155b3574458ae26035ffa488c00e", "image_type": ["ORIGINAL", "PRIMARY", "SINGLE PLANE"], "body_part_examined": "ABDOMEN", "pixel_intensity_relationship": "LIN", "lossy_image_compression": "00", "kvp": "70", "radiation_setting": "SC", "exposure": "1", "imager_pixel_spacing": ["0.2", "0.2"], "distance_source_to_detector": "1200", "distance_source_to_patient": "800", "estimated_magnification_factor": "1.5", "column_angulation": "10", "non_claims": {"laterality_present": false, "multiframe_cine": false, "biplane_data_present": false, "contrast_used": false, "subtraction_applied": false, "table_position_present": false, "table_motion_present": false, "table_tilt_present": false, "tomography_present": false, "patient_space_geometry_present": false, "pixel_spacing_calibrated": false, "xa_positioner_angles_present": false}}),
+            serde_json::json!({"family": "vl_projection", "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels", "interpret_projection_geometry"], "visual_pattern": "single_plane_synthetic_radiofluoroscopic_projection", "standards_evidence_append": [], "include_implementation_version_name": false}),
+        )
+    };
+    let provider: ProjectionProviderParameters =
+        decode(Value::Object(recipe.provider_parameters.clone()))?;
+    let expected_provider: ProjectionProviderParameters = decode(provider_value)?;
+    let parameters: ProjectionArtifactParameters = decode(Value::Object(a.parameters.clone()))?;
+    let expected_parameters: ProjectionArtifactParameters = decode(parameter_value)?;
+    let expected_projection: super::ClassicProjection = decode(projection_value)?;
+    if provider != expected_provider
+        || parameters != expected_parameters
+        || a.classic_projection.as_ref() != Some(&expected_projection)
+    {
+        return Err(contract("complete source-qualified XA/XRF tuple required"));
+    }
+    Ok(Some(parameters))
+}
+
 pub fn plan_vl_projection_recipe(
     recipe: &CaseRecipe,
     standards_lock_sha256: &str,
     seed: u64,
 ) -> Result<Option<Vec<ClassicInstanceRequest>>, ClassicVlProjectionPlanError> {
+    if inspect_xa_xrf_capability(recipe)?.is_some() {
+        let artifact = &recipe.dicom.as_ref().unwrap().artifacts[0];
+        return Ok(Some(vec![plan_projection(
+            recipe,
+            artifact,
+            standards_lock_sha256,
+            seed,
+        )?]));
+    }
     let Some((_, expected_planning_order)) = OWNED_CASES
         .iter()
         .find(|(case_id, _)| *case_id == recipe.binding.case_id)
@@ -296,7 +404,7 @@ fn plan_projection(
         decode(Value::Object(recipe.provider_parameters.clone()))?;
     let parameters: ProjectionArtifactParameters =
         decode(Value::Object(artifact.parameters.clone()))?;
-    validate_projection_parameters(recipe, &parameters)?;
+    validate_projection_parameters(&parameters)?;
     let mut operations = vec![
         set_string("0008,001C", DicomVr::CS, "YES"),
         set_multi_string("0008,0008", DicomVr::CS, parameters.image_type.clone()),
@@ -604,10 +712,9 @@ fn validate_vl_parameters(
 }
 
 fn validate_projection_parameters(
-    recipe: &CaseRecipe,
     parameters: &ProjectionArtifactParameters,
 ) -> Result<(), ClassicVlProjectionPlanError> {
-    let is_xa = recipe.binding.case_id.starts_with("classic/xa/");
+    let is_xa = parameters.modality == "XA";
     let expected_sop = if is_xa { XA_STORAGE } else { XRF_STORAGE };
     let expected_modality = if is_xa { "XA" } else { "RF" };
     if parameters.sop_class_uid != expected_sop

@@ -1429,3 +1429,38 @@ CI234f831 preserves existing fixed smoke policy for the exact two source paths;
 combined68 routing/source tests passed1.280s with independent review/diffcheck.
 No native/helper/import/availability or public capability change occurred.
 PET remains the only active public compatibility boundary.
+
+## PET standalone public proof accepted — 2026-09-05
+
+Generator82cd6fd adds the exact12-file public proof unit. Four local fixture
+members14416 bytes include the source-exact PET note, with neutral
+caller/acquisition/activity, caller_activity,900/901 and independent/activity.dcm.
+Descriptor1975/f188d23526cec4137932162011320d2204610070cc7174579d9ed2c720285a27;
+recipe4420/bd5420525a6fa518d2f7195e7900417852b7564578e28dc64584a3d4b771d20d;
+registry3063/05af8264d58553464fddbae7805abcb96ca9c441e87ce38c229272b6176857e6;
+note4958/288c02f8eee37bd4590ab3c9d1d2866d9fca01299179e74c11bb88024e088959.
+Framed a63baf6de99ba21ae32e02fb5b40562567f8cdd014b7fb29858365edbaab7ac3.
+Oracle3447/c78f2a5e709fe91e9fb1fc42c3dd9b39623760a53399913af4a095150627c855
+binds baseline2 and parity1, complete source recipe/image/pixels/PET activity
+and semantics. Caller1388 SHA256
+b9d243306f6d9cbc4d475efd6d206ec668adadd290634505bba1c7c45b322bda;
+original1414/78ced6c5 source bytes independently reproduce. All assertions are
+unconditional; no ignored or sibling runtime input is needed.
+
+First and frozen proof1/10.55s each, compile2.25/2.23s; Fast15/2.12s+73/1.94s
+(warmcompile0.04s), ownership1496/integration926/routing-list1/0.010s and diff
+passed. Logs /private/tmp/pet-public-first.log, pet-public-final.log and
+pet-public-fast.log; route /private/tmp/pet-public-route.json. Spelling1068
+SHA c8a0ac16359a63d5c931c224143b2e15bee6b9bf4bc48a671eae8908b2fac29e
+adds one preserved manufacturer; transient inventory ordering and a stale
+panic label were corrected before acceptance. Root/independent review accepted.
+
+Root broader check first used nonexistent standalone external_corpus_cli Cargo
+target and exited101 in0.058521s without tests/build; retained
+/private/tmp/r7-pet-public-root-subsystem-20260905.log. Correct inspected route
+cli_sdk__nonfast/external_corpus_cli passed13/29.24s, whole32.104131375s at
+clean82cd6fd; log /private/tmp/r7-pet-public-root-subsystem-corrected-20260905.log.
+Fast was not repeated. Next owner has only six current docs: README, generation
+guide, SDK guide, SYSTEM_SPEC, compatibility policy and taxonomy. Root will
+verify exact documented commands on fresh output before complete PET source
+capability acceptance. No pin or prior receipt changes.

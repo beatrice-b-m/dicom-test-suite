@@ -2415,7 +2415,15 @@ their original labels and boundaries; neither byte domain relabels the other.
 
 Focused public CLI/SDK, loader, historical payload, planner, schema compilation,
 manifest-contract, schema identity, seven snapshot-cache, ownership and routing
-checks passed. This accepts only the nonsquare-SC-local reusable-generator
+checks passed. The first mapped ordinary run through report2 commit `5a5583c`
+retained one failure: a misleading external WSI case ID activated a legacy
+report1 repeated-group lock. Correction `be10dbc` masks external case identity
+only during legacy row projection and restores the caller identity afterward.
+The complete mapped ordinary range from `3181941` through `be10dbc` then passed,
+including 34 corpus-definition, 19 external-corpus, 92 corpus-generation, 140
+engine and 86 schema-resource checks; the six designated Heavy process tests
+remained ignored by ordinary policy. The earlier failed run is not relabeled.
+This accepts only the nonsquare-SC-local reusable-generator
 boundary. It adds no calibrated or patient-space geometry, codec, multiframe,
 independent-conformance, viewer, Heavy, package, release or complete-R7 claim.
 R7 remains open, and R8/R9 remain held behind their dependencies.

@@ -10,7 +10,9 @@ pub const CASE_ID: &str = "caller/arbitrary/signed-ct";
 pub const RECIPE_ID: &str = "caller_signed_ct";
 pub const DICOM_PATH: &str = "caller/arbitrary/signed-ct/caller-instance.dcm";
 const ORIGINAL_CASE_ID: &str = "classic/ct/mono2_i16_rescale_12bit_explicit_le";
-const ORIGINAL_RECIPE_PATH: &str = "classic/ct/mono2-i16-rescale-12bit-explicit-le.json";
+const ORIGINAL_RECIPE_PATH: &str = "cases/recipes/classic/ct/ct_mono2_i16_rescale.json";
+const ORIGINAL_OUTPUT_PATH: &str = "classic/ct/mono2_i16_rescale_12bit_explicit_le/instance.dcm";
+const PLAN_SHA256: &str = "d3a5a83f33caf7abdce7a6df5c3675754e48e40e78d17968fe83236b1fdfadb4";
 
 pub struct GenericCtBundle {
     pub root: PathBuf,
@@ -46,6 +48,11 @@ impl GenericCtBundle {
                     .windows(ORIGINAL_RECIPE_PATH.len())
                     .any(|w| w == ORIGINAL_RECIPE_PATH.as_bytes())
             );
+            assert!(
+                !bytes
+                    .windows(ORIGINAL_OUTPUT_PATH.len())
+                    .any(|w| w == ORIGINAL_OUTPUT_PATH.as_bytes())
+            );
         }
         let members = root.join("members");
         fs::create_dir_all(members.join("cases/recipes")).unwrap();
@@ -59,8 +66,17 @@ impl GenericCtBundle {
         fs::write(&descriptor, descriptor_bytes).unwrap();
         let product = DicomTestSuite::embedded().unwrap();
         let inspected = product
-            .inspect_corpus(InspectCorpusRequest::from_file(&descriptor, &members))
+            .inspect_corpus(
+                InspectCorpusRequest::from_file(&descriptor, &members)
+                    .with_selection(selector())
+                    .with_seed(1)
+                    .with_parallelism(4),
+            )
             .unwrap();
+        assert_eq!(
+            inspected.assessment().unwrap().corpus_plan_sha256(),
+            PLAN_SHA256
+        );
         let identity = inspected.corpus_definition_identity().clone();
         assert_eq!(
             identity,
@@ -139,6 +155,11 @@ pub fn assert_manifest(manifest: &Value, identity: &Value) {
     assert_eq!(files.len(), 1);
     assert_eq!(files[0]["case_id"], CASE_ID);
     assert_eq!(files[0]["path"], DICOM_PATH);
+    assert_eq!(files[0]["size_bytes"], 1194);
+    assert_eq!(
+        files[0]["sha256"],
+        "c292a81584998e9afe56330545f455c8894684e475c817d60c1c93ef755e1ce1"
+    );
     assert_eq!(files[0]["determinism"], "byte_stable");
     assert_eq!(files[0]["validation"]["status"], "passed");
     assert!(

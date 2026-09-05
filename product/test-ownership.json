@@ -3162,7 +3162,7 @@
         "byte_stable_provider_inventory_is_complete_and_version_decoupled",
         "every_direct_output_version_provider_family_has_an_exact_payload_plan"
       ],
-      "entry_digest": "0103ab791b83fdde79aef57e61a8bcca10369af7dcb4f2876c4354a0805faa97"
+      "entry_digest": "ebb17a8a45740e915fb17b0fb62d6c93b28d15afc6caaebbf91d119056095985"
     },
     {
       "source": "tests/unified_spine_boundaries.rs",

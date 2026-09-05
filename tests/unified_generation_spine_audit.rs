@@ -266,6 +266,7 @@ fn byte_stable_provider_inventory_is_complete_and_version_decoupled() {
     rust_sources(Path::new("src/recipes"), &mut output_sources);
     output_sources.extend([
         PathBuf::from("src/composition/modules.rs"),
+        PathBuf::from("src/composition/external_quantitative.rs"),
         PathBuf::from("src/curated_manifest.rs"),
         PathBuf::from("src/validation.rs"),
         PathBuf::from("tests/waveform_document_mesh_plan.rs"),
@@ -283,6 +284,15 @@ fn byte_stable_provider_inventory_is_complete_and_version_decoupled() {
             path.display()
         );
     }
+    let external_quantitative =
+        fs::read_to_string("src/composition/external_quantitative.rs").unwrap();
+    assert_eq!(
+        external_quantitative
+            .matches("software_versions: crate::BYTE_STABLE_OUTPUT_VERSION.into(),")
+            .count(),
+        1,
+        "external composition providers must use the frozen output version exactly once"
+    );
 
     let curated = fs::read_to_string("src/curated_plan.rs").unwrap();
     assert_eq!(curated.matches("crate::PACKAGE_VERSION").count(), 2);
@@ -335,10 +345,6 @@ fn byte_stable_provider_inventory_is_complete_and_version_decoupled() {
                 "use crate::{PACKAGE_VERSION, sha256_hex};",
                 "version: PACKAGE_VERSION.into(),",
             ],
-        ),
-        (
-            "src/composition/external_quantitative.rs",
-            vec!["software_versions: env!(\"CARGO_PKG_VERSION\").into(),"],
         ),
         (
             "src/composition/run.rs",

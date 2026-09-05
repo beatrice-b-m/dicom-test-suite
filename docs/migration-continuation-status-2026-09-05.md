@@ -1853,3 +1853,24 @@ findings plus4standards each;32source skips. Failedbaseline1 remains failed
 and unchanged. This is same-project embedded evidence only. Next sequential
 unit imports exact two recipes/registryrows into corpus content; availability,
 migrated parity and source capability boundaries remain pending. R7open/R8R9held.
+
+## VL photographic source-exact import accepted — 2026-09-05
+
+Corpus data bca3b66 changes exactly descriptor/registry/two source recipes,
+content0.9.0 to0.10.0.35members/213473bytes framed SHA
+0197093bd058d8649c5cf3a7388e58e990bea69f7c8b4f33e2763a7e82092626.
+Descriptor15970 SHA08d70667eadb9ff75328aed051754d35ed079a5c0d8321d5abf7faf2df5abb24;
+registry75456 SHA47ca3adb7cb4063dee057b3b51a24dc80d04d0429227ce03e3c61e96be10fa03.
+Both registryrows and4371/4476-byte recipes match immutable232b9de exactly.
+No notes/assets/dependencies added. Full prior33member closure authenticated;
+all31 unaffected payloadmembers preserved and descriptor/registry reversal
+reconstructs exact0.9. Root /private/tmp/verify-vl-photo-import.py replay
+passed0.246417666s after owner0.233691s; independent source/framing/reversal
+audit passed. Initial author precondition typo rejected before writes;
+independent audit union-profile assumption corrected read-only. Neither
+changed imported content or evidence. Diff/owned commit/log checks passed.
+
+Static contract update now owns only tests/test_smoke_definition.py; CI and
+historical fixture transitions follow sequentially. Import acceptance does
+not establish runtime availability or migrated parity. Baseline acceptance
+corpus07d5fc9 with label clarification3b2c33c remains dated. R7open/R8R9held.

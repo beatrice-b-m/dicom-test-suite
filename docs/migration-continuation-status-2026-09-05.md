@@ -1116,3 +1116,64 @@ root ran corpus-generation92/27.53s after18.93s compile and Fast15/2.12s plus
 This closes the bounded external reader correction and permits standalone US
 public proof. US full genericity acceptance still requires that proof and current
 guides. No native WSI, full stress, package, release or viewer evidence is added.
+
+## US standalone public proof and bounded genericity accepted — 2026-09-05
+
+bb687f6 adds the independently named US fixture, semantic oracle, SDK-only
+support, separate CLI proof and exact ownership/routing/spelling integration.
+Caller caller/acquisition/ultrasound, recipe caller_ultrasound, orders900/901
+and independent/ultrasound.dcm preserve the qualified source tuple. CLI runs
+from an unrelated directory with empty PATH; complete capabilities, raw manifest,
+payload bytes and report objects agree with SDK results. Both outputs reopen
+with strict validation. Separate current-source historical US1 generation
+reproduces the original1006-byte payload and its accepted source semantics.
+
+The closed fixture has3 files/8174 bytes: descriptor1637 SHA256
+2fc7d9ace8a5e167def0d0701410350d39c7e81e4c9d5809ead622a1d22f7327;
+registry3235 SHA256
+5c377f4e7898e054fce69d9c135d785f34d2d2f63caaa671bc3135782b0beca8;
+recipe3302 SHA256
+a93424def7230a0a1dbbbb494c95402c9109b71aa50ac935ce2270c394f2399a.
+Framed definition SHA256
+bd3f6f093032f97370fe164fe8a114c58b99299cd4edaf8e2544a7a444575004.
+Targeted oracle2012 SHA256
+008a0426c4a395b4e47f34d45f49e5a75e2a160b00b4979fe56edc54c109e1b4
+authenticates baseline8089876f and parityfa96555c receipts; no ignored artifact
+path is a test runtime dependency. Caller1012 bytes SHA256
+8604e1ff67e10a51ed5fe9fc115b2bc6d1c00116191b828475fa6135a89272ba;
+original1006 bytes SHA256
+e616b8c983c59640a62fa081f636acea554ce681edde3fc8dd53a3c15098c30b.
+
+First observation1 passed10.52s after2.23s compile; final frozen1 passed10.49s
+after2.19s compile. Conditional observation placeholders were removed before
+acceptance. Fast15/2.13s plus73/1.93s, routing33/3.113s, ownership1495 entries/277
+groups and diff passed. These owner results are tool-output-only; route preview
+retained at /private/tmp/us-proof-route.json. The preserved manufacturer token
+required one exact spelling inventory addition and corrected snapshot ordering;
+final1066 matches SHA256
+8e9495876ebc4cf8e75f1831c3aa45602b06a934dfaa17595fb35f8f5271683c.
+No semantic test failure or generated payload commit occurred. Independent
+review authenticated source/fixture/oracle hashes and all final assertions.
+
+Root inspected the dedicated public route and ran all12 external_corpus_cli
+tests at cleanbb687f6:28.64s (whole28.740314s). Log
+/private/tmp/r7-us-public-root-subsystem-20260905.log; preview
+/private/tmp/r7-us-public-root-preview-20260905.json. Owner's passed Fast was
+not repeated. Task target measured1178564KiB; default target untouched.
+
+Current guides d6811a3 document the bounded tuple, fixed synthetic metadata,
+required unique orders, absent calibration region and evidence boundaries.
+Independent six-document review and root stale-claim/spelling/diff checks passed.
+Exact capabilities/generate/validate/report commands ran from fresh unrelated
+/private/tmp/r7-us-docs-pr6u143u with empty PATH:1.288651s,1.089024s,0.330054s
+and0.189148s respectively. Publication and strict1 passed; payload matched the
+frozen caller hash. Retained9 files231769 logical/253952 allocated bytes;
+measurement /private/tmp/r7-us-docs-measurement-20260905.json.
+
+US1-local R7.1/R7.2/R7.3/R7.5 boundaries are now accepted with earlier data,
+availability and parity records. This source capability does not update the
+corpus232b9de artifact pin, relabel retained runs, qualify multiframe/RLE/
+calibration coverage or add independent conformance, viewer, package or release
+evidence. R7 remains incomplete. PET1 source preparation is the next sequential
+ordinary-native slice; XA/XRF source/helper preparation remains independently
+accepted without native execution.

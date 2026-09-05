@@ -170,7 +170,10 @@ fn ordinary_generate_preserves_locked_curated_history_for_public_profiles() {
     // These qualification hashes bind the promoted terminal projection: the
     // full ordered migrated file-entry Values after removing the explicitly
     // nondeterministic backend elapsed time, plan provenance, and the exact
-    // bytes of every corresponding Part 10 payload.
+    // bytes of every corresponding Part 10 payload. The all-profile hashes
+    // include the caller-owned NM migration's one intentional manifest-only
+    // addition: expected_semantics.pixel_spacing_mm is now derived from the
+    // recipe. The separately locked historical NM Part 10 bytes remain stable.
     let expected = [
         (
             "smoke",
@@ -180,8 +183,8 @@ fn ordinary_generate_preserves_locked_curated_history_for_public_profiles() {
         ),
         (
             "all",
-            "5d7a02ef873833dba33e9feb56330eabad709215c25de7c6caf0aa61986ab21e",
-            "a50de8b288b3543876e4e58bcc2b435f41b81e84201e78508f093e894b8f4c36",
+            "086a6e51df2e8774a5c332971121d7e0f8ee4d72efd32a4f876645bde4ae7262",
+            "f942230a3cc56455397e9819e601c5bebc5ae45d50221d16d401e3fd1291d5c3",
             (59, 1),
         ),
         (

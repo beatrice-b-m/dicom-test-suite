@@ -2356,6 +2356,13 @@ historical payload and resource-identity checks passed; the full library suite
 passed 547 tests with six expected ignored entries. Routing and ownership
 checks also passed.
 
+The locked all-profile aggregate changes only because that historical NM
+manifest entry now projects recipe-derived numeric `pixel_spacing_mm`; the
+Part 10 payload is unchanged. The current aggregate is `086a6e51…7262`, and
+the otherwise R0-compatible projection is `f942230a…d5c3`, with the established
+59 codec-version and one validation-message normalizations unchanged. Smoke
+and legacy aggregates remain unchanged.
+
 Corpus content 0.13 closes 40 files and 258,300 bytes at identity
 `cb06ff4d…`. Baseline3 `bdbc365e…` remains authoritative for the exact original
 generator/reporter pins and binaries. Availability1

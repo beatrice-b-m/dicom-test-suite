@@ -2254,3 +2254,41 @@ and retained artifacts are preserved. R0–R6 accepted; R7 open; R8/R9 held. Liv
 content 0.10.0 remains unchanged. MR baseline accepted at generator a7718cc / corpus
 ceafd9f; MR import, availability/parity and genericity remain the next slice.
 Implementation remains stopped for handoff at the user's request.
+
+## MR three-instance migration and caller capability accepted — 2026-09-05
+
+Corpus `ddb1586` imports the exact 9,104-byte recipe
+`c894c52053d4414e170f8f30b4be2786bcb5985153a763034707f241cc886526`,
+bumps live content to 0.11.0, and closes 36 files/226,671 bytes at corpus
+identity `d26f9d7e654b6dff0804784da0cdfa754825d1f77f36438cd9bd48a79c64f9da`.
+Declarative evidence tooling `7e73073` binds the original generator/reporter
+pins and accepted baseline without relabeling them. Availability2 passed at
+`artifacts/r7-mr-availability2-20260905`, receipt
+`03153a164889e405676bc5573273db873fb91778580bab2bf13cc6fb26598fe0`;
+availability1 remains retained failed evidence.
+
+Parity5 passed two exact selected-case public-runner calls at
+`artifacts/r7-native-mr-parity5-20260905`, receipt
+`ce8fa8ebbb99512425fe59f78b51770e9656e41cb1010cbf074cc654782d5f7e`.
+Both runs emitted and strictly reopened the accepted 1,242/1,256/1,256-byte
+payloads with hashes `2e09dbf4…b7417`, `7ac2ca87…ec99e`, and
+`05c27a2f…67bfa`; canonical manifest/report hashes were respectively
+`30398dc4…bb234` and `69cae5cc…3045f`. Parity1/2/3/4 remain retained failed
+evidence. Corrections `3f1269d`, `5000e0a`, `622a12c`, `4ab89f6`, and
+`c4d332c` preserve fail-closed preparation while separating one logical case
+from three emitted/validated files.
+
+Generator `fd611db` admits a complete caller-owned native MR series by typed
+template/content/algorithm/projection/provider, pixel and geometry capability,
+not case ID, recipe ID, order or path. Its unrelated-name three-artifact fixture
+proves CLI/SDK capability, manifest and byte equality, distinct caller metadata,
+MR values, paths and pixels, strict three-file validation and report2 projection;
+the accepted historical payload oracle remains separate. Mapped ordinary
+coverage passed 31 corpus-definition, 4 captured-input, 16 public CLI/SDK, 92
+corpus-generation, 8 MR/CR-planner and 22 corpus-plan tests.
+
+This accepts the MR-local R7.1/R7.2/R7.3/R7.5 boundary only. The original
+generator/reporter pins and every successful or failed retained artifact remain
+unchanged. No RLE/enhanced/multiframe MR, independent conformance, viewer,
+Heavy, package, release, complete-R7, R8 or R9 claim follows. R7 remains open;
+the next ordinary core closure must be derived from the executable inventory.

@@ -318,6 +318,39 @@ Use the same external `generate`, separate `validate` and `report` commands
 above. CLI/SDK byte and manifest equality is same-project evidence; report2
 projects the manifest and adds no independent conformance or viewer result.
 
+#### Caller-defined native MR series
+
+The external CLI and SDK accept a bounded native MR series through
+`native.classic_plan`, `classic/mr@1.0.0`, parameter-free
+`content.native_pixels`, `algorithm.classic_mr_cr`, and
+`classic_projection.family = "mr_cr"` with a complete MR acquisition block.
+The registry declares MR Image Storage, `rust_native`/`rust_native`,
+`dicom_instance`, and no feature or codec requirements. A classic MR template
+or MR projection declares intent; partial, crossed, mixed-acquisition, or
+registry-modality-conflicting tuples reject before publication.
+
+The recipe owns a nonempty, bounded series of at most 4,096 artifacts. Logical
+IDs, roles, and safe explicit paths must each be unique; artifact orders are
+contiguous from zero. Caller provider parameters supply patient, study,
+equipment, acquisition date/time, Image Type, acquisition number, and series
+number. Each artifact supplies a positive unique Instance Number, native U16/OW
+pixels with exact dimensions, extrema and little-endian frame hash, and a
+finite orthonormal orientation with positive spacing and thickness. All slices
+share orientation, spacing, thickness, and MR acquisition values; their
+positions advance by the declared spacing along the slice normal.
+
+Case ID, recipe ID, planning/projection order, logical IDs, roles, paths,
+metadata, MR values, geometry, instance numbers, and pixels do not select the
+planner. The public three-artifact fixture deliberately uses unrelated names,
+`DERIVED\SECONDARY`, nonhistorical MR values, nonsequential instance numbers,
+tilted geometry, distinct paths, and distinct U16 samples. CLI and SDK produce
+identical capabilities, manifests, payloads and report2 projections, and both
+strictly reopen all three files. The accepted embedded oblique series retains
+its independent 1,242/1,256/1,256-byte oracle; that historical byte evidence is
+not relabeled by the caller capability. RLE, enhanced or multiframe MR,
+independent conformance, viewer interoperability, packaging and release remain
+separate qualifications.
+
 #### Caller-defined native ultrasound
 
 The external CLI and SDK accept one `classic/ultrasound/single-frame@1.0.0`

@@ -1064,6 +1064,19 @@ their separate contracts; the curated U8 route changes neither catalog bytes
 nor template version. Public CLI/SDK payload/manifest/report equality remains
 same-project evidence with separately reopened strict validation.
 
+Native MR admission requires the complete `classic/mr@1.0.0`, native-content,
+shared MR/CR algorithm and MR projection tuple. The bounded series inspector
+validates caller provider metadata, common MR acquisition values, unique
+logical IDs/roles/paths and positive instance numbers, contiguous artifact
+orders, U16 sample counts/extrema/frame hashes, and consistent finite
+orthonormal geometry with positive spacing and thickness. Loader admission,
+planning, manifest projection and reopened validation use this typed capability
+rather than case/recipe names. The exact embedded oblique and named RLE routes
+remain transitional compatibility bridges. The public caller fixture proves
+CLI/SDK equality and three-file strict validation separately from its retained
+historical payload oracle; it adds no codec, independent conformance, viewer,
+package or release claim.
+
 Native single-frame US additionally requires its template@1, native content,
 shared nuclear algorithm/projection and typed ultrasound family together. One
 explicit primary instance uses checked U8 pixels and fixed synthetic provider

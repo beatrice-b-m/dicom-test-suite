@@ -203,6 +203,20 @@ manifests, payloads and reports agree; strict validation reopens both payloads
 separately from report2 projection. This fixed recipe capability leaves direct
 composition's RGB8 qualification/default and historical ICC/RLE routes intact.
 
+### Caller-defined native MR series
+
+The same inspection and `GenerateCorpusRequest` interfaces accept
+`caller/volume/tilted-series` from `tests/fixtures/generic-mr-corpus`, using its
+`definition.json` and explicit `members` root. Select that case under `core`,
+seed 1 and parallelism 4. The complete
+[MR contract](generation-guide.md#caller-defined-native-mr-series) binds three
+native U16 instances while allowing caller metadata, MR acquisition values,
+geometry, logical IDs, roles, orders, safe paths and pixels. CLI/SDK
+capabilities, manifests, payloads and reports agree; strict validation reopens
+all three payloads separately. The embedded oblique-series byte oracle is
+checked independently and does not turn this same-project proof into codec,
+viewer, conformance or release evidence.
+
 ### Caller-defined Secondary Capture metadata
 
 The same inspection and `GenerateCorpusRequest` interfaces accept independently

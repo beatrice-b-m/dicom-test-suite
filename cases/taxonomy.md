@@ -42,6 +42,13 @@ orders emit RGB then palette. These naming freedoms preserve the source-fixed
 beyond its qualified RGB8 default. See the
 [photographic contract](../docs/generation-guide.md#caller-defined-native-photographic-images).
 
+The bounded native MR contract accepts caller case/recipe IDs, metadata, MR
+acquisition values, logical IDs, roles, unique orders and paths, geometry and
+U16 pixels for a consistent multi-instance series. Those freedoms are admitted
+by the complete typed capability, never by an MR-looking name, and do not widen
+RLE, enhanced/multiframe, independent-conformance or viewer evidence. See the
+[MR contract](../docs/generation-guide.md#caller-defined-native-mr-series).
+
 ## Case ID Format
 
 Case IDs are stable, human-readable, path-safe identifiers:

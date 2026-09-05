@@ -114,6 +114,12 @@ and ordering, including names resembling other historical families. See the
 [CR contract](docs/generation-guide.md#caller-defined-computed-radiography) for
 the complete tuple and its separate composition/RLE evidence boundaries.
 
+Caller-defined native MR supports a bounded multi-instance U16/OW series with
+caller-owned identities, metadata, MR acquisition values, geometry, paths and
+pixels. See the [MR contract](docs/generation-guide.md#caller-defined-native-mr-series)
+for the complete tuple and the separate historical byte-parity, codec and
+independent-evidence boundaries.
+
 Caller-defined native ultrasound supports one U8/OB MONOCHROME2 frame through
 a bounded typed contract, with caller-owned names, paths and ordering. See the
 [US contract](docs/generation-guide.md#caller-defined-native-ultrasound) for its

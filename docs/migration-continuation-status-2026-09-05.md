@@ -681,3 +681,22 @@ codec/provider, independent and release qualifications. Neither pinned native
 artifact is relabeled with this source capability. R7 remains incomplete;
 R8/R9 have not begun. US baseline is the next sequential slice. Corpus ordinary
 verification at `bd41ca8` passed457 tests in8.472s without native generation.
+
+## US embedded baseline checkpoint — 2026-09-05
+
+Corpus readiness `31c69f7` and acceptance `8804666` bind one native US1
+embedded capture at `artifacts/r7-native-us-baseline1-20260905` in the corpus
+repository. Receipt SHA
+`8089876f1bd1d050396ac54466d3fc5aa06cecdf804633ea32fdca99b85150a9`;
+payload1006 bytes SHA
+`e616b8c983c59640a62fa081f636acea554ce681edde3fc8dd53a3c15098c30b`.
+One generate/strict/report sequence passed in1.284419/0.227185/0.919014s,
+whole6.000055s.29 internal and4 standards findings,33 skipped rows and full34
+coverage rows remain distinct. Independent read-only replay passed0.212552s;
+22 nonreceipt files occupy141208106 logical/141258752 allocated bytes.
+No retry, build, viewer or independent conformance execution occurred.
+
+US static import, loader availability, migrated parity and generic source
+capability remain sequential. The task target now measures859204 KiB; the
+pre-existing default build tree remains untouched. Current source CR acceptance
+does not change either native artifact pin. R7 remains incomplete.

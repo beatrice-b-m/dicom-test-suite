@@ -2097,3 +2097,29 @@ qualification; separate source-fixed recipe capability additionally proves
 bounded2x2palette. No arbitrarypalette composition or catalog/default/version
 widening follows. Exact documented commands require freshroot verification
 before fullVL source capability acceptance. R7open/R8R9held.
+
+## Bounded VL photographic source capability accepted — 2026-09-05
+
+Six currentguides6d8719b document completefixed photographic RGB/palette
+recipe tuples, nineproviderfields, calleridentities/orders/safepaths and
+fourmemberfixture commands. The direct composition RGB8 qualification/default
+is distinguished from the bounded palette recipe capability. No catalog,
+recipe/template, bundle, manifest/report or pinnedartifact version changed.
+Root fullguide review and currentMarkdown scan passed.
+
+Exactfourdocumentedcommands passed from fresh unrelated
+/private/tmp/r7-vl-photo-docs-dcirynac with emptyPATH:
+capabilities1.309054625s/generation1.106706709s/strict2valid0.335129333s/
+report0.19301525s. CallerRGB990/73a249bf51e6e47910d629c16c579cf1ec61beff3e9547e72273764b3ab45354
+andpalette1088/398c76875dce5c135dcca9532293b4e3911885f3987cc044ec76386c525a8192
+match frozenproof.11files274412logical/290816allocated bytes; measurement
+/private/tmp/r7-vl-photo-docs-measurement-20260905.json. Diff and clean
+sixfilecommit/log verified.
+
+VLphoto-local R7.1/R7.2/R7.3/R7.5 accepted: source-exact content0.10,
+baseline2 (baseline1failedpreserved), availability1, parity1/corpus c275b99,
+planner7e38ca8, loaderexecution7d065d7, publicproof646f30c and guides6d8719b.
+No independent conformance/viewer/arbitrarypalette/ICC/RLE/newcomposition
+claim follows. R7 remains incomplete; R8/R9 held. Next ordinary native slice
+is three-instance MR; read-only inventory shows disjoint planner but shared
+loader/execution, so source edits stay sequential after this complete boundary.

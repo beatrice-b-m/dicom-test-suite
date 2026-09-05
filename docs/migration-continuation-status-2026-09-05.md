@@ -1293,3 +1293,28 @@ It must bind accepted baseline2 plus complete live0.8 identity and report only
 selected planning readiness. Source34 rows and live23 rows are distinct dated
 inventories; the PET note participates in closed bundle identity. Capture and
 parity remain subsequent sequential units. No native/build run occurred here.
+
+## PET selected availability accepted — 2026-09-05
+
+Corpusdc637aa offline checker passed14/0.781s and actual baseline/acquisition/
+bundle binding0.016063s. Capture55bee79 passed15/0.176s, full retained input
+authentication0.074697s; root and independent review accepted. CI7a9efbb maps
+exact helper paths ordinary-only,60/1.191s. Full ordinary594/14.750s passed at
+clean7a9efbb; log /private/tmp/r7-pet-preavailability-ordinary-20260905.log.
+CI dry-run0.402958s preserved shared-smoke fallback; preview
+/private/tmp/r7-pet-availability-ci-preview-20260905.json. Readiness5628bfa
+recorded one selected assessment; no generation/parity was authorized by that
+boundary.
+
+Fresh corpus artifacts/r7-pet-availability1-20260905 passed. Receipt119808
+SHA256 13f5a8b69271a4c6932ed0105f29ab6a25c43ce7c0404dfe152ecae7347c5a09;
+response126907/661bb0723bee0b44e2d86f97fd6526d89ef64d58555a43fe61b23c0f12c13297.
+Capability1.916512s/acquisition1.676506s/binding0.022460s, whole3.919236708s;
+40 nonreceipt files73287582 logical/73355264 allocated bytes. Independent
+offline audit0.156777s authenticated134 source blobs, retained inventory/modes,
+copied inputs/cache/finalizers and checker replay without changing evidence.
+Acceptance1a453de and docs28bdd62 state planning readiness only; publication
+and validation not_run in this assessment. Pins and full0.8 identity unchanged.
+Next two-file parity helper unit retains entire historical PET file and exactly
+two public selections; no PET-specific normalization is needed. Parity and
+caller genericity remain pending; R7 incomplete.

@@ -5803,6 +5803,57 @@ The status-only follow-up passed change routing, `git diff --check`,
 `release_ci__fast` 15/15 and `schema_resources__fast` 73/73; release-candidate
 evidence remained explicitly deferred.
 
+## R7.1 DX/MG3 static import accepted — 2026-09-04
+
+The source-bound DX/MG3 transition is accepted at corpus commit
+`bdba58a984d107435ec1f8060250901a9107cdf2`. The imported cases are the DX
+display-shutter object and the MG for-presentation and for-processing objects.
+The live bundle is now content `0.5.0`: its exact inventory contains 20 logical
+cases and 25 physical members. This remains an additive, static-definition
+boundary; it does not claim that the public loader can generate the new cases.
+
+The fail-closed routing prerequisite was established by corpus commits
+`ded7d23708fa884782e67a85deb93e740c376af7`,
+`13246fe4e33e0054eca4ee71f318494f6a9706ad`,
+`dda191fa94888585a8ce024a154a5f61b9ae9993`, and
+`70b4ca1e0701df2936f2f8b4cf8c3158721a1e6e`. Those changes admit only the
+source-provenance-bound `0.4.0` to `0.5.0` transition, freeze the future
+inventory by identity rather than count, assign the three exact recipe paths,
+and declare the bounded `struct` import used by the retained baseline helper.
+Before the live definition advanced, commits
+`0b82cf61d9e4e6d7731b8407c56f3ce83f80618c` and
+`553fbf2b2ffc329aa2024d1287776ccd5aed9648` repaired historical fixtures so
+they reconstruct their original inventories instead of silently consuming
+new live rows.
+
+The exact imported static artifacts are:
+
+| artifact | bytes | SHA-256 |
+| --- | ---: | --- |
+| `corpus/cases/registry.json` | 52,836 | `d39b5cc57dae7c525b90eb2cedead7a2725feaade636719f552eaec550220b37` |
+| `corpus/corpus-definition.json` | 11,575 | `d8981e050b9b280bb398f725c09d2f167e1167c954c18e6da599f5095d77e71b` |
+| `corpus/cases/recipes/classic/dx/dx_display_shutter_mono2_u16.json` | 4,037 | `82228d5ef2be7496cf084c41b7b885bb31b3c6f911e93211f92158f71768bb68` |
+| `corpus/cases/recipes/classic/mg/mg_for_presentation_mono1_u16.json` | 4,160 | `4c963fca2cacab5f78dc28eae701278a4dc0445d06fef0f15d17a0afba9e76aa` |
+| `corpus/cases/recipes/classic/mg/mg_for_processing_mono2_u16.json` | 4,694 | `cec2846945593d2d6c70e2faf839b459045c67128a082eee59f673262de07d78` |
+
+Focused smoke-definition, metadata-availability and routing suites passed
+15/15, 14/14 and 38/38, respectively. The combined static suite passed 78/78,
+and the full corpus ordinary suite passed 318/318 in approximately 3.883s. The
+change-route dry run selected the fixed smoke three plus exactly the DX/MG
+three with configuration SHA-256
+`757e335e8790572908f1f39f0d8ce255d26240e872c935507adab9c830ac891e`.
+It continued to defer hosted delivery, full-corpus qualification, parity
+replay, viewer execution, Heavy qualification, and package/release evidence.
+The normal route was intentionally not executed because doing so would cross
+this static-only acceptance boundary into generation.
+
+This accepts R7.1 static ownership for the DX/MG3 slice only. Public-loader
+availability, migrated parity, R7.2/R7.3 genericity, independent conformance,
+viewer interoperability, wider R7 completion, R8, R9, and every remaining
+terminal qualification are still open. No native generation or Heavy
+qualification ran for this checkpoint, and the R7 summary state remains in
+progress.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

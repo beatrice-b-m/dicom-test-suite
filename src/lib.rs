@@ -39140,7 +39140,13 @@ mod tests {
         .expect("write escaped manifest");
 
         let error = validate_generated_root(&root).expect_err("parent traversal must fail");
-        assert!(error.to_string().contains("safe relative path"));
+        match error {
+            ValidateError::ManifestContract { path, message } => {
+                assert_eq!(path, manifest_path);
+                assert!(message.contains("manifest schema invalid"), "{message}");
+            }
+            other => panic!("parent traversal must fail at the manifest contract: {other}"),
+        }
         fs::remove_dir_all(workspace).expect("remove traversal workspace");
     }
 

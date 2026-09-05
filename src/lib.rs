@@ -4079,6 +4079,7 @@ fn negative_outcome_status(observed: &str, acceptable: &[&str]) -> &'static str 
     }
 }
 
+#[cfg(test)]
 fn validate_vl_single_frame_manifest_contract(
     manifest_path: &Path,
     file: &Value,

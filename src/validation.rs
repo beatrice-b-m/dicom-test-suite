@@ -2183,6 +2183,7 @@ fn reconstruct_tiled_full_matrix(pixel_bytes: &[u8]) -> Option<Vec<u8>> {
 }
 
 /// Re-run the strict Phase 4 WSI validator against a persisted manifest member.
+#[cfg(test)]
 pub(crate) fn validate_manifest_wsi_file(path: &Path, file: &Value) -> Result<(), GenerateError> {
     validate_manifest_wsi_file_for_kind(
         crate::manifest_contract::ManifestContractKind::CuratedGeneration,

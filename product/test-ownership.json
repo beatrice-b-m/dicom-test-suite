@@ -3,8 +3,8 @@
   "scope": {
     "rust_test_targets": 22,
     "integration_test_targets": 20,
-    "rust_test_entry_groups": 274,
-    "rust_test_entries": 1490,
+    "rust_test_entry_groups": 275,
+    "rust_test_entries": 1491,
     "integration_source_groups": 189,
     "integration_test_entries": 924,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
@@ -1305,7 +1305,7 @@
         "negative_and_fuzz_dependencies_cannot_cross_legacy_or_stress_boundaries",
         "excessive_undeclared_inventory_fails_without_buffering_all_names"
       ],
-      "entry_digest": "a0b711a07f5d2a9e89e46ecbe8dd510adc68c26548589b9445304bfdec8e6496"
+      "entry_digest": "930a4ca03cb982af0d7ec60e8bd9f336fbcd1a5b567110674bad25646b653e77"
     },
     {
       "source": "tests/corpus_plan.rs",
@@ -3811,6 +3811,18 @@
         "qualification_validation_rejects_output_and_rule_contract_drift"
       ],
       "entry_digest": "de9e11f3c7d71aa86175cc92c76a66c61c086aac816cf474503e5bdf7a37167e"
+    },
+    {
+      "source": "src/curated_manifest.rs",
+      "target": "synth_dicom_gen",
+      "domain": "corpus_generation",
+      "verification_class": "subsystem",
+      "cost_tier": "ordinary",
+      "entry_count": 1,
+      "entries": [
+        "pyramid_projection_uses_typed_complete_independent_groups"
+      ],
+      "entry_digest": "832e9f09004b3b94a9c17cf601c6d76856e0da74b3d5149fba49b2416ba99d02"
     },
     {
       "source": "src/curated_manifest/qualification.rs",

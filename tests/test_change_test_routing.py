@@ -36,6 +36,18 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
     def commands(result):
         return [" ".join(command["argv"]) for command in result["commands"]]
 
+    def test_pyramid_projection_adds_pure_check_without_replacing_corpus(self):
+        command = "cargo test --locked --no-default-features --lib curated_manifest::pyramid_projection_tests::"
+        result = self.select("src/curated_manifest.rs")
+        self.assertEqual(result["bundle_ids"], ["corpus", "pyramid_projection"])
+        self.assertIn(command, self.commands(result))
+        self.assertIn("cargo test --locked --no-default-features --test corpus_generation__subsystem", self.commands(result))
+        selected = [entry for entry in result["commands"] if entry.get("module") == "curated_manifest::pyramid_projection_tests"]
+        self.assertEqual(len(selected), 1)
+        self.assertEqual(selected[0]["list_count"], 1)
+        self.assertIn(command, self.commands(self.select(force_all=True)))
+        self.assertNotIn(command, self.commands(self.select("cases/registry.json")))
+
     def test_representative_surfaces_select_only_owning_bundles(self):
         fixtures = {
             "src/executor/engine.rs": (

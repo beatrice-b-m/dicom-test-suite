@@ -435,6 +435,11 @@ fn external_us_capability_is_name_independent_and_fail_closed() {
             "caller_ultrasound",
         ),
         (
+            "family-collision-5",
+            "vl/wsi/pyramid_multiresolution",
+            "caller_ultrasound",
+        ),
+        (
             "family-collision-6",
             "derived/seg/wsi_tile_reference",
             "caller_ultrasound",

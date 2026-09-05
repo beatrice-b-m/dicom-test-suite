@@ -16,6 +16,11 @@
     "unrouted_lib_groups": "All-configured-ordinary runs only list-proven representative lib prefixes; remaining ordinary lib groups stay explicit deferred evidence."
   },
   "bundles": {
+    "pyramid_projection": {
+      "commands": [
+        {"kind": "lib", "module": "curated_manifest::pyramid_projection_tests", "source": "src/curated_manifest.rs", "list_count": 1}
+      ]
+    },
     "external_corpus_cli": {
       "commands": [
         {"target": "cli_sdk__nonfast", "module": "external_corpus_cli"},
@@ -182,6 +187,11 @@
     }
   },
   "rules": [
+    {
+      "id": "pyramid-projection",
+      "exact": ["src/curated_manifest.rs"],
+      "bundles": ["pyramid_projection"]
+    },
     {
       "id": "isolated-sdk-consumer-proof",
       "exact": ["scripts/prove-isolated-corpus-consumer.py", "tests/fixtures/isolated-corpus-consumer/main.rs", "tests/test_isolated_corpus_consumer.py"],

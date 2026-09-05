@@ -858,18 +858,120 @@ fn project_wsi_pyramid_group(
     input: &ManifestProjectionInput,
     entries: &mut [Value],
 ) -> Result<(), CuratedManifestError> {
-    const CASE_ID: &str = "vl/wsi/pyramid_multiresolution";
-    let indexes = context
+    let artifacts = input
         .artifacts
         .iter()
-        .enumerate()
-        .filter_map(|(index, artifact)| {
-            (artifact.registry_case.case_id == CASE_ID).then_some(index)
-        })
+        .filter(|artifact| !matches!(artifact.planned, PlannedArtifact::Qualification(_)))
         .collect::<Vec<_>>();
-    if indexes.is_empty() {
-        return Ok(());
+    if context.artifacts.len() != artifacts.len() || entries.len() != artifacts.len() {
+        return fail("WSI projection context and artifact counts differ");
     }
+    let mut groups = std::collections::BTreeMap::<&str, Vec<usize>>::new();
+    for (index, ctx) in context.artifacts.iter().enumerate() {
+        groups
+            .entry(&ctx.registry_case.case_id)
+            .or_default()
+            .push(index);
+    }
+    for indexes in groups.values() {
+        let has_intent = indexes.iter().any(|index| {
+            let ctx = &context.artifacts[*index];
+            let template_intent = ctx
+                .artifact_recipe
+                .template
+                .as_ref()
+                .is_some_and(|template| {
+                    matches!(
+                        template.template_id.as_str(),
+                        "vl/wsi/pyramid-volume"
+                            | "vl/wsi/pyramid-thumbnail"
+                            | "vl/wsi/pyramid-label"
+                    )
+                });
+            let planned_intent = matches!(&artifacts[*index].planned, PlannedArtifact::Dicom(planned)
+                if matches!(planned.instance.template_id.0.as_str(), "vl/wsi/pyramid-volume" | "vl/wsi/pyramid-thumbnail" | "vl/wsi/pyramid-label"));
+            planned_intent || template_intent
+                || (ctx.case_recipe.plan_provider_id == "native.wsi_plan"
+                    && wsi_artifact_parameters(ctx).is_ok_and(|item| {
+                        matches!(
+                            item.pixel_algorithm,
+                            WsiPixelAlgorithm::Thumbnail | WsiPixelAlgorithm::Label
+                        ) || (matches!(
+                            item.pixel_algorithm,
+                            WsiPixelAlgorithm::TiledColorQuadrants
+                        ) && item.parameters.pyramid_membership)
+                    }))
+        });
+        if !has_intent {
+            continue;
+        }
+        if indexes.len() != 3 {
+            return fail("WSI pyramid compatibility projection requires all three members");
+        }
+        let mut roles = BTreeSet::new();
+        for index in indexes {
+            let ctx = &context.artifacts[*index];
+            let PlannedArtifact::Dicom(planned) = &artifacts[*index].planned else {
+                return fail("WSI pyramid member is not DICOM");
+            };
+            let item = wsi_artifact_parameters(ctx).map_err(|error| err(error.to_string()))?;
+            let role = ctx.artifact_recipe.output.role.as_str();
+            let (template_id, kind, algorithm, member) = match role {
+                "volume" => (
+                    "vl/wsi/pyramid-volume",
+                    crate::recipes::WholeSlideArtifactKind::Volume,
+                    WsiPixelAlgorithm::TiledColorQuadrants,
+                    true,
+                ),
+                "thumbnail" => (
+                    "vl/wsi/pyramid-thumbnail",
+                    crate::recipes::WholeSlideArtifactKind::Thumbnail,
+                    WsiPixelAlgorithm::Thumbnail,
+                    true,
+                ),
+                "label" => (
+                    "vl/wsi/pyramid-label",
+                    crate::recipes::WholeSlideArtifactKind::Label,
+                    WsiPixelAlgorithm::Label,
+                    false,
+                ),
+                _ => return fail("WSI pyramid has an unsupported role"),
+            };
+            if !roles.insert(role)
+                || ctx.case_recipe.plan_provider_id != "native.wsi_plan"
+                || ctx.case_recipe.provider_parameters.get("dependency_mode")
+                    != Some(&json!("volume_root"))
+                || ctx.artifact_recipe.algorithm_provider_id.as_deref() != Some("algorithm.wsi")
+                || ctx.artifact_recipe.content.provider_id != "content.native_pixels"
+                || ctx
+                    .artifact_recipe
+                    .template
+                    .as_ref()
+                    .is_none_or(|template| {
+                        template.template_id != template_id || template.template_version != "1.0.0"
+                    })
+                || planned.instance.template_id.0.as_str() != template_id
+                || planned.instance.template_version.to_string() != "1.0.0"
+                || planned.instance.sop_class_uid != "1.2.840.10008.5.1.4.1.1.77.1.6"
+                || planned.output.role != role
+                || item.kind != kind
+                || item.pixel_algorithm != algorithm
+                || item.parameters.pyramid_membership != member
+            {
+                return fail("WSI pyramid captured recipe and plan contract differ");
+            }
+        }
+        project_wsi_pyramid_members(context, &artifacts, entries, indexes)?;
+    }
+    Ok(())
+}
+
+fn project_wsi_pyramid_members(
+    context: &CuratedScProjectionContext,
+    artifacts: &[&ManifestProjectionArtifact],
+    entries: &mut [Value],
+    indexes: &[usize],
+) -> Result<(), CuratedManifestError> {
     if indexes.len() != 3 {
         return fail("WSI pyramid compatibility projection requires all three members");
     }
@@ -883,7 +985,7 @@ fn project_wsi_pyramid_group(
     };
     let ordered = [by_role("volume")?, by_role("thumbnail")?, by_role("label")?];
     let planned = ordered
-        .map(|index| match &input.artifacts[index].planned {
+        .map(|index| match &artifacts[index].planned {
             PlannedArtifact::Dicom(artifact) => Ok(artifact),
             _ => fail("WSI pyramid member is not DICOM"),
         })
@@ -891,7 +993,7 @@ fn project_wsi_pyramid_group(
         .collect::<Result<Vec<_>, _>>()?;
     let output = ordered
         .map(|index| {
-            input.artifacts[index]
+            artifacts[index]
                 .execution
                 .output
                 .as_ref()
@@ -3862,4 +3964,185 @@ pub(super) fn err(message: impl Into<String>) -> CuratedManifestError {
 }
 pub(super) fn fail<T>(message: impl Into<String>) -> Result<T, CuratedManifestError> {
     Err(err(message))
+}
+
+#[cfg(test)]
+mod pyramid_projection_tests {
+    use super::*;
+    use crate::curated_plan::{
+        CuratedCatalogPaths, CuratedScCorpusPlanProvider, CuratedScPlanRequest, CuratedScSelection,
+    };
+
+    #[test]
+    fn pyramid_projection_uses_typed_complete_independent_groups() {
+        let provider =
+            CuratedScCorpusPlanProvider::load(CuratedCatalogPaths::from_repository_root("."))
+                .unwrap();
+        let bundle = provider
+            .plan(&CuratedScPlanRequest {
+                selection: CuratedScSelection::CaseIds(vec![
+                    "vl/wsi/pyramid_multiresolution".into(),
+                ]),
+                seed: 7,
+                max_parallelism: 1,
+            })
+            .unwrap();
+        let context = bundle.projection;
+        assert_eq!(context.artifacts.len(), 3);
+        // Synthetic output records exercise pure projection only; no payload is emitted.
+        let artifacts = bundle.plan.artifacts.iter().enumerate().map(|(index, planned)| {
+            let PlannedArtifact::Dicom(dicom) = planned else { panic!("expected DICOM plan"); };
+            ManifestProjectionArtifact {
+                planned: planned.clone(),
+                execution: serde_json::from_value(json!({
+                    "logical_id":dicom.logical_id,"order":dicom.order,"artifact_kind":"dicom","status":"succeeded",
+                    "corpus_plan_sha256":"0".repeat(64),"instance_plan_sha256":dicom.instance.canonical_sha256(),
+                    "output":{"relative_path":format!("synthetic/{index}.dcm"),"publish":true,"size_bytes":1000+index,"sha256":format!("{index:064x}")},
+                    "materialization":null,"validation":[],"obligations":[],"providers":[],"codecs":[],
+                    "resources":{"planned_output_bytes":2000,"planned_peak_working_bytes":2000,"actual_output_bytes":1000+index,"actual_peak_working_bytes":null,"elapsed_milliseconds":0}
+                })).unwrap(),
+            }
+        }).collect();
+        let input = ManifestProjectionInput {
+            corpus_plan_sha256:"0".repeat(64), artifacts, unavailable:vec![],
+            resources:serde_json::from_value(json!({"planned_max_artifacts":3,"planned_max_total_output_bytes":6000,"planned_max_peak_working_bytes":6000,"requested_parallelism":1,"used_parallelism":1,"actual_artifact_output_bytes":3003,"actual_publication_bytes":0,"actual_peak_working_bytes":null})).unwrap(),
+            publication:serde_json::from_value(json!({"manifest_relative_path":"manifest.json","state":"staging","private_staging":true,"no_overwrite":true,"validation_complete":false,"cleanup_complete":false,"manifest_sha256":null})).unwrap(),
+        };
+        let blank = || vec![json!({"retained":"unchanged"}); 3];
+        let mut expected = blank();
+        // The historical role-ordered projection body is unchanged by activation.
+        project_wsi_pyramid_members(
+            &context,
+            &input.artifacts.iter().collect::<Vec<_>>(),
+            &mut expected,
+            &[0, 1, 2],
+        )
+        .unwrap();
+        let mut actual = blank();
+        project_wsi_pyramid_group(&context, &input, &mut actual).unwrap();
+        assert_eq!(actual, expected);
+        assert!(actual.iter().all(|file| file["retained"] == "unchanged"));
+        for (index, role) in ["volume", "thumbnail", "label"].iter().enumerate() {
+            assert_eq!(actual[index]["wsi_pyramid_role"], *role);
+            assert_eq!(actual[index]["wsi_pyramid_ordinal"], index + 1);
+        }
+        let mut renamed = context.clone();
+        for ctx in &mut renamed.artifacts {
+            ctx.registry_case.case_id = "caller/pyramid".into();
+        }
+        actual = blank();
+        project_wsi_pyramid_group(&renamed, &input, &mut actual).unwrap();
+        assert_eq!(actual, expected);
+        let mut both = context.clone();
+        both.artifacts.extend(renamed.artifacts.clone());
+        let mut both_input = input.clone();
+        both_input.artifacts.extend(input.artifacts.clone());
+        let mut both_entries = [blank(), blank()].concat();
+        project_wsi_pyramid_group(&both, &both_input, &mut both_entries).unwrap();
+        assert_eq!(both_entries, [expected.clone(), expected.clone()].concat());
+        let us = provider
+            .plan(&CuratedScPlanRequest {
+                selection: CuratedScSelection::CaseIds(vec![
+                    "classic/us/mono2_u8_explicit_le".into(),
+                ]),
+                seed: 7,
+                max_parallelism: 1,
+            })
+            .unwrap();
+        let mut no_intent = us.projection;
+        no_intent.artifacts[0].registry_case.case_id = "vl/wsi/pyramid_multiresolution".into();
+        let mut us_input = input.clone();
+        us_input.artifacts.truncate(1);
+        us_input.artifacts[0].planned = us.plan.artifacts[0].clone();
+        let mut untouched = vec![json!({"ordinary":"US"})];
+        project_wsi_pyramid_group(&no_intent, &us_input, &mut untouched).unwrap();
+        assert_eq!(untouched, vec![json!({"ordinary":"US"})]);
+        let mut empty_context = context.clone();
+        empty_context.artifacts.clear();
+        let mut empty_input = input.clone();
+        empty_input.artifacts.clear();
+        project_wsi_pyramid_group(&empty_context, &empty_input, &mut []).unwrap();
+        let mut hidden_recipe = context.clone();
+        for ctx in &mut hidden_recipe.artifacts {
+            ctx.case_recipe.plan_provider_id = "native.classic_plan".into();
+            ctx.artifact_recipe.template = None;
+            ctx.artifact_recipe.parameters.clear();
+        }
+        assert!(project_wsi_pyramid_group(&hidden_recipe, &input, &mut blank()).is_err());
+        let PlannedArtifact::Dicom(first) = &input.artifacts[0].planned else {
+            unreachable!()
+        };
+        let mut qualification = input.artifacts[0].clone();
+        qualification.planned =
+            PlannedArtifact::Qualification(crate::corpus_plan::PlannedQualification {
+                logical_id: "synthetic-qualification".into(),
+                order: 0,
+                provenance: first.provenance.clone(),
+                case_binding: None,
+                profile: None,
+                run_seed: None,
+                qualification_kind: "synthetic".into(),
+                parameters: Default::default(),
+                sources: vec![],
+                payload_policy: crate::corpus_plan::QualificationPayloadPolicy::NoPayload,
+                validation: first.validation.clone(),
+                evidence: first.evidence.clone(),
+                resources: first.resources.clone(),
+            });
+        for index in [0, 1, 3] {
+            let mut interleaved = input.clone();
+            interleaved.artifacts.insert(index, qualification.clone());
+            actual = blank();
+            project_wsi_pyramid_group(&context, &interleaved, &mut actual).unwrap();
+            assert_eq!(actual, expected);
+        }
+        let mut extra_context = context.clone();
+        extra_context.artifacts.push(context.artifacts[0].clone());
+        let mut extra_input = input.clone();
+        extra_input.artifacts.push(input.artifacts[0].clone());
+        assert!(
+            project_wsi_pyramid_group(&extra_context, &extra_input, &mut vec![json!({}); 4])
+                .unwrap_err()
+                .to_string()
+                .contains("all three members")
+        );
+        for mutation in 0..7 {
+            let mut changed = context.clone();
+            match mutation {
+                0 => changed.artifacts[0].registry_case.case_id = "caller/split".into(),
+                1 => changed.artifacts[1].artifact_recipe.output.role = "volume".into(),
+                2 => {
+                    changed.artifacts[0]
+                        .artifact_recipe
+                        .template
+                        .as_mut()
+                        .unwrap()
+                        .template_id = "vl/wsi/tiled-full".into()
+                }
+                3 => {
+                    changed.artifacts[0].case_recipe.plan_provider_id = "native.classic_plan".into()
+                }
+                4 => {
+                    changed.artifacts[0]
+                        .artifact_recipe
+                        .parameters
+                        .insert("pixel_algorithm".into(), json!({"algorithm":"thumbnail"}));
+                }
+                5 => changed.artifacts[0].artifact_recipe.algorithm_provider_id = None,
+                _ => {
+                    changed.artifacts.push(changed.artifacts[0].clone());
+                }
+            }
+            assert!(
+                project_wsi_pyramid_group(&changed, &input, &mut blank()).is_err(),
+                "mutation {mutation}"
+            );
+        }
+        let mut changed_input = input.clone();
+        let PlannedArtifact::Dicom(first) = &mut changed_input.artifacts[0].planned else {
+            unreachable!()
+        };
+        first.instance.sop_class_uid = "1.2.3".into();
+        assert!(project_wsi_pyramid_group(&context, &changed_input, &mut blank()).is_err());
+    }
 }

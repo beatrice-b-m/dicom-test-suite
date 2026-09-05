@@ -1991,3 +1991,24 @@ This accepts same-project bounded migrated parity only. The next sequential
 R7.2/R7.3 source boundary requires typed caller-defined photographic capability,
 loader/execution integration and standalone public proof before guides.
 A read-only design audit owns no files; source edits not started. R7open/R8R9held.
+
+## VL photographic source capability ownership assigned — 2026-09-05
+
+Following accepted migrated parity, read-only design audit identified shared
+photo intent also reaches historical ICC and three RLE recipes. Planner-only
+owner has src/recipes/classic_vl_projection.rs, existing pure planner test,
+product/test-ownership.json and spelling-transition ledger. Fixed native RGB/
+palette typed tuples must bind all9providerfields/artifact/projectionflags,
+oneprimaryinstance/order0 and policy exclusions before casts, while permitting
+calleridentities/uniqueplanning+projectionorders/safepaths. Intent classification
+uses template/modality/SOP rather than historical names. Other8ownedroutes
+remain preserved, including exact historical ICC/RLE tuples, without blanket
+unsupported caller admission. Palette catalog RGB-only contradiction remains
+explicit until a separately reviewed metadata clarification.
+
+Next sequential units, not yet assigned for edits, are loader/registryXC
+admission plus typed execution dispatch, standalone4member publicCLI/SDK
+proof with source oracle, then currentguides. Existing artifactpins unchanged.
+Focused pure planner/catalog/source and Fast checks use only
+/private/tmp/dts-dx-mg-genericity-target with incremental/debugdisabled; no
+recursive lib formatting, heavy or additional corpus native runs. R7open/R8R9held.

@@ -23,6 +23,9 @@
         {"target": "cli_sdk__nonfast", "module": "report_cli"}
       ]
     },
+    "generic_cr_public_contract": {
+      "commands": [{"target": "cli_sdk__nonfast", "module": "external_corpus_cli"}]
+    },
     "generic_sc_public_contract": {
       "commands": [{"target": "cli_sdk__nonfast", "module": "external_corpus_cli"}]
     },
@@ -525,6 +528,19 @@
       "id": "examples",
       "prefixes": ["examples/"],
       "bundles": ["composition", "sdk"]
+    },
+    {
+      "id": "generic-cr-public-contract",
+      "exact": [
+        "tests/support/generic_cr_bundle.rs",
+        "tests/fixtures/generic-cr-semantics.json"
+      ],
+      "prefixes": [
+        "tests/fixtures/generic-cr-corpus/"
+      ],
+      "bundles": [
+        "generic_cr_public_contract"
+      ]
     }
   ],
   "ignored": {

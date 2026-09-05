@@ -4,9 +4,9 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 274,
-    "rust_test_entries": 1488,
+    "rust_test_entries": 1489,
     "integration_source_groups": 189,
-    "integration_test_entries": 923,
+    "integration_test_entries": 924,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
   },
   "enums": {
@@ -1851,7 +1851,7 @@
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 10,
+      "entry_count": 11,
       "entries": [
         "loaded_capabilities_are_verified_destination_free_and_sdk_consistent",
         "caller_named_ct_cli_is_sdk_identical_strictly_valid_and_reported",
@@ -1862,9 +1862,10 @@
         "external_cli_errors_are_structural_and_prepublication",
         "external_cli_descriptor_limits_versions_and_missing_options_fail_closed",
         "corpus_option_looking_value_does_not_select_external_dispatch",
-        "caller_named_sc_cli_is_sdk_identical_strictly_valid_and_reported"
+        "caller_named_sc_cli_is_sdk_identical_strictly_valid_and_reported",
+        "caller_named_cr_cli_is_sdk_identical_strictly_valid_and_reported"
       ],
-      "entry_digest": "32b1d8afc44c23025557a079337e91b945425e06f5eaf8441b059b90b93dfb2e"
+      "entry_digest": "d4019c51ec692d02b337c36187cd5bea12b6fc709667d0c1729bbedecd51d490"
     },
     {
       "source": "tests/frame_codec_service.rs",

@@ -1,0 +1,77 @@
+{
+  "corpus_definition_bundle_schema_version": "1.0.0",
+  "definition_id": "fixture.generic-cr",
+  "definition_version": "1.0.0",
+  "profiles": [
+    {
+      "profile_id": "smoke",
+      "scope": "valid",
+      "members": []
+    },
+    {
+      "profile_id": "core",
+      "scope": "valid",
+      "members": [
+        "classic/mr/caller-radiography"
+      ]
+    },
+    {
+      "profile_id": "extended",
+      "scope": "valid",
+      "members": []
+    },
+    {
+      "profile_id": "legacy",
+      "scope": "legacy",
+      "members": []
+    },
+    {
+      "profile_id": "stress",
+      "scope": "stress",
+      "members": []
+    },
+    {
+      "profile_id": "negative",
+      "scope": "expected_invalid",
+      "members": []
+    },
+    {
+      "profile_id": "fuzz",
+      "scope": "fuzz",
+      "members": []
+    },
+    {
+      "profile_id": "all",
+      "scope": "valid",
+      "union_of": [
+        "smoke",
+        "core",
+        "extended"
+      ],
+      "optional_profile": "stress",
+      "members": []
+    }
+  ],
+  "registry": {
+    "path": "cases/registry.json",
+    "size_bytes": 4447,
+    "sha256": "7142ce0b7836184544f3c48e1d14954f0ed513cb7d24ba3d7de807ebde14d32f"
+  },
+  "cases": [
+    {
+      "case_id": "classic/mr/caller-radiography",
+      "recipe_id": "caller_radiography",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/caller_radiography.json",
+        "size_bytes": 3969,
+        "sha256": "0b5766a150acb42cf4afed96fa0b6dfe4a14a42b17a43efcb7c30b0262371639"
+      },
+      "dependencies": [],
+      "evidence_ids": [],
+      "asset_ids": []
+    }
+  ],
+  "evidence": [],
+  "assets": []
+}

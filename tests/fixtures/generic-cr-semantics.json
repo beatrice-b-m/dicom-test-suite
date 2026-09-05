@@ -1,0 +1,94 @@
+{
+  "oracle_version": "1.0.0",
+  "source_receipt_sha256": "1e8f489341d60babbdebd859a1bf3bd36c4937e9c0daeba70295e67fbd940350",
+  "cases": [
+    {
+      "source_case": "classic/cr/overlay_modality_voi_explicit_le",
+      "caller_case": "classic/mr/caller-radiography",
+      "recipe_id": "caller_radiography",
+      "output_path": "independent/radiography.dcm",
+      "profile": "core",
+      "source_size_bytes": 1306,
+      "source_sha256": "c76c07478ba42de9093918bc50ed53c6a99eaabee571187ba4d8e4a4c7bdd075",
+      "recipe_parameters": {
+        "bits_allocated": 8,
+        "bits_stored": 8,
+        "body_part_examined": "CHEST",
+        "columns": 2,
+        "high_bit": 7,
+        "modality_lut": {
+          "data_value_length": 8,
+          "descriptor": [
+            4,
+            0,
+            16
+          ],
+          "type": "US"
+        },
+        "overlay": {
+          "bit_position": 0,
+          "bits_allocated": 1,
+          "columns": 2,
+          "origin": [
+            1,
+            1
+          ],
+          "rows": 2,
+          "type": "G",
+          "value_length": 2
+        },
+        "photometric_interpretation": "MONOCHROME2",
+        "pixel_representation": 0,
+        "pixel_values": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "rows": 2,
+        "samples_per_pixel": 1,
+        "view_position": "PA",
+        "voi_lut": {
+          "data_value_length": 8,
+          "descriptor": [
+            4,
+            0,
+            16
+          ]
+        }
+      },
+      "image": {
+        "bits_allocated": 8,
+        "bits_stored": 8,
+        "columns": 2,
+        "frames": 1,
+        "high_bit": 7,
+        "photometric_interpretation": "MONOCHROME2",
+        "pixel_representation": 0,
+        "planar_configuration": null,
+        "rows": 2,
+        "samples_per_pixel": 1
+      },
+      "pixel_data": {
+        "frame_count": 1,
+        "frame_hashes": [
+          "054edec1d0211f624fed0cbca9d4f9400b0e491c43742af2c5b0abebf0c990d8"
+        ],
+        "native_or_encapsulated": "native",
+        "value_length": 4,
+        "vr": "OB"
+      },
+      "expected_semantics": {
+        "image_type": "ORIGINAL\\PRIMARY",
+        "modality_lut": "stored values 0..3 map through a four-entry 16-bit Modality LUT",
+        "overlay_pattern": "2x2_diagonal_overlay",
+        "pixel_max": 3,
+        "pixel_min": 0,
+        "synthetic_data": "YES",
+        "voi_lut": "post-modality values can be windowed through a four-entry 16-bit VOI LUT"
+      },
+      "caller_size_bytes": 1300,
+      "caller_sha256": "cd4c473583688813b83d63581218e278fef4671ffd6287114711c97c7994e9b6"
+    }
+  ]
+}

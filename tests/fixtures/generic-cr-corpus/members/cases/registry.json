@@ -1,0 +1,152 @@
+{
+  "case_registry_schema_version": "0.2.0",
+  "cases": [
+    {
+      "case_id": "classic/mr/caller-radiography",
+      "status": "implemented",
+      "profiles": [
+        "core"
+      ],
+      "recipe_id": "caller_radiography",
+      "recipe_version": "0.1.0",
+      "iod_name": "Computed Radiography Image",
+      "sop_class_name": "Computed Radiography Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.1",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class ComputedRadiographyImageStorage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod Computed Radiography Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.2-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Computed Radiography Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.2-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module CR Series --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module CR Image --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-2"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Overlay Plane --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.9-2"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Modality LUT --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.11-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module VOI LUT --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.11-2"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element OverlayRows",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element OverlayData",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element ModalityLUTSequence",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element VOILUTSequence",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element LUTDescriptor",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "CR",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "modality",
+        "pixels"
+      ],
+      "artifact_kind": "dicom_instance"
+    }
+  ]
+}

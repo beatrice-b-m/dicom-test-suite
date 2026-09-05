@@ -1,0 +1,151 @@
+{
+  "case_recipe_schema_version": "0.1.0",
+  "recipe_id": "caller_radiography",
+  "recipe_version": "0.1.0",
+  "binding": {
+    "case_id": "classic/mr/caller-radiography"
+  },
+  "kind": "dicom",
+  "plan_provider_id": "native.classic_plan",
+  "planning_order": 900,
+  "projection_order": 901,
+  "dependencies": [],
+  "provider_parameters": {},
+  "validation_rule_ids": [
+    "validation.shared"
+  ],
+  "projection_rule_ids": [
+    "projection.curated"
+  ],
+  "dicom": {
+    "artifacts": [
+      {
+        "logical_id": "instance",
+        "order": 0,
+        "template": {
+          "template_id": "classic/cr",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "instance",
+          "path": "independent/radiography.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "rows": 2,
+          "columns": 2,
+          "stored_values": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "pixel_min": 0,
+          "pixel_max": 3,
+          "frame_sha256": "054edec1d0211f624fed0cbca9d4f9400b0e491c43742af2c5b0abebf0c990d8",
+          "body_part_examined": "CHEST",
+          "view_position": "PA",
+          "overlay": {
+            "rows": 2,
+            "columns": 2,
+            "overlay_type": "G",
+            "origin": [
+              1,
+              1
+            ],
+            "bits_allocated": 1,
+            "bit_position": 0,
+            "data": [
+              9,
+              0
+            ]
+          },
+          "modality_lut": {
+            "descriptor": [
+              4,
+              0,
+              16
+            ],
+            "explanation": "Synthetic CR modality LUT",
+            "lut_type": "US",
+            "data": [
+              0,
+              0,
+              0,
+              4,
+              0,
+              8,
+              255,
+              15
+            ]
+          },
+          "voi_lut": {
+            "descriptor": [
+              4,
+              0,
+              16
+            ],
+            "explanation": "Synthetic CR VOI LUT",
+            "lut_type": null,
+            "data": [
+              0,
+              0,
+              85,
+              85,
+              170,
+              170,
+              255,
+              255
+            ]
+          }
+        },
+        "attribute_operations": [],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {}
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "computed_radiography_image_storage",
+          "overlay_plane",
+          "modality_lut_sequence",
+          "voi_lut_sequence"
+        ],
+        "algorithm_provider_id": "algorithm.classic_mr_cr",
+        "classic_projection": {
+          "family": "mr_cr",
+          "expected_capabilities": [
+            "open_file",
+            "read_metadata",
+            "render_native_pixels",
+            "read_overlay_plane",
+            "apply_modality_lut",
+            "apply_voi_lut"
+          ],
+          "visual_pattern": "2x2_cr_overlay_lut_gradient",
+          "semantic_labels": {
+            "overlay_pattern": "2x2_diagonal_overlay",
+            "modality_lut": "stored values 0..3 map through a four-entry 16-bit Modality LUT",
+            "voi_lut": "post-modality values can be windowed through a four-entry 16-bit VOI LUT"
+          },
+          "standards_evidence_append": [],
+          "include_implementation_version_name": false
+        }
+      }
+    ]
+  }
+}

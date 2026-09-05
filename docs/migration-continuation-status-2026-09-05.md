@@ -1491,3 +1491,17 @@ Next ordinary native slice is XA/XRF2, whose source/helper preparation is
 already committed; recheck its pinned-source complete oracle before opening
 the explicit native baseline gate. VL2 source preparation remains accepted
 without execution and shares the later classic-VL provider boundary.
+
+## XA/XRF baseline correction accepted — 2026-09-05
+
+Corpus cdcea72 corrects the two-file helper/test unit before any XA/XRF native
+execution: source findings68/122, complete typed projections and report fields,
+independent literal expectations and replay count2. Root and independent
+source review accepted; focused18 tests/1.297s and full ordinary615/14.562s
+passed. Log /private/tmp/r7-xa-xrf-prebaseline-ordinary-20260905.log; clean
+commit and diff verified. Corpus f31da39 records the explicit fresh baseline1
+boundary using unchanged original generator/separate reporter locks, exact
+XA/XRF2 core seed1 selection and retained failure evidence. Final read-only
+readiness review precedes execution. No native result is claimed here.
+R7 remains open; public compatibility changes will follow baseline/import/parity
+sequentially. VL source preparation remains disjoint and execution unopened.

@@ -3797,6 +3797,22 @@
       "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
     },
     {
+      "path": "tests/fixtures/generic-xa-xrf-corpus/members/cases/recipes/caller_angiography.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
+      "path": "tests/fixtures/generic-xa-xrf-corpus/members/cases/recipes/caller_fluoroscopy.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
       "path": "tests/general_ecg_waveform.rs",
       "token": "dicom-test-suite",
       "class": "legacy_payload_schema_fixture_or_evidence",
@@ -4622,11 +4638,11 @@
     }
   ],
   "retained_snapshot": {
-    "match_count": 1070,
-    "sha256": "0361dfc778d5a5f780fff67829c907e4d113ac22c4288b748ca6543a7563e9b5",
+    "match_count": 1072,
+    "sha256": "8b620d3792a7d1c15ad607256cf6a7b4404d52b06862577447b9682314cd4c20",
     "by_class": {
       "dicom_payload_identifier": 203,
-      "legacy_payload_schema_fixture_or_evidence": 422,
+      "legacy_payload_schema_fixture_or_evidence": 424,
       "locked_python_module_or_backend": 148,
       "qualified_adapter_environment": 155,
       "qualified_adapter_or_test_fixture": 142

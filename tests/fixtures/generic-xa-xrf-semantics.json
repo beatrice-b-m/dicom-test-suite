@@ -1,0 +1,371 @@
+{
+  "oracle_version": "1.0.0",
+  "source_receipt_sha256": "f9a5e8cadd320856fd320b17f0cafb4f552b9796327d4b10ca5eac6a363caeaf",
+  "parity_receipt_sha256": "d48da594544c82e70846440320d7d59a4789891851bcd6d614372eaffb442cc4",
+  "cases": [
+    {
+      "source_case": "classic/xa/monoplane_explicit_le",
+      "caller_case": "caller/acquisition/angiography",
+      "recipe_id": "caller_angiography",
+      "output_path": "independent/angiography.dcm",
+      "profile": "core",
+      "source_size_bytes": 1172,
+      "source_sha256": "7efc114021a4a292e7170055f92948823844192d3f3609509a73b8e2b97dc824",
+      "recipe_parameters": {
+        "bits_allocated": 8,
+        "bits_stored": 8,
+        "columns": 4,
+        "frames": 1,
+        "high_bit": 7,
+        "payload_sha256": "0b9c742cc3fafec4c1d0240048d27210f2da155b3574458ae26035ffa488c00e",
+        "photometric_interpretation": "MONOCHROME2",
+        "pixel_representation": 0,
+        "rows": 4,
+        "samples_per_pixel": 1,
+        "xa_projection": {
+          "biplane_data_present": false,
+          "body_part_examined": "HEART",
+          "contrast_used": false,
+          "distance_source_to_detector_mm": 1200.0,
+          "distance_source_to_patient_mm": 800.0,
+          "estimated_radiographic_magnification_factor": 1.5,
+          "exposure_mas": 4,
+          "frame_count": 1,
+          "image_type": [
+            "ORIGINAL",
+            "PRIMARY",
+            "SINGLE PLANE"
+          ],
+          "imager_pixel_spacing_mm": [
+            0.2,
+            0.2
+          ],
+          "kvp": 80.0,
+          "laterality_present": false,
+          "lossy_image_compression": "00",
+          "multiframe_cine": false,
+          "patient_orientation_empty": true,
+          "patient_space_geometry_present": false,
+          "pixel_intensity_relationship": "LIN",
+          "pixel_spacing_calibrated": false,
+          "positioner_primary_angle_degrees": 15.0,
+          "positioner_secondary_angle_degrees": -10.0,
+          "radiation_setting": "GR",
+          "subtraction_applied": false,
+          "table_motion_present": false
+        }
+      },
+      "image": {
+        "bits_allocated": 8,
+        "bits_stored": 8,
+        "columns": 4,
+        "frames": 1,
+        "high_bit": 7,
+        "photometric_interpretation": "MONOCHROME2",
+        "pixel_representation": 0,
+        "planar_configuration": null,
+        "rows": 4,
+        "samples_per_pixel": 1
+      },
+      "pixel_data": {
+        "frame_count": 1,
+        "frame_hashes": [
+          "0b9c742cc3fafec4c1d0240048d27210f2da155b3574458ae26035ffa488c00e"
+        ],
+        "native_or_encapsulated": "native",
+        "value_length": 16,
+        "vr": "OB"
+      },
+      "expected_semantics": {
+        "body_part_examined": "HEART",
+        "image_type": "ORIGINAL\\PRIMARY\\SINGLE PLANE",
+        "pixel_max": 255,
+        "pixel_min": 0,
+        "synthetic_data": "YES"
+      },
+      "standards_evidence": [
+        {
+          "anchor": "table_A-1",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.6",
+          "query": "dicom-kb lookup uid XRayAngiographicImageStorage --edition 2026b",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_B.5-1",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.4",
+          "query": "lookup_sop_class X-Ray Angiographic Image Storage",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_A.14-1",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.3",
+          "query": "list_modules_for_iod X-Ray Angiographic Image",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_C.8-26",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.3",
+          "query": "list_attributes_for_module X-Ray Image",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_C.8-27",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.3",
+          "query": "list_attributes_for_module X-Ray Acquisition",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_C.8-30",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.3",
+          "query": "list_attributes_for_module XA Positioner",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_A.14-1",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.3",
+          "query": "standards/source-notes/phase-2-xa-monoplane.md",
+          "source": "local-source-note"
+        },
+        {
+          "anchor": "table_C.8-26",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.3",
+          "query": "list_attributes_for_module X-Ray Image; X-Ray Acquisition; XA Positioner",
+          "source": "dicom-standard-kb"
+        }
+      ],
+      "expected_xa_projection": {
+        "biplane_data_present": false,
+        "body_part_examined": "HEART",
+        "contrast_used": false,
+        "distance_source_to_detector_mm": 1200.0,
+        "distance_source_to_patient_mm": 800.0,
+        "estimated_radiographic_magnification_factor": 1.5,
+        "exposure_mas": 4,
+        "frame_count": 1,
+        "image_type": [
+          "ORIGINAL",
+          "PRIMARY",
+          "SINGLE PLANE"
+        ],
+        "imager_pixel_spacing_mm": [
+          0.2,
+          0.2
+        ],
+        "kvp": 80.0,
+        "laterality_present": false,
+        "lossy_image_compression": "00",
+        "multiframe_cine": false,
+        "patient_orientation_empty": true,
+        "patient_space_geometry_present": false,
+        "pixel_intensity_relationship": "LIN",
+        "pixel_spacing_calibrated": false,
+        "positioner_primary_angle_degrees": 15.0,
+        "positioner_secondary_angle_degrees": -10.0,
+        "radiation_setting": "GR",
+        "subtraction_applied": false,
+        "table_motion_present": false
+      },
+      "modality": "XA",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.12.1",
+      "caller_size_bytes": 1158,
+      "caller_sha256": "2af0a736db7962661e050d24355ebe01031e1746ce2565b0a6a51a7a1bfce917"
+    },
+    {
+      "source_case": "classic/xrf/monoplane_explicit_le",
+      "caller_case": "caller/acquisition/fluoroscopy",
+      "recipe_id": "caller_fluoroscopy",
+      "output_path": "independent/fluoroscopy.dcm",
+      "profile": "core",
+      "source_size_bytes": 1166,
+      "source_sha256": "da7415ddb66c2cce4a3e8c27eb4f5a04a6f03b3bfb9402346fe13a41fadf30ff",
+      "recipe_parameters": {
+        "bits_allocated": 8,
+        "bits_stored": 8,
+        "columns": 4,
+        "frames": 1,
+        "high_bit": 7,
+        "payload_sha256": "0b9c742cc3fafec4c1d0240048d27210f2da155b3574458ae26035ffa488c00e",
+        "photometric_interpretation": "MONOCHROME2",
+        "pixel_representation": 0,
+        "rows": 4,
+        "samples_per_pixel": 1,
+        "xrf_projection": {
+          "biplane_data_present": false,
+          "body_part_examined": "ABDOMEN",
+          "column_angulation_degrees": 10.0,
+          "contrast_used": false,
+          "distance_source_to_detector_mm": 1200.0,
+          "distance_source_to_patient_mm": 800.0,
+          "estimated_radiographic_magnification_factor": 1.5,
+          "exposure_mas": 1,
+          "frame_count": 1,
+          "image_type": [
+            "ORIGINAL",
+            "PRIMARY",
+            "SINGLE PLANE"
+          ],
+          "imager_pixel_spacing_mm": [
+            0.2,
+            0.2
+          ],
+          "kvp": 70.0,
+          "laterality_present": false,
+          "lossy_image_compression": "00",
+          "multiframe_cine": false,
+          "patient_orientation_empty": true,
+          "patient_space_geometry_present": false,
+          "pixel_intensity_relationship": "LIN",
+          "pixel_spacing_calibrated": false,
+          "radiation_setting": "SC",
+          "subtraction_applied": false,
+          "table_motion_present": false,
+          "table_position_present": false,
+          "table_tilt_present": false,
+          "tomography_present": false,
+          "xa_positioner_angles_present": false
+        }
+      },
+      "image": {
+        "bits_allocated": 8,
+        "bits_stored": 8,
+        "columns": 4,
+        "frames": 1,
+        "high_bit": 7,
+        "photometric_interpretation": "MONOCHROME2",
+        "pixel_representation": 0,
+        "planar_configuration": null,
+        "rows": 4,
+        "samples_per_pixel": 1
+      },
+      "pixel_data": {
+        "frame_count": 1,
+        "frame_hashes": [
+          "0b9c742cc3fafec4c1d0240048d27210f2da155b3574458ae26035ffa488c00e"
+        ],
+        "native_or_encapsulated": "native",
+        "value_length": 16,
+        "vr": "OB"
+      },
+      "expected_semantics": {
+        "body_part_examined": "ABDOMEN",
+        "image_type": "ORIGINAL\\PRIMARY\\SINGLE PLANE",
+        "pixel_max": 255,
+        "pixel_min": 0,
+        "synthetic_data": "YES"
+      },
+      "standards_evidence": [
+        {
+          "anchor": "table_A-1",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.6",
+          "query": "dicom-kb lookup uid XRayRadiofluoroscopicImageStorage --edition 2026b",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_B.5-1",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.4",
+          "query": "lookup_sop_class X-Ray Radiofluoroscopic Image Storage",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_A.16-1",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.3",
+          "query": "list_modules_for_iod X-Ray Radiofluoroscopic Image",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_C.8-26",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.3",
+          "query": "list_attributes_for_module X-Ray Image",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_C.8-27",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.3",
+          "query": "list_attributes_for_module X-Ray Acquisition",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_C.8-31",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.3",
+          "query": "list_attributes_for_module XRF Positioner",
+          "source": "dicom-standard-kb"
+        },
+        {
+          "anchor": "table_A.16-1",
+          "covered": true,
+          "edition": "2026b",
+          "part": "PS3.3",
+          "query": "standards/source-notes/phase-2-xrf-monoplane.md",
+          "source": "local-source-note"
+        }
+      ],
+      "expected_xrf_projection": {
+        "biplane_data_present": false,
+        "body_part_examined": "ABDOMEN",
+        "column_angulation_degrees": 10.0,
+        "contrast_used": false,
+        "distance_source_to_detector_mm": 1200.0,
+        "distance_source_to_patient_mm": 800.0,
+        "estimated_radiographic_magnification_factor": 1.5,
+        "exposure_mas": 1,
+        "frame_count": 1,
+        "image_type": [
+          "ORIGINAL",
+          "PRIMARY",
+          "SINGLE PLANE"
+        ],
+        "imager_pixel_spacing_mm": [
+          0.2,
+          0.2
+        ],
+        "kvp": 70.0,
+        "laterality_present": false,
+        "lossy_image_compression": "00",
+        "multiframe_cine": false,
+        "patient_orientation_empty": true,
+        "patient_space_geometry_present": false,
+        "pixel_intensity_relationship": "LIN",
+        "pixel_spacing_calibrated": false,
+        "radiation_setting": "SC",
+        "subtraction_applied": false,
+        "table_motion_present": false,
+        "table_position_present": false,
+        "table_tilt_present": false,
+        "tomography_present": false,
+        "xa_positioner_angles_present": false
+      },
+      "modality": "RF",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.12.2",
+      "caller_size_bytes": 1150,
+      "caller_sha256": "b32181b1c252bf944d23ae2dba6dd5abede323fc63dbab3616d08fbd3abce3ac"
+    }
+  ]
+}

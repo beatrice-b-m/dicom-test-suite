@@ -1,0 +1,110 @@
+{
+  "corpus_definition_bundle_schema_version": "1.0.0",
+  "definition_id": "fixture.generic-xa-xrf",
+  "definition_version": "1.0.0",
+  "profiles": [
+    {
+      "profile_id": "smoke",
+      "scope": "valid",
+      "members": []
+    },
+    {
+      "profile_id": "core",
+      "scope": "valid",
+      "members": [
+        "caller/acquisition/angiography",
+        "caller/acquisition/fluoroscopy"
+      ]
+    },
+    {
+      "profile_id": "extended",
+      "scope": "valid",
+      "members": []
+    },
+    {
+      "profile_id": "legacy",
+      "scope": "legacy",
+      "members": []
+    },
+    {
+      "profile_id": "stress",
+      "scope": "stress",
+      "members": []
+    },
+    {
+      "profile_id": "negative",
+      "scope": "expected_invalid",
+      "members": []
+    },
+    {
+      "profile_id": "fuzz",
+      "scope": "fuzz",
+      "members": []
+    },
+    {
+      "profile_id": "all",
+      "scope": "valid",
+      "union_of": [
+        "smoke",
+        "core",
+        "extended"
+      ],
+      "optional_profile": "stress",
+      "members": []
+    }
+  ],
+  "registry": {
+    "path": "cases/registry.json",
+    "size_bytes": 5540,
+    "sha256": "212a73ac4b27bd3a2b4e3dc2229daf37663414427f001d8512f07f4306f86b24"
+  },
+  "cases": [
+    {
+      "case_id": "caller/acquisition/angiography",
+      "recipe_id": "caller_angiography",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/caller_angiography.json",
+        "size_bytes": 4613,
+        "sha256": "dde699170472343e7491f40c9d1d3f1c59983d06fce812479d51185e31310477"
+      },
+      "dependencies": [],
+      "asset_ids": [],
+      "evidence_ids": [
+        "source-note.phase-2-xa-monoplane"
+      ]
+    },
+    {
+      "case_id": "caller/acquisition/fluoroscopy",
+      "recipe_id": "caller_fluoroscopy",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/caller_fluoroscopy.json",
+        "size_bytes": 4254,
+        "sha256": "4ac804049acc89c318f666063020e1db8c1261bc6988f57ec7c3b733e78820c3"
+      },
+      "dependencies": [],
+      "asset_ids": [],
+      "evidence_ids": [
+        "source-note.phase-2-xrf-monoplane"
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "path": "evidence/phase-2-xa-monoplane.md",
+      "size_bytes": 7968,
+      "sha256": "90a8bf897127999a1d4aee7e2176a05b3cf9fff1dbe8a3064d9f3f717ec4fc2e",
+      "evidence_id": "source-note.phase-2-xa-monoplane",
+      "media_type": "text/markdown"
+    },
+    {
+      "path": "evidence/phase-2-xrf-monoplane.md",
+      "size_bytes": 8528,
+      "sha256": "963cb04762d8784f39b6f8f73722eb590ad383c7014c068343fb57bfe91e43b5",
+      "evidence_id": "source-note.phase-2-xrf-monoplane",
+      "media_type": "text/markdown"
+    }
+  ],
+  "assets": []
+}

@@ -4,9 +4,9 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 277,
-    "rust_test_entries": 1496,
+    "rust_test_entries": 1497,
     "integration_source_groups": 189,
-    "integration_test_entries": 926,
+    "integration_test_entries": 927,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
   },
   "enums": {
@@ -1852,7 +1852,7 @@
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 13,
+      "entry_count": 14,
       "entries": [
         "loaded_capabilities_are_verified_destination_free_and_sdk_consistent",
         "caller_named_ct_cli_is_sdk_identical_strictly_valid_and_reported",
@@ -1866,9 +1866,10 @@
         "caller_named_sc_cli_is_sdk_identical_strictly_valid_and_reported",
         "caller_named_cr_cli_is_sdk_identical_strictly_valid_and_reported",
         "caller_named_us_cli_is_sdk_identical_strictly_valid_and_reported",
-        "caller_named_pet_cli_is_sdk_identical_strictly_valid_and_reported"
+        "caller_named_pet_cli_is_sdk_identical_strictly_valid_and_reported",
+        "caller_named_xa_xrf_cli_is_sdk_identical_strictly_valid_and_reported"
       ],
-      "entry_digest": "5392352618a26ad8e193f857d48cab4c6b5a863835755b84cd3c81d827536e8d"
+      "entry_digest": "38dbaff99b40d4ead16582ff3277c15a0063928674a8711fb6a2582906308f6a"
     },
     {
       "source": "tests/frame_codec_service.rs",

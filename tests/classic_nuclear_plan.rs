@@ -142,6 +142,118 @@ fn nuclear_planning_is_output_free_strict_and_excludes_enhanced_pet() {
                 .is_some()
         );
     }
+    let pet = catalog
+        .recipes()
+        .values()
+        .find(|r| r.binding.case_id == "classic/pet/rescaled_activity_explicit_le")
+        .unwrap();
+    for name in [
+        "caller/activity",
+        "classic/us/mono2_u8_explicit_le",
+        "classic/mr/caller",
+    ] {
+        let mut input = pet.clone();
+        input.binding.case_id = name.into();
+        input.recipe_id = "caller_activity".into();
+        input.planning_order = Some(900);
+        input.projection_order = Some(901);
+        input.dicom.as_mut().unwrap().artifacts[0].output.path = Some("independent/pet.dcm".into());
+        let plans = plan_nuclear_recipe(&input, &lock_hash, 7).unwrap().unwrap();
+        assert_eq!(plans.len(), 1);
+        assert_eq!(
+            plans[0].output_relative_path.as_str(),
+            "independent/pet.dcm"
+        );
+    }
+    let pet_source = serde_json::to_value(pet).unwrap();
+    // Every scalar/array source parameter and synthetic provider field is bound.
+    for section in ["/provider_parameters", "/dicom/artifacts/0/parameters"] {
+        for key in pet_source
+            .pointer(section)
+            .unwrap()
+            .as_object()
+            .unwrap()
+            .keys()
+        {
+            let mut changed = pet_source.clone();
+            changed
+                .pointer_mut(section)
+                .unwrap()
+                .as_object_mut()
+                .unwrap()
+                .remove(key);
+            if let Ok(recipe) = serde_json::from_value(changed) {
+                assert!(
+                    plan_nuclear_recipe(&recipe, &lock_hash, 7).is_err(),
+                    "missing {section}/{key}"
+                );
+            }
+        }
+    }
+    for (pointer, value) in [
+        (
+            "/dicom/artifacts/0/parameters/rescale_slope",
+            serde_json::json!("NaN"),
+        ),
+        (
+            "/dicom/artifacts/0/parameters/frame_reference_time_ms",
+            serde_json::json!("inf"),
+        ),
+        (
+            "/dicom/artifacts/0/parameters/pixels/stored_values",
+            serde_json::json!([0, 100, 200, 65536]),
+        ),
+        (
+            "/dicom/artifacts/0/parameters/pixels/rows",
+            serde_json::json!(65535),
+        ),
+        (
+            "/dicom/artifacts/0/parameters/pixels/frame_sha256",
+            serde_json::json!(["bad"]),
+        ),
+        (
+            "/dicom/artifacts/0/parameters/pixels/pixel_max",
+            serde_json::json!(399),
+        ),
+        (
+            "/dicom/artifacts/0/template/template_id",
+            serde_json::json!("classic/mr"),
+        ),
+        (
+            "/dicom/artifacts/0/content/provider_id",
+            serde_json::json!("different"),
+        ),
+        (
+            "/dicom/artifacts/0/algorithm_provider_id",
+            serde_json::json!("different"),
+        ),
+        (
+            "/dicom/artifacts/0/output/path",
+            serde_json::json!("../escape.dcm"),
+        ),
+        (
+            "/dicom/artifacts/0/classic_projection/include_implementation_version_name",
+            serde_json::json!(true),
+        ),
+    ] {
+        let mut changed = pet_source.clone();
+        *changed.pointer_mut(pointer).unwrap() = value;
+        let recipe = serde_json::from_value(changed).unwrap();
+        assert!(
+            plan_nuclear_recipe(&recipe, &lock_hash, 7).is_err(),
+            "{pointer}"
+        );
+    }
+    let mut lexical = pet.clone();
+    lexical.dicom.as_mut().unwrap().artifacts[0]
+        .parameters
+        .insert("rescale_slope".into(), serde_json::json!("2.50"));
+    assert!(plan_nuclear_recipe(&lexical, &lock_hash, 7).is_err());
+    let mut fragmented = pet.clone();
+    fragmented.dicom.as_mut().unwrap().artifacts[0]
+        .encoding
+        .fragments_per_frame = Some(1);
+    assert!(plan_nuclear_recipe(&fragmented, &lock_hash, 7).is_err());
     let us = catalog
         .recipes()
         .values()

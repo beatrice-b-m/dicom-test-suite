@@ -567,7 +567,7 @@
         "nuclear_planning_is_output_free_strict_and_excludes_enhanced_pet",
         "direct_nuclear_plans_match_current_bytes_and_manifest_facts"
       ],
-      "entry_digest": "d9b2322fb6c30f798b1b0daa8ef08843074d0b72fac87538d50c42104f8f7d1b"
+      "entry_digest": "fcb4ab38058878bcf87af889f64edbb638e30d2f62220a9b9add8ea5c22c99cf"
     },
     {
       "source": "tests/classic_plan_contracts.rs",

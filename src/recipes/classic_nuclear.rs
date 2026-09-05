@@ -429,14 +429,112 @@ pub(crate) fn inspect_us_capability(
     Ok(Some(parameters))
 }
 
+pub(crate) fn inspect_pet_capability(
+    recipe: &CaseRecipe,
+) -> Result<Option<ClassicNuclearArtifactParameters>, ClassicNuclearPlanError> {
+    let Some(dicom) = &recipe.dicom else {
+        return Ok(None);
+    };
+    if !dicom.artifacts.iter().any(|a| {
+        a.template
+            .as_ref()
+            .is_some_and(|t| t.template_id == "classic/pet")
+            || a.parameters.get("family").and_then(Value::as_str) == Some("pet")
+    }) {
+        return Ok(None);
+    }
+    if dicom.artifacts.len() != 1 {
+        return Err(contract("PET requires one artifact"));
+    }
+    let a = &dicom.artifacts[0];
+    let has = |v: &[String], s: &str| v.len() == 1 && v[0] == s;
+    if recipe.kind != super::RecipeKind::Dicom
+        || recipe.plan_provider_id != PLAN_PROVIDER
+        || recipe.planning_order.is_none()
+        || recipe.projection_order.is_none()
+        || recipe.mutation.is_some()
+        || recipe.qualification.is_some()
+        || !recipe.dependencies.is_empty()
+        || !has(&recipe.validation_rule_ids, "validation.shared")
+        || !has(&recipe.projection_rule_ids, "projection.curated")
+        || a.logical_id != "instance"
+        || a.order != 0
+        || a.output.role != "primary"
+        || a.output.path.is_none()
+        || a.output.provider_derived == Some(true)
+        || a.public_profile_membership.is_some()
+        || a.template
+            .as_ref()
+            .is_none_or(|t| t.template_id != "classic/pet" || t.template_version != "1.0.0")
+        || a.content.provider_id != CONTENT_PROVIDER
+        || !a.content.parameters.is_empty()
+        || a.algorithm_provider_id.as_deref() != Some(ALGORITHM_PROVIDER)
+        || a.classic_projection.as_ref().is_none_or(|p| {
+            p.family != super::ClassicProjectionFamily::Nuclear
+                || p.mr.is_some()
+                || p.icc.is_some()
+                || p.semantic_labels.is_some()
+                || !p.standards_evidence_append.is_empty()
+                || p.include_implementation_version_name
+        })
+        || !a.attribute_operations.is_empty()
+        || a.secondary_capture.is_some()
+        || a.metadata_sc.is_some()
+        || a.nonsquare_geometry.is_some()
+        || !has(&a.validation_rule_ids, "validation.shared")
+        || !has(&a.projection_rule_ids, "projection.curated")
+        || a.encoding.transfer_syntax_uid != "1.2.840.10008.1.2.1"
+        || a.encoding.non_template_encoding_provider_id.is_some()
+        || a.encoding.fragments_per_frame.is_some()
+        || a.encoding.sequence_length_policy != "default"
+        || a.encoding.item_length_policy != "default"
+        || a.encoding.offset_table_policy != "none"
+        || a.encoding.fragmentation_policy != "native"
+        || a.encoding.preamble_policy.as_deref() != Some("zero_filled")
+        || a.encoding.file_meta_policy.as_deref() != Some("standard")
+    {
+        return Err(contract("complete native PET tuple required"));
+    }
+    OutputRelativePath::new(a.output.path.clone().expect("explicit PET output"))?;
+    let provider: ClassicNuclearProviderParameters = decode(
+        Value::Object(recipe.provider_parameters.clone()),
+        "provider_parameters",
+    )?;
+    // This qualified slice exposes caller identity/order/path, not patient metadata.
+    let source_provider = serde_json::json!({"patient_name": "DTS^Synthetic^Patient001", "patient_id": "DTS-PATIENT-001", "patient_birth_date": "19700101", "patient_sex": "O", "study_date": "20260101", "study_time": "000000", "study_id": "DTS-PET", "accession_number": "", "referring_physician_name": "", "modality": "PT", "series_number": "1", "manufacturer": "dicom-test-suite", "software_versions": "0.1.0", "acquisition_number": "1", "acquisition_date": "20260101", "acquisition_time": "000000", "instance_number": "1", "series_date": "20260101", "series_time": "000000", "body_part_examined": "HEAD"});
+    let expected_provider: ClassicNuclearProviderParameters =
+        decode(source_provider, "qualified PET provider")?;
+    if provider != expected_provider {
+        return Err(contract("bounded synthetic PET provider contract"));
+    }
+    let parameters: ClassicNuclearArtifactParameters =
+        decode(Value::Object(a.parameters.clone()), "artifact parameters")?;
+    // Freeze the qualified source tuple before any integer casts or numeric
+    // projection: alternate DS spellings and nonfinite strings are not inputs
+    // supported by this byte-stable slice.
+    let expected: ClassicNuclearArtifactParameters = decode(
+        serde_json::json!({"family": "pet", "pixels": {"rows": 2, "columns": 2, "frames": 1, "stored_value_type": "u16", "stored_values": [0, 100, 200, 400], "pixel_min": 0, "pixel_max": 400, "frame_sha256": ["03ec353fd2407afb09c8d65712ef9aa30f03c8243f6f3f1675dca7ea5f6a4784"]}, "image_type": ["ORIGINAL", "PRIMARY"], "units": "BQML", "counts_source": "EMISSION", "series_type": ["STATIC", "IMAGE"], "number_of_slices": 1, "corrected_image": ["DCAL"], "decay_correction": "NONE", "dose_calibration_factor": "1", "frame_reference_time_ms": "30000", "actual_frame_duration_ms": "60000", "image_index": 1, "pixel_spacing": ["4", "4"], "image_orientation_patient": ["1", "0", "0", "0", "1", "0"], "image_position_patient": ["0", "0", "0"], "slice_thickness": "4", "rescale_intercept": "0", "rescale_slope": "2.5", "expected_activity_bqml": ["0", "250", "500", "1000"]}),
+        "qualified PET parameters",
+    )?;
+    if parameters != expected {
+        return Err(contract(
+            "bounded PET pixels, activity, geometry and timing",
+        ));
+    }
+    Ok(Some(parameters))
+}
+
 pub fn plan_nuclear_recipe(
     recipe: &CaseRecipe,
     standards_lock_sha256: &str,
     seed: u64,
 ) -> Result<Option<Vec<ClassicInstanceRequest>>, ClassicNuclearPlanError> {
     let native_us = inspect_us_capability(recipe)?.is_some();
+    let native_pet = inspect_pet_capability(recipe)?.is_some();
     let Some(family) = (if native_us {
         Some(Family::UltrasoundSingle)
+    } else if native_pet {
+        Some(Family::Pet)
     } else {
         owned_family(&recipe.binding.case_id)
     }) else {
@@ -448,6 +546,7 @@ pub fn plan_nuclear_recipe(
         ));
     }
     if !native_us
+        && !native_pet
         && !(400..=404).contains(
             &recipe
                 .planning_order

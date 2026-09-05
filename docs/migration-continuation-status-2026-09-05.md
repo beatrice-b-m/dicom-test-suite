@@ -2123,3 +2123,22 @@ No independent conformance/viewer/arbitrarypalette/ICC/RLE/newcomposition
 claim follows. R7 remains incomplete; R8/R9 held. Next ordinary native slice
 is three-instance MR; read-only inventory shows disjoint planner but shared
 loader/execution, so source edits stay sequential after this complete boundary.
+
+## MR three-instance source preparation assigned — 2026-09-05
+
+After completeVL acceptance16e5255, the next ordinarynative slice is
+classic/mr/multislice_oblique_explicit_le. Read-only inventory found recipe
+9104bytes SHAc894c52053d4414e170f8f30b4be2786bcb5985153a763034707f241cc886526
+unchanged between232b9de and current source. Planning502/projection154,
+three2x2U16 slices at oblique positions0/5/10 along normal, sharedstudy/series/
+frame-of-reference with distinctSOPs. No dependencies/assets/registrylocal
+notes; templatecomposition source note remains engineowned.
+
+One owner has only new corpus docs/r7-native-mr-source-provenance.json and
+tests/test_native_mr_provenance.py. Bind immutable source/fullcore snapshot,
+threeartifact/groupclosure and source-derived metadata/pixels/validation/
+report expectations without unobservedPart10hash/size. Independent reviewer
+is read-only. Separate owner updates corpusREADME/AGENTS/status currentVL
+overview, disjoint from newMRfiles. No MRnative/import/sourcecapability/CI
+changes assigned yet. MRplanner classic_mr_cr is separate fromVL but shared
+loader/execution/publicproof must remain sequential. R7open/R8R9held.

@@ -7,6 +7,7 @@ use serde_json::Value;
 
 use super::classic_ct::inspect_ct_capability;
 use super::classic_dx_mg::inspect_dx_mg_capability;
+use super::classic_mr_cr::inspect_cr_capability;
 use super::codec_registry::{
     BACKENDS, TransferSyntaxBackendRegistry, encoding_provider_matches, recipe_encoding_provider_id,
 };
@@ -607,7 +608,8 @@ fn validate_classic_capability_contract(
     let ct = inspect_ct_capability(recipe).map_err(|error| semantic(path, error.to_string()))?;
     let dx_mg =
         inspect_dx_mg_capability(recipe).map_err(|error| semantic(path, error.to_string()))?;
-    match ct.is_some() || dx_mg.is_some() {
+    let cr = inspect_cr_capability(recipe).map_err(|error| semantic(path, error.to_string()))?;
+    match ct.is_some() || dx_mg.is_some() || cr.is_some() {
         true => recipe
             .planning_order
             .map(|_| ())
@@ -1707,6 +1709,12 @@ fn validate_registry_bindings(
                     message: format!("{} has invalid DX/MG capability: {error}", case.case_id),
                 })?
                 .is_some();
+        let name_independent_cr = recipe.plan_provider_id == "native.classic_plan"
+            && inspect_cr_capability(recipe)
+                .map_err(|error| RecipeCatalogError::Completeness {
+                    message: format!("{} has invalid CR capability: {error}", case.case_id),
+                })?
+                .is_some();
         let migrated_classic = recipe.plan_provider_id == "native.classic_plan"
             && case.provider.kind == "rust_native"
             && case.provider.id == "rust_native"
@@ -1715,6 +1723,7 @@ fn validate_registry_bindings(
             && case.requirements.external_codecs.is_empty()
             && (name_independent_ct
                 || name_independent_dx_mg
+                || name_independent_cr
                 || case.case_id.starts_with("classic/")
                 || case.case_id.starts_with("geometry/ct/")
                 || (case.case_id.starts_with("vl/") && !case.case_id.starts_with("vl/wsi/")));

@@ -53,7 +53,9 @@ use crate::negative::classify_negative_parser_probe;
 use crate::negative_plan::NEGATIVE_PARSER_RULE_ID;
 use crate::recipes::classic_ct::{ClassicCtArtifactParameters, ClassicCtProviderParameters};
 use crate::recipes::classic_dx_mg::{DxMgArtifactParameters, DxMgFamily};
-use crate::recipes::classic_mr_cr::{CrArtifactParameters, MrArtifactParameters};
+use crate::recipes::classic_mr_cr::{
+    CrArtifactParameters, MrArtifactParameters, inspect_cr_capability,
+};
 use crate::recipes::classic_nuclear::{
     ClassicNuclearArtifactParameters, ClassicNuclearProviderParameters,
 };
@@ -4085,7 +4087,10 @@ fn validate_classic_part10(
                 .case_recipe
                 .binding
                 .case_id
-                .starts_with("classic/mr/") =>
+                .starts_with("classic/mr/")
+                && inspect_cr_capability(&context.case_recipe)
+                    .map_err(|error| service_error("validation", error))?
+                    .is_none() =>
         {
             let item: MrArtifactParameters = serde_json::from_value(parameters)
                 .map_err(|error| service_error("validation", error))?;

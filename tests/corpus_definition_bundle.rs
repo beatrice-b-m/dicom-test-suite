@@ -304,7 +304,7 @@ fn external_ct_capability_is_fail_closed_without_broadening_classic_names() {
 
     assert_one_case_rejected(
         "classic-name-only",
-        "classic/cr/overlay_modality_voi_explicit_le",
+        "classic/us/mono2_u8_explicit_le",
         "caller/arbitrary/not-ct",
         |_| {},
     );
@@ -349,6 +349,59 @@ fn external_dx_mg_capability_is_name_independent_and_fail_closed() {
                 },
             );
         }
+    }
+}
+
+#[test]
+fn external_cr_capability_is_name_independent_and_fail_closed() {
+    const CR: &str = "classic/cr/overlay_modality_voi_explicit_le";
+    for (label, case_id) in [
+        ("arbitrary-cr", "caller/radiograph/native"),
+        ("misleading-mr-cr", "classic/mr/caller-radiograph"),
+    ] {
+        let root = one_case_bundle(label, CR, case_id, "caller_radiograph", |recipe| {
+            recipe["planning_order"] = 900.into();
+            recipe["projection_order"] = 901.into();
+            recipe["dicom"]["artifacts"][0]["output"]["path"] = "images/radiograph.dcm".into();
+        });
+        let bundle = CorpusDefinitionBundle::load(&root).unwrap();
+        let catalog =
+            crate::recipes::RecipeCatalog::from_verified_bundle(&bundle, Path::new(".")).unwrap();
+        assert!(catalog.binding_for_case(case_id).is_some());
+        let root = root.canonicalize().unwrap();
+        let output = root.with_extension("output");
+        let sdk = crate::sdk::DicomTestSuite::embedded().unwrap();
+        sdk.generate_corpus(crate::sdk::GenerateCorpusRequest::from_file(
+            root.join("corpus-definition.json"),
+            &root,
+            &output,
+            crate::sdk::CorpusSelector::CaseIds {
+                profile: "core".into(),
+                include_stress: false,
+                case_ids: vec![case_id.into()],
+            },
+        ))
+        .unwrap();
+        let validation = sdk
+            .validate(crate::sdk::ValidateRequest::new(&output))
+            .unwrap();
+        assert!(validation.is_valid(), "{validation:?}");
+        assert_eq!(validation.files_checked(), 1);
+        assert!(output.join("images/radiograph.dcm").is_file());
+        fs::remove_dir_all(output).unwrap();
+        fs::remove_dir_all(root).unwrap();
+        for field in ["template", "algorithm_provider_id", "classic_projection"] {
+            assert_one_case_rejected(&format!("{label}-missing-{field}"), CR, case_id, |recipe| {
+                recipe["dicom"]["artifacts"][0]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove(field);
+            });
+        }
+        assert_one_case_rejected(&format!("{label}-crossed"), CR, case_id, |recipe| {
+            recipe["dicom"]["artifacts"][0]["algorithm_provider_id"] =
+                "algorithm.classic_ct".into();
+        });
     }
 }
 

@@ -737,3 +737,26 @@ in the corpus repository:17 immutable objects, full34 rows, two recipes/notes
 and XA inline standards evidence; six tests0.048s. No data import or native
 XA/XRF evidence follows. Source-only helper preparation may use disjoint files
 while US parity integration proceeds; runtime boundaries remain sequential.
+
+## US migrated parity checkpoint — 2026-09-05
+
+Corpus acceptanceb41443d closes the bounded US1 parity gate after helper5702a46,
+routing80e3f33 and readinessd6d56b3. Receipt
+`fa96555c2d6c090034c806e7a89f5eea426bf24f8d9344e261fbe72fdc9c7571`
+under corpus `artifacts/r7-native-us-parity1-20260905` binds two exact supported
+runner calls US1/core/seed1/parallelism4. Both actual1006-byte payloads reproduce
+`e616b8c983c59640a62fa081f636acea554ce681edde3fc8dd53a3c15098c30b`;
+manifest71276 bytes SHA
+`f873771842f28fde702ca5d1fb918f83c7a2394d9b9939d3145174f2c1e377e9`,
+report80205 bytes SHA
+`2c3ab1b4c38567a764869c461316dea5e31ad98af915fe8ab536b9faa074bb74`,
+identical across both runs. Full baseline file/standards/semantics and33 skips
+were preserved across only the explicit manifest identity/selection migration.
+
+Calls3.879497/3.422479s, whole10.038937s;215 nonreceipt files359326555 logical/
+359755776 allocated bytes. Independent216-file/source/runtime/finalizer and
+comparison replay passed0.802069s. Full ordinary512 passed9.929s beforehand.
+Original private runtime `/private/tmp/r7-us-parity-0gvj4oig` remains retained.
+No retry, build or broader qualification occurred. US genericity now proceeds
+planner, loader/shared dispatch, then public caller proof in separate units;
+the original corpus artifact pin is unchanged and R7 remains incomplete.

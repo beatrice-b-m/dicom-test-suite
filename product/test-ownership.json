@@ -4213,7 +4213,7 @@
         "cargo_lock_perturbation_changes_only_toolchain_and_legacy_provenance",
         "external_runtime_identity_requires_successful_typed_execution_evidence"
       ],
-      "entry_digest": "12faabbf10feecaa2d6d13065d25cffa2a033e1912c5049042cc046f983da47e"
+      "entry_digest": "80026cdca0ba78b965463b9d0b9750c849b6b001a90d3a451cb23b2ae4ba7060"
     },
     {
       "source": "src/lib.rs",

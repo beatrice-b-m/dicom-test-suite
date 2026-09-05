@@ -136,3 +136,11 @@ Bounded synthetic and existing payload fixtures must exercise the dispatch and
 negative cases. They do not constitute native stress qualification or full-scale
 resource evidence. Root owns this decision and status record; implementation
 and independent read-only review have separate owners.
+
+The two new reduced-reader regressions use source planning and a bounded
+196608-byte fixture. Add an ordinary routing bundle for exactly those tests,
+including all-ordinary selection, while retaining the full WSI module's Nightly
+ownership. A changed runtime boundary must not defer its new cheap regression
+solely because the existing containing module is classified heavy. This adds
+product/change-test-routing.json and its Python routing test to the owner's
+files; it does not select native WSI or full stress qualification.

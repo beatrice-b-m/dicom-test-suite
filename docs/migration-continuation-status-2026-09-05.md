@@ -1231,3 +1231,24 @@ review accepted. Retained generation-only replay passed0.004615s with1 file
 and33 skips; all retained hashes and failed receipt remain unchanged. No
 strict/report/native retry occurred during correction. Baseline1 stays failed;
 a fresh reviewed capture is required before import. R7 remains incomplete.
+
+## PET baseline accepted; exact import opened — 2026-09-05
+
+Corpus531a5b3 commits the two-file source correction;594462e records fresh
+baseline2 readiness and773f20b accepts the independently audited capture.
+Receipt56682 SHA256
+0aec8cb252130433ba4626bf9c46d219f088e95fe5e3c7c3de958d2acd57c164
+binds one generation1.294070s, strict1 validation0.223316s and report0.923888s,
+whole5.993761083s. Retained22 nonreceipt files141238643 logical/141291520
+allocated bytes under corpus artifacts/r7-native-pet-baseline2-20260905.
+Independent offline audit1.164453s authenticated128 source files, complete
+evidence closure/pins and generation/strict/report replay:1 payload,33 skips,
+62 internal and4 standards checks. Payload and manifest match baseline1; its
+failed receipt remains untouched. This is same-project embedded baseline only.
+
+R7.1 next owner has exactly four corpus files: PET recipe, PET source note
+under evidence/, registry and descriptor. Content0.8 adds the exact source
+row/core membership and two members; existing0.7 bytes and artifact pins must
+remain recoverable by authenticated byte-exact reversal. Static tests, CI,
+historical fixtures, selected availability and two-run parity remain sequential
+units. Caller genericity still waits for those gates; R7 remains incomplete.

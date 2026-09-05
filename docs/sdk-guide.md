@@ -129,6 +129,18 @@ report requests above; no internal-module import or sibling lookup is needed.
 This preserves the historical DX/MG pixel and VR contracts and supplies
 same-project evidence only.
 
+### Caller-defined Secondary Capture metadata
+
+The same inspection and `GenerateCorpusRequest` interfaces accept independently
+named UTF-8 Person Name, qualified empty Type 2 and private-creator recipes.
+The complete [metadata contract](generation-guide.md#caller-defined-secondary-capture-metadata)
+binds `native.metadata_sc_plan`, one monochrome SC template@1 artifact, matching
+typed content and validation rules, and native Explicit VR Little Endian
+encoding. Explicit paths and unique planning orders remain caller-owned.
+Malformed or crossed tuples reject before publication. CLI/SDK manifests and
+payloads agree; strict validation remains separate from report2 projection.
+Other metadata variants retain their existing admission rules.
+
 ## Inspect a caller-owned corpus before submitting
 
 ```rust

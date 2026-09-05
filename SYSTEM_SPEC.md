@@ -1043,6 +1043,17 @@ historical declared DS VR exception is preserved, without adding independent
 conformance credit. The shared loader and executor serve this public CLI/SDK
 contract without corpus-specific imports.
 
+Native metadata SC admission also recognizes typed UTF-8 Person Name,
+qualified EmptyType2 and PrivateCreators independently of case/recipe names.
+The conjunctive contract binds `native.metadata_sc_plan`, one monochrome SC
+template@1 artifact, matching parameter-free metadata content, native Explicit
+VR Little Endian encoding and required pixel/metadata validation rules. UTF-8
+raw bytes exactly encode the declared PN; Type2 fields are restricted to the
+five qualified Patient/General Study tuples. Other metadata variants retain
+their existing admission rules. CLI/SDK equality, strict validation and report
+projection are separate same-project evidence; source-pinned corpus runs do
+not acquire qualification from a later generator capability change.
+
 `Part10Materializer` is the only ordinary valid DICOM writer. The executor may
 normalize a full Part 10 object only at an explicitly named external-provider
 import boundary. Such imports preserve request, tool, dependency, content,

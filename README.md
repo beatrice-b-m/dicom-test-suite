@@ -101,6 +101,12 @@ order and an explicit caller path. Case and recipe names do not select the
 planner. See the [generation guide](docs/generation-guide.md#caller-defined-dx-and-mammography)
 for the three supported templates and preserved evidence limits.
 
+Caller-defined Secondary Capture metadata supports UTF-8 Person Name, qualified
+empty Type 2 attributes and private creator blocks through typed native
+contracts. Case/recipe names and output paths are caller-owned; metadata,
+encoding and validation constraints remain enforced. See the
+[metadata contract](docs/generation-guide.md#caller-defined-secondary-capture-metadata).
+
 All three public generation workflows use one plan-first spine. `generate`
 resolves registry-selected, versioned case recipes into an immutable
 `CorpusPlan`; `compose` resolves caller specifications and qualified templates

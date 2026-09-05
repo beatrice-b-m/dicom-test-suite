@@ -27,6 +27,9 @@ change a CLI API, request, manifest, report, template, or provider version.
   with explicit caller paths, strict partial-tuple rejection, CLI/SDK parity and
   preserved historical payload hashes. Malformed dimension overflow returns a
   contract error.
+- Caller-defined UTF-8 Person Name, qualified empty Type 2 and private-creator
+  SC metadata recipes, with complete typed admission, fixed CLI/SDK payload
+  oracles, preserved historical bytes and overflow-safe high-bit validation.
 
 ### Changed
 

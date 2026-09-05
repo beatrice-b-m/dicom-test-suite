@@ -298,3 +298,70 @@ counts remain derived. This does not change any definition, pin or evidence.
 Read-only follow-up audit confirms earlier smoke/core SC genericity still has
 namespace admission debt. The [bounded SC audit](r7-sc-genericity-audit-2026-09-05.md)
 adds its sequential closure before CR1; accepted historical parity is unchanged.
+
+## R7 metadata3 genericity accepted — 2026-09-05
+
+Generator `ea4d151` admission and public proof `ca0737f` establish the bounded
+UTF-8 PN, qualified EmptyType2 and PrivateCreators capability. Root and an
+independent reviewer found no remaining actionable defect after exact source
+closure and fixed identity/payload assertions were added. The proof imports
+product code only through the supported SDK and runs CLI commands from an
+unrelated private directory with empty PATH. It separately proves complete
+capabilities equality, raw manifest and actual payload equality, strict
+validation and report2 projection. Static expected metadata includes full PN
+raw bytes/component groups, all five empty attributes and all private blocks.
+
+The fixture has8 documents,28914 bytes: descriptor SHA-256
+`8e06f07cdc80da927d185607fffa9ab5b0b2cb972f6dd5ab559a1a12d5002be7`, framed
+identity `7ab6abe3e65dc9c950fa56d4b0fbbdb931d9c33e75a9fe8cbfa25f0ab58d65f9`.
+Root confirmed registry changes are only case/recipe IDs; recipe changes are
+only identity, planning/projection order and output path. The three source
+notes retain exact bytes and hashes. Historical IDs within these declared
+notes are inert provenance, not planner dispatch. Two pre-existing Markdown
+hard-break lines in copied notes trigger default staged blank-at-eol checking;
+only that whitespace check was disabled for the exact-copy proof commit.
+Implementation and current-document diff checks pass normally.
+
+Caller planning order900–902 is name/empty/private; the canonical selector and
+ledger order is empty/name/private. An initial test expectation conflated
+these orders and failed before acceptance. The corrected proof adds no
+semantic normalization. Frozen caller payloads, independently SHA-256 checked
+from both CLI and SDK output, are:
+
+| Output | Bytes | SHA-256 |
+| --- | ---: | --- |
+| independent/name.dcm | 962 | `16f828849a97a809fed56fad7d04c5c1b7fffea071809ea5ec8cbd8e848065aa` |
+| independent/empty.dcm | 910 | `51df3b4077125281dde05747812a83574160b343a9da22974973339b9777731f` |
+| independent/private.dcm | 1094 | `62acb19d45bc19ef63cf0574634165bbf1c21be65db660a386e1d8d16017a46a` |
+
+The same test separately selects the three original IDs and reproduces their
+978/932/1114-byte historical payloads. Root independently authenticated prior
+receipt183141 bytes SHA-256
+`199a18f9237038ee9021758e97b2c121f78a918c447983e0f9660b20f50ed386` and all
+three retained payload hashes before reviewing the frozen oracle. This is a
+bounded later-source regression, not a relabeling of the prior migration run.
+
+The final exact public test passed1/1 in11.86s (build2.27s). Routing passed29/29
+in3.054s; all internal list-only Cargo calls used the explicit target. Ownership
+passed1485 total/922 integration entries. Target storage was858020 KiB
+(878612480 bytes). No Heavy, whole-profile, provider or release check ran.
+
+Current README, system specification, generation/SDK guides, compatibility
+policy and changelog document the complete tuple and remaining boundaries.
+Four documentation checks passed in0.00s (build0.04s). Exact documented CLI
+forms generated3 files with profilecore/seed1/parallelism2, strictly checked3,
+and emitted report2 at `/private/tmp/r7-metadata-docs-gj128soy`. All three
+commands succeeded; the surrounding measurement script then expected an
+envelope for the direct JSON report and failed. Read-only inspection confirmed
+the actual report shape, full source manifest and all payload hashes without
+rerunning generation. The command harness took2.4326s including the post-command
+error; per-command timings were not retained. The temporary example contains
+253694 logical/282624 allocated bytes. No cross-parallelism equality claim is
+inferred from this supplemental example.
+
+This accepts metadata3 R7.2/R7.3 only. Corpus pin232b9de remains unchanged;
+SC genericity, remaining families/scopes, R8/R9 and terminal release evidence
+remain open. A read-only lookup located clean viewer checkout
+`/Users/beatrice/AgentFiles/projects/dcm-view` at43c2cadc2cef813a15a9621e1fc8ad7b56ca0784.
+Its current compatibility campaigns are opt-in and reference the historical
+checkout model. No viewer edit, build, execution or R8 acceptance occurred.

@@ -5918,6 +5918,52 @@ response has been captured, and it establishes no generation, migrated parity,
 independent conformance, viewer behavior or Heavy qualification. Those remain
 separate sequential evidence boundaries.
 
+## R7 DX/MG3 selected planning availability accepted — 2026-09-05
+
+The bounded public-loader availability capture from corpus source commit
+`637b141` is accepted at
+`artifacts/r7-dx-mg-availability1-20260905`. Its 100,651-byte `receipt.json`
+has SHA-256
+`2811e1be4bee3483e6d1752ca814237bcdb72076c2f4fb7ea41f2b1b71545107`.
+Exactly one `capabilities` command ran, with no retry, in 1.8806975s; the whole
+job took 3.990696125s. Publication and validation remained `not_run`.
+
+The response binds generator source
+`232b9de41f97ee95abe1ecc40b6b8b70ebeeea5f` and its 69,314,672-byte artifact
+SHA-256
+`4ca0c6d6a8e4cbab81b7005b4354c7ff558c44747e00f41d22d3abbfd50b7768`.
+It loaded the exact content0.5 identity
+`c826f39f14e525f0b9c8e465d64ca6c7a9f4389c25df82128fd2a68c3825fec3`,
+descriptor SHA-256
+`d8981e050b9b280bb398f725c09d2f167e1167c954c18e6da599f5095d77e71b`,
+and 25-member/135,416-byte bundle. It also authenticates baseline receipt
+SHA-256
+`30e08de9edf9b9976c093aaceb7c2309cf401d500b4845c680763ddcebd57cd7`
+and corpus-plan SHA-256
+`f21d3d3d66a845099b0a930d5588e529bc839ebf0df17172453d252880591483`.
+
+The selection ledger contains exactly three direct, `ready` rows, in request
+order: DX display shutter, MG for-presentation and MG for-processing. The
+baseline artifact order remains MG for-presentation, MG for-processing and DX
+display shutter. No generated artifact path is claimed by this planning-only
+response.
+
+Independent pure replay passed with subprocess APIs forbidden and unchanged
+evidence fingerprints. Strict JSON checks passed 30/30. Schema review passed
+65/65 metadata documents and 51/51 instance documents with jsonschema 4.26.0
+in 1.9605s. That review covers the applicable published schemas only; the
+receipt and other unschematized evidence remain authenticated by the bounded
+checker rather than being represented as schema-validated. Excluding the
+receipt, the evidence root contains 36 files in 16 directories, 71,767,181
+logical bytes and 71,827,456 allocated bytes.
+
+This proves same-project selected-planning availability only. Runtime used the
+copied public corpus bundle, with no sibling-path coupling or current generator
+internal imports; the historical copied reporter path was not used. It does
+not prove generation or payload parity, independent conformance, viewer
+behavior, R7.2/R7.3 genericity, wider R7 completion, Heavy qualification, R8,
+R9, or any remaining terminal acceptance row.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

@@ -1895,3 +1895,22 @@ tests/test_pet_availability.py: an authenticated live0.10-to0.9 reversal
 will feed original XA and existing PET-to-older chains. Production historical
 verifiers remain frozen. Complete ordinary verification waits for this
 sequential fixture update; no further native work has started. R7open/R8R9held.
+
+## VL historical integration ordinary gate accepted — 2026-09-05
+
+Corpus3685d39 changes only XA/XRF and PET synthetic fixture modules. Exact
+live0.10 descriptor/registry and two source recipe bytes reverse to frozen
+0.9 with complete original member identity; PET chains to0.8 and older
+fixtures. Production verifiers unchanged. Root diff review passed;
+98 focused tests8.808s then293 dependent synthetic tests12.182s passed,
+/private/tmp/vl-historical-dependent-tests.log. Full ordinary688/23.435s
+passed at clean3685d39a75838275aaaea99c6542c62ce9769d3f;
+/private/tmp/r7-vl-photo-postimport-ordinary-20260905.log. Corpus integration
+statusd391a8d records imported27cases (3smoke/24core) as dated inventory.
+
+Next owner has exactly new scripts/verify_vl_photo_availability.py and
+tests/test_vl_photo_availability.py. Read-only preparation binds baseline2
+five documents, original generator acquisition and exact content0.10.
+Independent reviewer authenticates inputs and source-specific two-case
+selection before capture helper/CI/readiness. No availability native command
+has run and source capability edits remain unopened. R7open/R8R9held.

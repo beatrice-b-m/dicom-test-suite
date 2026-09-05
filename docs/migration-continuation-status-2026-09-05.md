@@ -1381,3 +1381,37 @@ misleading names, complete valid publication/strict validation and partial tuple
 rejection. Existing external schema/runtime fixes stay unchanged; public
 standalone fixture and guides follow separately. Same isolated Cargo target
 and proportional routing apply. Corpus210e3ae now reflects accepted PET parity.
+
+## PET loader boundary accepted; public proof opened — 2026-09-05
+
+Generatord9efbd8 changes loader semantic/registry admission and early shared
+dispatch plus the renamed existing US/PET bundle test and exact ownership.
+Four caller/US/MR/WSI PET names publish, strictly reopen and report; missing
+and crossed tuples reject. Inspector bounds and external manifest/runtime
+behavior are unchanged. Root/independent review accepted. Focused1/34.41s
+after19.57s compile, CTcontrol1/0.26s and routing-list1/0.074s passed. An initial
+wrong Python test-class invocation was corrected. Fast15/2.16s+73/1.92s after
+18.27s compile passed; log /private/tmp/pet-loader-fast.log.
+
+Root ran all four inspected affected subsystem commands at cleand9efbd8:
+bundle30/39.14s, captured-input4/5.33s, corpus92/28.28s and planning22/0.82s;
+whole78.957100250s. Log /private/tmp/r7-pet-loader-root-subsystem-20260905.log;
+route /private/tmp/pet-loader-route.json. Fast was not repeated. Task target
+1183104KiB; default target untouched. Ownership1495/diff/commit checks passed.
+
+Next public proof owner may add only tests/fixtures/generic-pet-corpus/ closed
+fixture (descriptor, registry, recipe and source-exact PET note),
+tests/fixtures/generic-pet-semantics.json, tests/support/generic_pet_bundle.rs,
+and a dedicated public CLI/SDK test in tests/external_corpus_cli.rs. Exact
+ownership/routing/test-list records may change in product/test-ownership.json,
+product/change-test-routing.json, tests/test_change_test_routing.py and
+scripts/check-test-ownership.py; a preserved manufacturer spelling occurrence
+may be added in product/spelling-transition-2026-09-02.json. No production code
+or guides are included. Fixture has caller/acquisition/activity identity,
+caller_activity recipe, orders900/901 and independent/activity.dcm.
+Bind baseline2/parity1 in a committed targeted oracle; source note/recipe are
+local fixture members, with no ignored/sibling corpus runtime dependency.
+Compare public CLI from unrelated cwd/emptyPATH with SDK-only consumer, full
+manifest/payload/report parity and original source-case bytes/semantics. Freeze
+observed caller hash after the first bounded observation, rerun exact frozen
+proof and applicable Fast/route checks; no placeholder can remain at acceptance.

@@ -221,12 +221,147 @@ fn planning_is_output_free_uses_shared_slot_and_rejects_corruption() {
         plan_vl_projection_recipe(&corrupt, &lock_hash, 7),
         Err(ClassicVlProjectionPlanError::Parameters(_))
     ));
-    let mut wrong_path = owned(&catalog)[0].clone();
-    wrong_path.dicom.as_mut().unwrap().artifacts[0].output.path = Some("wrong.dcm".into());
-    assert!(matches!(
-        plan_vl_projection_recipe(&wrong_path, &lock_hash, 7),
-        Err(ClassicVlProjectionPlanError::Contract(_))
-    ));
+    for source in owned(&catalog).into_iter().filter(|r| {
+        matches!(
+            r.binding.case_id.as_str(),
+            "vl/photo/rgb_planar0_explicit_le" | "vl/photo/palette_color_explicit_le"
+        )
+    }) {
+        for name in [
+            "caller/photo",
+            "classic/xa/monoplane_explicit_le",
+            "vl/photo/rgb_icc_profile_explicit_le",
+            "vl/photo/rgb_planar0_rle_lossless",
+        ] {
+            let mut caller = source.clone();
+            caller.binding.case_id = name.into();
+            caller.recipe_id = "caller_photo".into();
+            caller.planning_order = Some(900);
+            caller.projection_order = Some(901);
+            caller.dicom.as_mut().unwrap().artifacts[0].output.path =
+                Some("independent/photo.dcm".into());
+            let plan = plan_vl_projection_recipe(&caller, &lock_hash, 7)
+                .unwrap()
+                .unwrap();
+            assert_eq!(
+                plan[0].output_relative_path.as_str(),
+                "independent/photo.dcm"
+            );
+            assert_eq!(
+                plan[0].pixels,
+                plan_vl_projection_recipe(source, &lock_hash, 7)
+                    .unwrap()
+                    .unwrap()[0]
+                    .pixels
+            );
+        }
+        let value = serde_json::to_value(source).unwrap();
+        for pointer in ["/provider_parameters", "/dicom/artifacts/0/parameters"] {
+            for key in value.pointer(pointer).unwrap().as_object().unwrap().keys() {
+                let mut changed = value.clone();
+                changed
+                    .pointer_mut(pointer)
+                    .unwrap()
+                    .as_object_mut()
+                    .unwrap()
+                    .remove(key);
+                if let Ok(recipe) = serde_json::from_value(changed) {
+                    assert!(
+                        plan_vl_projection_recipe(&recipe, &lock_hash, 7).is_err(),
+                        "missing {key}"
+                    );
+                }
+            }
+        }
+        for (pointer, replacement) in [
+            (
+                "/dicom/artifacts/0/parameters/rows",
+                serde_json::json!(4294967295u32),
+            ),
+            (
+                "/dicom/artifacts/0/parameters/stored_values",
+                serde_json::json!([256]),
+            ),
+            (
+                "/dicom/artifacts/0/parameters/frame_sha256",
+                serde_json::json!("bad"),
+            ),
+            (
+                "/dicom/artifacts/0/parameters/modality",
+                serde_json::json!("XA"),
+            ),
+            (
+                "/dicom/artifacts/0/template/template_id",
+                serde_json::json!("classic/xa"),
+            ),
+            (
+                "/dicom/artifacts/0/output/path",
+                serde_json::json!("../escape.dcm"),
+            ),
+            (
+                "/dicom/artifacts/0/classic_projection/include_implementation_version_name",
+                serde_json::json!(false),
+            ),
+            (
+                "/dicom/artifacts/0/encoding/sequence_length_policy",
+                serde_json::json!("undefined"),
+            ),
+            (
+                "/dicom/artifacts/0/content/provider_id",
+                serde_json::json!("content.sc.pixel_pattern"),
+            ),
+            (
+                "/dicom/artifacts/0/determinism",
+                serde_json::json!("semantic_stable"),
+            ),
+            ("/dicom/artifacts/0/stressors", serde_json::json!([])),
+        ] {
+            let mut changed = value.clone();
+            *changed.pointer_mut(pointer).unwrap() = replacement;
+            let recipe = serde_json::from_value(changed).unwrap();
+            assert!(
+                plan_vl_projection_recipe(&recipe, &lock_hash, 7).is_err(),
+                "{pointer}"
+            );
+        }
+        let mut changed = source.clone();
+        changed.dicom.as_mut().unwrap().artifacts[0]
+            .encoding
+            .fragments_per_frame = Some(1);
+        assert!(plan_vl_projection_recipe(&changed, &lock_hash, 7).is_err());
+        let mut changed = source.clone();
+        changed
+            .provider_parameters
+            .insert("unexpected".into(), serde_json::json!(true));
+        assert!(plan_vl_projection_recipe(&changed, &lock_hash, 7).is_err());
+        let mut changed = source.clone();
+        changed
+            .dicom
+            .as_mut()
+            .unwrap()
+            .artifacts
+            .push(source.dicom.as_ref().unwrap().artifacts[0].clone());
+        assert!(plan_vl_projection_recipe(&changed, &lock_hash, 7).is_err());
+    }
+    for source in owned(&catalog).into_iter().filter(|r| {
+        r.binding.case_id.contains("icc_profile")
+            || r.binding.case_id.starts_with("vl/photo/")
+                && r.binding.case_id.ends_with("rle_lossless")
+    }) {
+        let mut renamed = source.clone();
+        renamed.binding.case_id = "caller/unsupported-photo".into();
+        assert!(plan_vl_projection_recipe(&renamed, &lock_hash, 7).is_err());
+        let mut changed = source.clone();
+        changed.dicom.as_mut().unwrap().artifacts[0]
+            .encoding
+            .fragments_per_frame = Some(2);
+        assert!(plan_vl_projection_recipe(&changed, &lock_hash, 7).is_err());
+        let mut changed = source.clone();
+        changed
+            .provider_parameters
+            .insert("patient_id".into(), serde_json::json!("changed"));
+        assert!(plan_vl_projection_recipe(&changed, &lock_hash, 7).is_err());
+    }
     let non_owned = catalog
         .recipes()
         .values()

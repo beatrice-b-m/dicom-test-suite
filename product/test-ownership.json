@@ -602,7 +602,7 @@
         "direct_plans_match_current_part10_bytes_and_manifest_facts",
         "provider_source_has_no_execution_or_filesystem_dependency"
       ],
-      "entry_digest": "b653f1ddb9b5b0f92f657870d294affc54b976c48bf4834f394bc29f070a1469"
+      "entry_digest": "5054e3e48e92e9ecd3c30b3f74b30eb9a1b2ba581a65ca0a5e7ac492253f1167"
     },
     {
       "source": "tests/cli_contract_schema.rs",

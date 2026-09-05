@@ -74,3 +74,62 @@ No build tree or generated artifact was created by this check.
 
 R8, R9, remote delivery, viewer execution and terminal release evidence remain
 unqualified. The goal remains active until all plan and terminal gates pass.
+
+## R7 DX/MG3 migrated parity accepted — 2026-09-05
+
+The isolated proof at corpus source `80335e3043b981aaec42800f5f3be411ff70cf43`
+passed in `artifacts/r7-native-dx-mg-parity1-20260905`. Its 253,806-byte receipt
+has SHA-256 `93c0b66eed29f669cd89d2272116200c5bcd81e08f6fc04105d70769b08fece6`.
+The source was a clean temporary clone of that exact commit, excluding unrelated
+uncommitted CI edits. The user subsequently confirmed no other active task and
+authorized necessary changes; those reviewed CI edits were committed separately
+as `272ca9d` and do not change the proof's frozen source.
+
+Preparation commit `80335e3` fixes repeat comparison of the exact adjacent
+`.dcmview-run` evidence root while continuing to reject lookalike siblings.
+Its 13 synthetic tests passed in 0.344s. CI commit `272ca9d` routes the two exact
+parity helper/test paths to ordinary synthetic verification, with 42 routing
+tests passing in 0.494s. Root review repeated these suites successfully in
+0.367s and 0.487s; diff checks passed. Neither ordinary suite invokes generation.
+
+Exactly two public-runner calls selected the three DX/MG IDs under core,
+seed1, parallelism4. Each performed generation, strict validation and report2
+through the pinned supported CLI from an empty private unrelated directory
+with empty PATH. The calls took 3.981423083s and 3.591930833s; the complete proof
+took 10.388857208s. There was no compiler, retry, whole-core generation,
+external provider, viewer or independent conformance invocation.
+
+The explicit generator remains source `232b9de`, product0.2.0, artifact SHA-256
+`4ca0c6d6a8e4cbab81b7005b4354c7ff558c44747e00f41d22d3abbfd50b7768`.
+The submitted content0.5.0 identity remains
+`c826f39f14e525f0b9c8e465d64ca6c7a9f4389c25df82128fd2a68c3825fec3`.
+Both outputs reproduce all three accepted baseline5 payloads (4,628 bytes):
+MG presentation 1,586 bytes, MG processing 1,546 bytes and DX shutter 1,496 bytes.
+The entire file array, including UIDs, plans, pixels, validation and standards,
+is unchanged, canonical SHA-256
+`eed5b71d90dc1918042602fba685cdb5c6dbc052c50deaeca4ff4a4a1cde1c20`.
+Only the declared manifest1-to-external2 identity/selection migration applies;
+the historical 31 unselected rows remain authenticated in the baseline.
+
+Both raw manifests are 125,881 bytes with SHA-256
+`91778ac092229e8abdaf662bd2106c45e28b60d1e9effed6f6dbcb9539c2c1ee`.
+Both raw reports are 140,896 bytes with SHA-256
+`e1457873526658180ba2e56a6618f68b228a34cf40346e5c8e82e78b661159ab`.
+Each output occupies 139,264 allocated bytes. Evidence excluding the receipt
+contains 195 files, 357,165,273 logical bytes and 357,556,224 allocated bytes,
+including frozen source, copied prior evidence and explicit binaries. No build
+tree was created and no payload, cache, ordinary manifest or report was committed.
+
+Root independently checked all 195 recorded file hashes and complete baseline,
+first and repeat payload/file-array equality. A separate read-only agent replay
+with subprocess APIs forbidden authenticated baseline5, availability, copied
+bundle, acquisition identities, full manifest/report parity and the 98 source
+archive members against recorded SHA-256/Git blob identities. No native rerun
+was used for review.
+
+This accepts bounded R7 DX/MG3 same-project migrated parity. Report2 remains a
+manifest projection with validation and independent conformance not assessed;
+strict validation is separate captured evidence. DX/MG genericity (R7.2/R7.3),
+remaining corpus slices, embedded removal, viewer behavior, R8/R9 and terminal
+release qualification remain open. Accepted evidence must not be relabeled as
+qualification of a later generator pin or corpus definition.

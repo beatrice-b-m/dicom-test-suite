@@ -858,3 +858,30 @@ accepted full genericity claim. A read-only inventory of reachable validation
 and reporting dispatch precedes its sequential fix; declared evidence and
 legacy requirements must remain checked. US public caller proof, R7 completion
 and R8/R9 remain pending.
+
+## External schema subsystem verification checkpoint — 2026-09-05
+
+The inspected schema/resource route passed bundle30 tests12.93s, captured
+runner6 tests4.68s and captured report3 tests3.80s, then stopped at three stale
+snapshot byte assertions (4 passed,3 failed,2.05s). Actual261-member snapshot
+2931302 bytes exceeds the old2918678 by exactly12624 schema bytes. Root and
+owner independently enumerated build.rs members to confirm the total. Follow-up
+3ced103 updates only three assertions, the printed measurement and exact test
+ownership digest. Snapshot7 tests passed2.06s after18.35s compile; ownership
+1490 passed0.235s and diff checks passed. Root reviewed the complete diff.
+
+Only the unexecuted remainder of the inspected route was then run: manifest7
+tests2.40s, report5 tests5.28s, assembly25 tests3.07s (17.39s compile), report
+CLI50 tests18.54s (2.21s compile), SDK corpus8 tests34.48s, SDK facade12 tests
+3.34s and schema/resources86 tests6.85s (0.78s compile). All passed, whole
+remainder96.146172s. Logs are /private/tmp/r7-external-schema-route-20260905.log
+and /private/tmp/r7-external-schema-route-remainder-20260905.log. Task target
+measured858308KiB after the first route and914952KiB after the remainder.
+Explicit nonincremental low-debug target was used; default target untouched.
+Unconditional Fast coverage remains due with the ensuing runtime integration.
+
+Decision19df3c3 orders three runtime correction units after the independent
+audit: scalar/metadata context, reference/VL/WSI/STL context, then qualification
+isolation. Unit1 owner may now edit; runtime reporting requires no change.
+This completes affected schema subsystem verification, not US genericity or
+release evidence. Retained corpus executable and parity identities are unchanged.

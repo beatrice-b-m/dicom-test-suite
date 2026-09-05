@@ -615,7 +615,12 @@ semantic extraction of the exact VR, VM, values, absences, dimensions, and
 pixel hash. Negative tests reject crossed axes and relinked evidence.
 
 The later separation migration adds a caller-owned form without changing
-those historical bytes or independent evidence. An unrelated two-artifact
+those seed-7 current-generator regression bytes or independent evidence. They
+remain distinct from the accepted original-pin baseline2 seed-1 artifacts at
+source revision `232b9de41f97ee95abe1ecc40b6b8b70ebeeea5f`:
+1,010-byte `f66374f55860fe732345c7a0faebe3cd142647321ce7c13eba24a8ba1b58fb14`
+and 988-byte `3e66422f5c55d68b60f169f4fb6a5e42cf43a9c904c72da3132dd854f8ae6da6`.
+Neither domain relabels the other. An unrelated two-artifact
 definition owns its case/recipe names, logical identities, output roles/paths,
 order and pixels while the engine admits the complete typed SC/geometry tuple.
 Manifest V2 records the caller's positive bounded DS/IS values and semantic

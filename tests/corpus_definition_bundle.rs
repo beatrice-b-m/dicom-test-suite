@@ -1438,7 +1438,7 @@ fn external_nonsquare_sc_capability_is_name_independent_and_fail_closed() {
         fs::remove_dir_all(root).unwrap();
     }
 
-    for mutation in 0..16 {
+    for mutation in 0..17 {
         assert_one_case_rejected(
             &format!("nonsquare-invalid-{mutation}"),
             SOURCE,
@@ -1484,12 +1484,13 @@ fn external_nonsquare_sc_capability_is_name_independent_and_fail_closed() {
                         artifacts[1]["nonsquare_geometry"]["pixel_aspect_ratio"][0] =
                             2_147_483_648_u64.into()
                     }
-                    _ => {
+                    15 => {
                         artifacts[1]["nonsquare_geometry"] =
                             artifacts[0]["nonsquare_geometry"].clone();
                         artifacts[1]["attribute_operations"] =
                             artifacts[0]["attribute_operations"].clone();
                     }
+                    _ => artifacts[1]["output"]["role"] = artifacts[0]["output"]["role"].clone(),
                 }
             },
         );

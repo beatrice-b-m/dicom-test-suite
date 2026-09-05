@@ -2390,13 +2390,19 @@ partial axes, crossed operations, invalid or overlong DS, invalid or excessive
 IS, duplicate identities/roles/paths/orders, single-artifact definitions and a
 contradictory registry modality.
 
-Only manifest V2 gains the reusable structural contract. Manifest V1, the
-frozen legacy assembly namespace and the exact historical two-file contract
-remain unchanged. The accepted Part 10 SHA-256 values remain
+Only manifest V2 gains the reusable structural contract. Manifest V1 and the
+frozen legacy assembly namespace remain unchanged. The current embedded
+generator's seed-7 byte-regression SHA-256 values remain
 `50f897625dcc489d212a81674086d1183569d6e0ac7a847d55afc8dd599276d4`
 and `dc330a2b51d1381d943e5ba0f50086114eb95102852228e7ffcb62e0bdec93b9`;
-the original generator/reporter pins and independent adapter evidence retain
-their original labels and boundaries.
+they are not the accepted original-pin baseline2. That separate seed-1
+baseline at source revision `232b9de41f97ee95abe1ecc40b6b8b70ebeeea5f`
+retains its 1,010-byte `f66374f55860fe732345c7a0faebe3cd142647321ce7c13eba24a8ba1b58fb14`
+and 988-byte `3e66422f5c55d68b60f169f4fb6a5e42cf43a9c904c72da3132dd854f8ae6da6`
+artifacts under baseline2 receipt
+`1bbf330ba59bc4164cfa71d3fce9c86394046352eb26293a61f8a3bc115903ef`.
+The original generator/reporter pins and independent adapter evidence retain
+their original labels and boundaries; neither byte domain relabels the other.
 
 Focused public CLI/SDK, loader, historical payload, planner, schema compilation,
 manifest-contract, schema identity, seven snapshot-cache, ownership and routing

@@ -1,11 +1,35 @@
 {
-  "oracle_version": "1.0.0",
-  "historical_source": {
+  "oracle_version": "1.1.0",
+  "accepted_original_pin_baseline2": {
     "case_id": "classic/sc/nonsquare_pixel_spacing",
+    "seed": 1,
+    "source_revision": "232b9de41f97ee95abe1ecc40b6b8b70ebeeea5f",
+    "receipt_sha256": "1bbf330ba59bc4164cfa71d3fce9c86394046352eb26293a61f8a3bc115903ef",
+    "generator_artifact_sha256": "4ca0c6d6a8e4cbab81b7005b4354c7ff558c44747e00f41d22d3abbfd50b7768",
+    "reporter_revision": "c2ffe41a9af6b72857f51b507ae6165a14deacdb",
+    "reporter_artifact_sha256": "c56f49b0fc6626948f93f83568b592efd35109919c128da1191f818aab4bb383",
+    "artifacts": [
+      {
+        "path": "classic/sc/nonsquare_pixel_spacing/pixel-spacing.dcm",
+        "size_bytes": 1010,
+        "part10_sha256": "f66374f55860fe732345c7a0faebe3cd142647321ce7c13eba24a8ba1b58fb14"
+      },
+      {
+        "path": "classic/sc/nonsquare_pixel_spacing/pixel-aspect-ratio.dcm",
+        "size_bytes": 988,
+        "part10_sha256": "3e66422f5c55d68b60f169f4fb6a5e42cf43a9c904c72da3132dd854f8ae6da6"
+      }
+    ],
+    "evidence_boundary": "accepted original-pin baseline2; these bytes are not relabeled by current-generator regressions"
+  },
+  "current_embedded_seed7_regression": {
+    "case_id": "classic/sc/nonsquare_pixel_spacing",
+    "seed": 7,
     "part10_sha256": [
       "50f897625dcc489d212a81674086d1183569d6e0ac7a847d55afc8dd599276d4",
       "dc330a2b51d1381d943e5ba0f50086114eb95102852228e7ffcb62e0bdec93b9"
-    ]
+    ],
+    "evidence_boundary": "current embedded generator byte regression only; not the accepted original-pin baseline2"
   },
   "caller": {
     "case_id": "caller/geometry/independent-rectangles",

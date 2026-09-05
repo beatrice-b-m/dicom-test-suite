@@ -1914,3 +1914,21 @@ five documents, original generator acquisition and exact content0.10.
 Independent reviewer authenticates inputs and source-specific two-case
 selection before capture helper/CI/readiness. No availability native command
 has run and source capability edits remain unopened. R7open/R8R9held.
+
+## VL read-only availability checker accepted — 2026-09-05
+
+Corpus8bda10c adds only verify_vl_photo_availability.py and its test module.
+14 synthetic tests1.134s passed, /private/tmp/vl-availability-tests.log.
+Actual five baseline2 documents, original acquisition and content0.10
+authentication passed owner0.0203425s/root0.019585291s; independent
+baseline/bundle authentication0.012570s and complete source review passed.
+Baseline2 receipt/manifest/expectations/fullfiles/fullskips pins remain exact.
+Request RGB thenpalette, canonical ledger order, source planning600/604,
+projection7/11 and recipe-derived artifact IDs are distinguished explicitly.
+Full35member/213473-byte identity and ready2 response are bound, with no
+percase notes or widened availability claim. Old checkers remain unchanged.
+
+Next exact owner adds only capture_vl_photo_availability.py and its synthetic
+test module. Capture source/input/archive/pin/mode/finalizer closures require
+review and ordinary CI/readiness before one assessment. No native availability
+command or source capability migration has begun. R7open/R8R9held.

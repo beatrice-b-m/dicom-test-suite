@@ -1573,3 +1573,35 @@ Logs /private/tmp/r7-xa-xrf-availability1-20260905.stdout.json and stderr.txt;
 fullordinary /private/tmp/r7-xa-xrf-preavailability-ordinary-20260905.log.
 Nextowner has only new parityhelper/tests; actualtwo-runparity and source
 capability remain unopened. R7 remains incomplete; R8/R9 held.
+
+## XA/XRF bounded migrated parity accepted — 2026-09-05
+
+Corpus helpered21cf6 preserves2case fullfiles/reports and explicit manifest
+migration. Review caught stalecount1 before execution; count2 and both mocked
+validationfiles now asserted. Final13/0.319s, pureauth0.208803s and independent
+0.209374s passed (intermediate selectororacle typo7 failures/0.213s corrected).
+CIab6c0ab ordinary-only registration66/1.599s; fullordinary663/17.729s,
+/private/tmp/r7-xa-xrf-preparity-ordinary-20260905.log. Mixed CI preview0.413407s
+ran no native work; independentready0.234109s authenticated all fixed inputs.
+
+Fresh parity1 at a4c962d passed two publiccalls3.944677458/3.490001375s,
+whole10.322190041s; corpus153b137 accepts independent audit0.833882s plus
+originalinputs0.435937s. Receipt326311/
+d48da594544c82e70846440320d7d59a4789891851bcd6d614372eaffb442cc4.
+Bothpayloadpairs preserve XA1172/7efc1140…dc824 and XRF1166/da7415dd…f30ff;
+fullhashes in corpusledger. Bothmanifests114694/
+abe2f3873411e56e0f594b786d9643298ff6737d0a92dd9442eac108b3e4d427;
+bothreports127083/b25c228cd14ec2fbaa42cca5812efd8723ef7ce6285239e16cfe65c82e8baffe.
+Retained250 files363031705logical/363536384allocated excludingreceipt,148archive
+sourceobjects; runtime241 files358966498logical/359460864allocated. Original
+/private/tmp/r7-xa-xrf-parity-b5tp1di4 remains; all closure/sidecar/finalizers
+passed. Logs /private/tmp/r7-native-xa-xrf-parity1-20260905.stdout.json/stderr.txt.
+Same-project migrated evidence only; original artifact pin unchanged.
+
+Next R7.2/R7.3 planner owner has classic_vl_projection.rs, its plan test,
+product/test-ownership.json and spelling record only if a new preserved literal
+requires it. Complete source tuple and caller-name/order/path independence;
+preserve8 historical VL routes. Loader/shared dispatch, standalone public proof
+and guides remain sequential. Task-specific noincremental/lowdebug target is
+mandatory; pure planning tests and proportional Fast first, materialization
+later. VL2 execution stays unopened. R7 incomplete/R8R9 held.

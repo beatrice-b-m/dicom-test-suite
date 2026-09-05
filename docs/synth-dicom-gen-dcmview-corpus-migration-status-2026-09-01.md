@@ -5746,6 +5746,56 @@ embedded CT recipe remain separate work. Other classic/VL, series, codec,
 stress and legacy families, whole-core migration, independent conformance,
 viewer interoperability, packaging and release qualification remain open.
 
+## Post-CT ordinary baseline restored — 2026-09-04
+
+The exact no-default ordinary baseline now passes at generator HEAD
+`bb86ac1`. The repairs were kept granular and did not broaden the verification
+boundary:
+
+- `fb64c85` updates the parent-traversal regression to assert the current
+  fail-closed manifest-contract rejection, and `375c035` uses the current
+  `synth-dicom-gen-` temporary-path prefix in the composition fixture.
+- The diagnostic resource-identity change `f000126` was reversed exactly by
+  `0496d6e`; the pair is retained in history and has no net resource-identity
+  effect. `2facc13` instead makes the composition fixture consume the frozen v1
+  resource identity used by production and rejects substitution of the current
+  v2 identity.
+- `d4b7849` freezes the provider-backed quantitative output version and adds
+  exact byte/plan regressions for the five affected outputs. `79b99a0` updates
+  the generation-spine audit to positively classify that version boundary, and
+  `79c0eb4` gives the audit an exact ordinary change route.
+- Release-test compatibility fixes `6e006c7..12bcae6` preserve the renamed
+  product diagnostic, consume current producer result schemas, format the
+  focused Rust change, assert split resource provenance, and refresh the two
+  fail-closed release ownership digests. `bb86ac1` then routes standards hashing
+  through verified `EngineResources` bytes instead of a repository-relative
+  standards read.
+
+The diagnostic progression is part of the evidence. The first exact all-target
+run cleared the two pre-existing library failures but stopped when the pinned
+composition backend environment was absent. After preparing that locked local
+test environment, focused qualification exposed and repaired the P8 byte
+oracle. The second exact run then reached the stale spine audit; later exact
+runs exposed the release-harness assumptions and captured-planning resource
+lookup. Each failure was repaired at its owning boundary before the exact
+command was repeated. The final command was:
+
+```sh
+/usr/bin/time -p cargo test --locked --all-targets --no-default-features
+```
+
+It passed at `bb86ac1` in 305.84s real, 1441.39s user and 101.99s sys. The
+library target reported 533 passed and six ignored. The ordinary
+nightly-labelled harnesses executed, including release nonfast 14/14 and schema
+subsystem 86/86, but the six R2.3 Heavy test bodies remained ignored. No Heavy
+qualification script was invoked. This is therefore an exact ordinary
+regression pass only: it is not a Nightly Heavy or release-candidate run and
+does not establish independent conformance, viewer interoperability, package
+qualification, cross-target support, or any terminal acceptance row by itself.
+The status-only follow-up passed change routing, `git diff --check`,
+`release_ci__fast` 15/15 and `schema_resources__fast` 73/73; release-candidate
+evidence remained explicitly deferred.
+
 ## Measurements
 
 | Measurement | Baseline command/revision | R0 value | Terminal value | State |

@@ -150,6 +150,55 @@ fn rejects_sparse_manifest_contract_drift() {
 
 #[test]
 fn persisted_manifest_validation_rejects_sparse_geometry_mutation() {
+    let external = crate::manifest_contract::ManifestContractKind::ExternalCorpus;
+    let mut caller = manifest_file();
+    caller["case_id"] = "caller/sparse".into();
+    caller["dicom"]["iod_name"] = "VL Whole Slide Microscopy Image".into();
+    let caller_path = write_fixture("external-renamed", Mutation::None);
+    let object = dicom_object::open_file(&caller_path).unwrap();
+    let mut failures = vec![];
+    crate::validate_family_standard_elements_for_kind(
+        external,
+        &mut failures,
+        "caller.dcm",
+        &caller_path,
+        std::path::Path::new("manifest.json"),
+        &caller,
+        &object,
+    )
+    .unwrap();
+    assert!(failures.is_empty(), "{failures:?}");
+    assert!(validate_manifest_wsi_file(&caller_path, &caller).is_err());
+    let mut missing = caller.clone();
+    missing
+        .as_object_mut()
+        .unwrap()
+        .remove("expected_wsi_tiled_sparse");
+    assert!(super::validate_manifest_wsi_file_for_kind(external, &caller_path, &missing).is_err());
+    let mut crossed = caller.clone();
+    crossed["expected_wsi_tiled_full"] = serde_json::json!({});
+    assert!(super::validate_manifest_wsi_file_for_kind(external, &caller_path, &crossed).is_err());
+    cleanup(caller_path);
+    let corrupt_path = write_fixture("external-corrupt", Mutation::DuplicatePosition);
+    let object = dicom_object::open_file(&corrupt_path).unwrap();
+    crate::validate_family_standard_elements_for_kind(
+        external,
+        &mut failures,
+        "caller.dcm",
+        &corrupt_path,
+        std::path::Path::new("manifest.json"),
+        &caller,
+        &object,
+    )
+    .unwrap();
+    assert!(
+        failures
+            .iter()
+            .any(|f| f.contains("wsi_sparse_frame_2_column_position")),
+        "{failures:?}"
+    );
+    cleanup(corrupt_path);
+
     let valid_path = write_fixture("persisted-valid", Mutation::None);
     validate_manifest_wsi_file(&valid_path, &manifest_file())
         .expect("persisted valid sparse WSI must pass strict validation");

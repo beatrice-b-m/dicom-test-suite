@@ -2184,6 +2184,18 @@ fn reconstruct_tiled_full_matrix(pixel_bytes: &[u8]) -> Option<Vec<u8>> {
 
 /// Re-run the strict Phase 4 WSI validator against a persisted manifest member.
 pub(crate) fn validate_manifest_wsi_file(path: &Path, file: &Value) -> Result<(), GenerateError> {
+    validate_manifest_wsi_file_for_kind(
+        crate::manifest_contract::ManifestContractKind::CuratedGeneration,
+        path,
+        file,
+    )
+}
+
+pub(crate) fn validate_manifest_wsi_file_for_kind(
+    kind: crate::manifest_contract::ManifestContractKind,
+    path: &Path,
+    file: &Value,
+) -> Result<(), GenerateError> {
     let required_str = |pointer: &str| -> Result<&str, GenerateError> {
         file.pointer(pointer)
             .and_then(Value::as_str)
@@ -2257,22 +2269,62 @@ pub(crate) fn validate_manifest_wsi_file(path: &Path, file: &Value) -> Result<()
         segmentation: None,
     };
 
-    match required_str("/case_id")? {
-        "vl/wsi/tiled_full_small" => validate_wsi_tiled_full_file(
+    #[derive(Clone, Copy)]
+    enum WsiContract<'a> {
+        Full,
+        Sparse,
+        OpticalPaths,
+        Pyramid,
+        Stress,
+        Unsupported(&'a str),
+    }
+    let dispatch = if kind == crate::manifest_contract::ManifestContractKind::ExternalCorpus {
+        let fields = [
+            ("expected_wsi_tiled_full", WsiContract::Full),
+            ("expected_wsi_tiled_sparse", WsiContract::Sparse),
+            (
+                "expected_wsi_multiple_optical_paths",
+                WsiContract::OpticalPaths,
+            ),
+            ("expected_wsi_pyramid", WsiContract::Pyramid),
+        ];
+        let selected: Vec<_> = fields
+            .iter()
+            .filter(|(field, _)| file.get(*field).is_some())
+            .collect();
+        if selected.len() != 1 {
+            return Err(manifest_wsi_error(
+                path,
+                "external WSI requires exactly one declared semantic contract",
+            ));
+        }
+        selected[0].1
+    } else {
+        match required_str("/case_id")? {
+            "vl/wsi/tiled_full_small" => WsiContract::Full,
+            "vl/wsi/tiled_sparse_small" => WsiContract::Sparse,
+            "vl/wsi/multiple_optical_paths" => WsiContract::OpticalPaths,
+            "vl/wsi/pyramid_multiresolution" => WsiContract::Pyramid,
+            "stress/wsi/large_pyramid" => WsiContract::Stress,
+            other => WsiContract::Unsupported(other),
+        }
+    };
+    match dispatch {
+        WsiContract::Full => validate_wsi_tiled_full_file(
             path,
             &identity,
             file.get("expected_wsi_tiled_full")
                 .ok_or_else(|| manifest_wsi_error(path, "missing expected_wsi_tiled_full"))?,
         )
         .map(|_| ()),
-        "vl/wsi/tiled_sparse_small" => validate_wsi_tiled_sparse_file(
+        WsiContract::Sparse => validate_wsi_tiled_sparse_file(
             path,
             &identity,
             file.get("expected_wsi_tiled_sparse")
                 .ok_or_else(|| manifest_wsi_error(path, "missing expected_wsi_tiled_sparse"))?,
         )
         .map(|_| ()),
-        "vl/wsi/multiple_optical_paths" => validate_wsi_multiple_optical_paths_file(
+        WsiContract::OpticalPaths => validate_wsi_multiple_optical_paths_file(
             path,
             &identity,
             file.get("expected_wsi_multiple_optical_paths")
@@ -2281,7 +2333,7 @@ pub(crate) fn validate_manifest_wsi_file(path: &Path, file: &Value) -> Result<()
                 })?,
         )
         .map(|_| ()),
-        "vl/wsi/pyramid_multiresolution" => {
+        WsiContract::Pyramid => {
             let role = match required_str("/wsi_pyramid_role")? {
                 "volume" => crate::WsiPyramidRole::Volume,
                 "thumbnail" => crate::WsiPyramidRole::Thumbnail,
@@ -2302,7 +2354,7 @@ pub(crate) fn validate_manifest_wsi_file(path: &Path, file: &Value) -> Result<()
             )
             .map(|_| ())
         }
-        "stress/wsi/large_pyramid" => {
+        WsiContract::Stress => {
             validate_part10_file(path, &identity)?;
             let object = open_file(path).map_err(|error| validation_error(path, error))?;
             let expected_edge = file
@@ -2325,7 +2377,7 @@ pub(crate) fn validate_manifest_wsi_file(path: &Path, file: &Value) -> Result<()
             }
             Ok(())
         }
-        other => Err(manifest_wsi_error(
+        WsiContract::Unsupported(other) => Err(manifest_wsi_error(
             path,
             format!("unsupported persisted WSI case {other}"),
         )),

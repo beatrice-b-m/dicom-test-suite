@@ -410,6 +410,66 @@ fn external_us_capability_is_name_independent_and_fail_closed() {
     const US: &str = "classic/us/mono2_u8_explicit_le";
     for (label, case_id, recipe_id) in [
         (
+            "family-collision-0",
+            "vl/endoscopic/rgb_explicit_le",
+            "caller_ultrasound",
+        ),
+        (
+            "family-collision-1",
+            "vl/microscopic/rgb_explicit_le",
+            "caller_ultrasound",
+        ),
+        (
+            "family-collision-2",
+            "vl/wsi/tiled_full_small",
+            "caller_ultrasound",
+        ),
+        (
+            "family-collision-3",
+            "vl/wsi/tiled_sparse_small",
+            "caller_ultrasound",
+        ),
+        (
+            "family-collision-4",
+            "vl/wsi/multiple_optical_paths",
+            "caller_ultrasound",
+        ),
+        (
+            "family-collision-6",
+            "derived/seg/wsi_tile_reference",
+            "caller_ultrasound",
+        ),
+        (
+            "family-collision-7",
+            "derived/mesh/encapsulated_stl",
+            "caller_ultrasound",
+        ),
+        (
+            "family-collision-8",
+            "derived/registration/spatial_ct_pair",
+            "caller_ultrasound",
+        ),
+        (
+            "family-collision-9",
+            "derived/registration/deformable_ct_pair",
+            "caller_ultrasound",
+        ),
+        (
+            "family-collision-10",
+            "derived/presentation-state/color_softcopy",
+            "caller_ultrasound",
+        ),
+        (
+            "family-collision-11",
+            "non-image/rt/image_linked",
+            "caller_ultrasound",
+        ),
+        (
+            "family-collision-12",
+            "derived/sr/comprehensive3d_scoord3d",
+            "caller_ultrasound",
+        ),
+        (
             "arbitrary-us",
             "caller/ultrasound/native",
             "caller_ultrasound",

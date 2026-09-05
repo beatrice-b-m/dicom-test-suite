@@ -1383,10 +1383,16 @@ fn validate_loaded_manifest_root(
     validate_stress_profile_qualifications(&manifest_path, &manifest, files)?;
 
     let mut failures = Vec::new();
-    validate_wsi_pyramid_manifest_group(&manifest_path, files)?;
+    validate_wsi_pyramid_manifest_group_for_kind(kind, &manifest_path, files)?;
     for file in files {
         if file.get("validity").and_then(Value::as_str) != Some("expected_invalid") {
-            validate_manifest_references(&manifest_path, file, &source_objects, &mut failures)?;
+            validate_manifest_references_for_kind(
+                kind,
+                &manifest_path,
+                file,
+                &source_objects,
+                &mut failures,
+            )?;
         }
         validate_manifest_file(kind, root_dir, &manifest_path, file, &mut failures)?;
     }
@@ -1982,7 +1988,8 @@ fn build_manifest_source_object_map(
     Ok(source_objects)
 }
 
-fn validate_manifest_references(
+fn validate_manifest_references_for_kind(
+    kind: manifest_contract::ManifestContractKind,
     manifest_path: &Path,
     file: &Value,
     source_objects: &HashMap<String, ManifestSourceObject>,
@@ -2112,6 +2119,49 @@ fn validate_manifest_references(
         }
     }
 
+    if kind == manifest_contract::ManifestContractKind::ExternalCorpus {
+        if file.get("expected_spatial_registration").is_some() {
+            validate_spatial_registration_manifest_closure(
+                manifest_path,
+                file,
+                source_objects,
+                failures,
+            )?;
+        }
+        if file
+            .get("expected_deformable_spatial_registration")
+            .is_some()
+        {
+            validate_deformable_spatial_registration_manifest_closure(
+                manifest_path,
+                file,
+                source_objects,
+                failures,
+            )?;
+        }
+        if file
+            .get("expected_color_softcopy_presentation_state")
+            .is_some()
+        {
+            validate_color_softcopy_presentation_state_manifest_closure_for_kind(
+                kind,
+                manifest_path,
+                file,
+                source_objects,
+                failures,
+            )?;
+        }
+        if file.get("expected_rt_image").is_some() {
+            validate_rt_image_manifest_closure_for_kind(
+                kind,
+                manifest_path,
+                file,
+                source_objects,
+                failures,
+            )?;
+        }
+        return Ok(());
+    }
     if file.get("case_id").and_then(Value::as_str) == Some("derived/registration/spatial_ct_pair") {
         validate_spatial_registration_manifest_closure(
             manifest_path,
@@ -2150,7 +2200,28 @@ fn validate_rt_image_manifest_closure(
     source_objects: &HashMap<String, ManifestSourceObject>,
     failures: &mut Vec<String>,
 ) -> Result<(), ValidateError> {
+    validate_rt_image_manifest_closure_for_kind(
+        manifest_contract::ManifestContractKind::CuratedGeneration,
+        manifest_path,
+        file,
+        source_objects,
+        failures,
+    )
+}
+
+fn validate_rt_image_manifest_closure_for_kind(
+    kind: manifest_contract::ManifestContractKind,
+    manifest_path: &Path,
+    file: &Value,
+    source_objects: &HashMap<String, ManifestSourceObject>,
+    failures: &mut Vec<String>,
+) -> Result<(), ValidateError> {
     const CASE_ID: &str = "non-image/rt/image_linked";
+    let diagnostic_id = if kind == manifest_contract::ManifestContractKind::ExternalCorpus {
+        manifest_str(manifest_path, file, "/case_id", "case_id must be a string")?
+    } else {
+        CASE_ID
+    };
     const PLAN_PATH: &str = "non-image/rt/plan_linked/instance.dcm";
 
     let expected =
@@ -2159,8 +2230,18 @@ fn validate_rt_image_manifest_closure(
                 path: manifest_path.to_path_buf(),
                 message: "linked RT Image must declare its expected Plan reference",
             })?;
+    let plan_path = if kind == manifest_contract::ManifestContractKind::ExternalCorpus {
+        manifest_str(
+            manifest_path,
+            expected,
+            "/source_path",
+            "Plan source_path must be a string",
+        )?
+    } else {
+        PLAN_PATH
+    };
     let source = source_objects
-        .get(PLAN_PATH)
+        .get(plan_path)
         .ok_or(ValidateError::ManifestShape {
             path: manifest_path.to_path_buf(),
             message: "linked RT Image Plan source is missing from the manifest",
@@ -2176,7 +2257,7 @@ fn validate_rt_image_manifest_closure(
         (
             "source_path",
             expected_str("/source_path", "Plan source_path must be a string")?,
-            PLAN_PATH,
+            plan_path,
         ),
         (
             "source_sha256",
@@ -2207,7 +2288,7 @@ fn validate_rt_image_manifest_closure(
     ] {
         validate_equal(
             failures,
-            CASE_ID,
+            diagnostic_id,
             &format!("rt_image_plan_{name}"),
             actual,
             locked,
@@ -2217,7 +2298,7 @@ fn validate_rt_image_manifest_closure(
     match source.series_instance_uid.as_deref() {
         Some(locked) => validate_equal(
             failures,
-            CASE_ID,
+            diagnostic_id,
             "rt_image_plan_series_instance_uid",
             expected_str(
                 "/series_instance_uid",
@@ -2226,13 +2307,13 @@ fn validate_rt_image_manifest_closure(
             locked,
         ),
         None => failures.push(format!(
-            "{CASE_ID}: rt_image_plan_series_instance_uid: source has no Series Instance UID"
+            "{diagnostic_id}: rt_image_plan_series_instance_uid: source has no Series Instance UID"
         )),
     }
     match source.frame_of_reference_uid.as_deref() {
         Some(locked) => validate_equal(
             failures,
-            CASE_ID,
+            diagnostic_id,
             "rt_image_plan_frame_of_reference_uid",
             expected_str(
                 "/frame_of_reference_uid",
@@ -2241,7 +2322,7 @@ fn validate_rt_image_manifest_closure(
             locked,
         ),
         None => failures.push(format!(
-            "{CASE_ID}: rt_image_plan_frame_of_reference_uid: source has no Frame of Reference UID"
+            "{diagnostic_id}: rt_image_plan_frame_of_reference_uid: source has no Frame of Reference UID"
         )),
     }
 
@@ -2249,6 +2330,22 @@ fn validate_rt_image_manifest_closure(
 }
 
 fn validate_color_softcopy_presentation_state_manifest_closure(
+    manifest_path: &Path,
+    file: &Value,
+    source_objects: &HashMap<String, ManifestSourceObject>,
+    failures: &mut Vec<String>,
+) -> Result<(), ValidateError> {
+    validate_color_softcopy_presentation_state_manifest_closure_for_kind(
+        manifest_contract::ManifestContractKind::CuratedGeneration,
+        manifest_path,
+        file,
+        source_objects,
+        failures,
+    )
+}
+
+fn validate_color_softcopy_presentation_state_manifest_closure_for_kind(
+    kind: manifest_contract::ManifestContractKind,
     manifest_path: &Path,
     file: &Value,
     source_objects: &HashMap<String, ManifestSourceObject>,
@@ -2274,7 +2371,15 @@ fn validate_color_softcopy_presentation_state_manifest_closure(
     })?;
 
     for (name, pointer, locked) in [
-        ("case_id", "/case_id", CASE_ID),
+        (
+            "case_id",
+            "/case_id",
+            if kind == manifest_contract::ManifestContractKind::ExternalCorpus {
+                manifest_str(manifest_path, file, "/case_id", "case_id must be a string")?
+            } else {
+                CASE_ID
+            },
+        ),
         ("sop_class_uid", "/dicom/sop_class_uid", SOP_CLASS_UID),
         (
             "iod_name",
@@ -2313,7 +2418,11 @@ fn validate_color_softcopy_presentation_state_manifest_closure(
         relative_path,
         "color_softcopy_source_path_locked",
         source_path,
-        SOURCE_PATH,
+        if kind == manifest_contract::ManifestContractKind::ExternalCorpus {
+            source_path
+        } else {
+            SOURCE_PATH
+        },
     );
     let Some(actual) = source_objects.get(source_path) else {
         failures.push(format!(
@@ -2332,7 +2441,11 @@ fn validate_color_softcopy_presentation_state_manifest_closure(
                 "Color Softcopy Presentation State source_case_id must be a string",
             )?,
             actual.case_id.as_str(),
-            SOURCE_CASE_ID,
+            if kind == manifest_contract::ManifestContractKind::ExternalCorpus {
+                actual.case_id.as_str()
+            } else {
+                SOURCE_CASE_ID
+            },
         ),
         (
             "source_sha256",
@@ -3010,6 +3123,118 @@ fn validate_spatial_registration_manifest_closure(
     Ok(())
 }
 
+fn validate_external_family_evidence_scope(
+    kind: manifest_contract::ManifestContractKind,
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<(), ValidateError> {
+    if kind != manifest_contract::ManifestContractKind::ExternalCorpus {
+        return Ok(());
+    }
+    let iod = file.pointer("/dicom/iod_name").and_then(Value::as_str);
+    for (field, allowed) in [
+        (
+            "expected_vl_single_frame",
+            &["VL Endoscopic Image", "VL Microscopic Image"][..],
+        ),
+        (
+            "expected_wsi_tiled_full",
+            &["VL Whole Slide Microscopy Image"][..],
+        ),
+        (
+            "expected_wsi_tiled_sparse",
+            &["VL Whole Slide Microscopy Image"][..],
+        ),
+        (
+            "expected_wsi_multiple_optical_paths",
+            &["VL Whole Slide Microscopy Image"][..],
+        ),
+        (
+            "expected_wsi_pyramid",
+            &["VL Whole Slide Microscopy Image"][..],
+        ),
+        ("wsi_pyramid_role", &["VL Whole Slide Microscopy Image"][..]),
+        (
+            "wsi_pyramid_ordinal",
+            &["VL Whole Slide Microscopy Image"][..],
+        ),
+        ("expected_wsi_tile_segmentation", &["Segmentation"][..]),
+        ("expected_encapsulated_stl", &["Encapsulated STL"][..]),
+        (
+            "expected_spatial_registration",
+            &["Spatial Registration"][..],
+        ),
+        (
+            "expected_deformable_spatial_registration",
+            &["Deformable Spatial Registration"][..],
+        ),
+        (
+            "expected_color_softcopy_presentation_state",
+            &["Color Softcopy Presentation State"][..],
+        ),
+        ("expected_rt_image", &["RT Image"][..]),
+        ("expected_scoord3d", &["Comprehensive 3D SR"][..]),
+        ("expected_tid1500", &["Comprehensive 3D SR"][..]),
+    ] {
+        if file.get(field).is_some() && !iod.is_some_and(|iod| allowed.contains(&iod)) {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "declared external family evidence conflicts with file IOD",
+            });
+        }
+    }
+    for (active, fields) in [
+        (
+            iod == Some("VL Whole Slide Microscopy Image"),
+            &[
+                "expected_wsi_tiled_full",
+                "expected_wsi_tiled_sparse",
+                "expected_wsi_multiple_optical_paths",
+                "expected_wsi_pyramid",
+            ][..],
+        ),
+        (
+            iod == Some("Comprehensive 3D SR"),
+            &["expected_scoord3d", "expected_tid1500"][..],
+        ),
+        (
+            matches!(iod, Some("VL Endoscopic Image" | "VL Microscopic Image")),
+            &["expected_vl_single_frame"][..],
+        ),
+        (
+            iod == Some("Encapsulated STL"),
+            &["expected_encapsulated_stl"][..],
+        ),
+        (iod == Some("RT Image"), &["expected_rt_image"][..]),
+        (
+            iod == Some("Spatial Registration"),
+            &["expected_spatial_registration"][..],
+        ),
+        (
+            iod == Some("Deformable Spatial Registration"),
+            &["expected_deformable_spatial_registration"][..],
+        ),
+        (
+            iod == Some("Color Softcopy Presentation State"),
+            &["expected_color_softcopy_presentation_state"][..],
+        ),
+    ] {
+        if active
+            && fields
+                .iter()
+                .filter(|field| file.get(**field).is_some())
+                .count()
+                != 1
+        {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "external IOD requires exactly one declared family evidence contract",
+            });
+        }
+    }
+    Ok(())
+}
+
 fn validate_manifest_file(
     kind: manifest_contract::ManifestContractKind,
     root_dir: &Path,
@@ -3017,15 +3242,16 @@ fn validate_manifest_file(
     file: &Value,
     failures: &mut Vec<String>,
 ) -> Result<(), ValidateError> {
+    validate_external_family_evidence_scope(kind, manifest_path, file)?;
     let relative_path = manifest_str(manifest_path, file, "/path", "file path must be a string")?;
     validate_external_scalar_evidence_layout(kind, relative_path, file, failures);
-    validate_vl_single_frame_manifest_contract(manifest_path, file)?;
-    validate_wsi_tiled_full_manifest_contract(manifest_path, file)?;
-    validate_wsi_tile_segmentation_manifest_contract(manifest_path, file)?;
-    validate_wsi_tiled_sparse_manifest_contract(manifest_path, file)?;
-    validate_wsi_multiple_optical_paths_manifest_contract(manifest_path, file)?;
-    validate_wsi_pyramid_manifest_member(manifest_path, file)?;
-    validate_encapsulated_stl_manifest_contract(manifest_path, file)?;
+    validate_vl_single_frame_manifest_contract_for_kind(kind, manifest_path, file)?;
+    validate_wsi_tiled_full_manifest_contract_for_kind(kind, manifest_path, file)?;
+    validate_wsi_tile_segmentation_manifest_contract_for_kind(kind, manifest_path, file)?;
+    validate_wsi_tiled_sparse_manifest_contract_for_kind(kind, manifest_path, file)?;
+    validate_wsi_multiple_optical_paths_manifest_contract_for_kind(kind, manifest_path, file)?;
+    validate_wsi_pyramid_manifest_member_for_kind(kind, manifest_path, file)?;
+    validate_encapsulated_stl_manifest_contract_for_kind(kind, manifest_path, file)?;
     let path = root_dir.join(relative_path);
     let bytes = match fs::read(&path) {
         Ok(bytes) => bytes,
@@ -3153,7 +3379,15 @@ fn validate_manifest_file(
         expected_sop_instance,
     );
     validate_standard_baseline_elements(failures, relative_path, manifest_path, file, &obj)?;
-    validate_family_standard_elements(failures, relative_path, &path, manifest_path, file, &obj)?;
+    validate_family_standard_elements_for_kind(
+        kind,
+        failures,
+        relative_path,
+        &path,
+        manifest_path,
+        file,
+        &obj,
+    )?;
     metadata::validate_manifest_metadata(
         kind,
         relative_path,
@@ -3215,8 +3449,24 @@ fn validate_encapsulated_stl_manifest_contract(
     manifest_path: &Path,
     file: &Value,
 ) -> Result<(), ValidateError> {
+    validate_encapsulated_stl_manifest_contract_for_kind(
+        manifest_contract::ManifestContractKind::CuratedGeneration,
+        manifest_path,
+        file,
+    )
+}
+
+fn validate_encapsulated_stl_manifest_contract_for_kind(
+    kind: manifest_contract::ManifestContractKind,
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<(), ValidateError> {
     const CASE_ID: &str = "derived/mesh/encapsulated_stl";
-    let is_stl = file.get("case_id").and_then(Value::as_str) == Some(CASE_ID);
+    let is_stl = if kind == manifest_contract::ManifestContractKind::ExternalCorpus {
+        file.get("expected_encapsulated_stl").is_some()
+    } else {
+        file.get("case_id").and_then(Value::as_str) == Some(CASE_ID)
+    };
     let expected = file.get("expected_encapsulated_stl");
     if !is_stl {
         return if expected.is_some() {
@@ -3833,9 +4083,45 @@ fn validate_vl_single_frame_manifest_contract(
     manifest_path: &Path,
     file: &Value,
 ) -> Result<(), ValidateError> {
-    let case_id = file.get("case_id").and_then(Value::as_str);
-    let locked = match case_id {
-        Some("vl/endoscopic/rgb_explicit_le") => Some((
+    validate_vl_single_frame_manifest_contract_for_kind(
+        manifest_contract::ManifestContractKind::CuratedGeneration,
+        manifest_path,
+        file,
+    )
+}
+
+fn validate_vl_single_frame_manifest_contract_for_kind(
+    kind: manifest_contract::ManifestContractKind,
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<(), ValidateError> {
+    enum VlContract {
+        Endoscopic,
+        Microscopic,
+    }
+    let contract_kind = if kind == manifest_contract::ManifestContractKind::ExternalCorpus {
+        match file.get("expected_vl_single_frame") {
+            None => return Ok(()),
+            Some(expected) => match expected.get("iod_kind").and_then(Value::as_str) {
+                Some("vl_endoscopic_single_frame") => Some(VlContract::Endoscopic),
+                Some("vl_microscopic_single_frame") => Some(VlContract::Microscopic),
+                _ => {
+                    return Err(ValidateError::ManifestShape {
+                        path: manifest_path.to_path_buf(),
+                        message: "external VL evidence must declare a supported typed contract",
+                    });
+                }
+            },
+        }
+    } else {
+        match file.get("case_id").and_then(Value::as_str) {
+            Some("vl/endoscopic/rgb_explicit_le") => Some(VlContract::Endoscopic),
+            Some("vl/microscopic/rgb_explicit_le") => Some(VlContract::Microscopic),
+            _ => None,
+        }
+    };
+    let locked = match contract_kind {
+        Some(VlContract::Endoscopic) => Some((
             "vl_endoscopic_single_frame",
             "1.2.840.10008.5.1.4.1.1.77.1.1",
             "VL Endoscopic Image Storage",
@@ -3843,7 +4129,7 @@ fn validate_vl_single_frame_manifest_contract(
             "ES",
             "LUNG",
         )),
-        Some("vl/microscopic/rgb_explicit_le") => Some((
+        Some(VlContract::Microscopic) => Some((
             "vl_microscopic_single_frame",
             "1.2.840.10008.5.1.4.1.1.77.1.2",
             "VL Microscopic Image Storage",
@@ -3936,8 +4222,27 @@ fn validate_wsi_tiled_full_manifest_contract(
     manifest_path: &Path,
     file: &Value,
 ) -> Result<(), ValidateError> {
+    validate_wsi_tiled_full_manifest_contract_for_kind(
+        manifest_contract::ManifestContractKind::CuratedGeneration,
+        manifest_path,
+        file,
+    )
+}
+
+fn validate_wsi_tiled_full_manifest_contract_for_kind(
+    kind: manifest_contract::ManifestContractKind,
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<(), ValidateError> {
+    if kind == manifest_contract::ManifestContractKind::ExternalCorpus
+        && file.get("expected_wsi_tiled_full").is_none()
+    {
+        return Ok(());
+    }
     const CASE_ID: &str = "vl/wsi/tiled_full_small";
-    if file.get("case_id").and_then(Value::as_str) != Some(CASE_ID) {
+    if kind != manifest_contract::ManifestContractKind::ExternalCorpus
+        && file.get("case_id").and_then(Value::as_str) != Some(CASE_ID)
+    {
         return if file.get("expected_wsi_tiled_full").is_some() {
             Err(ValidateError::ManifestShape {
                 path: manifest_path.to_path_buf(),
@@ -4271,8 +4576,27 @@ fn validate_wsi_tile_segmentation_manifest_contract(
     manifest_path: &Path,
     file: &Value,
 ) -> Result<(), ValidateError> {
+    validate_wsi_tile_segmentation_manifest_contract_for_kind(
+        manifest_contract::ManifestContractKind::CuratedGeneration,
+        manifest_path,
+        file,
+    )
+}
+
+fn validate_wsi_tile_segmentation_manifest_contract_for_kind(
+    kind: manifest_contract::ManifestContractKind,
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<(), ValidateError> {
+    if kind == manifest_contract::ManifestContractKind::ExternalCorpus
+        && file.get("expected_wsi_tile_segmentation").is_none()
+    {
+        return Ok(());
+    }
     const CASE_ID: &str = "derived/seg/wsi_tile_reference";
-    if file.get("case_id").and_then(Value::as_str) != Some(CASE_ID) {
+    if kind != manifest_contract::ManifestContractKind::ExternalCorpus
+        && file.get("case_id").and_then(Value::as_str) != Some(CASE_ID)
+    {
         return if file.get("expected_wsi_tile_segmentation").is_some() {
             Err(ValidateError::ManifestShape {
                 path: manifest_path.to_path_buf(),
@@ -4441,8 +4765,27 @@ fn validate_wsi_tiled_sparse_manifest_contract(
     manifest_path: &Path,
     file: &Value,
 ) -> Result<(), ValidateError> {
+    validate_wsi_tiled_sparse_manifest_contract_for_kind(
+        manifest_contract::ManifestContractKind::CuratedGeneration,
+        manifest_path,
+        file,
+    )
+}
+
+fn validate_wsi_tiled_sparse_manifest_contract_for_kind(
+    kind: manifest_contract::ManifestContractKind,
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<(), ValidateError> {
+    if kind == manifest_contract::ManifestContractKind::ExternalCorpus
+        && file.get("expected_wsi_tiled_sparse").is_none()
+    {
+        return Ok(());
+    }
     const CASE_ID: &str = "vl/wsi/tiled_sparse_small";
-    if file.get("case_id").and_then(Value::as_str) != Some(CASE_ID) {
+    if kind != manifest_contract::ManifestContractKind::ExternalCorpus
+        && file.get("case_id").and_then(Value::as_str) != Some(CASE_ID)
+    {
         return if file.get("expected_wsi_tiled_sparse").is_some() {
             Err(ValidateError::ManifestShape {
                 path: manifest_path.to_path_buf(),
@@ -4657,8 +5000,27 @@ fn validate_wsi_multiple_optical_paths_manifest_contract(
     manifest_path: &Path,
     file: &Value,
 ) -> Result<(), ValidateError> {
+    validate_wsi_multiple_optical_paths_manifest_contract_for_kind(
+        manifest_contract::ManifestContractKind::CuratedGeneration,
+        manifest_path,
+        file,
+    )
+}
+
+fn validate_wsi_multiple_optical_paths_manifest_contract_for_kind(
+    kind: manifest_contract::ManifestContractKind,
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<(), ValidateError> {
+    if kind == manifest_contract::ManifestContractKind::ExternalCorpus
+        && file.get("expected_wsi_multiple_optical_paths").is_none()
+    {
+        return Ok(());
+    }
     const CASE_ID: &str = "vl/wsi/multiple_optical_paths";
-    if file.get("case_id").and_then(Value::as_str) != Some(CASE_ID) {
+    if kind != manifest_contract::ManifestContractKind::ExternalCorpus
+        && file.get("case_id").and_then(Value::as_str) != Some(CASE_ID)
+    {
         return if file.get("expected_wsi_multiple_optical_paths").is_some() {
             Err(ValidateError::ManifestShape {
                 path: manifest_path.to_path_buf(),
@@ -5166,8 +5528,33 @@ fn validate_wsi_pyramid_manifest_member(
     manifest_path: &Path,
     file: &Value,
 ) -> Result<(), ValidateError> {
+    validate_wsi_pyramid_manifest_member_for_kind(
+        manifest_contract::ManifestContractKind::CuratedGeneration,
+        manifest_path,
+        file,
+    )
+}
+
+fn validate_wsi_pyramid_manifest_member_for_kind(
+    kind: manifest_contract::ManifestContractKind,
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<(), ValidateError> {
+    if kind == manifest_contract::ManifestContractKind::ExternalCorpus
+        && ![
+            "expected_wsi_pyramid",
+            "wsi_pyramid_role",
+            "wsi_pyramid_ordinal",
+        ]
+        .iter()
+        .any(|key| file.get(key).is_some())
+    {
+        return Ok(());
+    }
     const CASE_ID: &str = "vl/wsi/pyramid_multiresolution";
-    if file.get("case_id").and_then(Value::as_str) != Some(CASE_ID) {
+    if kind != manifest_contract::ManifestContractKind::ExternalCorpus
+        && file.get("case_id").and_then(Value::as_str) != Some(CASE_ID)
+    {
         if [
             "wsi_pyramid_role",
             "wsi_pyramid_ordinal",
@@ -5294,12 +5681,65 @@ fn validate_wsi_pyramid_manifest_group(
     manifest_path: &Path,
     files: &[Value],
 ) -> Result<(), ValidateError> {
+    validate_wsi_pyramid_manifest_group_for_kind(
+        manifest_contract::ManifestContractKind::CuratedGeneration,
+        manifest_path,
+        files,
+    )
+}
+
+fn validate_wsi_pyramid_manifest_group_for_kind(
+    kind: manifest_contract::ManifestContractKind,
+    manifest_path: &Path,
+    files: &[Value],
+) -> Result<(), ValidateError> {
+    if kind == manifest_contract::ManifestContractKind::ExternalCorpus {
+        let mut groups: std::collections::BTreeMap<&str, Vec<&Value>> =
+            std::collections::BTreeMap::new();
+        for file in files {
+            if [
+                "expected_wsi_pyramid",
+                "wsi_pyramid_role",
+                "wsi_pyramid_ordinal",
+            ]
+            .iter()
+            .any(|key| file.get(key).is_some())
+            {
+                let case_id = manifest_str(
+                    manifest_path,
+                    file,
+                    "/case_id",
+                    "pyramid member case_id must be a string",
+                )?;
+                groups.entry(case_id).or_default();
+            }
+        }
+        for file in files {
+            if let Some(case_id) = file.get("case_id").and_then(Value::as_str) {
+                if let Some(members) = groups.get_mut(case_id) {
+                    members.push(file);
+                }
+            }
+        }
+        for members in groups.values() {
+            validate_wsi_pyramid_group_members(kind, manifest_path, members)?;
+        }
+        return Ok(());
+    }
     let members: Vec<_> = files
         .iter()
         .filter(|file| {
             file.get("case_id").and_then(Value::as_str) == Some("vl/wsi/pyramid_multiresolution")
         })
         .collect();
+    validate_wsi_pyramid_group_members(kind, manifest_path, &members)
+}
+
+fn validate_wsi_pyramid_group_members(
+    kind: manifest_contract::ManifestContractKind,
+    manifest_path: &Path,
+    members: &[&Value],
+) -> Result<(), ValidateError> {
     if members.is_empty() {
         return Ok(());
     }
@@ -5312,7 +5752,7 @@ fn validate_wsi_pyramid_manifest_group(
     let first = members[0].get("expected_wsi_pyramid");
     let mut total_size = 0_u64;
     for (index, file) in members.iter().enumerate() {
-        validate_wsi_pyramid_manifest_member(manifest_path, file)?;
+        validate_wsi_pyramid_manifest_member_for_kind(kind, manifest_path, file)?;
         if file.get("expected_wsi_pyramid") != first
             || file.get("wsi_pyramid_ordinal").and_then(Value::as_u64) != Some((index + 1) as u64)
         {
@@ -9461,7 +9901,8 @@ fn validate_standard_baseline_elements(
     Ok(())
 }
 
-fn validate_family_standard_elements(
+fn validate_family_standard_elements_for_kind(
+    kind: manifest_contract::ManifestContractKind,
     failures: &mut Vec<String>,
     relative_path: &str,
     path: &Path,
@@ -9553,8 +9994,11 @@ fn validate_family_standard_elements(
             obj,
         )?,
         "Segmentation"
-            if file.get("case_id").and_then(Value::as_str)
-                == Some("derived/seg/wsi_tile_reference") =>
+            if (kind == manifest_contract::ManifestContractKind::ExternalCorpus
+                && file.get("expected_wsi_tile_segmentation").is_some())
+                || (kind != manifest_contract::ManifestContractKind::ExternalCorpus
+                    && file.get("case_id").and_then(Value::as_str)
+                        == Some("derived/seg/wsi_tile_reference")) =>
         {
             validate_wsi_tile_segmentation_standard_elements(
                 failures,
@@ -9581,8 +10025,11 @@ fn validate_family_standard_elements(
             )?
         }
         "Comprehensive 3D SR" => {
-            if file.get("case_id").and_then(Value::as_str)
-                == Some("derived/sr/comprehensive3d_scoord3d")
+            if (kind == manifest_contract::ManifestContractKind::ExternalCorpus
+                && file.get("expected_scoord3d").is_some())
+                || (kind != manifest_contract::ManifestContractKind::ExternalCorpus
+                    && file.get("case_id").and_then(Value::as_str)
+                        == Some("derived/sr/comprehensive3d_scoord3d"))
             {
                 validate_scoord3d_standard_elements(
                     failures,
@@ -9644,7 +10091,7 @@ fn validate_family_standard_elements(
             obj,
         )?,
         "VL Whole Slide Microscopy Image" => {
-            if let Err(error) = validation::validate_manifest_wsi_file(path, file) {
+            if let Err(error) = validation::validate_manifest_wsi_file_for_kind(kind, path, file) {
                 failures.push(format!("{relative_path}: wsi_semantic_contract: {error}"));
             }
         }
@@ -36029,6 +36476,80 @@ mod tests {
 
     #[test]
     fn vl_single_frame_manifest_contract_is_exact_and_case_scoped() {
+        let external = manifest_contract::ManifestContractKind::ExternalCorpus;
+        for iod in [
+            "VL Whole Slide Microscopy Image",
+            "Comprehensive 3D SR",
+            "VL Endoscopic Image",
+            "Encapsulated STL",
+            "RT Image",
+            "Spatial Registration",
+            "Deformable Spatial Registration",
+            "Color Softcopy Presentation State",
+        ] {
+            let missing = serde_json::json!({"dicom":{"iod_name":iod}});
+            assert!(
+                validate_external_family_evidence_scope(
+                    external,
+                    Path::new("manifest.json"),
+                    &missing
+                )
+                .is_err()
+            );
+        }
+        for field in [
+            "expected_wsi_tiled_full",
+            "expected_wsi_tiled_sparse",
+            "expected_wsi_multiple_optical_paths",
+            "expected_wsi_pyramid",
+            "expected_wsi_tile_segmentation",
+            "expected_vl_single_frame",
+            "expected_encapsulated_stl",
+            "expected_scoord3d",
+            "expected_tid1500",
+            "expected_rt_image",
+            "expected_color_softcopy_presentation_state",
+            "expected_spatial_registration",
+            "expected_deformable_spatial_registration",
+        ] {
+            let mut crossed = serde_json::json!({"dicom":{"iod_name":"Ultrasound Image"}});
+            crossed[field] = serde_json::json!({});
+            assert!(
+                validate_external_family_evidence_scope(
+                    external,
+                    Path::new("manifest.json"),
+                    &crossed
+                )
+                .is_err(),
+                "{field}"
+            );
+        }
+        let ambiguous = serde_json::json!({"dicom":{"iod_name":"Comprehensive 3D SR"},"expected_scoord3d":{},"expected_tid1500":{}});
+        assert!(
+            validate_external_family_evidence_scope(
+                external,
+                Path::new("manifest.json"),
+                &ambiguous
+            )
+            .is_err()
+        );
+        let mut caller = vl_manifest("vl/endoscopic/rgb_explicit_le");
+        caller["case_id"] = Value::from("caller/declared-evidence");
+        validate_vl_single_frame_manifest_contract_for_kind(
+            manifest_contract::ManifestContractKind::ExternalCorpus,
+            Path::new("manifest.json"),
+            &caller,
+        )
+        .unwrap();
+        caller["expected_vl_single_frame"] = Value::Null;
+        assert!(
+            validate_vl_single_frame_manifest_contract_for_kind(
+                manifest_contract::ManifestContractKind::ExternalCorpus,
+                Path::new("manifest.json"),
+                &caller
+            )
+            .is_err()
+        );
         for case_id in [
             "vl/endoscopic/rgb_explicit_le",
             "vl/microscopic/rgb_explicit_le",
@@ -36113,6 +36634,23 @@ mod tests {
 
     #[test]
     fn wsi_tiled_full_manifest_contract_is_exact_case_scoped_and_cross_bound() {
+        let mut caller = wsi_manifest();
+        caller["case_id"] = Value::from("caller/declared-evidence");
+        validate_wsi_tiled_full_manifest_contract_for_kind(
+            manifest_contract::ManifestContractKind::ExternalCorpus,
+            Path::new("manifest.json"),
+            &caller,
+        )
+        .unwrap();
+        caller["expected_wsi_tiled_full"] = Value::Null;
+        assert!(
+            validate_wsi_tiled_full_manifest_contract_for_kind(
+                manifest_contract::ManifestContractKind::ExternalCorpus,
+                Path::new("manifest.json"),
+                &caller
+            )
+            .is_err()
+        );
         validate_wsi_tiled_full_manifest_contract(Path::new("manifest.json"), &wsi_manifest())
             .expect("locked WSI contract");
 
@@ -36215,6 +36753,23 @@ mod tests {
 
     #[test]
     fn wsi_tile_segmentation_manifest_contract_is_exact_case_scoped_and_cross_bound() {
+        let mut caller = wsi_tile_segmentation_manifest();
+        caller["case_id"] = Value::from("caller/declared-evidence");
+        validate_wsi_tile_segmentation_manifest_contract_for_kind(
+            manifest_contract::ManifestContractKind::ExternalCorpus,
+            Path::new("manifest.json"),
+            &caller,
+        )
+        .unwrap();
+        caller["expected_wsi_tile_segmentation"] = Value::Null;
+        assert!(
+            validate_wsi_tile_segmentation_manifest_contract_for_kind(
+                manifest_contract::ManifestContractKind::ExternalCorpus,
+                Path::new("manifest.json"),
+                &caller
+            )
+            .is_err()
+        );
         validate_wsi_tile_segmentation_manifest_contract(
             Path::new("manifest.json"),
             &wsi_tile_segmentation_manifest(),
@@ -36442,6 +36997,23 @@ mod tests {
 
     #[test]
     fn wsi_tiled_sparse_manifest_contract_is_exact_case_scoped_and_cross_bound() {
+        let mut caller = wsi_sparse_manifest();
+        caller["case_id"] = Value::from("caller/declared-evidence");
+        validate_wsi_tiled_sparse_manifest_contract_for_kind(
+            manifest_contract::ManifestContractKind::ExternalCorpus,
+            Path::new("manifest.json"),
+            &caller,
+        )
+        .unwrap();
+        caller["expected_wsi_tiled_sparse"] = Value::Null;
+        assert!(
+            validate_wsi_tiled_sparse_manifest_contract_for_kind(
+                manifest_contract::ManifestContractKind::ExternalCorpus,
+                Path::new("manifest.json"),
+                &caller
+            )
+            .is_err()
+        );
         validate_wsi_tiled_sparse_manifest_contract(
             Path::new("manifest.json"),
             &wsi_sparse_manifest(),
@@ -36539,6 +37111,23 @@ mod tests {
 
     #[test]
     fn wsi_multiple_optical_paths_manifest_is_exact_scoped_and_cross_bound() {
+        let mut caller = wsi_multiple_optical_paths_manifest();
+        caller["case_id"] = Value::from("caller/declared-evidence");
+        validate_wsi_multiple_optical_paths_manifest_contract_for_kind(
+            manifest_contract::ManifestContractKind::ExternalCorpus,
+            Path::new("manifest.json"),
+            &caller,
+        )
+        .unwrap();
+        caller["expected_wsi_multiple_optical_paths"] = Value::Null;
+        assert!(
+            validate_wsi_multiple_optical_paths_manifest_contract_for_kind(
+                manifest_contract::ManifestContractKind::ExternalCorpus,
+                Path::new("manifest.json"),
+                &caller
+            )
+            .is_err()
+        );
         let manifest = wsi_multiple_optical_paths_manifest();
         validate_wsi_multiple_optical_paths_manifest_contract(
             Path::new("manifest.json"),
@@ -36756,6 +37345,71 @@ mod tests {
 
     #[test]
     fn wsi_pyramid_manifest_contract_is_exact_repeated_and_cross_bound() {
+        let external = manifest_contract::ManifestContractKind::ExternalCorpus;
+        let mut groups = Vec::new();
+        for name in ["caller/one", "caller/two"] {
+            let mut files = wsi_pyramid_test_files();
+            for file in &mut files {
+                file["case_id"] = Value::from(name);
+                let old = "vl/wsi/pyramid_multiresolution";
+                let encoded = serde_json::to_string(file).unwrap().replace(old, name);
+                *file = serde_json::from_str(&encoded).unwrap();
+            }
+            groups.extend(files);
+        }
+        validate_wsi_pyramid_manifest_group_for_kind(external, Path::new("manifest.json"), &groups)
+            .unwrap();
+        let mut extra = groups.clone();
+        let mut fourth = groups[0].clone();
+        for key in [
+            "expected_wsi_pyramid",
+            "wsi_pyramid_role",
+            "wsi_pyramid_ordinal",
+        ] {
+            fourth.as_object_mut().unwrap().remove(key);
+        }
+        extra.push(fourth);
+        assert!(
+            validate_wsi_pyramid_manifest_group_for_kind(
+                external,
+                Path::new("manifest.json"),
+                &extra
+            )
+            .is_err()
+        );
+        let mut partial = groups.clone();
+        partial.remove(0);
+        assert!(
+            validate_wsi_pyramid_manifest_group_for_kind(
+                external,
+                Path::new("manifest.json"),
+                &partial
+            )
+            .is_err()
+        );
+        let mut crossed = groups.clone();
+        crossed[0]["case_id"] = Value::from("caller/two");
+        assert!(
+            validate_wsi_pyramid_manifest_group_for_kind(
+                external,
+                Path::new("manifest.json"),
+                &crossed
+            )
+            .is_err()
+        );
+        let mut incomplete = groups[0].clone();
+        incomplete
+            .as_object_mut()
+            .unwrap()
+            .remove("expected_wsi_pyramid");
+        assert!(
+            validate_wsi_pyramid_manifest_member_for_kind(
+                external,
+                Path::new("manifest.json"),
+                &incomplete
+            )
+            .is_err()
+        );
         let files = wsi_pyramid_test_files();
         validate_wsi_pyramid_manifest_group(Path::new("manifest.json"), &files)
             .expect("locked three-member pyramid contract");
@@ -39951,6 +40605,48 @@ mod tests {
 
     #[test]
     fn color_softcopy_manifest_closure_accepts_exact_complete_rgb_source() {
+        let external = manifest_contract::ManifestContractKind::ExternalCorpus;
+        let mut caller: Value = serde_json::from_str(
+            &serde_json::to_string(&color_softcopy_manifest_fixture())
+                .unwrap()
+                .replace(
+                    "classic/sc/rgb_planar0_explicit_le/instance.dcm",
+                    "inputs/caller.dcm",
+                )
+                .replace("classic/sc/rgb_planar0_explicit_le", "caller/source")
+                .replace(
+                    "derived/presentation-state/color_softcopy",
+                    "caller/presentation",
+                ),
+        )
+        .unwrap();
+        let mut sources = color_softcopy_source_objects();
+        let mut source = sources
+            .remove("classic/sc/rgb_planar0_explicit_le/instance.dcm")
+            .unwrap();
+        source.case_id = "caller/source".into();
+        sources.insert("inputs/caller.dcm".into(), source);
+        let mut failures = vec![];
+        validate_manifest_references_for_kind(
+            external,
+            Path::new("manifest.json"),
+            &caller,
+            &sources,
+            &mut failures,
+        )
+        .unwrap();
+        assert!(failures.is_empty(), "{failures:?}");
+        caller["expected_color_softcopy_presentation_state"]["source"]["source_sha256"] =
+            Value::from("00".repeat(32));
+        validate_manifest_references_for_kind(
+            external,
+            Path::new("manifest.json"),
+            &caller,
+            &sources,
+            &mut failures,
+        )
+        .unwrap();
+        assert!(failures.iter().any(|f| f.contains("source_sha256")));
         let file = color_softcopy_manifest_fixture();
         let sources = color_softcopy_source_objects();
         let mut failures = Vec::new();
@@ -40073,6 +40769,61 @@ mod tests {
 
     #[test]
     fn rt_image_manifest_closure_binds_the_locked_plan_hash_and_identity() {
+        let external = manifest_contract::ManifestContractKind::ExternalCorpus;
+        let mut caller: Value = serde_json::from_str(
+            &serde_json::to_string(&rt_image_manifest_fixture())
+                .unwrap()
+                .replace("non-image/rt/plan_linked/instance.dcm", "inputs/plan.dcm")
+                .replace("non-image/rt/plan_linked", "caller/plan")
+                .replace("non-image/rt/image_linked", "caller/image"),
+        )
+        .unwrap();
+        let mut sources = rt_image_source_objects();
+        let mut source = sources
+            .remove("non-image/rt/plan_linked/instance.dcm")
+            .unwrap();
+        source.case_id = "caller/plan".into();
+        sources.insert("inputs/plan.dcm".into(), source);
+        caller["path"] = Value::from("images/renamed-rt.dcm");
+        caller["references"] = serde_json::json!([{
+            "source_case_id": "caller/plan", "source_path": "inputs/plan.dcm",
+            "sop_class_uid": "1.2.840.10008.5.1.4.1.1.481.5", "sop_instance_uid": "1.2.840.999.3"
+        }]);
+        let mut failures = vec![];
+        validate_manifest_references_for_kind(
+            external,
+            Path::new("manifest.json"),
+            &caller,
+            &sources,
+            &mut failures,
+        )
+        .unwrap();
+        assert!(failures.is_empty(), "{failures:?}");
+        for field in ["source_case_id", "source_sha256", "sop_instance_uid"] {
+            let mut bad = caller.clone();
+            bad["expected_rt_image"]["plan_reference"][field] = Value::from("different");
+            let mut failures = vec![];
+            validate_manifest_references_for_kind(
+                external,
+                Path::new("manifest.json"),
+                &bad,
+                &sources,
+                &mut failures,
+            )
+            .unwrap();
+            assert!(!failures.is_empty(), "{field}");
+        }
+
+        assert!(
+            validate_rt_image_manifest_closure_for_kind(
+                external,
+                Path::new("manifest.json"),
+                &caller,
+                &HashMap::new(),
+                &mut failures
+            )
+            .is_err()
+        );
         let mut file = rt_image_manifest_fixture();
         let sources = rt_image_source_objects();
         let mut failures = Vec::new();
@@ -40655,6 +41406,23 @@ mod tests {
 
     #[test]
     fn encapsulated_stl_manifest_contract_is_exact_and_case_scoped() {
+        let mut caller = encapsulated_stl_contract_fixture();
+        caller["case_id"] = Value::from("caller/declared-evidence");
+        validate_encapsulated_stl_manifest_contract_for_kind(
+            manifest_contract::ManifestContractKind::ExternalCorpus,
+            Path::new("manifest.json"),
+            &caller,
+        )
+        .unwrap();
+        caller["expected_encapsulated_stl"] = Value::Null;
+        assert!(
+            validate_encapsulated_stl_manifest_contract_for_kind(
+                manifest_contract::ManifestContractKind::ExternalCorpus,
+                Path::new("manifest.json"),
+                &caller
+            )
+            .is_err()
+        );
         let fixture = encapsulated_stl_contract_fixture();
         validate_encapsulated_stl_manifest_contract(Path::new("manifest.json"), &fixture)
             .expect("locked Encapsulated STL contract");

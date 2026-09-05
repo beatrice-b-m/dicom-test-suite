@@ -1,0 +1,65 @@
+{
+  "oracle_version": "1.0.0",
+  "source_receipt_sha256": "8089876f1bd1d050396ac54466d3fc5aa06cecdf804633ea32fdca99b85150a9",
+  "parity_receipt_sha256": "fa96555c2d6c090034c806e7a89f5eea426bf24f8d9344e261fbe72fdc9c7571",
+  "cases": [
+    {
+      "source_case": "classic/us/mono2_u8_explicit_le",
+      "caller_case": "caller/acquisition/ultrasound",
+      "recipe_id": "caller_ultrasound",
+      "output_path": "independent/ultrasound.dcm",
+      "profile": "core",
+      "source_size_bytes": 1006,
+      "source_sha256": "e616b8c983c59640a62fa081f636acea554ce681edde3fc8dd53a3c15098c30b",
+      "recipe_parameters": {
+        "bits_allocated": 8,
+        "bits_stored": 8,
+        "columns": 2,
+        "high_bit": 7,
+        "lossy_image_compression": "00",
+        "photometric_interpretation": "MONOCHROME2",
+        "pixel_representation": 0,
+        "pixel_values": [
+          0,
+          85,
+          170,
+          255
+        ],
+        "rows": 2,
+        "samples_per_pixel": 1,
+        "ultrasound_color_data_present": 0
+      },
+      "image": {
+        "bits_allocated": 8,
+        "bits_stored": 8,
+        "columns": 2,
+        "frames": 1,
+        "high_bit": 7,
+        "photometric_interpretation": "MONOCHROME2",
+        "pixel_representation": 0,
+        "planar_configuration": null,
+        "rows": 2,
+        "samples_per_pixel": 1
+      },
+      "pixel_data": {
+        "frame_count": 1,
+        "frame_hashes": [
+          "03b722a15d4658be01f1eb9def5e8be124710cc0e88842f78107abfda3e23ea8"
+        ],
+        "native_or_encapsulated": "native",
+        "value_length": 4,
+        "vr": "OB"
+      },
+      "expected_semantics": {
+        "image_type": "ORIGINAL\\PRIMARY",
+        "lossy_image_compression": "00",
+        "pixel_max": 255,
+        "pixel_min": 0,
+        "synthetic_data": "YES",
+        "ultrasound_color_data_present": 0
+      },
+      "caller_size_bytes": 1012,
+      "caller_sha256": "8604e1ff67e10a51ed5fe9fc115b2bc6d1c00116191b828475fa6135a89272ba"
+    }
+  ]
+}

@@ -3781,6 +3781,14 @@
       "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
     },
     {
+      "path": "tests/fixtures/generic-us-corpus/members/cases/recipes/caller_ultrasound.json",
+      "token": "dicom-test-suite",
+      "class": "legacy_payload_schema_fixture_or_evidence",
+      "count": 1,
+      "owner": "compatibility-or-immutable-evidence",
+      "reason": "The spelling is a payload/schema compatibility fixture, qualified adapter metadata, migration metadata, or immutable evidence."
+    },
+    {
       "path": "tests/general_ecg_waveform.rs",
       "token": "dicom-test-suite",
       "class": "legacy_payload_schema_fixture_or_evidence",
@@ -4606,11 +4614,11 @@
     }
   ],
   "retained_snapshot": {
-    "match_count": 1065,
-    "sha256": "c1553eb0f38c3b53dfd476cf40ba9bd78d9b8ebae7374f7f719e8c4c522cfa5f",
+    "match_count": 1066,
+    "sha256": "8e9495876ebc4cf8e75f1831c3aa45602b06a934dfaa17595fb35f8f5271683c",
     "by_class": {
       "dicom_payload_identifier": 203,
-      "legacy_payload_schema_fixture_or_evidence": 417,
+      "legacy_payload_schema_fixture_or_evidence": 418,
       "locked_python_module_or_backend": 148,
       "qualified_adapter_environment": 155,
       "qualified_adapter_or_test_fixture": 142

@@ -1,0 +1,77 @@
+{
+  "corpus_definition_bundle_schema_version": "1.0.0",
+  "definition_id": "fixture.generic-us",
+  "definition_version": "1.0.0",
+  "profiles": [
+    {
+      "profile_id": "smoke",
+      "scope": "valid",
+      "members": []
+    },
+    {
+      "profile_id": "core",
+      "scope": "valid",
+      "members": [
+        "caller/acquisition/ultrasound"
+      ]
+    },
+    {
+      "profile_id": "extended",
+      "scope": "valid",
+      "members": []
+    },
+    {
+      "profile_id": "legacy",
+      "scope": "legacy",
+      "members": []
+    },
+    {
+      "profile_id": "stress",
+      "scope": "stress",
+      "members": []
+    },
+    {
+      "profile_id": "negative",
+      "scope": "expected_invalid",
+      "members": []
+    },
+    {
+      "profile_id": "fuzz",
+      "scope": "fuzz",
+      "members": []
+    },
+    {
+      "profile_id": "all",
+      "scope": "valid",
+      "union_of": [
+        "smoke",
+        "core",
+        "extended"
+      ],
+      "optional_profile": "stress",
+      "members": []
+    }
+  ],
+  "registry": {
+    "path": "cases/registry.json",
+    "size_bytes": 3235,
+    "sha256": "5c377f4e7898e054fce69d9c135d785f34d2d2f63caaa671bc3135782b0beca8"
+  },
+  "cases": [
+    {
+      "case_id": "caller/acquisition/ultrasound",
+      "recipe_id": "caller_ultrasound",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/caller_ultrasound.json",
+        "size_bytes": 3302,
+        "sha256": "a93424def7230a0a1dbbbb494c95402c9109b71aa50ac935ce2270c394f2399a"
+      },
+      "dependencies": [],
+      "evidence_ids": [],
+      "asset_ids": []
+    }
+  ],
+  "evidence": [],
+  "assets": []
+}

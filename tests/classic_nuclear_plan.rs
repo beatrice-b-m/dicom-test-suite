@@ -709,6 +709,14 @@ fn nm_multiframe_planning_is_caller_owned_and_fail_closed() {
             serde_json::json!("60"),
         ),
         (
+            "/dicom/artifacts/0/parameters/energy_windows/0/lower_limit_kev",
+            serde_json::json!("70.000000000000000"),
+        ),
+        (
+            "/dicom/artifacts/0/parameters/energy_windows/0/upper_limit_kev",
+            serde_json::json!("90.000000000000000"),
+        ),
+        (
             "/dicom/artifacts/0/parameters/detectors/0/collimator_type",
             serde_json::json!("BAD"),
         ),

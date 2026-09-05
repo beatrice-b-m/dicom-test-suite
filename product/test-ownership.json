@@ -571,7 +571,7 @@
         "nm_multiframe_planning_is_caller_owned_and_fail_closed",
         "direct_nuclear_plans_match_current_bytes_and_manifest_facts"
       ],
-      "entry_digest": "e63f6c30631ba9e9e3e4ee8812f5e6dd9872d15af92dfbc3ae0a919057861535"
+      "entry_digest": "75512b94734584bec748e86992daea69da282469fab0a6e1807d80ddff5e4ff9"
     },
     {
       "source": "tests/classic_plan_contracts.rs",

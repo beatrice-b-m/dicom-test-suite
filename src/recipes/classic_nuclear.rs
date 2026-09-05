@@ -883,6 +883,8 @@ fn validate_nm_multiframe_parameters(
         if usize::from(window.index) != offset + 1
             || window.name.is_empty()
             || window.name.len() > 16
+            || window.lower_limit_kev.len() > 16
+            || window.upper_limit_kev.len() > 16
             || lower.is_none_or(|value| value < 0.0)
             || upper.is_none_or(|value| value <= 0.0)
             || lower.zip(upper).is_none_or(|(lower, upper)| lower >= upper)

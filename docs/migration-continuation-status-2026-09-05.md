@@ -2350,14 +2350,22 @@ result, and report2 projects the same caller-owned semantic contract.
 
 Only manifest V2 gains the reusable structural NM contract. Manifest V1 and the
 frozen legacy assembly namespace retain their accepted identities, while the
-historical `classic/nm/multiframe_explicit_le` payload remains exactly 1,482
+historical `classic/nm/multiframe_explicit_le` payload remains exactly 1,638
 bytes with SHA `6f0f857…cc82d`. Focused planner, loader, schema, public CLI/SDK,
 historical payload and resource-identity checks passed; the full library suite
 passed 547 tests with six expected ignored entries. Routing and ownership
 checks also passed.
 
-This accepts the generator-local caller-capability boundary only. It does not
-create or relabel corpus import, availability, parity, native-tool,
-independent-conformance, viewer, Heavy, package, release, complete-R7, R8 or R9
-evidence. All original generator/reporter pins and retained successful and
-failed artifacts remain unchanged. R7 remains open.
+Corpus content 0.13 closes 40 files and 258,300 bytes at identity
+`cb06ff4d…`. Baseline3 `bdbc365e…` remains authoritative for the exact original
+generator/reporter pins and binaries. Availability1
+passed at receipt
+`a0812b6324535b15de68cc0813658bbfa64e81451c20c313f14350737beb8f2e`,
+and parity1 passed at receipt
+`dc133b1ddcf855cdda5df57a34e69d0cecc4fdc7e5a938f96aa690bb9250ca70`.
+These source qualifications do not relabel those pins, binaries, or any
+retained successful or failed evidence.
+
+This accepts the NM-local R7.1/R7.2/R7.3/R7.5 boundary only. It does not create
+independent-conformance, viewer, Heavy, package, release or complete-R7
+evidence. R7 remains open, and R8/R9 remain held behind their dependencies.

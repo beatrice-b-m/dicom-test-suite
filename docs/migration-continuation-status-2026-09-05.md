@@ -260,3 +260,37 @@ migration proof still bind source232b9de; they are not relabeled as later-source
 runs. Metadata and other family genericity, remaining migration slices,
 reverse-dependency removal, independent conformance, viewer behavior, R8/R9,
 packaging and terminal release qualification remain open.
+
+## R7 metadata admission checkpoint — 2026-09-05
+
+Generator commit `ea4d151` admits the complete typed UTF-8 Person Name,
+qualified EmptyType2 and PrivateCreators contracts independently of caller
+case/recipe names. The SC monochrome template@1, native Explicit VR Little
+Endian encoding, one-artifact topology, content and validation contracts remain
+required. UTF-8 bytes must exactly match decoded PN and declared round trip;
+Type2 attributes are a nonempty unique subset of the five qualified
+Patient/General Study tag-keyword-VR tuples. Maximum high-bit input rejects
+through checked arithmetic. Historical ISO2022, timezone, string-boundary and
+sequence-length variants retain exact-name admission.
+
+The implementation agent owned loader, bundle tests and exact routing/ownership
+metadata. Root and a separate read-only reviewer inspected the change; review
+added maximum-high-bit, artifact-count and legacy catalog-admission checks.
+The final focused metadata test passed1/1 in2.88s after20.91s compilation.
+Routing tests passed29/29 in3.009s and ownership1484 entries passed. All Cargo
+and routing subprocesses used the explicit low-debug, nonincremental task target.
+
+Root inspected then executed the loader/bundle route at this commit:
+`python3 scripts/route-changed-tests.py --path src/recipes/loader.rs --path tests/corpus_definition_bundle.rs`.
+The27 bundle tests passed in11.32s, four captured-input tests in5.47s,
+92 corpus subsystem tests in29.77s (build21.37s), and22 corpus-plan tests
+in0.81s (build1.72s). Unconditional Fast targets passed15/15 in2.17s and
+73/73 in2.12s (combined build1.28s). The shared explicit target measured
+857100 KiB (877670400 bytes) before Fast. Diff checks passed. No Heavy,
+whole-profile generation, provider, package, release or public caller proof ran.
+Public CLI/SDK metadata generation and historical-byte preservation are the
+next sequential unit; this checkpoint alone does not accept metadata genericity.
+
+Corpus documentation commit `96b4c0c` also synchronizes stale AGENTS.md live
+content claims with accepted content0.5.0. A descriptor query confirms20 cases;
+counts remain derived. This does not change any definition, pin or evidence.

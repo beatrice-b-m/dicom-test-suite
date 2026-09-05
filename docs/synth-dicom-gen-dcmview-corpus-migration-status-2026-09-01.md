@@ -5921,7 +5921,7 @@ separate sequential evidence boundaries.
 ## R7 DX/MG3 selected planning availability accepted — 2026-09-05
 
 The bounded public-loader availability capture from corpus source commit
-`637b141` is accepted at
+`637b1413a37a0423e98ef13c7a6980a5a3799c2e` is accepted at
 `artifacts/r7-dx-mg-availability1-20260905`. Its 100,651-byte `receipt.json`
 has SHA-256
 `2811e1be4bee3483e6d1752ca814237bcdb72076c2f4fb7ea41f2b1b71545107`.
@@ -5950,12 +5950,16 @@ response.
 
 Independent pure replay passed with subprocess APIs forbidden and unchanged
 evidence fingerprints. Strict JSON checks passed 30/30. Schema review passed
-65/65 metadata documents and 51/51 instance documents with jsonschema 4.26.0
-in 1.9605s. That review covers the applicable published schemas only; the
-receipt and other unschematized evidence remain authenticated by the bounded
-checker rather than being represented as schema-validated. Excluding the
-receipt, the evidence root contains 36 files in 16 directories, 71,767,181
-logical bytes and 71,827,456 allocated bytes.
+meta-schema validation for 65/65 schema documents (57 generator and eight
+corpus) and 51/51 applicable retained instance validations with jsonschema
+4.26.0 in 1.9605s. That review covers the applicable published schemas only.
+The capture receipt, acquisition wrapper (whose nested documents were
+validated), binding result, baseline receipt and baseline expectations remain
+unschematized. The two projections have no standalone schema but are exact
+manifest arrays. These documents remain authenticated by the bounded checker
+rather than being represented as schema-validated. Excluding the receipt, the
+evidence root contains 36 files in 16 directories, 71,767,181 logical bytes
+and 71,827,456 allocated bytes.
 
 This proves same-project selected-planning availability only. Runtime used the
 copied public corpus bundle, with no sibling-path coupling or current generator

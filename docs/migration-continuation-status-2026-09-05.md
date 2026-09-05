@@ -2012,3 +2012,30 @@ proof with source oracle, then currentguides. Existing artifactpins unchanged.
 Focused pure planner/catalog/source and Fast checks use only
 /private/tmp/dts-dx-mg-genericity-target with incremental/debugdisabled; no
 recursive lib formatting, heavy or additional corpus native runs. R7open/R8R9held.
+
+## VL photographic planner capability accepted — 2026-09-05
+
+Generator7e38ca8 changes exact four owned planner/test/ownership/spelling
+files. Fullsource typed RGB/palette artifact equality plus9providerfields
+admits calleridentities/orders/safepaths before numericcasts. Four historical
+ICC/RLE recipes remain exact identity-bound exceptions; nativefirst permits
+qualifiedtuple with misleading names. Other8ownedroutes preserved. Independent
+audit authenticated all7literalobjects to232b9de and complete source/test
+review accepted. No loader/public behavior claimed yet.
+
+Initial json! macrorecursion and errorconversion compile failures corrected
+without native execution. Pure3/0.34s after18.36s compile passed,
+/private/tmp/vl-photo-planner-final.log; earlierfocused1/0.33s compile18.06s.
+Fast15/2.10s+73/1.92s compile1.22s passed,
+/private/tmp/vl-photo-planner-fast.log. Ownership1497/spelling1077 passed;
+spellingSHAa9968acf8ed9a53f711615c6ed24b5f9936f7e486bd5db7a01a02fa78136c96c.
+Retained historical manufacturer occurrences3to8/class424to429 are exact
+source-literal exceptions. Rootprebuildtarget1184520KiB tofinal1185364KiB
+(+844KiB), onlytaskCargo active. Diff/cleanownedcommit/log passed.
+
+Corpus parity acceptance c275b99 committed separately. Next owner exact
+loader.rs, curated_plan.rs, curated_execution.rs, existing bundleSDK test
+and ownershipledger: typedphoto admission, registryXC equality and execution
+dispatch before names. Focused SDK generation/strict/report collision tests
+then Fast and rootmappedgroups precede acceptance. No publicfixture/guides/
+heavy or codec qualification yet. R7open/R8R9held.

@@ -2183,3 +2183,27 @@ count/index findings. Synthetic fixtures derive exact sourcewriter/UID
 branches rather than copying photographic flags. Independent source/helper
 review precedes CI/fullordinary/readiness; noMRnativecapture allowed yet.
 R7open/R8R9held.
+
+## MR three-file baseline helper accepted — 2026-09-05
+
+Corpus449673c adds exact helper/test files. Final18synthetic tests6.721s
+passed, /private/tmp/r7-mr-helper-final-clean.log; source6/0.057s passed.
+Earlier18/6.900s pass retained r7-mr-helper-final.log; initialFileMetaVersion
+fixture omission and staleVL count/lossy mutations corrected before acceptance.
+Final cleanup removed unusedpair helper and renamed nullreport constant only.
+Root/independentcomplete review and whitespace/cleancommit/log checks passed.
+HelperSHAe46b32cb97f0ad00ab488def1c7a5673fb2872385e5341d8a5dc8a2bf4050423;
+testSHA8c44501f20ef98ddc34ac93740e0ca3518f49863e7812f1aab45cab7e53926ef.
+
+Assertions bind1case/3files/33skips/report36rows,47internal(24base+22MR+
+executor)+4standards each, sourcehardcodedmetadata/5emptytags and actual
+sharedstudyseriesFOR/uniqueSOP/threepositiongeometry closure. Five manifest
+UIDkeys omitimplementationversion while FileMeta retainsDICOMTS010.
+Path-keyed newMRexpectations sidecar retains all3resolvedplans/payloads;
+oldschemas unchanged. Independentliteralfixture and failedcapture/replay/
+finalizer guards retain completeevidence. No MRnative execution occurred.
+
+Next exact2fileimportaudit unit registers this helper's struct allowance,
+then separate2fileordinaryrouting unit before fullordinary/readiness.
+Knownallowlist requirement addressed before incurring an avoidable failing
+fullsuite. R7open/R8R9held.

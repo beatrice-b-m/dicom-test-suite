@@ -919,3 +919,43 @@ Unit2 may now proceed with evidence-based reference/VL/WSI/STL and deeper WSI/
 tile-SEG/SR dispatch, as refined ind00e95a. Unit3 qualification isolation and
 full US public caller proof remain pending. No full arbitrary-name genericity
 or completed R7 claim follows from this bounded acceptance.
+
+## External runtime unit2 accepted with projection follow-up — 2026-09-05
+
+Commit8afdcc3 carries contract context through reference, VL/WSI/STL and SR
+validation, including deeper WSI and tile-SEG/SR dispatch. External source IDs
+and paths resolve against authenticated source objects; declared family evidence
+on incompatible IODs and missing required evidence fail. Typed selectors avoid
+using historical names as external dispatch intermediates. Pyramid groups bind
+all files of one caller case; independent groups remain separate. Legacy behavior
+and generation-only RT validators are retained. Review found and corrected
+extra-member omission and required RT evidence gaps before acceptance.
+
+Fourteen focused entries passed: six contract tests0.04s after18.46s compile,
+five reference closure tests0.00s, sparse payload1 test0.01s, optical-path1 test
+0.00s, and expanded US SDK1 test26.51s after18.09s compile. Actual sparse WSI
+reopening rejects geometry tampering; shared RT dispatch rejects changed source
+case/hash/UID. Ownership1490, spelling1065, routing preview and diff passed.
+Independent final review and root accepted the complete five-file commit.
+
+The first expanded US SDK run failed6.20s before publication for exact caller
+vl/wsi/pyramid_multiresolution: curated manifest group projection requires three
+members based on historical name. Only that one SDK collision was removed
+from unit2 pending immediate unit2b; reopened pyramid/group checks remain.
+Decision525a1e6 requires restoring it with typed postprojection activation before
+US genericity acceptance. This is an open gate, not waived evidence.
+
+Root inspected77-command broad overlap at
+/private/tmp/r7-runtime-unit2-route-preview-20260905.json; whole overlap remains
+due after this sequential boundary. Proportional corpus-generation92 tests
+27.63s, Fast15 tests1.54s plus73 tests2.05s and standards-validation1 test0.64s
+passed after19.30s compile. Log:
+/private/tmp/r7-runtime-unit2-subsystem-fast-20260905.log. Task target954512KiB.
+The normal lib build exposed two now-test-only wrapper warnings. Follow-up
+f675d8d adds only cfg(test) to those wrappers; root verified all callsites are
+tests and reviewed both lines. Cargo check passed warning-free13.50s, ownership
+1490 passed0.259s and diff passed. No redundant test rebuild was needed.
+
+Unit2b may proceed now; unit3 also owns the audited stress postprojection name
+trigger. No schema/native pin change, broad Heavy run, release or complete R7
+claim occurred. Exact US public caller proof remains after these corrections.

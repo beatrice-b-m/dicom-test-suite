@@ -268,6 +268,8 @@ fn dx_mg_planning_is_output_free_and_frontend_neutral() {
 
 #[test]
 fn dx_mg_parameters_are_strict_and_semantic_corruption_is_rejected() {
+    dx_mg_capability_accepts_independent_names_orders_and_paths();
+    dx_mg_capability_rejects_partial_and_crossed_tuples();
     let recipes = owned_recipes();
     let dx = recipes
         .iter()
@@ -386,5 +388,72 @@ fn dx_mg_recipe_documents_are_resolved_and_schema_strict() {
         ] {
             assert_ne!(value, "provider");
         }
+    }
+}
+
+fn dx_mg_capability_accepts_independent_names_orders_and_paths() {
+    for (index, mut recipe) in owned_recipes().into_iter().enumerate() {
+        recipe.binding.case_id = format!("caller/acquisition-{index}");
+        recipe.recipe_id = format!("caller-recipe-{index}");
+        recipe.planning_order = Some(900 + index as u32);
+        let path = format!("caller-output/image-{index}.dcm");
+        recipe.dicom.as_mut().unwrap().artifacts[0].output.path = Some(path.clone());
+        let planned = plan_dx_mg_recipe(&recipe, STANDARDS_LOCK_SHA256, SEED)
+            .unwrap()
+            .unwrap();
+        assert_eq!(planned.len(), 1);
+        assert_eq!(planned[0].order, 900 + index as u64);
+        assert_eq!(planned[0].output_relative_path.as_str(), path);
+        assert_eq!(
+            planned[0].common.equipment.manufacturer_model_name,
+            synth_dicom_gen::recipes::ElementPresence::Value(recipe.recipe_id)
+        );
+        OrderedSeriesProvider.plan(planned).unwrap();
+    }
+}
+
+fn dx_mg_capability_rejects_partial_and_crossed_tuples() {
+    for source in owned_recipes() {
+        for mutation in 0..12 {
+            let mut recipe = source.clone();
+            recipe.binding.case_id = "independent/caller".into();
+            let artifact = &mut recipe.dicom.as_mut().unwrap().artifacts[0];
+            match mutation {
+                0 => recipe.plan_provider_id = "unrelated.plan".into(),
+                1 => artifact.template = None,
+                2 => artifact.template.as_mut().unwrap().template_version = "2.0.0".into(),
+                3 => artifact.content.provider_id = "unrelated.content".into(),
+                4 => artifact.algorithm_provider_id = Some("algorithm.classic_ct".into()),
+                5 => artifact.classic_projection = None,
+                6 => {
+                    artifact.classic_projection.as_mut().unwrap().family =
+                        synth_dicom_gen::recipes::ClassicProjectionFamily::Ct
+                }
+                7 => artifact.output.path = Some("../escape.dcm".into()),
+                8 => artifact.order = 1,
+                9 => recipe.planning_order = None,
+                10 => artifact.template.as_mut().unwrap().template_id = "classic/ct".into(),
+                _ => {
+                    let extra = artifact.clone();
+                    recipe.dicom.as_mut().unwrap().artifacts.push(extra);
+                }
+            }
+            assert!(
+                plan_dx_mg_recipe(&recipe, STANDARDS_LOCK_SHA256, SEED).is_err(),
+                "mutation {mutation} must fail for {}",
+                source.recipe_id
+            );
+        }
+        let mut unrelated = source;
+        unrelated.binding.case_id = "classic/dx/name-does-not-select".into();
+        let artifact = &mut unrelated.dicom.as_mut().unwrap().artifacts[0];
+        artifact.template = None;
+        artifact.algorithm_provider_id = None;
+        artifact.classic_projection = None;
+        assert!(
+            plan_dx_mg_recipe(&unrelated, STANDARDS_LOCK_SHA256, SEED)
+                .unwrap()
+                .is_none()
+        );
     }
 }

@@ -18,9 +18,10 @@ use crate::uid::{DeterministicUidInput, UidRole, deterministic_uid};
 
 use super::{
     CLASSIC_PIXEL_SLOT, CaseRecipe, ClassicFamilyProvider, ClassicInstanceRequest,
-    ClassicPixelRequest, ClassicPlanError, CommonModuleRequest, DeclaredVrException,
-    ElementPresence, EquipmentModuleInput, FamilyModuleFragment, ImageModuleInput,
-    PatientModuleInput, RescalePlan, SeriesModuleInput, StudyModuleInput, WindowPlan,
+    ClassicPixelRequest, ClassicPlanError, ClassicProjectionFamily, CommonModuleRequest,
+    DeclaredVrException, ElementPresence, EquipmentModuleInput, FamilyModuleFragment,
+    ImageModuleInput, PatientModuleInput, RescalePlan, SeriesModuleInput, StudyModuleInput,
+    WindowPlan,
 };
 
 pub const PLAN_PROVIDER_ID: &str = "native.classic_plan";
@@ -123,15 +124,29 @@ impl ClassicFamilyProvider<DxMgArtifactParameters> for DxMgFamilyProvider {
     }
 }
 
-/// Converts one owned recipe into fully resolved, deterministic classic
-/// requests. The conversion is pure: it has no output root, writer, execution
-/// service, or DICOM read-back channel.
-pub fn plan_dx_mg_recipe(
+/// Inspect the complete stable DX/MG capability without using caller names.
+pub(crate) fn inspect_dx_mg_capability(
     recipe: &CaseRecipe,
-    standards_lock_sha256: &str,
-    seed: u64,
-) -> Result<Option<Vec<ClassicInstanceRequest>>, ClassicDxMgPlanError> {
-    if !is_owned_case(&recipe.binding.case_id) {
+) -> Result<Option<DxMgArtifactParameters>, ClassicDxMgPlanError> {
+    let Some(dicom) = recipe.dicom.as_ref() else {
+        return Ok(None);
+    };
+    let declared = dicom.artifacts.iter().any(|artifact| {
+        artifact.algorithm_provider_id.as_deref() == Some(ALGORITHM_PROVIDER_ID)
+            || artifact.template.as_ref().is_some_and(|template| {
+                matches!(
+                    template.template_id.as_str(),
+                    "classic/dx/for-presentation"
+                        | "classic/mammography/for-presentation"
+                        | "classic/mammography/for-processing"
+                )
+            })
+            || artifact
+                .classic_projection
+                .as_ref()
+                .is_some_and(|projection| projection.family == ClassicProjectionFamily::DxMg)
+    });
+    if !declared {
         return Ok(None);
     }
     if recipe.plan_provider_id != PLAN_PROVIDER_ID {
@@ -142,7 +157,7 @@ pub fn plan_dx_mg_recipe(
     }
     let provider: DxMgProviderParameters =
         serde_json::from_value(Value::Object(recipe.provider_parameters.clone()))?;
-    let planning_order = recipe.planning_order.ok_or_else(|| {
+    recipe.planning_order.ok_or_else(|| {
         ClassicDxMgPlanError::Contract(format!(
             "{} has no global planning_order",
             recipe.binding.case_id
@@ -167,14 +182,28 @@ pub fn plan_dx_mg_recipe(
             recipe.binding.case_id
         )));
     }
-    let expected_path = format!("{}/instance.dcm", recipe.binding.case_id);
-    if artifact.output.path.as_deref() != Some(expected_path.as_str())
-        || artifact.output.provider_derived == Some(true)
+    if artifact.output.path.is_none() || artifact.output.provider_derived == Some(true) {
+        return Err(ClassicDxMgPlanError::Contract(
+            "DX/MG output must be explicit".into(),
+        ));
+    }
+    OutputRelativePath::new(artifact.output.path.clone().expect("explicit output"))?;
+    if !artifact
+        .classic_projection
+        .as_ref()
+        .is_some_and(|projection| projection.family == ClassicProjectionFamily::DxMg)
+        || artifact
+            .template
+            .as_ref()
+            .is_none_or(|template| template.template_version != "1.0.0")
+        || !artifact.attribute_operations.is_empty()
+        || artifact.secondary_capture.is_some()
+        || artifact.metadata_sc.is_some()
+        || artifact.nonsquare_geometry.is_some()
     {
-        return Err(ClassicDxMgPlanError::Contract(format!(
-            "{} does not declare its historical output path",
-            recipe.binding.case_id
-        )));
+        return Err(ClassicDxMgPlanError::Contract(
+            "DX/MG requires the complete typed template@1/projection contract".into(),
+        ));
     }
     if artifact.content.provider_id != CONTENT_PROVIDER_ID
         || !artifact.content.parameters.is_empty()
@@ -197,6 +226,26 @@ pub fn plan_dx_mg_recipe(
     let parameters: DxMgArtifactParameters =
         serde_json::from_value(Value::Object(artifact.parameters.clone()))?;
     validate_parameters(recipe, artifact, provider.family, &parameters)?;
+
+    Ok(Some(parameters))
+}
+
+/// Resolve an inspected DX/MG capability into a filesystem-free request.
+pub fn plan_dx_mg_recipe(
+    recipe: &CaseRecipe,
+    standards_lock_sha256: &str,
+    seed: u64,
+) -> Result<Option<Vec<ClassicInstanceRequest>>, ClassicDxMgPlanError> {
+    let Some(parameters) = inspect_dx_mg_capability(recipe)? else {
+        return Ok(None);
+    };
+    let planning_order = recipe.planning_order.expect("inspected planning order");
+    let artifact = &recipe.dicom.as_ref().expect("inspected DICOM").artifacts[0];
+    let expected_path = artifact
+        .output
+        .path
+        .clone()
+        .expect("inspected explicit path");
 
     let uid = |role| {
         deterministic_uid(&DeterministicUidInput {
@@ -561,10 +610,6 @@ fn code_sequence(tag: &str, code: &CodeParameters) -> AttributeOperation {
             ],
         }],
     )
-}
-
-fn is_owned_case(case_id: &str) -> bool {
-    case_id.starts_with("classic/dx/") || case_id.starts_with("classic/mg/")
 }
 
 #[derive(Debug)]

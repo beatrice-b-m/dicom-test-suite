@@ -700,3 +700,19 @@ US static import, loader availability, migrated parity and generic source
 capability remain sequential. The task target now measures859204 KiB; the
 pre-existing default build tree remains untouched. Current source CR acceptance
 does not change either native artifact pin. R7 remains incomplete.
+
+## US static corpus integration checkpoint — 2026-09-05
+
+Corpus data9d28967/static631b793/CI6e1d9d9/historical-fixture4556b71 are
+accepted at712da80. Content0.7 closes27 files151260 bytes,22 cases (smoke3/core19).
+Descriptor SHA `f361acab478f173478e2c395fb5f5600fa7f79faa59841a3402c09feed0dc680`;
+registry SHA `ec263585005a23ba69b18652c32dc0a480c7017f65f0e484f99571600efd6a04`.
+Exact US provenance and all previous members/rows are preserved; historical
+fixtures reconstruct byte-exact0.6/0.5 without relaxing production verifiers.
+
+Static17 tests passed0.131s (independent0.137s); routing50 passed0.831s
+(independent0.820s); historical53 passed2.836s, independent Git reconstruction
+0.348891s. Root full ordinary461 passed8.670s; actual base/head CI dry-run
+0.332155s selected only smoke3+US1/all. No native execution during integration.
+Selected US availability helper preparation is next; no migrated parity or
+generic source capability follows from static ownership. R7 remains incomplete.

@@ -1464,3 +1464,30 @@ Fast was not repeated. Next owner has only six current docs: README, generation
 guide, SDK guide, SYSTEM_SPEC, compatibility policy and taxonomy. Root will
 verify exact documented commands on fresh output before complete PET source
 capability acceptance. No pin or prior receipt changes.
+
+## Bounded PET source capability accepted — 2026-09-05
+
+Six current guides e877dfd document the complete fixed PET tuple, caller-owned
+identities/required unique orders/safe paths, all20 synthetic provider fields
+and source numeric spellings, one4-member fixture with note, separate strict
+validation and manifest report evidence. Root and independent review accepted.
+No recipe/template/bundle/manifest/report version or corpus pin changed.
+
+Root exercised all four exact documented commands from fresh unrelated
+/private/tmp/r7-pet-docs-_uwndzhx with empty PATH: capabilities1.288042s,
+generation1.098986s, strict1 file0.331712s, report0.192280s. Caller1388-byte
+payload matched b9d243306f6d9cbc4d475efd6d206ec668adadd290634505bba1c7c45b322bda.
+Retained10 files238641 logical/253952 allocated bytes; measurement
+/private/tmp/r7-pet-docs-measurement-20260905.json. Diff and granular six-file
+commit verification passed.
+
+PET-local R7.1/R7.2/R7.3/R7.5 boundaries are now accepted: corpus exact data,
+selected planning and migrated parity; source planner9d2a83b, loaderd9efbd8,
+public proof82cd6fd and current guidese877dfd. Reduced/fuzz/negative/codec and
+other nuclear scopes remain separate; no SUV, clinical accuracy, independent
+conformance, viewer or release evidence is added. The original corpus artifact
+pin and failed baseline1 remain unchanged. R7 remains incomplete; R8/R9 held.
+Next ordinary native slice is XA/XRF2, whose source/helper preparation is
+already committed; recheck its pinned-source complete oracle before opening
+the explicit native baseline gate. VL2 source preparation remains accepted
+without execution and shares the later classic-VL provider boundary.

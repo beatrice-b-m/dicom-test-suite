@@ -1305,7 +1305,7 @@
         "negative_and_fuzz_dependencies_cannot_cross_legacy_or_stress_boundaries",
         "excessive_undeclared_inventory_fails_without_buffering_all_names"
       ],
-      "entry_digest": "7a9987e4f2d3d060670da431532067fa2c2146e50e30511afedbfc235f898206"
+      "entry_digest": "e0328e8af2eb6e9855c87e64b935242a53aee5e687b6efb66d6513beae6df42c"
     },
     {
       "source": "tests/corpus_plan.rs",
@@ -4288,7 +4288,7 @@
         "encapsulated_stl_manifest_contract_is_exact_and_case_scoped",
         "encapsulated_stl_report_projects_payload_geometry_and_grouped_evidence"
       ],
-      "entry_digest": "be8fe7697bd2552778f46a2b1a0f5ae5c5ebc051966a29bdd4d794d4705a4b1f"
+      "entry_digest": "5815994fd45de0546fcf3fbd05c70fdfde89a2c92567d85b07c2c7780488ca17"
     },
     {
       "source": "src/manifest_contract.rs",
@@ -4357,9 +4357,9 @@
       "entries": [
         "parses_canonical_manifest_tag",
         "parses_and_normalizes_timezone_extrema",
-        "rejects_invalid_temporal_lexemes"
+        "rejects_invalid_temporal_lexemes_and_incomplete_external_evidence_groups"
       ],
-      "entry_digest": "817d893c571737e1f7db7a0c1fc48f9d126166f981876f48adad97f9e11156c4"
+      "entry_digest": "5be11c08bf2e07b6addda945411328cb6cf181f2e03e0c64dabe27fc5243b493"
     },
     {
       "source": "src/mutation.rs",

@@ -5,7 +5,7 @@ use dicom_dictionary_std::{StandardDataDictionary, tags};
 use dicom_object::{FileDicomObject, InMemDicomObject};
 use serde_json::Value;
 
-use crate::sha256_hex;
+use crate::{manifest_contract::ManifestContractKind, sha256_hex};
 
 type OpenedObject = FileDicomObject<InMemDicomObject<StandardDataDictionary>>;
 
@@ -16,6 +16,7 @@ struct RawElement<'a> {
 }
 
 pub(crate) fn validate_manifest_metadata(
+    kind: ManifestContractKind,
     relative_path: &str,
     bytes: &[u8],
     transfer_syntax_uid: &str,
@@ -23,15 +24,27 @@ pub(crate) fn validate_manifest_metadata(
     obj: &OpenedObject,
     failures: &mut Vec<String>,
 ) {
+    if kind == ManifestContractKind::ExternalCorpus
+        && file
+            .get("expected_metadata")
+            .is_some_and(|value| !value.is_object())
+    {
+        failures.push(format!(
+            "{relative_path}: metadata_expected_metadata: expected metadata must be an object"
+        ));
+        return;
+    }
     let expected = file
         .get("expected_metadata")
         .filter(|value| !value.is_null());
-    let metadata_required = matches!(
-        file.get("case_id").and_then(Value::as_str),
-        Some(
-            "metadata/sc/private_creator_blocks" | "metadata/sc/defined_undefined_sequence_lengths"
-        )
-    );
+    let metadata_required = kind != ManifestContractKind::ExternalCorpus
+        && matches!(
+            file.get("case_id").and_then(Value::as_str),
+            Some(
+                "metadata/sc/private_creator_blocks"
+                    | "metadata/sc/defined_undefined_sequence_lengths"
+            )
+        );
     if metadata_required && expected.is_none() {
         failures.push(format!(
             "{relative_path}: metadata_expected_metadata: metadata expectations are required for this case"
@@ -60,7 +73,58 @@ pub(crate) fn validate_manifest_metadata(
     validate_sequence_length_encoding(relative_path, bytes, file, expected, obj, failures);
 }
 
-pub(crate) fn validate_manifest_metadata_corpus(files: &[Value], failures: &mut Vec<String>) {
+pub(crate) fn validate_manifest_metadata_corpus(
+    kind: ManifestContractKind,
+    files: &[Value],
+    failures: &mut Vec<String>,
+) {
+    if kind == ManifestContractKind::ExternalCorpus {
+        // Evidence belongs to its caller case; independent cases cannot complete
+        // each other's temporal or sequence variant set.
+        let mut groups = std::collections::BTreeMap::<&str, Vec<&Value>>::new();
+        for file in files {
+            groups
+                .entry(file["case_id"].as_str().unwrap_or(""))
+                .or_default()
+                .push(file);
+        }
+        for (case_id, group) in groups {
+            for (field, variant, expected, check) in [
+                (
+                    "temporal",
+                    "boundary_id",
+                    ["negative_min", "positive_max"],
+                    "metadata_temporal_boundary_set",
+                ),
+                (
+                    "sequence_length_encoding",
+                    "variant_id",
+                    ["defined", "undefined"],
+                    "metadata_sequence_length_variant_set",
+                ),
+            ] {
+                let evidence = group
+                    .iter()
+                    .filter_map(|file| {
+                        file.get("expected_metadata")
+                            .and_then(|metadata| metadata.get(field))
+                    })
+                    .collect::<Vec<_>>();
+                if evidence.is_empty() {
+                    continue;
+                }
+                let variants = evidence
+                    .iter()
+                    .filter_map(|value| value.get(variant).and_then(Value::as_str))
+                    .collect::<BTreeSet<_>>();
+                if group.len() != 2 || evidence.len() != 2 || variants != BTreeSet::from(expected) {
+                    failures.push(format!("{case_id}: {check}: expected exactly one of each {expected:?}, found {} files and {variants:?}", evidence.len()));
+                }
+            }
+        }
+        return;
+    }
+
     let temporal_files = files
         .iter()
         .filter(|file| {
@@ -1769,7 +1833,65 @@ mod tests {
     }
 
     #[test]
-    fn rejects_invalid_temporal_lexemes() {
+    fn rejects_invalid_temporal_lexemes_and_incomplete_external_evidence_groups() {
+        use super::validate_manifest_metadata_corpus;
+        use crate::manifest_contract::ManifestContractKind::{CuratedGeneration, ExternalCorpus};
+        for (field, variant, values, legacy_id) in [
+            (
+                "temporal",
+                "boundary_id",
+                ["negative_min", "positive_max"],
+                "metadata/sc/timezone_boundaries",
+            ),
+            (
+                "sequence_length_encoding",
+                "variant_id",
+                ["defined", "undefined"],
+                "metadata/sc/defined_undefined_sequence_lengths",
+            ),
+        ] {
+            let member = |case_id: &str, value: &str| {
+                let mut file = serde_json::json!({"case_id": case_id, "expected_metadata": {}});
+                file["expected_metadata"][field] = serde_json::json!({variant: value});
+                file
+            };
+            let complete = vec![
+                member("caller/a", values[0]),
+                member("caller/a", values[1]),
+                member("caller/b", values[0]),
+                member("caller/b", values[1]),
+            ];
+            let mut failures = Vec::new();
+            validate_manifest_metadata_corpus(ExternalCorpus, &complete, &mut failures);
+            assert!(failures.is_empty(), "{failures:?}");
+            for malformed in [
+                vec![member("caller/a", values[0]), member("caller/b", values[1])],
+                vec![
+                    member("caller/a", values[0]),
+                    member("caller/a", values[1]),
+                    serde_json::json!({"case_id":"caller/a"}),
+                ],
+                vec![member("caller/a", values[0]), member("caller/a", values[0])],
+                vec![serde_json::json!({"case_id":"caller/a", "expected_metadata": {field: null}})],
+            ] {
+                failures.clear();
+                validate_manifest_metadata_corpus(ExternalCorpus, &malformed, &mut failures);
+                assert!(
+                    !failures.is_empty(),
+                    "independent or malformed {field} must fail"
+                );
+            }
+            let no_evidence = vec![serde_json::json!({"case_id":legacy_id})];
+            failures.clear();
+            validate_manifest_metadata_corpus(ExternalCorpus, &no_evidence, &mut failures);
+            assert!(failures.is_empty());
+            validate_manifest_metadata_corpus(CuratedGeneration, &no_evidence, &mut failures);
+            assert!(
+                !failures.is_empty(),
+                "legacy group evidence remains required"
+            );
+        }
+
         assert!(parse_dicom_date("20230229").is_err());
         assert!(parse_dicom_time("240000.000000").is_err());
         assert!(parse_timezone_offset("+1401").is_err());

@@ -429,6 +429,46 @@ fn external_us_capability_is_name_independent_and_fail_closed() {
             "classic/mr/caller-ultrasound",
             "mr_multislice_oblique",
         ),
+        (
+            "runtime-collision-0",
+            "classic/sc/mono2_u32_explicit_le",
+            "caller_ultrasound",
+        ),
+        (
+            "runtime-collision-1",
+            "classic/sc/mono2_u1_native",
+            "caller_ultrasound",
+        ),
+        (
+            "runtime-collision-2",
+            "vl/photo/rgb_icc_profile_explicit_le",
+            "caller_ultrasound",
+        ),
+        (
+            "runtime-collision-3",
+            "classic/sc/nonsquare_pixel_spacing",
+            "caller_ultrasound",
+        ),
+        (
+            "runtime-collision-4",
+            "metadata/sc/private_creator_blocks",
+            "caller_ultrasound",
+        ),
+        (
+            "runtime-collision-5",
+            "metadata/sc/defined_undefined_sequence_lengths",
+            "caller_ultrasound",
+        ),
+        (
+            "runtime-collision-6",
+            "metadata/sc/timezone_boundaries",
+            "caller_ultrasound",
+        ),
+        (
+            "runtime-collision-7",
+            "metadata/sc/utf8_person_name",
+            "caller_ultrasound",
+        ),
     ] {
         let root = one_case_bundle(label, US, case_id, recipe_id, |recipe| {
             recipe["planning_order"] = 900.into();
@@ -462,6 +502,22 @@ fn external_us_capability_is_name_independent_and_fail_closed() {
         let report = sdk.report(crate::sdk::ReportRequest::new(&output)).unwrap();
         let report: serde_json::Value = report.deserialize().unwrap();
         assert_eq!(report["coverage_report_schema_version"], "2.0.0");
+        assert_eq!(report["summary"]["emitted_files"], 1);
+        let reported_file = &report["source_manifest"]["files"][0];
+        assert_eq!(reported_file["case_id"], case_id);
+        assert_eq!(reported_file["dicom"]["modality"], "US");
+        for field in [
+            "expected_u32_pixels",
+            "expected_u1_pixels",
+            "expected_icc_profile",
+            "expected_nonsquare_spacing",
+            "expected_metadata",
+        ] {
+            assert!(
+                reported_file.get(field).is_none(),
+                "caller identity must not introduce {field}"
+            );
+        }
 
         fs::remove_dir_all(output).unwrap();
         fs::remove_dir_all(root).unwrap();

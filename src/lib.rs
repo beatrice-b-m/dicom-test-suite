@@ -1388,11 +1388,11 @@ fn validate_loaded_manifest_root(
         if file.get("validity").and_then(Value::as_str) != Some("expected_invalid") {
             validate_manifest_references(&manifest_path, file, &source_objects, &mut failures)?;
         }
-        validate_manifest_file(root_dir, &manifest_path, file, &mut failures)?;
+        validate_manifest_file(kind, root_dir, &manifest_path, file, &mut failures)?;
     }
     validate_declared_corpus_files(root_dir, &declared_paths, &mut failures)?;
     geometry::validate_manifest_geometry(root_dir, files, &mut failures);
-    metadata::validate_manifest_metadata_corpus(files, &mut failures);
+    metadata::validate_manifest_metadata_corpus(kind, files, &mut failures);
 
     Ok(ValidationSummary {
         manifest_path: manifest_path.to_path_buf(),
@@ -3011,12 +3011,14 @@ fn validate_spatial_registration_manifest_closure(
 }
 
 fn validate_manifest_file(
+    kind: manifest_contract::ManifestContractKind,
     root_dir: &Path,
     manifest_path: &Path,
     file: &Value,
     failures: &mut Vec<String>,
 ) -> Result<(), ValidateError> {
     let relative_path = manifest_str(manifest_path, file, "/path", "file path must be a string")?;
+    validate_external_scalar_evidence_layout(kind, relative_path, file, failures);
     validate_vl_single_frame_manifest_contract(manifest_path, file)?;
     validate_wsi_tiled_full_manifest_contract(manifest_path, file)?;
     validate_wsi_tile_segmentation_manifest_contract(manifest_path, file)?;
@@ -3153,6 +3155,7 @@ fn validate_manifest_file(
     validate_standard_baseline_elements(failures, relative_path, manifest_path, file, &obj)?;
     validate_family_standard_elements(failures, relative_path, &path, manifest_path, file, &obj)?;
     metadata::validate_manifest_metadata(
+        kind,
         relative_path,
         &bytes,
         expected_transfer_syntax,
@@ -3166,7 +3169,13 @@ fn validate_manifest_file(
         .and_then(Value::as_str)
         != Some("native")
     {
-        validate_nonsquare_spacing_non_native_scope(failures, relative_path, manifest_path, file)?;
+        validate_nonsquare_spacing_non_native_scope(
+            kind,
+            failures,
+            relative_path,
+            manifest_path,
+            file,
+        )?;
     }
 
     validate_str_element(
@@ -3184,9 +3193,14 @@ fn validate_manifest_file(
     );
 
     match (file.get("image"), file.get("pixel_data")) {
-        (Some(Value::Object(_)), Some(Value::Object(_))) => {
-            validate_manifest_image_pixel_data(failures, relative_path, manifest_path, file, &obj)
-        }
+        (Some(Value::Object(_)), Some(Value::Object(_))) => validate_manifest_image_pixel_data(
+            kind,
+            failures,
+            relative_path,
+            manifest_path,
+            file,
+            &obj,
+        ),
         (None | Some(Value::Null), None | Some(Value::Null)) => Ok(()),
         _ => {
             failures.push(format!(
@@ -5322,7 +5336,39 @@ fn validate_wsi_pyramid_manifest_group(
     Ok(())
 }
 
+fn validate_external_scalar_evidence_layout(
+    kind: manifest_contract::ManifestContractKind,
+    relative_path: &str,
+    file: &Value,
+    failures: &mut Vec<String>,
+) {
+    if kind != manifest_contract::ManifestContractKind::ExternalCorpus {
+        return;
+    }
+    let native_integer = file.get("image").is_some_and(Value::is_object)
+        && file
+            .pointer("/image/sample_type")
+            .and_then(Value::as_str)
+            .unwrap_or("integer")
+            == "integer"
+        && file
+            .pointer("/pixel_data/native_or_encapsulated")
+            .and_then(Value::as_str)
+            == Some("native");
+    for field in [
+        "expected_u32_pixels",
+        "expected_u1_pixels",
+        "expected_icc_profile",
+        "expected_nonsquare_spacing",
+    ] {
+        if file.get(field).is_some() && !native_integer {
+            failures.push(format!("{relative_path}: scalar_evidence_layout: {field} requires native integer image Pixel Data"));
+        }
+    }
+}
+
 fn validate_nonsquare_spacing_non_native_scope(
+    kind: manifest_contract::ManifestContractKind,
     failures: &mut Vec<String>,
     relative_path: &str,
     manifest_path: &Path,
@@ -5330,6 +5376,14 @@ fn validate_nonsquare_spacing_non_native_scope(
 ) -> Result<(), ValidateError> {
     const CASE_ID: &str = "classic/sc/nonsquare_pixel_spacing";
     let case_id = manifest_str(manifest_path, file, "/case_id", "case_id must be a string")?;
+    if kind == manifest_contract::ManifestContractKind::ExternalCorpus {
+        if file.get("expected_nonsquare_spacing").is_some() {
+            failures.push(format!(
+                "{relative_path}: nonsquare_pixel_data_layout: non-square spacing SC variants must use native Pixel Data"
+            ));
+        }
+        return Ok(());
+    }
     match (case_id == CASE_ID, file.get("expected_nonsquare_spacing")) {
         (false, Some(_)) => failures.push(format!(
             "{relative_path}: nonsquare_spacing_contract_scope: expected_nonsquare_spacing is reserved for {CASE_ID}"
@@ -5349,6 +5403,7 @@ fn validate_nonsquare_spacing_non_native_scope(
 }
 
 fn validate_manifest_image_pixel_data(
+    kind: manifest_contract::ManifestContractKind,
     failures: &mut Vec<String>,
     relative_path: &str,
     manifest_path: &Path,
@@ -5361,6 +5416,7 @@ fn validate_manifest_image_pixel_data(
         .unwrap_or("integer")
     {
         "integer" => validate_integer_manifest_image_pixel_data(
+            kind,
             failures,
             relative_path,
             manifest_path,
@@ -5391,6 +5447,7 @@ fn validate_manifest_image_pixel_data(
 }
 
 fn validate_integer_manifest_image_pixel_data(
+    kind: manifest_contract::ManifestContractKind,
     failures: &mut Vec<String>,
     relative_path: &str,
     manifest_path: &Path,
@@ -5596,6 +5653,7 @@ fn validate_integer_manifest_image_pixel_data(
                 frame_hashes,
             )?;
             validate_u32_sc_manifest_pixel_contract(
+                kind,
                 failures,
                 relative_path,
                 manifest_path,
@@ -5603,6 +5661,7 @@ fn validate_integer_manifest_image_pixel_data(
                 pixel_bytes.as_ref(),
             )?;
             validate_u1_sc_manifest_pixel_contract(
+                kind,
                 failures,
                 relative_path,
                 manifest_path,
@@ -5611,6 +5670,7 @@ fn validate_integer_manifest_image_pixel_data(
                 pixel_bytes.as_ref(),
             )?;
             validate_icc_profile_manifest_contract(
+                kind,
                 failures,
                 relative_path,
                 manifest_path,
@@ -5618,6 +5678,7 @@ fn validate_integer_manifest_image_pixel_data(
                 &obj,
             )?;
             validate_nonsquare_spacing_manifest_contract(
+                kind,
                 failures,
                 relative_path,
                 manifest_path,
@@ -5662,6 +5723,7 @@ fn validate_integer_manifest_image_pixel_data(
 }
 
 fn validate_u32_sc_manifest_pixel_contract(
+    kind: manifest_contract::ManifestContractKind,
     failures: &mut Vec<String>,
     relative_path: &str,
     manifest_path: &Path,
@@ -5674,7 +5736,10 @@ fn validate_u32_sc_manifest_pixel_contract(
 
     let case_id = manifest_str(manifest_path, file, "/case_id", "case_id must be a string")?;
     let contract = file.get("expected_u32_pixels");
-    if case_id != CASE_ID {
+    if kind == manifest_contract::ManifestContractKind::ExternalCorpus && contract.is_none() {
+        return Ok(());
+    }
+    if kind != manifest_contract::ManifestContractKind::ExternalCorpus && case_id != CASE_ID {
         if contract.is_some() {
             failures.push(format!(
                 "{relative_path}: u32_pixel_contract_scope: expected_u32_pixels is reserved for {CASE_ID}"
@@ -5855,6 +5920,7 @@ fn validate_u32_sc_manifest_pixel_contract(
 }
 
 fn validate_u1_sc_manifest_pixel_contract(
+    kind: manifest_contract::ManifestContractKind,
     failures: &mut Vec<String>,
     relative_path: &str,
     manifest_path: &Path,
@@ -5872,7 +5938,10 @@ fn validate_u1_sc_manifest_pixel_contract(
 
     let case_id = manifest_str(manifest_path, file, "/case_id", "case_id must be a string")?;
     let contract = file.get("expected_u1_pixels");
-    if case_id != CASE_ID {
+    if kind == manifest_contract::ManifestContractKind::ExternalCorpus && contract.is_none() {
+        return Ok(());
+    }
+    if kind != manifest_contract::ManifestContractKind::ExternalCorpus && case_id != CASE_ID {
         if contract.is_some() {
             failures.push(format!(
                 "{relative_path}: u1_pixel_contract_scope: expected_u1_pixels is reserved for {CASE_ID}"
@@ -6117,6 +6186,7 @@ fn validate_u1_sc_manifest_pixel_contract(
 }
 
 fn validate_icc_profile_manifest_contract(
+    kind: manifest_contract::ManifestContractKind,
     failures: &mut Vec<String>,
     relative_path: &str,
     manifest_path: &Path,
@@ -6131,7 +6201,10 @@ fn validate_icc_profile_manifest_contract(
 
     let case_id = manifest_str(manifest_path, file, "/case_id", "case_id must be a string")?;
     let contract = file.get("expected_icc_profile");
-    if case_id != CASE_ID {
+    if kind == manifest_contract::ManifestContractKind::ExternalCorpus && contract.is_none() {
+        return Ok(());
+    }
+    if kind != manifest_contract::ManifestContractKind::ExternalCorpus && case_id != CASE_ID {
         if contract.is_some() {
             failures.push(format!(
                 "{relative_path}: icc_profile_contract_scope: expected_icc_profile is reserved for {CASE_ID}"
@@ -6336,6 +6409,7 @@ fn icc_be_u32(bytes: &[u8], offset: usize) -> Option<u32> {
 }
 
 fn validate_nonsquare_spacing_manifest_contract(
+    kind: manifest_contract::ManifestContractKind,
     failures: &mut Vec<String>,
     relative_path: &str,
     manifest_path: &Path,
@@ -6348,7 +6422,10 @@ fn validate_nonsquare_spacing_manifest_contract(
 
     let case_id = manifest_str(manifest_path, file, "/case_id", "case_id must be a string")?;
     let contract = file.get("expected_nonsquare_spacing");
-    if case_id != CASE_ID {
+    if kind == manifest_contract::ManifestContractKind::ExternalCorpus && contract.is_none() {
+        return Ok(());
+    }
+    if kind != manifest_contract::ManifestContractKind::ExternalCorpus && case_id != CASE_ID {
         if contract.is_some() {
             failures.push(format!(
                 "{relative_path}: nonsquare_spacing_contract_scope: expected_nonsquare_spacing is reserved for {CASE_ID}"
@@ -37622,6 +37699,7 @@ mod tests {
         let mut failures = Vec::new();
 
         validate_manifest_image_pixel_data(
+            manifest_contract::ManifestContractKind::CuratedGeneration,
             &mut failures,
             "parametric-map.dcm",
             Path::new("manifest.json"),
@@ -37644,6 +37722,7 @@ mod tests {
         let mut failures = Vec::new();
 
         validate_manifest_image_pixel_data(
+            manifest_contract::ManifestContractKind::CuratedGeneration,
             &mut failures,
             "parametric-map.dcm",
             Path::new("manifest.json"),
@@ -37667,6 +37746,7 @@ mod tests {
         let mut failures = Vec::new();
 
         validate_manifest_image_pixel_data(
+            manifest_contract::ManifestContractKind::CuratedGeneration,
             &mut failures,
             "parametric-map-float64.dcm",
             Path::new("manifest.json"),
@@ -37689,6 +37769,7 @@ mod tests {
         let mut failures = Vec::new();
 
         validate_manifest_image_pixel_data(
+            manifest_contract::ManifestContractKind::CuratedGeneration,
             &mut failures,
             "parametric-map-float64.dcm",
             Path::new("manifest.json"),
@@ -37711,6 +37792,7 @@ mod tests {
         let mut failures = Vec::new();
 
         validate_u32_sc_manifest_pixel_contract(
+            manifest_contract::ManifestContractKind::CuratedGeneration,
             &mut failures,
             "classic/sc/mono2_u32_explicit_le/instance.dcm",
             Path::new("manifest.json"),
@@ -37720,40 +37802,63 @@ mod tests {
         .expect("well-formed unsigned 32-bit contract should validate");
 
         assert_eq!(failures, Vec::<String>::new());
+        assert_external_scalar_evidence(
+            &manifest,
+            "expected_u32_pixels",
+            |kind, value, failures| {
+                validate_u32_sc_manifest_pixel_contract(
+                    kind,
+                    failures,
+                    "caller.dcm",
+                    Path::new("manifest.json"),
+                    value,
+                    &bytes,
+                )
+            },
+        );
     }
 
     #[test]
     fn u32_sc_manifest_pixel_contract_rejects_tampered_words_and_metadata() {
-        let mut manifest = u32_sc_test_manifest();
-        manifest["expected_u32_pixels"]["stored_values"][3] = Value::from(0_u64);
-        manifest["expected_u32_pixels"]["pixel_data_sha256"] = Value::from("0".repeat(64));
-        manifest["expected_u32_pixels"]["word_byte_order"] = Value::from("big_endian");
-        manifest["expected_u32_pixels"]["full_unsigned_range"] = Value::from(false);
-        manifest["image"]["bits_stored"] = Value::from(31);
-        let mut bytes = u32_sc_test_bytes();
-        bytes[12] = 0;
-        let mut failures = Vec::new();
-
-        validate_u32_sc_manifest_pixel_contract(
-            &mut failures,
-            "classic/sc/mono2_u32_explicit_le/instance.dcm",
-            Path::new("manifest.json"),
-            &manifest,
-            &bytes,
-        )
-        .expect("semantic mismatches should be validation failures");
-
-        let joined = failures.join("\n");
-        for check in [
-            "u32_bits_stored",
-            "u32_expected_stored_values",
-            "u32_word_byte_order",
-            "u32_full_unsigned_range",
-            "u32_declared_pixel_sha256",
-            "u32_pixel_data_sha256",
-            "u32_decoded_stored_values",
+        for kind in [
+            manifest_contract::ManifestContractKind::CuratedGeneration,
+            manifest_contract::ManifestContractKind::ExternalCorpus,
         ] {
-            assert!(joined.contains(check), "missing {check} failure:\n{joined}");
+            let mut manifest = u32_sc_test_manifest();
+            manifest["expected_u32_pixels"]["stored_values"][3] = Value::from(0_u64);
+            manifest["expected_u32_pixels"]["pixel_data_sha256"] = Value::from("0".repeat(64));
+            manifest["expected_u32_pixels"]["word_byte_order"] = Value::from("big_endian");
+            manifest["expected_u32_pixels"]["full_unsigned_range"] = Value::from(false);
+            manifest["image"]["bits_stored"] = Value::from(31);
+            let mut bytes = u32_sc_test_bytes();
+            bytes[12] = 0;
+            let mut failures = Vec::new();
+
+            if kind == manifest_contract::ManifestContractKind::ExternalCorpus {
+                manifest["case_id"] = Value::from("caller/evidence");
+            }
+            validate_u32_sc_manifest_pixel_contract(
+                kind,
+                &mut failures,
+                "classic/sc/mono2_u32_explicit_le/instance.dcm",
+                Path::new("manifest.json"),
+                &manifest,
+                &bytes,
+            )
+            .expect("semantic mismatches should be validation failures");
+
+            let joined = failures.join("\n");
+            for check in [
+                "u32_bits_stored",
+                "u32_expected_stored_values",
+                "u32_word_byte_order",
+                "u32_full_unsigned_range",
+                "u32_declared_pixel_sha256",
+                "u32_pixel_data_sha256",
+                "u32_decoded_stored_values",
+            ] {
+                assert!(joined.contains(check), "missing {check} failure:\n{joined}");
+            }
         }
     }
 
@@ -37765,6 +37870,7 @@ mod tests {
         let mut failures = Vec::new();
 
         validate_u1_sc_manifest_pixel_contract(
+            manifest_contract::ManifestContractKind::CuratedGeneration,
             &mut failures,
             "classic/sc/mono2_u1_native/instance.dcm",
             Path::new("manifest.json"),
@@ -37775,39 +37881,64 @@ mod tests {
         .expect("well-formed one-bit contract should validate");
 
         assert_eq!(failures, Vec::<String>::new());
+        assert_external_scalar_evidence(
+            &manifest,
+            "expected_u1_pixels",
+            |kind, value, failures| {
+                validate_u1_sc_manifest_pixel_contract(
+                    kind,
+                    failures,
+                    "caller.dcm",
+                    Path::new("manifest.json"),
+                    value,
+                    &obj,
+                    &bytes,
+                )
+            },
+        );
     }
 
     #[test]
     fn u1_sc_manifest_pixel_contract_rejects_per_frame_padding_and_tampering() {
-        let mut manifest = u1_sc_test_manifest();
-        manifest["expected_u1_pixels"]["packing_order"] = Value::from("most_significant_bit_first");
-        manifest["expected_u1_pixels"]["stored_values"][9] = Value::from(1);
-        manifest["expected_u1_pixels"]["pixel_data_sha256"] = Value::from("0".repeat(64));
-        manifest["expected_u1_pixels"]["value_field_padding_bytes"] = Value::from(0);
-        let obj = u1_sc_test_object();
-        let bytes = vec![0x55, 0x01, 0xaa, 0x00];
-        let mut failures = Vec::new();
-
-        validate_u1_sc_manifest_pixel_contract(
-            &mut failures,
-            "classic/sc/mono2_u1_native/instance.dcm",
-            Path::new("manifest.json"),
-            &manifest,
-            &obj,
-            &bytes,
-        )
-        .expect("one-bit semantic mismatches should be validation failures");
-
-        let joined = failures.join("\n");
-        for check in [
-            "u1_expected_stored_values",
-            "u1_packing_order",
-            "u1_declared_pixel_sha256",
-            "u1_value_field_padding_bytes",
-            "u1_pixel_data_sha256",
-            "u1_decoded_stored_values",
+        for kind in [
+            manifest_contract::ManifestContractKind::CuratedGeneration,
+            manifest_contract::ManifestContractKind::ExternalCorpus,
         ] {
-            assert!(joined.contains(check), "missing {check} failure:\n{joined}");
+            let mut manifest = u1_sc_test_manifest();
+            manifest["expected_u1_pixels"]["packing_order"] =
+                Value::from("most_significant_bit_first");
+            manifest["expected_u1_pixels"]["stored_values"][9] = Value::from(1);
+            manifest["expected_u1_pixels"]["pixel_data_sha256"] = Value::from("0".repeat(64));
+            manifest["expected_u1_pixels"]["value_field_padding_bytes"] = Value::from(0);
+            let obj = u1_sc_test_object();
+            let bytes = vec![0x55, 0x01, 0xaa, 0x00];
+            let mut failures = Vec::new();
+
+            if kind == manifest_contract::ManifestContractKind::ExternalCorpus {
+                manifest["case_id"] = Value::from("caller/evidence");
+            }
+            validate_u1_sc_manifest_pixel_contract(
+                kind,
+                &mut failures,
+                "classic/sc/mono2_u1_native/instance.dcm",
+                Path::new("manifest.json"),
+                &manifest,
+                &obj,
+                &bytes,
+            )
+            .expect("one-bit semantic mismatches should be validation failures");
+
+            let joined = failures.join("\n");
+            for check in [
+                "u1_expected_stored_values",
+                "u1_packing_order",
+                "u1_declared_pixel_sha256",
+                "u1_value_field_padding_bytes",
+                "u1_pixel_data_sha256",
+                "u1_decoded_stored_values",
+            ] {
+                assert!(joined.contains(check), "missing {check} failure:\n{joined}");
+            }
         }
     }
 
@@ -37818,6 +37949,7 @@ mod tests {
         let mut failures = Vec::new();
 
         validate_icc_profile_manifest_contract(
+            manifest_contract::ManifestContractKind::CuratedGeneration,
             &mut failures,
             "vl/photo/rgb_icc_profile_explicit_le/instance.dcm",
             Path::new("manifest.json"),
@@ -37827,34 +37959,96 @@ mod tests {
         .expect("well-formed ICC contract should validate");
 
         assert_eq!(failures, Vec::<String>::new());
+        assert_external_scalar_evidence(
+            &manifest,
+            "expected_icc_profile",
+            |kind, value, failures| {
+                validate_icc_profile_manifest_contract(
+                    kind,
+                    failures,
+                    "caller.dcm",
+                    Path::new("manifest.json"),
+                    value,
+                    &obj,
+                )
+            },
+        );
+        for value in [Value::Null, Value::String("invalid".into())] {
+            let file = serde_json::json!({"case_id":"caller/metadata", "expected_metadata":value});
+            failures.clear();
+            metadata::validate_manifest_metadata(
+                manifest_contract::ManifestContractKind::ExternalCorpus,
+                "caller.dcm",
+                &[],
+                uids::EXPLICIT_VR_LITTLE_ENDIAN,
+                &file,
+                &obj,
+                &mut failures,
+            );
+            assert!(
+                failures
+                    .iter()
+                    .any(|failure| failure.contains("metadata_expected_metadata"))
+            );
+        }
+        for case_id in [
+            "metadata/sc/private_creator_blocks",
+            "metadata/sc/defined_undefined_sequence_lengths",
+        ] {
+            let file = serde_json::json!({"case_id":case_id});
+            failures.clear();
+            metadata::validate_manifest_metadata(
+                manifest_contract::ManifestContractKind::CuratedGeneration,
+                "legacy.dcm",
+                &[],
+                uids::EXPLICIT_VR_LITTLE_ENDIAN,
+                &file,
+                &obj,
+                &mut failures,
+            );
+            assert!(
+                failures
+                    .iter()
+                    .any(|failure| failure.contains("metadata_expected_metadata"))
+            );
+        }
     }
 
     #[test]
     fn icc_profile_manifest_contract_rejects_tampered_profile_and_metadata() {
-        let mut manifest = icc_profile_test_manifest();
-        manifest["expected_icc_profile"]["color_space"] = Value::from("ADOBERGB");
-        let mut profile = icc_profile_test_bytes();
-        profile[36..40].copy_from_slice(b"zzzz");
-        let obj = icc_profile_test_object(profile, "ADOBERGB");
-        let mut failures = Vec::new();
-
-        validate_icc_profile_manifest_contract(
-            &mut failures,
-            "vl/photo/rgb_icc_profile_explicit_le/instance.dcm",
-            Path::new("manifest.json"),
-            &manifest,
-            &obj,
-        )
-        .expect("ICC semantic mismatches should be validation failures");
-
-        let joined = failures.join("\n");
-        for check in [
-            "icc_manifest_color_space",
-            "icc_color_space",
-            "icc_profile_sha256",
-            "icc_profile_signature",
+        for kind in [
+            manifest_contract::ManifestContractKind::CuratedGeneration,
+            manifest_contract::ManifestContractKind::ExternalCorpus,
         ] {
-            assert!(joined.contains(check), "missing {check} failure:\n{joined}");
+            let mut manifest = icc_profile_test_manifest();
+            manifest["expected_icc_profile"]["color_space"] = Value::from("ADOBERGB");
+            let mut profile = icc_profile_test_bytes();
+            profile[36..40].copy_from_slice(b"zzzz");
+            let obj = icc_profile_test_object(profile, "ADOBERGB");
+            let mut failures = Vec::new();
+
+            if kind == manifest_contract::ManifestContractKind::ExternalCorpus {
+                manifest["case_id"] = Value::from("caller/evidence");
+            }
+            validate_icc_profile_manifest_contract(
+                kind,
+                &mut failures,
+                "vl/photo/rgb_icc_profile_explicit_le/instance.dcm",
+                Path::new("manifest.json"),
+                &manifest,
+                &obj,
+            )
+            .expect("ICC semantic mismatches should be validation failures");
+
+            let joined = failures.join("\n");
+            for check in [
+                "icc_manifest_color_space",
+                "icc_color_space",
+                "icc_profile_sha256",
+                "icc_profile_signature",
+            ] {
+                assert!(joined.contains(check), "missing {check} failure:\n{joined}");
+            }
         }
     }
 
@@ -37866,6 +38060,7 @@ mod tests {
             let mut failures = Vec::new();
 
             validate_nonsquare_spacing_manifest_contract(
+                manifest_contract::ManifestContractKind::CuratedGeneration,
                 &mut failures,
                 &format!("classic/sc/nonsquare_pixel_spacing/{variant_id}.dcm"),
                 Path::new("manifest.json"),
@@ -37876,62 +38071,86 @@ mod tests {
             .expect("well-formed non-square spatial contract should validate");
 
             assert_eq!(failures, Vec::<String>::new(), "{variant_id}");
+            assert_external_scalar_evidence(
+                &manifest,
+                "expected_nonsquare_spacing",
+                |kind, value, failures| {
+                    validate_nonsquare_spacing_manifest_contract(
+                        kind,
+                        failures,
+                        "caller.dcm",
+                        Path::new("manifest.json"),
+                        value,
+                        &obj,
+                        &nonsquare_spacing_test_bytes(),
+                    )
+                },
+            );
         }
     }
 
     #[test]
     fn nonsquare_spacing_contract_rejects_crossed_metadata_and_pixels() {
-        let mut manifest = nonsquare_spacing_test_manifest("pixel_spacing");
-        manifest["expected_nonsquare_spacing"]["pixel_aspect_ratio"] = serde_json::json!({
-            "tag": "0028,0034",
-            "keyword": "PixelAspectRatio",
-            "vr": "IS",
-            "vm": 2,
-            "lexical_value": "2\\1",
-            "vertical_extent": 2,
-            "horizontal_extent": 1
-        });
-        manifest["image"]["columns"] = Value::from(5);
-        let mut obj = nonsquare_spacing_test_object("pixel_spacing");
-        obj.put(DataElement::new(
-            tags::PIXEL_ASPECT_RATIO,
-            VR::IS,
-            PrimitiveValue::from("2\\1"),
-        ));
-        obj.put(DataElement::new(
-            tags::PIXEL_SPACING_CALIBRATION_TYPE,
-            VR::CS,
-            PrimitiveValue::from("GEOMETRY"),
-        ));
-        obj.put(DataElement::new(
-            tags::FRAME_OF_REFERENCE_UID,
-            VR::UI,
-            PrimitiveValue::from("2.25.9"),
-        ));
-        let mut bytes = nonsquare_spacing_test_bytes();
-        bytes[0] = 0xff;
-        let mut failures = Vec::new();
-
-        validate_nonsquare_spacing_manifest_contract(
-            &mut failures,
-            "classic/sc/nonsquare_pixel_spacing/pixel-spacing.dcm",
-            Path::new("manifest.json"),
-            &manifest,
-            &obj,
-            &bytes,
-        )
-        .expect("semantic mismatches should be validation failures");
-
-        let joined = failures.join("\n");
-        for check in [
-            "nonsquare_manifest_contract",
-            "nonsquare_columns",
-            "nonsquare_pixel_data_sha256",
-            "nonsquare_pixel_aspect_ratio_absent",
-            "nonsquare_calibration_type_absent",
-            "nonsquare_frame_of_reference_uid_absent",
+        for kind in [
+            manifest_contract::ManifestContractKind::CuratedGeneration,
+            manifest_contract::ManifestContractKind::ExternalCorpus,
         ] {
-            assert!(joined.contains(check), "missing {check} failure:\n{joined}");
+            let mut manifest = nonsquare_spacing_test_manifest("pixel_spacing");
+            manifest["expected_nonsquare_spacing"]["pixel_aspect_ratio"] = serde_json::json!({
+                "tag": "0028,0034",
+                "keyword": "PixelAspectRatio",
+                "vr": "IS",
+                "vm": 2,
+                "lexical_value": "2\\1",
+                "vertical_extent": 2,
+                "horizontal_extent": 1
+            });
+            manifest["image"]["columns"] = Value::from(5);
+            let mut obj = nonsquare_spacing_test_object("pixel_spacing");
+            obj.put(DataElement::new(
+                tags::PIXEL_ASPECT_RATIO,
+                VR::IS,
+                PrimitiveValue::from("2\\1"),
+            ));
+            obj.put(DataElement::new(
+                tags::PIXEL_SPACING_CALIBRATION_TYPE,
+                VR::CS,
+                PrimitiveValue::from("GEOMETRY"),
+            ));
+            obj.put(DataElement::new(
+                tags::FRAME_OF_REFERENCE_UID,
+                VR::UI,
+                PrimitiveValue::from("2.25.9"),
+            ));
+            let mut bytes = nonsquare_spacing_test_bytes();
+            bytes[0] = 0xff;
+            let mut failures = Vec::new();
+
+            if kind == manifest_contract::ManifestContractKind::ExternalCorpus {
+                manifest["case_id"] = Value::from("caller/evidence");
+            }
+            validate_nonsquare_spacing_manifest_contract(
+                kind,
+                &mut failures,
+                "classic/sc/nonsquare_pixel_spacing/pixel-spacing.dcm",
+                Path::new("manifest.json"),
+                &manifest,
+                &obj,
+                &bytes,
+            )
+            .expect("semantic mismatches should be validation failures");
+
+            let joined = failures.join("\n");
+            for check in [
+                "nonsquare_manifest_contract",
+                "nonsquare_columns",
+                "nonsquare_pixel_data_sha256",
+                "nonsquare_pixel_aspect_ratio_absent",
+                "nonsquare_calibration_type_absent",
+                "nonsquare_frame_of_reference_uid_absent",
+            ] {
+                assert!(joined.contains(check), "missing {check} failure:\n{joined}");
+            }
         }
     }
 
@@ -37943,6 +38162,7 @@ mod tests {
         let mut failures = Vec::new();
 
         validate_nonsquare_spacing_manifest_contract(
+            manifest_contract::ManifestContractKind::CuratedGeneration,
             &mut failures,
             "classic/sc/mono2_u8_explicit_le/instance.dcm",
             Path::new("manifest.json"),
@@ -37957,6 +38177,108 @@ mod tests {
                 .join("\n")
                 .contains("nonsquare_spacing_contract_scope")
         );
+        for kind in [
+            manifest_contract::ManifestContractKind::ExternalCorpus,
+            manifest_contract::ManifestContractKind::CuratedGeneration,
+        ] {
+            let mut declared = nonsquare_spacing_test_manifest("pixel_spacing");
+            if kind == manifest_contract::ManifestContractKind::ExternalCorpus {
+                declared["case_id"] = "caller/spacing".into();
+            }
+            failures.clear();
+            validate_nonsquare_spacing_non_native_scope(
+                kind,
+                &mut failures,
+                "caller.dcm",
+                Path::new("manifest.json"),
+                &declared,
+            )
+            .unwrap();
+            assert!(
+                failures
+                    .iter()
+                    .any(|value| value.contains("nonsquare_pixel_data_layout"))
+            );
+        }
+        for field in [
+            "expected_u32_pixels",
+            "expected_u1_pixels",
+            "expected_icc_profile",
+            "expected_nonsquare_spacing",
+        ] {
+            for layout in [
+                serde_json::json!({}),
+                serde_json::json!({"image":{"sample_type":"float32"},"pixel_data":{"native_or_encapsulated":"native"}}),
+                serde_json::json!({"image":{"sample_type":"integer"},"pixel_data":{"native_or_encapsulated":"encapsulated"}}),
+            ] {
+                let mut file = layout;
+                file[field] = Value::Null;
+                failures.clear();
+                validate_external_scalar_evidence_layout(
+                    manifest_contract::ManifestContractKind::ExternalCorpus,
+                    "caller.dcm",
+                    &file,
+                    &mut failures,
+                );
+                assert!(
+                    failures
+                        .iter()
+                        .any(|failure| failure.contains("scalar_evidence_layout"))
+                );
+                failures.clear();
+                validate_external_scalar_evidence_layout(
+                    manifest_contract::ManifestContractKind::CuratedGeneration,
+                    "legacy.dcm",
+                    &file,
+                    &mut failures,
+                );
+                assert!(
+                    failures.is_empty(),
+                    "external applicability must not change legacy dispatch"
+                );
+            }
+        }
+    }
+
+    fn assert_external_scalar_evidence(
+        manifest: &Value,
+        key: &str,
+        validate: impl Fn(
+            manifest_contract::ManifestContractKind,
+            &Value,
+            &mut Vec<String>,
+        ) -> Result<(), ValidateError>,
+    ) {
+        use manifest_contract::ManifestContractKind::{CuratedGeneration, ExternalCorpus};
+        let mut renamed = manifest.clone();
+        renamed["case_id"] = Value::from("caller/evidence");
+        let mut failures = Vec::new();
+        validate(ExternalCorpus, &renamed, &mut failures).unwrap();
+        assert!(failures.is_empty(), "{failures:?}");
+        validate(CuratedGeneration, &renamed, &mut failures).unwrap();
+        assert!(
+            failures
+                .iter()
+                .any(|failure| failure.contains("contract_scope"))
+        );
+        let mut missing = manifest.clone();
+        missing.as_object_mut().unwrap().remove(key);
+        failures.clear();
+        validate(ExternalCorpus, &missing, &mut failures).unwrap();
+        assert!(
+            failures.is_empty(),
+            "caller name alone must not activate evidence"
+        );
+        assert!(validate(CuratedGeneration, &missing, &mut failures).is_err());
+        for invalid in [Value::Null, serde_json::json!({})] {
+            renamed[key] = invalid;
+            failures.clear();
+            let result = validate(ExternalCorpus, &renamed, &mut failures);
+            assert!(
+                result.is_err() || !failures.is_empty(),
+                "malformed {key} must not be ignored"
+            );
+        }
     }
 
     fn nonsquare_spacing_test_object(variant_id: &str) -> OpenedObject {

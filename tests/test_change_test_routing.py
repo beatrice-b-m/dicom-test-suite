@@ -635,6 +635,33 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
         process_source = (ROOT / "src/generation_backends/process.rs").read_text(encoding="utf-8")
         self.assertEqual(process_source.count("#[ignore ="), 6)
 
+    def test_corpus_definition_route_lists_all_twenty_five_owned_tests(self):
+        selected = self.select("tests/corpus_definition_bundle.rs")
+        commands = [
+            command
+            for command in selected["commands"]
+            if command.get("module") == "corpus_definition::tests"
+        ]
+        self.assertEqual(len(commands), 1)
+        self.assertEqual(commands[0]["source"], "tests/corpus_definition_bundle.rs")
+        self.assertEqual(commands[0]["list_count"], 25)
+
+        listing = subprocess.check_output(
+            [
+                "cargo", "test", "--locked", "--no-default-features", "--lib",
+                "corpus_definition::tests::", "--", "--list", "--format", "terse",
+            ],
+            cwd=ROOT,
+            text=True,
+        ).splitlines()
+        observed = [
+            line
+            for line in listing
+            if line.startswith("corpus_definition::tests::") and line.endswith(": test")
+        ]
+        self.assertEqual(len(observed), 25)
+        self.assertEqual(len(observed), commands[0]["list_count"])
+
     def test_current_tracked_executable_surfaces_are_routed_or_explicitly_ignored(self):
         tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT).split(b"\0")
         checked = 0

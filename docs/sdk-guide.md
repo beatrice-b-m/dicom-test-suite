@@ -94,6 +94,26 @@ uses this facade and emits generation-result3/report-result2 in CLI API1.
 Capabilities `3.0.0` advertises these external producer and validation windows;
 the earlier capability schemas remain frozen.
 
+### Caller-defined classic CT
+
+The external runner accepts a name-, order-, and output-independent classic CT
+definition when the entire capability tuple agrees. Its registry row uses
+provider kind/ID `rust_native`/`rust_native`, artifact kind `dicom_instance`,
+and no feature or external-codec requirements. Its DICOM recipe uses
+`native.classic_plan`; every artifact uses `classic/ct@1.0.0`, parameter-free
+`content.native_pixels`, `algorithm.classic_ct`,
+`classic_projection.family = "ct"`, strict typed CT provider/artifact
+parameters, and an explicit output path. Artifact order is contiguous from
+zero. `planning_order` is still mandatory and globally unique, but is not the
+dispatch key.
+
+Any partial or mixed CT tuple fails closed. Callers may choose their own case
+ID, recipe ID, planning/projection orders, logical artifact IDs, and paths;
+neither `GenerateCorpusRequest` nor the CLI consults internal modules or a
+sibling checkout. This boundary excludes `native.stress_ct_plan`, other
+classic/VL family genericity, independent conformance, viewer interoperability,
+and release qualification.
+
 ## Inspect a caller-owned corpus before submitting
 
 ```rust

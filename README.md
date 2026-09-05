@@ -77,6 +77,21 @@ modules remain visible during migration but are not standalone compatibility
 surfaces, as recorded by the
 [dated Rust API audit](docs/rust-api-compatibility-audit-2026-08-31.md).
 
+Caller-owned corpus-definition bundles may define classic CT cases without
+reusing an embedded case ID, recipe ID, planning order, or output path. The
+supported discriminator is the complete capability tuple: registry provider
+kind/ID `rust_native`/`rust_native`, DICOM with no feature or codec
+requirements, recipe provider `native.classic_plan`, and every artifact using
+`classic/ct@1.0.0`, parameter-free `content.native_pixels`,
+`algorithm.classic_ct`, `classic_projection.family = "ct"`, strict typed CT
+parameters, and an explicit output path. `planning_order` remains mandatory
+and globally unique for migrated recipes, but does not select the CT planner.
+Partial or mixed tuples fail closed. This CLI/SDK contract uses only the
+supplied descriptor and member root—never internal modules or a sibling
+checkout. It does not cover `native.stress_ct_plan`, other classic or VL
+families, independent conformance, viewer interoperability, or a qualified
+release.
+
 All three public generation workflows use one plan-first spine. `generate`
 resolves registry-selected, versioned case recipes into an immutable
 `CorpusPlan`; `compose` resolves caller specifications and qualified templates

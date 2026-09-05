@@ -1019,6 +1019,19 @@ valid recipes return this plan before file creation. Static recipe differences
 are stored under `cases/recipes/`; named typed providers implement bounded
 algorithms without receiving an output directory.
 
+The first supported caller-defined native family is classic CT. Dispatch is
+conjunctive and independent of case ID, recipe ID, planning order, and output
+path: the registry row declares `rust_native`/`rust_native`, DICOM with no
+feature or codec requirements; the recipe declares `native.classic_plan`; and
+every artifact declares `classic/ct@1.0.0`, parameter-free
+`content.native_pixels`, `algorithm.classic_ct`, CT classic projection, strict
+typed parameters, and an explicit output. Any CT marker with an incomplete or
+mixed tuple fails closed. `planning_order` remains mandatory and globally
+unique for migrated recipes but is not a planner discriminator. This public
+CLI/SDK boundary excludes `native.stress_ct_plan`, other classic/VL families,
+internal-module or sibling-checkout coupling, and all independent conformance,
+viewer, package, and release claims.
+
 `Part10Materializer` is the only ordinary valid DICOM writer. The executor may
 normalize a full Part 10 object only at an explicitly named external-provider
 import boundary. Such imports preserve request, tool, dependency, content,

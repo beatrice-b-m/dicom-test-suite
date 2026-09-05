@@ -125,8 +125,8 @@ nonsquare rows explicit without inventing artifact observations; generated
 rows retain their strict field requirements. Reporting preserves the source
 identity projection and does not rerun strict corpus validation.
 
-During corpus separation, the supported Rust SDK verified-corpus runner can produce
-external manifest `2.0.0`. Raw `report <root> --format json` and `--format markdown`
+The supported Rust SDK and CLI verified-corpus runners produce external
+manifest `2.0.0`. Raw `report <root> --format json` and `--format markdown`
 accept that manifest without reopening its payloads or consulting the embedded
 registry. The resulting `coverage_report_schema_version = "2.0.0"`,
 `report_kind = "external_corpus"` report retains the complete source manifest,
@@ -187,6 +187,34 @@ install a signal handler and makes no graceful SIGINT-cleanup claim.
 Capabilities `3.0.0` advertises the external generation3/manifest2/report2
 producer and validation windows; capabilities1/2 remain frozen. Embedded `generate` without `--corpus`
 continues to emit generation-result `2.0.0` and curated manifest `1.0.0`.
+
+#### Caller-defined classic CT capability
+
+A caller-owned bundle can select the native classic CT planner without
+copying an embedded case name or ordering convention. The complete supported
+tuple is:
+
+- registry provider kind and ID `rust_native`/`rust_native`, artifact kind
+  `dicom_instance`, and empty feature and external-codec requirements;
+- recipe kind `dicom`, `plan_provider_id = "native.classic_plan"`;
+- every artifact uses template `classic/ct@1.0.0`, parameter-free
+  `content.native_pixels`, `algorithm_provider_id = "algorithm.classic_ct"`,
+  `classic_projection.family = "ct"`, strict typed provider/artifact
+  parameters, and an explicit output path.
+
+Any CT marker declares intent, so a partial or mixed tuple is rejected instead
+of falling through to a case-name matcher. Artifact order must remain
+contiguous and zero-based. `planning_order` is mandatory and globally unique
+among migrated recipes, but it is scheduling metadata and does not dispatch
+the CT planner. The caller chooses case ID, recipe ID, planning/projection
+orders, logical artifact IDs, and output paths subject to the ordinary bundle
+integrity and path rules.
+
+This is a black-box CLI and supported `synth_dicom_gen::sdk` contract. It does
+not authorize implementation-module imports or sibling-path discovery, and it
+does not claim `native.stress_ct_plan`, generic support for another classic or
+VL family, independent DICOM conformance, viewer interoperability, package or
+release qualification.
 
 Inspect the same caller-owned bundle without an output path:
 

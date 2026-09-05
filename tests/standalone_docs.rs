@@ -29,6 +29,7 @@ fn installed_product_guides_cover_the_complete_external_consumer_contract() {
         );
     }
     assert_current_guides_use_the_renamed_product_and_history_stays_exact();
+    assert_public_guides_define_the_bounded_caller_classic_ct_contract();
 }
 
 #[test]
@@ -101,6 +102,48 @@ fn readme_leads_with_installed_product_and_isolates_contributor_commands() {
     assert!(!consumer.contains("cargo run"));
     assert!(contributor.contains("cargo run --locked"));
     assert!(contributor.contains("cargo test --locked"));
+}
+
+fn assert_public_guides_define_the_bounded_caller_classic_ct_contract() {
+    for path in [
+        "README.md",
+        "SYSTEM_SPEC.md",
+        "docs/generation-guide.md",
+        "docs/sdk-guide.md",
+        "docs/corpus-consumption.md",
+        "docs/compatibility-policy.md",
+    ] {
+        let guide = fs::read_to_string(path).unwrap();
+        for required in [
+            "native.classic_plan",
+            "classic/ct@1.0.0",
+            "content.native_pixels",
+            "algorithm.classic_ct",
+        ] {
+            assert!(guide.contains(required), "{path} omits {required}");
+        }
+    }
+
+    let changelog = fs::read_to_string("CHANGELOG.md").unwrap();
+    assert!(changelog.contains("Caller-defined classic CT corpus recipes"));
+    assert!(changelog.contains("fail-closed capability"));
+
+    let detailed = fs::read_to_string("docs/generation-guide.md").unwrap();
+    for required in [
+        "classic_projection.family = \"ct\"",
+        "planning_order",
+        "globally unique",
+        "partial or mixed tuple",
+        "native.stress_ct_plan",
+        "implementation-module imports",
+        "sibling-path discovery",
+        "independent DICOM conformance",
+        "viewer interoperability",
+        "release qualification",
+    ] {
+        assert!(detailed.contains(required), "CT contract omits {required}");
+    }
+    assert!(!detailed.contains("During corpus separation"));
 }
 
 fn assert_current_guides_use_the_renamed_product_and_history_stays_exact() {

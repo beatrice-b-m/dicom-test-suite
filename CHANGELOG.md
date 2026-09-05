@@ -20,6 +20,9 @@ change a CLI API, request, manifest, report, template, or provider version.
   as separate workflows with separate evidence semantics.
 - Installed operating guides and self-contained synthetic examples for raw
   grayscale/RGB, metadata/private/Sequence values, references, and assembly.
+- Caller-defined classic CT corpus recipes through a fail-closed capability
+  tuple that is independent of embedded names, planning order, and output
+  paths, available through the external corpus CLI and supported Rust SDK.
 
 ### Changed
 

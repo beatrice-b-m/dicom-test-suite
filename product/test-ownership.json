@@ -4,7 +4,7 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 274,
-    "rust_test_entries": 1479,
+    "rust_test_entries": 1480,
     "integration_source_groups": 189,
     "integration_test_entries": 920,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
@@ -2937,7 +2937,7 @@
         "installed_examples_are_neutral_self_contained_and_documented",
         "readme_leads_with_installed_product_and_isolates_contributor_commands"
       ],
-      "entry_digest": "3aa1c340502372aad837437d1f75f52191f33514fd619dc86fd0cf33f444b7a7",
+      "entry_digest": "069d22ea962593e0a4264ebf341a2c2f84dac6d5e5f564188d3492573a521712",
       "fast_cost_exemption": "Static documentation inspection; external-consumer names launch no process."
     },
     {
@@ -3562,13 +3562,14 @@
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 3,
+      "entry_count": 4,
       "entries": [
         "projects_the_same_plan_used_by_the_writer_without_case_identity",
+        "schema_rejects_current_identity_as_legacy_product_resources",
         "validator_reports_content_divergence_from_the_resolved_plan",
         "validator_does_not_invent_wire_vr_for_implicit_transfer_syntax"
       ],
-      "entry_digest": "8427dcc712c10035d5c7512c43cb2738727d79a10fffd07a2df9336b075cf75e"
+      "entry_digest": "263f6f0502f1e6927db1f7f8903beb9b2aa833c38a63357f3257832d2cc3743b"
     },
     {
       "source": "src/composition/materializer.rs",
@@ -4277,7 +4278,7 @@
         "encapsulated_stl_manifest_contract_is_exact_and_case_scoped",
         "encapsulated_stl_report_projects_payload_geometry_and_grouped_evidence"
       ],
-      "entry_digest": "cbda585bf09bb45fe22abc602be8144e16cceb280a822f1d8b12586807dd5131"
+      "entry_digest": "be8fe7697bd2552778f46a2b1a0f5ae5c5ebc051966a29bdd4d794d4705a4b1f"
     },
     {
       "source": "src/manifest_contract.rs",

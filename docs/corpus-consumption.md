@@ -107,6 +107,26 @@ curated `case_id`, profile, or coverage claims. Independent conformance remains
 the route named by the descriptor and must be handed off with its pinned tool
 identity or an explicit unavailable outcome.
 
+## Caller-defined classic CT bundle handoff
+
+The external corpus CLI and supported Rust SDK accept a caller-named classic
+CT recipe through the complete capability tuple, not an embedded case prefix,
+historical planning order, or output path. Preserve a registry row with
+`rust_native`/`rust_native`, DICOM artifact kind, and no feature or codec
+requirements; a `native.classic_plan` recipe; and, for every artifact,
+`classic/ct@1.0.0`, parameter-free `content.native_pixels`,
+`algorithm.classic_ct`, `classic_projection.family = "ct"`, strict typed CT
+parameters, and an explicit output. Keep artifact order contiguous from zero
+and `planning_order` mandatory and globally unique; planning order is not the
+planner discriminator. Partial and mixed tuples fail closed.
+
+Handoff the descriptor and its dedicated member root, generated manifest,
+strict validation result, and report. A consumer must not import generator
+internals or locate a sibling checkout. This contract excludes
+`native.stress_ct_plan`, other classic/VL genericity, independent conformance,
+viewer results, and release qualification; record those separately when they
+are actually run.
+
 ## Choose A Corpus Level
 
 ### Broadest valid file corpus

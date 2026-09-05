@@ -581,3 +581,30 @@ owner is assigned only loader, shared dispatch and relevant bundle/shared tests
 plus exact ownership/routing records, after the planner's accepted commit.
 MR-prefix validation must defer to the inspected CR tuple. Catalog/template
 bytes stay unchanged under the documented composition/curated scope distinction.
+
+## CR loader and shared validation accepted — 2026-09-05
+
+Integration4c6e973 adds typed CR inspection to shared recipe validation and
+native registry admission. The MR-prefix branch now yields to an inspected CR
+capability. Actual SDK generation/reopened validation covers both arbitrary
+caller names and misleading MR-style names, with explicit independent output.
+Missing/crossed declarations reject. The earlier CT negative control used CR;
+review changed it to still-unqualified US so new CR support does not invert the
+control. Historical namespace fallback and MR/RLE behavior remain separately
+bounded. Assigned ownership covered loader, shared execution, bundle tests and
+exact ownership/routing records; an independent reviewer accepted the commit.
+
+Focused caller test1/1 passed2.11s, corrected CT control1/1 passed0.29s and
+exact routing-list check1/1 passed1.559s. Ownership is1488 total/923 integration;
+bundle routing explicitly lists29 tests. Root inspected the overlapping route
+before executing it:29 bundle tests passed12.04s,4 captured-planning tests
+passed5.30s,92 corpus-generation tests passed28.10s after19.61s compile, and22
+corpus-plan tests passed0.79s after1.66s compile. Unconditional Fast passed15/15
+in2.15s and73/73 in2.01s after1.20s compile. Diff checks passed. All commands used
+the explicit low-debug, nonincremental task target; Heavy, codec/provider and
+release evidence remained deferred per route.
+
+This accepts internal admission/dispatch only. The next separate unit is a
+closed caller CR fixture plus public CLI/SDK proof with actual payload hashes,
+full manifest/report equality and historical CR payload preservation. No corpus
+pin changes, template identity migration or terminal R7 acceptance is implied.

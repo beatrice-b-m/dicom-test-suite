@@ -1932,3 +1932,30 @@ Next exact owner adds only capture_vl_photo_availability.py and its synthetic
 test module. Capture source/input/archive/pin/mode/finalizer closures require
 review and ordinary CI/readiness before one assessment. No native availability
 command or source capability migration has begun. R7open/R8R9held.
+
+## VL photographic availability accepted — 2026-09-05
+
+Capture helper74b6ff8 passed15synthetic0.173s and actualread-only
+authentication0.080950291s. Root/independent complete adaptation review passed.
+Ordinary-only routing189f46b passed70/2.025s after root removed duplicated
+new-test keys and unrelated XA-test additions from first70/2.098s version.
+Fullordinary718/24.999s passed at clean189f46b; log
+/private/tmp/r7-vl-photo-preavailability-ordinary-20260905.log.
+Clean readiness844c253 preceded one exact assessment using unchanged pin.
+
+artifacts/r7-vl-photo-availability1-20260905 passed; receipt138970 SHA
+5c33ca08b3ce1d7f8f32cbf7c45871baec20eb2c497d069cc91b1d3e7aad8a4d;
+response145487 SHA
+cddefe5ac1fc6bd3d044a362f0fd3b4d528f00ccdb3dc59aa224793883dd76e5.
+Sourcearchive4136960 SHA
+6e41e52ae50bf56b4eadfdeb1b3af2756a786e3d00be36807e853de2f19e209b.
+Capabilities1.931832458s/acquisition1.659859542s/binding0.025142834s/
+whole3.940996792s.46nonreceipt files74127696logical/74215424allocated bytes.
+Independent audit156archivedsourceobjects/full46fileclosure/modes/pins/
+originals/copies/finalizers and fullresponse checker replay passed0.212745s.
+Exactly two artifacts ready under core/seed1/parallelism4, plan
+ccca321b634202c51da6d9cea423d78ca02ed79757a74ed15eee0bda500d3c96;
+publication/validation not_run. This does not establish generation parity.
+Logs/private/tmp/r7-vl-photo-availability1-20260905.stdout.json/.stderr.txt.
+Next sequential boundary is reviewed migrated parity preparation; original
+baseline1failed/baseline2accepted stay unchanged. R7open/R8R9held.

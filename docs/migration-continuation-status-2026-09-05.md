@@ -1198,3 +1198,36 @@ unit must preserve those exact contracts, full33 skips and existing one-shot
 two-pin capture/failure guards. Native generation, import, availability, parity
 and PET caller genericity have not run. Preparation decision c95a46c remains
 the sequential task map; source status is also recorded in the corpus ledger.
+
+## PET baseline1 failed; source correction reviewed — 2026-09-05
+
+Corpus helper29521f0 and CI2dab68c passed19 synthetic helper tests,56 routing
+tests and6 clean-clone tests; full ordinary discovery passed558 in11.604s.
+Corpus7a86fb2 recorded the reviewed one-shot readiness. Generator099d1f5
+bounds later PET caller genericity; implementation remains sequentially held.
+
+At clean corpus7a86fb2846cbe289cb168d0a29b9bb02fbc95415, the authorized
+baseline1 generated successfully once in1.288898s, then failed its complete
+recipe oracle before strict validation or reporting. Whole capture4.856045083s.
+Retained corpus artifacts/r7-native-pet-baseline1-20260905 receipt37509 bytes
+SHA256 945d9c700cf96df685dcfbd9d75bb225ae5218c5fe655df1f6137f5064d94515
+is failed, not accepted evidence. Output2 files149783 logical/155648 allocated
+bytes; payload1414 SHA256
+78ced6c57926cafc6538ebf65459bb9efd7ecbb9a3c4ec90b28b4457cc795ce6;
+manifest148369 SHA256
+df0418e840c72948d4ca9fb859057a9b1ba92b375a1851b132d09ad98d2e9cf9.
+Both pinned artifacts, principal/copied inputs, source and unrelated cwd were
+unchanged. Logs /private/tmp/r7-native-pet-baseline1-20260905.stdout.json and
+/private/tmp/r7-native-pet-baseline1-20260905.stderr.txt.
+
+Pinned classic.rs nuclear_base merges ten generic pixel fields with geometry
+and PET activity. The helper omitted those fields; offline replay additionally
+exposed two retained native-frame findings, making62 internal findings, not60.
+Pinned classic.rs and validation.rs independently establish both corrections.
+The bounded two-file helper correction uses an independent literal12-key
+fixture, missing/crossed/extra field mutations and missing-finding mutations.
+Owner20 synthetic tests passed0.801s; independent source review and root diff
+review accepted. Retained generation-only replay passed0.004615s with1 file
+and33 skips; all retained hashes and failed receipt remain unchanged. No
+strict/report/native retry occurred during correction. Baseline1 stays failed;
+a fresh reviewed capture is required before import. R7 remains incomplete.

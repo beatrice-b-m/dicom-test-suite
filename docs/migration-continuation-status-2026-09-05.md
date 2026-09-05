@@ -1605,3 +1605,30 @@ preserve8 historical VL routes. Loader/shared dispatch, standalone public proof
 and guides remain sequential. Task-specific noincremental/lowdebug target is
 mandatory; pure planning tests and proportional Fast first, materialization
 later. VL2 execution stays unopened. R7 incomplete/R8R9 held.
+
+## XA/XRF source planner accepted — 2026-09-05
+
+Generator106fa37 changes only classic_vl_projection.rs, its planning test and
+exact ownership/spelling records. Inspector recognizes template/modality/SOP
+intent, requires the full source-qualified typed provider/pixel/projection/
+encoding tuple, and returns before historical name/order/path dispatch.
+Calleridentities/orders/safepaths vary; eight existing VL routes remain intact.
+Independent reviewer authenticated all six JSON literals against immutable
+232b9de, including XA inline standards. CrossedXA/XRFtemplates, unknownprovider,
+missingfields, invalidsizes/hash/geometry/policy/path mutations fail closed.
+
+Three pure planning/catalog/source tests passed: initialplanning1/0.33s with
+18.42scompile, catalog1/0.27s warm0.13s, source1/0.00s warm0.03s. Final added
+crossedtemplate/provider regression1/0.31s compile1.45s. Fast15/2.09s+73/1.92s,
+compile1.12s; ownership1496, spelling1070 SHA
+0361dfc778d5a5f780fff67829c907e4d113ac22c4288b748ca6543a7563e9b5.
+Target1184040→1184400KiB. Route/private/tmp/xa-planner-route.json; Fastlog
+/private/tmp/xa-planner-fast.log. Root/independentreview/diff/cleancommit passed;
+materializingtest remains deferred. No new native evidence or artifactpin.
+
+Next exactowner: src/recipes/loader.rs, src/curated_plan.rs,
+tests/corpus_definition_bundle.rs and product/test-ownership.json. The initially
+provisional corpus_definition/loader.rs path was corrected by inventory before
+edits. Loadersemantic/registry admission and earlysharedtypeddispatch plus
+SDKpublication/strict/report tests precede independentpublicproof/currentguides.
+Root runs mappedbroadergroups after reviewedcommit; no overlappingVLchanges.

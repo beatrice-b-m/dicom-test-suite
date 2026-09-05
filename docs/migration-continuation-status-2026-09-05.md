@@ -716,3 +716,24 @@ Static17 tests passed0.131s (independent0.137s); routing50 passed0.831s
 0.332155s selected only smoke3+US1/all. No native execution during integration.
 Selected US availability helper preparation is next; no migrated parity or
 generic source capability follows from static ownership. R7 remains incomplete.
+
+## US selected availability checkpoint — 2026-09-05
+
+Corpus checker8ccf2f6/captured8c6a7e/fix2fee1a0 and routingf0f4279 passed
+498 ordinary tests in9.604s; native readinessa539a38 preceded one exact US
+capabilities call. Accepted at9fa7397, receipt SHA
+`f1ab63246bc9b63dffb01e8fe1f1fd0c894492a972701d6e5a7e820205084b9a`
+binds content0.7 identity
+`130eabbb6a8968fb4a4d5f54a031d6b2b6939bd3a2902d57bcd3e2dc5e73b01f`.
+US1/core/seed1/parallelism4 is ready with baseline plan preserved and
+publication/validation not_run. Capability1.880125s, whole3.848469s;38
+nonreceipt files72698934 logical/72765440 allocated bytes. Independent retained
+review passed0.107405s including complete source archive and checker replay.
+No generated output, reporter, retry or build. Bounded parity preparation is
+next; generic US source capability remains unopened until parity acceptance.
+
+Disjoint XA/XRF source provenanceab40c0c is independently accepted ata02dcfd
+in the corpus repository:17 immutable objects, full34 rows, two recipes/notes
+and XA inline standards evidence; six tests0.048s. No data import or native
+XA/XRF evidence follows. Source-only helper preparation may use disjoint files
+while US parity integration proceeds; runtime boundaries remain sequential.

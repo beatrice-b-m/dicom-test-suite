@@ -1415,3 +1415,17 @@ Compare public CLI from unrelated cwd/emptyPATH with SDK-only consumer, full
 manifest/payload/report parity and original source-case bytes/semantics. Freeze
 observed caller hash after the first bounded observation, rerun exact frozen
 proof and applicable Fast/route checks; no placeholder can remain at acceptance.
+
+## Disjoint VL source-only preparation accepted — 2026-09-05
+
+Corpus812b24d freezes15 immutable source bindings/full34 core rows and exact
+RGB/palette recipes in only provenance/tests. Final document170376 SHA256
+44332909e813a7c0f092d8d30d85b1423777f14ca5763b65ac263e6768847635.
+Six pure tests passed0.116s. Root authenticated15 objects/2recipebytes0.842641s;
+independent source authentication0.580732s and final projection review accepted.
+Corpus77aecb2 records recipe hashes, source pixel/palette/validation bounds and
+engine-only note separation. No selected corpus note import is required.
+CI234f831 preserves existing fixed smoke policy for the exact two source paths;
+combined68 routing/source tests passed1.280s with independent review/diffcheck.
+No native/helper/import/availability or public capability change occurred.
+PET remains the only active public compatibility boundary.

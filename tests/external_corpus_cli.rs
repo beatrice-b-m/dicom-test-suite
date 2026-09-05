@@ -1,3 +1,6 @@
+#[path = "support/generic_ct_bundle.rs"]
+mod generic_ct_bundle;
+
 use serde_json::{Value, json};
 use std::{
     fs,
@@ -7,7 +10,7 @@ use std::{
 };
 use synth_dicom_gen::sdk::{
     CorpusSelector, DicomTestSuite, GenerateCorpusOutcome, GenerateCorpusRequest,
-    InspectCorpusRequest,
+    InspectCorpusRequest, ReportRequest, ValidateRequest,
 };
 
 #[test]
@@ -266,6 +269,182 @@ fn error(output: Output, code: &str, exit: i32) {
         .unwrap();
     assert_eq!(v["error"]["retryable"], row["retryable_default"]);
     assert_eq!(v["error"]["message"], row["meaning"]);
+}
+
+#[test]
+fn caller_named_ct_cli_is_sdk_identical_strictly_valid_and_reported() {
+    let fixture = generic_ct_bundle::GenericCtBundle::new("cli-sdk");
+    let command = |args: &[&str]| {
+        Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
+            .args(args)
+            .current_dir(&fixture.root)
+            .output()
+            .unwrap()
+    };
+    let assessed = command(&[
+        "capabilities",
+        "--corpus",
+        "./definition.json",
+        "--asset-root",
+        "members",
+        "--profile",
+        "core",
+        "--case-id",
+        generic_ct_bundle::CASE_ID,
+        "--seed",
+        "1",
+        "--parallelism",
+        "4",
+        "--format",
+        "json",
+    ]);
+    assert!(
+        assessed.status.success(),
+        "{}",
+        String::from_utf8_lossy(&assessed.stderr)
+    );
+    assert!(assessed.stderr.is_empty());
+    let assessed: Value = serde_json::from_slice(&assessed.stdout).unwrap();
+    valid("cli-success-envelope.schema.json", &assessed);
+    valid("capabilities-result-v3.schema.json", &assessed["result"]);
+    assert_eq!(
+        assessed["result"]["loaded_corpus"]["assessment"]["parallelism"],
+        4
+    );
+    assert_eq!(
+        assessed["result"]["loaded_corpus"]["assessment"]["artifact_ids"],
+        json!(["curated_caller_signed_ct_caller_instance"])
+    );
+    let generated = command(&[
+        "generate",
+        "--corpus",
+        "./definition.json",
+        "--asset-root",
+        "members",
+        "--profile",
+        "core",
+        "--case-id",
+        generic_ct_bundle::CASE_ID,
+        "--seed",
+        "1",
+        "--parallelism",
+        "4",
+        "--out",
+        "cli-output",
+        "--format",
+        "json",
+        "--cli-api",
+        "1.0.0",
+    ]);
+    assert!(
+        generated.status.success(),
+        "{}",
+        String::from_utf8_lossy(&generated.stderr)
+    );
+    assert!(generated.stderr.is_empty());
+    let generated: Value = serde_json::from_slice(&generated.stdout).unwrap();
+    valid("cli-success-envelope.schema.json", &generated);
+    valid("generation-result-v3.schema.json", &generated["result"]);
+    assert_eq!(generated["command"], "generate");
+    assert_eq!(generated["result"]["outcome"], "published");
+    assert_eq!(generated["result"]["emitted_file_count"], 1);
+    assert_eq!(generated["result"]["selected_case_count"], 1);
+    assert_eq!(generated["result"]["direct_case_count"], 1);
+    assert_eq!(generated["result"]["dependency_case_count"], 0);
+    assert_eq!(generated["result"]["validation_status"], "passed");
+    assert_eq!(generated["result"]["publication_status"], "published");
+
+    let cli_manifest: Value =
+        serde_json::from_slice(&fs::read(fixture.root.join("cli-output/manifest.json")).unwrap())
+            .unwrap();
+    assert_eq!(
+        generated["result"]["identity_projection"],
+        cli_manifest["identity_projection"]
+    );
+    generic_ct_bundle::assert_manifest(&cli_manifest, &fixture.identity);
+    generic_ct_bundle::assert_output_closure(&fixture, "cli-output");
+
+    let product = DicomTestSuite::embedded().unwrap();
+    let GenerateCorpusOutcome::Published(sdk) = product
+        .generate_corpus(
+            GenerateCorpusRequest::from_file(
+                &fixture.descriptor,
+                &fixture.members,
+                fixture.root.join("sdk-output"),
+                generic_ct_bundle::selector(),
+            )
+            .with_seed(1)
+            .with_parallelism(4),
+        )
+        .unwrap()
+    else {
+        panic!("public SDK must publish the same caller CT capability")
+    };
+    let sdk_manifest: Value = sdk.manifest().deserialize().unwrap();
+    assert_eq!(sdk_manifest, cli_manifest);
+    assert_eq!(
+        sdk.corpus_plan_sha256(),
+        generated["result"]["corpus_plan_sha256"]
+    );
+    assert_eq!(
+        fs::read(
+            fixture
+                .root
+                .join("cli-output")
+                .join(generic_ct_bundle::DICOM_PATH),
+        )
+        .unwrap(),
+        fs::read(sdk.output_root().join(generic_ct_bundle::DICOM_PATH)).unwrap()
+    );
+
+    let validated = command(&["validate", "cli-output", "--format", "json"]);
+    assert!(
+        validated.status.success(),
+        "{}",
+        String::from_utf8_lossy(&validated.stderr)
+    );
+    assert!(validated.stderr.is_empty());
+    let validated: Value = serde_json::from_slice(&validated.stdout).unwrap();
+    valid("cli-success-envelope.schema.json", &validated);
+    valid("validation-result.schema.json", &validated["result"]);
+    assert_eq!(validated["command"], "validate");
+    assert_eq!(validated["result"]["valid"], true);
+    assert_eq!(validated["result"]["files_checked"], 1);
+    assert_eq!(validated["result"]["failures"], json!([]));
+    let sdk_validation = product
+        .validate(ValidateRequest::new(sdk.output_root()))
+        .unwrap();
+    assert!(sdk_validation.is_valid());
+    assert_eq!(sdk_validation.files_checked(), 1);
+
+    let reported = command(&[
+        "report",
+        "cli-output",
+        "--format",
+        "json",
+        "--cli-api",
+        "1.0.0",
+    ]);
+    assert!(
+        reported.status.success(),
+        "{}",
+        String::from_utf8_lossy(&reported.stderr)
+    );
+    assert!(reported.stderr.is_empty());
+    let reported: Value = serde_json::from_slice(&reported.stdout).unwrap();
+    valid("cli-success-envelope.schema.json", &reported);
+    valid("report-result-v2.schema.json", &reported["result"]);
+    assert_eq!(reported["command"], "report");
+    let cli_report = &reported["result"]["report"];
+    generic_ct_bundle::assert_report(cli_report, &cli_manifest);
+    let sdk_report = product
+        .report(ReportRequest::new(sdk.output_root()))
+        .unwrap();
+    assert_eq!(
+        sdk_report.kind(),
+        synth_dicom_gen::sdk::ReportKind::ExternalCorpus
+    );
+    assert_eq!(sdk_report.deserialize::<Value>().unwrap(), *cli_report);
 }
 
 #[test]

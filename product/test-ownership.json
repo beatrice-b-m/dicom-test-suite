@@ -4,9 +4,9 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 274,
-    "rust_test_entries": 1477,
+    "rust_test_entries": 1479,
     "integration_source_groups": 189,
-    "integration_test_entries": 918,
+    "integration_test_entries": 920,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
   },
   "enums": {
@@ -1847,16 +1847,17 @@
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 6,
+      "entry_count": 7,
       "entries": [
         "loaded_capabilities_are_verified_destination_free_and_sdk_consistent",
+        "caller_named_ct_cli_is_sdk_identical_strictly_valid_and_reported",
         "external_cli_profile_is_sdk_identical_and_reports_version_two",
         "external_cli_planned_and_noexecution_preserve_scope_and_evidence",
         "external_cli_errors_are_structural_and_prepublication",
         "external_cli_descriptor_limits_versions_and_missing_options_fail_closed",
         "corpus_option_looking_value_does_not_select_external_dispatch"
       ],
-      "entry_digest": "21fe37838a2eaea29cec06b1381810b7f36726adef2bdb7f163112088ea1b718"
+      "entry_digest": "a148ee9a4ff92ecf989780270e87560c87daebb207ca73084513bfb7f4191413"
     },
     {
       "source": "tests/frame_codec_service.rs",
@@ -2819,9 +2820,10 @@
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 7,
+      "entry_count": 8,
       "entries": [
         "inspection_is_destination_free_and_agrees_with_generation_planning",
+        "caller_named_ct_capability_is_complete_through_the_public_sdk",
         "sdk_corpus_file_bytes_reproduce_and_support_readers",
         "sdk_corpus_preview_and_empty_execution_are_distinct",
         "sdk_corpus_case_selection_retains_dependency_and_multifile_evidence",
@@ -2829,7 +2831,7 @@
         "sdk_corpus_nonimplemented_metadata_is_lossless",
         "sdk_corpus_works_from_unrelated_cwd"
       ],
-      "entry_digest": "cd8faef1192324badcd8c6c66c6b1ace9d7936106f5f2c4a83837ef6c4cb5cf9"
+      "entry_digest": "02dc0d2a80bdd6dc035f23bf939a3a29eb0c628f26043ba1b01c9152b2f63a82"
     },
     {
       "source": "tests/sdk_external_consumer.rs",

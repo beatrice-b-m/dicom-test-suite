@@ -23,6 +23,12 @@
         {"target": "cli_sdk__nonfast", "module": "report_cli"}
       ]
     },
+    "generic_ct_public_contract": {
+      "commands": [
+        {"target": "cli_sdk__nonfast", "module": "external_corpus_cli"},
+        {"target": "cli_sdk__nonfast", "module": "sdk_corpus"}
+      ]
+    },
     "assembly": {
       "commands": [{"target": "assembly__subsystem"}]
     },
@@ -411,8 +417,15 @@
       "all_ordinary": true
     },
     {
+      "id": "generic-ct-public-contract",
+      "exact": ["tests/support/generic_ct_bundle.rs"],
+      "prefixes": ["tests/fixtures/generic-ct-corpus/"],
+      "bundles": ["generic_ct_public_contract"]
+    },
+    {
       "id": "test-support",
-      "prefixes": ["tests/support/", "tests/fixtures/generation-backend/"],
+      "exact": ["tests/support/coverage_report.rs", "tests/support/curated_manifest_contract.rs", "tests/support/prepared_backend.rs"],
+      "prefixes": ["tests/fixtures/generation-backend/"],
       "bundles": ["provider"]
     },
     {

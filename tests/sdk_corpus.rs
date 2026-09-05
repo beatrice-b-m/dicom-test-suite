@@ -1,4 +1,7 @@
 //! Consumer proof: all generator imports come exclusively from the supported SDK.
+#[path = "support/generic_ct_bundle.rs"]
+mod generic_ct_bundle;
+
 use serde_json::{Value, json};
 use std::{
     fs,
@@ -225,6 +228,98 @@ fn published(value: GenerateCorpusOutcome) -> synth_dicom_gen::sdk::PublishedCor
         GenerateCorpusOutcome::Published(value) => value,
         other => panic!("expected published: {other:?}"),
     }
+}
+
+#[test]
+fn caller_named_ct_capability_is_complete_through_the_public_sdk() {
+    let fixture = generic_ct_bundle::GenericCtBundle::new("sdk");
+    let product = DicomTestSuite::embedded().unwrap();
+    let inspected = product
+        .inspect_corpus(
+            InspectCorpusRequest::from_file(&fixture.descriptor, &fixture.members)
+                .with_selection(generic_ct_bundle::selector())
+                .with_seed(1)
+                .with_parallelism(4),
+        )
+        .unwrap();
+    let assessment = inspected.assessment().unwrap();
+    assert_eq!(assessment.seed(), 1);
+    assert_eq!(assessment.parallelism(), 4);
+    assert_eq!(assessment.artifact_ids().len(), 1);
+    assert_eq!(assessment.cases().len(), 1);
+    assert_eq!(assessment.cases()[0].case_id(), generic_ct_bundle::CASE_ID);
+    assert_eq!(
+        assessment.cases()[0].disposition(),
+        CorpusCaseDisposition::Ready
+    );
+    assert!(assessment.cases()[0].is_direct());
+    assert_eq!(assessment.validation_state(), CorpusValidationState::NotRun);
+    assert_eq!(
+        assessment.publication_state(),
+        CorpusPublicationState::NotRun
+    );
+
+    let run = published(
+        product
+            .generate_corpus(
+                GenerateCorpusRequest::from_json_bytes(
+                    fs::read(&fixture.descriptor).unwrap(),
+                    &fixture.members,
+                    fixture.root.join("sdk-output"),
+                    generic_ct_bundle::selector(),
+                )
+                .with_seed(1)
+                .with_parallelism(4),
+            )
+            .unwrap(),
+    );
+    assert_eq!(run.emitted_file_count(), 1);
+    assert_eq!(run.seed(), 1);
+    assert_eq!(run.publication_state(), CorpusPublicationState::Published);
+    assert_eq!(run.validation_state(), CorpusValidationState::Passed);
+    assert_eq!(run.corpus_plan_sha256(), assessment.corpus_plan_sha256());
+    let manifest: Value = run.manifest().deserialize().unwrap();
+    generic_ct_bundle::assert_manifest(&manifest, &fixture.identity);
+    assert_eq!(
+        inspected.corpus_definition_identity(),
+        &manifest["identity_projection"]["corpus_definition"]["identity"]
+    );
+    generic_ct_bundle::assert_output_closure(&fixture, "sdk-output");
+    let unexpected = fixture.root.join("sdk-output/unexpected-empty");
+    fs::create_dir(&unexpected).unwrap();
+    assert!(!generic_ct_bundle::output_closure_is_exact(
+        &fixture,
+        "sdk-output"
+    ));
+    fs::remove_dir(unexpected).unwrap();
+    let validation = product
+        .validate(ValidateRequest::new(run.output_root()))
+        .unwrap();
+    assert!(validation.is_valid());
+    assert_eq!(validation.files_checked(), 1);
+    assert!(validation.failures().is_empty());
+    assert_eq!(validation.manifest().kind(), ManifestKind::ExternalCorpus);
+    let report = product
+        .report(ReportRequest::new(run.output_root()))
+        .unwrap();
+    assert_eq!(report.kind(), ReportKind::ExternalCorpus);
+    assert_eq!(report.schema_version(), "2.0.0");
+    generic_ct_bundle::assert_report(&report.deserialize::<Value>().unwrap(), &manifest);
+
+    let recipe = fixture.members.join("cases/recipes/caller-signed-ct.json");
+    let mut tampered = fs::read(&recipe).unwrap();
+    tampered[0] ^= 1;
+    fs::write(&recipe, tampered).unwrap();
+    assert_eq!(
+        product
+            .inspect_corpus(InspectCorpusRequest::from_file(
+                &fixture.descriptor,
+                &fixture.members,
+            ))
+            .unwrap_err()
+            .code(),
+        "evidence.integrity.failed"
+    );
 }
 
 #[test]

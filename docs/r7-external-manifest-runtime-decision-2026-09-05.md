@@ -85,3 +85,32 @@ missing/duplicate/forged evidence and ceilings, plus unavailable rows. Extend
 external manifest tests with profile-membership tampering. Run unit3 only after
 unit2 acceptance; shared validation and manifest files cannot be edited in
 parallel across those units.
+
+## Prepublication projection correction — unit2b
+
+The unit2 expanded US SDK test exposed an earlier boundary: exact caller ID
+vl/wsi/pyramid_multiresolution triggers curated_manifest::project_wsi_pyramid_group
+and fails before publication because it requires three members. Record that
+failed6.20s run; unit2 runtime acceptance excludes this one publication claim.
+Restore the regression in immediate unit2b before qualification unit3.
+
+Select bounded pyramid projection from captured native.wsi_plan recipe and
+resolved template identity/version, WSI SOP and typed artifact parameters.
+Validate volume/thumbnail/label roles, algorithms and membership; reject partial
+or crossed intent rather than filtering malformed members. Group all members
+of a participating caller case, requiring one complete ordered triple; separate
+caller groups cannot combine. Preserve shared identities, hashes/sizes and
+historical full projection exactly. US with the historical pyramid name has
+no typed pyramid intent. Tests use captured-plan projection fixtures plus the
+restored public US collision; this is not generic WSI generation qualification.
+
+Unit2b owns curated_manifest.rs, the existing US test, focused curated manifest
+projector tests/support as needed and exact ownership metadata. Implement only
+after bounded unit2 verification; no parallel edits to the shared boundary.
+
+The audit also found stress postprojection selecting by historical case ID in
+curated_manifest/stress.rs. Add typed/captured-profile activation there to unit3
+before runtime checks, preserving approved reduced recipes and exact prior
+evidence. Otherwise the exact historical stress caller regression would fail
+before reaching runtime validation. Payload-free qualification projection is
+already gated by PlannedArtifact::Qualification and does not affect US files.

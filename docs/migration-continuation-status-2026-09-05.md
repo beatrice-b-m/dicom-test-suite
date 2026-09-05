@@ -1959,3 +1959,35 @@ publication/validation not_run. This does not establish generation parity.
 Logs/private/tmp/r7-vl-photo-availability1-20260905.stdout.json/.stderr.txt.
 Next sequential boundary is reviewed migrated parity preparation; original
 baseline1failed/baseline2accepted stay unchanged. R7open/R8R9held.
+
+## VL photographic migrated parity accepted — 2026-09-05
+
+Corpus parityhelper6a1e3c7 passed13/0.318s and realinput preflight0.2246785s.
+Initial copiedconstant failure13/0.321s and interim13/0.322s/auth0.223279042s
+are retained in /private/tmp/vl-parity-tests.log and vl-parity-tests2.log.
+Root review caught canonical selector/ledger palette-before-RGB versus file
+execution RGB-before-palette before native invocation; independent review
+reopened and accepted literal ordering/reversed-ledger regression. Final logs
+/private/tmp/vl-parity-order-tests.log and vl-parity-order-offline-auth.json.
+CIe8b8e1f71/2.099s passed; fullordinary732/25.058s at clean e8b8e1f,
+/private/tmp/r7-vl-photo-preparity-ordinary-20260905.log. Readinessbd0462a.
+
+artifacts/r7-native-vl-photo-parity1-20260905 passed both publicrunner calls
+3.984404833/3.502661791s; whole10.4773445s. Receipt343641 SHA
+af400bbd6097d7eb51eb84739b34841769d83e2c2d7f466196fa41c8b120b68c.
+Both manifests89182 SHA
+e0eb50f84f21bd21d0ded2685302da888c4f4d1c2ffceb0af5537c2aede9e9a8;
+both reports99848 SHA
+31a41f24b8b861092cd0886c02117154179b8c0d33619e92bccbaabfbe05c394.
+Both994/1090byte payloadpairs match baseline2 exactly. Independent audit
+158sourceobjects/full262fileclosure/bothruntime snapshots/modes/pins/inputs/
+completeprojections/report2/repeat sidecars passed1.083853s.
+262nonreceipt files363700132logical/364232704allocated bytes; retainedruntime
+253files359320233logical/359841792allocated. Original duplicate
+/private/tmp/r7-vl-photo-parity-r9mwb_mr MUST remain preserved.
+Logs/private/tmp/r7-native-vl-photo-parity1-20260905.stdout.json/.stderr.txt.
+
+This accepts same-project bounded migrated parity only. The next sequential
+R7.2/R7.3 source boundary requires typed caller-defined photographic capability,
+loader/execution integration and standalone public proof before guides.
+A read-only design audit owns no files; source edits not started. R7open/R8R9held.

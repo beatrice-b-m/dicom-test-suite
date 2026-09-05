@@ -36,3 +36,28 @@ policy section2 in the unreleased product0.2.0 line. Retain schema, recipe and
 template versions and pinned native artifacts. Broader affected verification
 and standalone US public CLI/SDK proof precede full genericity acceptance.
 R7 remains incomplete; no R8/R9 or release qualification is implied.
+
+## Reachable dispatch inventory refinement
+
+Read-only follow-up for unit2 found deeper dispatch in
+validation::validate_manifest_wsi_file, plus tile-SEG and Comprehensive 3D SR
+in validate_family_standard_elements. Forward explicit context to these seams:
+actual WSI requires one supported declared WSI contract; Comprehensive 3D SR
+selects declared SCOORD3D or TID1500 evidence; crossed or absent required
+evidence must fail. A US file whose name matches those historical cases must
+not acquire their semantics. Unit2 therefore owns src/validation.rs as well as
+src/lib.rs and focused tests/ownership metadata.
+
+Reference closures require authenticated source-object lookup. External color
+presentation-state and RT Image may use caller consumer/source IDs and paths,
+while preserving SOP, geometry, hashes, UIDs and relation checks. Spatial and
+deformable registration already use declared source paths. Each declared
+contract must be checked; an else-if chain must not drop crossed declarations.
+Pyramid groups partition by caller identity and retain member ordering, complete
+evidence, repeated contracts and byte ceilings.
+
+Separate RT Plan/source identity locks in validation.rs are called only by
+curated generation and direct tests, not reopened manifest validation. They
+remain for later RT genericity migration; this correction does not claim those
+generation capabilities are already independent. Legacy report paths remain
+untouched. No native WSI or RT qualification ran during this inventory.

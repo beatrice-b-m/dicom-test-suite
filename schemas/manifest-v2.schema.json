@@ -124,7 +124,7 @@
     "files": {
       "type": "array",
       "items": {
-        "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/file"
+        "$ref": "#/$defs/external_file"
       }
     },
     "qualifications": {
@@ -211,5 +211,384 @@
       }
     }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "$defs": {
+    "external_file": {
+      "type": "object",
+      "required": [
+        "case_id",
+        "profile_membership",
+        "path",
+        "sha256",
+        "size_bytes",
+        "determinism",
+        "recipe",
+        "standards_evidence"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]*(/[a-z0-9][a-z0-9_-]*)+$"
+        },
+        "profile_membership": {
+          "type": "array",
+          "items": {
+            "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/profile"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "corpus_plan_sha256": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/sha256"
+        },
+        "resolved_plan_sha256": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/sha256"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "allOf": [
+            {
+              "not": {
+                "pattern": "^/"
+              }
+            },
+            {
+              "not": {
+                "pattern": "(^|/)\\.\\.?(/|$)"
+              }
+            },
+            {
+              "not": {
+                "pattern": "[\\\\:]"
+              }
+            }
+          ]
+        },
+        "sha256": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/sha256"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "determinism": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/determinism"
+        },
+        "validity": {
+          "enum": [
+            "valid",
+            "expected_invalid"
+          ]
+        },
+        "provider": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/file_provider"
+        },
+        "recipe": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/recipe"
+        },
+        "negative_evidence": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/negative_evidence"
+        },
+        "dicom": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/dicom"
+        },
+        "uids": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/uids"
+        },
+        "image": {
+          "anyOf": [
+            {
+              "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/image"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pixel_data": {
+          "anyOf": [
+            {
+              "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/pixel_data"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "generation_backend": {
+          "anyOf": [
+            {
+              "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/generation_backend"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/reference"
+          }
+        },
+        "expected_capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "expected_semantics": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "expected_metadata": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_metadata"
+        },
+        "expected_nm_multiframe": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_nm_multiframe"
+        },
+        "expected_pet_activity": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_pet_activity"
+        },
+        "expected_enhanced_pet": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_enhanced_pet"
+        },
+        "expected_us_multiframe": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_us_multiframe"
+        },
+        "expected_xa_projection": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_xa_projection"
+        },
+        "expected_xrf_projection": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_xrf_projection"
+        },
+        "expected_u32_pixels": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_u32_pixels"
+        },
+        "expected_u1_pixels": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_u1_pixels"
+        },
+        "expected_icc_profile": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_icc_profile"
+        },
+        "expected_nonsquare_spacing": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_nonsquare_spacing"
+        },
+        "expected_tid1500": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_tid1500"
+        },
+        "expected_scoord3d": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_scoord3d"
+        },
+        "expected_spatial_registration": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_spatial_registration"
+        },
+        "expected_deformable_spatial_registration": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_deformable_spatial_registration"
+        },
+        "expected_color_softcopy_presentation_state": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_color_softcopy_presentation_state"
+        },
+        "expected_blending_presentation_state": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_blending_presentation_state"
+        },
+        "expected_advanced_blending_presentation_state": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_advanced_blending_presentation_state"
+        },
+        "expected_waveform": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_waveform"
+        },
+        "expected_encapsulated_stl": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_encapsulated_stl"
+        },
+        "expected_eot": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_eot"
+        },
+        "expected_lossy_metrics": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_lossy_metrics"
+        },
+        "expected_rt_plan": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_rt_plan"
+        },
+        "expected_rt_image": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_rt_image"
+        },
+        "expected_rt_radiation": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_rt_radiation"
+        },
+        "expected_rt_radiation_set": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_rt_radiation_set"
+        },
+        "expected_vl_single_frame": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_vl_single_frame"
+        },
+        "expected_wsi_tiled_full": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_wsi_tiled_full"
+        },
+        "expected_wsi_tile_segmentation": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_wsi_tile_segmentation"
+        },
+        "expected_wsi_tiled_sparse": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_wsi_tiled_sparse"
+        },
+        "expected_wsi_multiple_optical_paths": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_wsi_multiple_optical_paths"
+        },
+        "wsi_pyramid_role": {
+          "enum": [
+            "volume",
+            "thumbnail",
+            "label"
+          ]
+        },
+        "wsi_pyramid_ordinal": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3
+        },
+        "expected_wsi_pyramid": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_wsi_pyramid"
+        },
+        "expected_geometry": {
+          "anyOf": [
+            {
+              "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_geometry"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expected_series_organization": {
+          "anyOf": [
+            {
+              "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_series_organization"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expected_visual_checks": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "validation": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/validation"
+        },
+        "known_stressors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "standards_evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/standards_evidence"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "validity": {
+                "const": "expected_invalid"
+              }
+            },
+            "required": [
+              "validity"
+            ]
+          },
+          "then": {
+            "required": [
+              "provider",
+              "negative_evidence"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "dicom"
+                  ]
+                },
+                {
+                  "required": [
+                    "uids"
+                  ]
+                },
+                {
+                  "required": [
+                    "image"
+                  ]
+                },
+                {
+                  "required": [
+                    "pixel_data"
+                  ]
+                },
+                {
+                  "required": [
+                    "generation_backend"
+                  ]
+                },
+                {
+                  "required": [
+                    "references"
+                  ]
+                },
+                {
+                  "required": [
+                    "expected_capabilities"
+                  ]
+                },
+                {
+                  "required": [
+                    "expected_semantics"
+                  ]
+                },
+                {
+                  "required": [
+                    "expected_visual_checks"
+                  ]
+                },
+                {
+                  "required": [
+                    "validation"
+                  ]
+                },
+                {
+                  "required": [
+                    "known_stressors"
+                  ]
+                }
+              ]
+            }
+          },
+          "else": {
+            "required": [
+              "dicom",
+              "uids",
+              "references",
+              "expected_capabilities",
+              "expected_semantics",
+              "expected_visual_checks",
+              "validation",
+              "known_stressors"
+            ],
+            "not": {
+              "required": [
+                "negative_evidence"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
 }

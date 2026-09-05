@@ -1584,7 +1584,7 @@
       "path": "schemas/manifest-v2.schema.json",
       "token": "dicom-test-suite",
       "class": "legacy_payload_schema_fixture_or_evidence",
-      "count": 9,
+      "count": 58,
       "owner": "compatibility-or-immutable-evidence",
       "reason": "References preserve the frozen manifest schema contract identity; the new external manifest has its own synth-dicom-gen identity."
     },
@@ -4606,11 +4606,11 @@
     }
   ],
   "retained_snapshot": {
-    "match_count": 1016,
-    "sha256": "34d65c5a569866138c36e47eb5b6b44235adc8e6e1b9cbcc578d9531960dcb24",
+    "match_count": 1065,
+    "sha256": "c1553eb0f38c3b53dfd476cf40ba9bd78d9b8ebae7374f7f719e8c4c522cfa5f",
     "by_class": {
       "dicom_payload_identifier": 203,
-      "legacy_payload_schema_fixture_or_evidence": 368,
+      "legacy_payload_schema_fixture_or_evidence": 417,
       "locked_python_module_or_backend": 148,
       "qualified_adapter_environment": 155,
       "qualified_adapter_or_test_fixture": 142

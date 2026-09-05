@@ -416,7 +416,7 @@ fn external_us_capability_is_name_independent_and_fail_closed() {
         ),
         (
             "pet-named-us",
-            "classic/pet/caller-ultrasound",
+            "classic/pet/rescaled_activity_explicit_le",
             "caller_ultrasound",
         ),
         (
@@ -459,6 +459,10 @@ fn external_us_capability_is_name_independent_and_fail_closed() {
         assert!(validation.is_valid(), "{validation:?}");
         assert_eq!(validation.files_checked(), 1);
         assert!(output.join("images/ultrasound.dcm").is_file());
+        let report = sdk.report(crate::sdk::ReportRequest::new(&output)).unwrap();
+        let report: serde_json::Value = report.deserialize().unwrap();
+        assert_eq!(report["coverage_report_schema_version"], "2.0.0");
+
         fs::remove_dir_all(output).unwrap();
         fs::remove_dir_all(root).unwrap();
         for field in ["template", "algorithm_provider_id", "classic_projection"] {

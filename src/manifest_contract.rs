@@ -642,6 +642,153 @@ mod external_manifest_contract_tests {
 
     #[test]
     fn rejects_identity_version_and_unknown_fields() {
+        // External names must not select historical corpus policies; all generic
+        // structure and typed evidence remain exactly the legacy base contract.
+        let legacy: Value =
+            serde_json::from_slice(include_bytes!("../schemas/manifest.schema.json")).unwrap();
+        let external: Value =
+            serde_json::from_slice(include_bytes!("../schemas/manifest-v2.schema.json")).unwrap();
+        assert_eq!(
+            crate::sha256_hex(include_bytes!("../schemas/manifest.schema.json")),
+            "8adc86156169dcb96a46565b246a4a4fc9dd36222036f4e22001c4002b2d635b"
+        );
+        assert_eq!(
+            crate::sha256_hex(include_bytes!("../schemas/manifest-v1.schema.json")),
+            "9a35174d28e2040ca84fe1d4936dc9c450b54a03ab0f0257cb410ded92bcbb9f"
+        );
+        let mut expected = legacy["$defs"]["file"].clone();
+        let branches = expected["allOf"].as_array_mut().unwrap();
+        assert_eq!(branches.len(), 37);
+        assert!(
+            branches[1..]
+                .iter()
+                .all(|b| b["if"]["properties"].get("case_id").is_some())
+        );
+        branches.truncate(1);
+        fn rebase(value: &mut Value) {
+            match value {
+                Value::Object(fields) => {
+                    for (key, value) in fields {
+                        if key == "$ref" && value.as_str().is_some_and(|v| v.starts_with("#/")) {
+                            *value =
+                                json!(format!("{LEGACY_MANIFEST_ID}{}", value.as_str().unwrap()));
+                        } else {
+                            rebase(value);
+                        }
+                    }
+                }
+                Value::Array(values) => {
+                    for value in values {
+                        rebase(value);
+                    }
+                }
+                _ => {}
+            }
+        }
+        rebase(&mut expected);
+        assert_eq!(external["$defs"]["external_file"], expected);
+        assert_eq!(
+            external["properties"]["files"]["items"]["$ref"],
+            "#/$defs/external_file"
+        );
+        let value = fixture();
+        for (key, bad) in [
+            ("sha256", json!("bad")),
+            ("size_bytes", json!(-1)),
+            ("standards_evidence", json!([{}])),
+            ("validation", json!({})),
+            ("path", json!("../escape")),
+            ("expected_pet_activity", json!({})),
+            ("expected_icc_profile", json!({})),
+            ("unexpected", json!(true)),
+        ] {
+            let mut corrupt = value.clone();
+            corrupt["files"][0][key] = bad;
+            assert!(
+                validate_external_corpus_manifest(&corrupt).is_err(),
+                "{key}"
+            );
+        }
+        let generic_validator = jsonschema::options()
+            .with_resource(
+                LEGACY_MANIFEST_ID,
+                jsonschema::Resource::from_contents(legacy.clone()).unwrap(),
+            )
+            .build(&external["$defs"]["external_file"])
+            .unwrap();
+        let mut legacy_file = legacy.clone();
+        legacy_file["$ref"] = json!("#/$defs/file");
+        for key in [
+            "type",
+            "required",
+            "properties",
+            "additionalProperties",
+            "allOf",
+        ] {
+            legacy_file.as_object_mut().unwrap().remove(key);
+        }
+        let historical_validator = jsonschema::validator_for(&legacy_file).unwrap();
+        for case_id in [
+            "classic/pet/rescaled_activity_explicit_le",
+            "classic/nm/multiframe_explicit_le",
+            "classic/xa/monoplane_explicit_le",
+            "vl/photo/rgb_icc_profile_explicit_le",
+        ] {
+            let mut file = value["files"][0].clone();
+            file["case_id"] = json!(case_id);
+            assert!(generic_validator.is_valid(&file), "{case_id}");
+            assert!(!historical_validator.is_valid(&file), "{case_id}");
+        }
+        for field in [
+            "dicom",
+            "uids",
+            "references",
+            "expected_capabilities",
+            "expected_semantics",
+            "expected_visual_checks",
+            "validation",
+            "known_stressors",
+            "standards_evidence",
+        ] {
+            let mut file = value["files"][0].clone();
+            file.as_object_mut().unwrap().remove(field);
+            assert!(!generic_validator.is_valid(&file), "missing {field}");
+        }
+        let mut invalid = value["files"][0].clone();
+        invalid["validity"] = json!("expected_invalid");
+        let forbidden = [
+            "dicom",
+            "uids",
+            "image",
+            "pixel_data",
+            "generation_backend",
+            "references",
+            "expected_capabilities",
+            "expected_semantics",
+            "expected_visual_checks",
+            "validation",
+            "known_stressors",
+        ];
+        for field in forbidden {
+            invalid.as_object_mut().unwrap().remove(field);
+        }
+        invalid["provider"] = json!({"kind":"mutation_layer", "id":"synthetic_test"});
+        let hash = "00".repeat(32);
+        invalid["negative_evidence"] = json!({
+            "contract_version":"0.1.0", "recipe_version":"0.1.0",
+            "source":{"case_id":"synthetic/source", "sha256":hash, "transfer_syntax_uid":"1.2.840.10008.1.2.1", "size_bytes":1},
+            "source_shape":"synthetic schema fixture",
+            "mutation_steps":[{"ordinal":1, "mutation_id":"synthetic", "parameters":{"offset":0}, "changed_byte_ranges":[{"source":{"start":0,"end":1},"output":{"start":0,"end":1}}], "source_sha256":hash, "output_sha256":hash, "expected_failure_layer":"semantic_validation", "acceptable_outcomes":["validation_failure"]}],
+            "probe":{"kind":"same_project_bounded_parser_classifier", "independence":"same_project", "outcome":"validation_failure", "detail":"schema fixture only"},
+            "unacceptable_outcomes":["timeout","crash","hang"], "final_sha256":hash
+        });
+        assert!(generic_validator.is_valid(&invalid));
+        for field in forbidden {
+            let mut mixed = invalid.clone();
+            mixed[field] = value["files"][0][field].clone();
+            assert!(!generic_validator.is_valid(&mixed), "forbidden {field}");
+        }
+
         let original = fixture();
         for pointer in [
             "/identity_projection/corpus_definition/identity",

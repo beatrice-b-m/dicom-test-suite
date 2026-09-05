@@ -1305,7 +1305,7 @@
         "negative_and_fuzz_dependencies_cannot_cross_legacy_or_stress_boundaries",
         "excessive_undeclared_inventory_fails_without_buffering_all_names"
       ],
-      "entry_digest": "ec693f4a373bde5d02aa0f02034a2ec5e0222be040e1bd320b060ccdecd6c3b6"
+      "entry_digest": "7a9987e4f2d3d060670da431532067fa2c2146e50e30511afedbfc235f898206"
     },
     {
       "source": "tests/corpus_plan.rs",
@@ -4306,7 +4306,7 @@
         "dependency_graph_is_closed_acyclic_and_reachable",
         "runtime_ids_remain_unique"
       ],
-      "entry_digest": "7104bc1268bbe2c931d508428daad27c42368e5ed2bf21f377331fbcedc96235"
+      "entry_digest": "e0930b9a9b61c6b9b563771056f34d02d07a1a303d4143be398db18951f08c0f"
     },
     {
       "source": "src/media.rs",

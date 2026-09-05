@@ -13,9 +13,9 @@ include!(concat!(env!("OUT_DIR"), "/embedded_engine_resources.rs"));
 
 pub const ENGINE_RESOURCE_SET_VERSION: &str = "2.0.0";
 pub const ENGINE_RESOURCE_COUNT_V2: usize = 81;
-pub const ENGINE_RESOURCE_TOTAL_BYTES_V2: u64 = 1_505_420;
+pub const ENGINE_RESOURCE_TOTAL_BYTES_V2: u64 = 1_518_044;
 pub const ENGINE_RESOURCE_SHA256_V2: &str =
-    "1c1884b655a528f5c667b3bffa38b036e367964acdd8621fbd2e5de7fcca0cb5";
+    "21711587ab6cc02e8f5dec11dfbd221e6f52a4bffaf798d3efecea612a380811";
 pub const TRANSITIONAL_ENGINE_RESOURCE_COUNT_V1: usize = 240;
 pub const TRANSITIONAL_ENGINE_RESOURCE_SHA256_V1: &str =
     "dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410";

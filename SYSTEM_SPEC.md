@@ -565,6 +565,14 @@ Generate representative combinations of:
 - Pixel Aspect Ratio without Pixel Spacing, and Pixel Spacing with non-square values.
 - Pixel Data with even-length value-field padding.
 
+Caller-defined nonsquare Secondary Capture is admitted by the complete typed
+artifact tuple, never by case, recipe, logical identity, role, path or a
+historical order value. A bounded series contains both exclusive uncalibrated
+2:1 forms, omits Imager Pixel Spacing and patient-space geometry, and binds
+manifest-V2 values and semantic pixel hashes to strict reopened validation.
+The exact historical manifest-V1 and Part 10 contracts remain compatibility
+oracles rather than generic admission rules.
+
 Each recipe shall validate the pixel axis against the selected IOD and transfer syntax. Do not assume every axis is valid for every IOD.
 
 Pixel-level invariants for valid native cases:

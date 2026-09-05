@@ -98,12 +98,15 @@ the earlier capability schemas remain frozen.
 
 The same `InspectCorpusRequest` and `GenerateCorpusRequest` interfaces accept
 the bounded [native SC contract](generation-guide.md#caller-defined-native-secondary-capture).
-It binds `native.sc_plan`, one native single-frame artifact, parameter-free
-`content.sc.pixel_pattern`, a matching monochrome/RGB SC template@1 and the
-qualified pixel/layout/validation tuple. Case/recipe names, unique planning
-orders and explicit safe paths are caller-owned. CLI/SDK manifests and payloads
-agree, with separate strict validation and report2 projection. Historical
-specialized namespace fallbacks remain outside this bounded genericity claim.
+The ordinary pixel tuple binds `native.sc_plan`, one native single-frame
+artifact, parameter-free `content.sc.pixel_pattern`, a matching monochrome/RGB
+SC template@1 and the qualified pixel/layout/validation tuple. A separate
+nonsquare tuple accepts two or more MONOCHROME2 U8 artifacts carrying both
+exclusive uncalibrated 2:1 spacing/aspect variants. Case/recipe names, artifact
+identities and roles, explicit safe paths, contiguous artifact ordering and
+pixels are caller-owned. CLI/SDK manifests and payloads agree, with separate
+strict validation and report2 projection. Historical specialized namespace
+fallbacks and manifest V1 remain outside this bounded genericity claim.
 
 ### Caller-defined classic CT
 

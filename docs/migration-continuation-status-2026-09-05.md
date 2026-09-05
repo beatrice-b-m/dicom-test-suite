@@ -2376,3 +2376,31 @@ retained successful or failed evidence.
 This accepts the NM-local R7.1/R7.2/R7.3/R7.5 boundary only. It does not create
 independent-conformance, viewer, Heavy, package, release or complete-R7
 evidence. R7 remains open, and R8/R9 remain held behind their dependencies.
+
+## Nonsquare SC caller capability accepted — 2026-09-05
+
+Generator `6027c8f` admits a bounded caller-owned nonsquare Secondary Capture
+definition by its complete template, native pixel, geometry, attribute,
+encoding and validation tuple—not case ID, recipe ID, logical identity, output
+role/path or historical artifact-order values. The unrelated two-artifact
+fixture owns its names, roles, paths, ordering, 3×4 U8 pixels and positive 2:1
+DS/IS values while proving CLI/SDK manifest and payload equality, separate
+strict reopened validation, and report2 projection. Loader adversaries reject
+partial axes, crossed operations, invalid or overlong DS, invalid or excessive
+IS, duplicate identities/roles/paths/orders, single-artifact definitions and a
+contradictory registry modality.
+
+Only manifest V2 gains the reusable structural contract. Manifest V1, the
+frozen legacy assembly namespace and the exact historical two-file contract
+remain unchanged. The accepted Part 10 SHA-256 values remain
+`50f897625dcc489d212a81674086d1183569d6e0ac7a847d55afc8dd599276d4`
+and `dc330a2b51d1381d943e5ba0f50086114eb95102852228e7ffcb62e0bdec93b9`;
+the original generator/reporter pins and independent adapter evidence retain
+their original labels and boundaries.
+
+Focused public CLI/SDK, loader, historical payload, planner, schema compilation,
+manifest-contract, schema identity, seven snapshot-cache, ownership and routing
+checks passed. This accepts only the nonsquare-SC-local reusable-generator
+boundary. It adds no calibrated or patient-space geometry, codec, multiframe,
+independent-conformance, viewer, Heavy, package, release or complete-R7 claim.
+R7 remains open, and R8/R9 remain held behind their dependencies.

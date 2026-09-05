@@ -84,6 +84,13 @@ planning orders are caller-owned. See the
 [SC contract](docs/generation-guide.md#caller-defined-native-secondary-capture)
 for supported shapes and historical fallback boundaries.
 
+The same SC planner separately accepts a bounded multi-artifact uncalibrated
+nonsquare geometry tuple. Callers own artifact identities, roles, paths,
+ordering and U8 pixels; each bundle supplies both the Pixel Spacing plus
+Nominal Scanned Pixel Spacing form and the exclusive Pixel Aspect Ratio form.
+Dispatch depends on the typed geometry contract, not historical names or
+paths, and strict validation reopens each emitted payload against manifest V2.
+
 Caller-owned corpus-definition bundles may define classic CT cases without
 reusing an embedded case ID, recipe ID, planning order, or output path. The
 supported discriminator is the complete capability tuple: registry provider

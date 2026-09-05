@@ -614,6 +614,15 @@ Both files pass independent IOD validation with zero errors and case-scoped
 semantic extraction of the exact VR, VM, values, absences, dimensions, and
 pixel hash. Negative tests reject crossed axes and relinked evidence.
 
+The later separation migration adds a caller-owned form without changing
+those historical bytes or independent evidence. An unrelated two-artifact
+definition owns its case/recipe names, logical identities, output roles/paths,
+order and pixels while the engine admits the complete typed SC/geometry tuple.
+Manifest V2 records the caller's positive bounded DS/IS values and semantic
+pixel hashes; strict validation reopens each payload and enforces the exclusive
+2:1 axes, absent Imager Pixel Spacing, and absent calibration/patient-space
+geometry. Manifest V1 retains the exact historical contract above.
+
 ## Milestone gate
 
 All planned Phase 2 geometry and series cases are implemented, and the UTF-8,

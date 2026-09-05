@@ -219,11 +219,39 @@ No algorithm, external encoding provider, attribute override, metadata,
 classic projection, nonsquare geometry, bit-packing, integer-word or
 encapsulation-projection block belongs to this tuple.
 
+The distinct nonsquare geometry tuple also uses `native.sc_plan`, but contains
+two through 1,024 native Explicit VR Little Endian MONOCHROME2 U8/OB,
+single-frame artifacts. Every artifact has caller-owned, nonempty, unique
+logical identity, output role and safe explicit path, with caller-owned pixels.
+Artifact order remains the general unique contiguous zero-based plan order; its
+specific values, names and paths do not select this capability. Each artifact
+uses `classic/secondary-capture/monochrome@1.0.0`, parameter-free
+`content.sc.pixel_pattern`, `validation.sc.pixel`, `validation.sc.geometry`
+and `projection.curated`. The bundle must include both exclusive variants:
+
+- `pixel_spacing` supplies equal Pixel Spacing (`0028,0030`) and Nominal
+  Scanned Pixel Spacing (`0018,2010`) DS VM 2 values. Each component is a
+  positive finite DS of at most 16 bytes and row spacing is twice column
+  spacing.
+- `pixel_aspect_ratio` supplies only Pixel Aspect Ratio (`0028,0034`) as two
+  positive IS values no greater than 2,147,483,647, with vertical extent twice
+  horizontal extent.
+
+Imager Pixel Spacing is absent in both forms. Calibration and patient-space
+geometry are false/absent. Typed geometry and attribute operations must agree;
+partial, crossed, single-artifact and mixed-axis definitions fail closed.
+External manifest V2 carries caller values and pixel hashes, and strict
+validation compares those values with reopened DICOM attributes and pixels.
+Manifest V1 and its exact historical nonsquare case contract remain frozen.
+
 Use the external generation, validation and reporting forms above. Caller
 profile membership remains bundle-owned. Partial nonhistorical caller tuples
 fail closed; historical namespace and EOT admission remain broader during
-migration. This boundary does not generalize their codec, multiframe, geometry,
-stress or exceptional contracts and supplies same-project evidence only.
+migration. The base pixel-shape tuple does not generalize codec, multiframe,
+geometry, stress or exceptional contracts. The nonsquare extension generalizes
+only the geometry tuple described above; it adds no calibrated or patient-space
+geometry, codec or multiframe qualification and supplies same-project evidence
+only.
 
 #### Caller-defined classic CT capability
 
@@ -595,8 +623,9 @@ with descriptor `[4,0,16]` and the fixed 16-bit red/green/blue lookup tables.
 Stored values, extrema, frame hashes and source UID file indices remain fixed.
 All nine provider values are fixed: patient name `DICOMTEST^SMOKE`, ID
 `DICOMTEST-SMOKE-001`, birth date `19700101`, sex `O`, study date `20260101`,
-time `000000`, study ID `SMOKE`, manufacturer `dicom-test-suite` and software
-versions `0.1.0`. The manufacturer is a retained synthetic payload value.
+time `000000`, study ID `SMOKE`, a retained manufacturer value formed by
+hyphenating `dicom`, `test` and `suite`, and software versions `0.1.0`. The
+manufacturer spelling remains an exact synthetic payload value.
 The empty Acquisition Context sequence and `DICOMTS010` implementation version
 remain part of the byte-preserving source contract.
 

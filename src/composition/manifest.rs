@@ -1060,7 +1060,7 @@ mod tests {
             standards: json!({"dicom_base_edition": "2026b"}),
             dependencies: json!({}),
             product_resources: crate::engine_resources::EngineResources::embedded()
-                .identity()
+                .legacy_identity_v1()
                 .unwrap(),
             identity_projection: crate::identity::project_manifest_identities(
                 &crate::engine_resources::EngineResources::embedded(),
@@ -1127,6 +1127,22 @@ mod tests {
         assert_eq!(evidence_manifest, manifest);
 
         assert_eq!(manifest["run"]["kind"], "composition");
+        let current_resources = crate::engine_resources::EngineResources::embedded()
+            .identity()
+            .unwrap();
+        assert_eq!(current_resources.resource_set_version, "2.0.0");
+        assert_eq!(
+            manifest["product_resources"]["resource_set_version"],
+            "1.0.0"
+        );
+        assert_eq!(
+            manifest["identity_projection"]["legacy_provenance"]["resource_set_version"],
+            "1.0.0"
+        );
+        assert_ne!(
+            manifest["product_resources"]["resource_count"],
+            current_resources.resource_count
+        );
         assert_eq!(
             manifest["composition"]["entries"][0]["resolved_plan_sha256"],
             plan.canonical_sha256()
@@ -1136,6 +1152,37 @@ mod tests {
             manifest["composition"]["entries"][0]["validation"]["status"],
             "passed"
         );
+    }
+
+    #[test]
+    fn schema_rejects_current_identity_as_legacy_product_resources() {
+        let path = std::env::temp_dir().join(format!(
+            "dts-composition-resource-identity-{}-{}.dcm",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        let plan = plan(vec![0, 1, 2, 3]);
+        Part10Materializer.materialize(&plan, &path).unwrap();
+        let mut manifest = CompositionManifestAssembler
+            .assemble(
+                inputs(),
+                &[ManifestEntryInput {
+                    plan: &plan,
+                    output_path: &path,
+                    relative_path: "instances/primary.dcm".into(),
+                    requested: true,
+                    bundle_root_instance_id: "primary".into(),
+                    bundle_role: "root".into(),
+                    source_provenance: "requested".into(),
+                    determinism: "byte_stable".into(),
+                }],
+            )
+            .unwrap();
+        fs::remove_file(path).unwrap();
+
+        manifest["product_resources"]["resource_set_version"] = "2.0.0".into();
+        let error = validate_manifest_schema(&manifest).unwrap_err();
+        assert!(error.to_string().contains("\"1.0.0\" was expected"));
     }
 
     #[test]

@@ -29874,41 +29874,33 @@ fn nonsquare_spacing_report_fields(
 ) -> Result<NonsquareSpacingReportFields, ReportError> {
     const CASE_ID: &str = "classic/sc/nonsquare_pixel_spacing";
     const PIXEL_SHA256: &str = "e89b23efeade0dc3de624fc8982ea8b99adb35a3bb9a2fbf8b8ce675e10581a6";
-    if file.get("case_id").and_then(Value::as_str) != Some(CASE_ID) {
+    let Some(expected) = file.get("expected_nonsquare_spacing") else {
         return Ok(NonsquareSpacingReportFields::default());
-    }
-    let expected = file
-        .get("expected_nonsquare_spacing")
-        .ok_or(ReportError::MetadataShape {
-            path: manifest_path.to_path_buf(),
-            message: "non-square coverage row requires expected_nonsquare_spacing",
-        })?;
+    };
+    let invalid = |message| ReportError::MetadataShape {
+        path: manifest_path.to_path_buf(),
+        message,
+    };
     if expected.get("uncalibrated").and_then(Value::as_bool) != Some(true) {
-        return Err(ReportError::MetadataShape {
-            path: manifest_path.to_path_buf(),
-            message: "non-square coverage row requires uncalibrated true",
-        });
+        return Err(invalid(
+            "non-square coverage row requires uncalibrated true",
+        ));
     }
     if expected
         .get("patient_space_geometry_present")
         .and_then(Value::as_bool)
         != Some(false)
     {
-        return Err(ReportError::MetadataShape {
-            path: manifest_path.to_path_buf(),
-            message: "non-square coverage row requires absent patient-space geometry",
-        });
+        return Err(invalid(
+            "non-square coverage row requires absent patient-space geometry",
+        ));
     }
     let pixel_data_sha256 = expected
         .get("pixel_data_sha256")
         .and_then(Value::as_str)
-        .filter(|value| *value == PIXEL_SHA256)
-        .ok_or(ReportError::MetadataShape {
-            path: manifest_path.to_path_buf(),
-            message: "non-square coverage row requires the locked pixel data SHA-256",
-        })?;
+        .ok_or_else(|| invalid("non-square coverage row requires pixel data SHA-256"))?;
 
-    let spacing = serde_json::json!({
+    let locked_spacing = serde_json::json!({
         "tag": "0028,0030",
         "keyword": "PixelSpacing",
         "vr": "DS",
@@ -29917,7 +29909,7 @@ fn nonsquare_spacing_report_fields(
         "row_spacing_mm": 0.6,
         "column_spacing_mm": 0.3
     });
-    let nominal = serde_json::json!({
+    let locked_nominal = serde_json::json!({
         "tag": "0018,2010",
         "keyword": "NominalScannedPixelSpacing",
         "vr": "DS",
@@ -29926,7 +29918,7 @@ fn nonsquare_spacing_report_fields(
         "row_spacing_mm": 0.6,
         "column_spacing_mm": 0.3
     });
-    let aspect = serde_json::json!({
+    let locked_aspect = serde_json::json!({
         "tag": "0028,0034",
         "keyword": "PixelAspectRatio",
         "vr": "IS",
@@ -29936,36 +29928,55 @@ fn nonsquare_spacing_report_fields(
         "horizontal_extent": 1
     });
 
+    let historical = file.get("case_id").and_then(Value::as_str) == Some(CASE_ID);
+    let lexical = |axis: &str| {
+        expected
+            .pointer(&format!("/{axis}/lexical_value"))
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+            .ok_or_else(|| invalid("non-square coverage row requires lexical spatial values"))
+    };
     let (variant_id, pixel_spacing, nominal_scanned_pixel_spacing, pixel_aspect_ratio) =
         match expected.get("variant_id").and_then(Value::as_str) {
             Some("pixel_spacing")
-                if expected.get("pixel_spacing") == Some(&spacing)
-                    && expected.get("nominal_scanned_pixel_spacing") == Some(&nominal)
-                    && expected
-                        .get("pixel_aspect_ratio")
-                        .is_some_and(Value::is_null) =>
+                if expected
+                    .get("pixel_aspect_ratio")
+                    .is_some_and(Value::is_null) =>
             {
-                (
-                    "pixel_spacing",
-                    Some("0.6\\0.3".to_string()),
-                    Some("0.6\\0.3".to_string()),
-                    None,
-                )
+                let pixel = lexical("pixel_spacing")?;
+                let nominal = lexical("nominal_scanned_pixel_spacing")?;
+                if historical
+                    && (expected.get("pixel_spacing") != Some(&locked_spacing)
+                        || expected.get("nominal_scanned_pixel_spacing") != Some(&locked_nominal)
+                        || pixel_data_sha256 != PIXEL_SHA256)
+                {
+                    return Err(invalid(
+                        "historical non-square coverage row requires the locked spacing contract",
+                    ));
+                }
+                ("pixel_spacing", Some(pixel), Some(nominal), None)
             }
             Some("pixel_aspect_ratio")
                 if expected.get("pixel_spacing").is_some_and(Value::is_null)
                     && expected
                         .get("nominal_scanned_pixel_spacing")
-                        .is_some_and(Value::is_null)
-                    && expected.get("pixel_aspect_ratio") == Some(&aspect) =>
+                        .is_some_and(Value::is_null) =>
             {
-                ("pixel_aspect_ratio", None, None, Some("2\\1".to_string()))
+                let ratio = lexical("pixel_aspect_ratio")?;
+                if historical
+                    && (expected.get("pixel_aspect_ratio") != Some(&locked_aspect)
+                        || pixel_data_sha256 != PIXEL_SHA256)
+                {
+                    return Err(invalid(
+                        "historical non-square coverage row requires the locked aspect contract",
+                    ));
+                }
+                ("pixel_aspect_ratio", None, None, Some(ratio))
             }
             _ => {
-                return Err(ReportError::MetadataShape {
-                    path: manifest_path.to_path_buf(),
-                    message: "non-square coverage row requires one exact spatial variant",
-                });
+                return Err(invalid(
+                    "non-square coverage row requires one spatial variant",
+                ));
             }
         };
 

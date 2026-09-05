@@ -1882,7 +1882,7 @@
         "caller_named_xa_xrf_cli_is_sdk_identical_strictly_valid_and_reported",
         "caller_named_vl_photo_cli_is_sdk_identical_strictly_valid_and_reported"
       ],
-      "entry_digest": "8272366a204a46a6c92d587fa6f53b8ef317ab9e1ac49838d23a2942cf5f69c1"
+      "entry_digest": "bdd4c754983757bbe661e99d44fee8ddbf8326710c61ad0770a208bfc5bb3cde"
     },
     {
       "source": "tests/frame_codec_service.rs",
@@ -3916,7 +3916,7 @@
         "mutation_of_an_internal_shared_root_fails_closed_on_reuse",
         "one_handle_reuses_one_tree_across_batch_generate_validate_report_and_compose"
       ],
-      "entry_digest": "ce5c6abdc20f04d227cddffb1cb9b47633aca79a26cf39ac4e0b7fb17924dc08"
+      "entry_digest": "14a990675abb3f71c62b08d8166ca2a1b62e8b2c6ffab6fe5dd4e8df571a4b39"
     },
     {
       "source": "src/executor/evidence.rs",
@@ -4243,7 +4243,7 @@
         "cargo_lock_perturbation_changes_only_toolchain_and_legacy_provenance",
         "external_runtime_identity_requires_successful_typed_execution_evidence"
       ],
-      "entry_digest": "dae18d95143f06e5b0442fae109ebf076ee65f8c30e03a5128d2770903e140e3"
+      "entry_digest": "db4fd7909cbcc787d07cb498c7aa1cf3831f57c6557e96e3ed848de05689c1de"
     },
     {
       "source": "src/lib.rs",

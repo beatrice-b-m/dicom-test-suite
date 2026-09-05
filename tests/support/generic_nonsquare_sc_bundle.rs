@@ -183,49 +183,7 @@ pub fn assert_report(report: &Value) {
     assert_eq!(report["report_kind"], "external_corpus");
     assert_eq!(report["summary"]["emitted_files"], 2);
     assert_manifest(&report["source_manifest"]);
-    let files = report["source_manifest"]["files"].as_array().unwrap();
-    assert_eq!(files.len(), 2, "report2 must retain both nonsquare rows");
-    assert!(
-        files.iter().all(|file| {
-            file["expected_nonsquare_spacing"]
-                .as_object()
-                .is_some_and(|contract| contract.len() == 7)
-        }),
-        "each report2 row must retain all seven nonsquare axes"
-    );
-    assert_eq!(
-        files[0]["expected_nonsquare_spacing"],
-        json!({
-            "variant_id":"pixel_spacing",
-            "pixel_spacing":{
-                "keyword":"PixelSpacing","tag":"0028,0030","vr":"DS","vm":2,
-                "lexical_value":"1.2\\0.6","row_spacing_mm":1.2,"column_spacing_mm":0.6
-            },
-            "nominal_scanned_pixel_spacing":{
-                "keyword":"NominalScannedPixelSpacing","tag":"0018,2010","vr":"DS","vm":2,
-                "lexical_value":"1.2\\0.6","row_spacing_mm":1.2,"column_spacing_mm":0.6
-            },
-            "pixel_aspect_ratio":null,
-            "uncalibrated":true,
-            "patient_space_geometry_present":false,
-            "pixel_data_sha256":"fff3a9bcdd37363d703c1c4f9512533686157868f0d4f16a0f02d0f1da24f9a2"
-        })
-    );
-    assert_eq!(
-        files[1]["expected_nonsquare_spacing"],
-        json!({
-            "variant_id":"pixel_aspect_ratio",
-            "pixel_spacing":null,
-            "nominal_scanned_pixel_spacing":null,
-            "pixel_aspect_ratio":{
-                "keyword":"PixelAspectRatio","tag":"0028,0034","vr":"IS","vm":2,
-                "lexical_value":"6\\3","vertical_extent":6,"horizontal_extent":3
-            },
-            "uncalibrated":true,
-            "patient_space_geometry_present":false,
-            "pixel_data_sha256":"fabff30883aac31048a8a5ac6a2eeb7c421b9f0dc1f2221e87d5df15f403bac7"
-        })
-    );
+    assert_nonsquare_report_projection(report).unwrap();
     let paths = json!([
         "caller-space/display-ratio.dcm",
         "caller-space/measured-grid.dcm"
@@ -246,6 +204,130 @@ pub fn assert_report(report: &Value) {
             report["artifact_dimensions"][axis],
             json!([{"count":2,"members":paths.clone(),"value":value}]),
             "artifact grouping axis {axis}"
+        );
+    }
+}
+
+fn assert_nonsquare_report_projection(report: &Value) -> Result<(), String> {
+    const FIELDS: [&str; 9] = [
+        "nonsquare_variant_id",
+        "nonsquare_pixel_spacing",
+        "nonsquare_nominal_scanned_pixel_spacing",
+        "nonsquare_pixel_aspect_ratio",
+        "nonsquare_uncalibrated",
+        "nonsquare_patient_space_geometry_present",
+        "nonsquare_pixel_data_sha256",
+        "pixel_spacing",
+        "imager_pixel_spacing",
+    ];
+    let rows = report["coverage_matrix"]
+        .as_array()
+        .ok_or("report2 coverage_matrix missing")?;
+    let expected = [
+        json!({
+            "nonsquare_variant_id":"pixel_spacing",
+            "nonsquare_pixel_spacing":"1.2\\0.6",
+            "nonsquare_nominal_scanned_pixel_spacing":"1.2\\0.6",
+            "nonsquare_pixel_aspect_ratio":null,
+            "nonsquare_uncalibrated":true,
+            "nonsquare_patient_space_geometry_present":false,
+            "nonsquare_pixel_data_sha256":"fff3a9bcdd37363d703c1c4f9512533686157868f0d4f16a0f02d0f1da24f9a2",
+            "pixel_spacing":null,
+            "imager_pixel_spacing":null
+        }),
+        json!({
+            "nonsquare_variant_id":"pixel_aspect_ratio",
+            "nonsquare_pixel_spacing":null,
+            "nonsquare_nominal_scanned_pixel_spacing":null,
+            "nonsquare_pixel_aspect_ratio":"6\\3",
+            "nonsquare_uncalibrated":true,
+            "nonsquare_patient_space_geometry_present":false,
+            "nonsquare_pixel_data_sha256":"fabff30883aac31048a8a5ac6a2eeb7c421b9f0dc1f2221e87d5df15f403bac7",
+            "pixel_spacing":null,
+            "imager_pixel_spacing":null
+        }),
+    ];
+    if rows.len() != expected.len() {
+        return Err("report2 must retain exactly two nonsquare coverage rows".into());
+    }
+    for (row, expected) in rows.iter().zip(expected) {
+        for field in FIELDS {
+            if row[field] != expected[field] {
+                return Err(format!("report2 nonsquare field mismatch: {field}"));
+            }
+        }
+    }
+    let grouped = &report["grouped_coverage"];
+    for (field, expected) in [
+        (
+            "nonsquare_variant_ids",
+            json!({"pixel_aspect_ratio":1,"pixel_spacing":1}),
+        ),
+        ("nonsquare_pixel_spacings", json!({"1.2\\0.6":1})),
+        (
+            "nonsquare_nominal_scanned_pixel_spacings",
+            json!({"1.2\\0.6":1}),
+        ),
+        ("nonsquare_pixel_aspect_ratios", json!({"6\\3":1})),
+        ("nonsquare_uncalibrated_states", json!({"true":2})),
+        (
+            "nonsquare_patient_space_geometry_present_states",
+            json!({"false":2}),
+        ),
+        (
+            "nonsquare_pixel_data_sha256_values",
+            json!({
+                "fff3a9bcdd37363d703c1c4f9512533686157868f0d4f16a0f02d0f1da24f9a2":1,
+                "fabff30883aac31048a8a5ac6a2eeb7c421b9f0dc1f2221e87d5df15f403bac7":1
+            }),
+        ),
+        ("pixel_spacings", json!({})),
+        ("imager_pixel_spacings", json!({})),
+    ] {
+        if grouped[field] != expected {
+            return Err(format!("report2 grouped coverage mismatch: {field}"));
+        }
+    }
+    Ok(())
+}
+
+pub fn assert_report_mutations_fail(report: &Value) {
+    for row in 0..2 {
+        for field in [
+            "nonsquare_variant_id",
+            "nonsquare_pixel_spacing",
+            "nonsquare_nominal_scanned_pixel_spacing",
+            "nonsquare_pixel_aspect_ratio",
+            "nonsquare_uncalibrated",
+            "nonsquare_patient_space_geometry_present",
+            "nonsquare_pixel_data_sha256",
+            "pixel_spacing",
+            "imager_pixel_spacing",
+        ] {
+            let mut mutated = report.clone();
+            mutated["coverage_matrix"][row][field] = json!("tampered");
+            assert!(
+                assert_nonsquare_report_projection(&mutated).is_err(),
+                "report proof admitted mutated coverage_matrix[{row}].{field}"
+            );
+        }
+    }
+    for field in [
+        "nonsquare_variant_ids",
+        "nonsquare_pixel_spacings",
+        "nonsquare_nominal_scanned_pixel_spacings",
+        "nonsquare_pixel_aspect_ratios",
+        "nonsquare_uncalibrated_states",
+        "nonsquare_patient_space_geometry_present_states",
+        "nonsquare_pixel_data_sha256_values",
+        "pixel_spacings",
+        "imager_pixel_spacings",
+    ] {
+        let mut mutated = report.clone();
+        mutated["grouped_coverage"][field] = json!({"tampered":99});
+        assert!(
+            assert_nonsquare_report_projection(&mutated).is_err(),
+            "report proof admitted mutated grouped_coverage.{field}"
         );
     }
 }

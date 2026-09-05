@@ -3,7 +3,7 @@
   "$id": "https://synth-dicom-gen.local/schemas/coverage-report-v2.schema.json",
   "title": "External corpus definition-driven report v2",
   "type": "object",
-  "required": ["coverage_report_schema_version", "report_kind", "evidence", "identity_projection", "source_manifest", "summary", "case_dimensions", "artifact_dimensions"],
+  "required": ["coverage_report_schema_version", "report_kind", "evidence", "identity_projection", "source_manifest", "summary", "case_dimensions", "artifact_dimensions", "coverage_matrix", "grouped_coverage"],
   "properties": {
     "coverage_report_schema_version": {"const": "2.0.0"},
     "report_kind": {"const": "external_corpus"},
@@ -24,11 +24,38 @@
       "additionalProperties": false
     },
     "case_dimensions": {"$ref": "#/$defs/dimensions"},
-    "artifact_dimensions": {"$ref": "#/$defs/dimensions"}
+    "artifact_dimensions": {"$ref": "#/$defs/dimensions"},
+    "coverage_matrix": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/coverage_row"}
+    },
+    "grouped_coverage": {"$ref": "https://dicom-test-suite.local/schemas/coverage-report.schema.json#/properties/grouped_coverage"}
   },
   "additionalProperties": false,
   "$defs": {
     "count": {"type": "integer", "minimum": 0},
+    "coverage_row": {
+      "type": "object",
+      "required": [
+        "case_id", "status", "nonsquare_variant_id", "nonsquare_pixel_spacing",
+        "nonsquare_nominal_scanned_pixel_spacing", "nonsquare_pixel_aspect_ratio",
+        "nonsquare_uncalibrated", "nonsquare_patient_space_geometry_present",
+        "nonsquare_pixel_data_sha256", "pixel_spacing", "imager_pixel_spacing"
+      ],
+      "properties": {
+        "case_id": {"type": "string", "minLength": 1},
+        "status": {"type": "string", "minLength": 1},
+        "nonsquare_variant_id": {"type": ["string", "null"]},
+        "nonsquare_pixel_spacing": {"type": ["string", "null"]},
+        "nonsquare_nominal_scanned_pixel_spacing": {"type": ["string", "null"]},
+        "nonsquare_pixel_aspect_ratio": {"type": ["string", "null"]},
+        "nonsquare_uncalibrated": {"type": ["boolean", "null"]},
+        "nonsquare_patient_space_geometry_present": {"type": ["boolean", "null"]},
+        "nonsquare_pixel_data_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "pixel_spacing": {"type": ["string", "null"]},
+        "imager_pixel_spacing": {"type": ["string", "null"]}
+      }
+    },
     "groups": {
       "type": "array",
       "items": {

@@ -1,7 +1,10 @@
 //! Pure reporting over validated caller-owned manifest evidence.
 
 use serde_json::{Value, json};
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    path::Path,
+};
 
 pub(crate) fn project(manifest: &Value) -> Result<Value, String> {
     crate::manifest_contract::validate_external_corpus_manifest(manifest)
@@ -15,13 +18,24 @@ pub(crate) fn project(manifest: &Value) -> Result<Value, String> {
             .or_default() += 1;
     }
     let direct = ledger.iter().filter(|r| r["selection"] == "direct").count();
+    let profile = manifest["run"]["profile"].as_str().unwrap();
+    let mut coverage_matrix = Vec::with_capacity(files.len());
+    let mut grouped_coverage = crate::GroupedCoverage::default();
+    for file in files {
+        let row = crate::generated_coverage_row(Path::new("manifest.json"), file, profile)
+            .map_err(|error| error.to_string())?;
+        grouped_coverage.record(&row);
+        coverage_matrix.push(row);
+    }
     Ok(json!({
         "coverage_report_schema_version":"2.0.0", "report_kind":"external_corpus",
         "evidence":{"class":"manifest_projection","validation":"not_assessed","independent_conformance":"not_assessed","payloads_reopened":false},
         "identity_projection":manifest["identity_projection"], "source_manifest":manifest,
         "summary":{"logical_cases":ledger.len(),"direct_cases":direct,"dependency_cases":ledger.len()-direct,"emitted_files":files.len(),"qualifications":manifest["qualifications"].as_array().unwrap().len(),"outcomes":outcomes},
         "case_dimensions":dimensions(ledger.iter().map(|row| (row["case_id"].as_str().unwrap(), &row["case_definition"])), false),
-        "artifact_dimensions":dimensions(files.iter().map(|file| (file["path"].as_str().unwrap(), file)), true)
+        "artifact_dimensions":dimensions(files.iter().map(|file| (file["path"].as_str().unwrap(), file)), true),
+        "coverage_matrix":coverage_matrix,
+        "grouped_coverage":grouped_coverage.to_json()
     }))
 }
 
@@ -99,6 +113,7 @@ pub(crate) fn validate(report: &Value) -> Result<(), String> {
         include_bytes!("../schemas/manifest.schema.json").as_slice(),
         include_bytes!("../schemas/version-result-v2.schema.json").as_slice(),
         include_bytes!("../schemas/case-registry.schema.json").as_slice(),
+        include_bytes!("../schemas/coverage-report.schema.json").as_slice(),
     ] {
         let value: Value = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
         let id = value["$id"].as_str().unwrap().to_owned();

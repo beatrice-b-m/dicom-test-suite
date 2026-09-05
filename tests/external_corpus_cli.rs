@@ -2391,6 +2391,7 @@ fn caller_owned_nonsquare_sc_cli_sdk_strict_and_report_are_identical() {
         &report["result"]["report"],
     );
     generic_nonsquare_sc_bundle::assert_report(&report["result"]["report"]);
+    generic_nonsquare_sc_bundle::assert_report_mutations_fail(&report["result"]["report"]);
     assert_eq!(
         product
             .report(ReportRequest::new(sdk.output_root()))

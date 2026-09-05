@@ -2390,6 +2390,12 @@ partial axes, crossed operations, invalid or overlong DS, invalid or excessive
 IS, duplicate identities/roles/paths/orders, single-artifact definitions and a
 contradictory registry modality.
 
+Follow-up review binds that report2 proof to the actual two-row
+`coverage_matrix`, including all seven nonsquare fields and explicit null
+generic spacing fields, and to all seven dedicated grouped maps while generic
+Pixel/Imager Pixel Spacing maps remain empty. Per-field and per-group mutations
+fail the public proof; the complete source manifest remains separately retained.
+
 Only manifest V2 gains the reusable structural contract. Manifest V1 and the
 frozen legacy assembly namespace remain unchanged. The current embedded
 generator's seed-7 byte-regression SHA-256 values remain

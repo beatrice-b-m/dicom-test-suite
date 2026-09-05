@@ -195,8 +195,10 @@ pub fn assert_report(report: &Value, manifest: &Value) {
         [
             "artifact_dimensions",
             "case_dimensions",
+            "coverage_matrix",
             "coverage_report_schema_version",
             "evidence",
+            "grouped_coverage",
             "identity_projection",
             "report_kind",
             "source_manifest",

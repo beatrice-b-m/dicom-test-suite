@@ -381,7 +381,11 @@ impl CapturedCuratedPlanningContext {
         let templates = TemplateCatalog::load(root.join("templates/catalog.json"))
             .map_err(|error| CuratedPlanError::Catalog(error.to_string()))?;
         let standards_lock_path = root.join("standards.lock.json");
-        let standards_lock_sha256 = sha256_hex(&read(&standards_lock_path)?);
+        let standards_lock_sha256 = sha256_hex(
+            &resources
+                .bytes("standards.lock.json")
+                .map_err(|error| CuratedPlanError::Catalog(error.to_string()))?,
+        );
         let installed_codec_matrix = resources
             .text("transfer-syntax/capability-matrix.json")
             .map_err(|error| CuratedPlanError::Catalog(error.to_string()))?
@@ -4602,7 +4606,11 @@ mod classic_ct_capability_tests {
     }
 
     fn lock_hash() -> String {
-        sha256_hex(&fs::read("standards.lock.json").unwrap())
+        sha256_hex(
+            &crate::engine_resources::EngineResources::embedded()
+                .bytes("standards.lock.json")
+                .unwrap(),
+        )
     }
 
     fn rejected(recipe: &CaseRecipe) {

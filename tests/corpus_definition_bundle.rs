@@ -64,6 +64,33 @@ fn rewrite_registry(root: &Path, registry: &serde_json::Value, manifest: &mut se
 
 const CT_CASE: &str = "classic/ct/mono2_i16_rescale_12bit_explicit_le";
 const DX_CASE: &str = "classic/dx/display_shutter_mono2_u16_explicit_le";
+const MR_CASE: &str = "classic/mr/multislice_oblique_explicit_le";
+
+fn make_mr_caller_owned(recipe: &mut serde_json::Value) {
+    recipe["planning_order"] = 900.into();
+    recipe["projection_order"] = 901.into();
+    recipe["provider_parameters"] = serde_json::json!({
+        "patient": {"patient_name":"CALLER^MR","patient_id":"MR-9","patient_birth_date":"19800102","patient_sex":"O"},
+        "study": {"study_date":"20260905","study_time":"101112","accession_number":"A-9","referring_physician_name":"REF^MR","study_id":"MR-STUDY"},
+        "equipment": {"manufacturer":"Caller","manufacturer_model_name":"MR Model","software_versions":"4"},
+        "acquisition_date":"20260904",
+        "acquisition_time":"131415",
+        "image_type":["DERIVED","SECONDARY"],
+        "acquisition_number":"8",
+        "series_number":"9"
+    });
+    for (index, artifact) in recipe["dicom"]["artifacts"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .enumerate()
+    {
+        artifact["logical_id"] = format!("caller_image_{index}").into();
+        artifact["output"]["role"] = format!("caller_role_{index}").into();
+        artifact["output"]["path"] = format!("series/image-{index}.dcm").into();
+        artifact["parameters"]["instance_number"] = (index + 20).to_string().into();
+    }
+}
 
 fn one_case_bundle(
     name: &str,
@@ -227,6 +254,73 @@ fn external_ct_capability_is_name_independent_and_integrity_bound() {
     let bundle = CorpusDefinitionBundle::load(&legacy).unwrap();
     crate::recipes::RecipeCatalog::from_verified_bundle(&bundle, Path::new(".")).unwrap();
     fs::remove_dir_all(legacy).unwrap();
+}
+
+#[test]
+fn external_mr_capability_is_name_independent_and_registry_bound() {
+    for (name, case_id, recipe_id) in [
+        ("renamed-mr", "caller/series/native", "caller_mr"),
+        (
+            "misleading-mr",
+            "classic/cr/looks-like-radiography",
+            "mr_mono2_u16_rle_lossless",
+        ),
+    ] {
+        let root = one_case_bundle(name, MR_CASE, case_id, recipe_id, make_mr_caller_owned);
+        let bundle = CorpusDefinitionBundle::load(&root).unwrap();
+        let catalog =
+            crate::recipes::RecipeCatalog::from_verified_bundle(&bundle, Path::new(".")).unwrap();
+        assert!(catalog.binding_for_case(case_id).is_some());
+        let root = root.canonicalize().unwrap();
+        let output = root.with_extension("output");
+        crate::sdk::DicomTestSuite::embedded()
+            .unwrap()
+            .generate_corpus(crate::sdk::GenerateCorpusRequest::from_file(
+                root.join("corpus-definition.json"),
+                &root,
+                &output,
+                crate::sdk::CorpusSelector::CaseIds {
+                    profile: "core".into(),
+                    include_stress: false,
+                    case_ids: vec![case_id.into()],
+                },
+            ))
+            .unwrap();
+        let validation = crate::sdk::DicomTestSuite::embedded()
+            .unwrap()
+            .validate(crate::sdk::ValidateRequest::new(&output))
+            .unwrap();
+        assert!(validation.is_valid(), "{validation:?}");
+        assert_eq!(validation.files_checked(), 3);
+        assert!(output.join("series/image-2.dcm").is_file());
+        fs::remove_dir_all(output).unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    assert_one_case_rejected("mr-partial", MR_CASE, "caller/mr/partial", |recipe| {
+        make_mr_caller_owned(recipe);
+        recipe["dicom"]["artifacts"][1]
+            .as_object_mut()
+            .unwrap()
+            .remove("classic_projection");
+    });
+
+    let root = one_case_bundle(
+        "mr-registry-modality",
+        MR_CASE,
+        "caller/mr/wrong-modality",
+        "caller_mr",
+        make_mr_caller_owned,
+    );
+    let mut manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(root.join("corpus-definition.json")).unwrap()).unwrap();
+    let mut registry: serde_json::Value =
+        serde_json::from_slice(&fs::read(root.join("cases/registry.json")).unwrap()).unwrap();
+    registry["cases"][0]["modality"] = "CR".into();
+    rewrite_registry(&root, &registry, &mut manifest);
+    let bundle = CorpusDefinitionBundle::load(&root).unwrap();
+    assert!(crate::recipes::RecipeCatalog::from_verified_bundle(&bundle, Path::new(".")).is_err());
+    fs::remove_dir_all(root).unwrap();
 }
 
 #[test]

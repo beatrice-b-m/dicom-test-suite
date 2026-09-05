@@ -17,6 +17,12 @@ SPEC.loader.exec_module(ROUTER)
 
 
 class ChangeTestRoutingFixtures(unittest.TestCase):
+    def test_generic_mr_proof_routes_to_public_consumer_module(self):
+        for path in ["tests/support/generic_mr_bundle.rs", "tests/fixtures/generic-mr-semantics.json", "tests/fixtures/generic-mr-corpus/definition.json"]:
+            result = self.select(path)
+            self.assertEqual(result["bundle_ids"], ["generic_mr_public_contract"])
+            self.assertEqual(self.commands(result), ["cargo test --locked --no-default-features --test cli_sdk__nonfast external_corpus_cli::"])
+
     def test_isolated_consumer_proof_is_explicit_not_ordinary_execution(self):
         for path in ["scripts/prove-isolated-corpus-consumer.py", "tests/fixtures/isolated-corpus-consumer/main.rs", "tests/test_isolated_corpus_consumer.py"]:
             result = self.select(path)
@@ -715,7 +721,7 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
         process_source = (ROOT / "src/generation_backends/process.rs").read_text(encoding="utf-8")
         self.assertEqual(process_source.count("#[ignore ="), 6)
 
-    def test_corpus_definition_route_lists_all_thirty_owned_tests(self):
+    def test_corpus_definition_route_lists_all_thirty_one_owned_tests(self):
         selected = self.select("tests/corpus_definition_bundle.rs")
         commands = [
             command
@@ -724,7 +730,7 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
         ]
         self.assertEqual(len(commands), 1)
         self.assertEqual(commands[0]["source"], "tests/corpus_definition_bundle.rs")
-        self.assertEqual(commands[0]["list_count"], 30)
+        self.assertEqual(commands[0]["list_count"], 31)
 
         listing = subprocess.check_output(
             [
@@ -739,7 +745,7 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
             for line in listing
             if line.startswith("corpus_definition::tests::") and line.endswith(": test")
         ]
-        self.assertEqual(len(observed), 30)
+        self.assertEqual(len(observed), 31)
         self.assertEqual(len(observed), commands[0]["list_count"])
 
     def test_current_tracked_executable_surfaces_are_routed_or_explicitly_ignored(self):

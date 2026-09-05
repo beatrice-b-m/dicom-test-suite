@@ -6,6 +6,8 @@ mod generic_ct_bundle;
 mod generic_dx_mg_bundle;
 #[path = "support/generic_metadata_sc_bundle.rs"]
 mod generic_metadata_sc_bundle;
+#[path = "support/generic_mr_bundle.rs"]
+mod generic_mr_bundle;
 #[path = "support/generic_pet_bundle.rs"]
 mod generic_pet_bundle;
 #[path = "support/generic_sc_bundle.rs"]
@@ -1689,6 +1691,174 @@ fn caller_named_cr_cli_is_sdk_identical_strictly_valid_and_reported() {
                 &row["source_sha256"],
             );
         }
+    }
+}
+
+#[test]
+fn caller_named_mr_cli_is_sdk_identical_strictly_valid_and_reported() {
+    let f = generic_mr_bundle::GenericMrBundle::new();
+    generic_mr_bundle::assert_identity(&f.identity);
+    let command = |args: &[String]| {
+        let raw = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
+            .args(args)
+            .current_dir(&f.root)
+            .env("PATH", "")
+            .output()
+            .unwrap();
+        assert!(
+            raw.status.success(),
+            "{}",
+            String::from_utf8_lossy(&raw.stderr)
+        );
+        assert!(raw.stderr.is_empty());
+        let value: Value = serde_json::from_slice(&raw.stdout).unwrap();
+        valid("cli-success-envelope.schema.json", &value);
+        value
+    };
+    let product = DicomTestSuite::embedded().unwrap();
+    let assessed = command(&f.selection_args("capabilities"));
+    valid("capabilities-result-v3.schema.json", &assessed["result"]);
+    let sdk_assessment = product
+        .capabilities_with_corpus(
+            InspectCorpusRequest::from_file(&f.descriptor, &f.members)
+                .with_selection(generic_mr_bundle::selector())
+                .with_seed(1)
+                .with_parallelism(4),
+        )
+        .unwrap_or_else(|error| panic!("{}", error.diagnostic()));
+    assert_eq!(
+        assessed["result"],
+        serde_json::to_value(sdk_assessment).unwrap()
+    );
+    generic_mr_bundle::assert_assessment(&assessed["result"]);
+    assert!(!f.root.join("cli-output").exists());
+
+    let mut args = f.selection_args("generate");
+    args.extend(["--out", "cli-output", "--cli-api", "1.0.0"].map(str::to_owned));
+    let generated = command(&args);
+    valid("generation-result-v3.schema.json", &generated["result"]);
+    assert_eq!(generated["result"]["outcome"], "published");
+    assert_eq!(generated["result"]["emitted_file_count"], 3);
+    assert_eq!(generated["result"]["direct_case_count"], 1);
+    assert_eq!(generated["result"]["dependency_case_count"], 0);
+    assert_eq!(generated["result"]["validation_status"], "passed");
+    let cli_raw = fs::read(f.root.join("cli-output/manifest.json")).unwrap();
+    let manifest: Value = serde_json::from_slice(&cli_raw).unwrap();
+    valid("manifest-v2.schema.json", &manifest);
+    generic_mr_bundle::assert_manifest(&manifest, &f.identity);
+    f.assert_closure("cli-output");
+
+    let GenerateCorpusOutcome::Published(sdk) = product
+        .generate_corpus(
+            GenerateCorpusRequest::from_file(
+                &f.descriptor,
+                &f.members,
+                f.root.join("sdk-output"),
+                generic_mr_bundle::selector(),
+            )
+            .with_seed(1)
+            .with_parallelism(4),
+        )
+        .unwrap()
+    else {
+        panic!("caller MR must publish")
+    };
+    assert_eq!(sdk.manifest().deserialize::<Value>().unwrap(), manifest);
+    assert_eq!(
+        sdk.corpus_plan_sha256(),
+        generated["result"]["corpus_plan_sha256"]
+    );
+    assert_eq!(
+        fs::read(sdk.output_root().join("manifest.json")).unwrap(),
+        cli_raw
+    );
+    f.assert_closure("sdk-output");
+    for file in manifest["files"].as_array().unwrap() {
+        let path = file["path"].as_str().unwrap();
+        let cli_path = f.root.join("cli-output").join(path);
+        let sdk_path = sdk.output_root().join(path);
+        assert_eq!(fs::read(&cli_path).unwrap(), fs::read(&sdk_path).unwrap());
+        generic_mr_bundle::assert_payload(&cli_path, &file["size_bytes"], &file["sha256"]);
+        generic_mr_bundle::assert_payload(&sdk_path, &file["size_bytes"], &file["sha256"]);
+    }
+
+    let validation = command(&["validate", "cli-output", "--format", "json"].map(str::to_owned));
+    valid("validation-result.schema.json", &validation["result"]);
+    assert_eq!(validation["result"]["valid"], true);
+    assert_eq!(validation["result"]["files_checked"], 3);
+    assert_eq!(validation["result"]["failures"], json!([]));
+    let sdk_validation = product
+        .validate(ValidateRequest::new(sdk.output_root()))
+        .unwrap();
+    assert!(sdk_validation.is_valid());
+    assert_eq!(sdk_validation.files_checked(), 3);
+
+    let report = command(
+        &[
+            "report",
+            "cli-output",
+            "--format",
+            "json",
+            "--cli-api",
+            "1.0.0",
+        ]
+        .map(str::to_owned),
+    );
+    valid("report-result-v2.schema.json", &report["result"]);
+    valid(
+        "coverage-report-v2.schema.json",
+        &report["result"]["report"],
+    );
+    let report = &report["result"]["report"];
+    assert_eq!(report["source_manifest"], manifest);
+    assert_eq!(report["summary"]["emitted_files"], 3);
+    assert_eq!(
+        report["evidence"],
+        json!({"class":"manifest_projection","validation":"not_assessed","independent_conformance":"not_assessed","payloads_reopened":false})
+    );
+    assert_eq!(
+        product
+            .report(ReportRequest::new(sdk.output_root()))
+            .unwrap()
+            .deserialize::<Value>()
+            .unwrap(),
+        *report
+    );
+
+    // Preserve the accepted embedded three-file payload oracle independently of the
+    // deliberately different caller-owned metadata, pixels, names, and paths above.
+    let oracle = generic_mr_bundle::oracle();
+    let original = Fixture::new();
+    let original_name = "mr-original-core";
+    original.generate(
+        original_name,
+        "core",
+        &[
+            "--seed",
+            "1",
+            "--parallelism",
+            "4",
+            "--case-id",
+            oracle["source_case"].as_str().unwrap(),
+        ],
+    );
+    let original_root = original.0.join("generated").join(original_name);
+    let historical: Value =
+        serde_json::from_slice(&fs::read(original_root.join("manifest.json")).unwrap()).unwrap();
+    let historical_files = historical["files"].as_array().unwrap();
+    let source_rows = oracle["source_files"].as_array().unwrap();
+    assert_eq!(historical_files.len(), 3);
+    assert_eq!(historical["run"]["profile"], "core");
+    for (file, row) in historical_files.iter().zip(source_rows) {
+        assert_eq!(file["case_id"], oracle["source_case"]);
+        assert_eq!(file["path"], row["path"]);
+        assert_eq!(file["size_bytes"], row["size_bytes"]);
+        assert_eq!(file["sha256"], row["sha256"]);
+        generic_mr_bundle::assert_payload(
+            &original_root.join(file["path"].as_str().unwrap()),
+            &row["size_bytes"],
+            &row["sha256"],
+        );
     }
 }
 

@@ -16,10 +16,10 @@ use crate::native_pixel::{
 use crate::uid::{DeterministicUidInput, UidRole, deterministic_uid};
 
 use super::{
-    CLASSIC_PIXEL_SLOT, CaseRecipe, ClassicInstanceRequest, ClassicPixelRequest,
-    CommonModuleRequest, ElementPresence, EquipmentModuleInput, FamilyModuleFragment,
-    FrameOfReferenceModuleInput, ImageModuleInput, PatientModuleInput, SeriesModuleInput,
-    StudyModuleInput,
+    CLASSIC_PIXEL_SLOT, CaseRecipe, ClassicInstanceRequest, ClassicMrProjection,
+    ClassicPixelRequest, ClassicProjectionFamily, CommonModuleRequest, ElementPresence,
+    EquipmentModuleInput, FamilyModuleFragment, FrameOfReferenceModuleInput, ImageModuleInput,
+    PatientModuleInput, SeriesModuleInput, StudyModuleInput,
 };
 
 const PROVIDER_ID: &str = "native.classic_plan";
@@ -28,6 +28,54 @@ const MR_ALGORITHM_ID: &str = "algorithm.classic_mr_cr";
 const CR_ALGORITHM_ID: &str = "algorithm.classic_mr_cr";
 const MR_SOP_CLASS_UID: &str = "1.2.840.10008.5.1.4.1.1.4";
 const CR_SOP_CLASS_UID: &str = "1.2.840.10008.5.1.4.1.1.1";
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MrProviderParameters {
+    pub patient: MrPatientParameters,
+    pub study: MrStudyParameters,
+    pub equipment: MrEquipmentParameters,
+    pub acquisition_date: String,
+    pub acquisition_time: String,
+    pub image_type: Vec<String>,
+    pub acquisition_number: String,
+    pub series_number: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MrPatientParameters {
+    pub patient_name: String,
+    pub patient_id: String,
+    pub patient_birth_date: String,
+    pub patient_sex: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MrStudyParameters {
+    pub study_date: String,
+    pub study_time: String,
+    pub accession_number: String,
+    pub referring_physician_name: String,
+    pub study_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MrEquipmentParameters {
+    pub manufacturer: String,
+    pub manufacturer_model_name: String,
+    pub software_versions: String,
+}
+
+/// Fully decoded MR capability selected without consulting caller identities.
+#[derive(Debug, Clone)]
+pub(crate) struct MrCapability {
+    pub provider: MrProviderParameters,
+    pub mr: ClassicMrProjection,
+    pub artifacts: Vec<MrArtifactParameters>,
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -46,6 +94,354 @@ pub struct MrArtifactParameters {
     pub pixel_min: i64,
     pub pixel_max: i64,
     pub frame_sha256: String,
+}
+
+/// Inspect the complete native MR tuple without interpreting case names,
+/// recipe names, paths, or planning order as provider selectors.
+pub(crate) fn inspect_mr_capability(
+    recipe: &CaseRecipe,
+) -> Result<Option<MrCapability>, ClassicMrCrPlanError> {
+    let Some(dicom) = recipe.dicom.as_ref() else {
+        return Ok(None);
+    };
+    let declared = dicom.artifacts.iter().any(|artifact| {
+        artifact
+            .template
+            .as_ref()
+            .is_some_and(|template| template.template_id == "classic/mr")
+            || artifact
+                .classic_projection
+                .as_ref()
+                .is_some_and(|projection| {
+                    projection.family == ClassicProjectionFamily::MrCr && projection.mr.is_some()
+                })
+    });
+    if !declared {
+        return Ok(None);
+    }
+
+    let transitional = matches!(
+        (recipe.recipe_id.as_str(), recipe.binding.case_id.as_str()),
+        (
+            "mr_multislice_oblique",
+            "classic/mr/multislice_oblique_explicit_le"
+        ) | (
+            "mr_mono2_u16_rle_lossless",
+            "classic/mr/mono2_u16_rle_lossless"
+        )
+    ) && recipe.provider_parameters.is_empty();
+    let provider = if transitional {
+        transitional_mr_provider(recipe)
+    } else {
+        parameters_value(Value::Object(recipe.provider_parameters.clone()))?
+    };
+    if recipe.plan_provider_id != PROVIDER_ID
+        || recipe.kind != super::RecipeKind::Dicom
+        || recipe.mutation.is_some()
+        || recipe.qualification.is_some()
+        || recipe.planning_order.is_none()
+        || recipe.projection_order.is_none()
+        || !recipe.dependencies.is_empty()
+        || recipe.validation_rule_ids != ["validation.shared"]
+        || recipe.projection_rule_ids != ["projection.curated"]
+        || dicom.artifacts.is_empty()
+        || dicom.artifacts.len() > 4096
+        || provider.image_type.is_empty()
+        || provider.image_type.len() > 16
+        || provider.image_type.iter().any(String::is_empty)
+        || provider.acquisition_number.is_empty()
+        || provider.series_number.is_empty()
+        || provider.patient.patient_name.is_empty()
+        || provider.patient.patient_id.is_empty()
+        || provider.patient.patient_birth_date.is_empty()
+        || provider.patient.patient_sex.is_empty()
+        || provider.study.study_date.is_empty()
+        || provider.study.study_time.is_empty()
+        || provider.study.study_id.is_empty()
+        || provider.equipment.manufacturer.is_empty()
+        || provider.equipment.manufacturer_model_name.is_empty()
+        || provider.equipment.software_versions.is_empty()
+        || provider.acquisition_date.is_empty()
+        || provider.acquisition_time.is_empty()
+    {
+        return Err(ClassicMrCrPlanError::Contract("complete native MR tuple"));
+    }
+
+    let mut decoded = Vec::with_capacity(dicom.artifacts.len());
+    let mut shared_mr: Option<ClassicMrProjection> = None;
+    let mut logical_ids = std::collections::BTreeSet::new();
+    let mut roles = std::collections::BTreeSet::new();
+    let mut paths = std::collections::BTreeSet::new();
+    for (expected_order, artifact) in dicom.artifacts.iter().enumerate() {
+        let native_encoding = artifact.encoding.transfer_syntax_uid == "1.2.840.10008.1.2.1"
+            && artifact.encoding.offset_table_policy == "none"
+            && artifact.encoding.fragmentation_policy == "native"
+            && artifact
+                .encoding
+                .non_template_encoding_provider_id
+                .is_none();
+        let transitional_rle = transitional
+            && recipe.recipe_id == "mr_mono2_u16_rle_lossless"
+            && artifact.encoding.transfer_syntax_uid == "1.2.840.10008.1.2.5"
+            && artifact.encoding.offset_table_policy == "populated_basic"
+            && artifact.encoding.fragmentation_policy == "one_per_frame"
+            && artifact
+                .encoding
+                .non_template_encoding_provider_id
+                .as_deref()
+                == Some("encoding.native.rle_lossless");
+        let projection = artifact.classic_projection.as_ref();
+        let mr = projection.and_then(|projection| projection.mr.clone());
+        let path = artifact.output.path.as_ref();
+        if artifact.order as usize != expected_order
+            || artifact.logical_id.is_empty()
+            || !logical_ids.insert(artifact.logical_id.as_str())
+            || artifact.output.role.is_empty()
+            || !roles.insert(artifact.output.role.as_str())
+            || artifact.output.provider_derived == Some(true)
+            || path.is_none()
+            || !paths.insert(path.expect("checked path"))
+            || artifact.public_profile_membership.is_some()
+            || artifact.template.as_ref().is_none_or(|template| {
+                template.template_id != "classic/mr" || template.template_version != "1.0.0"
+            })
+            || artifact.content.provider_id != CONTENT_PROVIDER_ID
+            || !artifact.content.parameters.is_empty()
+            || artifact.algorithm_provider_id.as_deref() != Some(MR_ALGORITHM_ID)
+            || projection.is_none_or(|projection| {
+                projection.family != ClassicProjectionFamily::MrCr
+                    || projection.mr.is_none()
+                    || projection.icc.is_some()
+                    || projection.semantic_labels.is_some()
+                    || !projection.standards_evidence_append.is_empty()
+                    || projection.include_implementation_version_name
+            })
+            || !artifact.attribute_operations.is_empty()
+            || artifact.secondary_capture.is_some()
+            || artifact.metadata_sc.is_some()
+            || artifact.nonsquare_geometry.is_some()
+            || artifact.validation_rule_ids != ["validation.shared"]
+            || artifact.projection_rule_ids != ["projection.curated"]
+            || artifact.encoding.sequence_length_policy != "default"
+            || artifact.encoding.item_length_policy != "default"
+            || artifact.encoding.fragments_per_frame.is_some()
+            || artifact.encoding.preamble_policy.as_deref() != Some("zero_filled")
+            || artifact.encoding.file_meta_policy.as_deref() != Some("standard")
+            || (!native_encoding && !transitional_rle)
+        {
+            return Err(ClassicMrCrPlanError::Contract(
+                "complete native MR artifact tuple",
+            ));
+        }
+        OutputRelativePath::new(path.expect("checked path").clone())?;
+        let mr = mr.expect("checked MR projection");
+        if shared_mr.as_ref().is_some_and(|shared| shared != &mr) {
+            return Err(ClassicMrCrPlanError::Contract(
+                "consistent MR acquisition values",
+            ));
+        }
+        shared_mr.get_or_insert(mr);
+        let item: MrArtifactParameters = parameters(artifact)?;
+        validate_mr_pixels(&item)?;
+        decoded.push(item);
+    }
+    validate_mr_geometry(&decoded)?;
+    let mr = shared_mr.expect("nonempty inspected artifacts");
+    if mr.scanning_sequence.is_empty()
+        || mr.sequence_variant.is_empty()
+        || mr.mr_acquisition_type.is_empty()
+        || mr.repetition_time.is_empty()
+        || mr.echo_time.is_empty()
+        || mr.echo_train_length.is_empty()
+        || mr.magnetic_field_strength.is_empty()
+    {
+        return Err(ClassicMrCrPlanError::Contract(
+            "nonempty MR acquisition values",
+        ));
+    }
+    let finite_nonnegative = |value: &str| {
+        value
+            .parse::<f64>()
+            .is_ok_and(|value| value.is_finite() && value >= 0.0)
+    };
+    if !finite_nonnegative(&mr.repetition_time)
+        || !finite_nonnegative(&mr.echo_time)
+        || !mr
+            .magnetic_field_strength
+            .parse::<f64>()
+            .is_ok_and(|value| value.is_finite() && value > 0.0)
+        || !mr
+            .echo_train_length
+            .parse::<u64>()
+            .is_ok_and(|value| value > 0)
+    {
+        return Err(ClassicMrCrPlanError::Contract(
+            "valid numeric MR acquisition values",
+        ));
+    }
+    Ok(Some(MrCapability {
+        provider,
+        mr,
+        artifacts: decoded,
+    }))
+}
+
+fn transitional_mr_provider(recipe: &CaseRecipe) -> MrProviderParameters {
+    MrProviderParameters {
+        patient: MrPatientParameters {
+            patient_name: "DTS^Synthetic^Patient001".into(),
+            patient_id: "DTS-PATIENT-001".into(),
+            patient_birth_date: "19700101".into(),
+            patient_sex: "O".into(),
+        },
+        study: MrStudyParameters {
+            study_date: "20260101".into(),
+            study_time: "000000".into(),
+            accession_number: String::new(),
+            referring_physician_name: String::new(),
+            study_id: "DTS-MR".into(),
+        },
+        equipment: MrEquipmentParameters {
+            manufacturer: "dicom-test-suite".into(),
+            manufacturer_model_name: recipe.recipe_id.clone(),
+            software_versions: crate::BYTE_STABLE_OUTPUT_VERSION.into(),
+        },
+        acquisition_date: "20260101".into(),
+        acquisition_time: "000000".into(),
+        image_type: vec!["ORIGINAL".into(), "PRIMARY".into()],
+        acquisition_number: "1".into(),
+        series_number: "1".into(),
+    }
+}
+
+fn parameters_value<T: for<'de> Deserialize<'de>>(value: Value) -> Result<T, ClassicMrCrPlanError> {
+    serde_json::from_value(value).map_err(ClassicMrCrPlanError::Parameters)
+}
+
+fn validate_mr_pixels(item: &MrArtifactParameters) -> Result<(), ClassicMrCrPlanError> {
+    let count = item
+        .rows
+        .checked_mul(item.columns)
+        .and_then(|count| usize::try_from(count).ok())
+        .ok_or(ClassicMrCrPlanError::Contract("MR pixel count"))?;
+    if item.rows == 0
+        || item.columns == 0
+        || item.rows > u16::MAX.into()
+        || item.columns > u16::MAX.into()
+        || item.stored_values.len() != count
+        || item
+            .stored_values
+            .iter()
+            .any(|value| !(0..=u16::MAX.into()).contains(value))
+        || item.stored_values.iter().copied().min() != Some(item.pixel_min)
+        || item.stored_values.iter().copied().max() != Some(item.pixel_max)
+    {
+        return Err(ClassicMrCrPlanError::Contract("MR U16 pixel declaration"));
+    }
+    let bytes = item
+        .stored_values
+        .iter()
+        .flat_map(|value| (*value as u16).to_le_bytes())
+        .collect::<Vec<_>>();
+    if crate::sha256_hex(&bytes) != item.frame_sha256 {
+        return Err(ClassicMrCrPlanError::Contract("MR frame hash"));
+    }
+    Ok(())
+}
+
+fn validate_mr_geometry(items: &[MrArtifactParameters]) -> Result<(), ClassicMrCrPlanError> {
+    let first = &items[0];
+    let parse = |values: &[String]| -> Result<Vec<f64>, ClassicMrCrPlanError> {
+        values
+            .iter()
+            .map(|value| {
+                value
+                    .parse::<f64>()
+                    .map_err(|_| ClassicMrCrPlanError::Geometry)
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .and_then(|values| {
+                values
+                    .iter()
+                    .all(|value| value.is_finite())
+                    .then_some(values)
+                    .ok_or(ClassicMrCrPlanError::Geometry)
+            })
+    };
+    if first.pixel_spacing.len() != 2 || first.image_orientation_patient.len() != 6 {
+        return Err(ClassicMrCrPlanError::Geometry);
+    }
+    let spacing = parse(&first.pixel_spacing)?;
+    let orientation = parse(&first.image_orientation_patient)?;
+    if spacing.iter().any(|value| *value <= 0.0) {
+        return Err(ClassicMrCrPlanError::Geometry);
+    }
+    let row = &orientation[..3];
+    let column = &orientation[3..];
+    let dot = row.iter().zip(column).map(|(a, b)| a * b).sum::<f64>();
+    let norm = |v: &[f64]| v.iter().map(|n| n * n).sum::<f64>().sqrt();
+    let normal = [
+        row[1] * column[2] - row[2] * column[1],
+        row[2] * column[0] - row[0] * column[2],
+        row[0] * column[1] - row[1] * column[0],
+    ];
+    if (norm(row) - 1.0).abs() > 1e-5
+        || (norm(column) - 1.0).abs() > 1e-5
+        || dot.abs() > 1e-5
+        || (norm(&normal) - 1.0).abs() > 1e-5
+    {
+        return Err(ClassicMrCrPlanError::Geometry);
+    }
+    let expected_step = first
+        .spacing_between_slices
+        .parse::<f64>()
+        .map_err(|_| ClassicMrCrPlanError::Geometry)?;
+    if !expected_step.is_finite() || expected_step <= 0.0 {
+        return Err(ClassicMrCrPlanError::Geometry);
+    }
+    let slice_thickness = first
+        .slice_thickness
+        .parse::<f64>()
+        .map_err(|_| ClassicMrCrPlanError::Geometry)?;
+    if !slice_thickness.is_finite() || slice_thickness <= 0.0 {
+        return Err(ClassicMrCrPlanError::Geometry);
+    }
+    let mut instance_numbers = std::collections::BTreeSet::new();
+    for (index, item) in items.iter().enumerate() {
+        let instance_number = item
+            .instance_number
+            .parse::<u64>()
+            .map_err(|_| ClassicMrCrPlanError::Geometry)?;
+        if item.pixel_spacing != first.pixel_spacing
+            || item.image_orientation_patient != first.image_orientation_patient
+            || item.slice_thickness != first.slice_thickness
+            || item.spacing_between_slices != first.spacing_between_slices
+            || item.image_position_patient.len() != 3
+            || instance_number == 0
+            || !instance_numbers.insert(instance_number)
+        {
+            return Err(ClassicMrCrPlanError::Geometry);
+        }
+        let position = parse(&item.image_position_patient)?;
+        let projected = position.iter().zip(normal).map(|(a, b)| a * b).sum::<f64>();
+        let slice_location = item
+            .slice_location
+            .parse::<f64>()
+            .map_err(|_| ClassicMrCrPlanError::Geometry)?;
+        if !item.position_along_normal.is_finite()
+            || !slice_location.is_finite()
+            || (projected - item.position_along_normal).abs() > 1e-4
+            || (slice_location - item.position_along_normal).abs() > 1e-4
+            || (index > 0
+                && ((item.position_along_normal - items[index - 1].position_along_normal).abs()
+                    - expected_step)
+                    .abs()
+                    > 1e-4)
+        {
+            return Err(ClassicMrCrPlanError::Geometry);
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -222,12 +618,14 @@ pub fn plan_mr_cr_recipe(
     standards_lock_sha256: &str,
     seed: u64,
 ) -> Result<Option<Vec<ClassicInstanceRequest>>, ClassicMrCrPlanError> {
+    let mr_capability = inspect_mr_capability(recipe)?;
     let native_cr = inspect_cr_capability(recipe)?.is_some();
-    let family = if native_cr {
+    let family = if mr_capability.is_some() {
+        Family::Mr
+    } else if native_cr {
         Family::Cr
     } else {
         match recipe.recipe_id.as_str() {
-            "mr_multislice_oblique" | "mr_mono2_u16_rle_lossless" => Family::Mr,
             "cr_overlay_modality_voi" | "cr_overlay_modality_voi_rle_lossless" => Family::Cr,
             _ => return Ok(None),
         }
@@ -235,22 +633,27 @@ pub fn plan_mr_cr_recipe(
     if recipe.plan_provider_id != PROVIDER_ID {
         return Err(ClassicMrCrPlanError::Contract("plan_provider_id"));
     }
-    let topology = if native_cr {
-        vec![ExpectedArtifact {
+    let topology = if mr_capability.is_some() {
+        None
+    } else if native_cr {
+        Some(vec![ExpectedArtifact {
             logical_id: "instance",
             order: 0,
             path: "",
             transfer_syntax_uid: "1.2.840.10008.1.2.1",
             template_id: "classic/cr",
-        }]
+        }])
     } else {
-        expected_topology(recipe)?
+        Some(expected_topology(recipe)?)
     };
     let dicom = recipe
         .dicom
         .as_ref()
         .ok_or(ClassicMrCrPlanError::Contract("dicom"))?;
-    if dicom.artifacts.len() != topology.len() {
+    if topology
+        .as_ref()
+        .is_some_and(|topology| dicom.artifacts.len() != topology.len())
+    {
         return Err(ClassicMrCrPlanError::Contract("dicom.artifacts topology"));
     }
 
@@ -289,22 +692,24 @@ pub fn plan_mr_cr_recipe(
         role: UidRole::ImplementationClass,
     });
     let mut requests = Vec::with_capacity(dicom.artifacts.len());
-    for (artifact, expected) in dicom.artifacts.iter().zip(topology) {
-        if artifact.content.provider_id != CONTENT_PROVIDER_ID
-            || artifact.algorithm_provider_id.as_deref() != Some(family.algorithm_id())
-            || artifact.output.provider_derived.unwrap_or(false)
-            || artifact.logical_id != expected.logical_id
-            || artifact.order != expected.order
-            || artifact.output.role != expected.logical_id
-            || (!native_cr && artifact.output.path.as_deref() != Some(expected.path))
-            || artifact.encoding.transfer_syntax_uid != expected.transfer_syntax_uid
-            || artifact
-                .template
-                .as_ref()
-                .map(|template| template.template_id.as_str())
-                != Some(expected.template_id)
-        {
-            return Err(ClassicMrCrPlanError::Contract("artifact provider binding"));
+    for (index, artifact) in dicom.artifacts.iter().enumerate() {
+        if let Some(expected) = topology.as_ref().map(|topology| &topology[index]) {
+            if artifact.content.provider_id != CONTENT_PROVIDER_ID
+                || artifact.algorithm_provider_id.as_deref() != Some(family.algorithm_id())
+                || artifact.output.provider_derived.unwrap_or(false)
+                || artifact.logical_id != expected.logical_id
+                || artifact.order != expected.order
+                || artifact.output.role != expected.logical_id
+                || (!native_cr && artifact.output.path.as_deref() != Some(expected.path))
+                || artifact.encoding.transfer_syntax_uid != expected.transfer_syntax_uid
+                || artifact
+                    .template
+                    .as_ref()
+                    .map(|template| template.template_id.as_str())
+                    != Some(expected.template_id)
+            {
+                return Err(ClassicMrCrPlanError::Contract("artifact provider binding"));
+            }
         }
         let output_path = artifact
             .output
@@ -321,26 +726,25 @@ pub fn plan_mr_cr_recipe(
         );
         let (common, family_fragment, pixels) = match family {
             Family::Mr => {
-                let parameters: MrArtifactParameters = parameters(artifact)?;
-                let common = common(
-                    recipe,
-                    "MR",
-                    "DTS-MR",
+                let capability = mr_capability.as_ref().expect("inspected MR capability");
+                let parameters = &capability.artifacts[index];
+                let common = mr_common(
+                    &capability.provider,
                     &study_uid,
                     &series_uid,
-                    frame_uid.as_deref(),
+                    frame_uid.as_deref().expect("MR frame of reference"),
                     &parameters.instance_number,
                 );
-                let fragment = mr_fragment(&parameters)?;
+                let fragment = mr_fragment(&capability.provider, &capability.mr, parameters)?;
                 let pixels = pixel_request(
                     parameters.rows,
                     parameters.columns,
                     StoredValueType::U16,
                     PixelDataVr::Ow,
-                    parameters.stored_values,
+                    parameters.stored_values.clone(),
                     parameters.pixel_min,
                     parameters.pixel_max,
-                    parameters.frame_sha256,
+                    parameters.frame_sha256.clone(),
                 );
                 (common, fragment, pixels)
             }
@@ -415,44 +819,6 @@ fn expected_topology(recipe: &CaseRecipe) -> Result<Vec<ExpectedArtifact>, Class
                 path: "classic/cr/overlay_modality_voi_rle_lossless/instance.dcm",
                 transfer_syntax_uid: RLE,
                 template_id: "classic/cr",
-            }],
-        ),
-        "mr_multislice_oblique" => (
-            502,
-            "classic/mr/multislice_oblique_explicit_le",
-            vec![
-                ExpectedArtifact {
-                    logical_id: "slice_1",
-                    order: 0,
-                    path: "classic/mr/multislice_oblique_explicit_le/slice-001.dcm",
-                    transfer_syntax_uid: LE,
-                    template_id: "classic/mr",
-                },
-                ExpectedArtifact {
-                    logical_id: "slice_2",
-                    order: 1,
-                    path: "classic/mr/multislice_oblique_explicit_le/slice-002.dcm",
-                    transfer_syntax_uid: LE,
-                    template_id: "classic/mr",
-                },
-                ExpectedArtifact {
-                    logical_id: "slice_3",
-                    order: 2,
-                    path: "classic/mr/multislice_oblique_explicit_le/slice-003.dcm",
-                    transfer_syntax_uid: LE,
-                    template_id: "classic/mr",
-                },
-            ],
-        ),
-        "mr_mono2_u16_rle_lossless" => (
-            503,
-            "classic/mr/mono2_u16_rle_lossless",
-            vec![ExpectedArtifact {
-                logical_id: "slice_1",
-                order: 0,
-                path: "classic/mr/mono2_u16_rle_lossless/slice-001.dcm",
-                transfer_syntax_uid: RLE,
-                template_id: "classic/mr",
             }],
         ),
         _ => return Err(ClassicMrCrPlanError::Contract("owned recipe identity")),
@@ -542,7 +908,65 @@ fn common(
     }
 }
 
+fn mr_common(
+    provider: &MrProviderParameters,
+    study_uid: &str,
+    series_uid: &str,
+    frame_uid: &str,
+    instance_number: &str,
+) -> CommonModuleRequest {
+    CommonModuleRequest {
+        patient: PatientModuleInput {
+            specific_character_set: ElementPresence::Omitted,
+            patient_name: value(&provider.patient.patient_name),
+            patient_id: value(&provider.patient.patient_id),
+            patient_birth_date: value(&provider.patient.patient_birth_date),
+            patient_sex: value(&provider.patient.patient_sex),
+        },
+        study: StudyModuleInput {
+            study_instance_uid: study_uid.into(),
+            study_date: value(&provider.study.study_date),
+            study_time: value(&provider.study.study_time),
+            accession_number: empty_or_value(&provider.study.accession_number),
+            referring_physician_name: empty_or_value(&provider.study.referring_physician_name),
+            study_id: value(&provider.study.study_id),
+        },
+        series: SeriesModuleInput {
+            modality: "MR".into(),
+            series_instance_uid: series_uid.into(),
+            series_number: value(&provider.series_number),
+            series_date: ElementPresence::Omitted,
+            series_time: ElementPresence::Omitted,
+        },
+        frame_of_reference: Some(FrameOfReferenceModuleInput {
+            frame_of_reference_uid: frame_uid.into(),
+            position_reference_indicator: ElementPresence::Empty,
+        }),
+        equipment: EquipmentModuleInput {
+            manufacturer: value(&provider.equipment.manufacturer),
+            manufacturer_model_name: value(&provider.equipment.manufacturer_model_name),
+            software_versions: value(&provider.equipment.software_versions),
+        },
+        image: ImageModuleInput {
+            instance_number: value(instance_number),
+            patient_orientation: ElementPresence::Empty,
+            content_date: value(&provider.acquisition_date),
+            content_time: value(&provider.acquisition_time),
+        },
+    }
+}
+
+fn empty_or_value(value_: &str) -> ElementPresence<String> {
+    if value_.is_empty() {
+        ElementPresence::Empty
+    } else {
+        value(value_)
+    }
+}
+
 fn mr_fragment(
+    provider: &MrProviderParameters,
+    mr: &ClassicMrProjection,
     parameters: &MrArtifactParameters,
 ) -> Result<FamilyModuleFragment, ClassicMrCrPlanError> {
     if parameters.pixel_spacing.len() != 2
@@ -557,9 +981,9 @@ fn mr_fragment(
         "mr_image",
         vec![
             set_string("0008,001C", DicomVr::CS, "YES"),
-            set_multi_string("0008,0008", DicomVr::CS, ["ORIGINAL", "PRIMARY"]),
-            set_string("0008,0022", DicomVr::DA, "20260101"),
-            set_string("0008,0032", DicomVr::TM, "000000"),
+            set_multi_string("0008,0008", DicomVr::CS, provider.image_type.clone()),
+            set_string("0008,0022", DicomVr::DA, &provider.acquisition_date),
+            set_string("0008,0032", DicomVr::TM, &provider.acquisition_time),
             set_multi_string("0028,0030", DicomVr::DS, parameters.pixel_spacing.clone()),
             set_multi_string(
                 "0020,0037",
@@ -574,15 +998,19 @@ fn mr_fragment(
             set_string("0018,0050", DicomVr::DS, &parameters.slice_thickness),
             set_string("0018,0088", DicomVr::DS, &parameters.spacing_between_slices),
             set_string("0020,1041", DicomVr::DS, &parameters.slice_location),
-            set_string("0020,0012", DicomVr::IS, "1"),
-            set_string("0018,0020", DicomVr::CS, "SE"),
-            set_string("0018,0021", DicomVr::CS, "NONE"),
-            empty("0018,0022"),
-            set_string("0018,0023", DicomVr::CS, "2D"),
-            set_string("0018,0080", DicomVr::DS, "500"),
-            set_string("0018,0081", DicomVr::DS, "20"),
-            set_string("0018,0091", DicomVr::IS, "1"),
-            set_string("0018,0087", DicomVr::DS, "1.5"),
+            set_string("0020,0012", DicomVr::IS, &provider.acquisition_number),
+            set_string("0018,0020", DicomVr::CS, &mr.scanning_sequence),
+            set_string("0018,0021", DicomVr::CS, &mr.sequence_variant),
+            if mr.scan_options.is_empty() {
+                empty("0018,0022")
+            } else {
+                set_string("0018,0022", DicomVr::CS, &mr.scan_options)
+            },
+            set_string("0018,0023", DicomVr::CS, &mr.mr_acquisition_type),
+            set_string("0018,0080", DicomVr::DS, &mr.repetition_time),
+            set_string("0018,0081", DicomVr::DS, &mr.echo_time),
+            set_string("0018,0091", DicomVr::IS, &mr.echo_train_length),
+            set_string("0018,0087", DicomVr::DS, &mr.magnetic_field_strength),
         ],
     )?)
 }

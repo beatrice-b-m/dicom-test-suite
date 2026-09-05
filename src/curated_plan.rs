@@ -48,7 +48,9 @@ use crate::qualification_plan::{
 };
 use crate::recipes::classic_ct::plan_ct_recipe;
 use crate::recipes::classic_dx_mg::plan_dx_mg_recipe;
-use crate::recipes::classic_mr_cr::{inspect_cr_capability, plan_mr_cr_recipe};
+use crate::recipes::classic_mr_cr::{
+    inspect_cr_capability, inspect_mr_capability, plan_mr_cr_recipe,
+};
 use crate::recipes::classic_nuclear::{
     inspect_pet_capability, inspect_us_capability, plan_nuclear_recipe,
 };
@@ -4569,6 +4571,24 @@ fn classic_requests(
         return Ok((requests, None, None));
     }
     if inspect_cr_capability(recipe)
+        .map_err(|error| CuratedPlanError::ClassicPlan {
+            recipe_id: recipe.recipe_id.clone(),
+            message: error.to_string(),
+        })?
+        .is_some()
+    {
+        let requests = plan_mr_cr_recipe(recipe, standards_lock_sha256, seed)
+            .map_err(|error| CuratedPlanError::ClassicPlan {
+                recipe_id: recipe.recipe_id.clone(),
+                message: error.to_string(),
+            })?
+            .ok_or_else(|| CuratedPlanError::ClassicProviderCardinality {
+                recipe_id: recipe.recipe_id.clone(),
+                matches: 0,
+            })?;
+        return Ok((requests, None, None));
+    }
+    if inspect_mr_capability(recipe)
         .map_err(|error| CuratedPlanError::ClassicPlan {
             recipe_id: recipe.recipe_id.clone(),
             message: error.to_string(),

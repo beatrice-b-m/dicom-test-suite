@@ -1,0 +1,49 @@
+{
+  "case_recipe_schema_version": "0.1.0",
+  "recipe_id": "caller_tilted_series",
+  "recipe_version": "2.3.0",
+  "binding": {"case_id":"caller/volume/tilted-series"},
+  "kind": "dicom",
+  "plan_provider_id": "native.classic_plan",
+  "planning_order": 913,
+  "projection_order": 407,
+  "dependencies": [],
+  "provider_parameters": {
+    "patient": {"patient_name":"PUBLIC^CONTRACT^SUBJECT","patient_id":"PUBLIC-MR-314","patient_birth_date":"19840229","patient_sex":"F"},
+    "study": {"study_date":"20260905","study_time":"142536","accession_number":"ACC-8","referring_physician_name":"READER^SYNTHETIC","study_id":"CALLER-STUDY-22"},
+    "equipment": {"manufacturer":"Independent Synthetic Systems","manufacturer_model_name":"Tilted Volume Model","software_versions":"12.4"},
+    "acquisition_date":"20260904",
+    "acquisition_time":"101112",
+    "image_type":["DERIVED","SECONDARY"],
+    "acquisition_number":"8",
+    "series_number":"44"
+  },
+  "validation_rule_ids": ["validation.shared"],
+  "projection_rule_ids": ["projection.curated"],
+  "dicom": {"artifacts": [
+    {
+      "logical_id":"volume_part_alpha","order":0,"template":{"template_id":"classic/mr","template_version":"1.0.0"},
+      "output":{"role":"acquisition_start","path":"caller-output/tilted-a.dcm"},
+      "encoding":{"transfer_syntax_uid":"1.2.840.10008.1.2.1","sequence_length_policy":"default","item_length_policy":"default","offset_table_policy":"none","fragmentation_policy":"native","preamble_policy":"zero_filled","file_meta_policy":"standard"},
+      "parameters":{"rows":2,"columns":2,"pixel_spacing":["0.8","1.2"],"image_orientation_patient":["0.6","0.8","0","0","0","1"],"image_position_patient":["1.6","-1.2","0"],"slice_thickness":"4.5","spacing_between_slices":"6","slice_location":"2","position_along_normal":2.0,"instance_number":"21","stored_values":[100,500,900,1300],"pixel_min":100,"pixel_max":1300,"frame_sha256":"8af2cfdb6248f106e9aa14b418e41c1167b3e6a688883f2d7c1335ce8f32477f"},
+      "attribute_operations":[],"content":{"provider_id":"content.native_pixels","parameters":{}},"validation_rule_ids":["validation.shared"],"projection_rule_ids":["projection.curated"],"determinism":"byte_stable","stressors":["caller_owned_mr","multi_instance_series","tilted_geometry"],"algorithm_provider_id":"algorithm.classic_mr_cr",
+      "classic_projection":{"family":"mr_cr","expected_capabilities":["open_file","read_metadata","render_native_pixels","sort_series_by_geometry"],"visual_pattern":"caller_u16_three_slice_tilted_stack","standards_evidence_append":[],"mr":{"scanning_sequence":"GR","sequence_variant":"SK","scan_options":"FS","mr_acquisition_type":"3D","repetition_time":"750","echo_time":"17","echo_train_length":"4","magnetic_field_strength":"3"},"include_implementation_version_name":false}
+    },
+    {
+      "logical_id":"volume_part_beta","order":1,"template":{"template_id":"classic/mr","template_version":"1.0.0"},
+      "output":{"role":"acquisition_middle","path":"caller-output/tilted-b.dcm"},
+      "encoding":{"transfer_syntax_uid":"1.2.840.10008.1.2.1","sequence_length_policy":"default","item_length_policy":"default","offset_table_policy":"none","fragmentation_policy":"native","preamble_policy":"zero_filled","file_meta_policy":"standard"},
+      "parameters":{"rows":2,"columns":2,"pixel_spacing":["0.8","1.2"],"image_orientation_patient":["0.6","0.8","0","0","0","1"],"image_position_patient":["6.4","-4.8","0"],"slice_thickness":"4.5","spacing_between_slices":"6","slice_location":"8","position_along_normal":8.0,"instance_number":"7","stored_values":[2000,3000,4000,5000],"pixel_min":2000,"pixel_max":5000,"frame_sha256":"dbb3504a95ad957c896fddd9050b46290a72c29fa236c24810526677b895c609"},
+      "attribute_operations":[],"content":{"provider_id":"content.native_pixels","parameters":{}},"validation_rule_ids":["validation.shared"],"projection_rule_ids":["projection.curated"],"determinism":"byte_stable","stressors":["caller_owned_mr","multi_instance_series","tilted_geometry"],"algorithm_provider_id":"algorithm.classic_mr_cr",
+      "classic_projection":{"family":"mr_cr","expected_capabilities":["open_file","read_metadata","render_native_pixels","sort_series_by_geometry"],"visual_pattern":"caller_u16_three_slice_tilted_stack","standards_evidence_append":[],"mr":{"scanning_sequence":"GR","sequence_variant":"SK","scan_options":"FS","mr_acquisition_type":"3D","repetition_time":"750","echo_time":"17","echo_train_length":"4","magnetic_field_strength":"3"},"include_implementation_version_name":false}
+    },
+    {
+      "logical_id":"volume_part_gamma","order":2,"template":{"template_id":"classic/mr","template_version":"1.0.0"},
+      "output":{"role":"acquisition_end","path":"caller-output/tilted-c.dcm"},
+      "encoding":{"transfer_syntax_uid":"1.2.840.10008.1.2.1","sequence_length_policy":"default","item_length_policy":"default","offset_table_policy":"none","fragmentation_policy":"native","preamble_policy":"zero_filled","file_meta_policy":"standard"},
+      "parameters":{"rows":2,"columns":2,"pixel_spacing":["0.8","1.2"],"image_orientation_patient":["0.6","0.8","0","0","0","1"],"image_position_patient":["11.2","-8.4","0"],"slice_thickness":"4.5","spacing_between_slices":"6","slice_location":"14","position_along_normal":14.0,"instance_number":"99","stored_values":[65500,64000,32000,16000],"pixel_min":16000,"pixel_max":65500,"frame_sha256":"d8fadb2ae552bd68883810fff9075a6568c9284298fbd9f7f04465ec24dab9bc"},
+      "attribute_operations":[],"content":{"provider_id":"content.native_pixels","parameters":{}},"validation_rule_ids":["validation.shared"],"projection_rule_ids":["projection.curated"],"determinism":"byte_stable","stressors":["caller_owned_mr","multi_instance_series","tilted_geometry"],"algorithm_provider_id":"algorithm.classic_mr_cr",
+      "classic_projection":{"family":"mr_cr","expected_capabilities":["open_file","read_metadata","render_native_pixels","sort_series_by_geometry"],"visual_pattern":"caller_u16_three_slice_tilted_stack","standards_evidence_append":[],"mr":{"scanning_sequence":"GR","sequence_variant":"SK","scan_options":"FS","mr_acquisition_type":"3D","repetition_time":"750","echo_time":"17","echo_train_length":"4","magnetic_field_strength":"3"},"include_implementation_version_name":false}
+    }
+  ]}
+}

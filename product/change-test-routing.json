@@ -16,6 +16,9 @@
     "unrouted_lib_groups": "All-configured-ordinary runs only list-proven representative lib prefixes; remaining ordinary lib groups stay explicit deferred evidence."
   },
   "bundles": {
+    "generic_mr_public_contract": {
+      "commands": [{"target": "cli_sdk__nonfast", "module": "external_corpus_cli"}]
+    },
     "generic_vl_photo_public_contract": {
       "commands": [{"target": "cli_sdk__nonfast", "module": "external_corpus_cli"}]
     },
@@ -121,7 +124,7 @@
     },
     "corpus_definition_internal": {
       "commands": [
-        {"kind": "lib", "module": "corpus_definition::tests", "source": "tests/corpus_definition_bundle.rs", "list_count": 30}
+        {"kind": "lib", "module": "corpus_definition::tests", "source": "tests/corpus_definition_bundle.rs", "list_count": 31}
       ]
     },
     "engine": {
@@ -210,6 +213,12 @@
     }
   },
   "rules": [
+    {
+      "id": "generic-mr-public-contract",
+      "exact": ["tests/support/generic_mr_bundle.rs", "tests/fixtures/generic-mr-semantics.json"],
+      "prefixes": ["tests/fixtures/generic-mr-corpus/"],
+      "bundles": ["generic_mr_public_contract"]
+    },
     {
       "id": "generic-vl-photo-public-contract",
       "exact": ["tests/support/generic_vl_photo_bundle.rs", "tests/fixtures/generic-vl-photo-semantics.json"],

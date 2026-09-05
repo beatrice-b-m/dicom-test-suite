@@ -14,7 +14,7 @@ use crate::recipes::classic_ct::{
     ClassicCtArtifactParameters, ClassicCtInstanceNumber, ClassicCtProviderParameters,
 };
 use crate::recipes::classic_dx_mg::DxMgArtifactParameters;
-use crate::recipes::classic_mr_cr::{CrArtifactParameters, MrArtifactParameters};
+use crate::recipes::classic_mr_cr::{CrArtifactParameters, inspect_mr_capability};
 use crate::recipes::classic_nuclear::{
     ClassicNuclearArtifactParameters, ClassicNuclearPixels, ClassicNuclearProviderParameters,
 };
@@ -366,24 +366,22 @@ fn dx_mg(ctx: &CuratedArtifactProjectionContext) -> Result<Facts, CuratedManifes
 }
 
 fn mr_cr(ctx: &CuratedArtifactProjectionContext) -> Result<Facts, CuratedManifestError> {
-    if ctx.registry_case.modality.as_deref() == Some("MR") {
-        let a: MrArtifactParameters = artifact(ctx)?;
-        let mr = ctx
-            .artifact_recipe
-            .classic_projection
-            .as_ref()
-            .and_then(|value| value.mr.as_ref())
-            .ok_or_else(|| err("missing classic MR projection contract"))?;
+    if let Some(capability) = inspect_mr_capability(&ctx.case_recipe)
+        .map_err(|error| err(format!("invalid classic MR capability: {error}")))?
+    {
+        let a = capability
+            .artifacts
+            .get(ctx.artifact_recipe.order as usize)
+            .ok_or_else(|| err("classic MR artifact order is out of range"))?;
+        let mr = &capability.mr;
         let slice_count = ctx
             .case_recipe
             .dicom
             .as_ref()
             .map(|value| value.artifacts.len())
             .unwrap_or(1);
-        let slice_order_index = a
-            .instance_number
-            .parse::<usize>()
-            .map_err(|error| err(format!("invalid MR instance number: {error}")))?;
+        let slice_order_index = ctx.artifact_recipe.order as usize + 1;
+        let image_type = capability.provider.image_type.join("\\");
         Ok(Facts {
             recipe: json!({"rows":a.rows,"columns":a.columns,"samples_per_pixel":1,"photometric_interpretation":"MONOCHROME2","bits_allocated":16,"bits_stored":16,"high_bit":15,"pixel_representation":0,"pixel_values":a.stored_values,"geometry":{"pixel_spacing":joined(&a.pixel_spacing),"image_orientation_patient":joined(&a.image_orientation_patient),"image_position_patient":joined(&a.image_position_patient),"slice_thickness":a.slice_thickness,"spacing_between_slices":a.spacing_between_slices,"slice_location":a.slice_location,"position_along_normal":a.position_along_normal,"slice_count":slice_count,"slice_order_index":slice_order_index},"mr":mr}),
             image: image(
@@ -397,7 +395,7 @@ fn mr_cr(ctx: &CuratedArtifactProjectionContext) -> Result<Facts, CuratedManifes
                 0,
                 None,
             ),
-            semantics: json!({"synthetic_data":"YES","image_type":"ORIGINAL\\PRIMARY","pixel_min":a.pixel_min,"pixel_max":a.pixel_max,"geometry_sort_key":{"image_orientation_patient":joined(&a.image_orientation_patient),"position_along_normal":a.position_along_normal,"slice_order_index":slice_order_index},"series_instance_count":slice_count,"shared_study_series_frame_of_reference":true}),
+            semantics: json!({"synthetic_data":"YES","image_type":image_type,"pixel_min":a.pixel_min,"pixel_max":a.pixel_max,"geometry_sort_key":{"image_orientation_patient":joined(&a.image_orientation_patient),"position_along_normal":a.position_along_normal,"slice_order_index":slice_order_index},"series_instance_count":slice_count,"shared_study_series_frame_of_reference":true}),
             specials: Map::new(),
         })
     } else {

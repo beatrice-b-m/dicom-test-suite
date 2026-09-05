@@ -1,0 +1,25 @@
+{
+  "corpus_definition_bundle_schema_version": "1.0.0",
+  "definition_id": "fixture.generic-mr",
+  "definition_version": "1.0.0",
+  "profiles": [
+    {"profile_id":"smoke","scope":"valid","members":[]},
+    {"profile_id":"core","scope":"valid","members":["caller/volume/tilted-series"]},
+    {"profile_id":"extended","scope":"valid","members":[]},
+    {"profile_id":"legacy","scope":"legacy","members":[]},
+    {"profile_id":"stress","scope":"stress","members":[]},
+    {"profile_id":"negative","scope":"expected_invalid","members":[]},
+    {"profile_id":"fuzz","scope":"fuzz","members":[]},
+    {"profile_id":"all","scope":"valid","union_of":["smoke","core","extended"],"optional_profile":"stress","members":[]}
+  ],
+  "registry": {"path":"cases/registry.json","size_bytes":2578,"sha256":"179849a3fbd7652a8b8dba7a26be7e4bf0568a31a86c2f070e18f990c62c8b0a"},
+  "cases": [{
+    "case_id":"caller/volume/tilted-series",
+    "recipe_id":"caller_tilted_series",
+    "recipe_version":"2.3.0",
+    "recipe":{"path":"cases/recipes/caller_tilted_series.json","size_bytes":6283,"sha256":"1653dcdf6a2cdb4bb607605d35716de1082c97ae55ee1f81958ca43e8f0afe19"},
+    "dependencies":[],"evidence_ids":[],"asset_ids":[]
+  }],
+  "evidence": [],
+  "assets": []
+}

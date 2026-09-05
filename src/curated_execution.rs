@@ -53,9 +53,7 @@ use crate::negative::classify_negative_parser_probe;
 use crate::negative_plan::NEGATIVE_PARSER_RULE_ID;
 use crate::recipes::classic_ct::{ClassicCtArtifactParameters, ClassicCtProviderParameters};
 use crate::recipes::classic_dx_mg::{DxMgArtifactParameters, DxMgFamily};
-use crate::recipes::classic_mr_cr::{
-    CrArtifactParameters, MrArtifactParameters, inspect_cr_capability,
-};
+use crate::recipes::classic_mr_cr::{CrArtifactParameters, inspect_mr_capability};
 use crate::recipes::classic_nuclear::{
     ClassicNuclearArtifactParameters, ClassicNuclearProviderParameters,
 };
@@ -4083,17 +4081,19 @@ fn validate_classic_part10(
             )
         }
         Some("algorithm.classic_mr_cr")
-            if context
-                .case_recipe
-                .binding
-                .case_id
-                .starts_with("classic/mr/")
-                && inspect_cr_capability(&context.case_recipe)
-                    .map_err(|error| service_error("validation", error))?
-                    .is_none() =>
+            if inspect_mr_capability(&context.case_recipe)
+                .map_err(|error| service_error("validation", error))?
+                .is_some() =>
         {
-            let item: MrArtifactParameters = serde_json::from_value(parameters)
-                .map_err(|error| service_error("validation", error))?;
+            let capability = inspect_mr_capability(&context.case_recipe)
+                .map_err(|error| service_error("validation", error))?
+                .expect("matched inspected MR capability");
+            let item = capability
+                .artifacts
+                .get(context.artifact_recipe.order as usize)
+                .ok_or_else(|| {
+                    ServiceInvocationError::new("validation", "MR artifact order is out of range")
+                })?;
             let frame_of_reference_uid = plan
                 .identities
                 .get(&CompositionUidRole::FrameOfReference, 0)
@@ -4103,6 +4103,7 @@ fn validate_classic_part10(
             let pixel_spacing = item.pixel_spacing.join("\\");
             let orientation = item.image_orientation_patient.join("\\");
             let position = item.image_position_patient.join("\\");
+            let image_type = capability.provider.image_type.join("\\");
             let slice_count = context
                 .case_recipe
                 .dicom
@@ -4136,23 +4137,23 @@ fn validate_classic_part10(
                     expected.mr_image = Some(MrImageExpectations {
                         modality: "MR",
                         frame_of_reference_uid,
-                        image_type: "ORIGINAL\\PRIMARY",
+                        image_type: &image_type,
                         instance_number: &item.instance_number,
-                        acquisition_number: "1",
+                        acquisition_number: &capability.provider.acquisition_number,
                         pixel_spacing: &pixel_spacing,
                         image_orientation_patient: &orientation,
                         image_position_patient: &position,
                         slice_thickness: &item.slice_thickness,
                         spacing_between_slices: &item.spacing_between_slices,
                         slice_location: &item.slice_location,
-                        scanning_sequence: "SE",
-                        sequence_variant: "NONE",
-                        scan_options: "",
-                        mr_acquisition_type: "2D",
-                        repetition_time: "500",
-                        echo_time: "20",
-                        echo_train_length: "1",
-                        magnetic_field_strength: "1.5",
+                        scanning_sequence: &capability.mr.scanning_sequence,
+                        sequence_variant: &capability.mr.sequence_variant,
+                        scan_options: &capability.mr.scan_options,
+                        mr_acquisition_type: &capability.mr.mr_acquisition_type,
+                        repetition_time: &capability.mr.repetition_time,
+                        echo_time: &capability.mr.echo_time,
+                        echo_train_length: &capability.mr.echo_train_length,
+                        magnetic_field_strength: &capability.mr.magnetic_field_strength,
                         slice_order_index,
                         slice_count,
                         position_along_normal: item.position_along_normal,

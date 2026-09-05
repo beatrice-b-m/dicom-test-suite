@@ -4,9 +4,9 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 277,
-    "rust_test_entries": 1498,
+    "rust_test_entries": 1502,
     "integration_source_groups": 189,
-    "integration_test_entries": 928,
+    "integration_test_entries": 931,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
   },
   "enums": {
@@ -544,16 +544,18 @@
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 6,
+      "entry_count": 8,
       "entries": [
         "mr_oblique_plan_preserves_exact_order_geometry_pixels_and_identities",
         "mr_rle_reuses_exact_native_object_plan",
+        "mr_capability_uses_caller_names_metadata_mr_values_paths_and_pixels",
+        "mr_capability_rejects_crossed_partial_and_inconsistent_series",
         "cr_plan_contains_exact_overlay_and_lut_sequences",
         "provider_rejects_unknown_parameters_hash_drift_and_order_collisions",
         "planning_is_output_free_and_source_has_no_generator_or_writer_dependency",
         "non_owned_recipe_is_ignored"
       ],
-      "entry_digest": "1fc973a342230df45937b441f52bab401d391f81c3fd7f0bf83fa57056668c21"
+      "entry_digest": "58aa5a5af46abea9b4e9bacdb5a683979780867f3e9980e9b17f4cab5227c651"
     },
     {
       "source": "tests/classic_nuclear_plan.rs",
@@ -1272,9 +1274,10 @@
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 30,
+      "entry_count": 31,
       "entries": [
         "external_ct_capability_is_name_independent_and_integrity_bound",
+        "external_mr_capability_is_name_independent_and_registry_bound",
         "external_ct_capability_is_fail_closed_without_broadening_classic_names",
         "external_dx_mg_capability_is_name_independent_and_fail_closed",
         "external_cr_capability_is_name_independent_and_fail_closed",
@@ -1305,7 +1308,7 @@
         "negative_and_fuzz_dependencies_cannot_cross_legacy_or_stress_boundaries",
         "excessive_undeclared_inventory_fails_without_buffering_all_names"
       ],
-      "entry_digest": "bdb21d4a22393566403c84eff44882fb8cc0b14d4ad07d4608f0d84296d6ca41"
+      "entry_digest": "7850898b64efbde7bebfb97da27c789efa60e1cd92231f358b4d61c43297dbb4"
     },
     {
       "source": "tests/corpus_plan.rs",
@@ -1852,7 +1855,7 @@
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 15,
+      "entry_count": 16,
       "entries": [
         "loaded_capabilities_are_verified_destination_free_and_sdk_consistent",
         "caller_named_ct_cli_is_sdk_identical_strictly_valid_and_reported",
@@ -1865,12 +1868,13 @@
         "corpus_option_looking_value_does_not_select_external_dispatch",
         "caller_named_sc_cli_is_sdk_identical_strictly_valid_and_reported",
         "caller_named_cr_cli_is_sdk_identical_strictly_valid_and_reported",
+        "caller_named_mr_cli_is_sdk_identical_strictly_valid_and_reported",
         "caller_named_us_cli_is_sdk_identical_strictly_valid_and_reported",
         "caller_named_pet_cli_is_sdk_identical_strictly_valid_and_reported",
         "caller_named_xa_xrf_cli_is_sdk_identical_strictly_valid_and_reported",
         "caller_named_vl_photo_cli_is_sdk_identical_strictly_valid_and_reported"
       ],
-      "entry_digest": "7ea0ee455d73388521108b5000835a547ac8743ae66ffd4c079802b12d30a370"
+      "entry_digest": "302de96cdb449e4a4e9ce815ddc1204b1fb807dc2e56562c065d7769e3a87252"
     },
     {
       "source": "tests/frame_codec_service.rs",

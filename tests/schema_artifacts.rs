@@ -1376,6 +1376,56 @@ fn manifest_schema_types_nonsquare_spacing_variants() {
 }
 
 #[test]
+fn manifest_v2_schema_types_caller_owned_nonsquare_spacing_variants() {
+    let schema = read_json("schemas/manifest-v2.schema.json");
+    let expectation_schema = serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$ref": "#/$defs/expected_nonsquare_spacing",
+        "$defs": {
+            "expected_nonsquare_spacing": schema["$defs"]["expected_nonsquare_spacing"].clone(),
+            "expected_nonsquare_pixel_spacing": schema["$defs"]["expected_nonsquare_pixel_spacing"].clone(),
+            "expected_nonsquare_nominal_scanned_pixel_spacing": schema["$defs"]["expected_nonsquare_nominal_scanned_pixel_spacing"].clone(),
+            "expected_nonsquare_pixel_aspect_ratio": schema["$defs"]["expected_nonsquare_pixel_aspect_ratio"].clone()
+        },
+    });
+    let validator = jsonschema::validator_for(&expectation_schema)
+        .expect("generic non-square spacing expectation schema should compile");
+    let mut spacing = nonsquare_spacing_expectation("pixel_spacing");
+    for axis in ["pixel_spacing", "nominal_scanned_pixel_spacing"] {
+        spacing[axis]["lexical_value"] = serde_json::json!("1.2\\0.6");
+        spacing[axis]["row_spacing_mm"] = serde_json::json!(1.2);
+        spacing[axis]["column_spacing_mm"] = serde_json::json!(0.6);
+    }
+    let mut aspect = nonsquare_spacing_expectation("pixel_aspect_ratio");
+    aspect["pixel_aspect_ratio"]["lexical_value"] = serde_json::json!("6\\3");
+    aspect["pixel_aspect_ratio"]["vertical_extent"] = serde_json::json!(6);
+    aspect["pixel_aspect_ratio"]["horizontal_extent"] = serde_json::json!(3);
+    assert!(validator.is_valid(&spacing));
+    assert!(validator.is_valid(&aspect));
+
+    let mut long_ds = spacing.clone();
+    long_ds["pixel_spacing"]["lexical_value"] = serde_json::json!("12345678901234567\\1");
+    assert!(!validator.is_valid(&long_ds));
+    let mut zero_ds = spacing.clone();
+    zero_ds["pixel_spacing"]["row_spacing_mm"] = serde_json::json!(0);
+    assert!(!validator.is_valid(&zero_ds));
+    let mut zero_is = aspect.clone();
+    zero_is["pixel_aspect_ratio"]["horizontal_extent"] = serde_json::json!(0);
+    assert!(!validator.is_valid(&zero_is));
+    let mut excessive_is = aspect.clone();
+    excessive_is["pixel_aspect_ratio"]["vertical_extent"] = serde_json::json!(2_147_483_648_u64);
+    assert!(!validator.is_valid(&excessive_is));
+    let mut crossed = spacing;
+    crossed["pixel_aspect_ratio"] = aspect["pixel_aspect_ratio"].clone();
+    assert!(!validator.is_valid(&crossed));
+
+    assert_eq!(
+        schema.pointer("/$defs/external_file/properties/expected_nonsquare_spacing/$ref"),
+        Some(&serde_json::json!("#/$defs/expected_nonsquare_spacing"))
+    );
+}
+
+#[test]
 fn manifest_schema_locks_nonsquare_case_image_and_pixel_contract() {
     let schema = read_json("schemas/manifest.schema.json");
     let rule = schema

@@ -559,6 +559,10 @@ pub fn validate_nonsquare_round_trip(
     path: &Path,
     artifact: &PlannedArtifactRecipe,
 ) -> Result<(TypedValidationCheck, MetadataObservation), CuratedValidationError> {
+    let geometry = artifact
+        .nonsquare_geometry
+        .as_ref()
+        .ok_or_else(|| fail(path, "missing typed nonsquare geometry"))?;
     let expected = |tag: &str| -> Option<Vec<String>> {
         artifact.attribute_operations.iter().find_map(|operation| {
             (operation.operation == "set" && operation.tag == tag)
@@ -569,7 +573,7 @@ pub fn validate_nonsquare_round_trip(
     validate_nonsquare_spec(
         path,
         &NonsquareValidationSpec {
-            variant_id: artifact.logical_id.clone(),
+            variant_id: geometry.variant_id.clone(),
             pixel_spacing: expected("0028,0030"),
             nominal_scanned_pixel_spacing: expected("0018,2010"),
             pixel_aspect_ratio: expected("0028,0034"),

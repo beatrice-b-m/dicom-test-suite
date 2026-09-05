@@ -4,9 +4,9 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 277,
-    "rust_test_entries": 1510,
+    "rust_test_entries": 1513,
     "integration_source_groups": 189,
-    "integration_test_entries": 936,
+    "integration_test_entries": 938,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
   },
   "enums": {
@@ -1276,7 +1276,7 @@
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 33,
+      "entry_count": 34,
       "entries": [
         "caller_owned_us_multiframe_fixture_is_admitted_by_structure",
         "caller_owned_nm_multiframe_fixture_is_admitted_by_structure",
@@ -1288,6 +1288,7 @@
         "external_native_projection_capabilities_are_name_independent_and_fail_closed",
         "external_metadata3_capability_is_name_independent_and_fail_closed",
         "external_sc_capability_is_bounded_name_independent_and_fail_closed",
+        "external_nonsquare_sc_capability_is_name_independent_and_fail_closed",
         "minimal_bundle_loads_with_stable_exact_byte_identity",
         "manifest_bytes_are_identity_bearing",
         "explicit_descriptor_inputs_are_equivalent_relocatable_and_output_free",
@@ -1312,7 +1313,7 @@
         "negative_and_fuzz_dependencies_cannot_cross_legacy_or_stress_boundaries",
         "excessive_undeclared_inventory_fails_without_buffering_all_names"
       ],
-      "entry_digest": "e450fb2bd6504f402c03e1c1d19ca2fbdf590be49069018881d55b406968912f"
+      "entry_digest": "708b12dc7efa3937a16fd6717eec6262b615114480335f9555ccbd03fcd41db9"
     },
     {
       "source": "tests/corpus_plan.rs",
@@ -1859,7 +1860,7 @@
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 18,
+      "entry_count": 19,
       "entries": [
         "loaded_capabilities_are_verified_destination_free_and_sdk_consistent",
         "caller_named_ct_cli_is_sdk_identical_strictly_valid_and_reported",
@@ -1876,11 +1877,12 @@
         "caller_named_us_cli_is_sdk_identical_strictly_valid_and_reported",
         "caller_owned_us_multiframe_cli_sdk_and_report_are_identical",
         "caller_owned_nm_multiframe_cli_sdk_and_report_are_identical",
+        "caller_owned_nonsquare_sc_cli_sdk_strict_and_report_are_identical",
         "caller_named_pet_cli_is_sdk_identical_strictly_valid_and_reported",
         "caller_named_xa_xrf_cli_is_sdk_identical_strictly_valid_and_reported",
         "caller_named_vl_photo_cli_is_sdk_identical_strictly_valid_and_reported"
       ],
-      "entry_digest": "c4f562e61d14b24cf7c23ae52e121704d6d323583f5d8eefcb7ab93cdfca24f8"
+      "entry_digest": "8272366a204a46a6c92d587fa6f53b8ef317ab9e1ac49838d23a2942cf5f69c1"
     },
     {
       "source": "tests/frame_codec_service.rs",
@@ -2746,7 +2748,7 @@
       "domain": "schema_resources",
       "verification_class": "fast",
       "cost_tier": "ordinary",
-      "entry_count": 74,
+      "entry_count": 75,
       "entries": [
         "committed_schema_files_are_parseable_json_schema_documents",
         "committed_schema_files_compile",
@@ -2769,6 +2771,7 @@
         "manifest_schema_types_private_creator_block_expectations",
         "manifest_schema_types_sequence_length_encoding_expectations",
         "manifest_schema_types_nonsquare_spacing_variants",
+        "manifest_v2_schema_types_caller_owned_nonsquare_spacing_variants",
         "manifest_schema_locks_nonsquare_case_image_and_pixel_contract",
         "manifest_schema_types_nuclear_medicine_multiframe_expectations",
         "manifest_v2_schema_types_caller_owned_nuclear_medicine_multiframe",
@@ -2823,7 +2826,7 @@
         "manifest_schema_types_exact_rt_radiation_set_expectations",
         "manifest_schema_scopes_second_generation_rt_expectations_to_their_cases"
       ],
-      "entry_digest": "3ac7470e801c8e9e626a379796361c36ddcd84280772082a3274b8f4097bcf56",
+      "entry_digest": "74d585cd382819ffac278d9f783a9204235937e9c6bbee6c1fea025aea640ee8",
       "fast_cost_exemption": "Static JSON Schema validation; WSI names do not generate a corpus."
     },
     {
@@ -3913,7 +3916,7 @@
         "mutation_of_an_internal_shared_root_fails_closed_on_reuse",
         "one_handle_reuses_one_tree_across_batch_generate_validate_report_and_compose"
       ],
-      "entry_digest": "c54991c42bfb0a23719a7daac65061ea0bb990863695f9529fb8a0cfe18b8232"
+      "entry_digest": "ce5c6abdc20f04d227cddffb1cb9b47633aca79a26cf39ac4e0b7fb17924dc08"
     },
     {
       "source": "src/executor/evidence.rs",
@@ -4240,7 +4243,7 @@
         "cargo_lock_perturbation_changes_only_toolchain_and_legacy_provenance",
         "external_runtime_identity_requires_successful_typed_execution_evidence"
       ],
-      "entry_digest": "825a445c6f4fd3b399d5af43d710616fc33e00d965fcb589c7b476b0eea2377a"
+      "entry_digest": "dae18d95143f06e5b0442fae109ebf076ee65f8c30e03a5128d2770903e140e3"
     },
     {
       "source": "src/lib.rs",
@@ -4346,7 +4349,7 @@
         "dependency_graph_is_closed_acyclic_and_reachable",
         "runtime_ids_remain_unique"
       ],
-      "entry_digest": "c7312d1c282d5419ec343ba629dc8322adf7272185f72e5193a21cb3276d3dfc"
+      "entry_digest": "8c97b6e6456b09607c66bc92ca177afc4d7554e48647dfa7217ac79e5297427e"
     },
     {
       "source": "src/media.rs",

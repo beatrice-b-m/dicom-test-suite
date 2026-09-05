@@ -708,10 +708,16 @@ mod external_manifest_contract_tests {
             json!("#/$defs/expected_us_multiframe");
         expected["properties"]["expected_nm_multiframe"]["$ref"] =
             json!("#/$defs/expected_nm_multiframe");
+        expected["properties"]["expected_nonsquare_spacing"]["$ref"] =
+            json!("#/$defs/expected_nonsquare_spacing");
         expected["allOf"]
             .as_array_mut()
             .unwrap()
             .push(external["$defs"]["external_file"]["allOf"][1].clone());
+        expected["allOf"]
+            .as_array_mut()
+            .unwrap()
+            .push(external["$defs"]["external_file"]["allOf"][2].clone());
         assert_eq!(external["$defs"]["external_file"], expected);
         assert_eq!(
             external["properties"]["files"]["items"]["$ref"],
@@ -742,7 +748,11 @@ mod external_manifest_contract_tests {
             "expected_nm_multiframe": external["$defs"]["expected_nm_multiframe"].clone(),
             "expected_nm_energy_window": external["$defs"]["expected_nm_energy_window"].clone(),
             "expected_nm_detector": external["$defs"]["expected_nm_detector"].clone(),
-            "expected_nm_frame_dimension": external["$defs"]["expected_nm_frame_dimension"].clone()
+            "expected_nm_frame_dimension": external["$defs"]["expected_nm_frame_dimension"].clone(),
+            "expected_nonsquare_spacing": external["$defs"]["expected_nonsquare_spacing"].clone(),
+            "expected_nonsquare_pixel_spacing": external["$defs"]["expected_nonsquare_pixel_spacing"].clone(),
+            "expected_nonsquare_nominal_scanned_pixel_spacing": external["$defs"]["expected_nonsquare_nominal_scanned_pixel_spacing"].clone(),
+            "expected_nonsquare_pixel_aspect_ratio": external["$defs"]["expected_nonsquare_pixel_aspect_ratio"].clone()
         });
         let generic_validator = jsonschema::options()
             .with_resource(

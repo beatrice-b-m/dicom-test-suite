@@ -1378,7 +1378,6 @@ fn external_sc_capability_is_bounded_name_independent_and_fail_closed() {
         "classic/sc/mono2_u8_multiframe_rle_lossless",
         "classic/sc/mono2_u1_native",
         "classic/sc/mono2_u32_explicit_le",
-        "classic/sc/nonsquare_pixel_spacing",
         "encapsulation/sc/eot_single_fragment_multiframe",
     ]
     .into_iter()
@@ -1401,6 +1400,124 @@ fn external_sc_capability_is_bounded_name_independent_and_fail_closed() {
             |_| {},
         );
     }
+}
+
+#[test]
+fn external_nonsquare_sc_capability_is_name_independent_and_fail_closed() {
+    const SOURCE: &str = "classic/sc/nonsquare_pixel_spacing";
+    let make_unrelated = |recipe: &mut serde_json::Value| {
+        recipe["planning_order"] = 943.into();
+        recipe["projection_order"] = 917.into();
+        let artifacts = recipe["dicom"]["artifacts"].as_array_mut().unwrap();
+        artifacts[0]["order"] = 1.into();
+        artifacts[0]["logical_id"] = "looks_like_aspect_ratio".into();
+        artifacts[0]["output"]["role"] = "caller_physical_grid".into();
+        artifacts[0]["output"]["path"] = "unrelated/z-measured.dcm".into();
+        artifacts[1]["order"] = 0.into();
+        artifacts[1]["logical_id"] = "looks_like_pixel_spacing".into();
+        artifacts[1]["output"]["role"] = "caller_display_ratio".into();
+        artifacts[1]["output"]["path"] = "unrelated/a-ratio.dcm".into();
+    };
+    for (name, case_id, recipe_id) in [
+        (
+            "nonsquare-renamed",
+            "caller/geometry/independent",
+            "caller_rectangles",
+        ),
+        (
+            "nonsquare-misleading",
+            "classic/us/looks-like-cine",
+            "caller_pixel_aspect_ratio",
+        ),
+    ] {
+        let root = one_case_bundle(name, SOURCE, case_id, recipe_id, make_unrelated);
+        let bundle = CorpusDefinitionBundle::load(&root).unwrap();
+        let catalog =
+            crate::recipes::RecipeCatalog::from_verified_bundle(&bundle, Path::new(".")).unwrap();
+        assert!(catalog.binding_for_case(case_id).is_some());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    for mutation in 0..16 {
+        assert_one_case_rejected(
+            &format!("nonsquare-invalid-{mutation}"),
+            SOURCE,
+            "caller/geometry/invalid",
+            |recipe| {
+                make_unrelated(recipe);
+                let artifacts = recipe["dicom"]["artifacts"].as_array_mut().unwrap();
+                match mutation {
+                    0 => {
+                        artifacts.pop();
+                    }
+                    1 => artifacts[1]["order"] = artifacts[0]["order"].clone(),
+                    2 => artifacts[1]["logical_id"] = artifacts[0]["logical_id"].clone(),
+                    3 => artifacts[1]["output"]["path"] = artifacts[0]["output"]["path"].clone(),
+                    4 => {
+                        artifacts[0]
+                            .as_object_mut()
+                            .unwrap()
+                            .remove("nonsquare_geometry");
+                    }
+                    5 => artifacts[0]["nonsquare_geometry"]["calibrated"] = true.into(),
+                    6 => {
+                        artifacts[0]["nonsquare_geometry"]["patient_space_geometry_present"] =
+                            true.into()
+                    }
+                    7 => artifacts[0]["nonsquare_geometry"]["row_to_column_ratio"] = 3.into(),
+                    8 => artifacts[0]["nonsquare_geometry"]["pixel_spacing"][0] = "0".into(),
+                    9 => {
+                        artifacts[0]["nonsquare_geometry"]["pixel_spacing"][0] =
+                            "12345678901234567".into()
+                    }
+                    10 => {
+                        artifacts[0]["nonsquare_geometry"]["nominal_scanned_pixel_spacing"][0] =
+                            "1.3".into()
+                    }
+                    11 => {
+                        artifacts[0]["nonsquare_geometry"]["pixel_aspect_ratio"] =
+                            serde_json::json!([2, 1])
+                    }
+                    12 => artifacts[0]["attribute_operations"][0]["tag"] = "0018,1164".into(),
+                    13 => artifacts[1]["nonsquare_geometry"]["pixel_aspect_ratio"][1] = 0.into(),
+                    14 => {
+                        artifacts[1]["nonsquare_geometry"]["pixel_aspect_ratio"][0] =
+                            2_147_483_648_u64.into()
+                    }
+                    _ => {
+                        artifacts[1]["nonsquare_geometry"] =
+                            artifacts[0]["nonsquare_geometry"].clone();
+                        artifacts[1]["attribute_operations"] =
+                            artifacts[0]["attribute_operations"].clone();
+                    }
+                }
+            },
+        );
+    }
+
+    let root = one_case_bundle(
+        "nonsquare-registry-modality",
+        SOURCE,
+        "caller/geometry/wrong-modality",
+        "caller_rectangles",
+        make_unrelated,
+    );
+    let mut descriptor: serde_json::Value =
+        serde_json::from_slice(&fs::read(root.join("corpus-definition.json")).unwrap()).unwrap();
+    let mut registry: serde_json::Value =
+        serde_json::from_slice(&fs::read(root.join("cases/registry.json")).unwrap()).unwrap();
+    registry["cases"][0]["modality"] = "US".into();
+    rewrite_registry(&root, &registry, &mut descriptor);
+    let bundle = CorpusDefinitionBundle::load(&root).unwrap();
+    let error =
+        crate::recipes::RecipeCatalog::from_verified_bundle(&bundle, Path::new(".")).unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("registry modality contradicts nonsquare SC capability"),
+        "{error}"
+    );
+    fs::remove_dir_all(root).unwrap();
 }
 
 #[test]

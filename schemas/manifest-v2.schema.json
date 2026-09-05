@@ -366,6 +366,66 @@
       },
       "additionalProperties": false
     },
+    "expected_nonsquare_pixel_spacing": {
+      "type": "object",
+      "required": ["tag", "keyword", "vr", "vm", "lexical_value", "row_spacing_mm", "column_spacing_mm"],
+      "properties": {
+        "tag": { "const": "0028,0030" },
+        "keyword": { "const": "PixelSpacing" },
+        "vr": { "const": "DS" },
+        "vm": { "const": 2 },
+        "lexical_value": { "type": "string", "allOf": [{ "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?\\\\(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$" }, { "pattern": "^[^\\\\]{1,16}\\\\[^\\\\]{1,16}$" }] },
+        "row_spacing_mm": { "type": "number", "exclusiveMinimum": 0 },
+        "column_spacing_mm": { "type": "number", "exclusiveMinimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "expected_nonsquare_nominal_scanned_pixel_spacing": {
+      "type": "object",
+      "required": ["tag", "keyword", "vr", "vm", "lexical_value", "row_spacing_mm", "column_spacing_mm"],
+      "properties": {
+        "tag": { "const": "0018,2010" },
+        "keyword": { "const": "NominalScannedPixelSpacing" },
+        "vr": { "const": "DS" },
+        "vm": { "const": 2 },
+        "lexical_value": { "type": "string", "allOf": [{ "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?\\\\(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$" }, { "pattern": "^[^\\\\]{1,16}\\\\[^\\\\]{1,16}$" }] },
+        "row_spacing_mm": { "type": "number", "exclusiveMinimum": 0 },
+        "column_spacing_mm": { "type": "number", "exclusiveMinimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "expected_nonsquare_pixel_aspect_ratio": {
+      "type": "object",
+      "required": ["tag", "keyword", "vr", "vm", "lexical_value", "vertical_extent", "horizontal_extent"],
+      "properties": {
+        "tag": { "const": "0028,0034" },
+        "keyword": { "const": "PixelAspectRatio" },
+        "vr": { "const": "IS" },
+        "vm": { "const": 2 },
+        "lexical_value": { "type": "string", "pattern": "^[1-9][0-9]*\\\\[1-9][0-9]*$" },
+        "vertical_extent": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+        "horizontal_extent": { "type": "integer", "minimum": 1, "maximum": 2147483647 }
+      },
+      "additionalProperties": false
+    },
+    "expected_nonsquare_spacing": {
+      "type": "object",
+      "required": ["variant_id", "pixel_spacing", "nominal_scanned_pixel_spacing", "pixel_aspect_ratio", "uncalibrated", "patient_space_geometry_present", "pixel_data_sha256"],
+      "properties": {
+        "variant_id": { "enum": ["pixel_spacing", "pixel_aspect_ratio"] },
+        "pixel_spacing": { "anyOf": [{ "$ref": "#/$defs/expected_nonsquare_pixel_spacing" }, { "type": "null" }] },
+        "nominal_scanned_pixel_spacing": { "anyOf": [{ "$ref": "#/$defs/expected_nonsquare_nominal_scanned_pixel_spacing" }, { "type": "null" }] },
+        "pixel_aspect_ratio": { "anyOf": [{ "$ref": "#/$defs/expected_nonsquare_pixel_aspect_ratio" }, { "type": "null" }] },
+        "uncalibrated": { "const": true },
+        "patient_space_geometry_present": { "const": false },
+        "pixel_data_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      },
+      "additionalProperties": false,
+      "oneOf": [
+        { "properties": { "variant_id": { "const": "pixel_spacing" }, "pixel_spacing": { "$ref": "#/$defs/expected_nonsquare_pixel_spacing" }, "nominal_scanned_pixel_spacing": { "$ref": "#/$defs/expected_nonsquare_nominal_scanned_pixel_spacing" }, "pixel_aspect_ratio": { "type": "null" } } },
+        { "properties": { "variant_id": { "const": "pixel_aspect_ratio" }, "pixel_spacing": { "type": "null" }, "nominal_scanned_pixel_spacing": { "type": "null" }, "pixel_aspect_ratio": { "$ref": "#/$defs/expected_nonsquare_pixel_aspect_ratio" } } }
+      ]
+    },
     "external_file": {
       "type": "object",
       "required": [
@@ -527,7 +587,7 @@
           "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_icc_profile"
         },
         "expected_nonsquare_spacing": {
-          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_nonsquare_spacing"
+          "$ref": "#/$defs/expected_nonsquare_spacing"
         },
         "expected_tid1500": {
           "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_tid1500"
@@ -765,6 +825,10 @@
               }
             }
           }
+        },
+        {
+          "if": { "required": ["expected_nonsquare_spacing"] },
+          "then": { "required": ["image", "pixel_data"] }
         }
       ]
     }

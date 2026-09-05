@@ -10,6 +10,8 @@ mod generic_metadata_sc_bundle;
 mod generic_mr_bundle;
 #[path = "support/generic_nm_multiframe_bundle.rs"]
 mod generic_nm_multiframe_bundle;
+#[path = "support/generic_nonsquare_sc_bundle.rs"]
+mod generic_nonsquare_sc_bundle;
 #[path = "support/generic_pet_bundle.rs"]
 mod generic_pet_bundle;
 #[path = "support/generic_sc_bundle.rs"]
@@ -2282,6 +2284,141 @@ fn caller_owned_nm_multiframe_cli_sdk_and_report_are_identical() {
             .failures()
             .iter()
             .any(|failure| failure.contains("nm_pixel_spacing_type2"))
+    );
+}
+
+#[test]
+fn caller_owned_nonsquare_sc_cli_sdk_strict_and_report_are_identical() {
+    let f = generic_nonsquare_sc_bundle::GenericNonsquareScBundle::new();
+    let command = |args: &[String]| {
+        let raw = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
+            .args(args)
+            .current_dir(&f.root)
+            .env("PATH", "")
+            .output()
+            .unwrap();
+        assert!(
+            raw.status.success(),
+            "{}",
+            String::from_utf8_lossy(&raw.stderr)
+        );
+        assert!(raw.stderr.is_empty());
+        let value: Value = serde_json::from_slice(&raw.stdout).unwrap();
+        valid("cli-success-envelope.schema.json", &value);
+        value
+    };
+    let product = DicomTestSuite::embedded().unwrap();
+    let capabilities = command(&f.args("capabilities", None));
+    assert_eq!(
+        capabilities["result"]["loaded_corpus"]["assessment"]["selector"]["case_ids"],
+        json!(["caller/geometry/independent-rectangles"])
+    );
+
+    let cli = command(&f.args("generate", Some("cli-output")));
+    valid("generation-result-v3.schema.json", &cli["result"]);
+    assert_eq!(cli["result"]["validation_status"], "passed");
+    assert_eq!(cli["result"]["emitted_file_count"], 2);
+    let cli_manifest_bytes = fs::read(f.root.join("cli-output/manifest.json")).unwrap();
+    let cli_manifest: Value = serde_json::from_slice(&cli_manifest_bytes).unwrap();
+    valid("manifest-v2.schema.json", &cli_manifest);
+    generic_nonsquare_sc_bundle::assert_manifest(&cli_manifest);
+    for (file, row) in cli_manifest["files"].as_array().unwrap().iter().zip(
+        generic_nonsquare_sc_bundle::oracle()["caller"]["files"]
+            .as_array()
+            .unwrap(),
+    ) {
+        generic_nonsquare_sc_bundle::assert_payload(
+            &f.root
+                .join("cli-output")
+                .join(file["path"].as_str().unwrap()),
+            row,
+        );
+    }
+
+    let GenerateCorpusOutcome::Published(sdk) = product
+        .generate_corpus(
+            GenerateCorpusRequest::from_file(
+                &f.descriptor,
+                &f.members,
+                f.root.join("sdk-output"),
+                generic_nonsquare_sc_bundle::selector(),
+            )
+            .with_seed(1)
+            .with_parallelism(4),
+        )
+        .unwrap()
+    else {
+        panic!("caller-owned nonsquare SC must publish")
+    };
+    assert_eq!(sdk.manifest().deserialize::<Value>().unwrap(), cli_manifest);
+    assert_eq!(
+        fs::read(sdk.output_root().join("manifest.json")).unwrap(),
+        cli_manifest_bytes
+    );
+    for file in cli_manifest["files"].as_array().unwrap() {
+        let path = file["path"].as_str().unwrap();
+        assert_eq!(
+            fs::read(sdk.output_root().join(path)).unwrap(),
+            fs::read(f.root.join("cli-output").join(path)).unwrap()
+        );
+    }
+
+    let validation = command(&["validate", "cli-output", "--format", "json"].map(str::to_owned));
+    valid("validation-result.schema.json", &validation["result"]);
+    assert_eq!(validation["result"]["valid"], true);
+    assert_eq!(validation["result"]["files_checked"], 2);
+    assert!(
+        product
+            .validate(ValidateRequest::new(sdk.output_root()))
+            .unwrap()
+            .is_valid()
+    );
+
+    let report = command(
+        &[
+            "report",
+            "cli-output",
+            "--format",
+            "json",
+            "--cli-api",
+            "1.0.0",
+        ]
+        .map(str::to_owned),
+    );
+    valid("report-result-v2.schema.json", &report["result"]);
+    valid(
+        "coverage-report-v2.schema.json",
+        &report["result"]["report"],
+    );
+    generic_nonsquare_sc_bundle::assert_report(&report["result"]["report"]);
+    assert_eq!(
+        product
+            .report(ReportRequest::new(sdk.output_root()))
+            .unwrap()
+            .deserialize::<Value>()
+            .unwrap(),
+        report["result"]["report"]
+    );
+
+    let mut tampered = cli_manifest;
+    tampered["files"][0]["expected_nonsquare_spacing"]["pixel_spacing"]["lexical_value"] =
+        json!("9.0\\4.5");
+    fs::write(
+        f.root.join("cli-output/manifest.json"),
+        serde_json::to_vec_pretty(&tampered).unwrap(),
+    )
+    .unwrap();
+    let validation = product
+        .validate(ValidateRequest::new(f.root.join("cli-output")))
+        .unwrap();
+    assert!(!validation.is_valid());
+    assert!(
+        validation
+            .failures()
+            .iter()
+            .any(|failure| failure.contains("nonsquare_pixel_spacing")),
+        "{:?}",
+        validation.failures()
     );
 }
 

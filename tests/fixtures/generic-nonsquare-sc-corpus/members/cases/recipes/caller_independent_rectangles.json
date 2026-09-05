@@ -1,0 +1,53 @@
+{
+  "case_recipe_schema_version": "0.1.0",
+  "recipe_id": "caller_independent_rectangles",
+  "recipe_version": "0.1.0",
+  "binding": {"case_id": "caller/geometry/independent-rectangles"},
+  "kind": "dicom",
+  "plan_provider_id": "native.sc_plan",
+  "planning_order": 943,
+  "projection_order": 917,
+  "dependencies": [],
+  "provider_parameters": {},
+  "validation_rule_ids": ["validation.sc.pixel", "validation.sc.geometry"],
+  "projection_rule_ids": ["projection.curated"],
+  "dicom": {
+    "artifacts": [
+      {
+        "logical_id": "physical_grid",
+        "order": 0,
+        "template": {"template_id":"classic/secondary-capture/monochrome","template_version":"1.0.0"},
+        "output": {"role":"measured_rectangle","path":"caller-space/measured-grid.dcm"},
+        "encoding": {"transfer_syntax_uid":"1.2.840.10008.1.2.1","sequence_length_policy":"default","item_length_policy":"default","offset_table_policy":"none","fragmentation_policy":"native","preamble_policy":"zero_filled","file_meta_policy":"standard"},
+        "parameters": {},
+        "secondary_capture": {"rows":3,"columns":4,"frames":1,"samples_per_pixel":1,"photometric_interpretation":"MONOCHROME2","bits_allocated":8,"bits_stored":8,"high_bit":7,"pixel_representation":0,"pixel_data_vr":"OB","stored_value_type":"u8","stored_values":[0,1,2,3,4,5,6,7,8,9,10,11],"frame_sha256":["fff3a9bcdd37363d703c1c4f9512533686157868f0d4f16a0f02d0f1da24f9a2"],"visual_pattern":"caller_3x4_ramp","semantic_note":"caller-owned 2:1 physical spacing","pixel_min":0,"pixel_max":11},
+        "nonsquare_geometry": {"variant_id":"pixel_spacing","pixel_spacing":["1.2","0.6"],"nominal_scanned_pixel_spacing":["1.2","0.6"],"row_to_column_ratio":2.0,"calibrated":false,"patient_space_geometry_present":false},
+        "attribute_operations": [
+          {"operation":"set","tag":"0028,0030","vr":"DS","value":"1.2\\0.6"},
+          {"operation":"set","tag":"0018,2010","vr":"DS","value":"1.2\\0.6"}
+        ],
+        "content": {"provider_id":"content.sc.pixel_pattern","parameters":{}},
+        "validation_rule_ids": ["validation.sc.pixel", "validation.sc.geometry"],
+        "projection_rule_ids": ["projection.curated"],
+        "determinism": "byte_stable",
+        "stressors": ["native_ob_pixel_data", "nonsquare_pixel_geometry"]
+      },
+      {
+        "logical_id": "display_shape",
+        "order": 1,
+        "template": {"template_id":"classic/secondary-capture/monochrome","template_version":"1.0.0"},
+        "output": {"role":"ratio_rectangle","path":"caller-space/display-ratio.dcm"},
+        "encoding": {"transfer_syntax_uid":"1.2.840.10008.1.2.1","sequence_length_policy":"default","item_length_policy":"default","offset_table_policy":"none","fragmentation_policy":"native","preamble_policy":"zero_filled","file_meta_policy":"standard"},
+        "parameters": {},
+        "secondary_capture": {"rows":3,"columns":4,"frames":1,"samples_per_pixel":1,"photometric_interpretation":"MONOCHROME2","bits_allocated":8,"bits_stored":8,"high_bit":7,"pixel_representation":0,"pixel_data_vr":"OB","stored_value_type":"u8","stored_values":[11,10,9,8,7,6,5,4,3,2,1,0],"frame_sha256":["fabff30883aac31048a8a5ac6a2eeb7c421b9f0dc1f2221e87d5df15f403bac7"],"visual_pattern":"caller_3x4_reverse_ramp","semantic_note":"caller-owned 2:1 pixel aspect ratio","pixel_min":0,"pixel_max":11},
+        "nonsquare_geometry": {"variant_id":"pixel_aspect_ratio","pixel_aspect_ratio":[6,3],"row_to_column_ratio":2.0,"calibrated":false,"patient_space_geometry_present":false},
+        "attribute_operations": [{"operation":"set","tag":"0028,0034","vr":"IS","value":"6\\3"}],
+        "content": {"provider_id":"content.sc.pixel_pattern","parameters":{}},
+        "validation_rule_ids": ["validation.sc.pixel", "validation.sc.geometry"],
+        "projection_rule_ids": ["projection.curated"],
+        "determinism": "byte_stable",
+        "stressors": ["native_ob_pixel_data", "nonsquare_pixel_geometry"]
+      }
+    ]
+  }
+}

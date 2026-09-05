@@ -30,6 +30,7 @@ use super::registration::{
     REGISTRATION_ALGORITHM_PROVIDER_ID, REGISTRATION_PLAN_PROVIDER_ID, RegistrationProviderInput,
     RegistrationSourceInput, registration_input_from_recipe, validate_registration_recipe,
 };
+use super::sc::inspect_nonsquare_sc_capability;
 use super::wsi::{
     WSI_ADVANCED_PROVIDER_ID, WSI_ALGORITHM_PROVIDER_ID, WsiPlanRecipe, wsi_input_from_recipe,
 };
@@ -1509,7 +1510,10 @@ fn validate_secondary_capture_contract(
             ));
         }
     }
-    let bounded = is_name_independent_sc(recipe);
+    let bounded = is_name_independent_sc(recipe)
+        || inspect_nonsquare_sc_capability(recipe)
+            .map_err(|error| semantic(path, format!("invalid nonsquare SC capability: {error}")))?
+            .is_some();
     if recipe.plan_provider_id == "native.sc_plan"
         && !bounded
         && !recipe.binding.case_id.starts_with("classic/sc/")
@@ -1708,6 +1712,22 @@ fn validate_registry_bindings(
             && (validate_secondary_capture_contract(Path::new(&recipe.recipe_id), recipe)?
                 || case.case_id.starts_with("classic/sc/")
                 || case.case_id == "encapsulation/sc/eot_single_fragment_multiframe");
+        let name_independent_nonsquare_sc = inspect_nonsquare_sc_capability(recipe)
+            .map_err(|error| RecipeCatalogError::Completeness {
+                message: format!(
+                    "{} has invalid nonsquare SC capability: {error}",
+                    case.case_id
+                ),
+            })?
+            .is_some();
+        if name_independent_nonsquare_sc && case.modality.as_deref() != Some("OT") {
+            return Err(RecipeCatalogError::Completeness {
+                message: format!(
+                    "{} registry modality contradicts nonsquare SC capability",
+                    case.case_id
+                ),
+            });
+        }
         let migrated_exceptional_sc = recipe.plan_provider_id == "native.exceptional_sc_plan"
             && expected_kind == RecipeKind::Dicom
             && case.case_id.starts_with("classic/sc/")

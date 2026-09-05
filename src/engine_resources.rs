@@ -13,9 +13,9 @@ include!(concat!(env!("OUT_DIR"), "/embedded_engine_resources.rs"));
 
 pub const ENGINE_RESOURCE_SET_VERSION: &str = "2.0.0";
 pub const ENGINE_RESOURCE_COUNT_V2: usize = 81;
-pub const ENGINE_RESOURCE_TOTAL_BYTES_V2: u64 = 1_524_675;
+pub const ENGINE_RESOURCE_TOTAL_BYTES_V2: u64 = 1_528_469;
 pub const ENGINE_RESOURCE_SHA256_V2: &str =
-    "648a9b004f6c09715860e45ae2f7397b48189cd68fe67a09ac32233a5d5bf82c";
+    "86ce3e22a4b9a0a6481238e0add473eb6cb3ebc3d09a67c3db587ecc0a118fc9";
 pub const TRANSITIONAL_ENGINE_RESOURCE_COUNT_V1: usize = 240;
 pub const TRANSITIONAL_ENGINE_RESOURCE_SHA256_V1: &str =
     "dc61cc012f983297fef864f68e6cd172a9d33ac9ad4faab4cc66d3526b688410";
@@ -685,9 +685,9 @@ mod snapshot_cache_tests {
         let elapsed = started.elapsed();
         assert_eq!(first.root(), second.root());
         assert_eq!(first.root(), third.root());
-        assert_eq!(file_inventory(first.root()), (261, 2_937_933));
+        assert_eq!(file_inventory(first.root()), (261, 2_941_727));
         eprintln!(
-            "current_snapshot operations=3 roots=1 files_written=261 bytes_written=2937933 elapsed_us={}",
+            "current_snapshot operations=3 roots=1 files_written=261 bytes_written=2941727 elapsed_us={}",
             elapsed.as_micros()
         );
     }
@@ -766,7 +766,7 @@ mod snapshot_cache_tests {
         );
         assert!(!failed_root.expect("writer observed snapshot root").exists());
         let snapshot = resources.shared_snapshot().unwrap();
-        assert_eq!(file_inventory(snapshot.root()), (261, 2_937_933));
+        assert_eq!(file_inventory(snapshot.root()), (261, 2_941_727));
     }
 
     #[test]
@@ -851,7 +851,7 @@ mod snapshot_cache_tests {
             resources.shared_snapshot().unwrap().root(),
             shared_root.as_path()
         );
-        assert_eq!(file_inventory(&shared_root), (261, 2_937_933));
+        assert_eq!(file_inventory(&shared_root), (261, 2_941_727));
 
         fs::remove_dir_all(workspace).unwrap();
     }

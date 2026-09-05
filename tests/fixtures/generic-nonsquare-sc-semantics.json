@@ -1,0 +1,45 @@
+{
+  "oracle_version": "1.0.0",
+  "historical_source": {
+    "case_id": "classic/sc/nonsquare_pixel_spacing",
+    "part10_sha256": [
+      "50f897625dcc489d212a81674086d1183569d6e0ac7a847d55afc8dd599276d4",
+      "dc330a2b51d1381d943e5ba0f50086114eb95102852228e7ffcb62e0bdec93b9"
+    ]
+  },
+  "caller": {
+    "case_id": "caller/geometry/independent-rectangles",
+    "recipe_id": "caller_independent_rectangles",
+    "identity": {
+      "schema_version": "1.0.0",
+      "definition_id": "fixture.generic-nonsquare-sc",
+      "definition_version": "1.0.0",
+      "file_count": 3,
+      "total_size_bytes": 6561,
+      "manifest_sha256": "c4e3ad6850e6734009179d55c3789a4d6ac0c96ef71eb62294ff54e033ddb9b4",
+      "corpus_definition_sha256": "382035020435a0b35bc3eb3e6eb53fac677024bf57c8d5717881d71749c6b85b"
+    },
+    "files": [
+      {
+        "logical_id": "physical_grid",
+        "role": "measured_rectangle",
+        "path": "caller-space/measured-grid.dcm",
+        "size_bytes": 994,
+        "sha256": "f83729139ce1816833d7b71b09feb70ab185982027b0116a3bed4c4a54fb467a",
+        "pixel_data_sha256": "fff3a9bcdd37363d703c1c4f9512533686157868f0d4f16a0f02d0f1da24f9a2",
+        "variant_id": "pixel_spacing",
+        "lexical_value": "1.2\\0.6"
+      },
+      {
+        "logical_id": "display_shape",
+        "role": "ratio_rectangle",
+        "path": "caller-space/display-ratio.dcm",
+        "size_bytes": 974,
+        "sha256": "033201dfc02493cec1317ececba22afefdaf3afba7614a9898c07033bd3cbf13",
+        "pixel_data_sha256": "fabff30883aac31048a8a5ac6a2eeb7c421b9f0dc1f2221e87d5df15f403bac7",
+        "variant_id": "pixel_aspect_ratio",
+        "lexical_value": "6\\3"
+      }
+    ]
+  }
+}

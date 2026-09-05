@@ -7153,6 +7153,16 @@ fn validate_nonsquare_spacing_manifest_contract(
     if kind == manifest_contract::ManifestContractKind::ExternalCorpus && contract.is_none() {
         return Ok(());
     }
+    if kind == manifest_contract::ManifestContractKind::ExternalCorpus {
+        return validate_external_nonsquare_spacing_manifest_contract(
+            failures,
+            relative_path,
+            manifest_path,
+            contract.expect("external contract presence checked"),
+            obj,
+            pixel_bytes,
+        );
+    }
     if kind != manifest_contract::ManifestContractKind::ExternalCorpus && case_id != CASE_ID {
         if contract.is_some() {
             failures.push(format!(
@@ -7428,6 +7438,246 @@ fn validate_nonsquare_spacing_manifest_contract(
         validate_element_absent(failures, relative_path, obj, tag, check);
     }
 
+    Ok(())
+}
+
+fn validate_external_nonsquare_spacing_manifest_contract(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    manifest_path: &Path,
+    contract: &Value,
+    obj: &OpenedObject,
+    pixel_bytes: &[u8],
+) -> Result<(), ValidateError> {
+    let variant_id = manifest_str(
+        manifest_path,
+        contract,
+        "/variant_id",
+        "expected_nonsquare_spacing variant_id must be a string",
+    )?;
+    if contract.get("uncalibrated").and_then(Value::as_bool) != Some(true)
+        || contract
+            .get("patient_space_geometry_present")
+            .and_then(Value::as_bool)
+            != Some(false)
+    {
+        failures.push(format!(
+            "{relative_path}: nonsquare_geometry_scope: caller geometry must be uncalibrated and omit patient-space geometry"
+        ));
+    }
+    validate_equal(
+        failures,
+        relative_path,
+        "nonsquare_pixel_data_sha256",
+        manifest_str(
+            manifest_path,
+            contract,
+            "/pixel_data_sha256",
+            "nonsquare pixel_data_sha256 must be a string",
+        )?,
+        sha256_hex(pixel_bytes).as_str(),
+    );
+
+    let mut read_spacing = |field: &str| -> Result<(Vec<String>, [f64; 2]), ValidateError> {
+        let pointer = format!("/{field}");
+        let value = contract
+            .pointer(&pointer)
+            .filter(|value| value.is_object())
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "nonsquare spacing field must be an object",
+            })?;
+        let lexical = value.get("lexical_value").and_then(Value::as_str).ok_or(
+            ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "nonsquare spacing lexical_value must be a string",
+            },
+        )?;
+        let parts = lexical.split('\\').map(str::to_owned).collect::<Vec<_>>();
+        if parts.len() != 2 || parts.iter().any(|part| part.is_empty() || part.len() > 16) {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "nonsquare spacing must contain two bounded DS values",
+            });
+        }
+        let numbers = parts
+            .iter()
+            .map(|part| {
+                part.parse::<f64>()
+                    .ok()
+                    .filter(|value| value.is_finite() && *value > 0.0)
+            })
+            .collect::<Option<Vec<_>>>()
+            .ok_or(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "nonsquare spacing DS values must be positive and finite",
+            })?;
+        let declared = [
+            value.get("row_spacing_mm").and_then(Value::as_f64),
+            value.get("column_spacing_mm").and_then(Value::as_f64),
+        ];
+        if declared != [Some(numbers[0]), Some(numbers[1])] {
+            failures.push(format!(
+                "{relative_path}: nonsquare_{field}_numeric_values: lexical and numeric values disagree"
+            ));
+        }
+        Ok((parts, [numbers[0], numbers[1]]))
+    };
+    let validate_values = |failures: &mut Vec<String>,
+                           tag: dicom_core::Tag,
+                           expected_vr: VR,
+                           expected: &[String],
+                           check: &str| {
+        match obj.element(tag) {
+            Ok(element) => {
+                validate_equal(
+                    failures,
+                    relative_path,
+                    &format!("{check}_vr"),
+                    element.vr(),
+                    expected_vr,
+                );
+                match element.to_multi_str() {
+                    Ok(values) => validate_equal_debug(
+                        failures,
+                        relative_path,
+                        &format!("{check}_values"),
+                        values
+                            .iter()
+                            .flat_map(|value| value.split('\\'))
+                            .map(ToString::to_string)
+                            .collect::<Vec<_>>(),
+                        expected.to_vec(),
+                    ),
+                    Err(error) => {
+                        failures.push(format!("{relative_path}: {check}_values: {error}"))
+                    }
+                }
+            }
+            Err(error) => failures.push(format!("{relative_path}: {check}: {error}")),
+        }
+    };
+
+    match variant_id {
+        "pixel_spacing" => {
+            let (spacing, spacing_numbers) = read_spacing("pixel_spacing")?;
+            let (nominal, nominal_numbers) = read_spacing("nominal_scanned_pixel_spacing")?;
+            drop(read_spacing);
+            if spacing != nominal
+                || spacing_numbers != nominal_numbers
+                || (spacing_numbers[0] / spacing_numbers[1] - 2.0).abs() > 1e-9
+            {
+                failures.push(format!(
+                    "{relative_path}: nonsquare_spacing_ratio: spacing axes must agree on 2:1 geometry"
+                ));
+            }
+            validate_values(
+                failures,
+                tags::PIXEL_SPACING,
+                VR::DS,
+                &spacing,
+                "nonsquare_pixel_spacing",
+            );
+            validate_values(
+                failures,
+                tags::NOMINAL_SCANNED_PIXEL_SPACING,
+                VR::DS,
+                &nominal,
+                "nonsquare_nominal_scanned_pixel_spacing",
+            );
+            validate_element_absent(
+                failures,
+                relative_path,
+                obj,
+                tags::PIXEL_ASPECT_RATIO,
+                "nonsquare_pixel_aspect_ratio_absent",
+            );
+        }
+        "pixel_aspect_ratio" => {
+            let aspect = contract
+                .get("pixel_aspect_ratio")
+                .filter(|value| value.is_object())
+                .ok_or(ValidateError::ManifestShape {
+                    path: manifest_path.to_path_buf(),
+                    message: "nonsquare pixel_aspect_ratio must be an object",
+                })?;
+            let vertical = aspect
+                .get("vertical_extent")
+                .and_then(Value::as_u64)
+                .unwrap_or(0);
+            let horizontal = aspect
+                .get("horizontal_extent")
+                .and_then(Value::as_u64)
+                .unwrap_or(0);
+            let lexical = aspect
+                .get("lexical_value")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            if vertical == 0
+                || horizontal == 0
+                || vertical > i32::MAX as u64
+                || horizontal > i32::MAX as u64
+                || vertical != horizontal.saturating_mul(2)
+                || lexical != format!("{vertical}\\{horizontal}")
+            {
+                failures.push(format!(
+                    "{relative_path}: nonsquare_aspect_ratio: expected positive bounded 2:1 IS values"
+                ));
+            }
+            validate_values(
+                failures,
+                tags::PIXEL_ASPECT_RATIO,
+                VR::IS,
+                &[vertical.to_string(), horizontal.to_string()],
+                "nonsquare_pixel_aspect_ratio",
+            );
+            validate_element_absent(
+                failures,
+                relative_path,
+                obj,
+                tags::PIXEL_SPACING,
+                "nonsquare_pixel_spacing_absent",
+            );
+            validate_element_absent(
+                failures,
+                relative_path,
+                obj,
+                tags::NOMINAL_SCANNED_PIXEL_SPACING,
+                "nonsquare_nominal_scanned_pixel_spacing_absent",
+            );
+        }
+        other => failures.push(format!(
+            "{relative_path}: nonsquare_variant_id: unsupported value {other}"
+        )),
+    }
+    for (tag, check) in [
+        (
+            tags::IMAGER_PIXEL_SPACING,
+            "nonsquare_imager_pixel_spacing_absent",
+        ),
+        (
+            tags::PIXEL_SPACING_CALIBRATION_TYPE,
+            "nonsquare_calibration_type_absent",
+        ),
+        (
+            tags::PIXEL_SPACING_CALIBRATION_DESCRIPTION,
+            "nonsquare_calibration_description_absent",
+        ),
+        (
+            tags::IMAGE_POSITION_PATIENT,
+            "nonsquare_image_position_patient_absent",
+        ),
+        (
+            tags::IMAGE_ORIENTATION_PATIENT,
+            "nonsquare_image_orientation_patient_absent",
+        ),
+        (
+            tags::FRAME_OF_REFERENCE_UID,
+            "nonsquare_frame_of_reference_uid_absent",
+        ),
+    ] {
+        validate_element_absent(failures, relative_path, obj, tag, check);
+    }
     Ok(())
 }
 

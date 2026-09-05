@@ -1,0 +1,30 @@
+{
+  "case_registry_schema_version": "0.2.0",
+  "cases": [
+    {
+      "case_id": "caller/geometry/independent-rectangles",
+      "status": "implemented",
+      "profiles": ["core"],
+      "recipe_id": "caller_independent_rectangles",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {"features": [], "external_codecs": [], "external_validators": []},
+      "skip": null,
+      "standards_evidence": [
+        {"source":"dicom-standard-kb","edition":"2026b","query":"lookup_sop_class SecondaryCaptureImageStorage","covered":true,"part":"PS3.4","anchor":"table_B.5-1"},
+        {"source":"dicom-standard-kb","edition":"2026b","query":"lookup_tag PixelSpacing NominalScannedPixelSpacing PixelAspectRatio","covered":true,"part":"PS3.3","anchor":"C.7.6.3 C.8.6.3"}
+      ],
+      "provider": {"kind": "rust_native", "id": "rust_native"},
+      "roadmap": null,
+      "blockers": [],
+      "modality": "OT",
+      "object_family": "classic_image",
+      "compatibility_axes": ["geometry", "pixels"],
+      "artifact_kind": "dicom_instance"
+    }
+  ]
+}

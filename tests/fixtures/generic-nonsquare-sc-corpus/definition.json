@@ -1,0 +1,27 @@
+{
+  "corpus_definition_bundle_schema_version": "1.0.0",
+  "definition_id": "fixture.generic-nonsquare-sc",
+  "definition_version": "1.0.0",
+  "profiles": [
+    {"profile_id":"smoke","scope":"valid","members":[]},
+    {"profile_id":"core","scope":"valid","members":["caller/geometry/independent-rectangles"]},
+    {"profile_id":"extended","scope":"valid","members":[]},
+    {"profile_id":"legacy","scope":"legacy","members":[]},
+    {"profile_id":"stress","scope":"stress","members":[]},
+    {"profile_id":"negative","scope":"expected_invalid","members":[]},
+    {"profile_id":"fuzz","scope":"fuzz","members":[]},
+    {"profile_id":"all","scope":"valid","union_of":["smoke","core","extended"],"optional_profile":"stress","members":[]}
+  ],
+  "registry": {"path":"cases/registry.json","size_bytes":1296,"sha256":"6305504d9b74cc3b9493457868b5edc2df9bf5ab3c3acc4b4815838d024b70d1"},
+  "cases": [{
+    "case_id":"caller/geometry/independent-rectangles",
+    "recipe_id":"caller_independent_rectangles",
+    "recipe_version":"0.1.0",
+    "recipe":{"path":"cases/recipes/caller_independent_rectangles.json","size_bytes":3963,"sha256":"0abe21df41a8f6b7b2b084890140413214944258b718f67147e84f1d4ae21fd4"},
+    "dependencies":[],
+    "evidence_ids":[],
+    "asset_ids":[]
+  }],
+  "evidence": [],
+  "assets": []
+}

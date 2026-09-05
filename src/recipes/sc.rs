@@ -27,13 +27,220 @@ use crate::native_pixel::{
 use crate::uid::{DeterministicUidInput, UidRole, deterministic_uid};
 
 use super::{
-    AttributeOperation as RecipeAttributeOperation, CaseRecipe, PlannedArtifactRecipe,
+    AttributeOperation as RecipeAttributeOperation, CaseRecipe, PlannedArtifactRecipe, RecipeKind,
     SecondaryCaptureParameters,
 };
 
 const ORDINARY_SC: &str = "1.2.840.10008.5.1.4.1.1.7";
 const MULTIFRAME_SINGLE_BIT_SC: &str = "1.2.840.10008.5.1.4.1.1.7.1";
 const MULTIFRAME_GRAYSCALE_BYTE_SC: &str = "1.2.840.10008.5.1.4.1.1.7.2";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct NonsquareScCapability {
+    pub artifact_count: usize,
+}
+
+/// Inspect the reusable uncalibrated 2:1 SC geometry tuple without using
+/// case, recipe, logical, role, path, or order values as discriminators.
+pub(crate) fn inspect_nonsquare_sc_capability(
+    recipe: &CaseRecipe,
+) -> Result<Option<NonsquareScCapability>, ScPlanError> {
+    if recipe.plan_provider_id != "native.sc_plan"
+        || recipe.kind != RecipeKind::Dicom
+        || recipe.planning_order.is_none()
+        || recipe.projection_order.is_none()
+    {
+        return Ok(None);
+    }
+    let Some(dicom) = &recipe.dicom else {
+        return Ok(None);
+    };
+    if !dicom
+        .artifacts
+        .iter()
+        .any(|artifact| artifact.nonsquare_geometry.is_some())
+    {
+        return Ok(None);
+    }
+    let has_rule = |rules: &[String], wanted: &str| rules.iter().any(|rule| rule == wanted);
+    if dicom.artifacts.len() < 2
+        || dicom.artifacts.len() > 1024
+        || !recipe.dependencies.is_empty()
+        || !recipe.provider_parameters.is_empty()
+        || !has_rule(&recipe.validation_rule_ids, "validation.sc.pixel")
+        || !has_rule(&recipe.validation_rule_ids, "validation.sc.geometry")
+        || !has_rule(&recipe.projection_rule_ids, "projection.curated")
+    {
+        return Err(ScPlanError::InvalidNonsquareContract(
+            "incomplete recipe tuple".into(),
+        ));
+    }
+    let mut logical_ids = std::collections::BTreeSet::new();
+    let mut roles = std::collections::BTreeSet::new();
+    let mut paths = std::collections::BTreeSet::new();
+    let mut saw_spacing = false;
+    let mut saw_aspect = false;
+    for artifact in &dicom.artifacts {
+        let template = artifact
+            .template
+            .as_ref()
+            .ok_or_else(|| ScPlanError::InvalidNonsquareContract("missing SC template".into()))?;
+        let sc = artifact
+            .secondary_capture
+            .as_ref()
+            .ok_or_else(|| ScPlanError::InvalidNonsquareContract("missing SC pixels".into()))?;
+        let geometry = artifact.nonsquare_geometry.as_ref().ok_or_else(|| {
+            ScPlanError::InvalidNonsquareContract("missing nonsquare geometry".into())
+        })?;
+        let output_path = artifact.output.path.as_deref().ok_or_else(|| {
+            ScPlanError::InvalidNonsquareContract("missing explicit output path".into())
+        })?;
+        if artifact.logical_id.is_empty()
+            || artifact.output.role.is_empty()
+            || output_path.is_empty()
+            || !logical_ids.insert(artifact.logical_id.as_str())
+            || !roles.insert(artifact.output.role.as_str())
+            || !paths.insert(output_path)
+            || artifact.output.provider_derived == Some(true)
+            || template.template_id != "classic/secondary-capture/monochrome"
+            || template.template_version != "1.0.0"
+            || artifact.encoding.transfer_syntax_uid != "1.2.840.10008.1.2.1"
+            || artifact.encoding.sequence_length_policy != "default"
+            || artifact.encoding.item_length_policy != "default"
+            || artifact.encoding.offset_table_policy != "none"
+            || artifact.encoding.fragmentation_policy != "native"
+            || artifact.encoding.fragments_per_frame.is_some()
+            || artifact.encoding.preamble_policy.as_deref() != Some("zero_filled")
+            || artifact.encoding.file_meta_policy.as_deref() != Some("standard")
+            || artifact
+                .encoding
+                .non_template_encoding_provider_id
+                .is_some()
+            || !artifact.parameters.is_empty()
+            || artifact.content.provider_id != "content.sc.pixel_pattern"
+            || !artifact.content.parameters.is_empty()
+            || artifact.metadata_sc.is_some()
+            || artifact.classic_projection.is_some()
+            || artifact.algorithm_provider_id.is_some()
+            || !has_rule(&artifact.validation_rule_ids, "validation.sc.pixel")
+            || !has_rule(&artifact.validation_rule_ids, "validation.sc.geometry")
+            || !has_rule(&artifact.projection_rule_ids, "projection.curated")
+            || sc.rows == 0
+            || sc.columns == 0
+            || sc.frames != 1
+            || sc.samples_per_pixel != 1
+            || sc.photometric_interpretation != "MONOCHROME2"
+            || sc.bits_allocated != 8
+            || sc.bits_stored != 8
+            || sc.high_bit != 7
+            || sc.pixel_representation != 0
+            || sc.pixel_data_vr != "OB"
+            || sc.stored_value_type != "u8"
+            || sc.color.is_some()
+            || sc.palette.is_some()
+            || sc.padding.is_some()
+            || sc.bit_packing.is_some()
+            || sc.integer_word.is_some()
+            || sc.encapsulation_projection.is_some()
+            || geometry.calibrated
+            || geometry.patient_space_geometry_present
+            || !geometry.row_to_column_ratio.is_finite()
+            || (geometry.row_to_column_ratio - 2.0).abs() > 1e-9
+        {
+            return Err(ScPlanError::InvalidNonsquareContract(
+                "artifact tuple is not bounded uncalibrated 2:1 SC".into(),
+            ));
+        }
+        native_pixel_content_from_recipe(sc)?;
+        let expected_operations = match geometry.variant_id.as_str() {
+            "pixel_spacing" => {
+                let (Some(spacing), Some(nominal), None) = (
+                    geometry.pixel_spacing.as_ref(),
+                    geometry.nominal_scanned_pixel_spacing.as_ref(),
+                    geometry.pixel_aspect_ratio,
+                ) else {
+                    return Err(ScPlanError::InvalidNonsquareContract(
+                        "pixel spacing axes are not exclusive".into(),
+                    ));
+                };
+                let parse = |value: &str| {
+                    (value.len() <= 16)
+                        .then(|| value.parse::<f64>().ok())
+                        .flatten()
+                        .filter(|value| value.is_finite() && *value > 0.0)
+                };
+                let values = spacing
+                    .iter()
+                    .map(|value| parse(value))
+                    .collect::<Option<Vec<_>>>()
+                    .ok_or_else(|| {
+                        ScPlanError::InvalidNonsquareContract("invalid spacing DS".into())
+                    })?;
+                if spacing != nominal || (values[0] / values[1] - 2.0).abs() > 1e-9 {
+                    return Err(ScPlanError::InvalidNonsquareContract(
+                        "spacing values disagree with 2:1 semantics".into(),
+                    ));
+                }
+                saw_spacing = true;
+                vec![
+                    ("0028,0030", "DS", format!("{}\\{}", spacing[0], spacing[1])),
+                    ("0018,2010", "DS", format!("{}\\{}", nominal[0], nominal[1])),
+                ]
+            }
+            "pixel_aspect_ratio" => {
+                let (None, None, Some(aspect)) = (
+                    geometry.pixel_spacing.as_ref(),
+                    geometry.nominal_scanned_pixel_spacing.as_ref(),
+                    geometry.pixel_aspect_ratio,
+                ) else {
+                    return Err(ScPlanError::InvalidNonsquareContract(
+                        "pixel aspect ratio axis is not exclusive".into(),
+                    ));
+                };
+                if aspect
+                    .iter()
+                    .any(|value| *value == 0 || *value > i32::MAX as u32)
+                    || aspect[1].checked_mul(2) != Some(aspect[0])
+                {
+                    return Err(ScPlanError::InvalidNonsquareContract(
+                        "invalid 2:1 pixel aspect ratio IS".into(),
+                    ));
+                }
+                saw_aspect = true;
+                vec![("0028,0034", "IS", format!("{}\\{}", aspect[0], aspect[1]))]
+            }
+            _ => {
+                return Err(ScPlanError::InvalidNonsquareContract(
+                    "unsupported nonsquare variant".into(),
+                ));
+            }
+        };
+        if artifact.attribute_operations.len() != expected_operations.len()
+            || artifact
+                .attribute_operations
+                .iter()
+                .zip(expected_operations)
+                .any(|(actual, (tag, vr, value))| {
+                    actual.operation != "set"
+                        || actual.tag != tag
+                        || actual.vr.as_deref() != Some(vr)
+                        || actual.value.as_ref().and_then(Value::as_str) != Some(value.as_str())
+                })
+        {
+            return Err(ScPlanError::InvalidNonsquareContract(
+                "typed geometry differs from attribute operations".into(),
+            ));
+        }
+    }
+    if !saw_spacing || !saw_aspect {
+        return Err(ScPlanError::InvalidNonsquareContract(
+            "both exclusive geometry variants are required".into(),
+        ));
+    }
+    Ok(Some(NonsquareScCapability {
+        artifact_count: dicom.artifacts.len(),
+    }))
+}
 
 /// Convert typed recipe pixels into the registry-independent native contract.
 pub fn native_pixel_request_from_recipe(
@@ -751,6 +958,7 @@ pub enum ScPlanError {
     UnsupportedPixelDataVr(String),
     UnsupportedChromaSubsampling(String),
     InvalidColor(String),
+    InvalidNonsquareContract(String),
     InvalidAttributeOperation(String),
     UnsupportedAttributeValue(Value),
     UnsupportedMultiframeShape { frames: u32 },

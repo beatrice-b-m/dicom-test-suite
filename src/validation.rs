@@ -17056,9 +17056,14 @@ fn expected_pixel_data_length(
                 * usize::from(expected.frames)
                 * usize::from(expected.samples_per_pixel)
                 * bytes_per_sample;
+            let message = if semantic_length % 2 == 0 {
+                "Native Pixel Data length matches rows * columns * frames * samples per pixel * bytes per sample."
+            } else {
+                "Native Pixel Data length matches the even-padded contiguous sample Value Field."
+            };
             (
                 "native_pixel_data_length",
-                "Native Pixel Data length matches the even-padded contiguous sample Value Field.",
+                message,
                 semantic_length + (semantic_length % 2),
             )
         }

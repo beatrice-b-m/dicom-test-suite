@@ -4,7 +4,7 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 274,
-    "rust_test_entries": 1489,
+    "rust_test_entries": 1490,
     "integration_source_groups": 189,
     "integration_test_entries": 924,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
@@ -1272,12 +1272,13 @@
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 29,
+      "entry_count": 30,
       "entries": [
         "external_ct_capability_is_name_independent_and_integrity_bound",
         "external_ct_capability_is_fail_closed_without_broadening_classic_names",
         "external_dx_mg_capability_is_name_independent_and_fail_closed",
         "external_cr_capability_is_name_independent_and_fail_closed",
+        "external_us_capability_is_name_independent_and_fail_closed",
         "external_metadata3_capability_is_name_independent_and_fail_closed",
         "external_sc_capability_is_bounded_name_independent_and_fail_closed",
         "minimal_bundle_loads_with_stable_exact_byte_identity",
@@ -1304,7 +1305,7 @@
         "negative_and_fuzz_dependencies_cannot_cross_legacy_or_stress_boundaries",
         "excessive_undeclared_inventory_fails_without_buffering_all_names"
       ],
-      "entry_digest": "42afb9ac0fd80360dab4c133b63a1fd0237f5152616cc298efb125b69c918723"
+      "entry_digest": "ec693f4a373bde5d02aa0f02034a2ec5e0222be040e1bd320b060ccdecd6c3b6"
     },
     {
       "source": "tests/corpus_plan.rs",
@@ -3836,7 +3837,7 @@
         "dx_mg_capability_dispatch_ignores_misleading_case_names",
         "ct_capability_dispatch_is_name_independent_and_fail_closed"
       ],
-      "entry_digest": "94f60cd61398b4fa441b2719a1b28f426ada6f37f822474a65b03ae51435ed0c"
+      "entry_digest": "d25ebd53572b3c3d42a424fa078223706bf005c8595efba2c19e356f6641d476"
     },
     {
       "source": "src/encapsulation.rs",

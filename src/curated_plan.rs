@@ -49,7 +49,7 @@ use crate::qualification_plan::{
 use crate::recipes::classic_ct::plan_ct_recipe;
 use crate::recipes::classic_dx_mg::plan_dx_mg_recipe;
 use crate::recipes::classic_mr_cr::{inspect_cr_capability, plan_mr_cr_recipe};
-use crate::recipes::classic_nuclear::plan_nuclear_recipe;
+use crate::recipes::classic_nuclear::{inspect_us_capability, plan_nuclear_recipe};
 use crate::recipes::classic_vl_projection::plan_vl_projection_recipe;
 use crate::recipes::{
     AdvancedArtifactPlanningContext, AdvancedArtifactProvenance, AdvancedPlanProvider,
@@ -4582,6 +4582,24 @@ fn classic_requests(
             })?;
         return Ok((requests, None, None));
     }
+    if inspect_us_capability(recipe)
+        .map_err(|error| CuratedPlanError::ClassicPlan {
+            recipe_id: recipe.recipe_id.clone(),
+            message: error.to_string(),
+        })?
+        .is_some()
+    {
+        let requests = plan_nuclear_recipe(recipe, standards_lock_sha256, seed)
+            .map_err(|error| CuratedPlanError::ClassicPlan {
+                recipe_id: recipe.recipe_id.clone(),
+                message: error.to_string(),
+            })?
+            .ok_or_else(|| CuratedPlanError::ClassicProviderCardinality {
+                recipe_id: recipe.recipe_id.clone(),
+                matches: 0,
+            })?;
+        return Ok((requests, None, None));
+    }
     let mut matched = Vec::new();
     macro_rules! try_provider {
         ($provider:expr) => {
@@ -4681,6 +4699,25 @@ mod classic_ct_capability_tests {
             assert_eq!(classic_requests(&input, &lock_hash(), 1).unwrap().0, direct);
             input.dicom.as_mut().unwrap().artifacts[0].algorithm_provider_id =
                 Some("algorithm.classic_nuclear".into());
+            assert!(classic_requests(&input, &lock_hash(), 1).is_err());
+        }
+        for (case_id, recipe_id) in [
+            ("classic/pet/rescaled_activity_explicit_le", "caller_us"),
+            ("vl/photo/rgb_planar0_explicit_le", "caller_us"),
+            ("caller/ultrasound", "mr_multislice_oblique"),
+        ] {
+            let mut input = recipe("classic/us/mono2_u8_explicit_le");
+            input.binding.case_id = case_id.into();
+            input.recipe_id = recipe_id.into();
+            input.planning_order = Some(900);
+            input.dicom.as_mut().unwrap().artifacts[0].output.path =
+                Some("images/ultrasound.dcm".into());
+            let direct = plan_nuclear_recipe(&input, &lock_hash(), 1)
+                .unwrap()
+                .unwrap();
+            assert_eq!(classic_requests(&input, &lock_hash(), 1).unwrap().0, direct);
+            input.dicom.as_mut().unwrap().artifacts[0].algorithm_provider_id =
+                Some("algorithm.classic_mr_cr".into());
             assert!(classic_requests(&input, &lock_hash(), 1).is_err());
         }
     }

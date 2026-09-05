@@ -406,7 +406,72 @@ fn external_cr_capability_is_name_independent_and_fail_closed() {
 }
 
 #[test]
-fn external_us_capability_is_name_independent_and_fail_closed() {
+fn external_us_and_pet_capabilities_are_name_independent_and_fail_closed() {
+    const PET: &str = "classic/pet/rescaled_activity_explicit_le";
+    for (label, case_id) in [
+        ("pet-caller", "caller/activity/native"),
+        ("pet-us-name", "classic/us/mono2_u8_explicit_le"),
+        ("pet-mr-name", "classic/mr/multislice_oblique"),
+        ("pet-vl-name", "vl/wsi/pyramid_multiresolution"),
+    ] {
+        let root = one_case_bundle(label, PET, case_id, "caller_activity", |recipe| {
+            recipe["planning_order"] = 900.into();
+            recipe["projection_order"] = 901.into();
+            recipe["dicom"]["artifacts"][0]["output"]["path"] = "images/activity.dcm".into();
+        });
+        let bundle = CorpusDefinitionBundle::load(&root).unwrap();
+        let catalog =
+            crate::recipes::RecipeCatalog::from_verified_bundle(&bundle, Path::new(".")).unwrap();
+        assert!(catalog.binding_for_case(case_id).is_some());
+        let root = root.canonicalize().unwrap();
+        let output = root.with_extension("output");
+        let sdk = crate::sdk::DicomTestSuite::embedded().unwrap();
+        sdk.generate_corpus(crate::sdk::GenerateCorpusRequest::from_file(
+            root.join("corpus-definition.json"),
+            &root,
+            &output,
+            crate::sdk::CorpusSelector::CaseIds {
+                profile: "core".into(),
+                include_stress: false,
+                case_ids: vec![case_id.into()],
+            },
+        ))
+        .unwrap();
+        let validation = sdk
+            .validate(crate::sdk::ValidateRequest::new(&output))
+            .unwrap();
+        assert!(validation.is_valid(), "{validation:?}");
+        assert_eq!(validation.files_checked(), 1);
+        let report: serde_json::Value = sdk
+            .report(crate::sdk::ReportRequest::new(&output))
+            .unwrap()
+            .deserialize()
+            .unwrap();
+        let file = &report["source_manifest"]["files"][0];
+        assert_eq!(file["case_id"], case_id);
+        assert_eq!(file["dicom"]["modality"], "PT");
+        assert_eq!(file["expected_pet_activity"]["rescale_slope"], 2.5);
+        assert!(output.join("images/activity.dcm").is_file());
+        fs::remove_dir_all(output).unwrap();
+        fs::remove_dir_all(root).unwrap();
+        for field in ["template", "algorithm_provider_id", "classic_projection"] {
+            assert_one_case_rejected(
+                &format!("{label}-missing-{field}"),
+                PET,
+                case_id,
+                |recipe| {
+                    recipe["dicom"]["artifacts"][0]
+                        .as_object_mut()
+                        .unwrap()
+                        .remove(field);
+                },
+            );
+        }
+        assert_one_case_rejected(&format!("{label}-crossed"), PET, case_id, |recipe| {
+            recipe["dicom"]["artifacts"][0]["algorithm_provider_id"] =
+                "algorithm.classic_ct".into();
+        });
+    }
     const US: &str = "classic/us/mono2_u8_explicit_le";
     for (label, case_id, recipe_id) in [
         ("stress-prefix-us", "stress/caller", "caller_ultrasound"),

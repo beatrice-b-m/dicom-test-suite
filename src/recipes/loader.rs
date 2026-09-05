@@ -8,7 +8,7 @@ use serde_json::Value;
 use super::classic_ct::inspect_ct_capability;
 use super::classic_dx_mg::inspect_dx_mg_capability;
 use super::classic_mr_cr::inspect_cr_capability;
-use super::classic_nuclear::inspect_us_capability;
+use super::classic_nuclear::{inspect_pet_capability, inspect_us_capability};
 use super::codec_registry::{
     BACKENDS, TransferSyntaxBackendRegistry, encoding_provider_matches, recipe_encoding_provider_id,
 };
@@ -611,7 +611,8 @@ fn validate_classic_capability_contract(
         inspect_dx_mg_capability(recipe).map_err(|error| semantic(path, error.to_string()))?;
     let cr = inspect_cr_capability(recipe).map_err(|error| semantic(path, error.to_string()))?;
     let us = inspect_us_capability(recipe).map_err(|error| semantic(path, error.to_string()))?;
-    match ct.is_some() || dx_mg.is_some() || cr.is_some() || us.is_some() {
+    let pet = inspect_pet_capability(recipe).map_err(|error| semantic(path, error.to_string()))?;
+    match ct.is_some() || dx_mg.is_some() || cr.is_some() || us.is_some() || pet.is_some() {
         true => recipe
             .planning_order
             .map(|_| ())
@@ -1723,6 +1724,12 @@ fn validate_registry_bindings(
                     message: format!("{} has invalid US capability: {error}", case.case_id),
                 })?
                 .is_some();
+        let name_independent_pet = recipe.plan_provider_id == "native.classic_plan"
+            && inspect_pet_capability(recipe)
+                .map_err(|error| RecipeCatalogError::Completeness {
+                    message: format!("{} has invalid PET capability: {error}", case.case_id),
+                })?
+                .is_some();
         let migrated_classic = recipe.plan_provider_id == "native.classic_plan"
             && case.provider.kind == "rust_native"
             && case.provider.id == "rust_native"
@@ -1733,6 +1740,7 @@ fn validate_registry_bindings(
                 || name_independent_dx_mg
                 || name_independent_cr
                 || name_independent_us
+                || name_independent_pet
                 || case.case_id.starts_with("classic/")
                 || case.case_id.starts_with("geometry/ct/")
                 || (case.case_id.starts_with("vl/") && !case.case_id.starts_with("vl/wsi/")));

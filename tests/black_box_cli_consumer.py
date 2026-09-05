@@ -165,7 +165,7 @@ with tempfile.TemporaryDirectory(prefix="dts-python-consumer-") as temporary:
             "--format",
             "json",
         ],
-        "composition-result.schema.json",
+        "composition-result-v2.schema.json",
     )
     assert preview["result"]["published"] is False
     assert not preview_root.exists()
@@ -181,7 +181,7 @@ with tempfile.TemporaryDirectory(prefix="dts-python-consumer-") as temporary:
             "--format",
             "json",
         ],
-        "composition-result.schema.json",
+        "composition-result-v2.schema.json",
     )
     assert published["result"]["published"] is True
     assert set(preview["result"]) == set(published["result"])
@@ -228,7 +228,7 @@ with tempfile.TemporaryDirectory(prefix="dts-python-consumer-") as temporary:
             "--format",
             "json",
         ],
-        "assembly-result.schema.json",
+        "assembly-result-v2.schema.json",
     )
     assert assembly_preview["result"]["published"] is False
     assert not assembly_preview_root.exists()
@@ -243,7 +243,7 @@ with tempfile.TemporaryDirectory(prefix="dts-python-consumer-") as temporary:
             "--format",
             "json",
         ],
-        "assembly-result.schema.json",
+        "assembly-result-v2.schema.json",
     )
     assert assembly["result"]["published"] is True
     assert set(assembly_preview["result"]) == set(assembly["result"])
@@ -279,7 +279,7 @@ with tempfile.TemporaryDirectory(prefix="dts-python-consumer-") as temporary:
             "--format",
             "json",
         ],
-        "generation-result.schema.json",
+        "generation-result-v2.schema.json",
     )
 
     syntax = invoke(["capabilities", "--format", "json", "--unknown"], 2)

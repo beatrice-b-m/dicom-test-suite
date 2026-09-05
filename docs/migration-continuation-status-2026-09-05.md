@@ -2236,3 +2236,21 @@ authenticated. Receipt unchanged. Logs/private/tmp/r7-native-mr-baseline1-202609
 .stdout.json/.stderr.txt retained. This is same-project embedded evidence;
 nextsource-exact corpusimport, availability/parity andsourcegenericity remain
 sequential gates. R7open/R8R9held.
+
+## Execution efficiency amendment — 2026-09-05
+
+The plan and both AGENTS.md files now require vertical slices, reusable evidence
+mechanisms, immutable historical source/definition fixtures, focused verification
+followed by one mapped integration run, and this single authoritative ledger.
+Ownership/review/readiness are no longer separate administrative commits. Related
+implementation, tests, routing and docs belong together; 2–4 commits per ordinary
+slice is guidance. All phase gates and evidence boundaries remain unchanged.
+
+This policy-only task is recorded by `docs(migration): Prioritize complete migration
+slices` and the corpus companion `docs(workflow): Replace historical approval chains`.
+Verification: diff whitespace and targeted instruction/link review; no runtime or
+capability changes, native execution or new qualification claims. Existing history
+and retained artifacts are preserved. R0–R6 accepted; R7 open; R8/R9 held. Live
+content 0.10.0 remains unchanged. MR baseline accepted at generator a7718cc / corpus
+ceafd9f; MR import, availability/parity and genericity remain the next slice.
+Implementation remains stopped for handoff at the user's request.

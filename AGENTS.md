@@ -140,7 +140,7 @@ Every completed task **MUST** be tracked in a descriptive, granular git commit. 
 **Rules:**
 
 - Commit after every distinct logical unit of work, not at the end of a session.
-- Each commit covers exactly one coherent change (one module, one component, one test suite, one docs section). Do not batch unrelated changes into a single commit.
+- Each commit covers one coherent behavior or migration slice, including related tests, routing and necessary documentation. Do not batch unrelated changes. A helper, review or status entry is not automatically a separate task.
 - Commit messages must be informative: use `type(scope): subject` format, include a blank line, then a body describing *what* changed and *why*.
 - Types: `feat`, `fix`, `test`, `docs`, `refactor`, `chore`
 - Scope: the module, file, or subsystem affected, such as `backend`, `frontend`, `pixels`, `server`, `types`, or `tests`
@@ -150,3 +150,19 @@ Every completed task **MUST** be tracked in a descriptive, granular git commit. 
 - Never amend or force-push commits that have been logged here.
 
 **Verification:** After each task, run `git log --oneline -3` to confirm the commit was recorded before moving to the next task.
+
+## Migration Execution
+
+For the current separation migration, follow sections 5 and 7 of
+`docs/synth-dicom-gen-dcmview-corpus-separation-plan.md`, amended 2026-09-05.
+Deliver vertical slices; target 2–4 coherent commits across affected repositories
+without forcing unrelated changes together. Record agent ownership in messages,
+not assignment commits. Keep one concise entry per completed slice or genuine
+blocker in `docs/migration-continuation-status-2026-09-05.md`, preferably in the
+implementation commit. Other repositories link to it; do not duplicate history.
+Run focused checks during implementation and mapped ordinary coverage once at
+integration, repeating only invalidated checks. Preserve all acceptance gates.
+Reuse evidence mechanisms and immutable historical source/definition fixtures.
+Do not encode corpus-specific values as engine whitelists. Authorization for the
+plan covers necessary local implementation and bounded verification; historical
+per-helper approval steps do not require renewed permission within that scope.

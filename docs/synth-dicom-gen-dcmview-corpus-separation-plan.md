@@ -1,6 +1,8 @@
 # `synth-dicom-gen` and `dcmview-test-corpus` Separation Plan
 
-**Status:** proposed execution plan
+**Status:** current authoritative execution plan
+
+**Execution amendment:** 2026-09-05 — slice-level delivery and proportional verification
 
 **Prepared:** 2026-09-01
 
@@ -145,7 +147,7 @@ sibling checkout or path dependency.
 
 ## 5. Verification Classes and Budgets
 
-Before implementation, record the current wall time, billable runner time,
+At the initial baseline boundary, record the current wall time, billable runner time,
 largest local target-directory size, and artifact count for each class. Later
 gates compare against that baseline instead of relying on subjective speed.
 
@@ -161,6 +163,16 @@ CI jobs must print elapsed time and relevant target/output sizes. CI build
 profiles use no incremental compilation and minimal debug information unless a
 specific diagnostic job requires otherwise. Local scripts use a task-specific,
 explicit target directory and report its size before removal or reuse.
+
+During implementation, run focused checks for the affected behavior. At slice
+integration, inspect routing and run the mapped ordinary coverage once. Repeat
+only checks invalidated by a relevant change, failure, or unresolved concern;
+a status-only commit does not invalidate executable evidence. Documentation-only
+changes need link/claim review and `git diff --check`; exercise documented commands
+when their syntax or behavior changes, not when recording existing results.
+Reuse accepted evidence when its inputs and dependency surface are unchanged.
+This does not waive scheduled or exact release-candidate gates. Record unavailable
+measurements explicitly; do not recreate completed baselines merely for bookkeeping.
 
 ## 6. Phased Execution
 
@@ -270,6 +282,28 @@ legacy, negative, fuzz, and stress. Do not move all files in one commit.
 | R7.4 | Preserve negative, fuzz, stress, media, protocol, and independent-evidence isolation. | Separate runs and reports retain their existing semantic boundaries. |
 | R7.5 | Slice-specific parity and availability evidence. | Byte-stable output matches or carries a versioned migration; semantic-stable output uses its declared comparison; missing runtimes remain unavailable. |
 
+Execute R7.1–R7.5 as complete vertical slices grouped by reusable capability and
+dependency closure, not as a new approval chain for each helper or case. A slice
+includes import, reusable engine changes, tests/routing, availability/parity,
+and necessary current documentation. Preserve dependency ordering within it.
+
+Consolidate duplicated capture/availability/parity infrastructure into reusable
+mechanisms with declarative slice contracts for selection, identities, file
+closure, semantics and comparison rules. Make the first consolidation bounded
+and useful to the next slice; do not build a speculative universal framework.
+Keep historical receipt formats and artifacts intact. Historical tests should
+use immutable source/definition fixtures rather than reconstructing every old
+version by reversing the growing live corpus. Never commit generated DICOM or
+ordinary run evidence as fixtures. Do not require rewriting old proofs before
+new imports can proceed.
+
+Caller definitions own patient values, names, recipe metadata and pixel patterns.
+The engine validates reusable structural and semantic constraints through public
+capabilities; matching a hardcoded historical tuple is not sufficient genericity.
+Previously accepted bounded tuple support remains valid at its recorded scope,
+but corpus-specific whitelists are migration debt to remove by the R7/R9 gates,
+with qualified output bytes preserved or an explicit versioned migration.
+
 **R7 gate:** every dcmview case is owned by the corpus repository, and the
 generator repository contains only reusable capabilities and generic evidence.
 
@@ -319,14 +353,49 @@ The resource model, public corpus API, manifest identity changes, smoke parity
 slice, and terminal releases remain sequential gates. At most one public
 compatibility boundary is partially migrated at a time.
 
-Every subtask must:
+A compatibility boundary means a shared public schema, API, identity contract or
+provider behavior. A helper, test, review or ledger entry is not automatically a
+new compatibility boundary. Preserve the sequential gates above while allowing
+disjoint work on already stable contracts in the listed parallel groups.
 
-1. name its phase item and owned files before editing;
-2. preserve unrelated work and coordinate shared-file changes;
-3. run the smallest affected verification class;
-4. update the dated migration status with commands, time, size, and result;
-5. commit only that logical unit with the required message body; and
-6. report the commit and remaining blockers before dependent work starts.
+A completed task is a reviewable vertical migration slice or a necessary reusable
+capability, including its tests, routing and necessary documentation. Aim for
+2–4 coherent commits across the affected repositories per ordinary slice; this
+is guidance, not permission to combine unrelated work or omit needed commits.
+Do not create separate assignment, readiness, review or acceptance commits unless
+an actual external approval boundary requires a durable artifact.
+
+For each slice:
+
+1. Name phase items, dependency closure and file ownership in agent messages
+   before editing. Delegate bounded disjoint implementation where useful;
+   serialize shared contracts and integrate shared files through one owner.
+2. Review every agent result and integrate selectively. A separate review is
+   useful evidence, not a mandatory additional task/commit for every helper.
+3. Run focused verification during development and mapped coverage once at
+   integration as specified in section 5. Preserve real evidence boundaries.
+4. Commit coherent implementation with related tests, routing, current docs and
+   the slice ledger entry. Use the applicable message policy and verify commits.
+5. Report completed cases/families and phase gates, remaining gates, elapsed work,
+   verification commands/results, relevant sizes, commits and genuine blockers.
+   If an ordinary slice again needs bespoke infrastructure or mostly procedural
+   work, adjust the implementation approach before repeating that pattern.
+
+The single authoritative execution ledger is
+`docs/migration-continuation-status-2026-09-05.md` in the generator repository.
+Append one concise dated entry per completed slice or genuine blocker, preferably
+in its implementation commit; identify that commit by its descriptive subject
+when its hash cannot yet be known. Other repositories link to this ledger rather
+than duplicate entries. Existing dated records remain immutable historical
+evidence; do not rewrite them or keep updating inventories in AGENTS.md.
+
+Authorization to execute this plan covers its necessary local implementation and
+bounded verification. Do not repeatedly request permission for already authorized
+native checks. Review helpers and authenticate inputs before native execution,
+use fresh outputs, retain failures, and rerun only for a concrete invalidation or
+corrected failure. External publication or other actions outside the user's
+scope still require authorization. These execution rules supersede historical
+per-helper approval instructions, without expanding any evidence claim.
 
 ## 8. Terminal Acceptance Matrix
 

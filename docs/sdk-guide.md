@@ -176,6 +176,19 @@ The four-member fixture includes the PET standards note. CLI/SDK capabilities,
 raw manifests, payloads and full reports agree; reopened strict validation is
 separate. This is synthetic BQML evidence, with no SUV or clinical dosing claim.
 
+### Caller-defined native XA and XRF
+
+The same inspection and `GenerateCorpusRequest` interfaces accept the two
+caller cases in `tests/fixtures/generic-xa-xrf-corpus`, with `definition.json`
+and explicit member root `members`. Select `caller/acquisition/angiography`
+and `caller/acquisition/fluoroscopy` in core. The complete
+[XA/XRF contract](generation-guide.md#caller-defined-native-xa-and-xrf) binds
+one native 4×4 U8 artifact per recipe and all nine synthetic provider fields.
+The six-member fixture includes both standards notes. CLI/SDK capabilities,
+payloads, manifest and report agree; strict payload validation remains separate
+from report projection. Calibrated geometry, cine and codec evidence remain
+outside this bounded native contract.
+
 ### Caller-defined Secondary Capture metadata
 
 The same inspection and `GenerateCorpusRequest` interfaces accept independently

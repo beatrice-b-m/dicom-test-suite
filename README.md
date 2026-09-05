@@ -124,6 +124,12 @@ Caller-defined native PET supports one fixed 2×2 U16/OW activity image through
 [PET contract](docs/generation-guide.md#caller-defined-native-pet) preserves
 synthetic BQML values and metadata; it does not qualify SUV or clinical dosing.
 
+Caller-defined native XA and XRF support source-fixed 4×4 U8/OB single-plane
+images with caller-owned names, paths and ordering. The
+[XA/XRF contract](docs/generation-guide.md#caller-defined-native-xa-and-xrf)
+preserves synthetic metadata and projection geometry; it adds no calibrated
+patient-space, cine or enhanced-object qualification.
+
 Caller-defined Secondary Capture metadata supports UTF-8 Person Name, qualified
 empty Type 2 attributes and private creator blocks through typed native
 contracts. Case/recipe names and output paths are caller-owned; metadata,

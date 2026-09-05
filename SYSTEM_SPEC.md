@@ -1085,6 +1085,15 @@ includes its source note and proves CLI/SDK equality with separate strict
 validation. No SUV, clinical quantitative accuracy or other nuclear family
 qualification is added.
 
+Native XA/XRF admission binds the complete source-qualified template, modality,
+SOP, nine provider fields, 4×4 U8 samples/hash, lexical geometry and full classic
+projection. Loader registry modality must agree with the typed contract. Early
+shared planning and generation validation use that contract before historical
+VL-name dispatch. Caller IDs, unique orders and safe paths remain independent;
+all eight historical VL routes remain intact. The six-member public fixture
+retains both source notes and compares CLI/SDK output with separate strict
+validation. This adds no calibrated geometry, cine or enhanced-object evidence.
+
 Native metadata SC admission also recognizes typed UTF-8 Person Name,
 qualified EmptyType2 and PrivateCreators independently of case/recipe names.
 The conjunctive contract binds `native.metadata_sc_plan`, one monochrome SC

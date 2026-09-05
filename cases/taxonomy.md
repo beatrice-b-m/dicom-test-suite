@@ -27,6 +27,12 @@ and metadata tuple while accepting caller identities, orders and safe paths;
 its local standards note remains part of the submitted bundle. See the
 [PET contract](../docs/generation-guide.md#caller-defined-native-pet).
 
+The bounded native XA/XRF capabilities also accept caller identities, unique
+orders and safe paths under their fixed synthetic projection contracts. Both
+local source notes remain in the submitted bundle; naming does not add cine,
+calibrated geometry or enhanced-object evidence. See the
+[XA/XRF contract](../docs/generation-guide.md#caller-defined-native-xa-and-xrf).
+
 ## Case ID Format
 
 Case IDs are stable, human-readable, path-safe identifiers:

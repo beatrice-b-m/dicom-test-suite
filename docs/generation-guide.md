@@ -418,6 +418,58 @@ absolute output path. These commands can run from an unrelated directory:
 "$GENERATOR" report "$PET_OUTPUT" --format json --cli-api 1.0.0
 ```
 
+#### Caller-defined native XA and XRF
+
+The external CLI and SDK accept one source-fixed native projection artifact per
+recipe through `classic/xa@1.0.0` or `classic/xrf@1.0.0`,
+`native.classic_plan`, parameter-free `content.native_pixels`,
+`algorithm.classic_vl_projection` and the complete `vl_projection` contract.
+Template, typed modality and SOP declare intent; incomplete or crossed tuples
+reject. Registry modality must match `XA` or `RF`, with the matching XA or XRF
+Image Storage SOP, `rust_native`/`rust_native` provider and no feature or
+external-codec requirements.
+
+Each recipe has logical artifact `instance`, order zero, role `primary_1`,
+shared validation/projection rules and an explicit safe output path. Caller
+case/recipe IDs and unique planning/projection orders are independent of the
+historical names. Encoding is native Explicit VR Little Endian, with default
+sequence/item lengths, no offsets or fragment count, zero-filled preamble and
+standard file meta. Dependencies, attribute/profile overrides, unrelated
+projection fields and content extensions are excluded.
+
+Both tuples preserve the exact source 4×4×1 U8/OB MONOCHROME2 samples, extrema
+0/255 and frame hash, Image Type `ORIGINAL\PRIMARY\SINGLE PLANE`, relationship
+`LIN` and lossless marker `00`. Geometry strings remain spacing `0.2\0.2`,
+distances `1200`/`800` and magnification `1.5`. XA preserves `HEART`, KVP `80`,
+radiation setting `GR`, exposure `4` and positioner angles `15`/`-10`. XRF
+preserves `ABDOMEN`, KVP `70`, setting `SC`, exposure `1` and column angulation
+`10`. Alternate numeric spellings are outside this bounded contract.
+
+All nine provider fields remain source-fixed: patient name, ID, birth date,
+sex, study date, time, ID, manufacturer and software versions. The complete
+source projection includes XA's inline standards evidence. These synthetic
+single-plane cases do not establish calibrated patient-space geometry, cine,
+biplane, contrast or subtraction coverage. RLE and enhanced XA/XRF are outside this bounded contract. Strict validation reopens payloads as same-project
+evidence; report2 projects the manifest without reopening payloads or adding
+independent conformance results.
+
+The committed six-member fixture includes both local standards notes. Set
+`GENERATOR` to the supported executable's absolute path, `PROJECTION_FIXTURE`
+to the absolute path of `tests/fixtures/generic-xa-xrf-corpus`, and
+`PROJECTION_OUTPUT` to a fresh absolute output path. Its two recipes use
+planning orders 900/901 and projection orders 902/903. These commands can run
+from an unrelated directory:
+
+```sh
+"$GENERATOR" capabilities --corpus "$PROJECTION_FIXTURE/definition.json" --asset-root "$PROJECTION_FIXTURE/members" \
+  --profile core --case-id caller/acquisition/angiography --case-id caller/acquisition/fluoroscopy --seed 1 --parallelism 4 --format json
+"$GENERATOR" generate --corpus "$PROJECTION_FIXTURE/definition.json" --asset-root "$PROJECTION_FIXTURE/members" \
+  --profile core --case-id caller/acquisition/angiography --case-id caller/acquisition/fluoroscopy --seed 1 --parallelism 4 \
+  --out "$PROJECTION_OUTPUT" --format json
+"$GENERATOR" validate "$PROJECTION_OUTPUT" --format json
+"$GENERATOR" report "$PROJECTION_OUTPUT" --format json --cli-api 1.0.0
+```
+
 #### Caller-defined Secondary Capture metadata
 
 The external CLI and SDK accept independently named recipes for these typed

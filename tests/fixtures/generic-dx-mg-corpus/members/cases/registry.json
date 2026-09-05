@@ -1,0 +1,470 @@
+{
+  "case_registry_schema_version": "0.2.0",
+  "cases": [
+    {
+      "case_id": "caller/acquisition/digital",
+      "status": "implemented",
+      "profiles": [
+        "core"
+      ],
+      "recipe_id": "caller_digital",
+      "recipe_version": "0.1.0",
+      "iod_name": "Digital X-Ray Image",
+      "sop_class_name": "Digital X-Ray Image Storage - For Presentation",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.1.1",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Digital X-Ray Image Storage - For Presentation",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod Digital X-Ray Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.26-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Digital X-Ray Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.26-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module DX Series --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-68"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module DX Anatomy Imaged --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-69"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module DX Image --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-70"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module DX Detector --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-71"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Display Shutter --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7-17"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element PresentationIntentType",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element ShutterShape",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element ShutterLeftVerticalEdge",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element ShutterRightVerticalEdge",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element ShutterUpperHorizontalEdge",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element ShutterLowerHorizontalEdge",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element ShutterPresentationValue",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "DX",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "modality",
+        "pixels"
+      ],
+      "artifact_kind": "dicom_instance"
+    },
+    {
+      "case_id": "caller/acquisition/presentation",
+      "status": "implemented",
+      "profiles": [
+        "core"
+      ],
+      "recipe_id": "caller_presentation",
+      "recipe_version": "0.1.0",
+      "iod_name": "Digital Mammography X-Ray Image",
+      "sop_class_name": "Digital Mammography X-Ray Image Storage - For Presentation",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.1.2",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class DigitalMammographyXRayImageStorageForPresentation",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod Digital Mammography X-Ray Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.27-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Digital Mammography X-Ray Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.27-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module DX Series",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-68"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module DX Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-70"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module DX Detector --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-71"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module DX Anatomy Imaged",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-69"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Mammography Series",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-73"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Mammography Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-74"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Acquisition Context",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.14-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element PresentationIntentType",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element ImagerPixelSpacing",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element PresentationLUTShape",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "MG",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "modality",
+        "pixels"
+      ],
+      "artifact_kind": "dicom_instance"
+    },
+    {
+      "case_id": "caller/acquisition/processing",
+      "status": "implemented",
+      "profiles": [
+        "core"
+      ],
+      "recipe_id": "caller_processing",
+      "recipe_version": "0.1.0",
+      "iod_name": "Digital Mammography X-Ray Image",
+      "sop_class_name": "Digital Mammography X-Ray Image Storage - For Processing",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.1.2.1",
+      "transfer_syntax_uid": "1.2.840.10008.1.2",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class DigitalMammographyXRayImageStorageForProcessing",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ImplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod Digital Mammography X-Ray Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.27-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Digital Mammography X-Ray Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.27-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module DX Series",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-68"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module DX Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-70"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module DX Detector --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-71"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module DX Anatomy Imaged",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-69"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Mammography Series",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-73"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Mammography Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-74"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Acquisition Context",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.14-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element PresentationIntentType",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "resolve_attribute_context PhotometricInterpretation --iod Digital Mammography X-Ray Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-70"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "resolve_attribute_context WindowCenter --iod Digital Mammography X-Ray Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.11-2b"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "resolve_attribute_context VOILUTSequence --iod Digital Mammography X-Ray Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.11-2b"
+        }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "MG",
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "modality",
+        "pixels"
+      ],
+      "artifact_kind": "dicom_instance"
+    }
+  ]
+}

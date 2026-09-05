@@ -1,0 +1,104 @@
+{
+  "corpus_definition_bundle_schema_version": "1.0.0",
+  "definition_id": "fixture.generic-dx-mg",
+  "definition_version": "1.0.0",
+  "profiles": [
+    {
+      "profile_id": "smoke",
+      "scope": "valid",
+      "members": []
+    },
+    {
+      "profile_id": "core",
+      "scope": "valid",
+      "members": [
+        "caller/acquisition/digital",
+        "caller/acquisition/presentation",
+        "caller/acquisition/processing"
+      ]
+    },
+    {
+      "profile_id": "extended",
+      "scope": "valid",
+      "members": []
+    },
+    {
+      "profile_id": "legacy",
+      "scope": "legacy",
+      "members": []
+    },
+    {
+      "profile_id": "stress",
+      "scope": "stress",
+      "members": []
+    },
+    {
+      "profile_id": "negative",
+      "scope": "expected_invalid",
+      "members": []
+    },
+    {
+      "profile_id": "fuzz",
+      "scope": "fuzz",
+      "members": []
+    },
+    {
+      "profile_id": "all",
+      "scope": "valid",
+      "union_of": [
+        "smoke",
+        "core",
+        "extended"
+      ],
+      "optional_profile": "stress"
+    }
+  ],
+  "registry": {
+    "path": "cases/registry.json",
+    "size_bytes": 14270,
+    "sha256": "33880e3341b62975026c1ff3973b186820ecedafe4938df02886dd47d9822a6b"
+  },
+  "cases": [
+    {
+      "case_id": "caller/acquisition/digital",
+      "recipe_id": "caller_digital",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/caller_digital.json",
+        "size_bytes": 3967,
+        "sha256": "6727348cf6a43cd919c9b7c699a526c6e14fca3a75cdc2479f2851cfde3769b4"
+      },
+      "dependencies": [],
+      "evidence_ids": [],
+      "asset_ids": []
+    },
+    {
+      "case_id": "caller/acquisition/presentation",
+      "recipe_id": "caller_presentation",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/caller_presentation.json",
+        "size_bytes": 4085,
+        "sha256": "5139da76875066ed134ec6096d7229aa6af1ba18732a85edbc5b63239aff70ee"
+      },
+      "dependencies": [],
+      "evidence_ids": [],
+      "asset_ids": []
+    },
+    {
+      "case_id": "caller/acquisition/processing",
+      "recipe_id": "caller_processing",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/caller_processing.json",
+        "size_bytes": 4621,
+        "sha256": "24c8bc3641c7240d4fc44ebcb42a6ab46b755c861d78a44bc03889a6dff76fac"
+      },
+      "dependencies": [],
+      "evidence_ids": [],
+      "asset_ids": []
+    }
+  ],
+  "evidence": [],
+  "assets": []
+}

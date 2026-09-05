@@ -1,0 +1,136 @@
+{
+  "case_recipe_schema_version": "0.1.0",
+  "recipe_id": "caller_presentation",
+  "recipe_version": "0.1.0",
+  "binding": {
+    "case_id": "caller/acquisition/presentation"
+  },
+  "kind": "dicom",
+  "plan_provider_id": "native.classic_plan",
+  "planning_order": 900,
+  "projection_order": 900,
+  "dependencies": [],
+  "provider_parameters": {
+    "family": "mammography"
+  },
+  "validation_rule_ids": [
+    "validation.shared",
+    "validation.classic.mammography"
+  ],
+  "projection_rule_ids": [
+    "projection.curated"
+  ],
+  "dicom": {
+    "artifacts": [
+      {
+        "logical_id": "instance",
+        "output": {
+          "role": "primary_1",
+          "path": "independent/image-1.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "family": "mammography",
+          "sop_class_uid": "1.2.840.10008.5.1.4.1.1.1.2",
+          "modality": "MG",
+          "study_id": "DTS-MG",
+          "patient_orientation": [
+            "A",
+            "FR"
+          ],
+          "body_part_examined": "BREAST",
+          "image_laterality": "L",
+          "presentation_intent_type": "FOR PRESENTATION",
+          "rows": 2,
+          "columns": 2,
+          "photometric_interpretation": "MONOCHROME1",
+          "stored_values": [
+            0,
+            1365,
+            2730,
+            4095
+          ],
+          "pixel_min": 0,
+          "pixel_max": 4095,
+          "expected_frame_sha256": "431efc138b89086b4d83d3ad3229ad53acc2e771b24bca73a8876d6431365e22",
+          "imager_pixel_spacing": [
+            "0.070",
+            "0.070"
+          ],
+          "detector_id": "DTS-MG-DET",
+          "field_of_view_dimensions": [
+            "0.14",
+            "0.14"
+          ],
+          "field_of_view_dimensions_vr": "DS",
+          "window_center": "2048",
+          "window_width": "4096",
+          "presentation_lut_shape": "INVERSE",
+          "anatomic_region": {
+            "value": "76752008",
+            "scheme": "SCT",
+            "meaning": "Breast structure"
+          },
+          "shutter": null,
+          "positioner_type": "MAMMOGRAPHIC",
+          "view_position": "MLO",
+          "organ_exposed": "BREAST",
+          "breast_implant_present": "NO",
+          "view_code": {
+            "value": "399162004",
+            "scheme": "SCT",
+            "meaning": "Mediolateral oblique projection"
+          }
+        },
+        "attribute_operations": [],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {}
+        },
+        "validation_rule_ids": [
+          "validation.shared",
+          "validation.classic.mammography"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "digital_mammography_for_presentation",
+          "mono1_inversion",
+          "unsigned_12_bit_pixels",
+          "presentation_lut_inverse"
+        ],
+        "algorithm_provider_id": "algorithm.classic_dx_mg",
+        "template": {
+          "template_id": "classic/mammography/for-presentation",
+          "template_version": "1.0.0"
+        },
+        "order": 0,
+        "classic_projection": {
+          "family": "dx_mg",
+          "expected_capabilities": [
+            "open_file",
+            "read_metadata",
+            "render_native_pixels",
+            "apply_window"
+          ],
+          "visual_pattern": "2x2_mammography_mono1_12bit_gradient",
+          "semantic_labels": {
+            "photometric_semantics": "MONOCHROME1 with Presentation LUT Shape INVERSE maps stored values to P-Values for presentation"
+          },
+          "standards_evidence_append": [],
+          "include_implementation_version_name": false
+        }
+      }
+    ]
+  }
+}

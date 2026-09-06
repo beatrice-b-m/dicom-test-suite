@@ -2464,7 +2464,7 @@ No corpus import, availability, parity, independent conformance, viewer, Heavy,
 package, release or complete-R7 claim is made by this generator acceptance.
 R7 remains open, and R8/R9 remain held behind their dependencies.
 
-## CT geometry/series caller capability implemented — 2026-09-05
+## CT geometry/series caller capability independently accepted — 2026-09-05
 
 The reusable generator now admits classic CT geometry/series definitions by
 the complete `classic/ct@1.0.0` + native pixels + `algorithm.classic_ct` + CT
@@ -2519,9 +2519,12 @@ Focused verification used
 `external_corpus_cli::` (21), `corpus_generation__subsystem` (92),
 `classic_ct_plan::` (4), and `corpus_plan::` (22); ownership reports 1,520
 entries and `git diff --check` passes. Generator commits for this implemented
-slice are `f9f45fa`, `69987bf`, and `ca7db33`. Independent acceptance remains
-pending review; these same-project checks do not advance R7 or any downstream
-gate.
+slice are `f9f45fa`, `69987bf`, `ca7db33`, and `d245ec4`. Independent review
+accepted the complete correction boundary after rerunning the four CT planner
+tests, the public CLI/SDK proof, the immutable baseline proof, all 40 routing
+tests, ownership over 1,520 entries, and the diff check. This closes the
+generator-local reusable CT capability only; it does not advance complete R7
+or any downstream gate.
 
 ## CT geometry import, availability and migrated parity accepted — 2026-09-05
 

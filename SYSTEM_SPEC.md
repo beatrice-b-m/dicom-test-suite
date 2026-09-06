@@ -1176,6 +1176,11 @@ admission rules. CLI/SDK equality, strict validation and report
 projection are separate same-project evidence; source-pinned corpus runs do
 not acquire qualification from a later generator capability change.
 
+External U1/U32 Secondary Capture recipes use `0.2.0` with explicit metadata
+and checked unsigned-word or continuous single-bit contracts. Manifest V2 binds
+caller values, hashes, packing counters and metadata; strict validation reopens
+the payload and report2 projects integer coverage independently of case names.
+
 External Enhanced recipes use a separate `0.2.0` schema with complete caller
 patient/study metadata and PET quantitation. The declared schema selects
 admission; `0.1.0` remains byte-identical in the frozen compatibility resource

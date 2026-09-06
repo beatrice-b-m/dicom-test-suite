@@ -40,7 +40,8 @@
         "case_id", "status", "nonsquare_variant_id", "nonsquare_pixel_spacing",
         "nonsquare_nominal_scanned_pixel_spacing", "nonsquare_pixel_aspect_ratio",
         "nonsquare_uncalibrated", "nonsquare_patient_space_geometry_present",
-        "nonsquare_pixel_data_sha256", "pixel_spacing", "imager_pixel_spacing"
+        "nonsquare_pixel_data_sha256", "pixel_spacing", "imager_pixel_spacing",
+        "u32_stored_values", "u32_pixel_data_sha256", "u32_word_byte_order", "u32_full_unsigned_range", "u1_stored_values", "u1_decoded_frame_sha256", "u1_pixel_data_sha256", "u1_packing_order", "u1_frame_boundary_policy", "u1_significant_bits", "u1_unused_high_bits", "u1_value_field_padding_bytes"
       ],
       "properties": {
         "case_id": {"type": "string", "minLength": 1},
@@ -53,7 +54,19 @@
         "nonsquare_patient_space_geometry_present": {"type": ["boolean", "null"]},
         "nonsquare_pixel_data_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
         "pixel_spacing": {"type": ["string", "null"]},
-        "imager_pixel_spacing": {"type": ["string", "null"]}
+        "imager_pixel_spacing": {"type": ["string", "null"]},
+        "u32_stored_values": {"type": ["string", "null"]},
+        "u32_pixel_data_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "u32_word_byte_order": {"enum": ["little_endian", null]},
+        "u32_full_unsigned_range": {"type": ["boolean", "null"]},
+        "u1_stored_values": {"type": ["string", "null"]},
+        "u1_decoded_frame_sha256": {"type": ["string", "null"]},
+        "u1_pixel_data_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "u1_packing_order": {"enum": ["least_significant_bit_first", null]},
+        "u1_frame_boundary_policy": {"enum": ["continuous_without_per_frame_padding", null]},
+        "u1_significant_bits": {"type": ["integer", "null"], "minimum": 1},
+        "u1_unused_high_bits": {"type": ["integer", "null"], "minimum": 0, "maximum": 7},
+        "u1_value_field_padding_bytes": {"type": ["integer", "null"], "minimum": 0, "maximum": 1}
       }
     },
     "groups": {

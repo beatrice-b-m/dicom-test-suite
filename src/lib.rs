@@ -6397,6 +6397,9 @@ fn validate_integer_manifest_image_pixel_data(
                 &obj,
                 pixel_bytes.as_ref(),
             )?;
+            if kind == manifest_contract::ManifestContractKind::ExternalCorpus {
+                validate_caller_sc_metadata(failures, relative_path, file, &obj);
+            }
             validate_icc_profile_manifest_contract(
                 kind,
                 failures,
@@ -6450,6 +6453,289 @@ fn validate_integer_manifest_image_pixel_data(
     Ok(())
 }
 
+// The caller manifest owns values; this validates the reusable native encoding contract.
+fn caller_sc_special_payload(file: &Value, bits: u64) -> Result<Vec<u8>, String> {
+    caller_sc_metadata_contract(file)?;
+    let integer = |pointer: &str| {
+        file.pointer(pointer)
+            .and_then(Value::as_u64)
+            .ok_or_else(|| format!("missing unsigned SC field {pointer}"))
+    };
+    let field = if bits == 1 {
+        "expected_u1_pixels"
+    } else {
+        "expected_u32_pixels"
+    };
+    let expected = file.get(field).ok_or_else(|| format!("missing {field}"))?;
+    let sop = if bits == 1 {
+        "1.2.840.10008.5.1.4.1.1.7.1"
+    } else {
+        "1.2.840.10008.5.1.4.1.1.7"
+    };
+    if file.pointer("/dicom/sop_class_uid").and_then(Value::as_str) != Some(sop) {
+        return Err("SC specialized pixel contract has the wrong SOP Class".into());
+    }
+    let rows = integer("/image/rows")?;
+    let columns = integer("/image/columns")?;
+    let frames = integer("/image/frames")?;
+    let per_frame = rows
+        .checked_mul(columns)
+        .filter(|n| *n > 0)
+        .ok_or("SC frame shape overflow")?;
+    let count = per_frame
+        .checked_mul(frames)
+        .filter(|n| *n > 0)
+        .ok_or("SC sample count overflow")?;
+    if (bits == 32 && frames != 1) || (bits == 1 && frames < 2) {
+        return Err("unsupported SC frame cardinality".into());
+    }
+    for (pointer, value) in [
+        ("/image/bits_allocated", bits),
+        ("/image/bits_stored", bits),
+        ("/image/high_bit", bits - 1),
+        ("/image/pixel_representation", 0),
+        ("/image/samples_per_pixel", 1),
+        ("/pixel_data/frame_count", frames),
+    ] {
+        if integer(pointer)? != value {
+            return Err(format!("SC shape differs: {pointer}"));
+        }
+    }
+    for (pointer, value) in [
+        ("/image/photometric_interpretation", "MONOCHROME2"),
+        ("/pixel_data/native_or_encapsulated", "native"),
+        ("/pixel_data/vr", if bits == 1 { "OB" } else { "OW" }),
+        ("/dicom/transfer_syntax_uid", "1.2.840.10008.1.2.1"),
+    ] {
+        if file.pointer(pointer).and_then(Value::as_str) != Some(value) {
+            return Err(format!("SC encoding differs: {pointer}"));
+        }
+    }
+    if !file
+        .pointer("/image/planar_configuration")
+        .is_some_and(Value::is_null)
+    {
+        return Err("SC Planar Configuration must be absent".into());
+    }
+    let values = expected["stored_values"]
+        .as_array()
+        .ok_or("SC stored values missing")?
+        .iter()
+        .map(|v| {
+            v.as_u64()
+                .filter(|v| *v <= if bits == 1 { 1 } else { u64::from(u32::MAX) })
+        })
+        .collect::<Option<Vec<_>>>()
+        .ok_or("SC stored value range")?;
+    if values.len() as u64 != count
+        || file.pointer("/recipe/recipe_parameters/pixel_values")
+            != Some(&expected["stored_values"])
+    {
+        return Err("SC declared sample cardinality or recipe values differ".into());
+    }
+    if integer("/expected_semantics/pixel_min")? != *values.iter().min().ok_or("empty values")?
+        || integer("/expected_semantics/pixel_max")?
+            != *values.iter().max().ok_or("empty values")?
+    {
+        return Err("SC pixel range differs".into());
+    }
+    let mut payload = Vec::new();
+    let mut hashes = Vec::new();
+    if bits == 32 {
+        for value in &values {
+            payload.extend_from_slice(&(*value as u32).to_le_bytes());
+        }
+        hashes.push(sha256_hex(&payload));
+        if expected["word_byte_order"] != "little_endian"
+            || expected["full_unsigned_range"].as_bool()
+                != Some(values.contains(&0) && values.contains(&u64::from(u32::MAX)))
+        {
+            return Err("SC unsigned word/range claim differs".into());
+        }
+    } else {
+        let packed = count.div_ceil(8);
+        let padded = packed
+            .checked_add(packed % 2)
+            .ok_or("SC packed size overflow")?;
+        // Bound allocation to the already-present declaration rather than trusting dimensions.
+        payload.resize(
+            usize::try_from(padded).map_err(|_| "SC packed size overflow")?,
+            0,
+        );
+        for (index, value) in values.iter().enumerate() {
+            payload[index / 8] |= (*value as u8) << (index % 8);
+        }
+        for frame in
+            values.chunks(usize::try_from(per_frame).map_err(|_| "SC frame size overflow")?)
+        {
+            hashes.push(sha256_hex(
+                &frame.iter().map(|v| *v as u8).collect::<Vec<_>>(),
+            ));
+        }
+        if expected["packing_order"] != "least_significant_bit_first"
+            || expected["frame_boundary_policy"] != "continuous_without_per_frame_padding"
+        {
+            return Err("SC bit packing policy differs".into());
+        }
+        for (key, value) in [
+            ("significant_bits", count),
+            ("significant_packed_bytes", packed),
+            ("unused_high_bits", (8 - count % 8) % 8),
+            ("value_field_padding_bytes", packed % 2),
+            ("frame_two_bit_offset", per_frame),
+        ] {
+            if expected[key].as_u64() != Some(value) {
+                return Err(format!("SC packing counter differs: {key}"));
+            }
+        }
+        if expected["decoded_frame_sha256"] != serde_json::json!(hashes) {
+            return Err("SC decoded frame hashes differ".into());
+        }
+    }
+    if integer("/pixel_data/value_length")? != payload.len() as u64
+        || expected["pixel_data_sha256"] != sha256_hex(&payload)
+        || file.pointer("/pixel_data/frame_hashes") != Some(&serde_json::json!(hashes))
+    {
+        return Err("SC payload size or hashes differ".into());
+    }
+    Ok(payload)
+}
+
+fn caller_sc_metadata_contract(file: &Value) -> Result<(), String> {
+    let marker = file.pointer("/recipe/recipe_parameters/integer_capability_version");
+    if marker.is_none() {
+        return Ok(());
+    }
+    if marker.and_then(Value::as_str) != Some("1.0.0") {
+        return Err("unsupported integer capability version".into());
+    }
+    let operations: Vec<recipes::AttributeOperation> = serde_json::from_value(
+        file.pointer("/recipe/recipe_parameters/metadata_overrides")
+            .cloned()
+            .unwrap_or(Value::Null),
+    )
+    .map_err(|_| "integer capability requires metadata overrides")?;
+    let mut tags = std::collections::BTreeSet::new();
+    for operation in &operations {
+        let vr = match operation.tag.as_str() {
+            "0010,0010" => "PN",
+            "0010,0020" | "0008,0070" => "LO",
+            "0010,0030" | "0008,0020" | "0008,0023" => "DA",
+            "0010,0040" | "0018,0015" => "CS",
+            "0008,0030" | "0008,0033" => "TM",
+            "0020,0010" => "SH",
+            "0008,002A" => "DT",
+            _ => "",
+        };
+        if vr.is_empty()
+            || operation.operation != "set"
+            || operation.vr.as_deref() != Some(vr)
+            || !tags.insert(operation.tag.as_str())
+            || !operation
+                .value
+                .as_ref()
+                .and_then(Value::as_str)
+                .is_some_and(|v| v.is_ascii() && !v.contains('\\'))
+        {
+            return Err("invalid integer metadata override".into());
+        }
+    }
+    for tag in [
+        "0010,0010",
+        "0010,0020",
+        "0010,0030",
+        "0010,0040",
+        "0008,0020",
+        "0008,0030",
+        "0008,0023",
+        "0008,0033",
+        "0008,0070",
+        "0020,0010",
+    ] {
+        if !tags.contains(tag) {
+            return Err(format!("integer metadata missing {tag}"));
+        }
+    }
+    Ok(())
+}
+
+fn validate_caller_sc_metadata(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    file: &Value,
+    obj: &OpenedObject,
+) {
+    if let Err(error) = caller_sc_metadata_contract(file) {
+        failures.push(format!("{relative_path}: caller_sc_metadata: {error}"));
+        return;
+    }
+    let Some(declared) = file.pointer("/recipe/recipe_parameters/metadata_overrides") else {
+        return;
+    };
+    let parsed = serde_json::from_value::<Vec<recipes::AttributeOperation>>(declared.clone());
+    let Ok(operations) = parsed else {
+        failures.push(format!(
+            "{relative_path}: caller_sc_metadata: malformed overrides"
+        ));
+        return;
+    };
+    let mut seen = std::collections::BTreeSet::new();
+    for operation in operations {
+        let expected_vr = match operation.tag.as_str() {
+            "0010,0010" => "PN",
+            "0010,0020" | "0008,0070" => "LO",
+            "0010,0030" | "0008,0020" | "0008,0023" => "DA",
+            "0010,0040" | "0018,0015" => "CS",
+            "0008,0030" | "0008,0033" => "TM",
+            "0020,0010" => "SH",
+            "0008,002A" => "DT",
+            _ => "",
+        };
+        let text = operation.value.as_ref().and_then(Value::as_str);
+        if expected_vr.is_empty()
+            || operation.operation != "set"
+            || operation.vr.as_deref() != Some(expected_vr)
+            || !seen.insert(operation.tag.clone())
+            || !text.is_some_and(|value| value.is_ascii() && !value.contains('\\'))
+        {
+            failures.push(format!(
+                "{relative_path}: caller_sc_metadata: invalid override {}",
+                operation.tag
+            ));
+            continue;
+        }
+        // The allowlist above establishes a normalized public tag and VR.
+        let tag = dicom_core::Tag(
+            u16::from_str_radix(&operation.tag[..4], 16).unwrap(),
+            u16::from_str_radix(&operation.tag[5..], 16).unwrap(),
+        );
+        let name = format!("caller_sc_metadata_{}", operation.tag);
+        validate_item_vr(
+            failures,
+            relative_path,
+            obj,
+            tag,
+            &name,
+            expected_vr.parse().unwrap(),
+        );
+        validate_str_element(failures, relative_path, obj, tag, &name, text.unwrap());
+    }
+}
+
+fn validate_caller_sc_special(
+    failures: &mut Vec<String>,
+    relative_path: &str,
+    file: &Value,
+    pixel_bytes: &[u8],
+    bits: u64,
+) {
+    match caller_sc_special_payload(file, bits) {
+        Ok(expected) if expected != pixel_bytes => failures.push(format!("{relative_path}: caller_sc_pixel_bytes: encoded samples, unused bits or final padding differ")),
+        Ok(_) => (),
+        Err(error) => failures.push(format!("{relative_path}: caller_sc_pixel_contract: {error}")),
+    }
+}
+
 fn validate_u32_sc_manifest_pixel_contract(
     kind: manifest_contract::ManifestContractKind,
     failures: &mut Vec<String>,
@@ -6458,13 +6744,39 @@ fn validate_u32_sc_manifest_pixel_contract(
     file: &Value,
     pixel_bytes: &[u8],
 ) -> Result<(), ValidateError> {
+    if kind == manifest_contract::ManifestContractKind::ExternalCorpus
+        && file
+            .pointer("/recipe/recipe_parameters/integer_capability_version")
+            .is_some()
+    {
+        let scoped = file
+            .pointer("/image/bits_allocated")
+            .and_then(Value::as_u64)
+            == Some(32)
+            && file.pointer("/dicom/sop_class_uid").and_then(Value::as_str)
+                == Some("1.2.840.10008.5.1.4.1.1.7");
+        if scoped || file.get("expected_u32_pixels").is_some() {
+            validate_caller_sc_special(failures, relative_path, file, pixel_bytes, 32);
+        }
+        return Ok(());
+    }
+
     const CASE_ID: &str = "classic/sc/mono2_u32_explicit_le";
     const VALUES: [u64; 4] = [0, 65_535, 2_147_483_648, 4_294_967_295];
     const PIXEL_SHA256: &str = "56bca1a85c2838126b1d1a5fbedfe731839496d972df2c6ab33e1a1183392b41";
 
     let case_id = manifest_str(manifest_path, file, "/case_id", "case_id must be a string")?;
     let contract = file.get("expected_u32_pixels");
-    if kind == manifest_contract::ManifestContractKind::ExternalCorpus && contract.is_none() {
+    if kind == manifest_contract::ManifestContractKind::ExternalCorpus
+        && contract.is_none()
+        && !(file.pointer("/dicom/sop_class_uid").and_then(Value::as_str)
+            == Some("1.2.840.10008.5.1.4.1.1.7")
+            && (32 == 1
+                || file
+                    .pointer("/image/bits_allocated")
+                    .and_then(Value::as_u64)
+                    == Some(32)))
+    {
         return Ok(());
     }
     if kind != manifest_contract::ManifestContractKind::ExternalCorpus && case_id != CASE_ID {
@@ -6656,6 +6968,52 @@ fn validate_u1_sc_manifest_pixel_contract(
     obj: &OpenedObject,
     pixel_bytes: &[u8],
 ) -> Result<(), ValidateError> {
+    if kind == manifest_contract::ManifestContractKind::ExternalCorpus
+        && file
+            .pointer("/recipe/recipe_parameters/integer_capability_version")
+            .is_some()
+    {
+        let scoped = file.pointer("/dicom/sop_class_uid").and_then(Value::as_str)
+            == Some("1.2.840.10008.5.1.4.1.1.7.1");
+        if scoped || file.get("expected_u1_pixels").is_some() {
+            validate_caller_sc_special(failures, relative_path, file, pixel_bytes, 1);
+            let frames = file
+                .pointer("/image/frames")
+                .and_then(Value::as_u64)
+                .unwrap_or(0);
+            match element_tags_for_validate(obj, tags::FRAME_INCREMENT_POINTER) {
+                Ok(actual) => validate_equal_debug(
+                    failures,
+                    relative_path,
+                    "u1_frame_increment_pointer",
+                    actual,
+                    vec![tags::PAGE_NUMBER_VECTOR],
+                ),
+                Err(error) => failures.push(format!(
+                    "{relative_path}: u1_frame_increment_pointer: {error}"
+                )),
+            }
+            if frames <= pixel_bytes.len() as u64 * 8 {
+                match element_str_for_validate(obj, tags::PAGE_NUMBER_VECTOR) {
+                    Ok(actual) => validate_equal(
+                        failures,
+                        relative_path,
+                        "u1_page_number_vector",
+                        actual,
+                        (1..=frames)
+                            .map(|value| value.to_string())
+                            .collect::<Vec<_>>()
+                            .join("\\"),
+                    ),
+                    Err(error) => {
+                        failures.push(format!("{relative_path}: u1_page_number_vector: {error}"))
+                    }
+                }
+            }
+        }
+        return Ok(());
+    }
+
     const CASE_ID: &str = "classic/sc/mono2_u1_native";
     const VALUES: [u64; 18] = [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0];
     const FRAME_HASHES: [&str; 2] = [
@@ -6666,7 +7024,16 @@ fn validate_u1_sc_manifest_pixel_contract(
 
     let case_id = manifest_str(manifest_path, file, "/case_id", "case_id must be a string")?;
     let contract = file.get("expected_u1_pixels");
-    if kind == manifest_contract::ManifestContractKind::ExternalCorpus && contract.is_none() {
+    if kind == manifest_contract::ManifestContractKind::ExternalCorpus
+        && contract.is_none()
+        && !(file.pointer("/dicom/sop_class_uid").and_then(Value::as_str)
+            == Some("1.2.840.10008.5.1.4.1.1.7.1")
+            && (1 == 1
+                || file
+                    .pointer("/image/bits_allocated")
+                    .and_then(Value::as_u64)
+                    == Some(1)))
+    {
         return Ok(());
     }
     if kind != manifest_contract::ManifestContractKind::ExternalCorpus && case_id != CASE_ID {
@@ -24422,6 +24789,76 @@ fn wsi_tiled_sparse_report_fields(
     Ok(locked_wsi_tiled_sparse_report_fields())
 }
 
+fn generated_external_coverage_row(
+    manifest_path: &Path,
+    file: &Value,
+    run_profile: &str,
+) -> Result<Value, ReportError> {
+    let mut row = generated_coverage_row(manifest_path, file, run_profile)?;
+    for bits in [1, 32] {
+        let field = if bits == 1 {
+            "expected_u1_pixels"
+        } else {
+            "expected_u32_pixels"
+        };
+        let sop = if bits == 1 {
+            "1.2.840.10008.5.1.4.1.1.7.1"
+        } else {
+            "1.2.840.10008.5.1.4.1.1.7"
+        };
+        let scoped = (bits == 1
+            || file
+                .pointer("/image/bits_allocated")
+                .and_then(Value::as_u64)
+                == Some(bits))
+            && file.pointer("/dicom/sop_class_uid").and_then(Value::as_str) == Some(sop);
+        if file.get(field).is_none() && !scoped {
+            continue;
+        }
+        if file
+            .pointer("/recipe/recipe_parameters/integer_capability_version")
+            .is_none()
+        {
+            if bits == 1 {
+                frozen_u1_pixel_report_fields(manifest_path, file)?;
+            } else {
+                frozen_u32_pixel_report_fields(manifest_path, file)?;
+            }
+        }
+        caller_sc_special_payload(file, bits).map_err(|_| ReportError::MetadataShape {
+            path: manifest_path.to_path_buf(),
+            message: "invalid caller SC integer pixel contract",
+        })?;
+        let expected = &file[field];
+        let prefix = if bits == 1 { "u1" } else { "u32" };
+        row[format!("{prefix}_stored_values")] =
+            report_value_array_label(&expected["stored_values"])
+                .map(Value::from)
+                .unwrap_or(Value::Null);
+        row[format!("{prefix}_pixel_data_sha256")] = expected["pixel_data_sha256"].clone();
+        if bits == 1 {
+            row["u1_decoded_frame_sha256"] =
+                report_value_array_label(&expected["decoded_frame_sha256"])
+                    .map(Value::from)
+                    .unwrap_or(Value::Null);
+            for field in [
+                "packing_order",
+                "frame_boundary_policy",
+                "significant_bits",
+                "unused_high_bits",
+                "value_field_padding_bytes",
+            ] {
+                row[format!("u1_{field}")] = expected[field].clone();
+            }
+        } else {
+            for field in ["word_byte_order", "full_unsigned_range"] {
+                row[format!("u32_{field}")] = expected[field].clone();
+            }
+        }
+    }
+    Ok(row)
+}
+
 fn generated_coverage_row(
     manifest_path: &Path,
     file: &Value,
@@ -30016,6 +30453,13 @@ fn u32_pixel_report_fields(
     if file.get("case_id").and_then(Value::as_str) != Some("classic/sc/mono2_u32_explicit_le") {
         return Ok(U32PixelReportFields::default());
     }
+    frozen_u32_pixel_report_fields(manifest_path, file)
+}
+
+fn frozen_u32_pixel_report_fields(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<U32PixelReportFields, ReportError> {
     let expected = file
         .get("expected_u32_pixels")
         .ok_or(ReportError::MetadataShape {
@@ -30068,6 +30512,13 @@ fn u1_pixel_report_fields(
     if file.get("case_id").and_then(Value::as_str) != Some("classic/sc/mono2_u1_native") {
         return Ok(U1PixelReportFields::default());
     }
+    frozen_u1_pixel_report_fields(manifest_path, file)
+}
+
+fn frozen_u1_pixel_report_fields(
+    manifest_path: &Path,
+    file: &Value,
+) -> Result<U1PixelReportFields, ReportError> {
     let expected = file
         .get("expected_u1_pixels")
         .ok_or(ReportError::MetadataShape {

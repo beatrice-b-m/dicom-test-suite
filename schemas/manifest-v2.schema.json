@@ -1032,6 +1032,104 @@
         { "properties": { "variant_id": { "const": "pixel_aspect_ratio" }, "pixel_spacing": { "type": "null" }, "nominal_scanned_pixel_spacing": { "type": "null" }, "pixel_aspect_ratio": { "$ref": "#/$defs/expected_nonsquare_pixel_aspect_ratio" } } }
       ]
     },
+    "expected_u1_pixels": {
+      "type": "object",
+      "required": [
+        "packing_order",
+        "frame_boundary_policy",
+        "stored_values",
+        "decoded_frame_sha256",
+        "pixel_data_sha256",
+        "significant_bits",
+        "significant_packed_bytes",
+        "unused_high_bits",
+        "value_field_padding_bytes",
+        "frame_two_bit_offset"
+      ],
+      "properties": {
+        "packing_order": {
+          "const": "least_significant_bit_first"
+        },
+        "frame_boundary_policy": {
+          "const": "continuous_without_per_frame_padding"
+        },
+        "stored_values": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "decoded_frame_sha256": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "pixel_data_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "significant_bits": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "significant_packed_bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "unused_high_bits": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 7
+        },
+        "value_field_padding_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "frame_two_bit_offset": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "expected_u32_pixels": {
+      "type": "object",
+      "required": [
+        "stored_values",
+        "pixel_data_sha256",
+        "word_byte_order",
+        "full_unsigned_range"
+      ],
+      "properties": {
+        "stored_values": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          }
+        },
+        "pixel_data_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "word_byte_order": {
+          "const": "little_endian"
+        },
+        "full_unsigned_range": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
     "external_file": {
       "type": "object",
       "required": [
@@ -1184,10 +1282,10 @@
           "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_xrf_projection"
         },
         "expected_u32_pixels": {
-          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_u32_pixels"
+          "$ref": "#/$defs/expected_u32_pixels"
         },
         "expected_u1_pixels": {
-          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_u1_pixels"
+          "$ref": "#/$defs/expected_u1_pixels"
         },
         "expected_icc_profile": {
           "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_icc_profile"

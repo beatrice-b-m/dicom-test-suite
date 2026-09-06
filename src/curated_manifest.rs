@@ -3541,6 +3541,13 @@ fn add_special(
     observation: Option<&MetadataObservation>,
 ) -> Result<(), CuratedManifestError> {
     let sc = ctx.artifact_recipe.secondary_capture.as_ref().unwrap();
+    if (sc.bits_allocated == 1 || sc.bits_allocated == 32)
+        && ctx.case_recipe.case_recipe_schema_version == "0.2.0"
+    {
+        manifest["recipe"]["recipe_parameters"]["integer_capability_version"] = json!("1.0.0");
+        manifest["recipe"]["recipe_parameters"]["metadata_overrides"] =
+            json!(ctx.artifact_recipe.attribute_operations);
+    }
     if let Some(bits) = &sc.bit_packing {
         let actual = pixels
             .native_bit_packing
@@ -3549,6 +3556,16 @@ fn add_special(
         if actual.total_stored_values != bits.significant_bits
             || actual.packed_size_bytes != bits.significant_packed_bytes
             || actual.unused_trailing_bits != bits.unused_high_bits
+            || actual.bit_order != "lsb_first"
+            || bits.bit_order != "least_significant_bit_first"
+            || !actual.continuous_across_frames
+            || bits.frame_boundary_policy != "continuous_without_per_frame_padding"
+            || actual.stored_values_per_frame != u64::from(sc.rows) * u64::from(sc.columns)
+            || bits.value_field_padding_bytes != actual.packed_size_bytes % 2
+            || bits.frame_start_bit_offsets
+                != (0..sc.frames)
+                    .map(|index| u64::from(index) * actual.stored_values_per_frame)
+                    .collect::<Vec<_>>()
         {
             return fail("bit-packing evidence differs from recipe");
         }
@@ -3563,6 +3580,13 @@ fn add_special(
             "frame_two_bit_offset":bits.frame_start_bit_offsets.get(1).ok_or_else(|| err("missing second frame bit offset"))?});
     }
     if let Some(word) = &sc.integer_word {
+        if word.byte_order != "little_endian"
+            || word.covers_full_unsigned_range
+                != (sc.stored_values.contains(&0)
+                    && sc.stored_values.contains(&i64::from(u32::MAX)))
+        {
+            return fail("integer word byte order or range claim differs from samples");
+        }
         manifest["expected_u32_pixels"] = json!({"stored_values":sc.stored_values,"pixel_data_sha256":pixels.sha256,
             "word_byte_order":word.byte_order,"full_unsigned_range":word.covers_full_unsigned_range});
     }

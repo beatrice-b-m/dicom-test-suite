@@ -32,7 +32,7 @@ use super::registration::{
     REGISTRATION_ALGORITHM_PROVIDER_ID, REGISTRATION_PLAN_PROVIDER_ID, RegistrationProviderInput,
     RegistrationSourceInput, registration_input_from_recipe, validate_registration_recipe,
 };
-use super::sc::inspect_nonsquare_sc_capability;
+use super::sc::{inspect_integer_sc_capability, inspect_nonsquare_sc_capability};
 use super::wsi::{
     WSI_ADVANCED_PROVIDER_ID, WSI_ALGORITHM_PROVIDER_ID, WsiPlanRecipe, wsi_input_from_recipe,
 };
@@ -1529,7 +1529,10 @@ fn validate_secondary_capture_contract(
             ));
         }
     }
-    let bounded = is_name_independent_sc(recipe)
+    let bounded = inspect_integer_sc_capability(recipe)
+        .map_err(|error| semantic(path, format!("invalid integer SC capability: {error}")))?
+        .is_some()
+        || is_name_independent_sc(recipe)
         || inspect_nonsquare_sc_capability(recipe)
             .map_err(|error| semantic(path, format!("invalid nonsquare SC capability: {error}")))?
             .is_some();
@@ -1731,6 +1734,17 @@ fn validate_registry_bindings(
             && (validate_secondary_capture_contract(Path::new(&recipe.recipe_id), recipe)?
                 || case.case_id.starts_with("classic/sc/")
                 || case.case_id == "encapsulation/sc/eot_single_fragment_multiframe");
+        if inspect_integer_sc_capability(recipe)
+            .map_err(|error| RecipeCatalogError::Completeness {
+                message: error.to_string(),
+            })?
+            .is_some()
+            && case.modality.as_deref() != Some("OT")
+        {
+            return Err(RecipeCatalogError::Completeness {
+                message: "integer SC capability requires OT modality".into(),
+            });
+        }
         let name_independent_nonsquare_sc = inspect_nonsquare_sc_capability(recipe)
             .map_err(|error| RecipeCatalogError::Completeness {
                 message: format!(

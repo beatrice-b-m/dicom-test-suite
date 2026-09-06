@@ -31,7 +31,7 @@ necessarily change every other contract.
 | Coverage report | `1.1.0` for curated manifest1; `2.0.0` for external manifest2 | Readers retain `0.1.0` and `1.0.0`. Legacy curated manifests still produce `0.1.0`; report-result1 remains the envelope for curated reports. |
 | Template catalog | `0.1.0` | `template_catalog_schema_version`; each descriptor also has an independent template ID/version. |
 | Case registry | `0.2.0` | Registry document shape; case recipe identity and determinism change through `recipe_version`. |
-| Case recipe | `0.1.0` and `0.2.0` | Version `0.2.0` adds explicit caller-owned Enhanced metadata and PET quantitation. Readers select the declared schema; the frozen `0.1.0` schema and transitional resource identity remain unchanged. Current schema/resource identity includes both schemas. |
+| Case recipe | `0.1.0` and `0.2.0` | Version `0.2.0` adds explicit caller-owned Enhanced metadata/PET quantitation and native U1/U32 SC metadata and pixel contracts. Readers select the declared schema; the frozen `0.1.0` schema and transitional resource identity remain unchanged. Current schema/resource identity includes both schemas. |
 | Composition provider | `1.0.0` | Request/response protocol used by caller-selected content providers. |
 | Generation backend | `0.1.0` | Locked external generation-backend request/response protocol. |
 | Product resources | `1.0.0` | Immutable embedded or explicit resource-set inventory and hashes. |

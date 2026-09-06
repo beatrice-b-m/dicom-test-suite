@@ -171,6 +171,10 @@ preserves all synthetic metadata and source projection flags. This recipe
 capability is separate from the photographic composition template's qualified
 interleaved RGB8 default; it adds no arbitrary palette or ICC/RLE capability.
 
+Caller-defined [one-bit and unsigned 32-bit Secondary Capture](docs/generation-guide.md#caller-defined-one-bit-and-unsigned-32-bit-secondary-capture)
+uses explicit metadata and pixel declarations with checked native packing,
+strict reopening and report2 coverage. Historical recipe bytes remain separate.
+
 Caller-defined native Enhanced CT, MR and PET use recipe schema `0.2.0` with
 explicit metadata, frame pixels, geometry and family-specific dimensions.
 The [Enhanced contract](docs/generation-guide.md#caller-defined-native-enhanced-ct-mr-and-pet)

@@ -3831,3 +3831,385 @@ fn caller_owned_enhanced_cli_sdk_strict_report_and_repeat_are_identical() {
     }
     fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn caller_owned_sc_integer_cli_sdk_strict_report_and_repeat_are_identical() {
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let root = fs::canonicalize(std::env::temp_dir())
+        .unwrap()
+        .join(format!(
+            "generic-sc-integer-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+    fs::create_dir(&root).unwrap();
+    let source =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/generic-sc-integer-corpus");
+    let descriptor = root.join("definition.json");
+    fs::copy(source.join("definition.json"), &descriptor).unwrap();
+    let definition: Value = serde_json::from_slice(&fs::read(&descriptor).unwrap()).unwrap();
+    let members = root.join("members");
+    for reference in std::iter::once(&definition["registry"])
+        .chain(
+            definition["cases"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|row| &row["recipe"]),
+        )
+        .chain(definition["evidence"].as_array().unwrap().iter())
+    {
+        let relative = reference["path"].as_str().unwrap();
+        let destination = members.join(relative);
+        fs::create_dir_all(destination.parent().unwrap()).unwrap();
+        fs::copy(source.join("members").join(relative), destination).unwrap();
+    }
+    let command = |args: &[&str]| {
+        let raw = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
+            .args(args)
+            .current_dir(&root)
+            .env("PATH", "")
+            .output()
+            .unwrap();
+        if !raw.status.success() && args.first() == Some(&"generate") {
+            let diagnostic = DicomTestSuite::embedded().unwrap().generate_corpus(
+                GenerateCorpusRequest::from_file(
+                    &descriptor,
+                    &members,
+                    root.join("sdk-failure-diagnostic"),
+                    CorpusSelector::Profile {
+                        profile: "core".into(),
+                        include_stress: false,
+                    },
+                )
+                .with_seed(23)
+                .with_parallelism(2),
+            );
+            panic!(
+                "CLI generation failed: {}; SDK diagnostic: {diagnostic:?}",
+                String::from_utf8_lossy(&raw.stderr)
+            );
+        }
+        assert!(
+            raw.status.success(),
+            "{}",
+            String::from_utf8_lossy(&raw.stderr)
+        );
+        serde_json::from_slice::<Value>(&raw.stdout).unwrap()
+    };
+    let selector = || CorpusSelector::Profile {
+        profile: "core".into(),
+        include_stress: false,
+    };
+    let product = DicomTestSuite::embedded().unwrap();
+    let sdk_capabilities = product
+        .capabilities_with_corpus(
+            InspectCorpusRequest::from_file(&descriptor, &members)
+                .with_selection(selector())
+                .with_seed(23)
+                .with_parallelism(2),
+        )
+        .unwrap();
+    let capabilities = command(&[
+        "capabilities",
+        "--corpus",
+        "./definition.json",
+        "--asset-root",
+        "members",
+        "--profile",
+        "core",
+        "--seed",
+        "23",
+        "--parallelism",
+        "2",
+        "--format",
+        "json",
+    ]);
+    assert_eq!(
+        capabilities["result"],
+        serde_json::to_value(sdk_capabilities).unwrap()
+    );
+    assert_eq!(
+        capabilities["result"]["loaded_corpus"]["assessment"]["publication"],
+        "not_run"
+    );
+    let cli = command(&[
+        "generate",
+        "--corpus",
+        "./definition.json",
+        "--asset-root",
+        "members",
+        "--profile",
+        "core",
+        "--seed",
+        "23",
+        "--parallelism",
+        "2",
+        "--out",
+        "cli-output",
+        "--format",
+        "json",
+    ]);
+    assert_eq!(cli["result"]["emitted_file_count"], 2);
+    assert_eq!(cli["result"]["validation_status"], "passed");
+    let manifest: Value =
+        serde_json::from_slice(&fs::read(root.join("cli-output/manifest.json")).unwrap()).unwrap();
+    valid("manifest-v2.schema.json", &manifest);
+    for file in manifest["files"].as_array().unwrap() {
+        let case = definition["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|row| row["case_id"] == file["case_id"])
+            .unwrap();
+        let recipe: Value = serde_json::from_slice(
+            &fs::read(members.join(case["recipe"]["path"].as_str().unwrap())).unwrap(),
+        )
+        .unwrap();
+        let pixels = &recipe["dicom"]["artifacts"][0]["secondary_capture"];
+        let expected: Vec<u32> = pixels["stored_values"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|value| value.as_u64().unwrap() as u32)
+            .collect();
+        let obj =
+            dicom_object::open_file(root.join("cli-output").join(file["path"].as_str().unwrap()))
+                .unwrap();
+        for (keyword, value) in [
+            ("PatientName", "Integer^Fixture"),
+            ("PatientID", "CALLER-INTEGER"),
+            ("Manufacturer", "Caller Imaging"),
+            ("StudyDate", "20260304"),
+        ] {
+            assert_eq!(
+                obj.element_by_name(keyword).unwrap().to_str().unwrap(),
+                value
+            );
+        }
+        let raw = obj
+            .element_by_name("PixelData")
+            .unwrap()
+            .to_bytes()
+            .unwrap();
+        if pixels["stored_value_type"] == "u1" {
+            let actual = (0..expected.len())
+                .map(|index| u32::from((raw[index / 8] >> (index % 8)) & 1))
+                .collect::<Vec<_>>();
+            assert_eq!(actual, expected);
+            assert_eq!(raw.len(), 6);
+            assert_eq!(raw[5] & 0b1110_0000, 0);
+            assert_eq!(
+                obj.element_by_name("PageNumberVector")
+                    .unwrap()
+                    .to_multi_int::<u32>()
+                    .unwrap(),
+                vec![1, 2, 3]
+            );
+            assert_eq!(
+                obj.element_by_name("AcquisitionDateTime")
+                    .unwrap()
+                    .to_str()
+                    .unwrap(),
+                "20260304121314"
+            );
+            assert_eq!(
+                obj.element_by_name("BodyPartExamined")
+                    .unwrap()
+                    .to_str()
+                    .unwrap(),
+                "HEAD"
+            );
+        } else {
+            let actual = raw
+                .chunks_exact(4)
+                .map(|bytes| u32::from_le_bytes(bytes.try_into().unwrap()))
+                .collect::<Vec<_>>();
+            assert_eq!(actual, expected);
+            assert!(actual.iter().any(|value| *value > i32::MAX as u32));
+            assert!(!actual.contains(&0) && !actual.contains(&u32::MAX));
+        }
+    }
+    for output in ["sdk-output", "repeat-output"] {
+        let GenerateCorpusOutcome::Published(sdk) = product
+            .generate_corpus(
+                GenerateCorpusRequest::from_file(
+                    &descriptor,
+                    &members,
+                    root.join(output),
+                    selector(),
+                )
+                .with_seed(23)
+                .with_parallelism(2),
+            )
+            .unwrap()
+        else {
+            panic!("integer caller must publish")
+        };
+        assert_eq!(sdk.manifest().deserialize::<Value>().unwrap(), manifest);
+        for file in manifest["files"].as_array().unwrap() {
+            let path = file["path"].as_str().unwrap();
+            assert!(path.starts_with("caller-integer/"));
+            assert_eq!(
+                fs::read(root.join("cli-output").join(path)).unwrap(),
+                fs::read(sdk.output_root().join(path)).unwrap()
+            );
+        }
+        assert!(
+            product
+                .validate(ValidateRequest::new(sdk.output_root()))
+                .unwrap()
+                .is_valid()
+        );
+    }
+    let validation = command(&["validate", "cli-output", "--format", "json"]);
+    assert_eq!(validation["result"]["valid"], true);
+    let report = command(&[
+        "report",
+        "cli-output",
+        "--format",
+        "json",
+        "--cli-api",
+        "1.0.0",
+    ]);
+    valid(
+        "coverage-report-v2.schema.json",
+        &report["result"]["report"],
+    );
+    assert_eq!(
+        product
+            .report(ReportRequest::new(root.join("sdk-output")))
+            .unwrap()
+            .deserialize::<Value>()
+            .unwrap(),
+        report["result"]["report"]
+    );
+
+    for file_index in 0..2 {
+        for mutation in 0..3 {
+            let mut changed = manifest.clone();
+            let parameters = changed["files"][file_index]["recipe"]["recipe_parameters"]
+                .as_object_mut()
+                .unwrap();
+            match mutation {
+                0 => {
+                    parameters.remove("metadata_overrides");
+                }
+                1 => {
+                    parameters.remove("metadata_overrides");
+                    parameters.remove("integer_capability_version");
+                }
+                _ => {
+                    parameters.insert("integer_capability_version".into(), json!("99.0.0"));
+                }
+            }
+            fs::write(
+                root.join("cli-output/manifest.json"),
+                serde_json::to_vec(&changed).unwrap(),
+            )
+            .unwrap();
+            let rejected = product.validate(ValidateRequest::new(root.join("cli-output")));
+            assert!(
+                rejected.is_err() || !rejected.unwrap().is_valid(),
+                "integer file {file_index} must reject metadata/marker mutation {mutation}"
+            );
+        }
+    }
+    fs::write(
+        root.join("cli-output/manifest.json"),
+        serde_json::to_vec(&manifest).unwrap(),
+    )
+    .unwrap();
+
+    for (case_index, pointer, replacement) in [
+        (0, "/case_recipe_schema_version", json!("0.1.0")),
+        (1, "/case_recipe_schema_version", json!("0.1.0")),
+        (0, "/dicom/artifacts/0/attribute_operations", json!([])),
+        (1, "/dicom/artifacts/0/attribute_operations", json!([])),
+        (
+            0,
+            "/dicom/artifacts/0/template/template_id",
+            json!("classic/secondary-capture/monochrome"),
+        ),
+        (
+            0,
+            "/dicom/artifacts/0/secondary_capture/bit_packing",
+            Value::Null,
+        ),
+        (
+            0,
+            "/dicom/artifacts/0/secondary_capture/bit_packing/frame_start_bit_offsets",
+            json!([0, 16, 32]),
+        ),
+        (
+            0,
+            "/dicom/artifacts/0/secondary_capture/bit_packing/value_field_padding_bytes",
+            json!(1),
+        ),
+        (
+            0,
+            "/dicom/artifacts/0/secondary_capture/stored_values/0",
+            json!(2),
+        ),
+        (
+            0,
+            "/dicom/artifacts/0/secondary_capture/frame_sha256/0",
+            json!("0000000000000000000000000000000000000000000000000000000000000000"),
+        ),
+        (
+            1,
+            "/dicom/artifacts/0/secondary_capture/integer_word",
+            Value::Null,
+        ),
+        (
+            1,
+            "/dicom/artifacts/0/secondary_capture/integer_word/covers_full_unsigned_range",
+            json!(true),
+        ),
+        (
+            1,
+            "/dicom/artifacts/0/secondary_capture/integer_word/byte_order",
+            json!("big_endian"),
+        ),
+        (
+            1,
+            "/dicom/artifacts/0/secondary_capture/pixel_data_vr",
+            json!("OL"),
+        ),
+        (
+            1,
+            "/dicom/artifacts/0/secondary_capture/stored_values/0",
+            json!(4294967296_u64),
+        ),
+        (
+            1,
+            "/dicom/artifacts/0/attribute_operations/0/tag",
+            json!("0028,0100"),
+        ),
+    ] {
+        let mut changed = definition.clone();
+        let relative = definition["cases"][case_index]["recipe"]["path"]
+            .as_str()
+            .unwrap();
+        let original = fs::read(source.join("members").join(relative)).unwrap();
+        let mut recipe: Value = serde_json::from_slice(&original).unwrap();
+        *recipe.pointer_mut(pointer).unwrap() = replacement;
+        let bytes = serde_json::to_vec(&recipe).unwrap();
+        fs::write(members.join(relative), &bytes).unwrap();
+        changed["cases"][case_index]["recipe"]["size_bytes"] = json!(bytes.len());
+        changed["cases"][case_index]["recipe"]["sha256"] =
+            json!(synth_dicom_gen::sha256_hex(&bytes));
+        fs::write(&descriptor, serde_json::to_vec(&changed).unwrap()).unwrap();
+        assert!(
+            product
+                .capabilities_with_corpus(
+                    InspectCorpusRequest::from_file(&descriptor, &members)
+                        .with_selection(selector())
+                )
+                .is_err(),
+            "must reject {pointer}"
+        );
+        fs::write(members.join(relative), original).unwrap();
+    }
+    fs::remove_dir_all(root).unwrap();
+}

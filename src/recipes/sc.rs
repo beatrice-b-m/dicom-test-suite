@@ -35,6 +35,210 @@ const ORDINARY_SC: &str = "1.2.840.10008.5.1.4.1.1.7";
 const MULTIFRAME_SINGLE_BIT_SC: &str = "1.2.840.10008.5.1.4.1.1.7.1";
 const MULTIFRAME_GRAYSCALE_BYTE_SC: &str = "1.2.840.10008.5.1.4.1.1.7.2";
 
+/// A declaration-led native single-bit or unsigned-word SC capability.
+/// Identity strings are caller data, never admission discriminators.
+pub(crate) fn inspect_integer_sc_capability(
+    recipe: &CaseRecipe,
+) -> Result<Option<()>, ScPlanError> {
+    if recipe.plan_provider_id != "native.sc_plan" || recipe.case_recipe_schema_version != "0.2.0" {
+        return Ok(None);
+    }
+    let Some(dicom) = &recipe.dicom else {
+        return Ok(None);
+    };
+    let intent = dicom.artifacts.iter().any(|artifact| {
+        artifact.template.as_ref().is_some_and(|template| {
+            template.template_id == "classic/secondary-capture/multiframe-single-bit"
+        }) || artifact.secondary_capture.as_ref().is_some_and(|sc| {
+            matches!(sc.stored_value_type.as_str(), "u1" | "u32")
+                || sc.bit_packing.is_some()
+                || sc.integer_word.is_some()
+        })
+    });
+    if !intent {
+        return Ok(None);
+    }
+    let invalid = |message: &str| ScPlanError::InvalidIntegerContract(message.into());
+    let [artifact] = dicom.artifacts.as_slice() else {
+        return Err(invalid("exactly one artifact is required"));
+    };
+    let sc = artifact
+        .secondary_capture
+        .as_ref()
+        .ok_or_else(|| invalid("missing integer pixels"))?;
+    let template = artifact
+        .template
+        .as_ref()
+        .ok_or_else(|| invalid("missing integer template"))?;
+    let has = |rules: &[String], value: &str| rules.iter().any(|rule| rule == value);
+    if recipe.kind != RecipeKind::Dicom
+        || recipe.planning_order.is_none()
+        || recipe.projection_order.is_none()
+        || !recipe.dependencies.is_empty()
+        || !recipe.provider_parameters.is_empty()
+        || artifact.output.path.is_none()
+        || artifact.output.provider_derived == Some(true)
+        || artifact.output.role.is_empty()
+        || artifact.logical_id.is_empty()
+        || artifact.metadata_sc.is_some()
+        || artifact.classic_projection.is_some()
+        || artifact.nonsquare_geometry.is_some()
+        || artifact.algorithm_provider_id.is_some()
+        || artifact.public_profile_membership.is_some()
+        || !artifact.parameters.is_empty()
+        || !artifact.content.parameters.is_empty()
+        || artifact.content.provider_id != "content.sc.pixel_pattern"
+        || !has(&recipe.validation_rule_ids, "validation.sc.pixel")
+        || !has(&artifact.validation_rule_ids, "validation.sc.pixel")
+        || !has(&recipe.projection_rule_ids, "projection.curated")
+        || !has(&artifact.projection_rule_ids, "projection.curated")
+        || artifact.encoding.transfer_syntax_uid != "1.2.840.10008.1.2.1"
+        || artifact.encoding.sequence_length_policy != "default"
+        || artifact.encoding.item_length_policy != "default"
+        || artifact.encoding.offset_table_policy != "none"
+        || artifact.encoding.fragmentation_policy != "native"
+        || artifact.encoding.fragments_per_frame.is_some()
+        || artifact
+            .encoding
+            .non_template_encoding_provider_id
+            .is_some()
+        || sc.rows == 0
+        || sc.columns == 0
+        || sc.frames == 0
+        || sc.samples_per_pixel != 1
+        || sc.photometric_interpretation != "MONOCHROME2"
+        || sc.pixel_representation != 0
+        || sc.color.is_some()
+        || sc.palette.is_some()
+        || sc.padding.is_some()
+        || sc.encapsulation_projection.is_some()
+        || template.template_version != "1.0.0"
+    {
+        return Err(invalid("incomplete or crossed native integer SC tuple"));
+    }
+    match sc.stored_value_type.as_str() {
+        "u1" => {
+            let packing = sc
+                .bit_packing
+                .as_ref()
+                .ok_or_else(|| invalid("missing bit packing"))?;
+            let per_frame = u64::from(sc.rows)
+                .checked_mul(u64::from(sc.columns))
+                .ok_or(ScPlanError::NumericRange)?;
+            let bits = per_frame
+                .checked_mul(u64::from(sc.frames))
+                .ok_or(ScPlanError::NumericRange)?;
+            let bytes = bits.checked_add(7).ok_or(ScPlanError::NumericRange)? / 8;
+            if template.template_id != "classic/secondary-capture/multiframe-single-bit"
+                || sc.frames < 2
+                || sc.bits_allocated != 1
+                || sc.bits_stored != 1
+                || sc.high_bit != 0
+                || sc.pixel_data_vr != "OB"
+                || sc.integer_word.is_some()
+                || packing.bit_order != "least_significant_bit_first"
+                || packing.frame_boundary_policy != "continuous_without_per_frame_padding"
+                || packing.significant_bits != bits
+                || packing.significant_packed_bytes != bytes
+                || packing.unused_high_bits != ((8 - bits % 8) % 8) as u8
+                || packing.value_field_padding_bytes != bytes % 2
+                || packing.frame_start_bit_offsets.len() != sc.frames as usize
+                || packing
+                    .frame_start_bit_offsets
+                    .iter()
+                    .enumerate()
+                    .any(|(index, offset)| *offset != index as u64 * per_frame)
+            {
+                return Err(invalid("inconsistent single-bit packing tuple"));
+            }
+        }
+        "u32" => {
+            let word = sc
+                .integer_word
+                .as_ref()
+                .ok_or_else(|| invalid("missing unsigned word contract"))?;
+            if template.template_id != "classic/secondary-capture/monochrome"
+                || sc.frames != 1
+                || sc.bits_allocated != 32
+                || sc.bits_stored != 32
+                || sc.high_bit != 31
+                || sc.pixel_data_vr != "OW"
+                || sc.bit_packing.is_some()
+                || word.byte_order != "little_endian"
+                || word.covers_full_unsigned_range
+                    != (sc.pixel_min == 0 && sc.pixel_max == i64::from(u32::MAX))
+            {
+                return Err(invalid("inconsistent unsigned-word tuple"));
+            }
+        }
+        _ => return Err(invalid("integer intent requires U1 or U32 pixels")),
+    }
+    let mut tags = std::collections::BTreeSet::new();
+    for operation in &artifact.attribute_operations {
+        let vr = match operation.tag.as_str() {
+            "0010,0010" => "PN",
+            "0010,0020" | "0008,0070" => "LO",
+            "0010,0030" | "0008,0020" | "0008,0023" => "DA",
+            "0010,0040" | "0018,0015" => "CS",
+            "0008,0030" | "0008,0033" => "TM",
+            "0020,0010" => "SH",
+            "0008,002A" => "DT",
+            _ => {
+                return Err(invalid(
+                    "integer SC attribute override is outside metadata capability",
+                ));
+            }
+        };
+        let value = operation
+            .value
+            .as_ref()
+            .and_then(Value::as_str)
+            .ok_or_else(|| invalid("metadata must be text"))?;
+        if operation.operation != "set"
+            || operation.vr.as_deref() != Some(vr)
+            || !tags.insert(&operation.tag)
+            || !value.is_ascii()
+            || value.contains('\\')
+        {
+            return Err(invalid(
+                "metadata requires unique singleton default-character-set set operations",
+            ));
+        }
+        crate::composition::AttributeOperation::Set {
+            address: AttributeAddress::from_normalized_tag(&operation.tag)
+                .map_err(ScPlanError::Attribute)?,
+            vr: parse_operation_vr(operation)?,
+            value: recipe_attribute_value(
+                parse_operation_vr(operation)?,
+                operation.value.as_ref().unwrap(),
+            )?,
+        }
+        .validate_declared_vr()
+        .map_err(ScPlanError::Attribute)?;
+    }
+    if recipe.case_recipe_schema_version == "0.2.0"
+        && [
+            "0010,0010",
+            "0010,0020",
+            "0010,0030",
+            "0010,0040",
+            "0008,0020",
+            "0008,0030",
+            "0008,0023",
+            "0008,0033",
+            "0008,0070",
+            "0020,0010",
+        ]
+        .iter()
+        .any(|required| !tags.iter().any(|tag| tag.as_str() == *required))
+    {
+        return Err(invalid(
+            "recipe 0.2 integer SC requires complete caller patient/study metadata",
+        ));
+    }
+    Ok(Some(()))
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct NonsquareScCapability {
     pub artifact_count: usize,
@@ -382,6 +586,11 @@ pub(super) fn resolved_secondary_capture_base_plan(
         &input.template.sop_class_uid,
         sc.frames,
     )?;
+    if sc.stored_value_type == "u1" {
+        // Caller metadata takes precedence over the historical SC multi-frame
+        // defaults; structural pixel and page-vector fields are not overridable.
+        add_recipe_attribute_operations(&mut attributes, &input.artifact.attribute_operations)?;
+    }
     if input
         .artifact
         .validation_rule_ids
@@ -755,8 +964,10 @@ fn add_bounded_multiframe_sc_attributes(
     frames: u32,
 ) -> Result<(), ScPlanError> {
     let page_numbers = match (sop_class_uid, frames) {
-        (MULTIFRAME_SINGLE_BIT_SC, 2) => vec!["1", "2"],
-        (MULTIFRAME_GRAYSCALE_BYTE_SC, 3) => vec!["1", "2", "3"],
+        (MULTIFRAME_SINGLE_BIT_SC, 2..) => (1..=frames)
+            .map(|index| index.to_string())
+            .collect::<Vec<_>>(),
+        (MULTIFRAME_GRAYSCALE_BYTE_SC, 3) => vec!["1".into(), "2".into(), "3".into()],
         (ORDINARY_SC, _) => return Ok(()),
         _ => return Err(ScPlanError::UnsupportedMultiframeShape { frames }),
     };
@@ -959,6 +1170,7 @@ pub enum ScPlanError {
     UnsupportedChromaSubsampling(String),
     InvalidColor(String),
     InvalidNonsquareContract(String),
+    InvalidIntegerContract(String),
     InvalidAttributeOperation(String),
     UnsupportedAttributeValue(Value),
     UnsupportedMultiframeShape { frames: u32 },

@@ -4,9 +4,9 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 277,
-    "rust_test_entries": 1524,
+    "rust_test_entries": 1525,
     "integration_source_groups": 189,
-    "integration_test_entries": 943,
+    "integration_test_entries": 944,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
   },
   "enums": {
@@ -1866,7 +1866,7 @@
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 22,
+      "entry_count": 23,
       "entries": [
         "loaded_capabilities_are_verified_destination_free_and_sdk_consistent",
         "caller_named_ct_cli_is_sdk_identical_strictly_valid_and_reported",
@@ -1889,9 +1889,10 @@
         "caller_named_pet_cli_is_sdk_identical_strictly_valid_and_reported",
         "caller_named_xa_xrf_cli_is_sdk_identical_strictly_valid_and_reported",
         "caller_named_vl_photo_cli_is_sdk_identical_strictly_valid_and_reported",
-        "caller_owned_enhanced_cli_sdk_strict_report_and_repeat_are_identical"
+        "caller_owned_enhanced_cli_sdk_strict_report_and_repeat_are_identical",
+        "caller_owned_sc_integer_cli_sdk_strict_report_and_repeat_are_identical"
       ],
-      "entry_digest": "b11d9056f524cd59ffb97ea26e55606c98ef65d70f7a988fca1d3e94ae492b12"
+      "entry_digest": "9ea6094c8d4484fc10a78e24266d7afd920f5ae794c7a4985d26f49b6b0c485b"
     },
     {
       "source": "tests/frame_codec_service.rs",
@@ -3926,7 +3927,7 @@
         "mutation_of_an_internal_shared_root_fails_closed_on_reuse",
         "one_handle_reuses_one_tree_across_batch_generate_validate_report_and_compose"
       ],
-      "entry_digest": "21da9857cadbc7f4574f4fde338731d16578e1914a732494d439f51380173e95"
+      "entry_digest": "e6e15f4a7b64317e93b95b38c7d7a1a10b646ac17266bb1312ba1b76fd11b3ec"
     },
     {
       "source": "src/executor/evidence.rs",
@@ -4253,7 +4254,7 @@
         "cargo_lock_perturbation_changes_only_toolchain_and_legacy_provenance",
         "external_runtime_identity_requires_successful_typed_execution_evidence"
       ],
-      "entry_digest": "995c1ca3be81def2a24a6c74aa983ed659cb7f6962d31989ea724a1028e3582a"
+      "entry_digest": "cf9dae8c8203238e2ded3ffaebf32e4d91e315f661dbc5d1e81e35741473aeaf"
     },
     {
       "source": "src/lib.rs",
@@ -4359,7 +4360,7 @@
         "dependency_graph_is_closed_acyclic_and_reachable",
         "runtime_ids_remain_unique"
       ],
-      "entry_digest": "11964e358ff59e4e47cee40bdeb43b934aea15194a6e153e58a124b214266ba7"
+      "entry_digest": "1b3e8ad87c2178773b08ccaee4e67bcecf6fef74a5db0da081656f50593e07f6"
     },
     {
       "source": "src/media.rs",

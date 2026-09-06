@@ -119,14 +119,16 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
             self.assertEqual(result["bundle_ids"], ["generic_ct_geometry_public_contract"])
             self.assertEqual(self.commands(result), ["cargo test --locked --no-default-features --test cli_sdk__nonfast external_corpus_cli::"])
 
-    def test_enhanced_caller_fixture_reuses_external_corpus_contract_route(self):
-        result = self.select("tests/fixtures/generic-enhanced-corpus/definition.json")
-        self.assertEqual(result["bundle_ids"], ["external_corpus_cli"])
-        self.assertEqual(self.commands(result), [
-            "cargo test --locked --no-default-features --test cli_sdk__nonfast external_corpus_cli::",
-            "cargo test --locked --no-default-features --test cli_sdk__nonfast report_cli::",
-            "cargo test --locked --no-default-features --test cli_sdk__nonfast sdk_corpus::",
-        ])
+    def test_caller_fixtures_reuse_external_corpus_contract_route(self):
+        for fixture in ("generic-enhanced-corpus", "generic-sc-integer-corpus"):
+            with self.subTest(fixture=fixture):
+                result = self.select(f"tests/fixtures/{fixture}/definition.json")
+                self.assertEqual(result["bundle_ids"], ["external_corpus_cli"])
+                self.assertEqual(self.commands(result), [
+                    "cargo test --locked --no-default-features --test cli_sdk__nonfast external_corpus_cli::",
+                    "cargo test --locked --no-default-features --test cli_sdk__nonfast report_cli::",
+                    "cargo test --locked --no-default-features --test cli_sdk__nonfast sdk_corpus::",
+                ])
 
     def test_representative_surfaces_select_only_owning_bundles(self):
         fixtures = {

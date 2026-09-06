@@ -2936,3 +2936,54 @@ draft of the corpus-owned source record and remains untouched. This entry closes
 only Enhanced and its necessary evidence-tooling integration. Remaining ordinary,
 derived, optional-codec/provider and isolated R7 scopes remain open. R8/R9 and
 all dependency-mapped Heavy, independent, viewer and release gates remain due.
+
+### 2026-09-06 — Native U1/U32 slice completed
+
+Corpus `85e596b` imports the two original recipe0.1 definitions, registry rows
+and standards notes as content0.18.0 (45 cases derived from its registry).
+`161f455`/`15a2178` share native capture/selected evidence primitives and add
+explicit offline completion of successful retained commands. CI reads new
+source contracts from its executable content-version fixture; no new family
+capture or approval helper was added. Historical smoke and CT parity tests now
+use immutable bundles; `a641b2c` completes the import-audit/CT integration fixes.
+
+Original generator232b9de and reporter b1a22ae artifact pins are unchanged.
+Under corpus `artifacts/r7-native-integer-pixels-*-20260906`, baseline1 retains
+its report-oracle failure and all successful command streams (receipt
+`3e11b154c39c8181b77521c6132f3be2f2433c1fb730ab5c63108ed8834e945e`).
+The pinned source requires conversion-type group `SYN:2`; completion1 applies
+only that explicit expectation correction and revalidates the full retained
+capture without executing either runtime (receipt
+`96090d744fcd0dcc36bbe249e7136ff6f5cd0f4e41eb9c121f93ee35616b5c36`).
+Availability1 passed in 2.185101375s (receipt
+`63a58d891c4dcf6c032808a39d1d2286b763f28d654a44c3b13402d60fe06c1f`).
+Parity1 passed in 4.247631500/3.864433375s: two identical files, 2,002 bytes,
+full manifest migration and original coverage2 projection (receipt
+`97f16d438a8ab7cfbfd0670387e1f725d4a6f98a05b016d924d5ddc420efecd1`).
+Independent offline replay authenticated all receipt/file closures.
+
+The generator's recipe0.2 caller capability accepts variable geometry, unsigned
+samples, complete caller metadata and declared U1 packing/U32 range contracts.
+Strict reopening checks encoded bytes, metadata and contract version; external
+report2 supplies structural integer coverage. Frozen0.1 behavior and schemas
+remain separate. A differently named fixture proves CLI/SDK equivalence,
+repeatability, strict/report behavior and malformed-contract rejection.
+All 80 mapped ordinary commands passed (915 distinct named tests), as did
+90 Fast Rust tests, 51 Python contracts, tiny smoke generation/validation,
+formatting, JSON, ownership/spelling and warnings-denied compilation.
+Generator logs, including failed development attempts, remain in
+`reports/r7-native-integer-integration-20260906`, index SHA-256
+`405fafbec96b163102ab52d97561b5b75c99608d6999737ab1416564f5b61177`.
+
+Corpus integration ran 1,145 tests once in 74.395808041s; three errors exposed
+the new parser's missing stdlib audit entry and one remaining live CT fixture.
+The affected modules passed 22/9 tests after correction. The retained failed
+integration1 receipt is
+`e8119a85d7dfdaa49d771bc451f16ce9f01d660cfe3c6d41ee7f7d544b2e96a0`.
+Only unfinished loader and routed smoke-plus-integer generation resumed;
+integration-completion1 passed (receipt
+`6cd2cf8d84cbb46638959ffff1643adfbb6e32e1dc1b939eb9db7121bedb176c`).
+No accepted qualification was repeated. The dedicated target remains 1.6 GiB;
+the pre-existing target, US draft and all retained artifacts remain untouched.
+Remaining ordinary metadata/media, derived, codec/provider and isolated R7
+scopes remain open; R8/R9 and their Heavy/viewer/release gates remain due.

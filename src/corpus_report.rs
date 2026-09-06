@@ -27,9 +27,12 @@ pub(crate) fn project(manifest: &Value) -> Result<Value, String> {
         let case_id = file["case_id"].as_str().unwrap();
         let mut projection_file = file.clone();
         projection_file["case_id"] = "external/report2/declaration-driven".into();
-        let mut row =
-            crate::generated_coverage_row(Path::new("manifest.json"), &projection_file, profile)
-                .map_err(|error| error.to_string())?;
+        let mut row = crate::generated_external_coverage_row(
+            Path::new("manifest.json"),
+            &projection_file,
+            profile,
+        )
+        .map_err(|error| error.to_string())?;
         row["case_id"] = case_id.into();
         row["object_type"] = case_id.split('/').next().unwrap_or(case_id).into();
         grouped_coverage.record(&row);

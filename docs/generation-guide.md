@@ -736,7 +736,28 @@ executables, creates a destination, or claims generation/validation success.
 Qualified templates, compiled native provider support, unassessed external
 providers, and exact unavailable reasons remain machine-readable.
 
-## 3. Select A Profile
+#### Caller-defined one-bit and unsigned 32-bit Secondary Capture
+
+Recipe schema `0.2.0` supports caller-owned native integer images through
+`native.sc_plan` and `content.sc.pixel_pattern`. U32 uses the monochrome SC
+template with one frame, MONOCHROME2, unsigned 32/32/31 pixel attributes and
+little-endian OW Pixel Data. U1 uses the multi-frame single-bit SC template
+with at least two frames, unsigned 1/1/0 attributes and OB Pixel Data. Rows,
+columns, frame pixels, names and paths are caller declarations.
+
+Supply the complete patient/study metadata tuple as typed set operations.
+The [caller example](../tests/fixtures/generic-sc-integer-corpus/definition.json)
+shows both recipes and their declared integer-word or bit-packing contracts.
+U32 range claims must match the samples, including values above the signed
+32-bit boundary. U1 samples form one least-significant-bit-first stream across
+all frames; unused tail bits and the final even-length padding byte are zero.
+The generator checks these relationships and records frame hashes and packing
+counters. Strict reopening binds the encoded bytes and declared metadata;
+report2 exposes the declared integer coverage without case-name dispatch.
+
+Original recipe `0.1.0` payloads remain the separate migration comparison.
+This native caller contract adds no codec, independent-conformance, viewer,
+stress or release qualification.
 
 #### Caller-defined native Enhanced CT, MR and PET
 
@@ -767,6 +788,8 @@ historical contract; its omitted metadata retains the original synthetic
 defaults and payload identities. Source-pinned migration parity is separate
 from qualification of the newer caller capability. This native contract adds
 no codec, independent-conformance, viewer, full-scale stress or release claim.
+
+## 3. Select A Profile
 
 ### Valid file corpora
 

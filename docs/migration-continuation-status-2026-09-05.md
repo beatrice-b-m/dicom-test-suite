@@ -2810,3 +2810,47 @@ completion attempt. It does not accept an Enhanced baseline, import,
 availability, parity, reusable caller capability, independent conformance,
 viewer, Heavy, package or release result. R7 remains open, and R8/R9 remain
 held behind their dependencies.
+
+## Enhanced multiframe report3 completion accepted — 2026-09-06
+
+The fresh corpus report3 root
+`artifacts/r7-native-enhanced-multiframe-baseline4-report3-20260906` completes
+only the report stage of immutable baseline4. Receipt
+`fc9de41871dac8f7f60ebb0b79110571b8116bd0ecec42574f128578f06730ef`
+records exactly one 1.089248833-second command: candidate3 `report` from an
+unrelated working directory with empty `PATH`. It exited zero with empty stderr
+and no retry. No generate or validate command ran. Explicit acquisition copied
+the independently accepted 71,518,400-byte candidate3 binary at SHA-256
+`2f4bfa428f94b96e50a12cdfe1fdaaff0449358c6d05fdad4329974e0a90b203`
+to a private mode-0500 content-addressed cache; the original candidate remained
+unchanged. Acquisition evidence has SHA-256
+`eef4c209f5440ba6e5087b9217c3d2c980b28839ca76aa43287e82655832e58e`.
+
+The report stdout is 3,455,151 bytes at SHA-256
+`b6e3fbfc085ce384c6d6fd2ace998e59be523e46b396bdadb8ac6b22046017e8`.
+The accepted canonical coverage1.1 report has SHA-256
+`b6b17a1c156f4cec88718ed64aeb1da2b67f460f2394317416694d5504f7dcb1`:
+seven generated, 110 unavailable and ten planned cases; 127 ordered coverage
+rows, 120 explicit gaps and all 475 grouped-coverage keys. In particular,
+`enhanced_pet_slice_progression_direction_states` is exactly `{"false": 1}`.
+The report envelope has SHA-256
+`7960e2e1ce23d8df3cfcb2ffb3c238b38d29166e23f23ba0145b881b21b48825`
+and the exact baseline binding has SHA-256
+`e9d04adb0c87d4f71ee335bf21939d911bd5f4b91b0a802656bb6dd99c1d6f0e`.
+
+Independent subprocess-free replay passed the complete report oracle and left
+all eight report3 files unchanged. The seven-member receipt-excluded evidence
+inventory totals 80,124,087 logical bytes. Baseline4 remains bound to original
+generator source `232b9de41f97ee95abe1ecc40b6b8b70ebeeea5f`, receipt
+`20441214ba321f50fd260529f221f49389d0006b8f98b34fc03f86e05c1305f8`
+and manifest
+`5297aa42ef04d0bf822b7385d953f95e6b53f026ab0af18cc7f82ca046ac98f6`;
+its generation and strict validation are not relabeled. Historical reporter
+source `c2ffe41a9af6b72857f51b507ae6165a14deacdb`, candidate1, retained failed
+candidate2, report1 receipt `5673b643…4531` and report2 receipt
+`d33d4b9e…47ba` remain unchanged.
+
+This accepts the composite same-project Enhanced baseline report completion
+only. It is not an import, availability, migrated parity, reusable caller
+capability, independent conformance, viewer, Heavy, package or release result.
+R7 remains open, and R8/R9 remain held behind their dependencies.

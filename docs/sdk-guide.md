@@ -117,9 +117,12 @@ and no feature or external-codec requirements. Its DICOM recipe uses
 `native.classic_plan`; every artifact uses `classic/ct@1.0.0`, parameter-free
 `content.native_pixels`, `algorithm.classic_ct`,
 `classic_projection.family = "ct"`, strict typed CT provider/artifact
-parameters, and an explicit output path. Artifact order is contiguous from
-zero. `planning_order` is still mandatory and globally unique, but is not the
-dispatch key.
+parameters, and an explicit output path. Explicit artifact order is unique and
+contiguous from zero, while recipe-array order, UID indices, series indices and
+DICOM Series Numbers are caller-owned. The typed inspector derives projected
+geometry order, spacing/uniformity, tilt displacement, Instance Number
+conflicts and series organization before planning. `planning_order` is still
+mandatory and globally unique, but is not the dispatch key.
 
 Any partial or mixed CT tuple fails closed. Callers may choose their own case
 ID, recipe ID, planning/projection orders, logical artifact IDs, and paths;

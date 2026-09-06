@@ -1036,15 +1036,20 @@ this tuple. Nonhistorical partial tuples reject during shared validation.
 Historical namespace/EOT fallbacks remain broader during migration and do not
 gain genericity through this bounded capability. High-bit arithmetic is checked.
 
-The caller-defined classic CT capability dispatch is
-conjunctive and independent of case ID, recipe ID, planning order, and output
-path: the registry row declares `rust_native`/`rust_native`, DICOM with no
+The caller-defined classic CT capability dispatch is conjunctive and
+independent of case ID, recipe ID, planning order, artifact declaration order,
+UID index, and output path: the registry row declares
+`rust_native`/`rust_native`, DICOM with no
 feature or codec requirements; the recipe declares `native.classic_plan`; and
 every artifact declares `classic/ct@1.0.0`, parameter-free
 `content.native_pixels`, `algorithm.classic_ct`, CT classic projection, strict
-typed parameters, and an explicit output. Any CT marker with an incomplete or
-mixed tuple fails closed. `planning_order` remains mandatory and globally
-unique for migrated recipes but is not a planner discriminator. This public
+typed parameters, and an explicit output. The inspector orders by the explicit
+artifact order and derives projected spatial ranks, adjacent spacing and
+uniformity, tilt displacement, Instance Number conflict ranks, and per-study
+series organization. Sparse caller series indices do not become DICOM Series
+Numbers. Any CT marker with an incomplete, contradictory, or mixed tuple fails
+closed. `planning_order` remains mandatory and globally unique for migrated
+recipes but is not a planner discriminator. This public
 CLI/SDK CT boundary excludes `native.stress_ct_plan`, other classic/VL families,
 internal-module or sibling-checkout coupling, and all independent conformance,
 viewer, package, and release claims.

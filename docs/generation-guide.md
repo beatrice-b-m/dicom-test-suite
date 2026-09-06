@@ -268,12 +268,19 @@ tuple is:
   parameters, and an explicit output path.
 
 Any CT marker declares intent, so a partial or mixed tuple is rejected instead
-of falling through to a case-name matcher. Artifact order must remain
-contiguous and zero-based. `planning_order` is mandatory and globally unique
-among migrated recipes, but it is scheduling metadata and does not dispatch
-the CT planner. The caller chooses case ID, recipe ID, planning/projection
-orders, logical artifact IDs, and output paths subject to the ordinary bundle
-integrity and path rules.
+of falling through to a case-name matcher. Artifact order must be unique,
+contiguous and zero-based, but declaration-array order and UID file indices are
+independent caller values. The inspector derives each series' projected
+geometric order, adjacent spacing vector and uniformity, in-plane displacement
+for declared gantry tilt, numeric Instance Number rank/conflict, and single- or
+multi-series organization. Series indices may be sparse; DICOM Series and
+Acquisition Numbers remain explicit caller strings and must be consistent
+within each series. Pixels are native signed 12-bit words with checked shape,
+range, extrema and semantic frame hash. `planning_order` is mandatory and
+globally unique among migrated recipes, but it is scheduling metadata and does
+not dispatch the CT planner. The caller chooses case ID, recipe ID,
+planning/projection orders, logical artifact IDs, roles and output paths
+subject to the ordinary bundle integrity and path rules.
 
 This is a black-box CLI and supported `synth_dicom_gen::sdk` contract. It does
 not authorize implementation-module imports or sibling-path discovery, and it

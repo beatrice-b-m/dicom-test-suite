@@ -2463,3 +2463,106 @@ retained as review history rather than relabeled as a pass.
 No corpus import, availability, parity, independent conformance, viewer, Heavy,
 package, release or complete-R7 claim is made by this generator acceptance.
 R7 remains open, and R8/R9 remain held behind their dependencies.
+
+## CT geometry/series caller capability implemented — 2026-09-05
+
+The reusable generator now admits classic CT geometry/series definitions by
+the complete `classic/ct@1.0.0` + native pixels + `algorithm.classic_ct` + CT
+projection tuple, without case/recipe prefixes or historical artifact names,
+paths, declaration positions, UID indices or series indices. The inspector
+derives per-series projected order, adjacent spacing and uniformity, tilt
+displacement, Instance Number conflicts and study/series organization; strict
+validation uses those manifest values and the caller's declared DICOM Series
+Number rather than an internal series ordinal. Raw signed 12-bit pixel shape,
+range, extrema and hashes are checked before planning.
+
+The unrelated extended-profile fixture contains six artifacts in a permuted
+declaration array and two series with sparse indices, independent Series and
+Acquisition Numbers, nonuniform 4/7 mm spacing, 11.30993247-degree tilt and
+conflicting Instance Number order. CLI and supported SDK capability inspection,
+generation, manifests and every payload agree; separate strict validation
+reopens all six files; report2 binds the derived geometry rows and grouped
+coverage; declaration, report and manifest adversaries fail closed.
+
+Historical evidence remains a separate domain. Accepted original-pin baseline3
+uses source revision `232b9de41f97ee95abe1ecc40b6b8b70ebeeea5f`, seed 1,
+parallelism 4 and receipt SHA-256
+`dd1729f24d8840478a466a221f6165b19a5a363790a5097eeda5b2f83faeccf3`
+for 16 artifacts totaling 19,916 payload bytes. The existing historical
+generation regression remains byte-identical. Content0.16 import and later
+availability/parity qualifications do not relabel those original generator or
+reporter pins, binaries, bytes, retained failures or successful evidence.
+
+This records the generator-local reusable capability and same-project proof
+only. The accepted CT availability/parity evidence recorded below remains a
+separate corpus-owned boundary; independent conformance, viewer, Heavy,
+package, release and complete-R7 gates retain their own evidence boundaries.
+R7 remains open, and R8/R9 remain held behind their dependencies.
+
+## CT geometry import, availability and migrated parity accepted — 2026-09-05
+
+Corpus `155b98c` imports the five exact source-pinned CT geometry/series recipes
+as live content 0.16.0. Compatibility corrections `028102d` and `6ca7b2e`
+preserve immutable content 0.15 history and keep retained availability checks
+bounded as the live bundle grows. The closed bundle has 50 files and 395,181
+logical bytes at corpus identity
+`9e16dfe8a1daa38196845b5c9319d222dc8f9112882ca4d77d3f2e6ee3b01243`,
+descriptor SHA-256
+`e662b01a6641c7b9e20c0b747980b6f768d2febea77f05ba44ababbf80e18661`
+and registry SHA-256
+`916579119d8c5c52883ef3f1c35dcf6b6321f12ae06ed33548a479bf5f446ffb`.
+Executable inventory reports 37 implemented cases: smoke 3, core 34 and
+extended 1. The selected cohort has five cases and 16 ordered artifacts; the
+three spatial-sort artifacts retain core/extended membership and the remaining
+13 artifacts are core-only.
+
+The original-pin embedded capture remains three distinct evidence records.
+Baseline1 receipt
+`ab7d834e2b1787245c040f2f7ea159632d29adeb78b1280e27c7ff10d3a494af`
+retains its generate-stage `validation scope differs` failure after one
+successful 1.454107-second generation call. Baseline2 receipt
+`230fac901cef345a0e9e37034f106971c90861b29a99c1f4a5099f816cb4722a`
+retains its report-stage `complete grouped coverage differs` failure after
+successful 1.443322/0.265150/0.992315-second generate, strict-validation and
+report calls. Accepted baseline3 receipt
+`dd1729f24d8840478a466a221f6165b19a5a363790a5097eeda5b2f83faeccf3`
+records successful 1.505899/0.268599/1.037280-second calls and 16 payloads
+totaling 19,916 bytes. None of those receipts, bytes or failure labels changes.
+
+Capabilities-only preparation `5c675de` passed once at
+`artifacts/r7-ct-geometry-availability1-20260905`. Receipt SHA-256
+`0ef7076cd7eb23c6e253e7da859e1b4a637901c8a3d666622aa981f0478ddcde`
+records one 2.250481-second `core`/seed 1/parallelism 4 capabilities call: all
+five selected rows are ready, all 16 artifact identities are present and plan
+SHA-256 is
+`49ab7ab2811d029d9088f23f0fd6d11836eaebe0903cf45d8a6dfd64546cbb2c`.
+Response SHA-256 is
+`eec45da6c17852dc304039608741138ec227b2488d164b631a99413289f0edc2`;
+generation, validation, report, reporter and retry did not run.
+
+Two-run preparation `66c104c` passed once at
+`artifacts/r7-ct-geometry-parity1-20260905`. Receipt SHA-256
+`a1051dbee3a44c7a8df2bad30b52aa65bbab1af4b0da1f3d03bf32d17691c034`
+records exactly two fresh selected public-runner calls taking 4.479439 and
+4.168725 seconds; the complete job took 13.666384 seconds. Both runs emitted
+the same 16 payloads totaling 19,916 bytes, full-files SHA-256
+`db80f1ef30ada77458c139c860a301efea3996c95739ea020253f7f54fb84cc6`,
+canonical manifest SHA-256
+`3f715d7b63219d38022e68f853992ed00975006f45cafa85a19fff1f71b1a2aa`
+and canonical report SHA-256
+`2b338c7d2cb2c81a0cc3dd5de77fb64dff070521cef2bef8c58f7a90687f092a`.
+The migrated manifest is V2; baseline report1 and migrated report2 remain
+separate projections, and strict reopened validation remains separate evidence.
+
+Both accepted runs authenticate original generator source
+`232b9de41f97ee95abe1ecc40b6b8b70ebeeea5f` and artifact
+`4ca0c6d6a8e4cbab81b7005b4354c7ff558c44747e00f41d22d3abbfd50b7768`.
+The historical baseline alone retains reporter source
+`c2ffe41c9e4d691a45ae5a77ca9bdd7db8f84cdb` and artifact
+`c56f49b0fc6626948f93f83568b592efd35109919c128da1191f818aab4bb383`;
+parity does not invoke that reporter. This closes the CT-geometry-local
+R7.1/R7.2/R7.3/R7.5 ordinary-core slice only. Extended/relationship families,
+codec/provider partitions, isolated legacy/negative/fuzz/stress/media/protocol
+scopes, embedded removal, viewer evidence and terminal R8/R9 gates remain.
+There is no independent-conformance, viewer, Heavy, package, release or
+complete-R7 claim; R7 remains open and R8/R9 remain held.

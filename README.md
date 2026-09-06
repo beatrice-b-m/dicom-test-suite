@@ -91,15 +91,20 @@ Nominal Scanned Pixel Spacing form and the exclusive Pixel Aspect Ratio form.
 Dispatch depends on the typed geometry contract, not historical names or
 paths, and strict validation reopens each emitted payload against manifest V2.
 
-Caller-owned corpus-definition bundles may define classic CT cases without
-reusing an embedded case ID, recipe ID, planning order, or output path. The
+Caller-owned corpus-definition bundles may define classic CT series without
+reusing an embedded case ID, recipe ID, planning order, artifact declaration
+order, UID index, or output path. The
 supported discriminator is the complete capability tuple: registry provider
 kind/ID `rust_native`/`rust_native`, DICOM with no feature or codec
 requirements, recipe provider `native.classic_plan`, and every artifact using
 `classic/ct@1.0.0`, parameter-free `content.native_pixels`,
 `algorithm.classic_ct`, `classic_projection.family = "ct"`, strict typed CT
-parameters, and an explicit output path. `planning_order` remains mandatory
-and globally unique for migrated recipes, but does not select the CT planner.
+parameters, and an explicit output path. The typed contract derives spatial
+order, adjacent spacing and uniformity, gantry-tilt geometry, Instance Number
+conflicts, and single- or multi-series organization from the declaration.
+Series indices and numbers are caller values rather than array ordinals.
+`planning_order` remains mandatory and globally unique for migrated recipes,
+but does not select the CT planner.
 Partial or mixed tuples fail closed. This CLI/SDK contract uses only the
 supplied descriptor and member root—never internal modules or a sibling
 checkout. It does not cover `native.stress_ct_plan`, other classic or VL

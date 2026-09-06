@@ -2707,3 +2707,32 @@ and no further native report has run. There is still no accepted Enhanced
 baseline, import, availability, parity, reusable caller capability, independent
 conformance, viewer, Heavy, package or release claim. R7 remains open, and
 R8/R9 remain held behind their dependencies.
+
+## Enhanced reporter candidate2 archive-order failure retained — 2026-09-06
+
+The independently reviewed one-shot source-archive orchestrator ran once for
+generator `b1a22ae9183a4846e4228488847b4897eca17cb2` and failed closed before
+compiler discovery, dependency metadata, build or candidate execution. The
+immutable receipt at
+`generated/r7-enhanced-reporter-candidate2-20260905/receipt.json` has SHA-256
+`3be741ce8502c7c1d71890a76b71c1d63cada988901aa1fd038278bf56b706a7`.
+It records one successful `git archive` command and no other command. The
+retained 19,998,720-byte archive has SHA-256
+`8c83412123a2e04f7c75cf23a3a6213c1d358bf62c29db9cce1b4e28d0639eda`;
+the five-member self-excluding evidence inventory has SHA-256
+`722284d1a002d3f69a7cfc115ecb69ebf69156c551328a252fe6d66b6bd8c4d0`.
+
+The failure is an orchestrator comparison-order defect, not a source-content
+failure. The archive and extracted tree contain the same 1,004 regular files,
+19,120,187 logical bytes, 999 mode-0644 members and five mode-0755 members,
+with exact path/mode/size/SHA equality under component-wise path ordering.
+The rejected comparison instead ordered archive path strings lexically while
+the extracted inventory used path-component ordering; its first divergence was
+`conformance-backends/dicom-validator/.python-version` versus
+`conformance/README.md`. The source archive, extracted source and fresh target
+are retained. No compiler, Cargo metadata, build, version, capabilities,
+report, generate or validate command ran, and no candidate2 binary exists.
+Original generator/reporter pins and all earlier evidence remain unchanged.
+Candidate3 requires a new fresh root and an independently reviewed ordering-only
+orchestrator correction; it is not executed or accepted here. R7 remains open,
+and R8/R9 remain held behind their dependencies.

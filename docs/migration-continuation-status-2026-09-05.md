@@ -2621,17 +2621,23 @@ offline/locked/no-default-feature aarch64 build, and version2/capabilities3
 discovery only. The original reporter artifact `c56f49b0…b383` and generator
 artifact `4ca0c6d6…7768` remain separate and unchanged.
 
-Corpus commits `1440ab6`, `2163336` and `3d052dc` pin that candidate in an
+Corpus commits `1440ab6`, `2163336`, `3d052dc` and `37519f6` pin that candidate in an
 Enhanced-only const contract and prepare a fresh-adjacent report-completion
 helper. The helper authenticates the full baseline4 closure twice, snapshots
 the caller-supplied candidate before and after acquisition, executes at most one
 `report` command from an unrelated empty-`PATH` directory, retains failures
 without retry, validates the exact 127-row/120-gap/475-group coverage1.1
 projection, and supports subprocess-free replay. It cannot run candidate
-generation or validation commands. Independent review passed 154 focused/shared
-tests, authenticated the real baseline4 receipt and manifest read-only, and
-passed the exact `67ea8c5..3d052dc` CI-routing dry run; the corpus worktree and
-generator-owned user files remained unchanged.
+generation or validation commands. The first independent review passed 154
+focused/shared tests, authenticated the real baseline4 receipt and manifest
+read-only, and passed the exact `67ea8c5..3d052dc` CI-routing dry run. A
+subsequent evidence review found that an `OSError` before process launch would
+retain finalizer state but omit the attempted command record. Corpus `37519f6`
+now records that single failed attempt with null exit, argv, cwd, environment,
+timing, empty stream hashes and typed launch error before re-raising without a
+retry. Re-review passed the 11 focused completion tests and the 155-test combined
+routing/lock/oracle/helper subset; real baseline4 authentication remained exact,
+the worktree stayed clean, and no completion evidence root existed.
 
 The completion command has not run. Therefore there is no accepted Enhanced
 baseline, import, availability, parity, reusable caller capability, independent

@@ -2736,3 +2736,45 @@ Original generator/reporter pins and all earlier evidence remain unchanged.
 Candidate3 requires a new fresh root and an independently reviewed ordering-only
 orchestrator correction; it is not executed or accepted here. R7 remains open,
 and R8/R9 remain held behind their dependencies.
+
+## Enhanced reporter candidate3 build accepted; report not run — 2026-09-06
+
+The ordering-only candidate3 orchestrator correction was independently
+reviewed before one execution. It archived exact generator source
+`b1a22ae9183a4846e4228488847b4897eca17cb2`, tree
+`c6459b67ccafaaf6ea4041ca332b9fc086e32e38`, then completed one fresh
+offline/locked/no-default-feature aarch64 dev build with debug information and
+incremental compilation disabled. The retained source archive remains
+19,998,720 bytes at SHA-256
+`8c83412123a2e04f7c75cf23a3a6213c1d358bf62c29db9cce1b4e28d0639eda`.
+Its 1,004 extracted members and 19,120,187 logical source bytes remained exact
+before and after the build. The target began empty; metadata created one marker
+before the single 29.472141417-second build.
+
+Candidate3 is 71,518,400 bytes at SHA-256
+`2f4bfa428f94b96e50a12cdfe1fdaaff0449358c6d05fdad4329974e0a90b203`.
+From an unrelated working directory with an empty `PATH` and isolated
+`HOME`/`TMPDIR`, it executed only version2 and capabilities3 discovery, taking
+0.857720375 and 0.748696958 seconds. The canonical discovery files have
+SHA-256 `4eb80fcddec6aa990e1a7c112b854e3d1a41eaf7d185d7c5658774d346f1bec2`
+and `bd004c3784ec0a950144a9cb25e51932a2494309384343ef476587164f3f34a7`.
+They agree on identity domains, no enabled features, the pinned Cargo lock and
+toolchain, coverage-report producers 1.1/2.0, readers 0.1/1.0/1.1/2.0, the
+81-member current resource identity and the frozen 240-member migration
+identity.
+
+Build receipt
+`ab2ad895fb5471acb67bf4455a558e33a5547d4c37bebe9b0116d534f07c278c`,
+validation receipt
+`a0e75eb9f98b13a879fdddd45985a54666b64ebb669be00a46c3a35e947c14f9`
+and the 22-member self-excluding inventory
+`036f95b793e5b5e856a8e2c0e339e201dc7980c0409cc074fd6e5464fc730306`
+were independently recomputed. Candidate1 and retained failed candidate2
+receipt, inventory, archive and binary hashes remain unchanged, as does the
+expected user worktree boundary. No report, generate, validate, package, Heavy
+or release command ran. Candidate3 is an unreleased Enhanced report-only
+candidate awaiting a separate corpus lock/readiness update and one fresh
+completion attempt; this is not accepted Enhanced baseline, import,
+availability, parity or reusable caller capability evidence. Original
+generator/reporter pins remain unchanged. R7 remains open, and R8/R9 remain
+held behind their dependencies.

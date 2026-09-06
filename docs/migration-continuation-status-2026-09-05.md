@@ -2987,3 +2987,53 @@ No accepted qualification was repeated. The dedicated target remains 1.6 GiB;
 the pre-existing target, US draft and all retained artifacts remain untouched.
 Remaining ordinary metadata/media, derived, codec/provider and isolated R7
 scopes remain open; R8/R9 and their Heavy/viewer/release gates remain due.
+
+### 2026-09-06 — Encoded native metadata slice completed
+
+Corpus `eea5984` imports three unchanged source232 recipes and four artifacts
+as content0.19.0 (48 cases derived from its registry). Registry extended
+membership and explicit core artifact membership remain distinct. Shared
+capture commits `f1ccfaa`/`4c8c69c` support ordered artifact groups, bounded
+sequence parsing and continuation from authenticated retained generation;
+there is no new family capture helper or historical-ledger update.
+
+Under corpus `artifacts/r7-native-metadata-encoding-*-20260906`, baseline1
+retains the incorrect profile assertion failure after successful generation
+(receipt `2f49fec914abb3f57d8e81e7d7ea6be43f460912ca72afca39b0f853842dcc5f`).
+Pinned source explicitly gives these artifacts core membership. Continuation1
+corrects only those four assertions, authenticates retained generation, and
+executes only the missing strict/report commands (receipt
+`38a6cb9d068012c1b95b2200aa5776fa760b68c5fe708d65fe71fc2e2d57ddc3`).
+Original generator and reporter pins remain unchanged. Availability1 passed
+in 2.200649583s (receipt
+`1ce904b04c74bc9d443132abc86fe5bf17a313a4800529fd14c2855d5ba7ce62`).
+Parity1 passed in 4.377608709/4.087297166s: four identical files, 14,506 bytes,
+full manifest migration and original report projection (receipt
+`c0e05ad0c18f5e7dbe8b7d11588434cc7f0ca3fa3f2f95d3c4129ffc7cf38ab6`).
+
+Recipe0.2 now admits caller-owned ISO 2022 PN groups, bounded LT/LO/DS/IS
+strings and defined/undefined sequence code text. Shared structural validators
+bind raw bytes, decoded text, VR/VM, geometry-aware spacing, complete patient
+metadata and canonical sequence lengths. Strict reopening and report2 reject
+incomplete or contradictory declarations; coordinated file/manifest edits
+cannot bypass declared VR validation. The independently named caller fixture
+proves CLI/SDK equivalence, repeatability and adversarial rejection. Frozen0.1
+payload/schema and original resource identities remain unchanged.
+
+All 18 mapped ordinary commands passed, with only invalidated checks repeated
+after review fixes; Fast's 90 Rust tests, 51 Python contracts, tiny smoke,
+formatting, JSON, ownership/spelling and warnings-denied compilation passed.
+Generator logs retain development failures, an intermediate compile race and
+stale ownership-digest failure in
+`reports/r7-native-metadata-integration-20260906` (58-file index SHA-256
+`c1eab838b1696504f4d97eda3e28ba9205603689d4b378470a362cbcd5fbdf19`).
+One routing-test parent omitted the dedicated Cargo environment; its default
+target output remains untouched. Subsequent Cargo commands used the dedicated
+target, measured at 1,708,780 KiB. Corpus integration1 passed 1,158 tests in
+88.548146500s, then definition inspection and only routed smoke/metadata
+generation (receipt
+`4246a6e3c0541f61f43ccb7e26272dec31b2d78001e6548cf1a680d247f8b444`).
+
+The pre-existing US draft and all failed/successful evidence remain preserved.
+Remaining ordinary media, derived, codec/provider and isolated R7 scopes remain
+open; R8/R9 and all mapped Heavy, viewer and release gates remain due.

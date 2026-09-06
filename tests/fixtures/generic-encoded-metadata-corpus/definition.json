@@ -1,0 +1,133 @@
+{
+  "corpus_definition_bundle_schema_version": "1.0.0",
+  "definition_id": "fixture.generic-encoded-metadata",
+  "definition_version": "1.0.0",
+  "profiles": [
+    {
+      "profile_id": "smoke",
+      "scope": "valid",
+      "members": []
+    },
+    {
+      "profile_id": "core",
+      "scope": "valid",
+      "members": [
+        "caller/encoded-metadata/component-groups",
+        "caller/encoded-metadata/variable-strings",
+        "caller/encoded-metadata/sequence-lengths"
+      ]
+    },
+    {
+      "profile_id": "extended",
+      "scope": "valid",
+      "members": []
+    },
+    {
+      "profile_id": "legacy",
+      "scope": "legacy",
+      "members": []
+    },
+    {
+      "profile_id": "stress",
+      "scope": "stress",
+      "members": []
+    },
+    {
+      "profile_id": "negative",
+      "scope": "expected_invalid",
+      "members": []
+    },
+    {
+      "profile_id": "fuzz",
+      "scope": "fuzz",
+      "members": []
+    },
+    {
+      "profile_id": "all",
+      "scope": "valid",
+      "union_of": [
+        "smoke",
+        "core",
+        "extended"
+      ],
+      "optional_profile": "stress",
+      "members": []
+    }
+  ],
+  "registry": {
+    "path": "cases/registry.json",
+    "sha256": "3bfd7ae1c6356e8e11733b4b50d9a3e982ff70f2e9c7cd0accba533672f09a3a",
+    "size_bytes": 5259
+  },
+  "cases": [
+    {
+      "case_id": "caller/encoded-metadata/component-groups",
+      "recipe_id": "caller_component_groups",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/component-groups.json",
+        "sha256": "7614ee46f6bae9485ce323aa8c3a46b8c14a1f3c0f85ff2132aec96e02e7c99f",
+        "size_bytes": 5326
+      },
+      "dependencies": [],
+      "evidence_ids": [
+        "source-note.phase-2-iso2022-person-name"
+      ],
+      "asset_ids": []
+    },
+    {
+      "case_id": "caller/encoded-metadata/variable-strings",
+      "recipe_id": "caller_variable_strings",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/variable-strings.json",
+        "sha256": "cb2dd926e61363849b0930467f503555ced286195017dab3b2606c32d20cf0cb",
+        "size_bytes": 5831
+      },
+      "dependencies": [],
+      "evidence_ids": [
+        "source-note.phase-2-long-multivalue-strings"
+      ],
+      "asset_ids": []
+    },
+    {
+      "case_id": "caller/encoded-metadata/sequence-lengths",
+      "recipe_id": "caller_sequence_lengths",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/sequence-lengths.json",
+        "sha256": "9da0b4088b633af03438f284c72d8ea392451de70d4392de0a1c39134215aff0",
+        "size_bytes": 8758
+      },
+      "dependencies": [],
+      "evidence_ids": [
+        "source-note.phase-2-sequence-length-encoding"
+      ],
+      "asset_ids": []
+    }
+  ],
+  "evidence": [
+    {
+      "evidence_id": "source-note.phase-2-iso2022-person-name",
+      "media_type": "text/markdown",
+      "path": "evidence/phase-2-iso2022-person-name.md",
+      "sha256": "62cae92e0f5857a2734354e0cd565d21d063a32b6920b6132c20075c7e920639",
+      "size_bytes": 2769
+    },
+    {
+      "evidence_id": "source-note.phase-2-long-multivalue-strings",
+      "media_type": "text/markdown",
+      "path": "evidence/phase-2-long-multivalue-strings.md",
+      "sha256": "0df65a6e7dda555c5c2c047b0aa8b49f129cbfd567f68b980cc33eaca78f522d",
+      "size_bytes": 3641
+    },
+    {
+      "evidence_id": "source-note.phase-2-sequence-length-encoding",
+      "media_type": "text/markdown",
+      "path": "evidence/phase-2-sequence-length-encoding.md",
+      "sha256": "bff30e44906e35b37414b098a62c1d806dc700c745a8fe8a837c17bc577bda5e",
+      "size_bytes": 4552
+    }
+  ],
+  "assets": []
+}

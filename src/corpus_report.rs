@@ -11,6 +11,16 @@ pub(crate) fn project(manifest: &Value) -> Result<Value, String> {
         .map_err(|e| e.to_string())?;
     let ledger = manifest["selection_ledger"].as_array().unwrap();
     let files = manifest["files"].as_array().unwrap();
+    let mut metadata_failures = Vec::new();
+    crate::metadata::validate_manifest_metadata_corpus(
+        crate::manifest_contract::ManifestContractKind::ExternalCorpus,
+        files,
+        &mut metadata_failures,
+    );
+    if !metadata_failures.is_empty() {
+        return Err(metadata_failures.join("; "));
+    }
+
     let mut outcomes = BTreeMap::<String, usize>::new();
     for row in ledger {
         *outcomes

@@ -24,6 +24,15 @@ pub(crate) fn validate_manifest_metadata(
     obj: &OpenedObject,
     failures: &mut Vec<String>,
 ) {
+    let caller = match caller_metadata_contract(file) {
+        Ok(value) => value,
+        Err(error) => {
+            failures.push(format!(
+                "{relative_path}: metadata_caller_contract: {error}"
+            ));
+            return;
+        }
+    };
     if kind == ManifestContractKind::ExternalCorpus
         && file
             .get("expected_metadata")
@@ -68,9 +77,54 @@ pub(crate) fn validate_manifest_metadata(
     validate_person_names(relative_path, bytes, expected, obj, failures);
     validate_temporal_metadata(relative_path, bytes, expected, obj, failures);
     validate_empty_type2_attributes(relative_path, bytes, expected, obj, failures);
-    validate_string_elements(relative_path, bytes, expected, obj, failures);
+    if let Some(crate::recipes::MetadataScParameters::StringBoundaries { elements }) = &caller {
+        for item in elements {
+            let projection = expected["string_elements"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|v| v["tag"] == item.tag)
+                .unwrap();
+            let tag = parse_tag(&item.tag).unwrap();
+            let values = projection["decoded_values"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_str().unwrap().to_owned())
+                .collect::<Vec<_>>();
+            let raw =
+                validate_caller_string_values(&item.tag, &item.keyword, &item.vr, &values).unwrap();
+            if !find_raw_element(bytes, tag).is_some_and(|v| v.vr == item.vr && v.value == raw) {
+                failures.push(format!(
+                    "{relative_path}: metadata_string_raw_contract: {} differs",
+                    item.tag
+                ));
+            }
+        }
+    } else {
+        validate_string_elements(relative_path, bytes, expected, obj, failures);
+    }
     validate_private_creator_blocks(relative_path, bytes, file, expected, obj, failures);
-    validate_sequence_length_encoding(relative_path, bytes, file, expected, obj, failures);
+    if let Some(crate::recipes::MetadataScParameters::SequenceLengths(seq)) = &caller {
+        let raw = caller_sequence_bytes(seq).unwrap();
+        let defined = seq.variant_id == "defined";
+        if !find_raw_top_level_header(bytes, Tag(8, 0x2218)).is_some_and(|(vr, length, offset)| {
+            vr == "SQ"
+                && length
+                    == if defined {
+                        seq.undefined_item_encoded_length
+                    } else {
+                        u32::MAX
+                    }
+                && bytes.get(offset..offset + raw.len()) == Some(raw.as_slice())
+        }) {
+            failures.push(format!(
+                "{relative_path}: metadata_sequence_length_raw_contract: declared sequence differs"
+            ));
+        }
+    } else {
+        validate_sequence_length_encoding(relative_path, bytes, file, expected, obj, failures);
+    }
 }
 
 pub(crate) fn validate_manifest_metadata_corpus(
@@ -78,6 +132,11 @@ pub(crate) fn validate_manifest_metadata_corpus(
     files: &[Value],
     failures: &mut Vec<String>,
 ) {
+    for file in files {
+        if let Err(error) = caller_metadata_contract(file) {
+            failures.push(format!("metadata_caller_contract: {error}"));
+        }
+    }
     if kind == ManifestContractKind::ExternalCorpus {
         // Evidence belongs to its caller case; independent cases cannot complete
         // each other's temporal or sequence variant set.
@@ -1945,4 +2004,444 @@ mod tests {
         assert!(parse_timezone_offset("-1201").is_err());
         assert!(parse_dicom_date_time("20240229235959+1400").is_err());
     }
+}
+// Caller metadata uses public dictionary identities and DICOM lexical bounds.
+pub(crate) fn validate_caller_string_values(
+    tag: &str,
+    keyword: &str,
+    vr: &str,
+    values: &[String],
+) -> Result<Vec<u8>, String> {
+    use dicom_core::dictionary::{DataDictionary, DataDictionaryEntry, VirtualVr};
+    let parsed = parse_tag(tag).ok_or("invalid metadata tag")?;
+    let entry = StandardDataDictionary
+        .by_tag(parsed)
+        .ok_or("unknown metadata tag")?;
+    if entry.alias() != keyword
+        || !matches!(entry.vr(), VirtualVr::Exact(value) if value.to_string() == vr)
+    {
+        return Err("metadata dictionary identity differs".into());
+    }
+    // The dictionary supplies VR but not VM. Keep the supported semantic
+    // surface explicit until another standard tag/VM contract is implemented.
+    let (limit, min_vm, max_vm) = match (tag, vr) {
+        ("0020,4000", "LT") => (10240, 1, 1), // Image Comments
+        ("0018,1020", "LO") => (64, 1, 1024), // Software Versions, bounded 1-n
+        ("0028,0030", "DS") => (16, 2, 2),    // Pixel Spacing
+        ("0020,0012", "IS") => (12, 1, 1),    // Acquisition Number
+        _ => return Err("unsupported string tag/VR/VM contract".into()),
+    };
+    if values.len() < min_vm || values.len() > max_vm {
+        return Err("metadata value multiplicity differs".into());
+    }
+    for value in values {
+        if value.trim().is_empty()
+            || !value.is_ascii()
+            || value.bytes().any(|byte| byte == 127)
+            || value.len() > limit
+            || value.contains('\\')
+            || value.contains('\0')
+            || value
+                .bytes()
+                .any(|b| b < 32 && !(vr == "LT" && matches!(b, 9 | 10 | 12 | 13)))
+        {
+            return Err("metadata text exceeds VR bounds".into());
+        }
+        if vr == "DS"
+            && (value.trim().is_empty()
+                || !value
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || b" +-.Ee".contains(&b))
+                || !value.trim().parse::<f64>().is_ok_and(f64::is_finite))
+        {
+            return Err("invalid finite DS lexical value".into());
+        }
+        if vr == "IS"
+            && (value.trim().is_empty()
+                || !value
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || b" +-".contains(&b))
+                || value.trim().parse::<i32>().is_err())
+        {
+            return Err("invalid bounded IS lexical value".into());
+        }
+    }
+    let mut raw = values.join("\\").into_bytes();
+    if raw.len() > 65534 {
+        return Err("metadata raw value exceeds explicit VR bound".into());
+    }
+    if raw.len() % 2 != 0 {
+        raw.push(b' ');
+    }
+    Ok(raw)
+}
+
+pub(crate) fn validate_caller_person_name(
+    expected: &crate::recipes::PersonNameMetadata,
+) -> Result<(), String> {
+    use dicom_encoding::text::{IsoIr87CharacterSetCodec, TextCodec};
+    let raw = expected
+        .patient_name_raw_hex
+        .as_bytes()
+        .chunks(2)
+        .map(|pair| {
+            if pair.len() != 2 {
+                return Err("odd PN raw hex".to_string());
+            }
+            u8::from_str_radix(std::str::from_utf8(pair).map_err(|_| "invalid PN hex")?, 16)
+                .map_err(|_| "invalid PN hex".into())
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    if raw.len() > 1024
+        || raw.len() % 2 != 0
+        || sha256_hex(&raw) != expected.patient_name_raw_sha256
+    {
+        return Err("PN raw length/hash differs".into());
+    }
+    let decoded = if expected.specific_character_sets == ["ISO_IR 192"] {
+        std::str::from_utf8(&raw)
+            .map_err(|_| "invalid UTF8 PN")?
+            .to_string()
+    } else if expected.specific_character_sets == ["", "ISO 2022 IR 87"] {
+        let (mut index, mut jis) = (0, false);
+        while index < raw.len() {
+            if raw[index] == 27 {
+                match raw.get(index..index + 3) {
+                    Some(b"\x1b$B") => jis = true,
+                    Some(b"\x1b(B") => jis = false,
+                    _ => return Err("unsupported ISO2022 escape".into()),
+                }
+                index += 3;
+            } else if jis {
+                if !raw.get(index..index + 2).is_some_and(|pair| {
+                    pair.len() == 2 && pair.iter().all(|b| (0x21..=0x7e).contains(b))
+                }) {
+                    return Err("invalid JIS double-byte value".into());
+                }
+                index += 2;
+            } else {
+                if !(0x20..=0x7e).contains(&raw[index]) || raw[index] == b'\\' {
+                    return Err("invalid PN ASCII value".into());
+                }
+                index += 1;
+            }
+        }
+        if jis {
+            return Err("PN requires ASCII reset at value boundary".into());
+        }
+        IsoIr87CharacterSetCodec
+            .decode(&raw)
+            .map_err(|e| e.to_string())?
+    } else {
+        return Err("unsupported PN character-set tuple".into());
+    };
+    if decoded.trim_end_matches(' ') != expected.patient_name_decoded
+        || expected.patient_name_decoded.contains('\\')
+        || expected.component_groups.is_empty()
+        || expected.component_groups.len() > 3
+    {
+        return Err("PN decoded value differs".into());
+    }
+    let groups = expected.patient_name_decoded.split('=').collect::<Vec<_>>();
+    if groups.len() != expected.component_groups.len() {
+        return Err("PN group count differs".into());
+    }
+    for (index, group) in expected.component_groups.iter().enumerate() {
+        if group.kind != ["alphabetic", "ideographic", "phonetic"][index]
+            || group.components.len() != 5
+            || group.decoded_value != groups[index]
+            || group.components.join("^").trim_end_matches('^') != group.decoded_value
+            || group.decoded_value.chars().count() > 64
+        {
+            return Err("PN component contract differs".into());
+        }
+    }
+    Ok(())
+}
+fn caller_metadata_contract(
+    file: &Value,
+) -> Result<Option<crate::recipes::MetadataScParameters>, String> {
+    use crate::recipes::MetadataScParameters as M;
+    let params = &file["recipe"]["recipe_parameters"];
+    let marker = params.get("metadata_capability_version");
+    let declaration = params.get("metadata_contract");
+    let expected = file.get("expected_metadata");
+    for (indicator, field) in [
+        ("specific_character_sets", "person_names"),
+        ("string_boundary_element_count", "string_elements"),
+        ("sequence_length_variant", "sequence_length_encoding"),
+    ] {
+        if params.get(indicator).is_some() && expected.and_then(|e| e.get(field)).is_none() {
+            return Err(format!("metadata indicator {indicator} requires {field}"));
+        }
+    }
+    if marker.is_none() && declaration.is_none() {
+        return Ok(None);
+    }
+    if marker.and_then(Value::as_str) != Some("1.0.0") {
+        return Err("unsupported/missing metadata capability version".into());
+    }
+    let typed: M = serde_json::from_value(declaration.cloned().unwrap_or(Value::Null))
+        .map_err(|_| "missing/malformed typed metadata contract")?;
+    let expected = expected.ok_or("missing expected_metadata")?;
+    let operations: Vec<crate::recipes::AttributeOperation> = serde_json::from_value(
+        params
+            .get("metadata_overrides")
+            .cloned()
+            .unwrap_or(Value::Null),
+    )
+    .map_err(|_| "missing metadata overrides")?;
+    let mut override_tags = BTreeSet::new();
+    for operation in &operations {
+        let vr = match operation.tag.as_str() {
+            "0010,0010" => "PN",
+            "0010,0020" | "0008,0070" => "LO",
+            "0010,0030" | "0008,0020" | "0008,0023" => "DA",
+            "0010,0040" => "CS",
+            "0008,0030" | "0008,0033" => "TM",
+            "0020,0010" => "SH",
+            _ => "",
+        };
+        if vr.is_empty()
+            || operation.operation != "set"
+            || operation.vr.as_deref() != Some(vr)
+            || !override_tags.insert(operation.tag.as_str())
+            || !operation
+                .value
+                .as_ref()
+                .and_then(Value::as_str)
+                .is_some_and(|v| v.is_ascii() && !v.contains('\\'))
+        {
+            return Err("invalid metadata override".into());
+        }
+        crate::composition::AttributeOperation::Set {
+            address: crate::composition::AttributeAddress::from_normalized_tag(&operation.tag)
+                .map_err(|error| error.to_string())?,
+            vr: vr
+                .parse()
+                .map_err(|error: crate::composition::AttributeError| error.to_string())?,
+            value: crate::composition::AttributeValue::Primitive(
+                crate::composition::PrimitiveValue::String(
+                    operation
+                        .value
+                        .as_ref()
+                        .and_then(Value::as_str)
+                        .unwrap()
+                        .to_owned(),
+                ),
+            ),
+        }
+        .validate_declared_vr()
+        .map_err(|error| error.to_string())?;
+    }
+    for tag in [
+        "0010,0020",
+        "0010,0030",
+        "0010,0040",
+        "0008,0020",
+        "0008,0030",
+        "0008,0023",
+        "0008,0033",
+        "0008,0070",
+        "0020,0010",
+    ] {
+        if !override_tags.contains(tag) {
+            return Err("incomplete metadata override tuple".into());
+        }
+    }
+    if override_tags.contains("0010,0010") == matches!(&typed, M::PersonName(_)) {
+        return Err("PN metadata ownership differs".into());
+    }
+    match &typed {
+        M::PersonName(pn) => {
+            validate_caller_person_name(pn)?;
+            let projected_name = serde_json::json!({"tag":"0010,0010","keyword":"PatientName","vr":"PN",
+                "decoded_value":pn.patient_name_decoded,"raw_value_hex":pn.patient_name_raw_hex,
+                "raw_value_sha256":pn.patient_name_raw_sha256,"raw_value_byte_length":pn.patient_name_raw_hex.len()/2,
+                "component_groups":pn.component_groups.iter().enumerate().map(|(i,g)| serde_json::json!({
+                    "position":i+1,"kind":g.kind,"decoded_value":g.decoded_value,
+                    "components":g.components.iter().enumerate().map(|(j,c)|serde_json::json!({"position":j+1,"decoded_value":c})).collect::<Vec<_>>()
+                })).collect::<Vec<_>>()});
+            if expected["person_names"] != serde_json::json!([projected_name]) {
+                return Err("PN projection differs".into());
+            }
+            let names = expected["person_names"]
+                .as_array()
+                .ok_or("missing person_names")?;
+            if names.len() != 1
+                || expected["specific_character_sets"]
+                    != serde_json::json!(pn.specific_character_sets)
+                || names[0]["decoded_value"] != pn.patient_name_decoded
+                || names[0]["raw_value_hex"] != pn.patient_name_raw_hex
+                || names[0]["raw_value_sha256"] != pn.patient_name_raw_sha256
+                || names[0]["tag"] != "0010,0010"
+            {
+                return Err("PN projection differs from declaration".into());
+            }
+        }
+        M::StringBoundaries { elements } => {
+            let projected = expected["string_elements"]
+                .as_array()
+                .ok_or("missing string_elements")?;
+            if projected.len() != elements.len() || elements.is_empty() {
+                return Err("string element count differs".into());
+            }
+            let mut tags = BTreeSet::new();
+            for (item, projection) in elements.iter().zip(projected) {
+                let values = match &item.source {
+                    crate::recipes::StringValueSource::Literal { values } => values.clone(),
+                    crate::recipes::StringValueSource::Repeated {
+                        pattern,
+                        repetitions,
+                    } => {
+                        if pattern
+                            .len()
+                            .checked_mul(*repetitions as usize)
+                            .is_none_or(|n| n > 65534)
+                        {
+                            return Err("string source exceeds bound".into());
+                        }
+                        vec![pattern.repeat(*repetitions as usize)]
+                    }
+                };
+                let raw =
+                    validate_caller_string_values(&item.tag, &item.keyword, &item.vr, &values)?;
+                if item.tag == "0028,0030" {
+                    validate_caller_pixel_spacing(
+                        &values,
+                        file.pointer("/image/rows")
+                            .and_then(Value::as_u64)
+                            .ok_or("missing rows")?,
+                        file.pointer("/image/columns")
+                            .and_then(Value::as_u64)
+                            .ok_or("missing columns")?,
+                    )?;
+                }
+                let lengths = values.iter().map(String::len).collect::<Vec<_>>();
+                let padding = if values.join("\\").len() % 2 == 1 {
+                    "space"
+                } else {
+                    "none"
+                };
+                if !tags.insert(&item.tag)
+                    || item.raw_value_byte_length as usize != raw.len()
+                    || item.raw_value_sha256 != sha256_hex(&raw)
+                    || item.padding != padding
+                    || projection["tag"] != item.tag
+                    || projection["keyword"] != item.keyword
+                    || projection["vr"] != item.vr
+                    || projection["decoded_values"] != serde_json::json!(values)
+                    || projection["decoded_value_lengths"] != serde_json::json!(lengths)
+                    || projection["value_multiplicity"].as_u64() != Some(values.len() as u64)
+                    || projection["raw_value_byte_length"].as_u64() != Some(raw.len() as u64)
+                    || projection["raw_value_sha256"] != item.raw_value_sha256
+                    || projection["padding"] != item.padding
+                {
+                    return Err("string projection differs from declaration".into());
+                }
+            }
+        }
+        M::SequenceLengths(seq) => {
+            caller_sequence_bytes(seq)?;
+            let c = &expected["sequence_length_encoding"];
+            if c["variant_id"] != seq.variant_id
+                || c["sequence_tag"] != seq.sequence_tag
+                || c["sequence_length_field_hex"] != seq.sequence_length_field_hex
+                || c["decoded_items"]
+                    != serde_json::json!([{"code_value":seq.code_value,"coding_scheme_designator":seq.coding_scheme_designator,"code_meaning":seq.code_meaning}])
+                || c["vr"] != "SQ"
+                || c["keyword"] != "AnatomicRegionSequence"
+                || c["item_count"] != 1
+                || c["item_length_encoding"] != "undefined"
+                || c["item_length_field_hex"] != "FFFFFFFF"
+                || c["item_delimitation_present"] != true
+                || c["sequence_delimitation_present"] != seq.sequence_delimitation_present
+                || c["sequence_value_length"]
+                    != if seq.variant_id == "defined" {
+                        serde_json::json!(seq.undefined_item_encoded_length)
+                    } else {
+                        Value::Null
+                    }
+            {
+                return Err("sequence projection differs from declaration".into());
+            }
+        }
+        _ => return Err("unsupported versioned metadata contract".into()),
+    }
+    Ok(Some(typed))
+}
+pub(crate) fn caller_sequence_bytes(
+    sequence: &crate::recipes::SequenceLengthMetadata,
+) -> Result<Vec<u8>, String> {
+    let mut item = Vec::new();
+    for (tag, vr, value, limit) in [
+        (0x0100u16, "SH", sequence.code_value.as_str(), 16),
+        (0x0102, "SH", sequence.coding_scheme_designator.as_str(), 16),
+        (0x0104, "LO", sequence.code_meaning.as_str(), 64),
+    ] {
+        if value.is_empty()
+            || value.len() > limit
+            || !value.is_ascii()
+            || value.bytes().any(|b| b < 32 || b == 127 || b == b'\\')
+        {
+            return Err("invalid sequence code text".into());
+        }
+        let mut raw = value.as_bytes().to_vec();
+        if raw.len() % 2 != 0 {
+            raw.push(b' ');
+        }
+        item.extend(8u16.to_le_bytes());
+        item.extend(tag.to_le_bytes());
+        item.extend(vr.as_bytes());
+        item.extend((raw.len() as u16).to_le_bytes());
+        item.extend(raw);
+    }
+    let length = item.len() + 16;
+    let defined = sequence.variant_id == "defined";
+    let hex = if defined {
+        uppercase_hex(&(length as u32).to_le_bytes())
+    } else {
+        "FFFFFFFF".into()
+    };
+    if !matches!(sequence.variant_id.as_str(), "defined" | "undefined")
+        || sequence.sequence_tag != "0008,2218"
+        || sequence.sequence_vr != "SQ"
+        || sequence.item_dataset_encoded_length as usize != item.len()
+        || sequence.undefined_item_encoded_length as usize != length
+        || sequence.sequence_length_field_hex != hex
+        || sequence.item_length_field_hex != "FFFFFFFF"
+        || !sequence.item_delimitation_present
+        || sequence.sequence_delimitation_present == defined
+    {
+        return Err("sequence length declaration differs".into());
+    }
+    let mut raw = vec![0xfe, 0xff, 0, 0xe0, 0xff, 0xff, 0xff, 0xff];
+    raw.extend(item);
+    raw.extend([0xfe, 0xff, 0x0d, 0xe0, 0, 0, 0, 0]);
+    if !defined {
+        raw.extend([0xfe, 0xff, 0xdd, 0xe0, 0, 0, 0, 0]);
+    }
+    Ok(raw)
+}
+
+pub(crate) fn validate_caller_pixel_spacing(
+    values: &[String],
+    rows: u64,
+    columns: u64,
+) -> Result<(), String> {
+    if values.len() != 2 || rows == 0 || columns == 0 {
+        return Err("Pixel Spacing requires two values and nonempty image geometry".into());
+    }
+    for (value, extent) in values.iter().zip([rows, columns]) {
+        let spacing = value
+            .trim()
+            .parse::<f64>()
+            .map_err(|_| "invalid Pixel Spacing")?;
+        if !spacing.is_finite() || spacing < 0.0 || (spacing == 0.0 && extent != 1) {
+            return Err(
+                "Pixel Spacing must be positive except along a singleton image axis".into(),
+            );
+        }
+    }
+    Ok(())
 }

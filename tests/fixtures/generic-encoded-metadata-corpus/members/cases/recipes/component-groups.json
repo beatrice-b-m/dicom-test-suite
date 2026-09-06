@@ -1,0 +1,193 @@
+{
+  "case_recipe_schema_version": "0.2.0",
+  "recipe_id": "caller_component_groups",
+  "recipe_version": "0.1.0",
+  "binding": {
+    "case_id": "caller/encoded-metadata/component-groups"
+  },
+  "kind": "dicom",
+  "plan_provider_id": "native.metadata_sc_plan",
+  "planning_order": 20,
+  "projection_order": 20,
+  "dependencies": [],
+  "provider_parameters": {},
+  "validation_rule_ids": [
+    "validation.sc.pixel",
+    "validation.metadata.person_name"
+  ],
+  "projection_rule_ids": [
+    "projection.curated"
+  ],
+  "dicom": {
+    "artifacts": [
+      {
+        "logical_id": "declared_0",
+        "order": 0,
+        "template": {
+          "template_id": "classic/secondary-capture/monochrome",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "caller_metadata",
+          "path": "encoded-metadata/component-groups.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {},
+        "secondary_capture": {
+          "rows": 2,
+          "columns": 3,
+          "frames": 1,
+          "samples_per_pixel": 1,
+          "photometric_interpretation": "MONOCHROME2",
+          "bits_allocated": 8,
+          "bits_stored": 8,
+          "high_bit": 7,
+          "pixel_representation": 0,
+          "pixel_data_vr": "OB",
+          "stored_value_type": "u8",
+          "stored_values": [
+            11,
+            22,
+            33,
+            44,
+            55,
+            66
+          ],
+          "frame_sha256": [
+            "a28abddba550b61cd599ad2579ca8c7a40a032ffdfe7eba2206b41a8a820e81c"
+          ],
+          "visual_pattern": "caller_six_samples",
+          "semantic_note": "Caller-defined native metadata fixture",
+          "pixel_min": 11,
+          "pixel_max": 66
+        },
+        "metadata_sc": {
+          "kind": "person_name",
+          "specific_character_sets": [
+            "",
+            "ISO 2022 IR 87"
+          ],
+          "patient_name_decoded": "Suzuki^Hanako=鈴木^花子=すずき^はなこ",
+          "patient_name_raw_hex": "53757A756B695E48616E616B6F3D1B24424E6B4C5A1B28425E1B244232563B521B28423D1B24422439243A242D1B28425E1B2442244F244A24331B284220",
+          "patient_name_raw_sha256": "34031fb73bdab3e59897a80b9c274517d5663cb59d97e0b39d573720d0330b92",
+          "native_unicode_round_trip": false,
+          "component_groups": [
+            {
+              "kind": "alphabetic",
+              "decoded_value": "Suzuki^Hanako",
+              "components": [
+                "Suzuki",
+                "Hanako",
+                "",
+                "",
+                ""
+              ]
+            },
+            {
+              "kind": "ideographic",
+              "decoded_value": "鈴木^花子",
+              "components": [
+                "鈴木",
+                "花子",
+                "",
+                "",
+                ""
+              ]
+            },
+            {
+              "kind": "phonetic",
+              "decoded_value": "すずき^はなこ",
+              "components": [
+                "すずき",
+                "はなこ",
+                "",
+                "",
+                ""
+              ]
+            }
+          ]
+        },
+        "attribute_operations": [
+          {
+            "operation": "set",
+            "tag": "0010,0020",
+            "vr": "LO",
+            "value": "CALLER-META-19"
+          },
+          {
+            "operation": "set",
+            "tag": "0010,0030",
+            "vr": "DA",
+            "value": "19880229"
+          },
+          {
+            "operation": "set",
+            "tag": "0010,0040",
+            "vr": "CS",
+            "value": "O"
+          },
+          {
+            "operation": "set",
+            "tag": "0008,0020",
+            "vr": "DA",
+            "value": "20240229"
+          },
+          {
+            "operation": "set",
+            "tag": "0008,0030",
+            "vr": "TM",
+            "value": "101112.25"
+          },
+          {
+            "operation": "set",
+            "tag": "0008,0023",
+            "vr": "DA",
+            "value": "20240229"
+          },
+          {
+            "operation": "set",
+            "tag": "0008,0033",
+            "vr": "TM",
+            "value": "121314"
+          },
+          {
+            "operation": "set",
+            "tag": "0008,0070",
+            "vr": "LO",
+            "value": "Caller Metadata Lab"
+          },
+          {
+            "operation": "set",
+            "tag": "0020,0010",
+            "vr": "SH",
+            "value": "META19"
+          }
+        ],
+        "content": {
+          "provider_id": "content.metadata.person_name",
+          "parameters": {}
+        },
+        "validation_rule_ids": [
+          "validation.sc.pixel",
+          "validation.metadata.person_name"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "minimal_secondary_capture",
+          "native_ob_pixel_data"
+        ]
+      }
+    ]
+  }
+}

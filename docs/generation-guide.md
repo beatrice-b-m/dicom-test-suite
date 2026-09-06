@@ -673,8 +673,8 @@ projection orders 902/903 emit RGB then palette to
 
 #### Caller-defined Secondary Capture metadata
 
-The external CLI and SDK accept independently named recipes for these typed
-metadata variants:
+The external CLI and SDK accept independently named recipe `0.1.0` definitions
+for these typed metadata variants:
 
 | `metadata_sc.kind` | Matching content provider | Additional constraint |
 | --- | --- | --- |
@@ -693,6 +693,33 @@ and globally unique. Artifact and content parameter maps are empty. Both recipe
 and artifact require `validation.sc.pixel` and the matching
 `validation.metadata.person_name`, `.empty_type2`, `.private_creators` or
 `.timezone` rule.
+
+Recipe schema `0.2.0` additionally supports encoded PN, string and sequence
+metadata with complete caller patient/study values. The
+[encoded metadata example](../tests/fixtures/generic-encoded-metadata-corpus/definition.json)
+uses different names, pixels, text values and sequence code lengths. These
+recipes use `native.metadata_sc_plan` with native single-frame U8 MONOCHROME2
+pixels, empty provider/artifact parameter maps, explicit ordering and paths.
+Typed PN owns PatientName; the remaining patient/study tuple is supplied through
+set operations. String and sequence recipes supply the complete ten-field tuple.
+
+- PN supports UTF-8 or the declared ISO 2022 ASCII/JIS X 0208 component-group
+  encoding. Raw bytes, decoded values, escape boundaries and group components
+  must agree.
+- String contracts support ImageComments (LT, VM 1), SoftwareVersions (LO,
+  VM 1–n), PixelSpacing (DS, VM 2) and AcquisitionNumber (IS, VM 1). Declare any
+  nonempty unique subset with bounded values, padding and hashes. The generator
+  checks VR lengths, multiplicity and numeric syntax before materialization.
+  Pixel spacing must be positive; zero is allowed only along a singleton axis.
+- Sequence contracts provide defined and undefined AnatomicRegionSequence
+  variants with one undefined-length item. Code value, coding scheme and code
+  meaning are caller values; item/sequence lengths derive from their encoded
+  SH/SH/LO bytes rather than a fixed historical tuple.
+
+Strict validation reopens encoded metadata and binds it to the typed contract
+and caller overrides. Report2 checks those declarations before projecting
+metadata coverage; it remains manifest evidence and does not reopen payloads.
+These capabilities add no independent-conformance or viewer qualification.
 
 Qualified empty Type 2 tuples are PatientName (`0010,0010`, PN), PatientBirthDate
 (`0010,0030`, DA), PatientSex (`0010,0040`, CS), ReferringPhysicianName

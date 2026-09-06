@@ -120,7 +120,7 @@ class ChangeTestRoutingFixtures(unittest.TestCase):
             self.assertEqual(self.commands(result), ["cargo test --locked --no-default-features --test cli_sdk__nonfast external_corpus_cli::"])
 
     def test_caller_fixtures_reuse_external_corpus_contract_route(self):
-        for fixture in ("generic-enhanced-corpus", "generic-sc-integer-corpus"):
+        for fixture in ("generic-enhanced-corpus", "generic-sc-integer-corpus", "generic-encoded-metadata-corpus"):
             with self.subTest(fixture=fixture):
                 result = self.select(f"tests/fixtures/{fixture}/definition.json")
                 self.assertEqual(result["bundle_ids"], ["external_corpus_cli"])

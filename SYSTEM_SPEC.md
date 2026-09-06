@@ -722,6 +722,14 @@ Expected geometry metadata shall state how consumers should sort or interpret fr
 
 ## 11. Metadata and Value Representation Axes
 
+Recipe `0.2.0` encoded SC metadata uses the shared PN/string/sequence validators at
+admission, generation, strict reopening and report projection. Caller recipes
+own patient/study overrides, raw PN groups, supported string values and code
+text; sequence lengths derive from canonical SH/SH/LO encoding. Manifest `2.0.0`
+retains the versioned typed declaration and exposes structural metadata schemas,
+while the frozen recipe `0.1.0` and manifest schemas remain unchanged.
+
+
 Generate cases covering:
 
 - empty Type 2 attributes;

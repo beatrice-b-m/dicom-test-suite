@@ -4213,3 +4213,398 @@ fn caller_owned_sc_integer_cli_sdk_strict_report_and_repeat_are_identical() {
     }
     fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn caller_encoded_metadata_cli_sdk_strict_report_and_repeat_are_identical() {
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let root = fs::canonicalize(std::env::temp_dir())
+        .unwrap()
+        .join(format!(
+            "caller-encoded-metadata-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+    fs::create_dir(&root).unwrap();
+    let source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/generic-encoded-metadata-corpus");
+    let descriptor = root.join("definition.json");
+    let definition: Value =
+        serde_json::from_slice(&fs::read(source.join("definition.json")).unwrap()).unwrap();
+    fs::copy(source.join("definition.json"), &descriptor).unwrap();
+    let members = root.join("members");
+    for reference in std::iter::once(&definition["registry"])
+        .chain(
+            definition["cases"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|case| &case["recipe"]),
+        )
+        .chain(definition["evidence"].as_array().unwrap().iter())
+    {
+        let path = reference["path"].as_str().unwrap();
+        let dest = members.join(path);
+        fs::create_dir_all(dest.parent().unwrap()).unwrap();
+        fs::copy(source.join("members").join(path), dest).unwrap();
+    }
+    let invoke = |args: &[&str]| {
+        let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
+            .args(args)
+            .current_dir(&root)
+            .output()
+            .unwrap();
+        if !output.status.success() && args.first() == Some(&"generate") {
+            let diagnostic = DicomTestSuite::embedded().unwrap().generate_corpus(
+                GenerateCorpusRequest::from_file(
+                    &descriptor,
+                    &members,
+                    root.join("sdk-diagnostic"),
+                    CorpusSelector::Profile {
+                        profile: "core".into(),
+                        include_stress: false,
+                    },
+                )
+                .with_seed(19)
+                .with_parallelism(2),
+            );
+            panic!(
+                "caller metadata generation failed: SDK error {:?}; CLI {}",
+                diagnostic.err(),
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+        assert!(
+            output.status.success(),
+            "{args:?}: {} {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        serde_json::from_slice::<Value>(&output.stdout).unwrap()
+    };
+    let selector = || CorpusSelector::Profile {
+        profile: "core".into(),
+        include_stress: false,
+    };
+    let product = DicomTestSuite::embedded().unwrap();
+    product
+        .inspect_corpus(
+            InspectCorpusRequest::from_file(&descriptor, &members)
+                .with_selection(selector())
+                .with_seed(19)
+                .with_parallelism(2),
+        )
+        .unwrap();
+    invoke(&[
+        "generate",
+        "--corpus",
+        "./definition.json",
+        "--asset-root",
+        "members",
+        "--profile",
+        "core",
+        "--seed",
+        "19",
+        "--parallelism",
+        "2",
+        "--out",
+        "cli-output",
+        "--format",
+        "json",
+    ]);
+    let manifest_path = root.join("cli-output/manifest.json");
+    let original_manifest = fs::read(&manifest_path).unwrap();
+    let manifest: Value = serde_json::from_slice(&original_manifest).unwrap();
+    assert_eq!(manifest["manifest_schema_version"], "2.0.0");
+    assert_eq!(manifest["files"].as_array().unwrap().len(), 4);
+    for file in manifest["files"].as_array().unwrap() {
+        assert!(
+            file["case_id"]
+                .as_str()
+                .unwrap()
+                .starts_with("caller/encoded-metadata/")
+        );
+        assert_eq!(
+            file["recipe"]["recipe_parameters"]["metadata_capability_version"],
+            "1.0.0"
+        );
+        let object =
+            dicom_object::open_file(root.join("cli-output").join(file["path"].as_str().unwrap()))
+                .unwrap();
+        assert_eq!(
+            object
+                .element_by_name("PatientID")
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            "CALLER-META-19"
+        );
+        assert_eq!(
+            object
+                .element_by_name("Manufacturer")
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            "Caller Metadata Lab"
+        );
+        let metadata = &file["expected_metadata"];
+        if let Some(names) = metadata.get("person_names") {
+            assert_eq!(
+                names[0]["decoded_value"],
+                "Suzuki^Hanako=鈴木^花子=すずき^はなこ"
+            );
+        } else if let Some(strings) = metadata.get("string_elements") {
+            assert_eq!(strings.as_array().unwrap().len(), 3);
+            assert_eq!(
+                strings[1]["decoded_values"],
+                json!(["ALPHA", "BETA-2", "GAMMA-3"])
+            );
+        } else {
+            let sequence = &metadata["sequence_length_encoding"];
+            assert_eq!(
+                sequence["decoded_items"][0]["code_meaning"],
+                "Caller abdomen"
+            );
+            if sequence["variant_id"] == "defined" {
+                assert_eq!(sequence["sequence_value_length"], 68);
+                assert_eq!(sequence["sequence_length_field_hex"], "44000000");
+            }
+        }
+    }
+    for name in ["sdk-output", "repeat-output"] {
+        let GenerateCorpusOutcome::Published(out) = product
+            .generate_corpus(
+                GenerateCorpusRequest::from_file(
+                    &descriptor,
+                    &members,
+                    root.join(name),
+                    selector(),
+                )
+                .with_seed(19)
+                .with_parallelism(2),
+            )
+            .unwrap()
+        else {
+            panic!("caller metadata must publish")
+        };
+        assert_eq!(out.manifest().deserialize::<Value>().unwrap(), manifest);
+        assert!(
+            product
+                .validate(ValidateRequest::new(out.output_root()))
+                .unwrap()
+                .is_valid()
+        );
+        for file in manifest["files"].as_array().unwrap() {
+            let path = file["path"].as_str().unwrap();
+            assert_eq!(
+                fs::read(root.join("cli-output").join(path)).unwrap(),
+                fs::read(out.output_root().join(path)).unwrap()
+            );
+        }
+    }
+    assert_eq!(
+        invoke(&["validate", "cli-output", "--format", "json"])["result"]["valid"],
+        true
+    );
+    let report = invoke(&[
+        "report",
+        "cli-output",
+        "--format",
+        "json",
+        "--cli-api",
+        "1.0.0",
+    ]);
+    assert_eq!(
+        product
+            .report(ReportRequest::new(root.join("sdk-output")))
+            .unwrap()
+            .deserialize::<Value>()
+            .unwrap(),
+        report["result"]["report"]
+    );
+    for index in 0..4 {
+        let mut changed = manifest.clone();
+        let file = &mut changed["files"][index];
+        let path = root.join("cli-output").join(file["path"].as_str().unwrap());
+        let original = fs::read(&path).unwrap();
+        let mut bytes = original.clone();
+        let offset = bytes
+            .windows(b"CALLER-META-19".len())
+            .position(|part| part == b"CALLER-META-19")
+            .unwrap();
+        bytes[offset + 12] = b'8';
+        fs::write(&path, &bytes).unwrap();
+        file["sha256"] = json!(synth_dicom_gen::sha256_hex(&bytes));
+        fs::write(&manifest_path, serde_json::to_vec(&changed).unwrap()).unwrap();
+        let invalid = product.validate(ValidateRequest::new(root.join("cli-output")));
+        assert!(
+            invalid.is_err() || !invalid.unwrap().is_valid(),
+            "encoded caller metadata must be reopened"
+        );
+        fs::write(&path, original).unwrap();
+    }
+    // A coordinated file/manifest edit must still satisfy the declared VR.
+    for index in 0..4 {
+        let mut changed = manifest.clone();
+        let file = &mut changed["files"][index];
+        let overrides = file["recipe"]["recipe_parameters"]["metadata_overrides"]
+            .as_array_mut()
+            .unwrap();
+        let operation = overrides
+            .iter_mut()
+            .find(|op| op["tag"] == "0008,0020")
+            .unwrap();
+        let old_date = operation["value"].as_str().unwrap().as_bytes().to_vec();
+        operation["value"] = json!("abcdefgh");
+        let path = root.join("cli-output").join(file["path"].as_str().unwrap());
+        let original = fs::read(&path).unwrap();
+        let mut bytes = original.clone();
+        let offset = bytes
+            .windows(old_date.len())
+            .position(|part| part == old_date)
+            .unwrap();
+        bytes[offset..offset + 8].copy_from_slice(b"abcdefgh");
+        fs::write(&path, &bytes).unwrap();
+        file["sha256"] = json!(synth_dicom_gen::sha256_hex(&bytes));
+        fs::write(&manifest_path, serde_json::to_vec(&changed).unwrap()).unwrap();
+        let invalid = product.validate(ValidateRequest::new(root.join("cli-output")));
+        assert!(invalid.is_err() || !invalid.unwrap().is_valid());
+        assert!(
+            product
+                .report(ReportRequest::new(root.join("cli-output")))
+                .is_err()
+        );
+        fs::write(&path, original).unwrap();
+    }
+    for index in 0..4 {
+        for mutation in 0..5 {
+            let mut changed = manifest.clone();
+            let file = &mut changed["files"][index];
+            match mutation {
+                0 => {
+                    file.as_object_mut().unwrap().remove("expected_metadata");
+                }
+                1 => {
+                    file["recipe"]["recipe_parameters"]
+                        .as_object_mut()
+                        .unwrap()
+                        .remove("metadata_contract");
+                }
+                2 => {
+                    file["recipe"]["recipe_parameters"]["metadata_capability_version"] =
+                        json!("9.0.0");
+                }
+                3 => {
+                    file["recipe"]["recipe_parameters"]["metadata_overrides"] = json!([]);
+                }
+                _ => {
+                    file.as_object_mut().unwrap().remove("expected_metadata");
+                    let params = file["recipe"]["recipe_parameters"].as_object_mut().unwrap();
+                    params.remove("metadata_contract");
+                    params.remove("metadata_capability_version");
+                }
+            }
+            fs::write(&manifest_path, serde_json::to_vec(&changed).unwrap()).unwrap();
+            let invalid = product.validate(ValidateRequest::new(root.join("cli-output")));
+            assert!(
+                invalid.is_err() || !invalid.unwrap().is_valid(),
+                "metadata {index}/{mutation} must fail"
+            );
+            assert!(
+                product
+                    .report(ReportRequest::new(root.join("cli-output")))
+                    .is_err(),
+                "report {index}/{mutation} must fail"
+            );
+        }
+    }
+    fs::write(&manifest_path, original_manifest).unwrap();
+    for (index, pointer, value) in [
+        (
+            0,
+            "/dicom/artifacts/0/metadata_sc/patient_name_decoded",
+            json!("Other^Name"),
+        ),
+        (
+            1,
+            "/dicom/artifacts/0/metadata_sc/elements/2/source/values/0",
+            json!("NOT_AN_INTEGER"),
+        ),
+        (
+            2,
+            "/dicom/artifacts/0/metadata_sc/item_dataset_encoded_length",
+            json!(40),
+        ),
+        (
+            2,
+            "/dicom/artifacts/1/metadata_sc/code_meaning",
+            json!("Conflicting meaning"),
+        ),
+    ] {
+        let mut changed = definition.clone();
+        let path = definition["cases"][index]["recipe"]["path"]
+            .as_str()
+            .unwrap();
+        let original = fs::read(members.join(path)).unwrap();
+        let mut recipe: Value = serde_json::from_slice(&original).unwrap();
+        *recipe.pointer_mut(pointer).unwrap() = value;
+        let raw = serde_json::to_vec(&recipe).unwrap();
+        fs::write(members.join(path), &raw).unwrap();
+        changed["cases"][index]["recipe"]["sha256"] = json!(synth_dicom_gen::sha256_hex(&raw));
+        changed["cases"][index]["recipe"]["size_bytes"] = json!(raw.len());
+        fs::write(&descriptor, serde_json::to_vec(&changed).unwrap()).unwrap();
+        assert!(
+            product
+                .capabilities_with_corpus(
+                    InspectCorpusRequest::from_file(&descriptor, &members)
+                        .with_selection(selector())
+                )
+                .is_err(),
+            "must reject {pointer}"
+        );
+        fs::write(members.join(path), original).unwrap();
+    }
+    let path = definition["cases"][1]["recipe"]["path"].as_str().unwrap();
+    let original = fs::read(members.join(path)).unwrap();
+    for (rows, spacing, accepted) in [
+        (2, "-1", false),
+        (2, "0", false),
+        (1, "0", true),
+        (2, "0.5", true),
+    ] {
+        let mut recipe: Value = serde_json::from_slice(&original).unwrap();
+        let raw_spacing = format!("{spacing}\\1");
+        let mut encoded = raw_spacing.as_bytes().to_vec();
+        let padding = if encoded.len() % 2 == 1 {
+            encoded.push(b' ');
+            "space"
+        } else {
+            "none"
+        };
+        recipe["dicom"]["artifacts"][0]["metadata_sc"]["elements"].as_array_mut().unwrap().push(json!({
+            "tag":"0028,0030", "keyword":"PixelSpacing", "vr":"DS",
+            "source":{"source_kind":"literal","values":[spacing,"1"]},
+            "padding":padding,"raw_value_byte_length":encoded.len(),"raw_value_sha256":synth_dicom_gen::sha256_hex(&encoded)
+        }));
+        if rows == 1 {
+            recipe["dicom"]["artifacts"][0]["secondary_capture"]["rows"] = json!(1);
+            recipe["dicom"]["artifacts"][0]["secondary_capture"]["columns"] = json!(6);
+        }
+        let raw = serde_json::to_vec(&recipe).unwrap();
+        fs::write(members.join(path), &raw).unwrap();
+        let mut changed = definition.clone();
+        changed["cases"][1]["recipe"]["sha256"] = json!(synth_dicom_gen::sha256_hex(&raw));
+        changed["cases"][1]["recipe"]["size_bytes"] = json!(raw.len());
+        fs::write(&descriptor, serde_json::to_vec(&changed).unwrap()).unwrap();
+        let result = product.capabilities_with_corpus(
+            InspectCorpusRequest::from_file(&descriptor, &members).with_selection(selector()),
+        );
+        assert_eq!(
+            result.is_ok(),
+            accepted,
+            "spacing {spacing} rows {rows}: {:?}",
+            result.err()
+        );
+    }
+    fs::write(members.join(path), original).unwrap();
+    fs::remove_dir_all(root).unwrap();
+}

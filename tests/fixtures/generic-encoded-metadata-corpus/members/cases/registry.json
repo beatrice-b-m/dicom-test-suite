@@ -1,0 +1,179 @@
+{
+  "case_registry_schema_version": "0.2.0",
+  "cases": [
+    {
+      "case_id": "caller/encoded-metadata/component-groups",
+      "artifact_kind": "dicom_instance",
+      "status": "implemented",
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "metadata"
+      ],
+      "roadmap": null,
+      "blockers": [],
+      "profiles": [
+        "core"
+      ],
+      "recipe_id": "caller_component_groups",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid SecondaryCaptureImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb retrieve PS3.5 sect_6.1.2.5.3 --edition 2026b",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "sect_6.1.2.5.3"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb retrieve PS3.5 sect_H.3.1 --edition 2026b",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "table_H.3-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "evidence/phase-2-iso2022-person-name.md",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "sect_H.3.1"
+        }
+      ]
+    },
+    {
+      "case_id": "caller/encoded-metadata/variable-strings",
+      "artifact_kind": "dicom_instance",
+      "status": "implemented",
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "metadata"
+      ],
+      "roadmap": null,
+      "blockers": [],
+      "profiles": [
+        "core"
+      ],
+      "recipe_id": "caller_variable_strings",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid SecondaryCaptureImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup ImageComments SoftwareVersions PixelSpacing AcquisitionNumber --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "evidence/phase-2-long-multivalue-strings.md",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "table_6.2-1_sect_6.4"
+        }
+      ]
+    },
+    {
+      "case_id": "caller/encoded-metadata/sequence-lengths",
+      "artifact_kind": "dicom_instance",
+      "status": "implemented",
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "object_family": "classic_image",
+      "compatibility_axes": [
+        "metadata"
+      ],
+      "roadmap": null,
+      "blockers": [],
+      "profiles": [
+        "core"
+      ],
+      "recipe_id": "caller_sequence_lengths",
+      "recipe_version": "0.1.0",
+      "iod_name": "Secondary Capture Image",
+      "sop_class_name": "Secondary Capture Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.7",
+      "modality": "OT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid SecondaryCaptureImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "evidence/phase-2-sequence-length-encoding.md",
+          "covered": true,
+          "part": "PS3.5",
+          "anchor": "sect_7.5.1_sect_7.5.2"
+        }
+      ]
+    }
+  ]
+}

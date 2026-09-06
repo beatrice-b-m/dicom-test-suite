@@ -184,8 +184,10 @@ preserving the separate historical `0.1.0` recipe and payload contract.
 Caller-defined Secondary Capture metadata supports UTF-8 Person Name, qualified
 empty Type 2 attributes, private creator blocks, and a two-instance pair at the
 legal `+1400`/`-1200` timezone extrema through typed native contracts.
-Case/recipe names, logical IDs, roles, paths, temporal values and pixels are
-caller-owned; metadata, encoding and validation constraints remain enforced. See the
+Recipe `0.2.0` also supports ISO 2022 PN groups, bounded LT/LO/DS/IS strings
+and caller-defined sequence code lengths. Case/recipe names, logical IDs, roles,
+paths, temporal values and pixels are caller-owned; metadata, encoding and
+validation constraints remain enforced. See the
 [metadata contract](docs/generation-guide.md#caller-defined-secondary-capture-metadata).
 
 All three public generation workflows use one plan-first spine. `generate`

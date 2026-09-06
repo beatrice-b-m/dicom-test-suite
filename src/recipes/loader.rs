@@ -22,7 +22,10 @@ use super::enhanced::{
     enhanced_input_from_recipe,
 };
 use super::error::RecipeCatalogError;
-use super::metadata_sc::inspect_timezone_boundary_capability;
+use super::metadata_sc::{
+    caller_sequence_contract, caller_string_values, inspect_encoded_metadata_capability,
+    inspect_timezone_boundary_capability,
+};
 use super::model::{CaseRecipe, MetadataScParameters, RecipeKind, StringValueSource};
 use super::presentation::{
     PRESENTATION_ADVANCED_PROVIDER_ID, PRESENTATION_ALGORITHM_PROVIDER_ID, PresentationPlanInput,
@@ -874,24 +877,28 @@ fn validate_metadata_sc_contract(
     }
     let timezone_capability =
         inspect_timezone_boundary_capability(recipe).map_err(|message| semantic(path, message))?;
-    let declared_kind = recipe
-        .dicom
-        .as_ref()
-        .and_then(|dicom| dicom.artifacts.first())
-        .and_then(|artifact| artifact.metadata_sc.as_ref())
-        .and_then(|metadata| match metadata {
-            MetadataScParameters::PersonName(pn)
-                if pn.specific_character_sets == ["ISO_IR 192"] =>
-            {
-                Some("person_name")
-            }
-            MetadataScParameters::EmptyType2 { .. } => Some("empty_type2"),
-            MetadataScParameters::PrivateCreators { .. } => Some("private_creators"),
-            MetadataScParameters::TimezoneBoundary(_) if timezone_capability.is_some() => {
-                Some("timezone_boundary")
-            }
-            _ => None,
-        });
+    let encoded_kind =
+        inspect_encoded_metadata_capability(recipe).map_err(|message| semantic(path, message))?;
+    let declared_kind = encoded_kind.or_else(|| {
+        recipe
+            .dicom
+            .as_ref()
+            .and_then(|dicom| dicom.artifacts.first())
+            .and_then(|artifact| artifact.metadata_sc.as_ref())
+            .and_then(|metadata| match metadata {
+                MetadataScParameters::PersonName(pn)
+                    if pn.specific_character_sets == ["ISO_IR 192"] =>
+                {
+                    Some("person_name")
+                }
+                MetadataScParameters::EmptyType2 { .. } => Some("empty_type2"),
+                MetadataScParameters::PrivateCreators { .. } => Some("private_creators"),
+                MetadataScParameters::TimezoneBoundary(_) if timezone_capability.is_some() => {
+                    Some("timezone_boundary")
+                }
+                _ => None,
+            })
+    });
     let expected_kind = if let Some(kind) = declared_kind {
         kind
     } else {
@@ -932,11 +939,12 @@ fn validate_metadata_sc_contract(
             && (!artifact.template.as_ref().is_some_and(|template| {
                 template.template_id == "classic/secondary-capture/monochrome"
                     && template.template_version == "1.0.0"
-            }) || !artifact.attribute_operations.is_empty()
+            }) || (encoded_kind.is_none() && !artifact.attribute_operations.is_empty())
                 || artifact.classic_projection.is_some()
                 || artifact.nonsquare_geometry.is_some()
-                || artifact.encoding.sequence_length_policy != "default"
-                || artifact.encoding.item_length_policy != "default")
+                || (encoded_kind != Some("sequence_lengths")
+                    && (artifact.encoding.sequence_length_policy != "default"
+                        || artifact.encoding.item_length_policy != "default")))
         {
             return Err(semantic(
                 path,
@@ -995,7 +1003,10 @@ fn validate_metadata_sc_contract(
         let (actual_kind, content_provider, validation_rule) = match metadata {
             MetadataScParameters::PersonName(person_name) => {
                 validate_person_name_metadata(path, person_name)?;
-                if declared_kind.is_some()
+                if encoded_kind.is_some() {
+                    crate::metadata::validate_caller_person_name(person_name)
+                        .map_err(|message| semantic(path, message))?;
+                } else if declared_kind.is_some()
                     || recipe.binding.case_id != "metadata/sc/iso2022_person_name_component_groups"
                 {
                     let raw = decode_upper_hex(&person_name.patient_name_raw_hex)
@@ -1061,7 +1072,39 @@ fn validate_metadata_sc_contract(
                 )
             }
             MetadataScParameters::StringBoundaries { elements } => {
-                validate_string_boundaries(path, elements)?;
+                if encoded_kind.is_some() {
+                    let mut tags = BTreeSet::new();
+                    if elements.is_empty() {
+                        return Err(semantic(path, "encoded string metadata must be nonempty"));
+                    }
+                    for element in elements {
+                        if !tags.insert(&element.tag) {
+                            return Err(semantic(path, "duplicate encoded string tag"));
+                        }
+                        if artifact
+                            .attribute_operations
+                            .iter()
+                            .any(|op| op.tag == element.tag)
+                        {
+                            return Err(semantic(
+                                path,
+                                "typed string conflicts with metadata override",
+                            ));
+                        }
+                        let values = caller_string_values(element)
+                            .map_err(|message| semantic(path, message))?;
+                        if element.tag == "0028,0030" {
+                            crate::metadata::validate_caller_pixel_spacing(
+                                &values,
+                                u64::from(pixels.rows),
+                                u64::from(pixels.columns),
+                            )
+                            .map_err(|message| semantic(path, message))?;
+                        }
+                    }
+                } else {
+                    validate_string_boundaries(path, elements)?;
+                }
                 (
                     "string_boundaries",
                     "content.metadata.string_boundaries",
@@ -1078,7 +1121,14 @@ fn validate_metadata_sc_contract(
             }
             MetadataScParameters::SequenceLengths(sequence) => {
                 let defined = sequence.variant_id == "defined";
-                if sequence.item_length_field_hex != "FFFFFFFF"
+                if encoded_kind.is_some() {
+                    if !caller_sequence_contract(sequence, &artifact.encoding) {
+                        return Err(semantic(
+                            path,
+                            "caller sequence lengths differ from encoded code values",
+                        ));
+                    }
+                } else if sequence.item_length_field_hex != "FFFFFFFF"
                     || !sequence.item_delimitation_present
                     || (defined
                         && (sequence.sequence_length_field_hex != "38000000"

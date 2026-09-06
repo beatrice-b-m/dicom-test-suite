@@ -1,0 +1,311 @@
+{
+  "case_recipe_schema_version": "0.2.0",
+  "recipe_id": "caller_sequence_lengths",
+  "recipe_version": "0.1.0",
+  "binding": {
+    "case_id": "caller/encoded-metadata/sequence-lengths"
+  },
+  "kind": "dicom",
+  "plan_provider_id": "native.metadata_sc_plan",
+  "planning_order": 22,
+  "projection_order": 22,
+  "dependencies": [],
+  "provider_parameters": {},
+  "validation_rule_ids": [
+    "validation.sc.pixel",
+    "validation.metadata.sequence_lengths"
+  ],
+  "projection_rule_ids": [
+    "projection.curated"
+  ],
+  "dicom": {
+    "artifacts": [
+      {
+        "logical_id": "declared_0",
+        "order": 0,
+        "template": {
+          "template_id": "classic/secondary-capture/monochrome",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "caller_metadata",
+          "path": "encoded-metadata/sequence-lengths-0.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "defined",
+          "item_length_policy": "undefined",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {},
+        "secondary_capture": {
+          "rows": 2,
+          "columns": 3,
+          "frames": 1,
+          "samples_per_pixel": 1,
+          "photometric_interpretation": "MONOCHROME2",
+          "bits_allocated": 8,
+          "bits_stored": 8,
+          "high_bit": 7,
+          "pixel_representation": 0,
+          "pixel_data_vr": "OB",
+          "stored_value_type": "u8",
+          "stored_values": [
+            11,
+            22,
+            33,
+            44,
+            55,
+            66
+          ],
+          "frame_sha256": [
+            "a28abddba550b61cd599ad2579ca8c7a40a032ffdfe7eba2206b41a8a820e81c"
+          ],
+          "visual_pattern": "caller_six_samples",
+          "semantic_note": "Caller-defined native metadata fixture",
+          "pixel_min": 11,
+          "pixel_max": 66
+        },
+        "metadata_sc": {
+          "kind": "sequence_lengths",
+          "variant_id": "defined",
+          "sequence_tag": "0008,2218",
+          "sequence_vr": "SQ",
+          "code_value": "T-D001",
+          "coding_scheme_designator": "99LOCAL",
+          "code_meaning": "Caller abdomen",
+          "item_dataset_encoded_length": 52,
+          "undefined_item_encoded_length": 68,
+          "sequence_length_field_hex": "44000000",
+          "item_length_field_hex": "FFFFFFFF",
+          "item_delimitation_present": true,
+          "sequence_delimitation_present": false
+        },
+        "attribute_operations": [
+          {
+            "operation": "set",
+            "tag": "0010,0010",
+            "vr": "PN",
+            "value": "Caller^Metadata"
+          },
+          {
+            "operation": "set",
+            "tag": "0010,0020",
+            "vr": "LO",
+            "value": "CALLER-META-19"
+          },
+          {
+            "operation": "set",
+            "tag": "0010,0030",
+            "vr": "DA",
+            "value": "19880229"
+          },
+          {
+            "operation": "set",
+            "tag": "0010,0040",
+            "vr": "CS",
+            "value": "O"
+          },
+          {
+            "operation": "set",
+            "tag": "0008,0020",
+            "vr": "DA",
+            "value": "20240229"
+          },
+          {
+            "operation": "set",
+            "tag": "0008,0030",
+            "vr": "TM",
+            "value": "101112.25"
+          },
+          {
+            "operation": "set",
+            "tag": "0008,0023",
+            "vr": "DA",
+            "value": "20240229"
+          },
+          {
+            "operation": "set",
+            "tag": "0008,0033",
+            "vr": "TM",
+            "value": "121314"
+          },
+          {
+            "operation": "set",
+            "tag": "0008,0070",
+            "vr": "LO",
+            "value": "Caller Metadata Lab"
+          },
+          {
+            "operation": "set",
+            "tag": "0020,0010",
+            "vr": "SH",
+            "value": "META19"
+          }
+        ],
+        "content": {
+          "provider_id": "content.metadata.sequence_lengths",
+          "parameters": {}
+        },
+        "validation_rule_ids": [
+          "validation.sc.pixel",
+          "validation.metadata.sequence_lengths"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "minimal_secondary_capture",
+          "native_ob_pixel_data"
+        ]
+      },
+      {
+        "logical_id": "declared_1",
+        "order": 1,
+        "template": {
+          "template_id": "classic/secondary-capture/monochrome",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "caller_metadata",
+          "path": "encoded-metadata/sequence-lengths-1.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "undefined",
+          "item_length_policy": "undefined",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {},
+        "secondary_capture": {
+          "rows": 2,
+          "columns": 3,
+          "frames": 1,
+          "samples_per_pixel": 1,
+          "photometric_interpretation": "MONOCHROME2",
+          "bits_allocated": 8,
+          "bits_stored": 8,
+          "high_bit": 7,
+          "pixel_representation": 0,
+          "pixel_data_vr": "OB",
+          "stored_value_type": "u8",
+          "stored_values": [
+            11,
+            22,
+            33,
+            44,
+            55,
+            66
+          ],
+          "frame_sha256": [
+            "a28abddba550b61cd599ad2579ca8c7a40a032ffdfe7eba2206b41a8a820e81c"
+          ],
+          "visual_pattern": "caller_six_samples",
+          "semantic_note": "Caller-defined native metadata fixture",
+          "pixel_min": 11,
+          "pixel_max": 66
+        },
+        "metadata_sc": {
+          "kind": "sequence_lengths",
+          "variant_id": "undefined",
+          "sequence_tag": "0008,2218",
+          "sequence_vr": "SQ",
+          "code_value": "T-D001",
+          "coding_scheme_designator": "99LOCAL",
+          "code_meaning": "Caller abdomen",
+          "item_dataset_encoded_length": 52,
+          "undefined_item_encoded_length": 68,
+          "sequence_length_field_hex": "FFFFFFFF",
+          "item_length_field_hex": "FFFFFFFF",
+          "item_delimitation_present": true,
+          "sequence_delimitation_present": true
+        },
+        "attribute_operations": [
+          {
+            "operation": "set",
+            "tag": "0010,0010",
+            "vr": "PN",
+            "value": "Caller^Metadata"
+          },
+          {
+            "operation": "set",
+            "tag": "0010,0020",
+            "vr": "LO",
+            "value": "CALLER-META-19"
+          },
+          {
+            "operation": "set",
+            "tag": "0010,0030",
+            "vr": "DA",
+            "value": "19880229"
+          },
+          {
+            "operation": "set",
+            "tag": "0010,0040",
+            "vr": "CS",
+            "value": "O"
+          },
+          {
+            "operation": "set",
+            "tag": "0008,0020",
+            "vr": "DA",
+            "value": "20240229"
+          },
+          {
+            "operation": "set",
+            "tag": "0008,0030",
+            "vr": "TM",
+            "value": "101112.25"
+          },
+          {
+            "operation": "set",
+            "tag": "0008,0023",
+            "vr": "DA",
+            "value": "20240229"
+          },
+          {
+            "operation": "set",
+            "tag": "0008,0033",
+            "vr": "TM",
+            "value": "121314"
+          },
+          {
+            "operation": "set",
+            "tag": "0008,0070",
+            "vr": "LO",
+            "value": "Caller Metadata Lab"
+          },
+          {
+            "operation": "set",
+            "tag": "0020,0010",
+            "vr": "SH",
+            "value": "META19"
+          }
+        ],
+        "content": {
+          "provider_id": "content.metadata.sequence_lengths",
+          "parameters": {}
+        },
+        "validation_rule_ids": [
+          "validation.sc.pixel",
+          "validation.metadata.sequence_lengths"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "minimal_secondary_capture",
+          "native_ob_pixel_data"
+        ]
+      }
+    ]
+  }
+}

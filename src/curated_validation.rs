@@ -946,6 +946,14 @@ fn validate_sequence(
             .ok_or_else(|| fail(path, "truncated SQ length"))?,
     );
     let value_offset = offset + 12;
+    let canonical =
+        crate::metadata::caller_sequence_bytes(expected).map_err(|error| fail(path, error))?;
+    if bytes.get(value_offset..value_offset + canonical.len()) != Some(canonical.as_slice()) {
+        return Err(fail(
+            path,
+            "sequence encoded item values differ from declaration",
+        ));
+    }
     let item_data_length = expected.item_dataset_encoded_length as usize;
     let item_delimiter_offset = value_offset + 8 + item_data_length;
     let item_header_matches = bytes.get(value_offset..value_offset + 8)

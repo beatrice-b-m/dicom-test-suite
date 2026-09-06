@@ -158,6 +158,131 @@ pub(crate) fn inspect_timezone_boundary_capability(
     Ok(Some(TimezoneBoundaryCapability { artifact_count: 2 }))
 }
 
+/// Recipe 0.2 encoded metadata carries the complete caller identity tuple.
+pub(crate) fn inspect_encoded_metadata_capability(
+    recipe: &CaseRecipe,
+) -> Result<Option<&'static str>, String> {
+    if recipe.plan_provider_id != "native.metadata_sc_plan"
+        || recipe.case_recipe_schema_version != "0.2.0"
+    {
+        return Ok(None);
+    }
+    let dicom = recipe
+        .dicom
+        .as_ref()
+        .ok_or("encoded metadata requires artifacts")?;
+    let kind = match dicom.artifacts.first().and_then(|a| a.metadata_sc.as_ref()) {
+        Some(MetadataScParameters::PersonName(_)) => "person_name",
+        Some(MetadataScParameters::StringBoundaries { .. }) => "string_boundaries",
+        Some(MetadataScParameters::SequenceLengths(_)) => "sequence_lengths",
+        _ => return Ok(None),
+    };
+    if recipe.planning_order.is_none()
+        || recipe.projection_order.is_none()
+        || !recipe.dependencies.is_empty()
+    {
+        return Err("encoded metadata requires explicit independent ordering".into());
+    }
+    let mut variants = BTreeSet::new();
+    for artifact in &dicom.artifacts {
+        let pixels = artifact
+            .secondary_capture
+            .as_ref()
+            .ok_or("missing metadata pixels")?;
+        if pixels.frames != 1
+            || pixels.samples_per_pixel != 1
+            || pixels.photometric_interpretation != "MONOCHROME2"
+            || pixels.stored_value_type != "u8"
+            || pixels.bits_allocated != 8
+            || pixels.bits_stored != 8
+            || pixels.high_bit != 7
+            || pixels.pixel_representation != 0
+            || pixels.pixel_data_vr != "OB"
+            || pixels.color.is_some()
+            || pixels.palette.is_some()
+            || pixels.padding.is_some()
+            || pixels.bit_packing.is_some()
+            || pixels.integer_word.is_some()
+            || pixels.encapsulation_projection.is_some()
+            || artifact.public_profile_membership.is_some()
+        {
+            return Err(
+                "encoded metadata requires native single-frame unsigned-byte monochrome pixels"
+                    .into(),
+            );
+        }
+        let pn = matches!(
+            artifact.metadata_sc,
+            Some(MetadataScParameters::PersonName(_))
+        );
+        let mut tags = BTreeSet::new();
+        for operation in &artifact.attribute_operations {
+            let vr = match operation.tag.as_str() {
+                "0010,0010" if !pn => "PN",
+                "0010,0020" | "0008,0070" => "LO",
+                "0010,0030" | "0008,0020" | "0008,0023" => "DA",
+                "0010,0040" => "CS",
+                "0008,0030" | "0008,0033" => "TM",
+                "0020,0010" => "SH",
+                _ => {
+                    return Err(
+                        "encoded metadata override conflicts with typed or structural metadata"
+                            .into(),
+                    );
+                }
+            };
+            let value = operation
+                .value
+                .as_ref()
+                .and_then(serde_json::Value::as_str)
+                .ok_or("metadata override must be text")?;
+            if operation.operation != "set"
+                || operation.vr.as_deref() != Some(vr)
+                || !tags.insert(operation.tag.as_str())
+                || !value.is_ascii()
+                || value.contains('\\')
+            {
+                return Err(
+                    "metadata overrides require unique singleton ASCII set operations".into(),
+                );
+            }
+            nested_string(
+                &operation.tag,
+                DicomVr::from_str(vr).map_err(|e| e.to_string())?,
+                value,
+            )
+            .map_err(|e| e.to_string())?
+            .validate_declared_vr()
+            .map_err(|e| e.to_string())?;
+        }
+        for tag in [
+            "0010,0010",
+            "0010,0020",
+            "0010,0030",
+            "0010,0040",
+            "0008,0020",
+            "0008,0030",
+            "0008,0023",
+            "0008,0033",
+            "0008,0070",
+            "0020,0010",
+        ] {
+            if !(pn && tag == "0010,0010") && !tags.contains(tag) {
+                return Err("encoded metadata requires complete caller patient/study tuple".into());
+            }
+        }
+        if let Some(MetadataScParameters::SequenceLengths(sequence)) = &artifact.metadata_sc {
+            if !variants.insert(sequence.variant_id.as_str()) {
+                return Err("duplicate sequence variant".into());
+            }
+        }
+    }
+    if kind == "sequence_lengths" && variants != BTreeSet::from(["defined", "undefined"]) {
+        return Err("encoded sequence capability requires defined and undefined variants".into());
+    }
+    Ok(Some(kind))
+}
+
 /// Stable metadata planning inputs available before staging exists.
 pub struct MetadataScPlanInput<'a> {
     pub recipe: &'a CaseRecipe,
@@ -200,6 +325,10 @@ pub fn resolved_metadata_sc_plan(
         .collect::<BTreeMap<_, _>>();
     match metadata {
         MetadataScParameters::PersonName(person_name) => {
+            if input.recipe.case_recipe_schema_version == "0.2.0" {
+                crate::metadata::validate_caller_person_name(person_name)
+                    .map_err(MetadataScPlannerError::DeclaredHashMismatch)?;
+            }
             let raw = decode_hex(&person_name.patient_name_raw_hex)?;
             if sha256_hex(&raw) != person_name.patient_name_raw_sha256 {
                 return Err(MetadataScPlannerError::DeclaredHashMismatch(
@@ -264,17 +393,22 @@ pub fn resolved_metadata_sc_plan(
             for element in elements {
                 let vr =
                     DicomVr::from_str(&element.vr).map_err(MetadataScPlannerError::Attribute)?;
-                let values = match &element.source {
-                    StringValueSource::Repeated {
-                        pattern,
-                        repetitions,
-                    } => vec![
-                        pattern.repeat(
-                            usize::try_from(*repetitions)
-                                .map_err(|_| MetadataScPlannerError::SizeOverflow)?,
-                        ),
-                    ],
-                    StringValueSource::Literal { values } => values.clone(),
+                let values = if input.recipe.case_recipe_schema_version == "0.2.0" {
+                    caller_string_values(element)
+                        .map_err(MetadataScPlannerError::DeclaredHashMismatch)?
+                } else {
+                    match &element.source {
+                        StringValueSource::Repeated {
+                            pattern,
+                            repetitions,
+                        } => vec![
+                            pattern.repeat(
+                                usize::try_from(*repetitions)
+                                    .map_err(|_| MetadataScPlannerError::SizeOverflow)?,
+                            ),
+                        ],
+                        StringValueSource::Literal { values } => values.clone(),
+                    }
                 };
                 validate_string_oracle(element, &values)?;
                 let value = if values.len() == 1 {
@@ -319,7 +453,11 @@ pub fn resolved_metadata_sc_plan(
             set_laterality(&mut attributes)?;
         }
         MetadataScParameters::SequenceLengths(sequence) => {
-            if !supported_sequence_contract(sequence, &input.artifact.encoding) {
+            if !(if input.recipe.case_recipe_schema_version == "0.2.0" {
+                caller_sequence_contract(sequence, &input.artifact.encoding)
+            } else {
+                supported_sequence_contract(sequence, &input.artifact.encoding)
+            }) {
                 return Err(MetadataScPlannerError::UnsupportedSequence(
                     sequence.variant_id.clone(),
                 ));
@@ -438,6 +576,71 @@ fn validate_private_block(
         ));
     }
     Ok(())
+}
+
+/// Bound declarative expansion before allocating; encoded short-VR values
+/// cannot exceed 65534 bytes, while LT is bounded to 10240 characters.
+pub(crate) fn caller_string_values(
+    element: &super::StringBoundaryElementMetadata,
+) -> Result<Vec<String>, String> {
+    let limit = if element.vr == "LT" {
+        10240_u64
+    } else {
+        65534_u64
+    };
+    let values = match &element.source {
+        StringValueSource::Repeated {
+            pattern,
+            repetitions,
+        } => {
+            let size = (pattern.len() as u64)
+                .checked_mul(u64::from(*repetitions))
+                .filter(|size| *size <= limit)
+                .ok_or("metadata string expansion exceeds VR limit")?;
+            if size == 0 {
+                return Err("metadata string expansion must be nonempty".into());
+            }
+            vec![pattern.repeat(usize::try_from(*repetitions).map_err(|_| "string size overflow")?)]
+        }
+        StringValueSource::Literal { values } => {
+            let size = values
+                .iter()
+                .try_fold(0_u64, |n, value| {
+                    n.checked_add(value.len() as u64)
+                        .and_then(|n| n.checked_add(1))
+                })
+                .ok_or("string size overflow")?;
+            if size.saturating_sub(1) > limit {
+                return Err("metadata string values exceed VR limit".into());
+            }
+            values.clone()
+        }
+    };
+    let raw = crate::metadata::validate_caller_string_values(
+        &element.tag,
+        &element.keyword,
+        &element.vr,
+        &values,
+    )?;
+    let unpadded = values.join("\\").len();
+    if raw.len() as u64 != u64::from(element.raw_value_byte_length)
+        || sha256_hex(&raw) != element.raw_value_sha256
+        || element.padding != if unpadded % 2 == 1 { "space" } else { "none" }
+    {
+        return Err("caller string oracle differs from encoded values".into());
+    }
+    Ok(values)
+}
+
+/// Explicit-VR LE code item: three short-VR headers, padded values, and
+/// the undefined item header/delimiter. Caller text owns the resulting lengths.
+pub(crate) fn caller_sequence_contract(
+    sequence: &super::SequenceLengthMetadata,
+    encoding: &super::EncodingPolicy,
+) -> bool {
+    crate::metadata::caller_sequence_bytes(sequence).is_ok()
+        && encoding.item_length_policy == "undefined"
+        && encoding.sequence_length_policy == sequence.variant_id
 }
 
 fn supported_sequence_contract(

@@ -3621,6 +3621,19 @@ fn add_special(
             metadata,
             observation.ok_or_else(|| err("missing metadata observation"))?,
         )?;
+        if ctx.case_recipe.case_recipe_schema_version == "0.2.0"
+            && matches!(
+                metadata,
+                MetadataScParameters::PersonName(_)
+                    | MetadataScParameters::StringBoundaries { .. }
+                    | MetadataScParameters::SequenceLengths(_)
+            )
+        {
+            manifest["recipe"]["recipe_parameters"]["metadata_capability_version"] = json!("1.0.0");
+            manifest["recipe"]["recipe_parameters"]["metadata_contract"] = json!(metadata);
+            manifest["recipe"]["recipe_parameters"]["metadata_overrides"] =
+                json!(ctx.artifact_recipe.attribute_operations);
+        }
         add_metadata_recipe_parameters(manifest, metadata);
     }
     if let Some(geometry) = &ctx.artifact_recipe.nonsquare_geometry {

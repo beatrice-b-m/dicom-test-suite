@@ -307,7 +307,7 @@
     {
       "id": "external-corpus-cli",
       "exact": ["src/external_corpus_cli.rs", "src/cli_protocol.rs", "schemas/generation-result-v3.schema.json", "schemas/report-result-v2.schema.json", "schemas/capabilities-result-v3.schema.json"],
-      "prefixes": ["tests/fixtures/generic-enhanced-corpus/", "tests/fixtures/generic-sc-integer-corpus/"],
+      "prefixes": ["tests/fixtures/generic-enhanced-corpus/", "tests/fixtures/generic-sc-integer-corpus/", "tests/fixtures/generic-encoded-metadata-corpus/"],
       "bundles": ["external_corpus_cli"]
     },
     {

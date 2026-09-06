@@ -714,7 +714,11 @@ mod external_manifest_contract_tests {
             json!("#/$defs/expected_nonsquare_spacing");
         expected["properties"]["expected_enhanced_pet"]["$ref"] =
             json!("#/$defs/expected_enhanced_pet");
-        for field in ["expected_u1_pixels", "expected_u32_pixels"] {
+        for field in [
+            "expected_u1_pixels",
+            "expected_u32_pixels",
+            "expected_metadata",
+        ] {
             expected["properties"][field]["$ref"] = json!(format!("#/$defs/{field}"));
         }
         expected["allOf"]
@@ -753,6 +757,8 @@ mod external_manifest_contract_tests {
             "expected_enhanced_pet": external["$defs"]["expected_enhanced_pet"].clone(),
             "expected_u1_pixels": external["$defs"]["expected_u1_pixels"].clone(),
             "expected_u32_pixels": external["$defs"]["expected_u32_pixels"].clone(),
+            "expected_metadata": external["$defs"]["expected_metadata"].clone(),
+            "expected_sequence_length_encoding": external["$defs"]["expected_sequence_length_encoding"].clone(),
             "expected_us_multiframe": external["$defs"]["expected_us_multiframe"].clone(),
             "expected_us_frame": external["$defs"]["expected_us_frame"].clone(),
             "expected_nm_multiframe": external["$defs"]["expected_nm_multiframe"].clone(),

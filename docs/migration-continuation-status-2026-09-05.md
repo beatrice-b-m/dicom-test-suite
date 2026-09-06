@@ -2724,7 +2724,7 @@ the five-member self-excluding evidence inventory has SHA-256
 
 The failure is an orchestrator comparison-order defect, not a source-content
 failure. The archive and extracted tree contain the same 1,004 regular files,
-19,120,187 logical bytes, 999 mode-0644 members and five mode-0755 members,
+19,120,187 logical bytes, 999 mode-0664 members and five mode-0775 members,
 with exact path/mode/size/SHA equality under component-wise path ordering.
 The rejected comparison instead ordered archive path strings lexically while
 the extracted inventory used path-component ordering; its first divergence was

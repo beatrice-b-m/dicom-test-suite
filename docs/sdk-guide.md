@@ -264,6 +264,12 @@ Other metadata variants retain their existing admission rules.
 
 ## Inspect a caller-owned corpus before submitting
 
+These same APIs accept the versioned
+[Enhanced CT/MR/PET contract](generation-guide.md#caller-defined-native-enhanced-ct-mr-and-pet).
+Its recipe `0.2.0` fields are caller inputs; the SDK requires no internal
+planner imports or new request type. Preserve the manifest's declared caller
+capability when handing outputs to strict validation and report2.
+
 ```rust
 use synth_dicom_gen::sdk::{CorpusSelector, DicomTestSuite, InspectCorpusRequest};
 

@@ -3369,3 +3369,465 @@ fn caller_named_vl_photo_cli_is_sdk_identical_strictly_valid_and_reported() {
         }
     }
 }
+
+#[test]
+fn caller_owned_enhanced_cli_sdk_strict_report_and_repeat_are_identical() {
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let root = fs::canonicalize(std::env::temp_dir())
+        .unwrap()
+        .join(format!(
+            "generic-enhanced-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+    fs::create_dir(&root).unwrap();
+    let source =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/generic-enhanced-corpus");
+    let descriptor = root.join("definition.json");
+    fs::copy(source.join("definition.json"), &descriptor).unwrap();
+    let definition: Value = serde_json::from_slice(&fs::read(&descriptor).unwrap()).unwrap();
+    let members = root.join("members");
+    for reference in std::iter::once(&definition["registry"])
+        .chain(
+            definition["cases"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|row| &row["recipe"]),
+        )
+        .chain(definition["evidence"].as_array().unwrap().iter())
+    {
+        let relative = reference["path"].as_str().unwrap();
+        let destination = members.join(relative);
+        fs::create_dir_all(destination.parent().unwrap()).unwrap();
+        fs::copy(source.join("members").join(relative), destination).unwrap();
+    }
+    let command = |args: &[&str]| {
+        let raw = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
+            .args(args)
+            .current_dir(&root)
+            .env("PATH", "")
+            .output()
+            .unwrap();
+        assert!(
+            raw.status.success(),
+            "{}",
+            String::from_utf8_lossy(&raw.stderr)
+        );
+        serde_json::from_slice::<Value>(&raw.stdout).unwrap()
+    };
+    DicomTestSuite::embedded()
+        .unwrap()
+        .capabilities_with_corpus(
+            InspectCorpusRequest::from_file(&descriptor, &members).with_selection(
+                CorpusSelector::Profile {
+                    profile: "core".into(),
+                    include_stress: false,
+                },
+            ),
+        )
+        .unwrap();
+    let capabilities = command(&[
+        "capabilities",
+        "--corpus",
+        "./definition.json",
+        "--asset-root",
+        "members",
+        "--profile",
+        "core",
+        "--format",
+        "json",
+    ]);
+    assert_eq!(
+        capabilities["result"]["loaded_corpus"]["assessment"]["publication"],
+        "not_run"
+    );
+    let cli = command(&[
+        "generate",
+        "--corpus",
+        "./definition.json",
+        "--asset-root",
+        "members",
+        "--profile",
+        "core",
+        "--seed",
+        "19",
+        "--parallelism",
+        "3",
+        "--out",
+        "cli-output",
+        "--format",
+        "json",
+    ]);
+    assert_eq!(cli["result"]["emitted_file_count"], 7);
+    assert_eq!(cli["result"]["validation_status"], "passed");
+    let manifest: Value =
+        serde_json::from_slice(&fs::read(root.join("cli-output/manifest.json")).unwrap()).unwrap();
+    valid("manifest-v2.schema.json", &manifest);
+    let misleading = manifest["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|file| file["case_id"] == "stress/enhanced-ct/many_frames")
+        .unwrap();
+    assert_eq!(misleading["profile_membership"], json!(["core"]));
+    assert!(
+        manifest["qualifications"].is_null()
+            || manifest["qualifications"]
+                .as_array()
+                .is_some_and(Vec::is_empty)
+    );
+    assert!(
+        !serde_json::to_string(&manifest)
+            .unwrap()
+            .contains("Full-scale enhanced CT resource behavior")
+    );
+    assert!(
+        !serde_json::to_string(&manifest)
+            .unwrap()
+            .contains("\"qualification_scale\":\"reduced\"")
+    );
+
+    for file in manifest["files"].as_array().unwrap() {
+        let case = definition["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|row| row["case_id"] == file["case_id"])
+            .unwrap();
+        let recipe: Value = serde_json::from_slice(
+            &fs::read(members.join(case["recipe"]["path"].as_str().unwrap())).unwrap(),
+        )
+        .unwrap();
+        let declared = recipe["dicom"]["artifacts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|row| row["output"]["path"] == file["path"])
+            .unwrap();
+        let obj =
+            dicom_object::open_file(root.join("cli-output").join(file["path"].as_str().unwrap()))
+                .unwrap();
+        assert_eq!(
+            obj.element_by_name("PatientName")
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            "Sample^Caller"
+        );
+        assert_eq!(
+            obj.element_by_name("PatientID").unwrap().to_str().unwrap(),
+            "CALLER-TEST"
+        );
+        assert_eq!(
+            obj.element_by_name("Manufacturer")
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            "Fixture Laboratory"
+        );
+        assert_eq!(
+            obj.element_by_name("Columns")
+                .unwrap()
+                .to_int::<u16>()
+                .unwrap(),
+            3
+        );
+        let expected: Vec<u16> = declared["parameters"]["pixels"]["stored_values"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|value| value.as_u64().unwrap() as u16)
+            .collect();
+        assert_eq!(
+            obj.element_by_name("PixelData")
+                .unwrap()
+                .to_multi_int::<u16>()
+                .unwrap(),
+            expected
+        );
+        assert_eq!(
+            file["recipe"]["recipe_parameters"]["patient_study"],
+            recipe["provider_parameters"]["common"]["patient_study"]
+        );
+    }
+    let product = DicomTestSuite::embedded().unwrap();
+    for output in ["sdk-output", "repeat-output"] {
+        let GenerateCorpusOutcome::Published(sdk) = product
+            .generate_corpus(
+                GenerateCorpusRequest::from_file(
+                    &descriptor,
+                    &members,
+                    root.join(output),
+                    CorpusSelector::Profile {
+                        profile: "core".into(),
+                        include_stress: false,
+                    },
+                )
+                .with_seed(19)
+                .with_parallelism(3),
+            )
+            .unwrap()
+        else {
+            panic!("must publish")
+        };
+        assert_eq!(sdk.manifest().deserialize::<Value>().unwrap(), manifest);
+        for file in manifest["files"].as_array().unwrap() {
+            let path = file["path"].as_str().unwrap();
+            assert!(path.starts_with("caller-payload/"));
+            assert_eq!(
+                fs::read(root.join("cli-output").join(path)).unwrap(),
+                fs::read(sdk.output_root().join(path)).unwrap()
+            );
+        }
+        assert!(
+            product
+                .validate(ValidateRequest::new(sdk.output_root()))
+                .unwrap()
+                .is_valid()
+        );
+    }
+    let validation = command(&["validate", "cli-output", "--format", "json"]);
+    assert_eq!(validation["result"]["valid"], true);
+    let report = command(&[
+        "report",
+        "cli-output",
+        "--format",
+        "json",
+        "--cli-api",
+        "1.0.0",
+    ]);
+    valid(
+        "coverage-report-v2.schema.json",
+        &report["result"]["report"],
+    );
+    assert_eq!(
+        product
+            .report(ReportRequest::new(root.join("sdk-output")))
+            .unwrap()
+            .deserialize::<Value>()
+            .unwrap(),
+        report["result"]["report"]
+    );
+    for (pointer, replacement) in [
+        (
+            "/recipe/recipe_parameters/enhanced_capability_version",
+            json!("9.0.0"),
+        ),
+        (
+            "/recipe/recipe_parameters/patient_study/patient_id",
+            json!("WRONG-PATIENT"),
+        ),
+        ("/image/frames", json!(999)),
+    ] {
+        let mut changed = manifest.clone();
+        *changed["files"][0].pointer_mut(pointer).unwrap() = replacement;
+        fs::write(
+            root.join("cli-output/manifest.json"),
+            serde_json::to_vec(&changed).unwrap(),
+        )
+        .unwrap();
+        let reopened = product.validate(ValidateRequest::new(root.join("cli-output")));
+        assert!(
+            reopened.is_err() || !reopened.unwrap().is_valid(),
+            "must reject altered {pointer}"
+        );
+    }
+    let pet_index = manifest["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .position(|file| file.get("expected_enhanced_pet").is_some())
+        .unwrap();
+    let mut changed = manifest.clone();
+    changed["files"][pet_index]["expected_enhanced_pet"]["nonclaims"]["suv"] = json!(true);
+    fs::write(
+        root.join("cli-output/manifest.json"),
+        serde_json::to_vec(&changed).unwrap(),
+    )
+    .unwrap();
+    let rejected = product.validate(ValidateRequest::new(root.join("cli-output")));
+    assert!(rejected.is_err() || !rejected.unwrap().is_valid());
+    fs::write(
+        root.join("cli-output/manifest.json"),
+        serde_json::to_vec(&manifest).unwrap(),
+    )
+    .unwrap();
+    let payload = root
+        .join("cli-output")
+        .join(manifest["files"][0]["path"].as_str().unwrap());
+    let original_bytes = fs::read(&payload).unwrap();
+    let mut altered_bytes = original_bytes.clone();
+    *altered_bytes.last_mut().unwrap() ^= 1;
+    fs::write(&payload, altered_bytes).unwrap();
+    assert!(
+        !product
+            .validate(ValidateRequest::new(root.join("cli-output")))
+            .unwrap()
+            .is_valid()
+    );
+    fs::write(&payload, original_bytes).unwrap();
+    // Coordinate the declared contract and the actual RWVM field, including
+    // the file digest, so only semantic pixel-range coverage can reject this.
+    let pet_payload = root
+        .join("cli-output")
+        .join(manifest["files"][pet_index]["path"].as_str().unwrap());
+    let pet_original = fs::read(&pet_payload).unwrap();
+    let mut pet_altered = pet_original.clone();
+    let tag = dicom_dictionary_std::tags::REAL_WORLD_VALUE_LAST_VALUE_MAPPED;
+    let marker = [
+        tag.0.to_le_bytes().as_slice(),
+        tag.1.to_le_bytes().as_slice(),
+        b"US",
+        &[2, 0],
+    ]
+    .concat();
+    let matches = pet_altered
+        .windows(marker.len())
+        .enumerate()
+        .filter_map(|(index, bytes)| (bytes == marker).then_some(index))
+        .collect::<Vec<_>>();
+    assert_eq!(matches.len(), 1);
+    let value_offset = matches[0] + marker.len();
+    assert_eq!(
+        &pet_altered[value_offset..value_offset + 2],
+        &511_u16.to_le_bytes()
+    );
+    pet_altered[value_offset..value_offset + 2].copy_from_slice(&10_u16.to_le_bytes());
+    let mut coordinated = manifest.clone();
+    for contract in [
+        "expected_enhanced_pet",
+        "recipe/recipe_parameters/enhanced_pet",
+    ] {
+        *coordinated["files"][pet_index]
+            .pointer_mut(&format!(
+                "/{contract}/real_world_value_mapping/last_value_mapped"
+            ))
+            .unwrap() = json!(10);
+    }
+    coordinated["files"][pet_index]["sha256"] = json!(synth_dicom_gen::sha256_hex(&pet_altered));
+    fs::write(&pet_payload, pet_altered).unwrap();
+    fs::write(
+        root.join("cli-output/manifest.json"),
+        serde_json::to_vec(&coordinated).unwrap(),
+    )
+    .unwrap();
+    let reopened = product
+        .validate(ValidateRequest::new(root.join("cli-output")))
+        .unwrap();
+    assert!(!reopened.is_valid());
+    assert!(
+        reopened
+            .failures()
+            .iter()
+            .any(|failure| failure.contains("enhanced_pet_rwvm_pixel_coverage")),
+        "{:?}",
+        reopened.failures()
+    );
+    fs::write(&pet_payload, pet_original).unwrap();
+    fs::write(
+        root.join("cli-output/manifest.json"),
+        serde_json::to_vec(&manifest).unwrap(),
+    )
+    .unwrap();
+
+    let recipe: Value = serde_json::from_slice(
+        &fs::read(source.join("members/cases/recipes/acquisition-2.json")).unwrap(),
+    )
+    .unwrap();
+    let mut oversized_common = recipe["provider_parameters"]["common"].clone();
+    oversized_common["rows"] = json!(65535);
+    oversized_common["columns"] = json!(65535);
+    for (case_index, pointer, replacement) in [
+        (
+            1,
+            "/dicom/artifacts/0/parameters",
+            json!({"frames":{"source":"axial_linear","frame_count":4294967295_u64,"start_z":0.0,"spacing":1.0,"first_dimension_index":1},"pixels":{"source":"modulo_ramp","modulus":32}}),
+        ),
+        (
+            1,
+            "/dicom/artifacts/0/parameters",
+            json!({"frames":{"source":"axial_linear","frame_count":2,"start_z":0.0,"spacing":1.0,"first_dimension_index":4294967295_u64},"pixels":{"source":"modulo_ramp","modulus":32}}),
+        ),
+        (1, "/provider_parameters/common", oversized_common),
+        (1, "/provider_parameters/stress", json!(true)),
+        (0, "/case_recipe_schema_version", json!("0.1.0")),
+        (
+            0,
+            "/provider_parameters/common/patient_study",
+            json!({"patient_id":"incomplete"}),
+        ),
+        (
+            0,
+            "/dicom/artifacts/0/parameters/concatenation_frame_offset_number",
+            json!(99),
+        ),
+        (1, "/provider_parameters/pixel_spacing", json!("0\\1")),
+        (
+            2,
+            "/dicom/artifacts/0/parameters/frames/values/1/dimension_index_value",
+            json!(1),
+        ),
+        (
+            2,
+            "/dicom/artifacts/0/parameters/in_concatenation_number",
+            json!(1),
+        ),
+        (
+            5,
+            "/provider_parameters/quantitation",
+            json!({"first_value_mapped":0}),
+        ),
+        (
+            5,
+            "/provider_parameters/quantitation/last_value_mapped",
+            json!(1),
+        ),
+        (
+            5,
+            "/dicom/artifacts/0/parameters/temporal_position_indices",
+            json!([1]),
+        ),
+    ] {
+        let mut changed_definition = definition.clone();
+        let relative = definition["cases"][case_index]["recipe"]["path"]
+            .as_str()
+            .unwrap();
+        let original = fs::read(source.join("members").join(relative)).unwrap();
+        let mut recipe: Value = serde_json::from_slice(&original).unwrap();
+        if let Some(value) = recipe.pointer_mut(pointer) {
+            *value = replacement;
+        } else {
+            recipe["dicom"]["artifacts"][0]["parameters"]["in_concatenation_number"] = replacement;
+        }
+        if pointer == "/provider_parameters/common" {
+            recipe["dicom"]["artifacts"][0]["parameters"]["pixels"] =
+                json!({"source":"modulo_ramp","modulus":32});
+        }
+        let bytes = serde_json::to_vec(&recipe).unwrap();
+        fs::write(members.join(relative), &bytes).unwrap();
+        changed_definition["cases"][case_index]["recipe"]["size_bytes"] = json!(bytes.len());
+        changed_definition["cases"][case_index]["recipe"]["sha256"] =
+            json!(synth_dicom_gen::sha256_hex(&bytes));
+        fs::write(
+            &descriptor,
+            serde_json::to_vec(&changed_definition).unwrap(),
+        )
+        .unwrap();
+        assert!(
+            product
+                .capabilities_with_corpus(
+                    InspectCorpusRequest::from_file(&descriptor, &members).with_selection(
+                        CorpusSelector::Profile {
+                            profile: "core".into(),
+                            include_stress: false
+                        }
+                    )
+                )
+                .is_err(),
+            "must reject {pointer}"
+        );
+        fs::write(members.join(relative), original).unwrap();
+    }
+    fs::remove_dir_all(root).unwrap();
+}

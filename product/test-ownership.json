@@ -4,9 +4,9 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 277,
-    "rust_test_entries": 1521,
+    "rust_test_entries": 1524,
     "integration_source_groups": 189,
-    "integration_test_entries": 941,
+    "integration_test_entries": 943,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
   },
   "enums": {
@@ -1734,7 +1734,7 @@
         "resource_lookup_rejects_unsafe_and_unknown_paths",
         "snapshot_materializes_and_cleans_the_complete_resource_tree"
       ],
-      "entry_digest": "0d08c50a332073d43a56bdb0584568f1be0d6a61f7b17b134a013f079cfe9d5b"
+      "entry_digest": "282f68f59bb8829f8dfa2e377561997b735a9163557b1fcc4d01ff8b699af083"
     },
     {
       "source": "tests/enhanced_mr_temporal.rs",
@@ -1768,16 +1768,17 @@
       "domain": "provider",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 6,
+      "entry_count": 7,
       "entries": [
         "direct_enhanced_plans_match_frozen_seed_one_part10_bytes",
         "planning_is_output_free_ordered_and_identity_stable",
         "reduced_many_frame_stress_plan_is_bounded_and_complete",
         "rejects_corrupt_dimensions_cardinality_and_catalog_ownership",
         "provider_source_has_no_legacy_or_filesystem_bridge",
-        "provider_preserves_caller_owned_artifact_context"
+        "provider_preserves_caller_owned_artifact_context",
+        "explicit_part_bindings_preserve_caller_ids_paths_and_context_order"
       ],
-      "entry_digest": "8c97ba366eef4a825ca3459b6c28b0623717474c2f2f37acdac39b1eb528cdc5"
+      "entry_digest": "341fd797138ff777e08689a205f3012ae4c44d0f8017f2f4ca19a57a898045b1"
     },
     {
       "source": "tests/eot_arithmetic_qualification.rs",
@@ -1865,7 +1866,7 @@
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 21,
+      "entry_count": 22,
       "entries": [
         "loaded_capabilities_are_verified_destination_free_and_sdk_consistent",
         "caller_named_ct_cli_is_sdk_identical_strictly_valid_and_reported",
@@ -1887,9 +1888,10 @@
         "caller_owned_timezone_sc_cli_sdk_strict_and_report_are_identical",
         "caller_named_pet_cli_is_sdk_identical_strictly_valid_and_reported",
         "caller_named_xa_xrf_cli_is_sdk_identical_strictly_valid_and_reported",
-        "caller_named_vl_photo_cli_is_sdk_identical_strictly_valid_and_reported"
+        "caller_named_vl_photo_cli_is_sdk_identical_strictly_valid_and_reported",
+        "caller_owned_enhanced_cli_sdk_strict_report_and_repeat_are_identical"
       ],
-      "entry_digest": "75e228af5ddb5d98f359a9fe51ecd383e9b4590f0d6b3d0e1bf8d7c91de9fe29"
+      "entry_digest": "b11d9056f524cd59ffb97ea26e55606c98ef65d70f7a988fca1d3e94ae492b12"
     },
     {
       "source": "tests/frame_codec_service.rs",
@@ -3881,12 +3883,13 @@
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 2,
+      "entry_count": 3,
       "entries": [
         "dx_mg_capability_dispatch_ignores_misleading_case_names",
-        "ct_capability_dispatch_is_name_independent_and_fail_closed"
+        "ct_capability_dispatch_is_name_independent_and_fail_closed",
+        "misleading_enhanced_stress_name_does_not_select_reduced_evidence"
       ],
-      "entry_digest": "d25ebd53572b3c3d42a424fa078223706bf005c8595efba2c19e356f6641d476"
+      "entry_digest": "0bc62d92f759c9dad956fb22eda2ba4ffb58e15c03e1b3d4c3f5d80601a3929a"
     },
     {
       "source": "src/encapsulation.rs",
@@ -3923,7 +3926,7 @@
         "mutation_of_an_internal_shared_root_fails_closed_on_reuse",
         "one_handle_reuses_one_tree_across_batch_generate_validate_report_and_compose"
       ],
-      "entry_digest": "a4301964f1fabc1aba20fbdb44a4aaa3ac0d148911c4c822a6510bf1cd804955"
+      "entry_digest": "21da9857cadbc7f4574f4fde338731d16578e1914a732494d439f51380173e95"
     },
     {
       "source": "src/executor/evidence.rs",
@@ -4250,7 +4253,7 @@
         "cargo_lock_perturbation_changes_only_toolchain_and_legacy_provenance",
         "external_runtime_identity_requires_successful_typed_execution_evidence"
       ],
-      "entry_digest": "8d5951ebf37842b9d8150207ca486bef14deb01232bfa7e5408109775ea3ebff"
+      "entry_digest": "995c1ca3be81def2a24a6c74aa983ed659cb7f6962d31989ea724a1028e3582a"
     },
     {
       "source": "src/lib.rs",
@@ -4356,7 +4359,7 @@
         "dependency_graph_is_closed_acyclic_and_reachable",
         "runtime_ids_remain_unique"
       ],
-      "entry_digest": "8c97b6e6456b09607c66bc92ca177afc4d7554e48647dfa7217ac79e5297427e"
+      "entry_digest": "11964e358ff59e4e47cee40bdeb43b934aea15194a6e153e58a124b214266ba7"
     },
     {
       "source": "src/media.rs",

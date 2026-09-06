@@ -679,9 +679,11 @@ mod external_manifest_contract_tests {
         let mut expected = legacy["$defs"]["file"].clone();
         let branches = expected["allOf"].as_array_mut().unwrap();
         assert_eq!(branches.len(), 37);
-        assert!(branches[1..]
-            .iter()
-            .all(|b| b["if"]["properties"].get("case_id").is_some()));
+        assert!(
+            branches[1..]
+                .iter()
+                .all(|b| b["if"]["properties"].get("case_id").is_some())
+        );
         branches.truncate(1);
         fn rebase(value: &mut Value) {
             match value {
@@ -710,6 +712,8 @@ mod external_manifest_contract_tests {
             json!("#/$defs/expected_nm_multiframe");
         expected["properties"]["expected_nonsquare_spacing"]["$ref"] =
             json!("#/$defs/expected_nonsquare_spacing");
+        expected["properties"]["expected_enhanced_pet"]["$ref"] =
+            json!("#/$defs/expected_enhanced_pet");
         expected["allOf"]
             .as_array_mut()
             .unwrap()
@@ -743,6 +747,7 @@ mod external_manifest_contract_tests {
         }
         let mut generic_schema = external["$defs"]["external_file"].clone();
         generic_schema["$defs"] = json!({
+            "expected_enhanced_pet": external["$defs"]["expected_enhanced_pet"].clone(),
             "expected_us_multiframe": external["$defs"]["expected_us_multiframe"].clone(),
             "expected_us_frame": external["$defs"]["expected_us_frame"].clone(),
             "expected_nm_multiframe": external["$defs"]["expected_nm_multiframe"].clone(),

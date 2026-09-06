@@ -1,0 +1,156 @@
+{
+  "case_recipe_schema_version": "0.2.0",
+  "recipe_id": "caller_frame_recipe_6",
+  "recipe_version": "0.1.0",
+  "binding": {
+    "case_id": "caller/frames/acquisition-6"
+  },
+  "kind": "dicom",
+  "plan_provider_id": "native.enhanced_plan",
+  "planning_order": 865,
+  "projection_order": 65,
+  "provider_parameters": {
+    "family": "pet",
+    "common": {
+      "modality": "PT",
+      "study_id": "CALLER-STUDY",
+      "device_serial_number": "CALLER-DEVICE",
+      "image_type": "DERIVED\\PRIMARY\\STATIC\\MULTIPLICATION",
+      "rows": 2,
+      "columns": 3,
+      "frame_type": "DERIVED\\PRIMARY\\STATIC\\MULTIPLICATION",
+      "pixel_presentation": "MONOCHROME",
+      "volumetric_properties": "VOLUME",
+      "volume_based_calculation_technique": "NONE",
+      "patient_study": {
+        "patient_name": "Sample^Caller",
+        "patient_id": "CALLER-TEST",
+        "patient_birth_date": "19801231",
+        "patient_sex": "F",
+        "study_date": "20260202",
+        "study_time": "121314",
+        "content_date": "20260203",
+        "content_time": "141516",
+        "manufacturer": "Fixture Laboratory"
+      }
+    },
+    "pixel_spacing": "2\\2",
+    "image_orientation_patient": "1\\0\\0\\0\\1\\0",
+    "slice_thickness": "5",
+    "spacing_between_slices": "5",
+    "rescale_intercept": "3",
+    "rescale_slope": "1.75",
+    "units": "BQML",
+    "counts_source": "EMISSION",
+    "stack_id": "1",
+    "quantitation": {
+      "first_value_mapped": 3,
+      "last_value_mapped": 511,
+      "window_center": "321",
+      "window_width": "654",
+      "start_datetime": "20260202090000",
+      "half_life_seconds": "7000",
+      "positron_fraction": "0.95"
+    }
+  },
+  "dependencies": [],
+  "validation_rule_ids": [
+    "validation.shared"
+  ],
+  "projection_rule_ids": [
+    "projection.curated"
+  ],
+  "dicom": {
+    "artifacts": [
+      {
+        "logical_id": "caller_frame_6_part_1",
+        "order": 77,
+        "template": {
+          "template_id": "enhanced/pet",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "dicom_instance",
+          "path": "caller-payload/set-6/part-1.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "frames": {
+            "source": "literal",
+            "values": [
+              {
+                "image_position_patient": "0\\0\\0",
+                "dimension_index_value": 1
+              },
+              {
+                "image_position_patient": "0\\0\\5",
+                "dimension_index_value": 2
+              },
+              {
+                "image_position_patient": "0\\0\\10",
+                "dimension_index_value": 3
+              }
+            ]
+          },
+          "pixels": {
+            "source": "literal",
+            "stored_values": [
+              42,
+              43,
+              44,
+              45,
+              46,
+              47,
+              48,
+              49,
+              50,
+              51,
+              52,
+              53,
+              54,
+              55,
+              56,
+              57,
+              58,
+              59
+            ],
+            "pixel_min": 42,
+            "pixel_max": 59
+          },
+          "temporal_position_indices": [
+            1,
+            1,
+            1
+          ],
+          "in_stack_position_numbers": [
+            1,
+            2,
+            3
+          ]
+        },
+        "attribute_operations": [],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {}
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [],
+        "algorithm_provider_id": "algorithm.enhanced"
+      }
+    ]
+  }
+}

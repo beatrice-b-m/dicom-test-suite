@@ -1417,6 +1417,31 @@ impl CuratedScCorpusPlanProvider {
                             recipe_id: recipe.recipe_id.clone(),
                             message: error.to_string(),
                         })?;
+                    if recipe.case_recipe_schema_version == "0.2.0" {
+                        let declared = recipe.dicom.as_ref().expect("validated DICOM recipe");
+                        for context in &mut contexts {
+                            context.output.role = declared
+                                .artifacts
+                                .iter()
+                                .find(|artifact| {
+                                    artifact.logical_id == context.recipe_artifact_logical_id
+                                })
+                                .expect("typed artifact binding")
+                                .output
+                                .role
+                                .clone();
+                        }
+                        contexts.sort_by_key(|context| {
+                            declared
+                                .artifacts
+                                .iter()
+                                .find(|artifact| {
+                                    artifact.logical_id == context.recipe_artifact_logical_id
+                                })
+                                .expect("typed artifact binding")
+                                .order
+                        });
+                    }
                     assign_global_context_order(&mut contexts, artifacts.len())?;
                     let provider_request = advanced_provider_request(
                         recipe,
@@ -1468,9 +1493,13 @@ impl CuratedScCorpusPlanProvider {
                     "stress/wsi/large_pyramid" => Some(
                         "Full-scale WSI resource behavior is not qualified by the bounded repository corpus.",
                     ),
-                    "stress/enhanced-ct/many_frames" => Some(
-                        "Full-scale enhanced CT resource behavior is not qualified by the bounded repository corpus.",
-                    ),
+                    "stress/enhanced-ct/many_frames"
+                        if recipe.case_recipe_schema_version == "0.1.0" =>
+                    {
+                        Some(
+                            "Full-scale enhanced CT resource behavior is not qualified by the bounded repository corpus.",
+                        )
+                    }
                     _ => None,
                 } {
                     for artifact in &mut provider_output.artifacts {
@@ -5824,5 +5853,57 @@ impl Error for CuratedPlanError {}
 impl From<CorpusPlanError> for CuratedPlanError {
     fn from(value: CorpusPlanError) -> Self {
         Self::CorpusPlan(value)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn misleading_enhanced_stress_name_does_not_select_reduced_evidence() {
+        let root =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/generic-enhanced-corpus");
+        let bundle = crate::corpus_definition::CorpusDefinitionBundle::load_descriptor_file(
+            root.join("definition.json"),
+            root.join("members"),
+        )
+        .unwrap();
+        let context = CapturedCuratedPlanningContext::from_verified_bundle(
+            &bundle,
+            &crate::engine_resources::EngineResources::embedded(),
+        )
+        .unwrap();
+        let captured = context
+            .plan(CuratedScPlanRequest {
+                selection: CuratedScSelection::Profile {
+                    profile: "core".into(),
+                    include_stress: false,
+                },
+                seed: 19,
+                max_parallelism: 3,
+            })
+            .unwrap();
+        let artifact = captured
+            .planned
+            .plan
+            .artifacts
+            .iter()
+            .find_map(|artifact| {
+                let PlannedArtifact::Dicom(artifact) = artifact else {
+                    return None;
+                };
+                artifact
+                    .case_binding
+                    .as_ref()
+                    .is_some_and(|binding| binding.case_id == "stress/enhanced-ct/many_frames")
+                    .then_some(artifact)
+            })
+            .unwrap();
+        assert!(!artifact.evidence.obligations.is_empty());
+        assert!(artifact.evidence.obligations.iter().all(|obligation| {
+            !obligation.parameters.contains_key("qualification_scale")
+                && !obligation.parameters.contains_key("full_scale_reason")
+        }));
     }
 }

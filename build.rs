@@ -127,7 +127,8 @@ fn collect_json_files(root: &Path, relative: &Path, resources: &mut Vec<(String,
 pub(crate) fn is_transitional_engine_resource(logical_path: &str) -> bool {
     !matches!(
         logical_path,
-        "schemas/corpus-definition-bundle.schema.json"
+        "schemas/case-recipe-v0.2.schema.json"
+            | "schemas/corpus-definition-bundle.schema.json"
             | "schemas/version-result-v2.schema.json"
             | "schemas/capabilities-result-v2.schema.json"
             | "schemas/capabilities-result-v3.schema.json"

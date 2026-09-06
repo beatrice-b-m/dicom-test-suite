@@ -1,0 +1,166 @@
+{
+  "corpus_definition_bundle_schema_version": "1.0.0",
+  "definition_id": "fixture.generic-enhanced",
+  "definition_version": "1.0.0",
+  "profiles": [
+    {
+      "profile_id": "smoke",
+      "scope": "valid",
+      "members": []
+    },
+    {
+      "profile_id": "core",
+      "scope": "valid",
+      "members": [
+        "caller/frames/acquisition-1",
+        "stress/enhanced-ct/many_frames",
+        "caller/frames/acquisition-3",
+        "caller/frames/acquisition-4",
+        "caller/frames/acquisition-5",
+        "caller/frames/acquisition-6"
+      ]
+    },
+    {
+      "profile_id": "extended",
+      "scope": "valid",
+      "members": []
+    },
+    {
+      "profile_id": "legacy",
+      "scope": "legacy",
+      "members": []
+    },
+    {
+      "profile_id": "stress",
+      "scope": "stress",
+      "members": []
+    },
+    {
+      "profile_id": "negative",
+      "scope": "expected_invalid",
+      "members": []
+    },
+    {
+      "profile_id": "fuzz",
+      "scope": "fuzz",
+      "members": []
+    },
+    {
+      "profile_id": "all",
+      "scope": "valid",
+      "union_of": [
+        "smoke",
+        "core",
+        "extended"
+      ],
+      "optional_profile": "stress",
+      "members": []
+    }
+  ],
+  "registry": {
+    "path": "cases/registry.json",
+    "size_bytes": 34547,
+    "sha256": "382395ced1618b09402344dbad6313652e096c2909dd9a2bf2ebb55a128d2ae0"
+  },
+  "cases": [
+    {
+      "case_id": "caller/frames/acquisition-1",
+      "recipe_id": "caller_frame_recipe_1",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/acquisition-1.json",
+        "size_bytes": 5037,
+        "sha256": "d4064482bd5667ea1149471cef6c0a1481ddb4ec9766124ff4189b9aa304cfd9"
+      },
+      "dependencies": [],
+      "evidence_ids": [],
+      "asset_ids": []
+    },
+    {
+      "case_id": "stress/enhanced-ct/many_frames",
+      "recipe_id": "caller_frame_recipe_2",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/acquisition-2.json",
+        "size_bytes": 3443,
+        "sha256": "8fd055f241238e3c0e41211695d0859717fc86584cf444c4651ccff0617028e0"
+      },
+      "dependencies": [],
+      "evidence_ids": [],
+      "asset_ids": []
+    },
+    {
+      "case_id": "caller/frames/acquisition-3",
+      "recipe_id": "caller_frame_recipe_3",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/acquisition-3.json",
+        "size_bytes": 3901,
+        "sha256": "0a64baf42881dfdc1e74dcab06e7533b575ff08459d5b45726a0c1b74ad95820"
+      },
+      "dependencies": [],
+      "evidence_ids": [],
+      "asset_ids": []
+    },
+    {
+      "case_id": "caller/frames/acquisition-4",
+      "recipe_id": "caller_frame_recipe_4",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/acquisition-4.json",
+        "size_bytes": 4107,
+        "sha256": "618f417a63cbcb8ae812c6f0da49380cb787cc1fb9678a196f24ec925eeafb25"
+      },
+      "dependencies": [],
+      "evidence_ids": [],
+      "asset_ids": []
+    },
+    {
+      "case_id": "caller/frames/acquisition-5",
+      "recipe_id": "caller_frame_recipe_5",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/acquisition-5.json",
+        "size_bytes": 3910,
+        "sha256": "f52578dafe47cd53a406202448ee7652dc195dee8876892813ac15bce6575200"
+      },
+      "dependencies": [],
+      "evidence_ids": [
+        "source-note.phase-2-enhanced-mr-temporal"
+      ],
+      "asset_ids": []
+    },
+    {
+      "case_id": "caller/frames/acquisition-6",
+      "recipe_id": "caller_frame_recipe_6",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/acquisition-6.json",
+        "size_bytes": 4147,
+        "sha256": "4efe54206617b0d5eeef8329e2801fdbbb21c6fdfd6bb75435f6052037ad872d"
+      },
+      "dependencies": [],
+      "evidence_ids": [
+        "source-note.phase-2-enhanced-pet-multiframe"
+      ],
+      "asset_ids": []
+    }
+  ],
+  "evidence": [
+    {
+      "evidence_id": "source-note.phase-2-enhanced-mr-temporal",
+      "media_type": "text/markdown",
+      "path": "evidence/phase-2-enhanced-mr-temporal.md",
+      "size_bytes": 3115,
+      "sha256": "839fc38788eba50587e4bd98cc1a53ca096da98d5507ac3434175bfbba350f0c"
+    },
+    {
+      "evidence_id": "source-note.phase-2-enhanced-pet-multiframe",
+      "media_type": "text/markdown",
+      "path": "evidence/phase-2-enhanced-pet-multiframe.md",
+      "size_bytes": 10890,
+      "sha256": "ba8f70ebc0a724cc8d89f2d49cd7b77e9b9b713a39a2f5eaa197ce16202b468d"
+    }
+  ],
+  "assets": []
+}

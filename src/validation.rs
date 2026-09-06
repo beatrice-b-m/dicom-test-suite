@@ -728,6 +728,7 @@ pub(crate) struct EnhancedMrImageExpectations<'a> {
 
 #[derive(Debug, Clone)]
 pub(crate) struct EnhancedPetImageExpectations<'a> {
+    pub quantitation: Option<&'a crate::recipes::EnhancedPetQuantitation>,
     pub modality: &'a str,
     pub frame_of_reference_uid: &'a str,
     pub image_type: &'a str,
@@ -19145,6 +19146,8 @@ fn validate_enhanced_pet_image(
     results: &mut Vec<Value>,
     expected: &EnhancedPetImageExpectations<'_>,
 ) -> Result<(), GenerateError> {
+    let fallback = crate::recipes::EnhancedPetQuantitation::default();
+    let quantitation = expected.quantitation.unwrap_or(&fallback);
     for (name, tag, value) in [
         ("enhanced_pet_modality", tags::MODALITY, expected.modality),
         (
@@ -19414,17 +19417,17 @@ fn validate_enhanced_pet_image(
         (
             "enhanced_pet_radiopharmaceutical_start",
             tags::RADIOPHARMACEUTICAL_START_DATE_TIME,
-            "20260101000000",
+            quantitation.start_datetime.as_str(),
         ),
         (
             "enhanced_pet_half_life",
             tags::RADIONUCLIDE_HALF_LIFE,
-            "6586.2",
+            quantitation.half_life_seconds.as_str(),
         ),
         (
             "enhanced_pet_positron_fraction",
             tags::RADIONUCLIDE_POSITRON_FRACTION,
-            "0.967",
+            quantitation.positron_fraction.as_str(),
         ),
     ] {
         check_equal(
@@ -19618,36 +19621,39 @@ fn validate_enhanced_pet_image(
     check_equal(
         results,
         "enhanced_pet_rwvm_first",
-        "RWVM first value is 0.",
+        &format!("RWVM first value is {}.", quantitation.first_value_mapped),
         "RWVM first value differs.",
         item_u16(path, rwvm, tags::REAL_WORLD_VALUE_FIRST_VALUE_MAPPED)?,
-        0,
+        quantitation.first_value_mapped,
     );
     check_equal(
         results,
         "enhanced_pet_rwvm_last",
-        "RWVM last value is 400.",
+        &format!("RWVM last value is {}.", quantitation.last_value_mapped),
         "RWVM last value differs.",
         item_u16(path, rwvm, tags::REAL_WORLD_VALUE_LAST_VALUE_MAPPED)?,
-        400,
+        quantitation.last_value_mapped,
     );
     let rwvm_intercept = item_f64(path, rwvm, tags::REAL_WORLD_VALUE_INTERCEPT)?;
     let rwvm_slope = item_f64(path, rwvm, tags::REAL_WORLD_VALUE_SLOPE)?;
     check_equal(
         results,
         "enhanced_pet_rwvm_intercept",
-        "RWVM intercept is 0.",
+        &format!("RWVM intercept is {}.", expected.rescale_intercept),
         "RWVM intercept differs.",
         rwvm_intercept,
-        0.0,
+        expected
+            .rescale_intercept
+            .parse::<f64>()
+            .unwrap_or(f64::NAN),
     );
     check_equal(
         results,
         "enhanced_pet_rwvm_slope",
-        "RWVM slope is 2.5.",
+        &format!("RWVM slope is {}.", expected.rescale_slope),
         "RWVM slope differs.",
         rwvm_slope,
-        2.5,
+        expected.rescale_slope.parse::<f64>().unwrap_or(f64::NAN),
     );
     check_equal(
         results,

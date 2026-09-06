@@ -2861,14 +2861,18 @@ fn project_enhanced_manifest(
                 "applicable_safety_standard_agency":"IEC","complex_image_component":"MAGNITUDE","acquisition_contrast":"UNKNOWN",
                 "burned_in_annotation":"NO","lossy_image_compression":"00","presentation_lut_shape":"IDENTITY",
                 "pixel_min":pixel_min,"pixel_max":pixel_max,"shared_functional_groups_sequence_items":1,
-                "per_frame_functional_groups_sequence_items":common.frames,"dimension_index_values":[1,2]});
+                "per_frame_functional_groups_sequence_items":common.frames,"dimension_index_values":dimensions});
             semantics[name] = values.clone();
             if let EnhancedMrFrameAxis::TemporalPositionTimeOffset { .. } = &axis {
-                per_frame["temporal_position_index"] = json!([1, 2]);
-                per_frame["dimension_index_values"] = json!([1, 2]);
-                per_frame["frame_acquisition_number"] = json!([1, 2]);
-                semantics["temporal_position_indices"] = json!([1, 2]);
-                semantics["frame_acquisition_numbers"] = json!([1, 2]);
+                per_frame["temporal_position_index"] =
+                    json!((1..=frames.len()).collect::<Vec<_>>());
+                per_frame["dimension_index_values"] = json!(dimensions);
+                per_frame["frame_acquisition_number"] =
+                    json!((1..=frames.len()).collect::<Vec<_>>());
+                semantics["temporal_position_indices"] =
+                    json!((1..=frames.len()).collect::<Vec<_>>());
+                semantics["frame_acquisition_numbers"] =
+                    json!((1..=frames.len()).collect::<Vec<_>>());
                 semantics["temporal_position_time_offset_unit"] = json!("seconds");
             }
             if let EnhancedMrFrameAxis::VelocityEncoding {
@@ -2916,14 +2920,15 @@ fn project_enhanced_manifest(
             ]);
         }
         AdvancedCompatibilityProvider::Pet {
+            quantitation,
             common: parameters,
-            pixel_spacing: _,
-            image_orientation_patient: _,
-            slice_thickness: _,
-            spacing_between_slices: _,
-            rescale_intercept: _,
+            pixel_spacing,
+            image_orientation_patient,
+            slice_thickness,
+            spacing_between_slices,
+            rescale_intercept,
             rescale_slope,
-            units: _,
+            units,
             counts_source,
             stack_id,
         } => {
@@ -2932,7 +2937,12 @@ fn project_enhanced_manifest(
                 .ok_or_else(|| err("missing PET dimension UID"))?;
             let activity = stored_values
                 .iter()
-                .map(|value| *value as f64 * rescale_slope.parse::<f64>().unwrap_or(0.0))
+                .map(|value| {
+                    *value as f64 * rescale_slope.parse::<f64>().expect("validated slope")
+                        + rescale_intercept
+                            .parse::<f64>()
+                            .expect("validated intercept")
+                })
                 .collect::<Vec<_>>();
             let expected = enhanced_pet_contract(
                 &parameters,
@@ -2945,6 +2955,14 @@ fn project_enhanced_manifest(
                 &stack_id,
                 common.frame_hashes,
                 common.pixels,
+                &pixel_spacing,
+                &image_orientation_patient,
+                &slice_thickness,
+                &spacing_between_slices,
+                &rescale_intercept,
+                &rescale_slope,
+                &units,
+                &quantitation.unwrap_or_default(),
             );
             manifest["recipe"] = json!({"recipe_id":ctx.case_recipe.recipe_id,"recipe_version":ctx.case_recipe.recipe_version,
                 "recipe_parameters":{"rows":common.rows,"columns":common.columns,"frames":common.frames,"pixel_values":stored_values,
@@ -2958,7 +2976,7 @@ fn project_enhanced_manifest(
                 "render_native_pixels",
                 "apply_real_world_value_mapping"
             ]);
-            manifest["expected_semantics"] = json!({"synthetic_data":"YES","pixel_min":0,"pixel_max":400,
+            manifest["expected_semantics"] = json!({"synthetic_data":"YES","pixel_min":pixel_min,"pixel_max":pixel_max,
                 "shared_functional_groups_item_count":1,"per_frame_functional_groups_item_count":common.frames,
                 "dimension_index_values":dimensions,"temporal_position_indices":artifact.temporal_position_indices,
                 "quantitative_mapping":"synthetic_bqml_not_suv_or_clinically_calibrated"});
@@ -2971,6 +2989,19 @@ fn project_enhanced_manifest(
                 "native_multiframe_u16",
                 "bqml_rwvm"
             ]);
+        }
+    }
+    if let Some(metadata) = ctx
+        .case_recipe
+        .provider_parameters
+        .get("common")
+        .and_then(|value| value.get("patient_study"))
+    {
+        manifest["recipe"]["recipe_parameters"]["patient_study"] = metadata.clone();
+        manifest["recipe"]["recipe_parameters"]["enhanced_capability_version"] = json!("1.0.0");
+        for key in ["study_id", "device_serial_number"] {
+            manifest["recipe"]["recipe_parameters"][key] =
+                ctx.case_recipe.provider_parameters["common"][key].clone();
         }
     }
     Ok(manifest)
@@ -2987,7 +3018,23 @@ fn enhanced_pet_contract(
     stack_id: &str,
     frame_hashes: &[String],
     pixels: &MaterializedContentEvidence,
+    pixel_spacing: &str,
+    orientation: &str,
+    thickness: &str,
+    spacing: &str,
+    intercept: &str,
+    slope: &str,
+    units: &str,
+    quantitation: &crate::recipes::EnhancedPetQuantitation,
 ) -> Value {
+    // Typed admission has already checked finite numeric cardinality.
+    let numbers = |value: &str| {
+        value
+            .split('\\')
+            .map(|v| v.parse::<f64>().expect("validated DS"))
+            .collect::<Vec<_>>()
+    };
+    let frame_pixels = usize::from(common.rows) * usize::from(common.columns);
     let identity = json!({
         "image_type":common.image_type.split('\\').collect::<Vec<_>>(),
         "frame_type":common.frame_type.split('\\').collect::<Vec<_>>(),
@@ -2999,24 +3046,24 @@ fn enhanced_pet_contract(
     let dimensions = json!({"shared_functional_groups_item_count":1,
         "per_frame_functional_groups_item_count":frames.len(),"dimension_organization_item_count":1,
         "dimension_index_item_count":1,"dimension_index_pointer":"0020,9057","functional_group_pointer":"0020,9111",
-        "stack_ids":[stack_id,stack_id],"in_stack_position_numbers":artifact.in_stack_position_numbers,
+        "stack_ids":vec![stack_id;frames.len()],"in_stack_position_numbers":artifact.in_stack_position_numbers,
         "dimension_index_values":dimensions,"temporal_position_indices":artifact.temporal_position_indices
     });
     let geometry = json!({
-        "image_positions_patient_mm":[[0.0,0.0,0.0],[0.0,0.0,5.0]],"pixel_spacing_mm":[2.0,2.0],
-        "slice_thickness_mm":5.0,"spacing_between_slices_mm":5.0,
-        "image_orientation_patient":[1.0,0.0,0.0,0.0,1.0,0.0],"frame_laterality":"U",
+        "image_positions_patient_mm":frames.iter().map(|frame| numbers(&frame.image_position_patient)).collect::<Vec<_>>(),"pixel_spacing_mm":numbers(pixel_spacing),
+        "slice_thickness_mm":numbers(thickness)[0],"spacing_between_slices_mm":numbers(spacing)[0],
+        "image_orientation_patient":numbers(orientation),"frame_laterality":"U",
         "anatomic_region":{"code_value":"69536005","coding_scheme_designator":"SCT","code_meaning":"Head"}
     });
     let quantitative = json!({
-        "rescale_intercept":0.0,"rescale_slope":2.5,"rescale_type":"US","window_center":500.0,"window_width":1000.0,
-        "real_world_value_mapping":{"first_value_mapped":0,"last_value_mapped":400,"intercept":0.0,"slope":2.5,
-            "lut_label":"BQML","lut_explanation":"Activity concentration","measurement_units":{"code_value":"Bq/ml",
+        "rescale_intercept":numbers(intercept)[0],"rescale_slope":numbers(slope)[0],"rescale_type":"US","window_center":numbers(&quantitation.window_center)[0],"window_width":numbers(&quantitation.window_width)[0],
+        "real_world_value_mapping":{"first_value_mapped":quantitation.first_value_mapped,"last_value_mapped":quantitation.last_value_mapped,"intercept":numbers(intercept)[0],"slope":numbers(slope)[0],
+            "lut_label":units,"lut_explanation":"Activity concentration","measurement_units":{"code_value":"Bq/ml",
                 "coding_scheme_designator":"UCUM","code_meaning":"Becquerels/milliliter"}},
         "radiopharmaceutical_information":{"item_count":1,"agent_number":1,
             "radionuclide":{"code_value":"77004003","coding_scheme_designator":"SCT","code_meaning":"^18^Fluorine"},
             "administration_route":{"code_value":"47625008","coding_scheme_designator":"SCT","code_meaning":"Intravenous route"},
-            "start_datetime":"20260101000000","total_dose_present_empty":true,"half_life_seconds":6586.2,"positron_fraction":0.967,
+            "start_datetime":quantitation.start_datetime,"total_dose_present_empty":true,"half_life_seconds":numbers(&quantitation.half_life_seconds)[0],"positron_fraction":numbers(&quantitation.positron_fraction)[0],
             "radiopharmaceutical":{"code_value":"35321007","coding_scheme_designator":"SCT","code_meaning":"Fluorodeoxyglucose F^18^"}},
         "radiopharmaceutical_usage_agent_number":1
     });
@@ -3027,8 +3074,8 @@ fn enhanced_pet_contract(
             "patient_motion":"NO","count_loss_normalization":"NO","randoms":"NO","non_uniform_radial_sampling":"NO",
             "sensitivity_calibration":"NO","detector_normalization":"NO"},
         "derivation_image_item_count":0,"acquisition_context_item_count":0,
-        "stored_values_by_frame":[stored_values.get(0..4).unwrap_or(stored_values),stored_values.get(4..8).unwrap_or(stored_values)],
-        "activity_values_bqml_by_frame":[activity.get(0..4).unwrap_or(activity),activity.get(4..8).unwrap_or(activity)],
+        "stored_values_by_frame":stored_values.chunks(frame_pixels).collect::<Vec<_>>(),
+        "activity_values_bqml_by_frame":activity.chunks(frame_pixels).collect::<Vec<_>>(),
         "frame_sha256":frame_hashes,"pixel_data_sha256":pixels.sha256,
         "nonclaims":{"suv":false,"body_weight_normalization":false,"body_surface_area_normalization":false,
             "decay_corrected":false,"clinically_calibrated":false,"acquisition_counts":false,"actual_clinical_dose":false,

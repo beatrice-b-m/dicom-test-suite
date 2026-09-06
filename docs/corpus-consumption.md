@@ -107,6 +107,13 @@ curated `case_id`, profile, or coverage claims. Independent conformance remains
 the route named by the descriptor and must be handed off with its pinned tool
 identity or an explicit unavailable outcome.
 
+## Caller-defined Enhanced bundle handoff
+
+For multiframe CT, MR and PET, use the separate
+[Enhanced recipe `0.2.0` contract](generation-guide.md#caller-defined-native-enhanced-ct-mr-and-pet).
+Retain its complete manifest-bound caller metadata, frame and quantitative
+contract; historical recipe `0.1.0` parity is separate evidence.
+
 ## Caller-defined classic CT bundle handoff
 
 The external corpus CLI and supported Rust SDK accept a caller-named classic

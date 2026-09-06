@@ -2854,3 +2854,85 @@ This accepts the composite same-project Enhanced baseline report completion
 only. It is not an import, availability, migrated parity, reusable caller
 capability, independent conformance, viewer, Heavy, package or release result.
 R7 remains open, and R8/R9 remain held behind their dependencies.
+
+## Historical test inputs decoupled from corpus growth — 2026-09-06
+
+Corpus `448e958` replaces reverse-import reconstruction in availability/parity
+tests with thirteen immutable content0.5–0.17 snapshots. All 483 raw members
+were independently compared with their exact Git revisions; the 1,848,088-byte
+deduplicated fixture binds every member's size and SHA-256. Generic tests retain
+forward import, descriptor closure, corruption and no-live-corpus/no-Git checks.
+Corpus `221f84e` also removes the historical DX/MG routing test's duplicate of
+the entire evolving ownership map, preserving its exact owners and alias guards.
+Accepted native evidence and original generator/reporter pins are unchanged.
+
+Focused checks passed 167 availability/parity, four fixture and six CT geometry
+tests. The exact `fe99c42..448e958` route ran 1,087 ordinary tests in 71.097s;
+its sole failure was the subsequently corrected global routing assertion.
+All 107 affected routing tests then passed in 6.688s. The failed integration
+receipt remains at `artifacts/r7-history-integration1-20260906`, SHA-256
+`a77e81dad86c08b1316445a2087f79fef0967ed67b1c46f02a00baf4dcc25f35`.
+Only the remaining mapped public-loader and fixed smoke stages ran afterward,
+in 1.773488/3.883065s, producing three strictly validated files totaling 2,790
+bytes. Their separate receipt at
+`artifacts/r7-history-integration-smoke1-20260906` has SHA-256
+`34b8b371d8a55d1a183bede194a880688337a4f2c9e00bd04b944223c98c40ce`.
+Passing ordinary checks were not repeated. This closes the historical-test
+tooling correction only; Enhanced availability/parity and caller capability,
+remaining R7 scopes and all dependent R8/R9 gates remain open.
+
+## Enhanced multiframe migration slice completed — 2026-09-06
+
+The six-case import at corpus `fe99c42` now has selected availability, migrated
+parity and a separate reusable caller capability. Corpus `f905fb9` adds one
+contract-driven selected-evidence runner that authenticates the retained full
+baseline/report closure without recapture or family-helper dispatch; `ddd437c`
+corrects seven artifact IDs against the original source and tests that binding.
+The original generator and historical reporter pins, composite baseline4/report3,
+and all failed candidates and attempts remain unchanged.
+
+Corpus `artifacts/r7-enhanced-multiframe-availability2-20260906` passed one
+selected capabilities call in 2.256070250s, receipt SHA-256
+`a96d73e807f40b8f8bb65066323bff9fc39549fc6c7282f0ee0c3e077f7a18ab`.
+The earlier availability1 artifact-ID mismatch remains retained. Two parity
+runs at `artifacts/r7-enhanced-multiframe-parity1-20260906` passed in
+4.406688083/4.088470959s: seven identical files, 18,048 payload bytes, exact
+manifest migration and coverage2 projection. Receipt SHA-256 is
+`66999c58be9e9b0db046d2e8d916362125fffc7d67a636afd6565197521c8f16`;
+full-file, canonical-manifest and report2 digests respectively are
+`945a20f2a6ec54d0565db198b3d240c5822693971d7a967489262b99b3f2bbd7`,
+`9ee2f81acc2832ec389fd7710375d03ce35592cd9f22d496ceda9409a308a3f4`,
+`fae5eb216bd10744acd9a5e35a3772ec8d941acdaed1b6ba2612bfc026770710`.
+Independent subprocess-free replay authenticated both complete evidence trees
+and the unchanged composite input. These native qualifications were not repeated.
+
+Generator recipe schema `0.2.0` supplies complete caller patient/study metadata,
+PET quantitation, variable frame geometry/pixels and arbitrary artifact IDs,
+orders and paths through the existing Enhanced provider. Generation and strict
+reopening validate those values, decoded PET mapping coverage and bounded
+expansion. The independently named public fixture proves CLI/SDK, repeat,
+report2 and adversarial behavior. This capability is valid-only: `stress:true`
+is rejected, and a historical-looking case name in core cannot activate reduced
+stress evidence. Recipe0.1 and the frozen 240-member identity remain unchanged;
+current resources contain both schemas. Immutable validators are cached per
+version instead of recompiled per recipe.
+
+Final routing selected the same 80 ordinary commands throughout integration;
+914 distinct named tests passed. Unconditional Fast Rust coverage (90 tests),
+51 Python contracts, formatting, JSON syntax, ownership/spelling and warning-
+denied library/CLI compilation passed. Retained failures exposed stale resource
+and schema oracles, a routing assertion order and test-module audit convention;
+only affected checks and unfinished commands resumed. The provider cancellation
+startup deadline failed under its bundle and passed its isolated rerun without
+changing the test. Final invalidation checks passed 38 recipe-admission tests,
+seven Enhanced provider tests, the actual-plan isolation test and 22 public
+CLI/SDK tests. The dedicated target is 1.6 GiB; the pre-existing default target
+was not removed. Generator integration logs, including failures, are retained
+under `reports/r7-enhanced-integration-20260906`, index SHA-256
+`21659e30703346b1129a7a0dafc9619c2de8f676d114f11ace7692fd262786dd`.
+
+The pre-existing untracked generator US provenance is an unreferenced earlier
+draft of the corpus-owned source record and remains untouched. This entry closes
+only Enhanced and its necessary evidence-tooling integration. Remaining ordinary,
+derived, optional-codec/provider and isolated R7 scopes remain open. R8/R9 and
+all dependency-mapped Heavy, independent, viewer and release gates remain due.

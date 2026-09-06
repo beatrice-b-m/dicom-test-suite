@@ -171,6 +171,12 @@ preserves all synthetic metadata and source projection flags. This recipe
 capability is separate from the photographic composition template's qualified
 interleaved RGB8 default; it adds no arbitrary palette or ICC/RLE capability.
 
+Caller-defined native Enhanced CT, MR and PET use recipe schema `0.2.0` with
+explicit metadata, frame pixels, geometry and family-specific dimensions.
+The [Enhanced contract](docs/generation-guide.md#caller-defined-native-enhanced-ct-mr-and-pet)
+keeps caller identities, paths and ordering independent of dispatch while
+preserving the separate historical `0.1.0` recipe and payload contract.
+
 Caller-defined Secondary Capture metadata supports UTF-8 Person Name, qualified
 empty Type 2 attributes, private creator blocks, and a two-instance pair at the
 legal `+1400`/`-1200` timezone extrema through typed native contracts.

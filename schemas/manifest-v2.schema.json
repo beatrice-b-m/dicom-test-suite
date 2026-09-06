@@ -213,6 +213,612 @@
   },
   "additionalProperties": false,
   "$defs": {
+    "expected_enhanced_pet": {
+      "type": "object",
+      "required": [
+        "image_type",
+        "frame_type",
+        "pixel_presentation",
+        "volumetric_properties",
+        "volume_based_calculation_technique",
+        "content_qualification",
+        "burned_in_annotation",
+        "lossy_image_compression",
+        "presentation_lut_shape",
+        "frame_count",
+        "shared_functional_groups_item_count",
+        "per_frame_functional_groups_item_count",
+        "dimension_organization_item_count",
+        "dimension_index_item_count",
+        "dimension_index_pointer",
+        "functional_group_pointer",
+        "stack_ids",
+        "in_stack_position_numbers",
+        "dimension_index_values",
+        "temporal_position_indices",
+        "image_positions_patient_mm",
+        "pixel_spacing_mm",
+        "slice_thickness_mm",
+        "spacing_between_slices_mm",
+        "image_orientation_patient",
+        "frame_laterality",
+        "anatomic_region",
+        "rescale_intercept",
+        "rescale_slope",
+        "rescale_type",
+        "window_center",
+        "window_width",
+        "real_world_value_mapping",
+        "radiopharmaceutical_information",
+        "radiopharmaceutical_usage_agent_number",
+        "table_motion",
+        "time_of_flight_information_used",
+        "view_code",
+        "view_modifier_item_count",
+        "slice_progression_direction_present",
+        "counts_source",
+        "corrections",
+        "derivation_image_item_count",
+        "acquisition_context_item_count",
+        "stored_values_by_frame",
+        "activity_values_bqml_by_frame",
+        "frame_sha256",
+        "pixel_data_sha256",
+        "nonclaims"
+      ],
+      "properties": {
+        "image_type": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "const": "DERIVED"
+            },
+            {
+              "const": "PRIMARY"
+            },
+            {
+              "const": "STATIC"
+            },
+            {
+              "const": "MULTIPLICATION"
+            }
+          ],
+          "items": false,
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "frame_type": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "const": "DERIVED"
+            },
+            {
+              "const": "PRIMARY"
+            },
+            {
+              "const": "STATIC"
+            },
+            {
+              "const": "MULTIPLICATION"
+            }
+          ],
+          "items": false,
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "pixel_presentation": {
+          "const": "MONOCHROME"
+        },
+        "volumetric_properties": {
+          "const": "VOLUME"
+        },
+        "volume_based_calculation_technique": {
+          "const": "NONE"
+        },
+        "content_qualification": {
+          "const": "RESEARCH"
+        },
+        "burned_in_annotation": {
+          "const": "NO"
+        },
+        "lossy_image_compression": {
+          "const": "00"
+        },
+        "presentation_lut_shape": {
+          "const": "IDENTITY"
+        },
+        "frame_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "shared_functional_groups_item_count": {
+          "const": 1
+        },
+        "per_frame_functional_groups_item_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "dimension_organization_item_count": {
+          "const": 1
+        },
+        "dimension_index_item_count": {
+          "const": 1
+        },
+        "dimension_index_pointer": {
+          "const": "0020,9057"
+        },
+        "functional_group_pointer": {
+          "const": "0020,9111"
+        },
+        "stack_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 16
+          },
+          "minItems": 1,
+          "maxItems": 65535
+        },
+        "in_stack_position_numbers": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4294967295
+          },
+          "minItems": 1,
+          "maxItems": 65535
+        },
+        "dimension_index_values": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4294967295
+          },
+          "minItems": 1,
+          "maxItems": 65535
+        },
+        "temporal_position_indices": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4294967295
+          },
+          "minItems": 1,
+          "maxItems": 65535
+        },
+        "image_positions_patient_mm": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "minItems": 1,
+          "maxItems": 65535
+        },
+        "pixel_spacing_mm": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "slice_thickness_mm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "spacing_between_slices_mm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "image_orientation_patient": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 6,
+          "maxItems": 6
+        },
+        "frame_laterality": {
+          "const": "U"
+        },
+        "anatomic_region": {
+          "allOf": [
+            {
+              "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_enhanced_pet_code"
+            },
+            {
+              "properties": {
+                "code_value": {
+                  "const": "69536005"
+                },
+                "coding_scheme_designator": {
+                  "const": "SCT"
+                },
+                "code_meaning": {
+                  "const": "Head"
+                }
+              }
+            }
+          ]
+        },
+        "rescale_intercept": {
+          "type": "number"
+        },
+        "rescale_slope": {
+          "type": "number"
+        },
+        "rescale_type": {
+          "const": "US"
+        },
+        "window_center": {
+          "type": "number"
+        },
+        "window_width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "real_world_value_mapping": {
+          "type": "object",
+          "required": [
+            "first_value_mapped",
+            "last_value_mapped",
+            "intercept",
+            "slope",
+            "lut_label",
+            "lut_explanation",
+            "measurement_units"
+          ],
+          "properties": {
+            "first_value_mapped": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "last_value_mapped": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "intercept": {
+              "type": "number"
+            },
+            "slope": {
+              "type": "number"
+            },
+            "lut_label": {
+              "const": "BQML"
+            },
+            "lut_explanation": {
+              "const": "Activity concentration"
+            },
+            "measurement_units": {
+              "allOf": [
+                {
+                  "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_enhanced_pet_code"
+                },
+                {
+                  "properties": {
+                    "code_value": {
+                      "const": "Bq/ml"
+                    },
+                    "coding_scheme_designator": {
+                      "const": "UCUM"
+                    },
+                    "code_meaning": {
+                      "const": "Becquerels/milliliter"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "radiopharmaceutical_information": {
+          "type": "object",
+          "required": [
+            "item_count",
+            "agent_number",
+            "radionuclide",
+            "administration_route",
+            "start_datetime",
+            "total_dose_present_empty",
+            "half_life_seconds",
+            "positron_fraction",
+            "radiopharmaceutical"
+          ],
+          "properties": {
+            "item_count": {
+              "const": 1
+            },
+            "agent_number": {
+              "const": 1
+            },
+            "radionuclide": {
+              "allOf": [
+                {
+                  "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_enhanced_pet_code"
+                },
+                {
+                  "properties": {
+                    "code_value": {
+                      "const": "77004003"
+                    },
+                    "coding_scheme_designator": {
+                      "const": "SCT"
+                    },
+                    "code_meaning": {
+                      "const": "^18^Fluorine"
+                    }
+                  }
+                }
+              ]
+            },
+            "administration_route": {
+              "allOf": [
+                {
+                  "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_enhanced_pet_code"
+                },
+                {
+                  "properties": {
+                    "code_value": {
+                      "const": "47625008"
+                    },
+                    "coding_scheme_designator": {
+                      "const": "SCT"
+                    },
+                    "code_meaning": {
+                      "const": "Intravenous route"
+                    }
+                  }
+                }
+              ]
+            },
+            "start_datetime": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 26
+            },
+            "total_dose_present_empty": {
+              "const": true
+            },
+            "half_life_seconds": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "positron_fraction": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "radiopharmaceutical": {
+              "allOf": [
+                {
+                  "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_enhanced_pet_code"
+                },
+                {
+                  "properties": {
+                    "code_value": {
+                      "const": "35321007"
+                    },
+                    "coding_scheme_designator": {
+                      "const": "SCT"
+                    },
+                    "code_meaning": {
+                      "const": "Fluorodeoxyglucose F^18^"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "radiopharmaceutical_usage_agent_number": {
+          "const": 1
+        },
+        "table_motion": {
+          "const": "STATIC"
+        },
+        "time_of_flight_information_used": {
+          "const": "FALSE"
+        },
+        "view_code": {
+          "allOf": [
+            {
+              "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_enhanced_pet_code"
+            },
+            {
+              "properties": {
+                "code_value": {
+                  "const": "24422004"
+                },
+                "coding_scheme_designator": {
+                  "const": "SCT"
+                },
+                "code_meaning": {
+                  "const": "Axial"
+                }
+              }
+            }
+          ]
+        },
+        "view_modifier_item_count": {
+          "const": 0
+        },
+        "slice_progression_direction_present": {
+          "const": false
+        },
+        "counts_source": {
+          "const": "EMISSION"
+        },
+        "corrections": {
+          "type": "object",
+          "required": [
+            "decay",
+            "attenuation",
+            "scatter",
+            "dead_time",
+            "gantry_motion",
+            "patient_motion",
+            "count_loss_normalization",
+            "randoms",
+            "non_uniform_radial_sampling",
+            "sensitivity_calibration",
+            "detector_normalization"
+          ],
+          "properties": {
+            "decay": {
+              "const": "NO"
+            },
+            "attenuation": {
+              "const": "NO"
+            },
+            "scatter": {
+              "const": "NO"
+            },
+            "dead_time": {
+              "const": "NO"
+            },
+            "gantry_motion": {
+              "const": "NO"
+            },
+            "patient_motion": {
+              "const": "NO"
+            },
+            "count_loss_normalization": {
+              "const": "NO"
+            },
+            "randoms": {
+              "const": "NO"
+            },
+            "non_uniform_radial_sampling": {
+              "const": "NO"
+            },
+            "sensitivity_calibration": {
+              "const": "NO"
+            },
+            "detector_normalization": {
+              "const": "NO"
+            }
+          },
+          "additionalProperties": false
+        },
+        "derivation_image_item_count": {
+          "const": 0
+        },
+        "acquisition_context_item_count": {
+          "const": 0
+        },
+        "stored_values_by_frame": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "minItems": 1,
+            "maxItems": 4294967295
+          },
+          "minItems": 1,
+          "maxItems": 65535
+        },
+        "activity_values_bqml_by_frame": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 1,
+            "maxItems": 4294967295
+          },
+          "minItems": 1,
+          "maxItems": 65535
+        },
+        "frame_sha256": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "minItems": 1,
+          "maxItems": 65535
+        },
+        "pixel_data_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "nonclaims": {
+          "type": "object",
+          "required": [
+            "suv",
+            "body_weight_normalization",
+            "body_surface_area_normalization",
+            "decay_corrected",
+            "clinically_calibrated",
+            "acquisition_counts",
+            "actual_clinical_dose",
+            "gating",
+            "detector_motion",
+            "time_of_flight_processing",
+            "reconstruction"
+          ],
+          "properties": {
+            "suv": {
+              "const": false
+            },
+            "body_weight_normalization": {
+              "const": false
+            },
+            "body_surface_area_normalization": {
+              "const": false
+            },
+            "decay_corrected": {
+              "const": false
+            },
+            "clinically_calibrated": {
+              "const": false
+            },
+            "acquisition_counts": {
+              "const": false
+            },
+            "actual_clinical_dose": {
+              "const": false
+            },
+            "gating": {
+              "const": false
+            },
+            "detector_motion": {
+              "const": false
+            },
+            "time_of_flight_processing": {
+              "const": false
+            },
+            "reconstruction": {
+              "const": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
     "expected_us_multiframe": {
       "type": "object",
       "required": [
@@ -566,7 +1172,7 @@
           "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_pet_activity"
         },
         "expected_enhanced_pet": {
-          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_enhanced_pet"
+          "$ref": "#/$defs/expected_enhanced_pet"
         },
         "expected_us_multiframe": {
           "$ref": "#/$defs/expected_us_multiframe"

@@ -71,8 +71,8 @@ pub use encoding::{RecipeEncodingError, encoding_plan_from_recipe};
 pub use enhanced::{
     ENHANCED_CONCATENATION_PREDECESSOR_RELATIONSHIP, EnhancedCommonInput, EnhancedCtInput,
     EnhancedCtPartInput, EnhancedFrameGeometry, EnhancedMrFrameAxis, EnhancedMrInput,
-    EnhancedNativePixels, EnhancedPetInput, EnhancedPlanError, EnhancedPlanProvider,
-    EnhancedProviderInput,
+    EnhancedNativePixels, EnhancedPatientStudy, EnhancedPetInput, EnhancedPetQuantitation,
+    EnhancedPlanError, EnhancedPlanProvider, EnhancedProviderInput,
 };
 pub use error::RecipeCatalogError;
 pub use exceptional_sc::{

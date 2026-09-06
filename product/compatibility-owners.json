@@ -38,7 +38,7 @@
       "support_window": "every curated request, manifest, registry, recipe, and report version advertised by the exact product",
       "apis": ["generate", "list_cases", "coverage_report"],
       "schemas": [
-        "case-recipe.schema.json", "case-registry.schema.json",
+        "case-recipe.schema.json", "case-recipe-v0.2.schema.json", "case-registry.schema.json",
         "coverage-gap-report.schema.json", "coverage-report.schema.json",
         "coverage-report-v1.schema.json",
         "coverage-report-v1.1.schema.json",

@@ -1,0 +1,148 @@
+{
+  "case_recipe_schema_version": "0.2.0",
+  "recipe_id": "caller_frame_recipe_3",
+  "recipe_version": "0.1.0",
+  "binding": {
+    "case_id": "caller/frames/acquisition-3"
+  },
+  "kind": "dicom",
+  "plan_provider_id": "native.enhanced_plan",
+  "planning_order": 886,
+  "projection_order": 56,
+  "provider_parameters": {
+    "family": "mr",
+    "common": {
+      "modality": "MR",
+      "study_id": "CALLER-STUDY",
+      "device_serial_number": "CALLER-DEVICE",
+      "image_type": "DERIVED\\PRIMARY\\STATIC\\NONE",
+      "rows": 2,
+      "columns": 3,
+      "frame_type": "DERIVED\\PRIMARY\\STATIC\\NONE",
+      "pixel_presentation": "MONOCHROME",
+      "volumetric_properties": "VOLUME",
+      "volume_based_calculation_technique": "NONE",
+      "patient_study": {
+        "patient_name": "Sample^Caller",
+        "patient_id": "CALLER-TEST",
+        "patient_birth_date": "19801231",
+        "patient_sex": "F",
+        "study_date": "20260202",
+        "study_time": "121314",
+        "content_date": "20260203",
+        "content_time": "141516",
+        "manufacturer": "Fixture Laboratory"
+      }
+    },
+    "pixel_spacing": "1.000\\1.000",
+    "image_orientation_patient": "1\\0\\0\\0\\1\\0",
+    "slice_thickness": "4",
+    "spacing_between_slices": "4",
+    "rescale_intercept": "0",
+    "rescale_slope": "1",
+    "rescale_type": "US",
+    "repetition_time": "2000",
+    "flip_angle": "90",
+    "echo_train_length": "1",
+    "rf_echo_train_length": 1,
+    "gradient_echo_train_length": 0,
+    "axis": {
+      "kind": "effective_echo_time",
+      "values": [
+        12.5,
+        24.5,
+        31.5
+      ]
+    }
+  },
+  "dependencies": [],
+  "validation_rule_ids": [
+    "validation.shared"
+  ],
+  "projection_rule_ids": [
+    "projection.curated"
+  ],
+  "dicom": {
+    "artifacts": [
+      {
+        "logical_id": "caller_frame_3_part_1",
+        "order": 77,
+        "template": {
+          "template_id": "enhanced/mr",
+          "template_version": "1.0.0"
+        },
+        "output": {
+          "role": "dicom_instance",
+          "path": "caller-payload/set-3/part-1.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "frames": {
+            "source": "literal",
+            "values": [
+              {
+                "image_position_patient": "0\\0\\0",
+                "dimension_index_value": 1
+              },
+              {
+                "image_position_patient": "0\\0\\4",
+                "dimension_index_value": 2
+              },
+              {
+                "image_position_patient": "0\\0\\10",
+                "dimension_index_value": 3
+              }
+            ]
+          },
+          "pixels": {
+            "source": "literal",
+            "stored_values": [
+              21,
+              22,
+              23,
+              24,
+              25,
+              26,
+              27,
+              28,
+              29,
+              30,
+              31,
+              32,
+              33,
+              34,
+              35,
+              36,
+              37,
+              38
+            ],
+            "pixel_min": 21,
+            "pixel_max": 38
+          }
+        },
+        "attribute_operations": [],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {}
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [],
+        "algorithm_provider_id": "algorithm.enhanced"
+      }
+    ]
+  }
+}

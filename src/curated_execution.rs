@@ -140,6 +140,8 @@ pub(crate) enum AdvancedCompatibilityProvider {
         axis: EnhancedMrFrameAxis,
     },
     Pet {
+        #[serde(default)]
+        quantitation: Option<crate::recipes::EnhancedPetQuantitation>,
         common: AdvancedCompatibilityCommon,
         pixel_spacing: String,
         image_orientation_patient: String,
@@ -157,6 +159,8 @@ pub(crate) enum AdvancedCompatibilityProvider {
 #[serde(deny_unknown_fields)]
 #[allow(dead_code)] // Identity fields remain schema-checked even when a lane does not read them.
 pub(crate) struct AdvancedCompatibilityCommon {
+    #[serde(default)]
+    pub patient_study: Option<crate::recipes::EnhancedPatientStudy>,
     pub modality: String,
     pub study_id: String,
     pub device_serial_number: String,
@@ -3333,6 +3337,7 @@ fn validate_enhanced_compatibility(
             legacy_validated_report(validate_part10_file(path, &expected))
         }
         AdvancedCompatibilityProvider::Pet {
+            quantitation,
             common,
             pixel_spacing,
             image_orientation_patient,
@@ -3367,9 +3372,16 @@ fn validate_enhanced_compatibility(
                 .map_err(|error| service_error("advanced validation", error))?;
             let activity = stored
                 .iter()
-                .map(|value| f64::from(*value) * slope)
+                .map(|value| {
+                    f64::from(*value) * slope
+                        + rescale_intercept
+                            .parse::<f64>()
+                            .expect("validated intercept")
+                })
                 .collect::<Vec<_>>();
+            let quantitation = quantitation.unwrap_or_default();
             expected.enhanced_pet_image = Some(EnhancedPetImageExpectations {
+                quantitation: Some(&quantitation),
                 modality: "PT",
                 frame_of_reference_uid: frame_of_reference,
                 image_type: &common.image_type,

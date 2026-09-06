@@ -63,6 +63,10 @@ pub enum EnhancedProviderInput {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EnhancedCommonInput {
+    #[serde(default)]
+    pub artifact_logical_ids: Vec<String>,
+    #[serde(default)]
+    pub patient_study: Option<EnhancedPatientStudy>,
     pub case_id: String,
     pub recipe_id: String,
     pub recipe_version: String,
@@ -77,6 +81,22 @@ pub struct EnhancedCommonInput {
     pub pixel_presentation: String,
     pub volumetric_properties: String,
     pub volume_based_calculation_technique: String,
+}
+
+/// A complete caller-owned patient/study tuple. Omission preserves historical bytes;
+/// partial tuples are rejected by deserialization.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EnhancedPatientStudy {
+    pub patient_name: String,
+    pub patient_id: String,
+    pub patient_birth_date: String,
+    pub patient_sex: String,
+    pub study_date: String,
+    pub study_time: String,
+    pub content_date: String,
+    pub content_time: String,
+    pub manufacturer: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -162,6 +182,8 @@ pub struct EnhancedMrInput {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EnhancedPetInput {
+    #[serde(default)]
+    pub quantitation: Option<EnhancedPetQuantitation>,
     pub common: EnhancedCommonInput,
     pub output_path: OutputRelativePath,
     pub frames: Vec<EnhancedFrameGeometry>,
@@ -177,6 +199,33 @@ pub struct EnhancedPetInput {
     pub rescale_slope: String,
     pub units: String,
     pub counts_source: String,
+}
+
+/// Complete synthetic quantitative mapping and isotope timing inputs.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EnhancedPetQuantitation {
+    pub first_value_mapped: u16,
+    pub last_value_mapped: u16,
+    pub window_center: String,
+    pub window_width: String,
+    pub start_datetime: String,
+    pub half_life_seconds: String,
+    pub positron_fraction: String,
+}
+
+impl Default for EnhancedPetQuantitation {
+    fn default() -> Self {
+        Self {
+            first_value_mapped: 0,
+            last_value_mapped: 400,
+            window_center: "500".into(),
+            window_width: "1000".into(),
+            start_datetime: "20260101000000".into(),
+            half_life_seconds: "6586.2".into(),
+            positron_fraction: "0.967".into(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -211,6 +260,8 @@ enum EnhancedRecipeParameters {
         axis: EnhancedMrFrameAxis,
     },
     Pet {
+        #[serde(default)]
+        quantitation: Option<EnhancedPetQuantitation>,
         common: EnhancedDocumentCommon,
         pixel_spacing: String,
         image_orientation_patient: String,
@@ -227,6 +278,8 @@ enum EnhancedRecipeParameters {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct EnhancedDocumentCommon {
+    #[serde(default)]
+    patient_study: Option<EnhancedPatientStudy>,
     modality: String,
     study_id: String,
     device_serial_number: String,
@@ -287,6 +340,14 @@ pub(crate) fn enhanced_input_from_recipe(
     if recipe.plan_provider_id != ENHANCED_PLAN_PROVIDER_ID {
         return Ok(None);
     }
+    if recipe.case_recipe_schema_version == "0.2.0"
+        && recipe.provider_parameters.get("stress") == Some(&Value::Bool(true))
+    {
+        return Err(
+            "Enhanced recipe 0.2.0 supports valid-only generation; stress:true is unsupported"
+                .into(),
+        );
+    }
     let dicom = recipe
         .dicom
         .as_ref()
@@ -294,6 +355,74 @@ pub(crate) fn enhanced_input_from_recipe(
     let parameters: EnhancedRecipeParameters =
         serde_json::from_value(Value::Object(recipe.provider_parameters.clone()))
             .map_err(|error| format!("enhanced provider_parameters: {error}"))?;
+    for (key, cardinality, positive) in [
+        ("pixel_spacing", 2, true),
+        ("image_orientation_patient", 6, false),
+        ("slice_thickness", 1, true),
+        ("spacing_between_slices", 1, true),
+        ("rescale_intercept", 1, false),
+        ("rescale_slope", 1, false),
+    ] {
+        let text = recipe
+            .provider_parameters
+            .get(key)
+            .and_then(Value::as_str)
+            .ok_or_else(|| format!("enhanced {key} must be a decimal string"))?;
+        let values = text
+            .split('\\')
+            .map(str::parse::<f64>)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|_| format!("enhanced {key} contains invalid decimals"))?;
+        if values.len() != cardinality
+            || values
+                .iter()
+                .any(|v| !v.is_finite() || (positive && *v <= 0.0))
+            || (key == "rescale_slope" && values[0] == 0.0)
+        {
+            return Err(format!("enhanced {key} has invalid cardinality or values"));
+        }
+        if key == "image_orientation_patient" {
+            let norm = |v: &[f64]| v.iter().map(|x| x * x).sum::<f64>();
+            let dot = values[..3]
+                .iter()
+                .zip(&values[3..])
+                .map(|(a, b)| a * b)
+                .sum::<f64>();
+            if (norm(&values[..3]) - 1.0).abs() > 1e-6
+                || (norm(&values[3..]) - 1.0).abs() > 1e-6
+                || dot.abs() > 1e-6
+            {
+                return Err(
+                    "Enhanced orientation must contain orthonormal direction cosines".into(),
+                );
+            }
+        }
+    }
+    if let Some(metadata) = recipe
+        .provider_parameters
+        .get("common")
+        .and_then(|common| common.get("patient_study"))
+    {
+        if metadata.as_object().is_none_or(|values| {
+            values.values().any(|value| {
+                value
+                    .as_str()
+                    .is_none_or(|text| !text.is_ascii() || text.contains('\\'))
+            })
+        }) {
+            return Err(
+                "Enhanced patient/study tuple requires singleton default-character-set values"
+                    .into(),
+            );
+        }
+        if metadata
+            .get("manufacturer")
+            .and_then(Value::as_str)
+            .is_none_or(str::is_empty)
+        {
+            return Err("Enhanced manufacturer must be nonempty".into());
+        }
+    }
     let artifacts = dicom
         .artifacts
         .iter()
@@ -319,6 +448,12 @@ pub(crate) fn enhanced_input_from_recipe(
         })
         .collect::<Result<Vec<_>, String>>()?;
     let common = |value: EnhancedDocumentCommon, template_id: String| EnhancedCommonInput {
+        artifact_logical_ids: dicom
+            .artifacts
+            .iter()
+            .map(|artifact| artifact.logical_id.clone())
+            .collect(),
+        patient_study: value.patient_study,
         case_id: recipe.binding.case_id.clone(),
         recipe_id: recipe.recipe_id.clone(),
         recipe_version: recipe.recipe_version.clone(),
@@ -345,6 +480,41 @@ pub(crate) fn enhanced_input_from_recipe(
         ),
         String,
     > {
+        // Recipe expansion precedes provider planning. Apply the same native
+        // limits here before allocating expanded frame metadata or ramp pixels.
+        let frame_count = match &parameters.frames {
+            EnhancedFrameSource::Literal { values } => u32::try_from(values.len())
+                .map_err(|_| "enhanced frame cardinality overflows".to_string())?,
+            EnhancedFrameSource::AxialLinear {
+                frame_count,
+                first_dimension_index,
+                ..
+            } => {
+                first_dimension_index
+                    .checked_add(frame_count.saturating_sub(1))
+                    .ok_or_else(|| "enhanced dimension index overflows".to_string())?;
+                *frame_count
+            }
+        };
+        crate::native_pixel::NativePixelPlan::plan_with_limits(
+            PixelShape {
+                rows: u32::from(common.rows),
+                columns: u32::from(common.columns),
+                frames: frame_count,
+                samples_per_pixel: 1,
+                photometric_interpretation: PhotometricInterpretation::Monochrome2,
+                bits_allocated: 16,
+                bits_stored: 16,
+                high_bit: 15,
+                pixel_representation: 0,
+                stored_value_type: StoredValueType::U16,
+                byte_order: ByteOrder::Little,
+                pixel_data_vr: PixelDataVr::Ow,
+                color: None,
+            },
+            NativePixelLimits::default(),
+        )
+        .map_err(|error| format!("enhanced expansion exceeds native pixel contract: {error}"))?;
         let frames = match parameters.frames {
             EnhancedFrameSource::Literal { values } => values,
             EnhancedFrameSource::AxialLinear {
@@ -353,15 +523,20 @@ pub(crate) fn enhanced_input_from_recipe(
                 spacing,
                 first_dimension_index,
             } => (0..frame_count)
-                .map(|index| EnhancedFrameGeometry {
-                    image_position_patient: format!(
-                        "0\\0\\{}",
-                        start_z + f64::from(index) * spacing
-                    ),
-                    dimension_index_value: first_dimension_index + index,
+                .map(|index| {
+                    Ok(EnhancedFrameGeometry {
+                        image_position_patient: format!(
+                            "0\\0\\{}",
+                            start_z + f64::from(index) * spacing
+                        ),
+                        dimension_index_value: first_dimension_index
+                            .checked_add(index)
+                            .ok_or_else(|| "enhanced dimension index overflows".to_string())?,
+                    })
                 })
-                .collect(),
+                .collect::<Result<Vec<_>, String>>()?,
         };
+        validate_frames(&frames).map_err(|error| error.to_string())?;
         let sample_count = usize::from(common.rows)
             .checked_mul(usize::from(common.columns))
             .and_then(|value| value.checked_mul(frames.len()))
@@ -475,6 +650,11 @@ pub(crate) fn enhanced_input_from_recipe(
             }
             let (parameters, template_id, output_path) =
                 artifacts.into_iter().next().expect("one artifact");
+            if parameters.in_concatenation_number.is_some()
+                || parameters.concatenation_frame_offset_number.is_some()
+            {
+                return Err("MR artifacts cannot declare concatenation fields".into());
+            }
             let (frames, pixels, temporal, stack) = expand(parameters, &document_common)?;
             if !temporal.is_empty() || !stack.is_empty() {
                 return Err("MR artifacts cannot declare PET indices".into());
@@ -500,6 +680,7 @@ pub(crate) fn enhanced_input_from_recipe(
             })))
         }
         EnhancedRecipeParameters::Pet {
+            quantitation,
             common: document_common,
             pixel_spacing,
             image_orientation_patient,
@@ -516,9 +697,49 @@ pub(crate) fn enhanced_input_from_recipe(
             }
             let (parameters, template_id, output_path) =
                 artifacts.into_iter().next().expect("one artifact");
+            if parameters.in_concatenation_number.is_some()
+                || parameters.concatenation_frame_offset_number.is_some()
+            {
+                return Err("PET artifacts cannot declare concatenation fields".into());
+            }
             let (frames, pixels, temporal_position_indices, in_stack_position_numbers) =
                 expand(parameters, &document_common)?;
+            if let Some(quantitation) = &quantitation {
+                if quantitation.first_value_mapped > quantitation.last_value_mapped
+                    || pixels.pixel_min < i64::from(quantitation.first_value_mapped)
+                    || pixels.pixel_max > i64::from(quantitation.last_value_mapped)
+                {
+                    return Err("PET real-world mapping must cover every stored pixel".into());
+                }
+                for (name, text, positive) in [
+                    ("window_center", &quantitation.window_center, false),
+                    ("window_width", &quantitation.window_width, true),
+                    ("half_life_seconds", &quantitation.half_life_seconds, true),
+                    ("positron_fraction", &quantitation.positron_fraction, true),
+                ] {
+                    let value = text
+                        .parse::<f64>()
+                        .map_err(|_| format!("PET {name} must be numeric"))?;
+                    if !value.is_finite()
+                        || (positive && value <= 0.0)
+                        || (name == "positron_fraction" && value > 1.0)
+                    {
+                        return Err(format!("PET {name} is outside its valid numeric range"));
+                    }
+                }
+            }
+            if units != "BQML" || counts_source != "EMISSION" {
+                return Err("Enhanced PET capability requires BQML emission quantitation".into());
+            }
+            if temporal_position_indices.len() != frames.len()
+                || in_stack_position_numbers.len() != frames.len()
+                || temporal_position_indices.contains(&0)
+                || in_stack_position_numbers.contains(&0)
+            {
+                return Err("PET indices must be positive and match frame cardinality".into());
+            }
             Ok(Some(EnhancedProviderInput::Pet(EnhancedPetInput {
+                quantitation,
                 common: common(document_common, template_id),
                 output_path,
                 frames,
@@ -633,6 +854,11 @@ impl EnhancedPlanProvider {
             .into_iter()
             .enumerate()
             .map(|(index, (recipe_id, order, path))| {
+                let recipe_id = common
+                    .artifact_logical_ids
+                    .get(index)
+                    .cloned()
+                    .unwrap_or(recipe_id);
                 let mut ids = Uids::new(&self.standards_lock_sha256, common, seed, index as u32);
                 if index > 0 {
                     ids.share_non_instance(&shared);
@@ -704,6 +930,27 @@ impl AdvancedPlanProvider for EnhancedPlanProvider {
     }
 }
 
+// The parsed definition binds semantic part ordinals to caller artifact IDs.
+// Direct typed callers may retain the original default context convention.
+fn artifact_context<'a>(
+    request: &'a AdvancedPlanProviderRequest,
+    common: &EnhancedCommonInput,
+    ordinal: usize,
+) -> Result<&'a AdvancedArtifactPlanningContext, EnhancedPlanError> {
+    let logical_id = if common.artifact_logical_ids.is_empty() {
+        format!("advanced_{}_artifact_{}", common.recipe_id, ordinal + 1)
+    } else {
+        common
+            .artifact_logical_ids
+            .get(ordinal)
+            .ok_or(EnhancedPlanError::RecipeIdentityMismatch)?
+            .clone()
+    };
+    request
+        .artifact_context(&logical_id)
+        .map_err(EnhancedPlanError::Contract)
+}
+
 fn validate_ownership(
     request: &AdvancedPlanProviderRequest,
     common: &EnhancedCommonInput,
@@ -711,6 +958,17 @@ fn validate_ownership(
     if request.case_id != common.case_id
         || request.recipe.recipe_id != common.recipe_id
         || request.recipe.recipe_version != common.recipe_version
+    {
+        return Err(EnhancedPlanError::RecipeIdentityMismatch);
+    }
+    let image_type = common.image_type.split('\\').collect::<Vec<_>>();
+    if image_type.len() != 4
+        || image_type[0] != "DERIVED"
+        || image_type[1] != "PRIMARY"
+        || common.frame_type != common.image_type
+        || common.pixel_presentation != "MONOCHROME"
+        || common.volumetric_properties != "VOLUME"
+        || common.volume_based_calculation_technique != "NONE"
     {
         return Err(EnhancedPlanError::RecipeIdentityMismatch);
     }
@@ -737,10 +995,7 @@ impl EnhancedPlanProvider {
         if input.concatenation != (input.parts.len() > 1) {
             return Err(EnhancedPlanError::InvalidConcatenation);
         }
-        let first_recipe_id = format!("advanced_{}_artifact_1", input.common.recipe_id);
-        let first_context = request
-            .artifact_context(&first_recipe_id)
-            .map_err(EnhancedPlanError::Contract)?;
+        let first_context = artifact_context(request, &input.common, 0)?;
         let concatenation_uid = first_context
             .identities
             .get(&CompositionUidRole::Concatenation, 0)
@@ -757,12 +1012,8 @@ impl EnhancedPlanProvider {
                     "concatenation identities are required".into(),
                 ));
             }
-            for index in 0..input.parts.len() {
-                let recipe_id =
-                    format!("advanced_{}_artifact_{}", input.common.recipe_id, index + 1);
-                let context = request
-                    .artifact_context(&recipe_id)
-                    .map_err(EnhancedPlanError::Contract)?;
+            for (index, _part) in input.parts.iter().enumerate() {
+                let context = artifact_context(request, &input.common, index)?;
                 if context
                     .identities
                     .get(&CompositionUidRole::Concatenation, 0)
@@ -803,11 +1054,7 @@ impl EnhancedPlanProvider {
             expected_offset = expected_offset
                 .checked_add(part.frames.len() as u32)
                 .ok_or(EnhancedPlanError::ResourceOverflow)?;
-            let recipe_logical_id =
-                format!("advanced_{}_artifact_{}", input.common.recipe_id, index + 1);
-            let context = request
-                .artifact_context(&recipe_logical_id)
-                .map_err(EnhancedPlanError::Contract)?;
+            let context = artifact_context(request, &input.common, index)?;
             let ids = Uids::from_context(context)?;
             let native = self.native_pixels(&input.common, part.frames.len(), &part.pixels)?;
             let mut attributes = common_attributes(
@@ -948,10 +1195,36 @@ impl EnhancedPlanProvider {
         if axis_len != input.frames.len() {
             return Err(EnhancedPlanError::FrameCardinality);
         }
-        let recipe_logical_id = format!("advanced_{}_artifact_1", input.common.recipe_id);
-        let context = request
-            .artifact_context(&recipe_logical_id)
-            .map_err(EnhancedPlanError::Contract)?;
+        match &input.axis {
+            EnhancedMrFrameAxis::EffectiveEchoTime { values }
+            | EnhancedMrFrameAxis::TemporalPositionTimeOffset { values } => {
+                if values
+                    .iter()
+                    .any(|value| !value.is_finite() || *value < 0.0)
+                {
+                    return Err(EnhancedPlanError::FrameCardinality);
+                }
+            }
+            EnhancedMrFrameAxis::VelocityEncoding {
+                directions,
+                minimum,
+                maximum,
+            } => {
+                if !minimum.is_finite()
+                    || !maximum.is_finite()
+                    || minimum >= maximum
+                    || directions.iter().any(|direction| {
+                        direction.iter().any(|value| !value.is_finite())
+                            || (direction.iter().map(|value| value * value).sum::<f64>() - 1.0)
+                                .abs()
+                                > 1e-6
+                    })
+                {
+                    return Err(EnhancedPlanError::FrameCardinality);
+                }
+            }
+        }
+        let context = artifact_context(request, &input.common, 0)?;
         let ids = Uids::from_context(context)?;
         let native = self.native_pixels(&input.common, input.frames.len(), &input.pixels)?;
         let mut attributes = common_attributes(
@@ -1051,10 +1324,7 @@ impl EnhancedPlanProvider {
         {
             return Err(EnhancedPlanError::FrameCardinality);
         }
-        let recipe_logical_id = format!("advanced_{}_artifact_1", input.common.recipe_id);
-        let context = request
-            .artifact_context(&recipe_logical_id)
-            .map_err(EnhancedPlanError::Contract)?;
+        let context = artifact_context(request, &input.common, 0)?;
         let ids = Uids::from_context(context)?;
         let native = self.native_pixels(&input.common, input.frames.len(), &input.pixels)?;
         let mut attributes = common_attributes(
@@ -1110,7 +1380,7 @@ impl EnhancedPlanProvider {
         ] {
             push_text(&mut attributes, keyword, DicomVr::CS, "NO")?;
         }
-        attributes.push(pet_radiopharmaceutical()?);
+        attributes.push(pet_radiopharmaceutical(input)?);
         attributes.push(dimension_organization(&ids.dimension)?);
         attributes.push(dimension_index(
             "InStackPositionNumber",
@@ -1300,6 +1570,15 @@ fn validate_frames(frames: &[EnhancedFrameGeometry]) -> Result<(), EnhancedPlanE
         return Err(EnhancedPlanError::EmptyFrames);
     }
     for (index, frame) in frames.iter().enumerate() {
+        let position = frame
+            .image_position_patient
+            .split('\\')
+            .map(str::parse::<f64>)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|_| EnhancedPlanError::InvalidDimensionIndex)?;
+        if position.len() != 3 || position.iter().any(|value| !value.is_finite()) {
+            return Err(EnhancedPlanError::InvalidDimensionIndex);
+        }
         if frame.dimension_index_value == 0
             || (index > 0 && frame.dimension_index_value <= frames[index - 1].dimension_index_value)
         {
@@ -1529,6 +1808,27 @@ fn common_attributes(
     ] {
         push_text(&mut attributes, keyword, vr, value)?;
     }
+    if let Some(metadata) = &common.patient_study {
+        for (keyword, vr, value) in [
+            ("PatientName", DicomVr::PN, metadata.patient_name.as_str()),
+            ("PatientID", DicomVr::LO, metadata.patient_id.as_str()),
+            (
+                "PatientBirthDate",
+                DicomVr::DA,
+                metadata.patient_birth_date.as_str(),
+            ),
+            ("PatientSex", DicomVr::CS, metadata.patient_sex.as_str()),
+            ("StudyDate", DicomVr::DA, metadata.study_date.as_str()),
+            ("StudyTime", DicomVr::TM, metadata.study_time.as_str()),
+            ("ContentDate", DicomVr::DA, metadata.content_date.as_str()),
+            ("ContentTime", DicomVr::TM, metadata.content_time.as_str()),
+            ("Manufacturer", DicomVr::LO, metadata.manufacturer.as_str()),
+        ] {
+            let address = address(keyword)?;
+            attributes.retain(|attribute| attribute.address != address);
+            push_text(&mut attributes, keyword, vr, value)?;
+        }
+    }
     push_text(
         &mut attributes,
         "NumberOfFrames",
@@ -1536,8 +1836,24 @@ fn common_attributes(
         &frames.to_string(),
     )?;
     if include_series_datetime {
-        push_text(&mut attributes, "SeriesDate", DicomVr::DA, "20260101")?;
-        push_text(&mut attributes, "SeriesTime", DicomVr::TM, "000000")?;
+        push_text(
+            &mut attributes,
+            "SeriesDate",
+            DicomVr::DA,
+            common
+                .patient_study
+                .as_ref()
+                .map_or("20260101", |value| value.study_date.as_str()),
+        )?;
+        push_text(
+            &mut attributes,
+            "SeriesTime",
+            DicomVr::TM,
+            common
+                .patient_study
+                .as_ref()
+                .map_or("000000", |value| value.study_time.as_str()),
+        )?;
     }
     for (keyword, value) in [
         ("SamplesPerPixel", 1),
@@ -1847,7 +2163,10 @@ fn mr_per_frame(input: &EnhancedMrInput) -> Result<ResolvedAttribute, EnhancedPl
     sequence("PerFrameFunctionalGroupsSequence", items)
 }
 
-fn pet_radiopharmaceutical() -> Result<ResolvedAttribute, EnhancedPlanError> {
+fn pet_radiopharmaceutical(
+    input: &EnhancedPetInput,
+) -> Result<ResolvedAttribute, EnhancedPlanError> {
+    let quantitation = input.quantitation.clone().unwrap_or_default();
     sequence(
         "RadiopharmaceuticalInformationSequence",
         vec![vec![
@@ -1863,11 +2182,19 @@ fn pet_radiopharmaceutical() -> Result<ResolvedAttribute, EnhancedPlanError> {
             set_text(
                 "RadiopharmaceuticalStartDateTime",
                 DicomVr::DT,
-                "20260101000000",
+                &quantitation.start_datetime,
             )?,
             set_text("RadionuclideTotalDose", DicomVr::DS, "")?,
-            set_text("RadionuclideHalfLife", DicomVr::DS, "6586.2")?,
-            set_text("RadionuclidePositronFraction", DicomVr::DS, "0.967")?,
+            set_text(
+                "RadionuclideHalfLife",
+                DicomVr::DS,
+                &quantitation.half_life_seconds,
+            )?,
+            set_text(
+                "RadionuclidePositronFraction",
+                DicomVr::DS,
+                &quantitation.positron_fraction,
+            )?,
             sequence_op(
                 "RadiopharmaceuticalCodeSequence",
                 vec![code_item("35321007", "SCT", "Fluorodeoxyglucose F^18^")?],
@@ -1877,10 +2204,23 @@ fn pet_radiopharmaceutical() -> Result<ResolvedAttribute, EnhancedPlanError> {
 }
 
 fn pet_shared(input: &EnhancedPetInput) -> Result<ResolvedAttribute, EnhancedPlanError> {
+    let quantitation = input.quantitation.clone().unwrap_or_default();
     let real_world_mapping = vec![
-        set_us("RealWorldValueFirstValueMapped", 0)?,
-        set_us("RealWorldValueLastValueMapped", 400)?,
-        set_fd("RealWorldValueIntercept", 0.0)?,
+        set_us(
+            "RealWorldValueFirstValueMapped",
+            quantitation.first_value_mapped,
+        )?,
+        set_us(
+            "RealWorldValueLastValueMapped",
+            quantitation.last_value_mapped,
+        )?,
+        set_fd(
+            "RealWorldValueIntercept",
+            input
+                .rescale_intercept
+                .parse::<f64>()
+                .map_err(|error| EnhancedPlanError::Attribute(error.to_string()))?,
+        )?,
         set_fd(
             "RealWorldValueSlope",
             input
@@ -1939,8 +2279,8 @@ fn pet_shared(input: &EnhancedPetInput) -> Result<ResolvedAttribute, EnhancedPla
             sequence_op(
                 "FrameVOILUTSequence",
                 vec![vec![
-                    set_text("WindowCenter", DicomVr::DS, "500")?,
-                    set_text("WindowWidth", DicomVr::DS, "1000")?,
+                    set_text("WindowCenter", DicomVr::DS, &quantitation.window_center)?,
+                    set_text("WindowWidth", DicomVr::DS, &quantitation.window_width)?,
                 ]],
             )?,
             sequence_op("RealWorldValueMappingSequence", vec![real_world_mapping])?,

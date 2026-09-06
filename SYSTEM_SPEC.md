@@ -1176,6 +1176,16 @@ admission rules. CLI/SDK equality, strict validation and report
 projection are separate same-project evidence; source-pinned corpus runs do
 not acquire qualification from a later generator capability change.
 
+External Enhanced recipes use a separate `0.2.0` schema with complete caller
+patient/study metadata and PET quantitation. The declared schema selects
+admission; `0.1.0` remains byte-identical in the frozen compatibility resource
+set. Typed artifact bindings carry caller logical IDs and explicit paths into
+the shared Enhanced planner. Manifest V2 records the caller capability and its
+declared metadata, geometry, frame dimensions and quantitative values so
+reopened validation checks the same contract without historical case-name or
+fixed-frame assumptions. The current resource identity includes the new schema
+without changing the transitional 240-member identity.
+
 `Part10Materializer` is the only ordinary valid DICOM writer. The executor may
 normalize a full Part 10 object only at an explicitly named external-provider
 import boundary. Such imports preserve request, tool, dependency, content,

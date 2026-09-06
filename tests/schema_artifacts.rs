@@ -95,6 +95,10 @@ const SCHEMAS: &[(&str, &str)] = &[
         "https://dicom-test-suite.local/schemas/case-recipe.schema.json",
     ),
     (
+        "schemas/case-recipe-v0.2.schema.json",
+        "https://synth-dicom-gen.local/schemas/case-recipe-v0.2.schema.json",
+    ),
+    (
         "schemas/standards-result.schema.json",
         "https://dicom-test-suite.local/schemas/standards-result.schema.json",
     ),

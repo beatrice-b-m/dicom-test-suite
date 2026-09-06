@@ -25,6 +25,8 @@ fn common(
     columns: u16,
 ) -> EnhancedCommonInput {
     EnhancedCommonInput {
+        artifact_logical_ids: vec![],
+        patient_study: None,
         case_id: case_id.into(),
         recipe_id: recipe_id.into(),
         recipe_version: "0.1.0".into(),
@@ -241,6 +243,7 @@ fn mr(recipe_id: &str) -> EnhancedProviderInput {
 
 fn pet() -> EnhancedProviderInput {
     EnhancedProviderInput::Pet(EnhancedPetInput {
+        quantitation: None,
         common: common(
             "enhanced/pet/multiframe_explicit_le",
             "enhanced_pet_multiframe_explicit_le",
@@ -523,4 +526,38 @@ fn provider_preserves_caller_owned_artifact_context() {
     assert_eq!(planned.order, expected.order);
     assert_eq!(planned.output, expected.output);
     assert_eq!(planned.instance.identities, expected.identities);
+}
+
+#[test]
+fn explicit_part_bindings_preserve_caller_ids_paths_and_context_order() {
+    let provider = EnhancedPlanProvider::new(LOCK).unwrap();
+    let mut input = concatenation();
+    let EnhancedProviderInput::Ct(value) = &mut input else {
+        unreachable!()
+    };
+    value.common.case_id = "caller/volume/pair".into();
+    value.common.recipe_id = "caller_pair".into();
+    value.common.artifact_logical_ids =
+        vec!["later_named_part".into(), "earlier_named_part".into()];
+    let mut req = request(&input);
+    req.artifact_contexts[0].order = 33;
+    req.artifact_contexts[1].order = 4;
+    req.artifact_contexts[0].output.relative_path =
+        OutputRelativePath::new("caller/a.dcm").unwrap();
+    req.artifact_contexts[1].output.relative_path =
+        OutputRelativePath::new("caller/b.dcm").unwrap();
+    req.artifact_contexts.reverse();
+    let output = provider.plan_typed(&req, &input).unwrap();
+    assert_eq!(output.artifacts[0].planned.logical_id, "later_named_part");
+    assert_eq!(output.artifacts[0].planned.order, 33);
+    assert_eq!(output.artifacts[1].planned.order, 4);
+    assert_eq!(
+        output.artifacts[0].planned.output.relative_path.as_str(),
+        "caller/a.dcm"
+    );
+    let EnhancedProviderInput::Ct(value) = &mut input else {
+        unreachable!()
+    };
+    value.common.artifact_logical_ids[1] = "missing_part".into();
+    assert!(provider.plan_typed(&req, &input).is_err());
 }

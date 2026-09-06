@@ -1,0 +1,1126 @@
+{
+  "case_registry_schema_version": "0.2.0",
+  "cases": [
+    {
+      "case_id": "caller/frames/acquisition-1",
+      "status": "implemented",
+      "profiles": [
+        "core"
+      ],
+      "recipe_id": "caller_frame_recipe_1",
+      "recipe_version": "0.1.0",
+      "iod_name": "Enhanced CT Image",
+      "sop_class_name": "Enhanced CT Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.2.1",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Enhanced CT Image Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod Enhanced CT Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.38-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Enhanced CT Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.38-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Multi-frame Functional Groups --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Multi-frame Dimension --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.17-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Enhanced CT Image --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-114"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element ConcatenationUID",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element InConcatenationNumber",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element InConcatenationTotalNumber",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element ConcatenationFrameOffsetNumber",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element SOPInstanceUIDOfConcatenationSource",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.7.6.16.1.3",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "sect_C.7.6.16.1.3"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "search_standard_text In-concatenation Number monotonically increasing",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-1"
+        }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "CT",
+      "object_family": "enhanced_image",
+      "compatibility_axes": [
+        "geometry",
+        "modality",
+        "pixels"
+      ],
+      "artifact_kind": "dicom_instance"
+    },
+    {
+      "case_id": "stress/enhanced-ct/many_frames",
+      "status": "implemented",
+      "profiles": [
+        "core"
+      ],
+      "recipe_id": "caller_frame_recipe_2",
+      "recipe_version": "0.1.0",
+      "iod_name": "Enhanced CT Image",
+      "sop_class_name": "Enhanced CT Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.2.1",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Enhanced CT Image Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod Enhanced CT Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.38-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Enhanced CT Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.38-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 table_A.38-2",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.38-2"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Multi-frame Functional Groups --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Multi-frame Dimension --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.17-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Enhanced CT Image --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-114"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 table_C.7.6.16-2",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-2"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 table_C.7.6.16-3",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-3"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.7.6.16.2.3",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-4"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.7.6.16.2.4",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-5"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.7.6.16.2.8",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-9"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.7.6.16.2.18",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-19"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "search_standard_text CT Image Frame Type Sequence",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-117"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "search_standard_text Pixel Value Transformation Sequence",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "sect_C.8.15.3.10"
+        }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "CT",
+      "object_family": "enhanced_image",
+      "compatibility_axes": [
+        "geometry",
+        "modality",
+        "pixels"
+      ],
+      "artifact_kind": "dicom_instance"
+    },
+    {
+      "case_id": "caller/frames/acquisition-3",
+      "status": "implemented",
+      "profiles": [
+        "core"
+      ],
+      "recipe_id": "caller_frame_recipe_3",
+      "recipe_version": "0.1.0",
+      "iod_name": "Enhanced MR Image",
+      "sop_class_name": "Enhanced MR Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.4.1",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Enhanced MR Image Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod Enhanced MR Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.36-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Enhanced MR Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.36-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 table_A.36-2",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.36-2"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Multi-frame Functional Groups --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Multi-frame Dimension --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.17-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Enhanced MR Image --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-79"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module MR Series --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-101"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 table_C.7.6.16-2",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-2"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 table_C.7.6.16-3",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-3"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.7.6.16.2.3",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-4"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.7.6.16.2.4",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-5"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.7.6.16.2.8",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-9"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.8.13.5.1",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-88"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.8.16.1.3",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-129"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.8.13.5.2",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-89"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.8.13.5.4",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-91"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "search_standard_text Pixel Value Transformation Sequence",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "sect_C.8.15.3.10"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "search_standard_text Volume Based Calculation Technique NONE Defined Terms",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-134"
+        }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "MR",
+      "object_family": "enhanced_image",
+      "compatibility_axes": [
+        "geometry",
+        "modality",
+        "pixels"
+      ],
+      "artifact_kind": "dicom_instance"
+    },
+    {
+      "case_id": "caller/frames/acquisition-4",
+      "status": "implemented",
+      "profiles": [
+        "core"
+      ],
+      "recipe_id": "caller_frame_recipe_4",
+      "recipe_version": "0.1.0",
+      "iod_name": "Enhanced MR Image",
+      "sop_class_name": "Enhanced MR Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.4.1",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Enhanced MR Image Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod Enhanced MR Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.36-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Enhanced MR Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.36-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 table_A.36-2",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.36-2"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Multi-frame Functional Groups --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Multi-frame Dimension --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.17-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Enhanced MR Image --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-79"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module MR Series --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-101"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 table_C.7.6.16-2",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-2"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.7.6.16.2.2",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-3"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.7.6.16.2.3",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-4"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.7.6.16.2.4",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-5"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.7.6.16.2.8",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-9"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.8.13.5.1",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-88"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.8.16.1.3",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-129"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.8.13.5.2",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-89"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.8.13.5.13",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-100"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.8.13.5.13.1",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "sect_C.8.13.5.13.1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "search_standard_text Pixel Value Transformation Sequence",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "sect_C.8.15.3.10"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "search_standard_text Volume Based Calculation Technique NONE Defined Terms",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-134"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element MRVelocityEncodingSequence",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element VelocityEncodingDirection",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element VelocityEncodingMinimumValue",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element VelocityEncodingMaximumValue",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element PhaseContrast",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "search_standard_text Phase Contrast Defined Terms YES NO",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-87"
+        }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "MR",
+      "object_family": "enhanced_image",
+      "compatibility_axes": [
+        "geometry",
+        "modality",
+        "pixels"
+      ],
+      "artifact_kind": "dicom_instance"
+    },
+    {
+      "case_id": "caller/frames/acquisition-5",
+      "status": "implemented",
+      "profiles": [
+        "core"
+      ],
+      "recipe_id": "caller_frame_recipe_5",
+      "recipe_version": "0.1.0",
+      "iod_name": "Enhanced MR Image",
+      "sop_class_name": "Enhanced MR Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.4.1",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Enhanced MR Image Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod Enhanced MR Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.36-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Enhanced MR Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.36-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 table_A.36-2",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.36-2"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Multi-frame Functional Groups --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Multi-frame Dimension --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.17-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Enhanced MR Image --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-79"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module MR Series --expand-macros",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-101"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 table_C.7.6.16-2",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-2"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.7.6.16.2.2",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-3"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.7.6.16.2.3",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-4"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.7.6.16.2.4",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-5"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.7.6.16.2.8",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-9"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.8.13.5.1",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-88"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.8.16.1.3",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-129"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.8.13.5.2",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-89"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 sect_C.7.6.16.2.23",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16.2.23-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "search_standard_text Pixel Value Transformation Sequence",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "sect_C.8.15.3.10"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "search_standard_text Volume Based Calculation Technique NONE Defined Terms",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8-134"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element TemporalPositionSequence",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element TemporalPositionTimeOffset",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element TemporalPositionIndex",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-2-enhanced-mr-temporal.md",
+          "covered": true,
+          "part": "PS3.3/PS3.16",
+          "anchor": "table_C.7-5a/table_C.8-79/table_C.8-83/table_C.8-84/table_C.8-88/table_C.8-89/table_C.7.6.16.2.23-1/table_CID_4031"
+        }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "MR",
+      "object_family": "enhanced_image",
+      "compatibility_axes": [
+        "geometry",
+        "modality",
+        "pixels"
+      ],
+      "artifact_kind": "dicom_instance"
+    },
+    {
+      "case_id": "caller/frames/acquisition-6",
+      "artifact_kind": "dicom_instance",
+      "status": "implemented",
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "object_family": "enhanced_image",
+      "compatibility_axes": [
+        "modality",
+        "geometry",
+        "quantitative",
+        "pixels"
+      ],
+      "roadmap": null,
+      "blockers": [],
+      "profiles": [
+        "core"
+      ],
+      "recipe_id": "caller_frame_recipe_6",
+      "recipe_version": "0.1.0",
+      "iod_name": "Enhanced PET Image",
+      "sop_class_name": "Enhanced PET Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.130",
+      "modality": "PT",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid EnhancedPETImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Enhanced PET Image Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod Enhanced PET Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.56-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Enhanced PET Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.56-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Enhanced PET Isotope",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8.22-9"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Enhanced PET Acquisition",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8.22-2"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Enhanced PET Image",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8.22-3"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_attributes_for_module Enhanced PET Corrections",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.8.22-19"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 table_A.56-2",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.56-2"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text PS3.3 table_C.7.6.16-7",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.7.6.16-7"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "search_standard_text PS3.16 CID 11 84 4020 4021",
+          "covered": true,
+          "part": "PS3.16",
+          "anchor": "sect_CID_4020"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-2-enhanced-pet-multiframe.md",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.56-1"
+        }
+      ]
+    }
+  ]
+}

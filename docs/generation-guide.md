@@ -738,6 +738,36 @@ providers, and exact unavailable reasons remain machine-readable.
 
 ## 3. Select A Profile
 
+#### Caller-defined native Enhanced CT, MR and PET
+
+External bundles can use case recipe schema `0.2.0` for caller-owned Enhanced
+CT functional groups and concatenations, MR echo/temporal/velocity dimensions,
+and PET multiframe images. Use `native.enhanced_plan`, `algorithm.enhanced`,
+the matching qualified Enhanced template at `1.0.0`, native content, and
+Explicit VR Little Endian. The complete typed family and template bindings
+select the capability; case names, recipe names, artifact logical IDs, unique
+orders and explicit output paths are caller values.
+
+Each declaration supplies a complete `common.patient_study` tuple: patient
+name, ID, birth date and sex; study/content dates and times; and manufacturer.
+Geometry, dimensions, frame pixels, rescale and family-specific acquisition
+values remain explicit. PET also requires the complete `quantitation` tuple
+for mapping bounds, window, isotope start time, half-life and positron fraction.
+Generation and reopened validation check the declared shape, ordered frame
+semantics and quantitative relationships. These synthetic values do not
+establish clinical quantitative accuracy.
+
+The [recipe schema](../schemas/case-recipe-v0.2.schema.json) and
+[external example bundle](../tests/fixtures/generic-enhanced-corpus/definition.json)
+define the accepted fields. Recipe `0.2.0` is valid-only: the CT `stress` flag
+must be false, and historical-looking case names do not opt into stress evidence.
+Existing recipe `0.1.0` stress remains separately opt-in. Recipe `0.1.0`
+remains a separate, unchanged
+historical contract; its omitted metadata retains the original synthetic
+defaults and payload identities. Source-pinned migration parity is separate
+from qualification of the newer caller capability. This native contract adds
+no codec, independent-conformance, viewer, full-scale stress or release claim.
+
 ### Valid file corpora
 
 - `smoke` is the quickest ingestion sanity check: three tiny, byte-stable

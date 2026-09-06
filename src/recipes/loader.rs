@@ -2,6 +2,7 @@ use super::classic_vl_projection::{inspect_vl_photo_capability, inspect_xa_xrf_c
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
+use std::sync::OnceLock;
 
 use serde::Deserialize;
 use serde_json::Value;
@@ -45,6 +46,21 @@ pub use robustness::{
 };
 
 const CASE_RECIPE_SCHEMA: &str = include_str!("../../schemas/case-recipe.schema.json");
+const CASE_RECIPE_SCHEMA_V02: &str = include_str!("../../schemas/case-recipe-v0.2.schema.json");
+
+fn recipe_validator(value: &Value) -> &'static jsonschema::Validator {
+    static LEGACY: OnceLock<jsonschema::Validator> = OnceLock::new();
+    static CALLER: OnceLock<jsonschema::Validator> = OnceLock::new();
+    let (cache, source) = if value["case_recipe_schema_version"] == "0.2.0" {
+        (&CALLER, CASE_RECIPE_SCHEMA_V02)
+    } else {
+        (&LEGACY, CASE_RECIPE_SCHEMA)
+    };
+    cache.get_or_init(|| {
+        let schema: Value = serde_json::from_str(source).expect("embedded recipe schema");
+        jsonschema::validator_for(&schema).expect("case recipe schema compiles")
+    })
+}
 
 /// Inspect an integrity-captured caller recipe using the same schema,
 /// registered engine IDs, and shape rules as the embedded recipe catalog.
@@ -53,8 +69,7 @@ pub(crate) fn inspect_corpus_recipe(
     value: Value,
 ) -> Result<Vec<(String, String)>, RecipeCatalogError> {
     let path = Path::new(logical_path);
-    let schema: Value = serde_json::from_str(CASE_RECIPE_SCHEMA).expect("embedded recipe schema");
-    let validator = jsonschema::validator_for(&schema).expect("case recipe schema compiles");
+    let validator = recipe_validator(&value);
     let errors = validator
         .iter_errors(&value)
         .map(|error| error.to_string())
@@ -229,9 +244,6 @@ impl RecipeCatalog {
         documents: Vec<(PathBuf, Vec<u8>)>,
         engine_default_closure: Option<&Path>,
     ) -> Result<Self, RecipeCatalogError> {
-        let schema: Value =
-            serde_json::from_str(CASE_RECIPE_SCHEMA).expect("embedded recipe schema");
-        let validator = jsonschema::validator_for(&schema).expect("case recipe schema compiles");
         let mut recipes = BTreeMap::new();
         let mut bindings = BTreeMap::new();
 
@@ -241,6 +253,7 @@ impl RecipeCatalog {
                     path: path.clone(),
                     message: error.to_string(),
                 })?;
+            let validator = recipe_validator(&value);
             let errors = validator
                 .iter_errors(&value)
                 .map(|error| error.to_string())
@@ -587,10 +600,12 @@ fn validate_shape(path: &Path, recipe: &CaseRecipe) -> Result<(), RecipeCatalogE
                 ));
             }
         }
-        if orders
-            .iter()
-            .copied()
-            .ne(0..u32::try_from(orders.len()).unwrap_or(u32::MAX))
+        if !(recipe.plan_provider_id == ENHANCED_PLAN_PROVIDER_ID
+            && recipe.case_recipe_schema_version == "0.2.0")
+            && orders
+                .iter()
+                .copied()
+                .ne(0..u32::try_from(orders.len()).unwrap_or(u32::MAX))
         {
             return Err(semantic(
                 path,

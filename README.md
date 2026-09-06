@@ -174,6 +174,11 @@ RGB geometry and metadata for photographic, endoscopic and microscopic images,
 with optional structurally validated ICC v2 RGB input profiles. See the
 [VL contract](docs/generation-guide.md#caller-defined-native-visible-light-images).
 
+Caller-defined [encapsulated PDF and binary STL](docs/generation-guide.md#caller-defined-encapsulated-pdf-and-binary-stl)
+accept explicit payload bytes and metadata with strict reopening. PDF framing
+and STL geometry checks are same-project evidence; external format conformance
+and mesh topology are not assessed.
+
 Caller-defined [one-bit and unsigned 32-bit Secondary Capture](docs/generation-guide.md#caller-defined-one-bit-and-unsigned-32-bit-secondary-capture)
 uses explicit metadata and pixel declarations with checked native packing,
 strict reopening and report2 coverage. Historical recipe bytes remain separate.

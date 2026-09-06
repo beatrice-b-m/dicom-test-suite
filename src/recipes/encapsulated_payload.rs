@@ -30,6 +30,8 @@ use super::{
 pub const ENCAPSULATED_PAYLOAD_PLAN_PROVIDER_ID: &str = "native.encapsulated_payload_plan";
 pub const DECLARED_BYTE_PAYLOAD_CONTENT_PROVIDER_ID: &str = "content.declared_byte_payload";
 pub const MINIMAL_PDF_ALGORITHM_PROVIDER_ID: &str = "algorithm.encapsulated_pdf_minimal";
+pub const CALLER_PDF_ALGORITHM_PROVIDER_ID: &str = "algorithm.encapsulated_pdf_bytes";
+pub const CALLER_STL_ALGORITHM_PROVIDER_ID: &str = "algorithm.binary_stl_bytes";
 pub const BINARY_STL_ALGORITHM_PROVIDER_ID: &str = "algorithm.binary_stl_tetrahedron";
 
 const MINIMAL_PDF: &[u8] = b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 72 72] >>\nendobj\nxref\n0 4\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \ntrailer\n<< /Size 4 /Root 1 0 R >>\nstartxref\n184\n%%EOF\n";
@@ -58,11 +60,48 @@ pub struct EncapsulatedPayloadPlanInput {
     pub recognizable_visual_features: String,
     pub payload: EncapsulatedPayload,
     pub projection: EncapsulatedPayloadProjection,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub caller_metadata: Option<EncapsulatedCallerMetadata>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EncapsulatedCallerMetadata {
+    pub patient_birth_date: String,
+    pub patient_sex: String,
+    pub study_date: String,
+    pub study_time: String,
+    pub content_date: String,
+    pub content_time: String,
+    pub manufacturer: String,
+    pub software_versions: String,
+    pub instance_number: String,
+    pub instance_creation_date: String,
+    pub instance_creation_time: String,
+    pub referring_physician_name: String,
+    pub accession_number: String,
+    pub position_reference_indicator: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum EncapsulatedPayload {
+    CallerPdf {
+        mime_type: String,
+        declared_size_bytes: u64,
+        declared_sha256: String,
+        bytes_hex: String,
+    },
+    CallerBinaryStl {
+        mime_type: String,
+        declared_size_bytes: u64,
+        declared_sha256: String,
+        bytes_hex: String,
+        triangle_count: u32,
+        unit_code_value: String,
+        unit_coding_scheme: String,
+        unit_code_meaning: String,
+    },
     MinimalPdf {
         mime_type: String,
         declared_size_bytes: u64,
@@ -111,13 +150,15 @@ pub fn encapsulated_payload_input_from_recipe(
     )
     .map_err(|error| EncapsulatedPayloadPlanError::Recipe(error.to_string()))?;
     let expected_algorithm = match &parameters.payload {
+        EncapsulatedPayload::CallerPdf { .. } => CALLER_PDF_ALGORITHM_PROVIDER_ID,
+        EncapsulatedPayload::CallerBinaryStl { .. } => CALLER_STL_ALGORITHM_PROVIDER_ID,
         EncapsulatedPayload::MinimalPdf { .. } => MINIMAL_PDF_ALGORITHM_PROVIDER_ID,
         EncapsulatedPayload::ClosedTetrahedronBinaryStl { .. } => BINARY_STL_ALGORITHM_PROVIDER_ID,
     };
     if artifact.algorithm_provider_id.as_deref() != Some(expected_algorithm) {
         return Err(error("encapsulated payload algorithm is not registered"));
     }
-    Ok(Some(EncapsulatedPayloadPlanInput {
+    let input = EncapsulatedPayloadPlanInput {
         case_id: recipe.binding.case_id.clone(),
         recipe: recipe.identity(),
         artifact_logical_id: artifact.logical_id.clone(),
@@ -148,7 +189,95 @@ pub fn encapsulated_payload_input_from_recipe(
         recognizable_visual_features: parameters.recognizable_visual_features,
         payload: parameters.payload,
         projection: parameters.projection,
-    }))
+        caller_metadata: parameters.caller_metadata,
+    };
+    let caller = matches!(
+        input.payload,
+        EncapsulatedPayload::CallerPdf { .. } | EncapsulatedPayload::CallerBinaryStl { .. }
+    );
+    if caller {
+        if recipe.case_recipe_schema_version != "0.2.0"
+            || recipe.planning_order.is_none()
+            || recipe.projection_order.is_none()
+            || !recipe.dependencies.is_empty()
+            || artifact.output.provider_derived == Some(true)
+            || !artifact.attribute_operations.is_empty()
+            || !artifact.parameters.is_empty()
+            || !artifact.content.parameters.is_empty()
+            || artifact.secondary_capture.is_some()
+            || artifact.metadata_sc.is_some()
+            || artifact.classic_projection.is_some()
+            || artifact.public_profile_membership.is_some()
+            || artifact.encoding.transfer_syntax_uid != "1.2.840.10008.1.2.1"
+            || artifact.encoding.sequence_length_policy != "default"
+            || artifact.encoding.item_length_policy != "default"
+            || artifact.encoding.offset_table_policy != "none"
+            || artifact.encoding.fragmentation_policy != "native"
+            || artifact
+                .encoding
+                .non_template_encoding_provider_id
+                .is_some()
+            || artifact.encoding.preamble_policy.as_deref() != Some("zero_filled")
+            || artifact.encoding.file_meta_policy.as_deref() != Some("standard")
+            || artifact
+                .template
+                .as_ref()
+                .is_none_or(|t| t.template_version != "1.0.0")
+        {
+            return Err(error(
+                "caller encapsulated payload requires complete recipe0.2 native declaration",
+            ));
+        }
+        let pdf = matches!(input.payload, EncapsulatedPayload::CallerPdf { .. });
+        if pdf
+            && recipe
+                .validation_rule_ids
+                .iter()
+                .chain(artifact.validation_rule_ids.iter())
+                .any(|v| v == "validation.pdf.structure")
+        {
+            return Err(error(
+                "caller PDF is opaque payload integrity, not PDF conformance",
+            ));
+        }
+        let validation_rule = if pdf {
+            "validation.encapsulated_document"
+        } else {
+            "validation.manufacturing_model"
+        };
+        let projection_rule = if pdf {
+            "projection.encapsulated_document"
+        } else {
+            "projection.encapsulated_mesh"
+        };
+        if !recipe
+            .projection_rule_ids
+            .iter()
+            .any(|v| v == projection_rule)
+            || !artifact
+                .projection_rule_ids
+                .iter()
+                .any(|v| v == projection_rule)
+            || !recipe
+                .validation_rule_ids
+                .iter()
+                .any(|v| v == validation_rule)
+            || !artifact
+                .validation_rule_ids
+                .iter()
+                .any(|v| v == validation_rule)
+        {
+            return Err(error(
+                "caller encapsulated validation/projection rules differ",
+            ));
+        }
+        validate_caller_encapsulated_input(&input)?;
+    } else if input.caller_metadata.is_some() {
+        return Err(error(
+            "caller metadata requires explicit caller payload variant",
+        ));
+    }
+    Ok(Some(input))
 }
 
 #[derive(Debug, Deserialize)]
@@ -170,6 +299,299 @@ struct EncapsulatedDocumentParameters {
     recognizable_visual_features: String,
     payload: EncapsulatedPayload,
     projection: EncapsulatedPayloadProjection,
+    #[serde(default)]
+    caller_metadata: Option<EncapsulatedCallerMetadata>,
+}
+
+/// Decode bounded caller bytes and reuse the registered neutral content checks.
+pub fn caller_encapsulated_bytes(
+    input: &EncapsulatedPayloadPlanInput,
+) -> Result<Vec<u8>, EncapsulatedPayloadPlanError> {
+    let (hex, mime, size, hash, triangles) = match &input.payload {
+        EncapsulatedPayload::CallerPdf {
+            bytes_hex,
+            mime_type,
+            declared_size_bytes,
+            declared_sha256,
+        } => (
+            bytes_hex,
+            mime_type,
+            *declared_size_bytes,
+            declared_sha256,
+            None,
+        ),
+        EncapsulatedPayload::CallerBinaryStl {
+            bytes_hex,
+            mime_type,
+            declared_size_bytes,
+            declared_sha256,
+            triangle_count,
+            ..
+        } => (
+            bytes_hex,
+            mime_type,
+            *declared_size_bytes,
+            declared_sha256,
+            Some(*triangle_count),
+        ),
+        _ => return Err(error("caller bytes require an explicit caller variant")),
+    };
+    if size == 0
+        || size > ContentProviderLimits::default().max_output_bytes
+        || hex.len() as u64
+            != size
+                .checked_mul(2)
+                .ok_or_else(|| error("payload size overflow"))?
+        || !hex.bytes().all(|b| b.is_ascii_hexdigit())
+    {
+        return Err(error("caller payload hex/size exceeds bounded contract"));
+    }
+    let bytes = hex
+        .as_bytes()
+        .chunks_exact(2)
+        .map(|b| u8::from_str_radix(std::str::from_utf8(b).unwrap(), 16).unwrap())
+        .collect::<Vec<_>>();
+    let request = if let Some(triangle_count) = triangles {
+        if mime != "model/stl" || triangle_count == 0 {
+            return Err(error("caller STL MIME type differs"));
+        }
+        ContentProviderRequest::Mesh(MeshContract {
+            target: content_target()?,
+            format: MeshFormat::BinaryStl,
+            declared_size_bytes: size,
+            declared_sha256: hash.clone(),
+            triangle_count: Some(triangle_count),
+            bytes: bytes.clone(),
+        })
+    } else {
+        let header = bytes.get(..8).is_some_and(|h| {
+            h == b"%PDF-2.0" || (h.starts_with(b"%PDF-1.") && (b'0'..=b'7').contains(&h[7]))
+        });
+        let end = bytes
+            .iter()
+            .rposition(|b| !b.is_ascii_whitespace())
+            .map_or(0, |i| i + 1);
+        if mime != "application/pdf"
+            || !header
+            || !matches!(bytes.get(8), Some(b'\r' | b'\n'))
+            || !bytes[..end].ends_with(b"%%EOF")
+        {
+            return Err(error(
+                "caller PDF requires declared MIME and PDF header/EOF framing; structure remains unassessed",
+            ));
+        }
+        ContentProviderRequest::EncapsulatedDocument(BytePayloadContract {
+            target: content_target()?,
+            media_type: mime.clone(),
+            declared_size_bytes: size,
+            declared_sha256: hash.clone(),
+            bytes: bytes.clone(),
+        })
+    };
+    NeutralContentProvider
+        .expand(&request, ContentProviderLimits::default())
+        .map_err(|e| EncapsulatedPayloadPlanError::Content(e.to_string()))?;
+    if triangles.is_some() {
+        caller_stl_bounds(&bytes)?;
+    }
+    Ok(bytes)
+}
+
+pub fn caller_stl_bounds(
+    bytes: &[u8],
+) -> Result<([f64; 3], [f64; 3]), EncapsulatedPayloadPlanError> {
+    if bytes.len() < 84 {
+        return Err(error("truncated binary STL"));
+    }
+    let count = u32::from_le_bytes(bytes[80..84].try_into().unwrap());
+    if count == 0 || 84_u64 + 50 * u64::from(count) != bytes.len() as u64 {
+        return Err(error("STL triangle count/extent differs"));
+    }
+    let mut low = [f64::INFINITY; 3];
+    let mut high = [f64::NEG_INFINITY; 3];
+    for triangle in bytes[84..].chunks_exact(50) {
+        if triangle[..48]
+            .chunks_exact(4)
+            .any(|w| !f32::from_le_bytes(w.try_into().unwrap()).is_finite())
+            || triangle[48..50] != [0, 0]
+        {
+            return Err(error("STL floats must be finite and attribute counts zero"));
+        }
+        for vertex in triangle[12..48].chunks_exact(12) {
+            for axis in 0..3 {
+                let v = f64::from(f32::from_le_bytes(
+                    vertex[axis * 4..axis * 4 + 4].try_into().unwrap(),
+                ));
+                low[axis] = low[axis].min(v);
+                high[axis] = high[axis].max(v);
+            }
+        }
+    }
+    Ok((low, high))
+}
+
+pub fn validate_caller_encapsulated_input(
+    input: &EncapsulatedPayloadPlanInput,
+) -> Result<(), EncapsulatedPayloadPlanError> {
+    let m = input
+        .caller_metadata
+        .as_ref()
+        .ok_or_else(|| error("complete caller metadata is required"))?;
+    let stl = matches!(input.payload, EncapsulatedPayload::CallerBinaryStl { .. });
+    if !stl && !m.position_reference_indicator.is_empty() {
+        return Err(error(
+            "caller PDF has no Frame of Reference position indicator",
+        ));
+    }
+    if m.instance_number.trim().is_empty() {
+        return Err(error("caller encapsulated InstanceNumber is Type 1"));
+    }
+    if stl
+        && [
+            m.manufacturer.as_str(),
+            m.software_versions.as_str(),
+            input.manufacturer_model_name.as_str(),
+            input.device_serial_number.as_str(),
+        ]
+        .iter()
+        .any(|s| s.trim().is_empty())
+    {
+        return Err(error("caller STL equipment Type 1 values must be nonempty"));
+    }
+
+    let (sop, template, modality) = if stl {
+        ("1.2.840.10008.5.1.4.1.1.104.3", "non-image/mesh/stl", "M3D")
+    } else {
+        (
+            "1.2.840.10008.5.1.4.1.1.104.1",
+            "non-image/encapsulated-document/pdf",
+            "DOC",
+        )
+    };
+    if input.sop_class_uid != sop
+        || input.template_id != template
+        || input.modality != modality
+        || input.burned_in_annotation != "NO"
+        || input.recognizable_visual_features != "NO"
+        || !matches!(m.patient_sex.as_str(), "" | "M" | "F" | "O")
+    {
+        return Err(error(
+            "caller encapsulated SOP/template or nonclaims differ",
+        ));
+    }
+    for (keyword, vr, text) in [
+        ("PatientName", DicomVr::PN, input.patient_name.as_str()),
+        ("PatientID", DicomVr::LO, input.patient_id.as_str()),
+        (
+            "PatientBirthDate",
+            DicomVr::DA,
+            m.patient_birth_date.as_str(),
+        ),
+        ("PatientSex", DicomVr::CS, m.patient_sex.as_str()),
+        ("StudyDate", DicomVr::DA, m.study_date.as_str()),
+        ("StudyTime", DicomVr::TM, m.study_time.as_str()),
+        ("ContentDate", DicomVr::DA, m.content_date.as_str()),
+        ("ContentTime", DicomVr::TM, m.content_time.as_str()),
+        (
+            "InstanceCreationDate",
+            DicomVr::DA,
+            m.instance_creation_date.as_str(),
+        ),
+        (
+            "InstanceCreationTime",
+            DicomVr::TM,
+            m.instance_creation_time.as_str(),
+        ),
+        ("StudyID", DicomVr::SH, input.study_id.as_str()),
+        ("SeriesNumber", DicomVr::IS, input.series_number.as_str()),
+        (
+            "SeriesDescription",
+            DicomVr::LO,
+            input.series_description.as_str(),
+        ),
+        ("Manufacturer", DicomVr::LO, m.manufacturer.as_str()),
+        (
+            "ManufacturerModelName",
+            DicomVr::LO,
+            input.manufacturer_model_name.as_str(),
+        ),
+        (
+            "DeviceSerialNumber",
+            DicomVr::LO,
+            input.device_serial_number.as_str(),
+        ),
+        (
+            "SoftwareVersions",
+            DicomVr::LO,
+            m.software_versions.as_str(),
+        ),
+        ("InstanceNumber", DicomVr::IS, m.instance_number.as_str()),
+        (
+            "AcquisitionDateTime",
+            DicomVr::DT,
+            input.acquisition_datetime.as_str(),
+        ),
+        ("DocumentTitle", DicomVr::ST, input.document_title.as_str()),
+        (
+            "ReferringPhysicianName",
+            DicomVr::PN,
+            m.referring_physician_name.as_str(),
+        ),
+        ("AccessionNumber", DicomVr::SH, m.accession_number.as_str()),
+        (
+            "PositionReferenceIndicator",
+            DicomVr::LO,
+            m.position_reference_indicator.as_str(),
+        ),
+    ] {
+        if !text.is_ascii() || text.contains('\\') {
+            return Err(error("caller metadata requires singleton ASCII text"));
+        }
+        AttributeOperation::Set {
+            address: address(keyword)?,
+            vr,
+            value: AttributeValue::Primitive(PrimitiveValue::String(text.into())),
+        }
+        .validate_declared_vr()
+        .map_err(|e| error(&e.to_string()))?;
+    }
+    if let EncapsulatedPayload::CallerBinaryStl {
+        unit_code_value,
+        unit_coding_scheme,
+        unit_code_meaning,
+        ..
+    } = &input.payload
+    {
+        let description = input
+            .content_description
+            .as_deref()
+            .ok_or_else(|| error("caller STL content description required"))?;
+        for (keyword, vr, text) in [
+            ("ContentDescription", DicomVr::LO, description),
+            ("CodeValue", DicomVr::SH, unit_code_value.as_str()),
+            (
+                "CodingSchemeDesignator",
+                DicomVr::SH,
+                unit_coding_scheme.as_str(),
+            ),
+            ("CodeMeaning", DicomVr::LO, unit_code_meaning.as_str()),
+        ] {
+            if text.is_empty() || !text.is_ascii() || text.contains('\\') {
+                return Err(error("caller STL code/description must be singleton text"));
+            }
+            AttributeOperation::Set {
+                address: address(keyword)?,
+                vr,
+                value: AttributeValue::Primitive(PrimitiveValue::String(text.into())),
+            }
+            .validate_declared_vr()
+            .map_err(|e| error(&e.to_string()))?;
+        }
+    } else if input.content_description.is_some() {
+        return Err(error("caller PDF does not encode STL content description"));
+    }
+    caller_encapsulated_bytes(input)?;
+    Ok(())
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -187,6 +609,57 @@ impl EncapsulatedPayloadPlanProvider {
             .map_err(EncapsulatedPayloadPlanError::Context)?;
         let ids = Identities::from_context(context, input)?;
         let (request, bytes, media_type, validation_ids) = match &input.payload {
+            EncapsulatedPayload::CallerPdf {
+                mime_type,
+                declared_size_bytes,
+                declared_sha256,
+                ..
+            } => {
+                validate_caller_encapsulated_input(input)?;
+                let bytes = caller_encapsulated_bytes(input)?;
+                (
+                    ContentProviderRequest::EncapsulatedDocument(BytePayloadContract {
+                        target: content_target()?,
+                        media_type: mime_type.clone(),
+                        declared_size_bytes: *declared_size_bytes,
+                        declared_sha256: declared_sha256.clone(),
+                        bytes: bytes.clone(),
+                    }),
+                    bytes,
+                    mime_type.clone(),
+                    vec![
+                        "validation.encapsulated_document",
+                        "validation.content.integrity",
+                    ],
+                )
+            }
+            EncapsulatedPayload::CallerBinaryStl {
+                mime_type,
+                declared_size_bytes,
+                declared_sha256,
+                triangle_count,
+                ..
+            } => {
+                validate_caller_encapsulated_input(input)?;
+                let bytes = caller_encapsulated_bytes(input)?;
+                (
+                    ContentProviderRequest::Mesh(MeshContract {
+                        target: content_target()?,
+                        format: MeshFormat::BinaryStl,
+                        declared_size_bytes: *declared_size_bytes,
+                        declared_sha256: declared_sha256.clone(),
+                        triangle_count: Some(*triangle_count),
+                        bytes: bytes.clone(),
+                    }),
+                    bytes,
+                    mime_type.clone(),
+                    vec![
+                        "validation.manufacturing_model",
+                        "validation.stl.structure",
+                        "validation.content.integrity",
+                    ],
+                )
+            }
             EncapsulatedPayload::MinimalPdf {
                 mime_type,
                 declared_size_bytes,
@@ -201,7 +674,7 @@ impl EncapsulatedPayloadPlanProvider {
                 }),
                 MINIMAL_PDF.to_vec(),
                 mime_type.clone(),
-                [
+                vec![
                     "validation.encapsulated_document",
                     "validation.pdf.structure",
                     "validation.content.integrity",
@@ -226,7 +699,7 @@ impl EncapsulatedPayloadPlanProvider {
                     }),
                     bytes,
                     mime_type.clone(),
-                    [
+                    vec![
                         "validation.manufacturing_model",
                         "validation.stl.structure",
                         "validation.content.integrity",
@@ -345,7 +818,9 @@ fn attributes(
     let stl = matches!(
         &input.payload,
         EncapsulatedPayload::ClosedTetrahedronBinaryStl { .. }
+            | EncapsulatedPayload::CallerBinaryStl { .. }
     );
+    let metadata = input.caller_metadata.as_ref();
     let mut attributes = Vec::new();
     if stl {
         attributes.push(resolved_string(
@@ -374,16 +849,49 @@ fn attributes(
         (
             "PatientBirthDate",
             DicomVr::DA,
-            if stl { "" } else { "19700101" },
+            metadata
+                .map(|m| m.patient_birth_date.as_str())
+                .unwrap_or(if stl { "" } else { "19700101" }),
             false,
         ),
-        ("PatientSex", DicomVr::CS, if stl { "" } else { "O" }, false),
+        (
+            "PatientSex",
+            DicomVr::CS,
+            metadata
+                .map(|m| m.patient_sex.as_str())
+                .unwrap_or(if stl { "" } else { "O" }),
+            false,
+        ),
         ("StudyInstanceUID", DicomVr::UI, ids.study.as_str(), true),
-        ("StudyDate", DicomVr::DA, "20260101", false),
-        ("StudyTime", DicomVr::TM, "000000", false),
-        ("ReferringPhysicianName", DicomVr::PN, "", false),
+        (
+            "StudyDate",
+            DicomVr::DA,
+            metadata
+                .map(|m| m.study_date.as_str())
+                .unwrap_or("20260101"),
+            false,
+        ),
+        (
+            "StudyTime",
+            DicomVr::TM,
+            metadata.map(|m| m.study_time.as_str()).unwrap_or("000000"),
+            false,
+        ),
+        (
+            "ReferringPhysicianName",
+            DicomVr::PN,
+            metadata
+                .map(|m| m.referring_physician_name.as_str())
+                .unwrap_or(""),
+            false,
+        ),
         ("StudyID", DicomVr::SH, input.study_id.as_str(), false),
-        ("AccessionNumber", DicomVr::SH, "", false),
+        (
+            "AccessionNumber",
+            DicomVr::SH,
+            metadata.map(|m| m.accession_number.as_str()).unwrap_or(""),
+            false,
+        ),
         ("Modality", DicomVr::CS, input.modality.as_str(), false),
         ("SeriesInstanceUID", DicomVr::UI, ids.series.as_str(), true),
         (
@@ -398,7 +906,14 @@ fn attributes(
             input.series_description.as_str(),
             false,
         ),
-        ("Manufacturer", DicomVr::LO, "dicom-test-suite", false),
+        (
+            "Manufacturer",
+            DicomVr::LO,
+            metadata
+                .map(|m| m.manufacturer.as_str())
+                .unwrap_or("dicom-test-suite"),
+            false,
+        ),
         (
             "ManufacturerModelName",
             DicomVr::LO,
@@ -414,12 +929,33 @@ fn attributes(
         (
             "SoftwareVersions",
             DicomVr::LO,
-            BYTE_STABLE_OUTPUT_VERSION,
+            metadata
+                .map(|m| m.software_versions.as_str())
+                .unwrap_or(BYTE_STABLE_OUTPUT_VERSION),
             false,
         ),
-        ("InstanceNumber", DicomVr::IS, "1", false),
-        ("ContentDate", DicomVr::DA, "20260101", false),
-        ("ContentTime", DicomVr::TM, "000000", false),
+        (
+            "InstanceNumber",
+            DicomVr::IS,
+            metadata.map(|m| m.instance_number.as_str()).unwrap_or("1"),
+            false,
+        ),
+        (
+            "ContentDate",
+            DicomVr::DA,
+            metadata
+                .map(|m| m.content_date.as_str())
+                .unwrap_or("20260101"),
+            false,
+        ),
+        (
+            "ContentTime",
+            DicomVr::TM,
+            metadata
+                .map(|m| m.content_time.as_str())
+                .unwrap_or("000000"),
+            false,
+        ),
         (
             "AcquisitionDateTime",
             DicomVr::DT,
@@ -453,10 +989,40 @@ fn attributes(
     ] {
         attributes.push(resolved_string(keyword, vr, value, structural)?);
     }
+    if !stl {
+        if let Some(metadata) = metadata {
+            attributes.push(resolved_string(
+                "InstanceCreationDate",
+                DicomVr::DA,
+                &metadata.instance_creation_date,
+                false,
+            )?);
+            attributes.push(resolved_string(
+                "InstanceCreationTime",
+                DicomVr::TM,
+                &metadata.instance_creation_time,
+                false,
+            )?);
+        }
+    }
     if stl {
         attributes.extend([
-            resolved_string("InstanceCreationDate", DicomVr::DA, "20260101", false)?,
-            resolved_string("InstanceCreationTime", DicomVr::TM, "000000", false)?,
+            resolved_string(
+                "InstanceCreationDate",
+                DicomVr::DA,
+                metadata
+                    .map(|m| m.instance_creation_date.as_str())
+                    .unwrap_or("20260101"),
+                false,
+            )?,
+            resolved_string(
+                "InstanceCreationTime",
+                DicomVr::TM,
+                metadata
+                    .map(|m| m.instance_creation_time.as_str())
+                    .unwrap_or("000000"),
+                false,
+            )?,
             resolved_string("InstanceCreatorUID", DicomVr::UI, &ids.implementation, true)?,
             resolved_string(
                 "FrameOfReferenceUID",
@@ -466,7 +1032,14 @@ fn attributes(
                     .ok_or(EncapsulatedPayloadPlanError::MissingFrameOfReference)?,
                 true,
             )?,
-            resolved_string("PositionReferenceIndicator", DicomVr::LO, "", false)?,
+            resolved_string(
+                "PositionReferenceIndicator",
+                DicomVr::LO,
+                metadata
+                    .map(|m| m.position_reference_indicator.as_str())
+                    .unwrap_or(""),
+                false,
+            )?,
             resolved_string("ModelModification", DicomVr::CS, "NO", false)?,
             resolved_string("ModelMirroring", DicomVr::CS, "NO", false)?,
             resolved_string(
@@ -481,6 +1054,12 @@ fn attributes(
             vec![code_item("129006", "DCM", "Anatomical Model")?],
         )?);
         if let EncapsulatedPayload::ClosedTetrahedronBinaryStl {
+            unit_code_value,
+            unit_coding_scheme,
+            unit_code_meaning,
+            ..
+        }
+        | EncapsulatedPayload::CallerBinaryStl {
             unit_code_value,
             unit_coding_scheme,
             unit_code_meaning,
@@ -646,6 +1225,7 @@ impl Identities {
         if matches!(
             &input.payload,
             EncapsulatedPayload::ClosedTetrahedronBinaryStl { .. }
+                | EncapsulatedPayload::CallerBinaryStl { .. }
         ) && result.frame_of_reference.is_none()
         {
             return Err(EncapsulatedPayloadPlanError::MissingFrameOfReference);

@@ -29,6 +29,7 @@ use crate::runtime_capabilities::CapabilityInventory;
 
 mod corpus_generation;
 mod corpus_report;
+mod encapsulated;
 mod icc;
 mod report_contract;
 mod vl;
@@ -3754,6 +3755,16 @@ fn validate_encapsulated_stl_manifest_contract_for_kind(
     manifest_path: &Path,
     file: &Value,
 ) -> Result<(), ValidateError> {
+    match crate::encapsulated::validate_manifest(file) {
+        Ok(true) => return Ok(()),
+        Ok(false) => {}
+        Err(_) => {
+            return Err(ValidateError::ManifestShape {
+                path: manifest_path.to_path_buf(),
+                message: "invalid caller encapsulated declaration",
+            });
+        }
+    }
     const CASE_ID: &str = "derived/mesh/encapsulated_stl";
     let is_stl = if kind == manifest_contract::ManifestContractKind::ExternalCorpus {
         file.get("expected_encapsulated_stl").is_some()
@@ -10900,6 +10911,19 @@ fn validate_family_standard_elements_with_context(
     obj: &OpenedObject,
     reduced_wsi: Option<&ReducedStressWsiContext>,
 ) -> Result<(), ValidateError> {
+    match crate::encapsulated::validate_manifest(file) {
+        Ok(true) => {
+            if let Err(error) = crate::encapsulated::validate_object(file, obj) {
+                failures.push(format!("{relative_path}: {error}"));
+            }
+            return Ok(());
+        }
+        Ok(false) => {}
+        Err(error) => {
+            failures.push(format!("{relative_path}: {error}"));
+            return Ok(());
+        }
+    }
     match manifest_str(
         manifest_path,
         file,
@@ -28068,8 +28092,18 @@ fn encapsulated_stl_report_fields(
         triangle_count: expected
             .pointer("/payload/triangle_count")
             .and_then(Value::as_u64),
-        units: Some("mm|UCUM|millimeter".to_string()),
-        bounds: Some("[0,0,0]..[10,10,10]".to_string()),
+        units: Some(format!(
+            "{}|{}|{}",
+            expected["units"]["code_value"].as_str().unwrap_or(""),
+            expected["units"]["coding_scheme_designator"]
+                .as_str()
+                .unwrap_or(""),
+            expected["units"]["code_meaning"].as_str().unwrap_or("")
+        )),
+        bounds: Some(format!(
+            "{}..{}",
+            expected["geometry"]["bounds_min"], expected["geometry"]["bounds_max"]
+        )),
         closed_manifold: expected
             .pointer("/geometry/closed_manifold")
             .and_then(Value::as_bool),

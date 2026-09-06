@@ -720,6 +720,7 @@ mod external_manifest_contract_tests {
             "expected_metadata",
             "expected_icc_profile",
             "expected_vl_single_frame",
+            "expected_encapsulated_stl",
         ] {
             expected["properties"][field]["$ref"] = json!(format!("#/$defs/{field}"));
         }
@@ -762,6 +763,7 @@ mod external_manifest_contract_tests {
             "expected_metadata": external["$defs"]["expected_metadata"].clone(),
             "expected_icc_profile": external["$defs"]["expected_icc_profile"].clone(),
             "expected_vl_single_frame": external["$defs"]["expected_vl_single_frame"].clone(),
+            "expected_encapsulated_stl": external["$defs"]["expected_encapsulated_stl"].clone(),
             "expected_sequence_length_encoding": external["$defs"]["expected_sequence_length_encoding"].clone(),
             "expected_us_multiframe": external["$defs"]["expected_us_multiframe"].clone(),
             "expected_us_frame": external["$defs"]["expected_us_frame"].clone(),

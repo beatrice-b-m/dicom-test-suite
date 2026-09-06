@@ -29,3 +29,6 @@ mod standards_cli;
 mod validate_cli;
 #[path = "../version_cli.rs"]
 mod version_cli;
+
+#[path = "../generic_encapsulated_payloads.rs"]
+mod generic_encapsulated_payloads;

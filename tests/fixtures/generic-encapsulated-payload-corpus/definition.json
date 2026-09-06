@@ -1,0 +1,91 @@
+{
+  "corpus_definition_bundle_schema_version": "1.0.0",
+  "definition_id": "fixture.generic-encapsulated-payload",
+  "definition_version": "1.0.0",
+  "profiles": [
+    {
+      "profile_id": "smoke",
+      "scope": "valid",
+      "members": []
+    },
+    {
+      "profile_id": "core",
+      "scope": "valid",
+      "members": [
+        "caller/payload/letter",
+        "caller/payload/open-surface"
+      ]
+    },
+    {
+      "profile_id": "extended",
+      "scope": "valid",
+      "members": []
+    },
+    {
+      "profile_id": "legacy",
+      "scope": "legacy",
+      "members": []
+    },
+    {
+      "profile_id": "stress",
+      "scope": "stress",
+      "members": []
+    },
+    {
+      "profile_id": "negative",
+      "scope": "expected_invalid",
+      "members": []
+    },
+    {
+      "profile_id": "fuzz",
+      "scope": "fuzz",
+      "members": []
+    },
+    {
+      "profile_id": "all",
+      "scope": "valid",
+      "union_of": [
+        "smoke",
+        "core",
+        "extended"
+      ],
+      "optional_profile": "stress",
+      "members": []
+    }
+  ],
+  "registry": {
+    "path": "cases/registry.json",
+    "sha256": "8bf265efa4d1a901c09c39f6d23ddc16aeb54f04cd67ffd63a1e47789dd7a24d",
+    "size_bytes": 4200
+  },
+  "cases": [
+    {
+      "case_id": "caller/payload/letter",
+      "recipe_id": "caller_payload_0",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/payload_0.json",
+        "sha256": "f11dcdc11b30ebcf69b35dd4894445ac2e8b2faabb2fc626fcd6d0c860ac20c8",
+        "size_bytes": 4200
+      },
+      "dependencies": [],
+      "evidence_ids": [],
+      "asset_ids": []
+    },
+    {
+      "case_id": "caller/payload/open-surface",
+      "recipe_id": "caller_payload_1",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/payload_1.json",
+        "sha256": "339bd8f5e23e35b1c3f3e1403cb54525584939bac1e0b90c25729279d6c35a58",
+        "size_bytes": 4099
+      },
+      "dependencies": [],
+      "evidence_ids": [],
+      "asset_ids": []
+    }
+  ],
+  "evidence": [],
+  "assets": []
+}

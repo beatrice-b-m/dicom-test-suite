@@ -623,6 +623,8 @@ fn validate_shape(path: &Path, recipe: &CaseRecipe) -> Result<(), RecipeCatalogE
     validate_metadata_sc_contract(path, recipe)?;
     validate_classic_capability_contract(path, recipe)?;
     validate_advanced_contract(path, recipe)?;
+    super::encapsulated_payload::encapsulated_payload_input_from_recipe(recipe)
+        .map_err(|e| semantic(path, e.to_string()))?;
     Ok(())
 }
 
@@ -745,6 +747,8 @@ fn validate_registered_ids(path: &Path, recipe: &CaseRecipe) -> Result<(), Recip
         "algorithm.highdicom_sr",
         "algorithm.rt_semantics",
         "algorithm.waveform_deterministic_multiplex",
+        "algorithm.encapsulated_pdf_bytes",
+        "algorithm.binary_stl_bytes",
         "algorithm.encapsulated_pdf_minimal",
         "algorithm.binary_stl_tetrahedron",
         "algorithm.stress_sc",
@@ -2019,6 +2023,22 @@ fn validate_registry_bindings(
             && expected_kind == RecipeKind::Dicom
             && case.requirements.features.is_empty()
             && case.requirements.external_codecs.is_empty();
+        if recipe.case_recipe_schema_version == "0.2.0" {
+            if let Some(input) =
+                super::encapsulated_payload::encapsulated_payload_input_from_recipe(recipe)
+                    .map_err(|e| RecipeCatalogError::Completeness {
+                        message: e.to_string(),
+                    })?
+            {
+                if input.caller_metadata.is_some()
+                    && case.modality.as_deref() != Some(input.modality.as_str())
+                {
+                    return Err(RecipeCatalogError::Completeness {
+                        message: "registry modality contradicts caller encapsulated payload".into(),
+                    });
+                }
+            }
+        }
         let migrated_u6_native = matches!(
             recipe.plan_provider_id.as_str(),
             "native.quantitative_plan"

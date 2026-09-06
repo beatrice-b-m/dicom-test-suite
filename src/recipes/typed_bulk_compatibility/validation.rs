@@ -434,6 +434,27 @@ pub fn validate_encapsulated_payload(
     input: &EncapsulatedPayloadPlanInput,
     observed: &SpecializedValidationObservation,
 ) -> Result<TypedValidationReport, SpecializedValidationError> {
+    if matches!(
+        &input.payload,
+        EncapsulatedPayload::CallerPdf { .. } | EncapsulatedPayload::CallerBinaryStl { .. }
+    ) {
+        let bytes = crate::recipes::caller_encapsulated_bytes(input)
+            .map_err(|error| SpecializedValidationError::Observation(error.to_string()))?;
+        let hash = crate::sha256_hex(&bytes);
+        require_common(
+            observed,
+            &input.sop_class_uid,
+            [("document", bytes.len() as u64, hash.as_str(), "OB")],
+        )?;
+        return Ok(TypedValidationReport {
+            bytes: vec![],
+            checks: vec![TypedValidationCheck::passed_internal(
+                "caller_encapsulated_payload_integrity",
+                "Caller payload format, declared bytes/hash and generic composition observation agree; independent conformance is not assessed.",
+            )],
+            metadata_observation: None,
+        });
+    }
     let (size, hash, is_pdf) = match &input.payload {
         EncapsulatedPayload::MinimalPdf {
             declared_size_bytes,
@@ -445,6 +466,9 @@ pub fn validate_encapsulated_payload(
             declared_sha256,
             ..
         } => (*declared_size_bytes, declared_sha256.as_str(), false),
+        EncapsulatedPayload::CallerPdf { .. } | EncapsulatedPayload::CallerBinaryStl { .. } => {
+            unreachable!("caller payload returned above")
+        }
     };
     require_common(
         observed,

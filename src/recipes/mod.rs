@@ -8,7 +8,7 @@ pub mod classic_vl_projection;
 pub(crate) use classic_vl_projection::validate_caller_vl_parameters;
 mod codec_registry;
 mod content_provider;
-mod encapsulated_payload;
+pub(crate) mod encapsulated_payload;
 mod encoding;
 mod enhanced;
 mod error;
@@ -63,10 +63,12 @@ pub use content_provider::{
     StructuredReportContract, VerificationFlag, WaveformContract,
 };
 pub use encapsulated_payload::{
-    BINARY_STL_ALGORITHM_PROVIDER_ID, DECLARED_BYTE_PAYLOAD_CONTENT_PROVIDER_ID,
-    ENCAPSULATED_PAYLOAD_PLAN_PROVIDER_ID, EncapsulatedPayload, EncapsulatedPayloadPlanError,
-    EncapsulatedPayloadPlanInput, EncapsulatedPayloadPlanProvider, EncapsulatedPayloadProjection,
-    MINIMAL_PDF_ALGORITHM_PROVIDER_ID, encapsulated_payload_input_from_recipe,
+    BINARY_STL_ALGORITHM_PROVIDER_ID, CALLER_PDF_ALGORITHM_PROVIDER_ID,
+    CALLER_STL_ALGORITHM_PROVIDER_ID, DECLARED_BYTE_PAYLOAD_CONTENT_PROVIDER_ID,
+    ENCAPSULATED_PAYLOAD_PLAN_PROVIDER_ID, EncapsulatedCallerMetadata, EncapsulatedPayload,
+    EncapsulatedPayloadPlanError, EncapsulatedPayloadPlanInput, EncapsulatedPayloadPlanProvider,
+    EncapsulatedPayloadProjection, MINIMAL_PDF_ALGORITHM_PROVIDER_ID, caller_encapsulated_bytes,
+    caller_stl_bounds, encapsulated_payload_input_from_recipe, validate_caller_encapsulated_input,
 };
 pub use encoding::{RecipeEncodingError, encoding_plan_from_recipe};
 pub use enhanced::{

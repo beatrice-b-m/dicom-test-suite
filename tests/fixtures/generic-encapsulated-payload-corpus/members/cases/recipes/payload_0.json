@@ -1,0 +1,113 @@
+{
+  "case_recipe_schema_version": "0.2.0",
+  "recipe_id": "caller_payload_0",
+  "recipe_version": "0.1.0",
+  "binding": {
+    "case_id": "caller/payload/letter"
+  },
+  "kind": "dicom",
+  "plan_provider_id": "native.encapsulated_payload_plan",
+  "planning_order": 830,
+  "projection_order": 830,
+  "dependencies": [],
+  "provider_parameters": {
+    "sop_class_uid": "1.2.840.10008.5.1.4.1.1.104.1",
+    "modality": "DOC",
+    "study_id": "CALLER-DOC",
+    "series_number": "31",
+    "series_description": "Caller encapsulated payload",
+    "manufacturer_model_name": "CALLER-PAYLOAD",
+    "device_serial_number": "CALLER-SERIAL-31",
+    "patient_name": "CALLER^DOCUMENT",
+    "patient_id": "CALLER-DOC-31",
+    "document_title": "Caller letter",
+    "content_description": null,
+    "acquisition_datetime": "20250906123456",
+    "burned_in_annotation": "NO",
+    "recognizable_visual_features": "NO",
+    "payload": {
+      "kind": "caller_pdf",
+      "mime_type": "application/pdf",
+      "declared_size_bytes": 367,
+      "declared_sha256": "5079cc51e49d4c9cdfa1c0d1ce3db291f75f9c853080ec438238b377cd062c90",
+      "bytes_hex": "255044462d312e340a252043616c6c657220626c616e6b20706167650a312030206f626a0a3c3c202f54797065202f436174616c6f67202f5061676573203220302052203e3e0a656e646f626a0a322030206f626a0a3c3c202f54797065202f5061676573202f436f756e742031202f4b696473205b33203020525d203e3e0a656e646f626a0a332030206f626a0a3c3c202f54797065202f50616765202f506172656e74203220302052202f4d65646961426f78205b30203020333230203234305d202f5265736f7572636573203c3c203e3e203e3e0a656e646f626a0a787265660a3020340a303030303030303030302036353533352066200a30303030303030303239203030303030206e200a30303030303030303738203030303030206e200a30303030303030313335203030303030206e200a747261696c65720a3c3c202f53697a652034202f526f6f74203120302052203e3e0a7374617274787265660a3232330a2525454f460a0a"
+    },
+    "projection": {
+      "expected_capabilities": [
+        "open_file",
+        "read_metadata",
+        "show_unsupported_but_recognized",
+        "extract_encapsulated_document"
+      ],
+      "expected_visual_pattern": "blank_pdf_page",
+      "known_stressors": [
+        "caller_owned_payload",
+        "odd_length_zero_padding"
+      ]
+    },
+    "caller_metadata": {
+      "patient_birth_date": "19820413",
+      "patient_sex": "O",
+      "study_date": "20250905",
+      "study_time": "101112",
+      "content_date": "20250906",
+      "content_time": "123456",
+      "manufacturer": "CALLER LAB",
+      "software_versions": "caller-3.1",
+      "instance_number": "5",
+      "instance_creation_date": "20250906",
+      "instance_creation_time": "130000",
+      "referring_physician_name": "CALLER^REFERRER",
+      "accession_number": "ACC-31",
+      "position_reference_indicator": ""
+    }
+  },
+  "validation_rule_ids": [
+    "validation.encapsulated_document",
+    "validation.content.integrity"
+  ],
+  "projection_rule_ids": [
+    "projection.encapsulated_document"
+  ],
+  "dicom": {
+    "artifacts": [
+      {
+        "logical_id": "payload_0",
+        "output": {
+          "role": "primary_1",
+          "path": "caller/payload/letter/instance.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {},
+        "attribute_operations": [],
+        "content": {
+          "provider_id": "content.declared_byte_payload",
+          "parameters": {}
+        },
+        "validation_rule_ids": [
+          "validation.encapsulated_document",
+          "validation.content.integrity"
+        ],
+        "projection_rule_ids": [
+          "projection.encapsulated_document"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [],
+        "algorithm_provider_id": "algorithm.encapsulated_pdf_bytes",
+        "template": {
+          "template_id": "non-image/encapsulated-document/pdf",
+          "template_version": "1.0.0"
+        },
+        "order": 0
+      }
+    ]
+  }
+}

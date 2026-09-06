@@ -3084,3 +3084,43 @@ The dedicated target measured 1,710,804 KiB. The default target, US draft,
 original pins and all retained artifacts remain preserved. Remaining ordinary
 non-image/WSI, derived, codec/provider and isolated R7 scopes remain open;
 R8/R9 and all mapped Heavy, viewer and release gates remain due.
+
+### 2026-09-06 — Native encapsulated PDF/STL slice completed
+
+Corpus `97b2630` imports the two original PDF/STL recipes as content0.21.0
+(53 cases derived from its registry), together with source/selected contracts,
+tests, routing and current documentation. Shared baseline capture now supports
+explicit non-image artifacts with null image/pixel metadata and forbidden
+Pixel Data; its default pixel-bearing checks remain mandatory. Original
+runtime pins and all retained evidence are unchanged.
+
+Under corpus `artifacts/r7-native-encapsulated-payloads-*-20260906`, baseline1
+passed generation/strict/report in 1.303169375/0.214389625/1.069835458s (receipt
+`6ee968f29b8a05b30050a20220aacfd7ccbb7f60255896293d756f7014e30357`).
+Availability1 passed in 2.394567750s (receipt
+`906a62ce2180f223b79a191b16453f55cfdec409260f23208b45a0f4e5c73844`).
+Parity1 passed in 4.346322584/4.066088000s with two identical files, 3,058 bytes,
+full manifest migration and original report projection (receipt
+`b05959a084dd932355b8d6fcacb0e44eeb961f841c85537c554b232ca1689215`).
+Corpus integration1 passed 1,169 tests, definition inspection and routed
+smoke/PDF/STL generation (receipt
+`7973370b695159a44a92d1c48a68dbb318f5c51a705015cc073707d74f59b3aa`).
+
+Recipe0.2 adds caller-owned PDF/STL bytes, metadata and coded units, with shared
+generation/strict reopening, complete manifest declarations and derived report
+fields. PDF framing/integrity does not establish PDF conformance; STL extent,
+finite coordinates and bounds do not establish topology. Independent validation
+is explicitly not assessed. The independent caller fixture varies metadata,
+uses a complete odd-length blank-page PDF and an open two-triangle STL, and
+proves CLI/SDK/repeat parity and adversarial rejection. Frozen0.1 bytes and
+legacy resource identity remain unchanged.
+
+All 81 mapped ordinary commands passed (918 distinct named tests), plus 90
+Fast Rust tests, 51 Python contracts, smoke, JSON, formatting, ownership,
+spelling and warnings-denied compilation. Only the caller test was repeated
+after final declaration/test corrections. Development failures and evidence
+remain in `reports/r7-native-encapsulated-integration-20260906` (113-file index
+SHA-256 `472887e9031b843853557e075e34c39e3a75d5f25a377c9f29d56b05f1de0d14`).
+The dedicated target measured 1,720,492 KiB; default target and US draft remain
+untouched. Remaining waveform/WSI, derived, codec/provider and isolated R7
+scopes are open; R8/R9 and all Heavy, viewer and release gates remain due.

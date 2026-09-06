@@ -69,7 +69,17 @@ fn typed_projection_and_validation_match_frozen_legacy_digests() {
                     .unwrap()
                     .unwrap();
                 let (size_bytes, sha256) = match &input.payload {
-                    EncapsulatedPayload::MinimalPdf {
+                    EncapsulatedPayload::CallerPdf {
+                        declared_size_bytes,
+                        declared_sha256,
+                        ..
+                    }
+                    | EncapsulatedPayload::CallerBinaryStl {
+                        declared_size_bytes,
+                        declared_sha256,
+                        ..
+                    }
+                    | EncapsulatedPayload::MinimalPdf {
                         declared_size_bytes,
                         declared_sha256,
                         ..

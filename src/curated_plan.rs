@@ -3167,6 +3167,7 @@ fn typed_bulk_context(
         if matches!(
             input.payload,
             EncapsulatedPayload::ClosedTetrahedronBinaryStl { .. }
+                | EncapsulatedPayload::CallerBinaryStl { .. }
         ) {
             identities.push((
                 CompositionUidRole::FrameOfReference,

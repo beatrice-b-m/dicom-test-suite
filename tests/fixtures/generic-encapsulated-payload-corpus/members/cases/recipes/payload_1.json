@@ -1,0 +1,120 @@
+{
+  "case_recipe_schema_version": "0.2.0",
+  "recipe_id": "caller_payload_1",
+  "recipe_version": "0.1.0",
+  "binding": {
+    "case_id": "caller/payload/open-surface"
+  },
+  "kind": "dicom",
+  "plan_provider_id": "native.encapsulated_payload_plan",
+  "planning_order": 831,
+  "projection_order": 831,
+  "dependencies": [],
+  "provider_parameters": {
+    "sop_class_uid": "1.2.840.10008.5.1.4.1.1.104.3",
+    "modality": "M3D",
+    "study_id": "CALLER-DOC",
+    "series_number": "32",
+    "series_description": "Caller encapsulated payload",
+    "manufacturer_model_name": "CALLER-PAYLOAD",
+    "device_serial_number": "CALLER-SERIAL-31",
+    "patient_name": "CALLER^DOCUMENT",
+    "patient_id": "CALLER-DOC-31",
+    "document_title": "Caller open square",
+    "content_description": "Open square, topology not assessed",
+    "acquisition_datetime": "20250906123456",
+    "burned_in_annotation": "NO",
+    "recognizable_visual_features": "NO",
+    "payload": {
+      "kind": "caller_binary_stl",
+      "mime_type": "model/stl",
+      "declared_size_bytes": 184,
+      "declared_sha256": "feb4c47b011652fb4b7ac6ed2b245dbaaaeb8d8fdda33a8f6fa77f087a813b87",
+      "triangle_count": 2,
+      "unit_code_value": "mm",
+      "unit_coding_scheme": "UCUM",
+      "unit_code_meaning": "millimeter",
+      "bytes_hex": "43616c6c6572206f70656e207371756172653b207374727563747572616c2067656f6d65747279206f6e6c792020202020202020202020202020202020202020202020202020202020202020202020200200000000000000000000000000803f0000c0bf000010400000003f00006040000010400000003f000060400000e8400000003f000000000000000000000000803f0000c0bf000010400000003f000060400000e8400000003f0000c0bf0000e8400000003f0000"
+    },
+    "projection": {
+      "expected_capabilities": [
+        "open_file",
+        "read_metadata",
+        "show_unsupported_but_recognized",
+        "extract_encapsulated_document",
+        "parse_binary_stl"
+      ],
+      "expected_visual_pattern": "open_square_no_topology_claim",
+      "known_stressors": [
+        "caller_owned_payload",
+        "open_surface"
+      ]
+    },
+    "caller_metadata": {
+      "patient_birth_date": "19820413",
+      "patient_sex": "O",
+      "study_date": "20250905",
+      "study_time": "101112",
+      "content_date": "20250906",
+      "content_time": "123456",
+      "manufacturer": "CALLER LAB",
+      "software_versions": "caller-3.1",
+      "instance_number": "6",
+      "instance_creation_date": "20250906",
+      "instance_creation_time": "130000",
+      "referring_physician_name": "CALLER^REFERRER",
+      "accession_number": "ACC-31",
+      "position_reference_indicator": "CALLER-ORIGIN"
+    }
+  },
+  "validation_rule_ids": [
+    "validation.manufacturing_model",
+    "validation.stl.structure",
+    "validation.content.integrity"
+  ],
+  "projection_rule_ids": [
+    "projection.encapsulated_mesh"
+  ],
+  "dicom": {
+    "artifacts": [
+      {
+        "logical_id": "payload_1",
+        "output": {
+          "role": "primary_1",
+          "path": "caller/payload/open-surface/instance.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {},
+        "attribute_operations": [],
+        "content": {
+          "provider_id": "content.declared_byte_payload",
+          "parameters": {}
+        },
+        "validation_rule_ids": [
+          "validation.manufacturing_model",
+          "validation.stl.structure",
+          "validation.content.integrity"
+        ],
+        "projection_rule_ids": [
+          "projection.encapsulated_mesh"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [],
+        "algorithm_provider_id": "algorithm.binary_stl_bytes",
+        "template": {
+          "template_id": "non-image/mesh/stl",
+          "template_version": "1.0.0"
+        },
+        "order": 0
+      }
+    ]
+  }
+}

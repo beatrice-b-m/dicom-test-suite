@@ -1883,7 +1883,7 @@
           "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_waveform"
         },
         "expected_encapsulated_stl": {
-          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_encapsulated_stl"
+          "$ref": "#/$defs/expected_encapsulated_stl"
         },
         "expected_eot": {
           "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_eot"
@@ -2358,6 +2358,112 @@
         }
       },
       "additionalProperties": false
+    },
+    "expected_encapsulated_stl": {
+      "anyOf": [
+        {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_encapsulated_stl"
+        },
+        {
+          "type": "object",
+          "required": [
+            "iod_kind",
+            "payload",
+            "units",
+            "geometry",
+            "independent_validator_disposition"
+          ],
+          "properties": {
+            "iod_kind": {
+              "const": "encapsulated_stl"
+            },
+            "payload": {
+              "type": "object",
+              "required": [
+                "format",
+                "mime_type",
+                "length",
+                "sha256",
+                "triangle_count"
+              ],
+              "properties": {
+                "format": {
+                  "const": "binary_stl"
+                },
+                "mime_type": {
+                  "const": "model/stl"
+                },
+                "length": {
+                  "type": "integer",
+                  "minimum": 84
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "triangle_count": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "additionalProperties": false
+            },
+            "units": {
+              "type": "object",
+              "required": [
+                "code_value",
+                "coding_scheme_designator",
+                "code_meaning"
+              ],
+              "properties": {
+                "code_value": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "coding_scheme_designator": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "code_meaning": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "additionalProperties": false
+            },
+            "geometry": {
+              "type": "object",
+              "required": [
+                "bounds_min",
+                "bounds_max"
+              ],
+              "properties": {
+                "bounds_min": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                },
+                "bounds_max": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                }
+              },
+              "additionalProperties": false
+            },
+            "independent_validator_disposition": {
+              "const": "not_assessed"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
     }
   }
 }

@@ -418,7 +418,7 @@ pub struct EncapsulatedPayloadManifestProjection {
     pub expected_capabilities: Vec<String>,
     pub expected_semantics: EncapsulatedExpectedSemantics,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub expected_encapsulated_stl: Option<ExpectedEncapsulatedStl>,
+    pub expected_encapsulated_stl: Option<ExpectedEncapsulatedStlContract>,
     pub expected_visual_pattern: String,
     pub known_stressors: Vec<String>,
 }
@@ -443,6 +443,10 @@ impl EncapsulatedPayloadManifestProjection {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum EncapsulatedRecipeParameters {
+    Caller {
+        encapsulated_capability_version: String,
+        encapsulated_contract: EncapsulatedPayloadPlanInput,
+    },
     Pdf {
         document_title: String,
         mime_type: String,
@@ -484,6 +488,13 @@ pub struct ExpectedEncapsulatedDocument {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ExpectedEncapsulatedStlContract {
+    Historical(ExpectedEncapsulatedStl),
+    Caller(Value),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ExpectedEncapsulatedStl {
     pub iod_kind: String,
@@ -518,6 +529,58 @@ pub fn project_encapsulated_payload(
     input: &EncapsulatedPayloadPlanInput,
 ) -> Result<EncapsulatedPayloadManifestProjection, SpecializedValidationError> {
     let (parameters, document, stl) = match &input.payload {
+        EncapsulatedPayload::CallerPdf {
+            mime_type,
+            declared_size_bytes,
+            declared_sha256,
+            ..
+        }
+        | EncapsulatedPayload::CallerBinaryStl {
+            mime_type,
+            declared_size_bytes,
+            declared_sha256,
+            ..
+        } => {
+            crate::recipes::validate_caller_encapsulated_input(input)
+                .map_err(|e| SpecializedValidationError::Projection(e.to_string()))?;
+            let stl = if let EncapsulatedPayload::CallerBinaryStl {
+                triangle_count,
+                unit_code_value,
+                unit_coding_scheme,
+                unit_code_meaning,
+                ..
+            } = &input.payload
+            {
+                let bytes = crate::recipes::caller_encapsulated_bytes(input)
+                    .map_err(|e| SpecializedValidationError::Projection(e.to_string()))?;
+                let (low, high) = crate::recipes::caller_stl_bounds(&bytes)
+                    .map_err(|e| SpecializedValidationError::Projection(e.to_string()))?;
+                Some(ExpectedEncapsulatedStlContract::Caller(
+                    json!({"iod_kind":"encapsulated_stl",
+                    "payload":{"format":"binary_stl","mime_type":mime_type,"length":declared_size_bytes,"sha256":declared_sha256,"triangle_count":triangle_count},
+                    "units":{"code_value":unit_code_value,"coding_scheme_designator":unit_coding_scheme,"code_meaning":unit_code_meaning},
+                    "geometry":{"bounds_min":low,"bounds_max":high},
+                    "independent_validator_disposition":"not_assessed"}),
+                ))
+            } else {
+                None
+            };
+            (
+                EncapsulatedRecipeParameters::Caller {
+                    encapsulated_capability_version: "1.0.0".into(),
+                    encapsulated_contract: input.clone(),
+                },
+                ExpectedEncapsulatedDocument {
+                    document_title: input.document_title.clone(),
+                    mime_type: mime_type.clone(),
+                    document_length: *declared_size_bytes,
+                    document_sha256: declared_sha256.clone(),
+                    burned_in_annotation: input.burned_in_annotation.clone(),
+                    recognizable_visual_features: input.recognizable_visual_features.clone(),
+                },
+                stl,
+            )
+        }
         EncapsulatedPayload::MinimalPdf {
             mime_type,
             declared_size_bytes,
@@ -570,30 +633,32 @@ pub fn project_encapsulated_payload(
                 burned_in_annotation: input.burned_in_annotation.clone(),
                 recognizable_visual_features: input.recognizable_visual_features.clone(),
             },
-            Some(ExpectedEncapsulatedStl {
-                iod_kind: "encapsulated_stl".into(),
-                profile: "extended".into(),
-                payload: ExpectedStlPayload {
-                    format: "binary_stl".into(),
-                    mime_type: mime_type.clone(),
-                    length: *declared_size_bytes,
-                    sha256: declared_sha256.clone(),
-                    triangle_count: *triangle_count,
+            Some(ExpectedEncapsulatedStlContract::Historical(
+                ExpectedEncapsulatedStl {
+                    iod_kind: "encapsulated_stl".into(),
+                    profile: "extended".into(),
+                    payload: ExpectedStlPayload {
+                        format: "binary_stl".into(),
+                        mime_type: mime_type.clone(),
+                        length: *declared_size_bytes,
+                        sha256: declared_sha256.clone(),
+                        triangle_count: *triangle_count,
+                    },
+                    units: ExpectedWaveformCode {
+                        code_value: unit_code_value.clone(),
+                        coding_scheme_designator: unit_coding_scheme.clone(),
+                        code_meaning: unit_code_meaning.clone(),
+                    },
+                    geometry: ExpectedStlGeometry {
+                        bounds_min: [0, 0, 0],
+                        bounds_max: [10, 10, 10],
+                        closed_manifold: true,
+                        outward_winding: true,
+                        nondegenerate_faces: true,
+                    },
+                    independent_validator_disposition: "required".into(),
                 },
-                units: ExpectedWaveformCode {
-                    code_value: unit_code_value.clone(),
-                    coding_scheme_designator: unit_coding_scheme.clone(),
-                    code_meaning: unit_code_meaning.clone(),
-                },
-                geometry: ExpectedStlGeometry {
-                    bounds_min: [0, 0, 0],
-                    bounds_max: [10, 10, 10],
-                    closed_manifold: true,
-                    outward_winding: true,
-                    nondegenerate_faces: true,
-                },
-                independent_validator_disposition: "required".into(),
-            }),
+            )),
         ),
     };
     Ok(EncapsulatedPayloadManifestProjection {
@@ -603,8 +668,11 @@ pub fn project_encapsulated_payload(
         expected_capabilities: input.projection.expected_capabilities.clone(),
         expected_semantics: EncapsulatedExpectedSemantics {
             synthetic_data: "YES".into(),
-            conversion_type: matches!(input.payload, EncapsulatedPayload::MinimalPdf { .. })
-                .then(|| "SYN".into()),
+            conversion_type: matches!(
+                input.payload,
+                EncapsulatedPayload::MinimalPdf { .. } | EncapsulatedPayload::CallerPdf { .. }
+            )
+            .then(|| "SYN".into()),
             encapsulated_document: document,
         },
         expected_encapsulated_stl: stl,

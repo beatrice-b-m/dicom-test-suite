@@ -697,6 +697,27 @@ metadata, pixels, empty AcquisitionContextSequence and optional profile bytes;
 report2 validates declarations and projects structural VL/ICC coverage. These
 are same-project checks, not independent conformance or color-accuracy evidence.
 
+#### Caller-defined encapsulated PDF and binary STL
+
+Recipe `0.2.0` supports explicit caller bytes through
+`native.encapsulated_payload_plan`, `content.declared_byte_payload` and
+`algorithm.encapsulated_pdf_bytes` or `algorithm.binary_stl_bytes`. The caller
+supplies complete metadata, payload hex, unpadded size and SHA-256. The
+[caller example](../tests/fixtures/generic-encapsulated-payload-corpus/definition.json)
+varies metadata and includes an odd-length PDF and an open two-triangle STL.
+
+PDF validation checks MIME, version framing, EOF and byte integrity; it does
+not parse the document or establish PDF conformance. Binary STL validation
+checks count, exact extent, finite coordinates, zero attribute bytes and
+measured bounds. It makes no closed-manifold, winding or nondegeneracy claim.
+Units are caller-declared coded values. Independent validation is `not_assessed`.
+
+Manifest2 retains the complete typed declaration. Generation and strict
+validation reopen metadata, coded sequences, unpadded document length and
+padded bytes, and reject Pixel Data. Report2 derives payload and geometry
+coverage from the validated declaration. Historical recipe `0.1.0` PDF/STL
+payloads and their qualification boundaries remain unchanged.
+
 #### Caller-defined Secondary Capture metadata
 
 The external CLI and SDK accept independently named recipe `0.1.0` definitions

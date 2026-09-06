@@ -1,0 +1,146 @@
+{
+  "case_registry_schema_version": "0.2.0",
+  "cases": [
+    {
+      "case_id": "caller/payload/letter",
+      "status": "implemented",
+      "profiles": [
+        "core"
+      ],
+      "recipe_id": "caller_payload_0",
+      "recipe_version": "0.1.0",
+      "iod_name": "Encapsulated PDF",
+      "sop_class_name": "Encapsulated PDF Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.104.1",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_sop_class Encapsulated PDF Storage",
+          "covered": true,
+          "part": "PS3.4",
+          "anchor": "table_B.5-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_uid ExplicitVRLittleEndian",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_iod Encapsulated PDF",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.45.1-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "list_modules_for_iod Encapsulated PDF",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.45.1-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element EncapsulatedDocument",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element MIMETypeOfEncapsulatedDocument",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "lookup_data_element DocumentTitle",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_6-1"
+        }
+      ],
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "roadmap": null,
+      "blockers": [],
+      "modality": "DOC",
+      "object_family": "encapsulated_document",
+      "compatibility_axes": [
+        "modality"
+      ],
+      "artifact_kind": "dicom_instance"
+    },
+    {
+      "case_id": "caller/payload/open-surface",
+      "artifact_kind": "dicom_instance",
+      "status": "implemented",
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "object_family": "mesh",
+      "compatibility_axes": [
+        "mesh",
+        "metadata"
+      ],
+      "roadmap": null,
+      "blockers": [],
+      "profiles": [
+        "core"
+      ],
+      "recipe_id": "caller_payload_1",
+      "recipe_version": "0.1.0",
+      "iod_name": "Encapsulated STL",
+      "sop_class_name": "Encapsulated STL Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.104.3",
+      "modality": "M3D",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid EncapsulatedSTLStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "official-dicom-standard",
+          "edition": "2026b",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "sect_A.85",
+          "reason": "The Encapsulated STL IOD requires a binary STL stream, M3D modality, model/stl MIME type, Frame of Reference, and Manufacturing 3D Model content."
+        }
+      ]
+    }
+  ]
+}

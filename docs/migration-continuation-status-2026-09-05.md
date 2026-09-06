@@ -2643,3 +2643,36 @@ The completion command has not run. Therefore there is no accepted Enhanced
 baseline, import, availability, parity, reusable caller capability, independent
 conformance, viewer, Heavy, package or release evidence at this checkpoint.
 R7 remains open, and R8/R9 remain held behind their dependencies.
+
+## Enhanced multiframe report1 retained; report2 ready — 2026-09-05
+
+The first completion preflight was denied by the sandbox before it created an
+evidence root, acquired the candidate or invoked a reporter; that console-only
+result is not receipt-authenticated. The subsequent authorized report1 attempt
+created only
+`artifacts/r7-native-enhanced-multiframe-baseline4-report1-20260905/receipt.json`,
+13,169 bytes at SHA-256
+`5673b64387cf5829ff60d74459b4c05d08b8a49416078c88240c71cd38144531`.
+It failed during acquisition with an empty command list and empty non-receipt
+inventory because the initial Enhanced lock used the SHA-256 values of
+newline-terminated canonical evidence files, while the production acquisition
+API hashes compact canonical JSON without a trailing newline. No reporter
+command ran, and immutable baseline4, its manifest, and both original generator
+and reporter pins remained unchanged.
+
+Corpus `31981ec` corrects only the Enhanced reporter lock, its exact const schema
+and the canonicalization regression: version discovery now binds
+`ce58d72f200e567b6c1adfaeaa1047910952c53fdd6c73902eaa6272d789b4ea`
+and capabilities discovery binds
+`464b0afe8e5c3461dd9d6c758c82f81dc80de93ec7f83d27dfce4c6f14d7696b`.
+Corpus `a87a565` records the retained report1 boundary separately. Independent
+review parsed the immutable candidate discovery outputs, proved them equal to
+the retained canonical documents modulo the terminating newline, passed both
+through production `validate_discovery`, and passed the 15 focused lock and
+completion-helper tests. Corpus status and both commits' diff checks were clean.
+
+Report1 remains immutable failed evidence. No report2 root or command exists at
+this checkpoint; one fresh report2 attempt is merely ready. There is still no
+accepted Enhanced baseline, import, availability, parity, reusable caller
+capability, independent conformance, viewer, Heavy, package or release claim.
+R7 remains open, and R8/R9 remain held behind their dependencies.

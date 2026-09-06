@@ -29,7 +29,9 @@ use crate::runtime_capabilities::CapabilityInventory;
 
 mod corpus_generation;
 mod corpus_report;
+mod icc;
 mod report_contract;
+mod vl;
 #[cfg(any(
     feature = "htj2k_openjph",
     feature = "jpegxl",
@@ -3420,7 +3422,11 @@ fn validate_external_family_evidence_scope_with_context(
     for (field, allowed) in [
         (
             "expected_vl_single_frame",
-            &["VL Endoscopic Image", "VL Microscopic Image"][..],
+            &[
+                "VL Endoscopic Image",
+                "VL Microscopic Image",
+                "VL Photographic Image",
+            ][..],
         ),
         (
             "expected_wsi_tiled_full",
@@ -4383,6 +4389,18 @@ fn validate_vl_single_frame_manifest_contract_for_kind(
     manifest_path: &Path,
     file: &Value,
 ) -> Result<(), ValidateError> {
+    if kind == manifest_contract::ManifestContractKind::ExternalCorpus {
+        match crate::vl::validate_manifest(file) {
+            Ok(true) => return Ok(()),
+            Ok(false) => {}
+            Err(_) => {
+                return Err(ValidateError::ManifestShape {
+                    path: manifest_path.to_path_buf(),
+                    message: "invalid caller VL declaration",
+                });
+            }
+        }
+    }
     enum VlContract {
         Endoscopic,
         Microscopic,
@@ -7288,6 +7306,21 @@ fn validate_icc_profile_manifest_contract(
     file: &Value,
     obj: &OpenedObject,
 ) -> Result<(), ValidateError> {
+    if kind == manifest_contract::ManifestContractKind::ExternalCorpus {
+        match crate::vl::validate_manifest(file) {
+            Ok(true) => {
+                if let Err(error) = crate::vl::validate_object(file, obj) {
+                    failures.push(format!("{relative_path}: caller VL: {error}"));
+                }
+                return Ok(());
+            }
+            Ok(false) => {}
+            Err(error) => {
+                failures.push(format!("{relative_path}: caller VL: {error}"));
+                return Ok(());
+            }
+        }
+    }
     const CASE_ID: &str = "vl/photo/rgb_icc_profile_explicit_le";
     const PROFILE_SHA256: &str = "8e069a3476b71a0e0ae7272d9278ba70540d1c4a0b19af1c7d52e56f49091fef";
     const REQUIRED_TAGS: [&[u8; 4]; 9] = [
@@ -7297,6 +7330,11 @@ fn validate_icc_profile_manifest_contract(
     let case_id = manifest_str(manifest_path, file, "/case_id", "case_id must be a string")?;
     let contract = file.get("expected_icc_profile");
     if kind == manifest_contract::ManifestContractKind::ExternalCorpus && contract.is_none() {
+        if obj.element(tags::ICC_PROFILE).is_ok() {
+            failures.push(format!(
+                "{relative_path}: ICC payload requires declared profile evidence"
+            ));
+        }
         return Ok(());
     }
     if kind != manifest_contract::ManifestContractKind::ExternalCorpus && case_id != CASE_ID {
@@ -24249,6 +24287,24 @@ fn vl_single_frame_report_laterality(
     manifest_path: &Path,
     file: &Value,
 ) -> Result<Option<&'static str>, ReportError> {
+    match crate::vl::validate_manifest(file) {
+        Ok(true) => {
+            return Ok(
+                match file["expected_vl_single_frame"]["laterality"].as_str() {
+                    Some("R") => Some("R"),
+                    Some("L") => Some("L"),
+                    _ => None,
+                },
+            );
+        }
+        Ok(false) => {}
+        Err(_) => {
+            return Err(ReportError::MetadataShape {
+                path: manifest_path.to_path_buf(),
+                message: "invalid caller VL report declaration",
+            });
+        }
+    }
     let case_id = file.get("case_id").and_then(Value::as_str).unwrap_or("");
     let Some(contract) = vl_single_frame_report_contract(case_id) else {
         return if file.get("expected_vl_single_frame").is_some() {
@@ -30596,6 +30652,39 @@ fn icc_profile_report_fields(
     manifest_path: &Path,
     file: &Value,
 ) -> Result<IccProfileReportFields, ReportError> {
+    match crate::vl::validate_manifest(file) {
+        Ok(true) => {
+            let expected = &file["expected_icc_profile"];
+            return Ok(IccProfileReportFields {
+                tag: expected["tag"].as_str().map(str::to_owned),
+                vr: expected["vr"].as_str().map(str::to_owned),
+                profile_sha256: expected["profile_sha256"].as_str().map(str::to_owned),
+                profile_size_bytes: expected["profile_size_bytes"].as_u64(),
+                declared_profile_size_bytes: expected["declared_profile_size_bytes"].as_u64(),
+                profile_version: expected["profile_version"].as_str().map(str::to_owned),
+                device_class: expected["device_class"].as_str().map(str::to_owned),
+                data_color_space: expected["data_color_space"].as_str().map(str::to_owned),
+                profile_connection_space: expected["profile_connection_space"]
+                    .as_str()
+                    .map(str::to_owned),
+                profile_signature: expected["profile_signature"].as_str().map(str::to_owned),
+                rendering_intent: expected["rendering_intent"].as_str().map(str::to_owned),
+                rendering_intent_code: expected["rendering_intent_code"].as_u64(),
+                tag_count: expected["tag_count"].as_u64(),
+                color_space: expected["color_space"].as_str().map(str::to_owned),
+                profile_description: expected["profile_description"].as_str().map(str::to_owned),
+                copyright: expected["copyright"].as_str().map(str::to_owned),
+                source_identity: expected["source_identity"].as_str().map(str::to_owned),
+            });
+        }
+        Ok(false) => {}
+        Err(_) => {
+            return Err(ReportError::MetadataShape {
+                path: manifest_path.to_path_buf(),
+                message: "invalid caller ICC report declaration",
+            });
+        }
+    }
     if file.get("case_id").and_then(Value::as_str) != Some("vl/photo/rgb_icc_profile_explicit_le") {
         return Ok(IccProfileReportFields::default());
     }

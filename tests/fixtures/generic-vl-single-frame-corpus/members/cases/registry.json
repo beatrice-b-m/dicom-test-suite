@@ -1,0 +1,169 @@
+{
+  "case_registry_schema_version": "0.2.0",
+  "cases": [
+    {
+      "case_id": "caller/vl/camera-a",
+      "artifact_kind": "dicom_instance",
+      "status": "implemented",
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "object_family": "visible_light",
+      "compatibility_axes": [
+        "visible_light",
+        "pixels",
+        "modality"
+      ],
+      "roadmap": null,
+      "blockers": [],
+      "profiles": [
+        "core"
+      ],
+      "recipe_id": "caller_camera_a",
+      "recipe_version": "0.1.0",
+      "iod_name": "VL Endoscopic Image",
+      "sop_class_name": "VL Endoscopic Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.1",
+      "modality": "ES",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid VLEndoscopicImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "evidence/phase-4-vl-single-frame.md",
+          "covered": true,
+          "part": "PS3.3; PS3.4; PS3.6",
+          "anchor": "A.32.1; table_A.32.1-1; C.8.12.1; table_C.8-77; table_B.5-1; table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "caller/vl/camera-b",
+      "artifact_kind": "dicom_instance",
+      "status": "implemented",
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "object_family": "visible_light",
+      "compatibility_axes": [
+        "visible_light",
+        "pixels",
+        "modality"
+      ],
+      "roadmap": null,
+      "blockers": [],
+      "profiles": [
+        "core"
+      ],
+      "recipe_id": "caller_camera_b",
+      "recipe_version": "0.1.0",
+      "iod_name": "VL Microscopic Image",
+      "sop_class_name": "VL Microscopic Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.2",
+      "modality": "GM",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid VLMicroscopicImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "evidence/phase-4-vl-single-frame.md",
+          "covered": true,
+          "part": "PS3.3; PS3.4; PS3.6",
+          "anchor": "A.32.2; table_A.32.1-2; C.8.12.1; table_C.8-77; table_B.5-1; table_A-1"
+        }
+      ]
+    },
+    {
+      "case_id": "caller/vl/color-profile",
+      "artifact_kind": "dicom_instance",
+      "status": "implemented",
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "object_family": "visible_light",
+      "compatibility_axes": [
+        "visible_light",
+        "pixels",
+        "metadata"
+      ],
+      "roadmap": null,
+      "blockers": [],
+      "profiles": [
+        "core"
+      ],
+      "recipe_id": "caller_color_profile",
+      "recipe_version": "0.1.0",
+      "iod_name": "VL Photographic Image",
+      "sop_class_name": "VL Photographic Image Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.4",
+      "modality": "XC",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid VLPhotographicImageStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "retrieve_standard_text sect_C.11.15.1.1",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "sect_C.11.15.1.1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "evidence/phase-2-icc-profile.md",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_C.11.15-1"
+        }
+      ]
+    }
+  ]
+}

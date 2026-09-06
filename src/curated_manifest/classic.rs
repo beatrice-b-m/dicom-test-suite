@@ -89,7 +89,11 @@ pub(super) fn project_classic_file_entry(
             .position(|check| check.name == "icc_profile_round_trip")
             .ok_or_else(|| err("missing typed ICC validation check"))?;
         let mut check = checks.remove(index);
-        check.message = "ICC Profile OB bytes, DICOM-constrained header, tag table, hash, and SRGB declaration match.".into();
+        check.message = if context.case_recipe.case_recipe_schema_version == "0.2.0" {
+            "ICC Profile OB bytes, bounded RGB input-profile structure and declaration match; Color Space is absent.".into()
+        } else {
+            "ICC Profile OB bytes, DICOM-constrained header, tag table, hash, and SRGB declaration match.".into()
+        };
         checks.push(check);
     }
     let mut manifest = json!({
@@ -667,6 +671,19 @@ fn vl_projection(ctx: &CuratedArtifactProjectionContext) -> Result<Facts, Curate
             semantics["laterality"] = json!(v)
         }
     }
+    let caller = ctx.case_recipe.case_recipe_schema_version == "0.2.0";
+    if caller {
+        recipe["vl_capability_version"] = json!("1.0.0");
+        recipe["vl_provider"] = json!(ctx.case_recipe.provider_parameters);
+        recipe["vl_artifact"] = serde_json::to_value(&a).unwrap();
+        recipe["metadata_overrides"] = json!(ctx.artifact_recipe.attribute_operations);
+        recipe["icc_projection"] = json!(
+            ctx.artifact_recipe
+                .classic_projection
+                .as_ref()
+                .and_then(|p| p.icc.as_ref())
+        );
+    }
     let mut specials = Map::new();
     if let Some(hash) = &a.icc_profile_sha256 {
         let icc = ctx
@@ -685,7 +702,7 @@ fn vl_projection(ctx: &CuratedArtifactProjectionContext) -> Result<Facts, Curate
         ]));
         specials.insert("expected_icc_profile".into(), expected);
     }
-    if a.body_part_examined.is_some() {
+    if caller || a.body_part_examined.is_some() {
         let mut vl_image = image(
             a.rows.into(),
             a.columns.into(),
@@ -698,7 +715,13 @@ fn vl_projection(ctx: &CuratedArtifactProjectionContext) -> Result<Facts, Curate
             a.planar_configuration.map(Into::into),
         );
         vl_image.as_object_mut().unwrap().remove("frames");
-        specials.insert("expected_vl_single_frame".into(),json!({"iod_kind":if a.modality=="ES"{"vl_endoscopic_single_frame"}else{"vl_microscopic_single_frame"},"sop_class_uid":a.sop_class_uid,"sop_class_name":required(&ctx.registry_case.sop_class_name,"SOP name")?,"iod_name":required(&ctx.registry_case.iod_name,"IOD name")?,"modality":a.modality,"transfer_syntax_uid":"1.2.840.10008.1.2.1","image_type":["ORIGINAL","PRIMARY"],"body_part_examined":a.body_part_examined,"laterality":a.laterality,"acquisition_context_items":0,"image":vl_image,"absent_content":["number_of_frames","frame_of_reference_uid","specimen_module","optical_path_module","icc_profile_module"]}));
+        specials.insert("expected_vl_single_frame".into(),json!({"iod_kind":if a.modality=="ES"{"vl_endoscopic_single_frame"}else if a.modality=="XC"{"vl_photographic_single_frame"}else{"vl_microscopic_single_frame"},"sop_class_uid":a.sop_class_uid,"sop_class_name":required(&ctx.registry_case.sop_class_name,"SOP name")?,"iod_name":required(&ctx.registry_case.iod_name,"IOD name")?,"modality":a.modality,"transfer_syntax_uid":"1.2.840.10008.1.2.1","image_type":["ORIGINAL","PRIMARY"],"body_part_examined":a.body_part_examined,"laterality":a.laterality,"acquisition_context_items":0,"image":vl_image,"absent_content":["number_of_frames","frame_of_reference_uid","specimen_module","optical_path_module","icc_profile_module"]}));
+    }
+    if caller && a.icc_profile_sha256.is_some() {
+        specials["expected_vl_single_frame"]["absent_content"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|v| v != "icc_profile_module");
     }
     Ok(Facts {
         recipe,

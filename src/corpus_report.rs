@@ -32,6 +32,7 @@ pub(crate) fn project(manifest: &Value) -> Result<Value, String> {
     let mut coverage_matrix = Vec::with_capacity(files.len());
     let mut grouped_coverage = crate::GroupedCoverage::default();
     for file in files {
+        crate::vl::validate_manifest(file)?;
         // Report2 is declaration-driven. Suppress legacy report1's curated
         // case-name inference, then restore the caller's identity fields.
         let case_id = file["case_id"].as_str().unwrap();

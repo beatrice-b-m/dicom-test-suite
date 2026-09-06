@@ -671,6 +671,32 @@ projection orders 902/903 emit RGB then palette to
 "$GENERATOR" report "$PHOTO_OUTPUT" --format json --cli-api 1.0.0
 ```
 
+#### Caller-defined native visible-light images
+
+Recipe schema `0.2.0` supports the `vl/photographic`, `vl/endoscopic` and
+`vl/microscopic` templates at version `1.0.0` through `native.classic_plan`.
+The matching SOP Class and modality are structural inputs, independent of case
+names. Caller definitions supply complete patient/study/equipment parameters,
+ContentDate and ContentTime set operations, nonempty BodyPartExamined and R/L
+Laterality. Native single-frame RGB8 pixels use variable geometry and Planar
+Configuration 0, with declared extrema and frame hashes. The
+[caller example](../tests/fixtures/generic-vl-single-frame-corpus/definition.json)
+varies names, metadata, anatomy, pixels and profile bytes.
+
+Optional ICC profiles declare bytes, hashes and projection fields. The bounded
+capability supports ICC v2 `scnr` RGB/XYZ matrix/TRC profiles, including complete
+ASCII descriptions, empty Unicode/Mac descriptions, aligned bounded tag
+ranges, shared complete tag extents and monotonic curves. Partial overlaps and
+contradictory headers or declarations fail. DICOM ColorSpace is omitted for
+this capability: structural validation does not establish an sRGB transform
+claim. Historical recipe `0.1.0` ICC bytes and their recorded scope remain
+unchanged.
+
+Manifest2 preserves the typed VL declaration. Strict validation reopens
+metadata, pixels, empty AcquisitionContextSequence and optional profile bytes;
+report2 validates declarations and projects structural VL/ICC coverage. These
+are same-project checks, not independent conformance or color-accuracy evidence.
+
 #### Caller-defined Secondary Capture metadata
 
 The external CLI and SDK accept independently named recipe `0.1.0` definitions

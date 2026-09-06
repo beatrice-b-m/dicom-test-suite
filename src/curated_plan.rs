@@ -56,7 +56,8 @@ use crate::recipes::classic_nuclear::{
     inspect_us_multiframe_capability, plan_nuclear_recipe,
 };
 use crate::recipes::classic_vl_projection::{
-    inspect_vl_photo_capability, inspect_xa_xrf_capability, plan_vl_projection_recipe,
+    inspect_vl_capability, inspect_vl_photo_capability, inspect_xa_xrf_capability,
+    plan_vl_projection_recipe,
 };
 use crate::recipes::{
     AdvancedArtifactPlanningContext, AdvancedArtifactProvenance, AdvancedPlanProvider,
@@ -4726,12 +4727,18 @@ fn classic_requests(
             })?;
         return Ok((requests, None, None));
     }
-    if inspect_vl_photo_capability(recipe)
+    if inspect_vl_capability(recipe)
         .map_err(|error| CuratedPlanError::ClassicPlan {
             recipe_id: recipe.recipe_id.clone(),
             message: error.to_string(),
         })?
         .is_some()
+        || inspect_vl_photo_capability(recipe)
+            .map_err(|error| CuratedPlanError::ClassicPlan {
+                recipe_id: recipe.recipe_id.clone(),
+                message: error.to_string(),
+            })?
+            .is_some()
     {
         let requests = plan_vl_projection_recipe(recipe, standards_lock_sha256, seed)
             .map_err(|error| CuratedPlanError::ClassicPlan {

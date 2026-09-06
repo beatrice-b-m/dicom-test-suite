@@ -4608,3 +4608,345 @@ fn caller_encoded_metadata_cli_sdk_strict_report_and_repeat_are_identical() {
     fs::write(members.join(path), original).unwrap();
     fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn caller_vl_images_and_icc_are_cli_sdk_identical_and_structurally_valid() {
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let root = fs::canonicalize(std::env::temp_dir())
+        .unwrap()
+        .join(format!(
+            "caller-vl-images-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+    fs::create_dir(&root).unwrap();
+    let source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/generic-vl-single-frame-corpus");
+    let descriptor = root.join("definition.json");
+    let definition: Value =
+        serde_json::from_slice(&fs::read(source.join("definition.json")).unwrap()).unwrap();
+    fs::copy(source.join("definition.json"), &descriptor).unwrap();
+    let members = root.join("members");
+    for reference in std::iter::once(&definition["registry"])
+        .chain(
+            definition["cases"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|case| &case["recipe"]),
+        )
+        .chain(definition["evidence"].as_array().unwrap().iter())
+    {
+        let path = reference["path"].as_str().unwrap();
+        let dest = members.join(path);
+        fs::create_dir_all(dest.parent().unwrap()).unwrap();
+        fs::copy(source.join("members").join(path), dest).unwrap();
+    }
+    let invoke = |args: &[&str]| {
+        let output = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
+            .args(args)
+            .current_dir(&root)
+            .output()
+            .unwrap();
+        if !output.status.success() && args.first() == Some(&"generate") {
+            let diagnostic = DicomTestSuite::embedded().unwrap().generate_corpus(
+                GenerateCorpusRequest::from_file(
+                    &descriptor,
+                    &members,
+                    root.join("sdk-diagnostic"),
+                    CorpusSelector::Profile {
+                        profile: "core".into(),
+                        include_stress: false,
+                    },
+                )
+                .with_seed(19)
+                .with_parallelism(2),
+            );
+            panic!(
+                "caller VL generation failed: SDK error {:?}; CLI {}",
+                diagnostic.err(),
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+        assert!(
+            output.status.success(),
+            "{args:?}: {} {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        serde_json::from_slice::<Value>(&output.stdout).unwrap()
+    };
+    let selector = || CorpusSelector::Profile {
+        profile: "core".into(),
+        include_stress: false,
+    };
+    let product = DicomTestSuite::embedded().unwrap();
+    product
+        .inspect_corpus(
+            InspectCorpusRequest::from_file(&descriptor, &members)
+                .with_selection(selector())
+                .with_seed(19)
+                .with_parallelism(2),
+        )
+        .unwrap();
+    invoke(&[
+        "generate",
+        "--corpus",
+        "./definition.json",
+        "--asset-root",
+        "members",
+        "--profile",
+        "core",
+        "--seed",
+        "19",
+        "--parallelism",
+        "2",
+        "--out",
+        "cli-output",
+        "--format",
+        "json",
+    ]);
+    let manifest_path = root.join("cli-output/manifest.json");
+    let original_manifest = fs::read(&manifest_path).unwrap();
+    let manifest: Value = serde_json::from_slice(&original_manifest).unwrap();
+    assert_eq!(manifest["files"].as_array().unwrap().len(), 3);
+    for out in ["sdk-output", "repeat-output"] {
+        let GenerateCorpusOutcome::Published(output) = product
+            .generate_corpus(
+                GenerateCorpusRequest::from_file(&descriptor, &members, root.join(out), selector())
+                    .with_seed(19)
+                    .with_parallelism(2),
+            )
+            .unwrap()
+        else {
+            panic!("VL must publish")
+        };
+        for file in manifest["files"].as_array().unwrap() {
+            let path = file["path"].as_str().unwrap();
+            assert_eq!(
+                fs::read(root.join("cli-output").join(path)).unwrap(),
+                fs::read(output.output_root().join(path)).unwrap()
+            );
+        }
+        assert!(
+            product
+                .validate(ValidateRequest::new(output.output_root()))
+                .unwrap()
+                .is_valid()
+        );
+    }
+    let report = invoke(&[
+        "report",
+        "cli-output",
+        "--format",
+        "json",
+        "--cli-api",
+        "1.0.0",
+    ]);
+    assert_eq!(
+        product
+            .report(ReportRequest::new(root.join("sdk-output")))
+            .unwrap()
+            .deserialize::<Value>()
+            .unwrap(),
+        report["result"]["report"]
+    );
+    assert_eq!(
+        invoke(&["validate", "cli-output", "--format", "json"])["result"]["valid"],
+        true
+    );
+    for file in manifest["files"].as_array().unwrap() {
+        assert_eq!(file["image"]["columns"], 3);
+        assert_eq!(file["expected_vl_single_frame"]["laterality"], "L");
+        assert_eq!(
+            file["recipe"]["recipe_parameters"]["vl_provider"]["patient_id"],
+            "CALLER-VL-21"
+        );
+    }
+    let icc_index = manifest["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .position(|f| f.get("expected_icc_profile").is_some())
+        .unwrap();
+    assert_eq!(
+        manifest["files"][icc_index]["expected_icc_profile"]["profile_description"],
+        "RGBx"
+    );
+    assert!(manifest["files"][icc_index]["expected_icc_profile"]["color_space"].is_null());
+    for index in 0..3 {
+        for field in [
+            "vl_capability_version",
+            "vl_provider",
+            "vl_artifact",
+            "metadata_overrides",
+        ] {
+            let mut changed = manifest.clone();
+            changed["files"][index]["recipe"]["recipe_parameters"]
+                .as_object_mut()
+                .unwrap()
+                .remove(field);
+            fs::write(&manifest_path, serde_json::to_vec(&changed).unwrap()).unwrap();
+            let invalid = product.validate(ValidateRequest::new(root.join("cli-output")));
+            assert!(
+                invalid.is_err() || !invalid.unwrap().is_valid(),
+                "missing {field}"
+            );
+            assert!(
+                product
+                    .report(ReportRequest::new(root.join("cli-output")))
+                    .is_err(),
+                "report missing {field}"
+            );
+        }
+        let mut changed = manifest.clone();
+        let file = &mut changed["files"][index];
+        let path = root.join("cli-output").join(file["path"].as_str().unwrap());
+        let original = fs::read(&path).unwrap();
+        let mut bytes = original.clone();
+        let offset = bytes
+            .windows(b"CALLER-VL-21".len())
+            .position(|v| v == b"CALLER-VL-21")
+            .unwrap();
+        bytes[offset + b"CALLER-VL-21".len() - 1] = b'2';
+        fs::write(&path, &bytes).unwrap();
+        file["sha256"] = json!(synth_dicom_gen::sha256_hex(&bytes));
+        fs::write(&manifest_path, serde_json::to_vec(&changed).unwrap()).unwrap();
+        let invalid = product.validate(ValidateRequest::new(root.join("cli-output")));
+        assert!(invalid.is_err() || !invalid.unwrap().is_valid());
+        fs::write(&path, original).unwrap();
+    }
+    for pointer in [
+        "/expected_icc_profile/profile_sha256",
+        "/expected_icc_profile/profile_version",
+        "/expected_vl_single_frame/iod_kind",
+    ] {
+        let mut changed = manifest.clone();
+        *changed["files"][icc_index].pointer_mut(pointer).unwrap() = json!("invalid");
+        fs::write(&manifest_path, serde_json::to_vec(&changed).unwrap()).unwrap();
+        assert!(
+            product
+                .report(ReportRequest::new(root.join("cli-output")))
+                .is_err()
+        );
+    }
+    for index in 0..3 {
+        let mut changed = manifest.clone();
+        let file = &mut changed["files"][index];
+        for field in [
+            "vl_capability_version",
+            "vl_provider",
+            "vl_artifact",
+            "icc_projection",
+            "metadata_overrides",
+        ] {
+            file["recipe"]["recipe_parameters"]
+                .as_object_mut()
+                .unwrap()
+                .remove(field);
+        }
+        file.as_object_mut()
+            .unwrap()
+            .remove("expected_vl_single_frame");
+        file.as_object_mut().unwrap().remove("expected_icc_profile");
+        fs::write(&manifest_path, serde_json::to_vec(&changed).unwrap()).unwrap();
+        let invalid = product.validate(ValidateRequest::new(root.join("cli-output")));
+        assert!(
+            invalid.is_err() || !invalid.unwrap().is_valid(),
+            "stripped VL declaration"
+        );
+        assert!(
+            product
+                .report(ReportRequest::new(root.join("cli-output")))
+                .is_err()
+        );
+    }
+    fs::write(&manifest_path, original_manifest).unwrap();
+    for (index, pointer, value) in [
+        (
+            0,
+            "/dicom/artifacts/0/parameters/planar_configuration",
+            json!(1),
+        ),
+        (
+            1,
+            "/dicom/artifacts/0/parameters/sop_class_uid",
+            json!("1.2.3"),
+        ),
+        (
+            2,
+            "/dicom/artifacts/0/parameters/color_space",
+            json!("SRGB"),
+        ),
+    ] {
+        let mut changed = definition.clone();
+        let path = definition["cases"][index]["recipe"]["path"]
+            .as_str()
+            .unwrap();
+        let original = fs::read(members.join(path)).unwrap();
+        let mut recipe: Value = serde_json::from_slice(&original).unwrap();
+        if pointer.ends_with("color_space") {
+            recipe["dicom"]["artifacts"][0]["parameters"]["color_space"] = value;
+        } else {
+            *recipe.pointer_mut(pointer).unwrap() = value;
+        }
+        let raw = serde_json::to_vec(&recipe).unwrap();
+        fs::write(members.join(path), &raw).unwrap();
+        changed["cases"][index]["recipe"]["sha256"] = json!(synth_dicom_gen::sha256_hex(&raw));
+        changed["cases"][index]["recipe"]["size_bytes"] = json!(raw.len());
+        fs::write(&descriptor, serde_json::to_vec(&changed).unwrap()).unwrap();
+        assert!(
+            product
+                .capabilities_with_corpus(
+                    InspectCorpusRequest::from_file(&descriptor, &members)
+                        .with_selection(selector())
+                )
+                .is_err(),
+            "{pointer}"
+        );
+        fs::write(members.join(path), original).unwrap();
+    }
+    let path = definition["cases"][2]["recipe"]["path"].as_str().unwrap();
+    let original = fs::read(members.join(path)).unwrap();
+    for mutation in 0..4 {
+        let mut recipe: Value = serde_json::from_slice(&original).unwrap();
+        let params = &mut recipe["dicom"]["artifacts"][0]["parameters"];
+        let hex = params["icc_profile_hex"].as_str().unwrap();
+        let mut bytes = (0..hex.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap())
+            .collect::<Vec<_>>();
+        match mutation {
+            0 => bytes[36] = b'x',
+            1 => {
+                let first = bytes[136..140].to_vec();
+                bytes[148..152].copy_from_slice(&first);
+            }
+            2 => {
+                let offset = u32::from_be_bytes(bytes[136..140].try_into().unwrap()) as usize;
+                bytes[offset + 24] = 1;
+            }
+            _ => bytes[128..132].copy_from_slice(&4096u32.to_be_bytes()),
+        }
+        params["icc_profile_hex"] =
+            json!(bytes.iter().map(|b| format!("{b:02x}")).collect::<String>());
+        params["icc_profile_sha256"] = json!(synth_dicom_gen::sha256_hex(&bytes));
+        let raw = serde_json::to_vec(&recipe).unwrap();
+        fs::write(members.join(path), &raw).unwrap();
+        let mut changed = definition.clone();
+        changed["cases"][2]["recipe"]["sha256"] = json!(synth_dicom_gen::sha256_hex(&raw));
+        changed["cases"][2]["recipe"]["size_bytes"] = json!(raw.len());
+        fs::write(&descriptor, serde_json::to_vec(&changed).unwrap()).unwrap();
+        assert!(
+            product
+                .capabilities_with_corpus(
+                    InspectCorpusRequest::from_file(&descriptor, &members)
+                        .with_selection(selector())
+                )
+                .is_err(),
+            "ICC mutation {mutation}"
+        );
+    }
+    fs::write(members.join(path), original).unwrap();
+    fs::remove_dir_all(root).unwrap();
+}

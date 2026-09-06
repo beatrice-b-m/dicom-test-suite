@@ -269,6 +269,266 @@ pub(crate) fn inspect_xa_xrf_capability(
 
 /// Recognize only the two source-qualified native photographic contracts.
 /// Historical ICC/RLE contracts remain identity-bound and return no capability.
+/// Recipe 0.2 visible-light RGB input, independent of case names and old pixels.
+pub(crate) fn inspect_vl_capability(
+    recipe: &CaseRecipe,
+) -> Result<Option<VlArtifactParameters>, ClassicVlProjectionPlanError> {
+    if recipe.case_recipe_schema_version != "0.2.0" || recipe.plan_provider_id != PLAN_PROVIDER_ID {
+        return Ok(None);
+    }
+    let Some(dicom) = &recipe.dicom else {
+        return Ok(None);
+    };
+    let intent = dicom.artifacts.iter().any(|a| {
+        a.template.as_ref().is_some_and(|t| {
+            matches!(
+                t.template_id.as_str(),
+                "vl/photographic" | "vl/endoscopic" | "vl/microscopic"
+            )
+        }) || a
+            .parameters
+            .get("sop_class_uid")
+            .and_then(Value::as_str)
+            .is_some_and(|s| {
+                matches!(
+                    s,
+                    PHOTOGRAPHIC_STORAGE | ENDOSCOPIC_STORAGE | MICROSCOPIC_STORAGE
+                )
+            })
+    });
+    if !intent {
+        return Ok(None);
+    }
+    let [artifact] = dicom.artifacts.as_slice() else {
+        return Err(contract("caller VL requires one artifact"));
+    };
+    let provider: VlProviderParameters = decode(Value::Object(recipe.provider_parameters.clone()))?;
+    let parameters: VlArtifactParameters = decode(Value::Object(artifact.parameters.clone()))?;
+    validate_vl_parameters(&parameters)?;
+    let template = match parameters.modality.as_str() {
+        "XC" => "vl/photographic",
+        "ES" => "vl/endoscopic",
+        "GM" => "vl/microscopic",
+        _ => unreachable!(),
+    };
+    if recipe.planning_order.is_none()
+        || recipe.projection_order.is_none()
+        || !recipe.dependencies.is_empty()
+        || !artifact
+            .template
+            .as_ref()
+            .is_some_and(|t| t.template_id == template && t.template_version == "1.0.0")
+        || artifact.output.path.is_none()
+        || artifact.output.provider_derived == Some(true)
+        || artifact.algorithm_provider_id.as_deref() != Some(ALGORITHM_ID)
+        || artifact.content.provider_id != CONTENT_PROVIDER_ID
+        || !artifact.content.parameters.is_empty()
+        || artifact.secondary_capture.is_some()
+        || artifact.metadata_sc.is_some()
+        || artifact.nonsquare_geometry.is_some()
+        || artifact.public_profile_membership.is_some()
+        || artifact.encoding.transfer_syntax_uid != EXPLICIT_VR_LE
+        || artifact.encoding.sequence_length_policy != "default"
+        || artifact.encoding.item_length_policy != "default"
+        || artifact.encoding.offset_table_policy != "none"
+        || artifact.encoding.fragmentation_policy != "native"
+        || artifact.encoding.preamble_policy.as_deref() != Some("zero_filled")
+        || artifact.encoding.file_meta_policy.as_deref() != Some("standard")
+        || artifact
+            .encoding
+            .non_template_encoding_provider_id
+            .is_some()
+    {
+        return Err(contract(
+            "caller VL requires complete native template and encoding contract",
+        ));
+    }
+    for (recipe_rules, artifact_rules, required) in [
+        (
+            &recipe.validation_rule_ids,
+            &artifact.validation_rule_ids,
+            "validation.shared",
+        ),
+        (
+            &recipe.projection_rule_ids,
+            &artifact.projection_rule_ids,
+            "projection.curated",
+        ),
+    ] {
+        if !recipe_rules.iter().any(|v| v == required)
+            || !artifact_rules.iter().any(|v| v == required)
+        {
+            return Err(contract(
+                "caller VL requires shared validation and curated projection",
+            ));
+        }
+    }
+    if parameters.photometric_interpretation != VlPhotometricInterpretation::Rgb
+        || parameters.planar_configuration != Some(0)
+        || parameters.rows == 0
+        || parameters.columns == 0
+        || parameters.rows > 65535
+        || parameters.columns > 65535
+    {
+        return Err(contract("caller VL requires bounded RGB geometry"));
+    }
+    let projection = artifact
+        .classic_projection
+        .as_ref()
+        .ok_or_else(|| contract("caller VL projection missing"))?;
+    if projection.family != super::ClassicProjectionFamily::VlProjection || projection.mr.is_some()
+    {
+        return Err(contract("caller VL projection family differs"));
+    }
+    validate_caller_vl_parameters(
+        &provider,
+        &parameters,
+        &artifact.attribute_operations,
+        projection.icc.as_ref(),
+    )?;
+    Ok(Some(parameters))
+}
+
+pub(crate) fn validate_caller_vl_parameters(
+    provider: &VlProviderParameters,
+    parameters: &VlArtifactParameters,
+    overrides: &[super::AttributeOperation],
+    icc: Option<&super::ClassicIccProjection>,
+) -> Result<(), ClassicVlProjectionPlanError> {
+    validate_vl_parameters(parameters)?;
+    if parameters.photometric_interpretation != VlPhotometricInterpretation::Rgb
+        || parameters.planar_configuration != Some(0)
+        || parameters.rows == 0
+        || parameters.columns == 0
+        || parameters.rows > 65535
+        || parameters.columns > 65535
+    {
+        return Err(contract(
+            "caller VL requires bounded interleaved RGB geometry",
+        ));
+    }
+    for (tag, vr, text) in [
+        ("0010,0010", DicomVr::PN, provider.patient_name.as_str()),
+        ("0010,0020", DicomVr::LO, provider.patient_id.as_str()),
+        (
+            "0010,0030",
+            DicomVr::DA,
+            provider.patient_birth_date.as_str(),
+        ),
+        ("0010,0040", DicomVr::CS, provider.patient_sex.as_str()),
+        ("0008,0020", DicomVr::DA, provider.study_date.as_str()),
+        ("0008,0030", DicomVr::TM, provider.study_time.as_str()),
+        ("0020,0010", DicomVr::SH, provider.study_id.as_str()),
+        ("0008,0070", DicomVr::LO, provider.manufacturer.as_str()),
+        (
+            "0018,1020",
+            DicomVr::LO,
+            provider.software_versions.as_str(),
+        ),
+    ] {
+        validate_caller_text(tag, vr, text)?;
+    }
+    if !matches!(provider.patient_sex.as_str(), "" | "M" | "F" | "O") {
+        return Err(contract("caller VL PatientSex is invalid"));
+    }
+    let mut seen_overrides = std::collections::BTreeSet::new();
+    for op in overrides {
+        let vr = match op.tag.as_str() {
+            "0008,0023" => DicomVr::DA,
+            "0008,0033" => DicomVr::TM,
+            _ => {
+                return Err(contract(
+                    "caller VL override is outside content date/time contract",
+                ));
+            }
+        };
+        if op.operation != "set"
+            || op.vr.as_deref() != Some(if op.tag == "0008,0023" { "DA" } else { "TM" })
+            || !seen_overrides.insert(op.tag.as_str())
+        {
+            return Err(contract(
+                "caller VL content overrides require unique set operations",
+            ));
+        }
+        validate_caller_text(
+            &op.tag,
+            vr,
+            op.value
+                .as_ref()
+                .and_then(Value::as_str)
+                .ok_or_else(|| contract("caller VL content metadata must be text"))?,
+        )?;
+    }
+    if seen_overrides != std::collections::BTreeSet::from(["0008,0023", "0008,0033"]) {
+        return Err(contract(
+            "caller VL requires explicit content date and time",
+        ));
+    }
+    if parameters.body_part_examined.is_none()
+        || !matches!(parameters.laterality.as_deref(), Some("R" | "L"))
+    {
+        return Err(contract(
+            "caller VL requires explicit anatomy and R or L laterality",
+        ));
+    }
+    if let Some(text) = &parameters.body_part_examined {
+        validate_caller_text("0018,0015", DicomVr::CS, text)?;
+        if text.is_empty() || !matches!(parameters.laterality.as_deref(), Some("R" | "L")) {
+            return Err(contract(
+                "caller VL explicit anatomy requires nonempty laterality in this bounded capability",
+            ));
+        }
+    }
+    if let Some(text) = &parameters.laterality {
+        if !matches!(text.as_str(), "" | "R" | "L") {
+            return Err(contract("caller VL Laterality must be empty R or L"));
+        }
+    }
+    match (
+        &parameters.icc_profile_hex,
+        &parameters.icc_profile_sha256,
+        &parameters.color_space,
+        &icc,
+    ) {
+        (None, None, None, None) => (),
+        (Some(hex), Some(hash), None, Some(icc)) => {
+            if hex.len() > 2 * 1024 * 1024 || !hex.is_ascii() {
+                return Err(contract("caller VL ICC exceeds bounded RGB capability"));
+            }
+            if hex.len() % 2 != 0 || !hex.bytes().all(|b| b.is_ascii_hexdigit()) {
+                return Err(contract(
+                    "caller ICC requires consecutive hexadecimal bytes",
+                ));
+            }
+            crate::icc::validate_profile(&decode_hex(hex)?, icc, hash, None).map_err(|_| {
+                contract("caller VL ICC declaration differs from structural profile")
+            })?;
+        }
+        _ => {
+            return Err(contract(
+                "caller VL requires complete ICC bytes hash projection and absent ColorSpace",
+            ));
+        }
+    }
+    crate::native_pixel::NativePixelFactory
+        .create(native_request(&parameters))
+        .map_err(|_| contract("caller VL pixel values range or frame hash differs"))?;
+    Ok(())
+}
+
+fn validate_caller_text(
+    tag: &str,
+    vr: DicomVr,
+    text: &str,
+) -> Result<(), ClassicVlProjectionPlanError> {
+    if !text.is_ascii() || text.contains('\\') {
+        return Err(contract("caller VL text must be singleton ASCII"));
+    }
+    set_string(tag, vr, text)
+        .validate_declared_vr()
+        .map_err(|_| contract("caller VL text violates declared VR"))
+}
+
 pub(crate) fn inspect_vl_photo_capability(
     recipe: &CaseRecipe,
 ) -> Result<Option<VlArtifactParameters>, ClassicVlProjectionPlanError> {
@@ -360,7 +620,7 @@ pub fn plan_vl_projection_recipe(
     standards_lock_sha256: &str,
     seed: u64,
 ) -> Result<Option<Vec<ClassicInstanceRequest>>, ClassicVlProjectionPlanError> {
-    if inspect_vl_photo_capability(recipe)?.is_some() {
+    if inspect_vl_capability(recipe)?.is_some() || inspect_vl_photo_capability(recipe)?.is_some() {
         return Ok(Some(vec![plan_vl(
             recipe,
             &recipe.dicom.as_ref().unwrap().artifacts[0],
@@ -438,41 +698,58 @@ fn plan_vl(
     }
     if let Some(bytes) = icc_profile {
         general.push(set_binary("0028,2000", DicomVr::OB, bytes));
-        general.push(set_string(
-            "0028,2002",
-            DicomVr::CS,
-            parameters
-                .color_space
-                .as_deref()
-                .ok_or_else(|| contract("ICC profile requires color_space"))?,
-        ));
+        if recipe.case_recipe_schema_version != "0.2.0" {
+            general.push(set_string(
+                "0028,2002",
+                DicomVr::CS,
+                parameters
+                    .color_space
+                    .as_deref()
+                    .ok_or_else(|| contract("ICC profile requires color_space"))?,
+            ));
+        }
     } else if parameters.color_space.is_some() {
         return Err(contract("color_space requires an ICC profile"));
     }
     if let Some(palette) = &parameters.palette {
         general.extend(palette_operations(palette));
     }
+    let mut common = common_modules(
+        recipe,
+        &provider.patient_name,
+        &provider.patient_id,
+        &provider.patient_birth_date,
+        &provider.patient_sex,
+        &provider.study_date,
+        &provider.study_time,
+        &provider.study_id,
+        &provider.manufacturer,
+        &provider.software_versions,
+        &parameters.modality,
+        standards_lock_sha256,
+        seed,
+        0,
+    );
+    if recipe.case_recipe_schema_version == "0.2.0" {
+        for operation in &artifact.attribute_operations {
+            let text = operation
+                .value
+                .as_ref()
+                .and_then(Value::as_str)
+                .ok_or_else(|| contract("caller content metadata missing"))?;
+            match operation.tag.as_str() {
+                "0008,0023" => common.image.content_date = value(text),
+                "0008,0033" => common.image.content_time = value(text),
+                _ => return Err(contract("unsupported caller VL content override")),
+            }
+        }
+    }
     Ok(ClassicInstanceRequest {
         logical_id: artifact.logical_id.clone(),
         order: artifact.order.into(),
         output_relative_path: output_path(artifact)?,
         dependencies: vec![],
-        common: common_modules(
-            recipe,
-            &provider.patient_name,
-            &provider.patient_id,
-            &provider.patient_birth_date,
-            &provider.patient_sex,
-            &provider.study_date,
-            &provider.study_time,
-            &provider.study_id,
-            &provider.manufacturer,
-            &provider.software_versions,
-            &parameters.modality,
-            standards_lock_sha256,
-            seed,
-            0,
-        ),
+        common,
         sop_class_uid: parameters.sop_class_uid.clone(),
         sop_instance_uid: uid(recipe, standards_lock_sha256, seed, 0, UidRole::SopInstance),
         implementation_class_uid: implementation_uid(standards_lock_sha256),

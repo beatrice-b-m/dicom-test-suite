@@ -822,49 +822,95 @@
     "expected_us_multiframe": {
       "type": "object",
       "required": [
-        "image_type", "frame_increment_pointer", "frame_time_ms",
-        "frame_relative_times_ms", "frame_count", "frames",
-        "spatially_related_frames", "color_data_present", "region_calibrated",
+        "image_type",
+        "frame_increment_pointer",
+        "frame_time_ms",
+        "frame_relative_times_ms",
+        "frame_count",
+        "frames",
+        "spatially_related_frames",
+        "color_data_present",
+        "region_calibrated",
         "lossy_image_compression"
       ],
       "properties": {
         "image_type": {
           "type": "array",
-          "items": { "type": "string", "minLength": 1 },
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
           "minItems": 1,
           "maxItems": 16
         },
-        "frame_increment_pointer": { "const": "0018,1063" },
-        "frame_time_ms": { "type": "number", "exclusiveMinimum": 0 },
+        "frame_increment_pointer": {
+          "const": "0018,1063"
+        },
+        "frame_time_ms": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
         "frame_relative_times_ms": {
           "type": "array",
-          "items": { "type": "number", "minimum": 0 },
+          "items": {
+            "type": "number",
+            "minimum": 0
+          },
           "minItems": 2,
           "maxItems": 65535
         },
-        "frame_count": { "type": "integer", "minimum": 2, "maximum": 65535 },
+        "frame_count": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 65535
+        },
         "frames": {
           "type": "array",
-          "items": { "$ref": "#/$defs/expected_us_frame" },
+          "items": {
+            "$ref": "#/$defs/expected_us_frame"
+          },
           "minItems": 2,
           "maxItems": 65535
         },
-        "spatially_related_frames": { "const": false },
-        "color_data_present": { "const": false },
-        "region_calibrated": { "const": false },
-        "lossy_image_compression": { "const": "00" }
+        "spatially_related_frames": {
+          "const": false
+        },
+        "color_data_present": {
+          "const": false
+        },
+        "region_calibrated": {
+          "const": false
+        },
+        "lossy_image_compression": {
+          "const": "00"
+        }
       },
       "additionalProperties": false
     },
     "expected_us_frame": {
       "type": "object",
-      "required": ["frame_number", "frame_sha256", "pixel_values"],
+      "required": [
+        "frame_number",
+        "frame_sha256",
+        "pixel_values"
+      ],
       "properties": {
-        "frame_number": { "type": "integer", "minimum": 1, "maximum": 65535 },
-        "frame_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "frame_number": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "frame_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
         "pixel_values": {
           "type": "array",
-          "items": { "type": "integer", "minimum": 0, "maximum": 255 },
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          },
           "minItems": 1,
           "maxItems": 4294836225
         }
@@ -874,56 +920,104 @@
     "expected_nm_multiframe": {
       "type": "object",
       "required": [
-        "image_type", "frame_increment_pointers", "energy_window_vector",
-        "detector_vector", "number_of_energy_windows", "number_of_detectors",
-        "energy_windows", "detectors", "actual_frame_duration_ms",
-        "counts_accumulated", "frame_dimensions"
+        "image_type",
+        "frame_increment_pointers",
+        "energy_window_vector",
+        "detector_vector",
+        "number_of_energy_windows",
+        "number_of_detectors",
+        "energy_windows",
+        "detectors",
+        "actual_frame_duration_ms",
+        "counts_accumulated",
+        "frame_dimensions"
       ],
       "properties": {
         "image_type": {
           "type": "array",
-          "items": { "type": "string", "minLength": 1, "maxLength": 16 },
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 16
+          },
           "minItems": 1,
           "maxItems": 16
         },
         "frame_increment_pointers": {
           "type": "array",
-          "prefixItems": [{ "const": "0054,0010" }, { "const": "0054,0020" }],
+          "prefixItems": [
+            {
+              "const": "0054,0010"
+            },
+            {
+              "const": "0054,0020"
+            }
+          ],
           "items": false,
           "minItems": 2,
           "maxItems": 2
         },
         "energy_window_vector": {
           "type": "array",
-          "items": { "type": "integer", "minimum": 1, "maximum": 65535 },
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
           "minItems": 2,
           "maxItems": 65535
         },
         "detector_vector": {
           "type": "array",
-          "items": { "type": "integer", "minimum": 1, "maximum": 65535 },
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
           "minItems": 2,
           "maxItems": 65535
         },
-        "number_of_energy_windows": { "type": "integer", "minimum": 1, "maximum": 65535 },
-        "number_of_detectors": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "number_of_energy_windows": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "number_of_detectors": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
         "energy_windows": {
           "type": "array",
-          "items": { "$ref": "#/$defs/expected_nm_energy_window" },
+          "items": {
+            "$ref": "#/$defs/expected_nm_energy_window"
+          },
           "minItems": 1,
           "maxItems": 65535
         },
         "detectors": {
           "type": "array",
-          "items": { "$ref": "#/$defs/expected_nm_detector" },
+          "items": {
+            "$ref": "#/$defs/expected_nm_detector"
+          },
           "minItems": 1,
           "maxItems": 65535
         },
-        "actual_frame_duration_ms": { "type": "integer", "minimum": 1, "maximum": 4294967295 },
-        "counts_accumulated": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        "actual_frame_duration_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "counts_accumulated": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
         "frame_dimensions": {
           "type": "array",
-          "items": { "$ref": "#/$defs/expected_nm_frame_dimension" },
+          "items": {
+            "$ref": "#/$defs/expected_nm_frame_dimension"
+          },
           "minItems": 2,
           "maxItems": 65535
         }
@@ -932,104 +1026,348 @@
     },
     "expected_nm_energy_window": {
       "type": "object",
-      "required": ["index", "name", "lower_limit_kev", "upper_limit_kev"],
+      "required": [
+        "index",
+        "name",
+        "lower_limit_kev",
+        "upper_limit_kev"
+      ],
       "properties": {
-        "index": { "type": "integer", "minimum": 1, "maximum": 65535 },
-        "name": { "type": "string", "minLength": 1, "maxLength": 16 },
-        "lower_limit_kev": { "type": "number", "minimum": 0 },
-        "upper_limit_kev": { "type": "number", "exclusiveMinimum": 0 }
+        "index": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16
+        },
+        "lower_limit_kev": {
+          "type": "number",
+          "minimum": 0
+        },
+        "upper_limit_kev": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
       },
       "additionalProperties": false
     },
     "expected_nm_detector": {
       "type": "object",
       "required": [
-        "index", "collimator_type", "focal_distance_mm", "start_angle_degrees",
-        "image_orientation_patient", "image_position_patient"
+        "index",
+        "collimator_type",
+        "focal_distance_mm",
+        "start_angle_degrees",
+        "image_orientation_patient",
+        "image_position_patient"
       ],
       "properties": {
-        "index": { "type": "integer", "minimum": 1, "maximum": 65535 },
-        "collimator_type": { "enum": ["PARA", "PINH", "FANB", "CONE", "SLNT", "ASTG", "DIVG", "NONE", "UNKN"] },
-        "focal_distance_mm": { "type": "number", "minimum": 0 },
-        "start_angle_degrees": { "type": "number", "minimum": 0, "exclusiveMaximum": 360 },
+        "index": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "collimator_type": {
+          "enum": [
+            "PARA",
+            "PINH",
+            "FANB",
+            "CONE",
+            "SLNT",
+            "ASTG",
+            "DIVG",
+            "NONE",
+            "UNKN"
+          ]
+        },
+        "focal_distance_mm": {
+          "type": "number",
+          "minimum": 0
+        },
+        "start_angle_degrees": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMaximum": 360
+        },
         "image_orientation_patient": {
-          "type": "array", "items": { "type": "number" }, "minItems": 6, "maxItems": 6
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 6,
+          "maxItems": 6
         },
         "image_position_patient": {
-          "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
         }
       },
       "additionalProperties": false
     },
     "expected_nm_frame_dimension": {
       "type": "object",
-      "required": ["frame_number", "energy_window_index", "detector_index", "frame_sha256"],
+      "required": [
+        "frame_number",
+        "energy_window_index",
+        "detector_index",
+        "frame_sha256"
+      ],
       "properties": {
-        "frame_number": { "type": "integer", "minimum": 1, "maximum": 65535 },
-        "energy_window_index": { "type": "integer", "minimum": 1, "maximum": 65535 },
-        "detector_index": { "type": "integer", "minimum": 1, "maximum": 65535 },
-        "frame_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        "frame_number": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "energy_window_index": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "detector_index": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "frame_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
       },
       "additionalProperties": false
     },
     "expected_nonsquare_pixel_spacing": {
       "type": "object",
-      "required": ["tag", "keyword", "vr", "vm", "lexical_value", "row_spacing_mm", "column_spacing_mm"],
+      "required": [
+        "tag",
+        "keyword",
+        "vr",
+        "vm",
+        "lexical_value",
+        "row_spacing_mm",
+        "column_spacing_mm"
+      ],
       "properties": {
-        "tag": { "const": "0028,0030" },
-        "keyword": { "const": "PixelSpacing" },
-        "vr": { "const": "DS" },
-        "vm": { "const": 2 },
-        "lexical_value": { "type": "string", "allOf": [{ "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?\\\\(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$" }, { "pattern": "^[^\\\\]{1,16}\\\\[^\\\\]{1,16}$" }] },
-        "row_spacing_mm": { "type": "number", "exclusiveMinimum": 0 },
-        "column_spacing_mm": { "type": "number", "exclusiveMinimum": 0 }
+        "tag": {
+          "const": "0028,0030"
+        },
+        "keyword": {
+          "const": "PixelSpacing"
+        },
+        "vr": {
+          "const": "DS"
+        },
+        "vm": {
+          "const": 2
+        },
+        "lexical_value": {
+          "type": "string",
+          "allOf": [
+            {
+              "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?\\\\(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$"
+            },
+            {
+              "pattern": "^[^\\\\]{1,16}\\\\[^\\\\]{1,16}$"
+            }
+          ]
+        },
+        "row_spacing_mm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "column_spacing_mm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
       },
       "additionalProperties": false
     },
     "expected_nonsquare_nominal_scanned_pixel_spacing": {
       "type": "object",
-      "required": ["tag", "keyword", "vr", "vm", "lexical_value", "row_spacing_mm", "column_spacing_mm"],
+      "required": [
+        "tag",
+        "keyword",
+        "vr",
+        "vm",
+        "lexical_value",
+        "row_spacing_mm",
+        "column_spacing_mm"
+      ],
       "properties": {
-        "tag": { "const": "0018,2010" },
-        "keyword": { "const": "NominalScannedPixelSpacing" },
-        "vr": { "const": "DS" },
-        "vm": { "const": 2 },
-        "lexical_value": { "type": "string", "allOf": [{ "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?\\\\(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$" }, { "pattern": "^[^\\\\]{1,16}\\\\[^\\\\]{1,16}$" }] },
-        "row_spacing_mm": { "type": "number", "exclusiveMinimum": 0 },
-        "column_spacing_mm": { "type": "number", "exclusiveMinimum": 0 }
+        "tag": {
+          "const": "0018,2010"
+        },
+        "keyword": {
+          "const": "NominalScannedPixelSpacing"
+        },
+        "vr": {
+          "const": "DS"
+        },
+        "vm": {
+          "const": 2
+        },
+        "lexical_value": {
+          "type": "string",
+          "allOf": [
+            {
+              "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?\\\\(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$"
+            },
+            {
+              "pattern": "^[^\\\\]{1,16}\\\\[^\\\\]{1,16}$"
+            }
+          ]
+        },
+        "row_spacing_mm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "column_spacing_mm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
       },
       "additionalProperties": false
     },
     "expected_nonsquare_pixel_aspect_ratio": {
       "type": "object",
-      "required": ["tag", "keyword", "vr", "vm", "lexical_value", "vertical_extent", "horizontal_extent"],
+      "required": [
+        "tag",
+        "keyword",
+        "vr",
+        "vm",
+        "lexical_value",
+        "vertical_extent",
+        "horizontal_extent"
+      ],
       "properties": {
-        "tag": { "const": "0028,0034" },
-        "keyword": { "const": "PixelAspectRatio" },
-        "vr": { "const": "IS" },
-        "vm": { "const": 2 },
-        "lexical_value": { "type": "string", "pattern": "^[1-9][0-9]*\\\\[1-9][0-9]*$" },
-        "vertical_extent": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
-        "horizontal_extent": { "type": "integer", "minimum": 1, "maximum": 2147483647 }
+        "tag": {
+          "const": "0028,0034"
+        },
+        "keyword": {
+          "const": "PixelAspectRatio"
+        },
+        "vr": {
+          "const": "IS"
+        },
+        "vm": {
+          "const": 2
+        },
+        "lexical_value": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*\\\\[1-9][0-9]*$"
+        },
+        "vertical_extent": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "horizontal_extent": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        }
       },
       "additionalProperties": false
     },
     "expected_nonsquare_spacing": {
       "type": "object",
-      "required": ["variant_id", "pixel_spacing", "nominal_scanned_pixel_spacing", "pixel_aspect_ratio", "uncalibrated", "patient_space_geometry_present", "pixel_data_sha256"],
+      "required": [
+        "variant_id",
+        "pixel_spacing",
+        "nominal_scanned_pixel_spacing",
+        "pixel_aspect_ratio",
+        "uncalibrated",
+        "patient_space_geometry_present",
+        "pixel_data_sha256"
+      ],
       "properties": {
-        "variant_id": { "enum": ["pixel_spacing", "pixel_aspect_ratio"] },
-        "pixel_spacing": { "anyOf": [{ "$ref": "#/$defs/expected_nonsquare_pixel_spacing" }, { "type": "null" }] },
-        "nominal_scanned_pixel_spacing": { "anyOf": [{ "$ref": "#/$defs/expected_nonsquare_nominal_scanned_pixel_spacing" }, { "type": "null" }] },
-        "pixel_aspect_ratio": { "anyOf": [{ "$ref": "#/$defs/expected_nonsquare_pixel_aspect_ratio" }, { "type": "null" }] },
-        "uncalibrated": { "const": true },
-        "patient_space_geometry_present": { "const": false },
-        "pixel_data_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        "variant_id": {
+          "enum": [
+            "pixel_spacing",
+            "pixel_aspect_ratio"
+          ]
+        },
+        "pixel_spacing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/expected_nonsquare_pixel_spacing"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nominal_scanned_pixel_spacing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/expected_nonsquare_nominal_scanned_pixel_spacing"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pixel_aspect_ratio": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/expected_nonsquare_pixel_aspect_ratio"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "uncalibrated": {
+          "const": true
+        },
+        "patient_space_geometry_present": {
+          "const": false
+        },
+        "pixel_data_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
       },
       "additionalProperties": false,
       "oneOf": [
-        { "properties": { "variant_id": { "const": "pixel_spacing" }, "pixel_spacing": { "$ref": "#/$defs/expected_nonsquare_pixel_spacing" }, "nominal_scanned_pixel_spacing": { "$ref": "#/$defs/expected_nonsquare_nominal_scanned_pixel_spacing" }, "pixel_aspect_ratio": { "type": "null" } } },
-        { "properties": { "variant_id": { "const": "pixel_aspect_ratio" }, "pixel_spacing": { "type": "null" }, "nominal_scanned_pixel_spacing": { "type": "null" }, "pixel_aspect_ratio": { "$ref": "#/$defs/expected_nonsquare_pixel_aspect_ratio" } } }
+        {
+          "properties": {
+            "variant_id": {
+              "const": "pixel_spacing"
+            },
+            "pixel_spacing": {
+              "$ref": "#/$defs/expected_nonsquare_pixel_spacing"
+            },
+            "nominal_scanned_pixel_spacing": {
+              "$ref": "#/$defs/expected_nonsquare_nominal_scanned_pixel_spacing"
+            },
+            "pixel_aspect_ratio": {
+              "type": "null"
+            }
+          }
+        },
+        {
+          "properties": {
+            "variant_id": {
+              "const": "pixel_aspect_ratio"
+            },
+            "pixel_spacing": {
+              "type": "null"
+            },
+            "nominal_scanned_pixel_spacing": {
+              "type": "null"
+            },
+            "pixel_aspect_ratio": {
+              "$ref": "#/$defs/expected_nonsquare_pixel_aspect_ratio"
+            }
+          }
+        }
       ]
     },
     "expected_u1_pixels": {
@@ -1515,7 +1853,7 @@
           "$ref": "#/$defs/expected_u1_pixels"
         },
         "expected_icc_profile": {
-          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_icc_profile"
+          "$ref": "#/$defs/expected_icc_profile"
         },
         "expected_nonsquare_spacing": {
           "$ref": "#/$defs/expected_nonsquare_spacing"
@@ -1566,7 +1904,7 @@
           "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_rt_radiation_set"
         },
         "expected_vl_single_frame": {
-          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_vl_single_frame"
+          "$ref": "#/$defs/expected_vl_single_frame"
         },
         "expected_wsi_tiled_full": {
           "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_wsi_tiled_full"
@@ -1734,19 +2072,31 @@
         },
         {
           "if": {
-            "required": ["expected_nm_multiframe"]
+            "required": [
+              "expected_nm_multiframe"
+            ]
           },
           "then": {
-            "required": ["expected_semantics"],
+            "required": [
+              "expected_semantics"
+            ],
             "properties": {
               "expected_semantics": {
-                "required": ["pixel_spacing_mm"],
+                "required": [
+                  "pixel_spacing_mm"
+                ],
                 "properties": {
                   "pixel_spacing_mm": {
                     "type": "array",
                     "prefixItems": [
-                      { "type": "number", "exclusiveMinimum": 0 },
-                      { "type": "number", "exclusiveMinimum": 0 }
+                      {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                      },
+                      {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                      }
                     ],
                     "items": false,
                     "minItems": 2,
@@ -1758,10 +2108,256 @@
           }
         },
         {
-          "if": { "required": ["expected_nonsquare_spacing"] },
-          "then": { "required": ["image", "pixel_data"] }
+          "if": {
+            "required": [
+              "expected_nonsquare_spacing"
+            ]
+          },
+          "then": {
+            "required": [
+              "image",
+              "pixel_data"
+            ]
+          }
         }
       ]
+    },
+    "expected_icc_profile": {
+      "type": "object",
+      "required": [
+        "tag",
+        "vr",
+        "profile_sha256",
+        "profile_size_bytes",
+        "declared_profile_size_bytes",
+        "profile_version",
+        "device_class",
+        "data_color_space",
+        "profile_connection_space",
+        "profile_signature",
+        "rendering_intent",
+        "rendering_intent_code",
+        "tag_count",
+        "color_space",
+        "profile_description",
+        "copyright",
+        "source_identity"
+      ],
+      "properties": {
+        "tag": {
+          "const": "(0028,2000)"
+        },
+        "vr": {
+          "const": "OB"
+        },
+        "profile_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "profile_size_bytes": {
+          "type": "integer",
+          "minimum": 132,
+          "maximum": 1048576
+        },
+        "declared_profile_size_bytes": {
+          "type": "integer",
+          "minimum": 132,
+          "maximum": 1048576
+        },
+        "profile_version": {
+          "type": "string"
+        },
+        "device_class": {
+          "const": "scnr"
+        },
+        "data_color_space": {
+          "const": "RGB"
+        },
+        "profile_connection_space": {
+          "const": "XYZ"
+        },
+        "profile_signature": {
+          "const": "acsp"
+        },
+        "rendering_intent": {
+          "type": "string"
+        },
+        "rendering_intent_code": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "tag_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "color_space": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "profile_description": {
+          "type": "string"
+        },
+        "copyright": {
+          "type": "string"
+        },
+        "source_identity": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "expected_vl_single_frame": {
+      "type": "object",
+      "required": [
+        "iod_kind",
+        "sop_class_uid",
+        "sop_class_name",
+        "iod_name",
+        "modality",
+        "transfer_syntax_uid",
+        "body_part_examined",
+        "laterality",
+        "image_type",
+        "acquisition_context_items",
+        "image",
+        "absent_content"
+      ],
+      "properties": {
+        "iod_kind": {
+          "enum": [
+            "vl_endoscopic_single_frame",
+            "vl_microscopic_single_frame",
+            "vl_photographic_single_frame"
+          ]
+        },
+        "sop_class_uid": {
+          "enum": [
+            "1.2.840.10008.5.1.4.1.1.77.1.1",
+            "1.2.840.10008.5.1.4.1.1.77.1.2",
+            "1.2.840.10008.5.1.4.1.1.77.1.4"
+          ]
+        },
+        "sop_class_name": {
+          "enum": [
+            "VL Endoscopic Image Storage",
+            "VL Microscopic Image Storage",
+            "VL Photographic Image Storage"
+          ]
+        },
+        "iod_name": {
+          "enum": [
+            "VL Endoscopic Image",
+            "VL Microscopic Image",
+            "VL Photographic Image"
+          ]
+        },
+        "modality": {
+          "enum": [
+            "ES",
+            "GM",
+            "XC"
+          ]
+        },
+        "transfer_syntax_uid": {
+          "const": "1.2.840.10008.1.2.1"
+        },
+        "body_part_examined": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16
+        },
+        "laterality": {
+          "enum": [
+            "R",
+            "L"
+          ]
+        },
+        "image_type": {
+          "const": [
+            "ORIGINAL",
+            "PRIMARY"
+          ]
+        },
+        "acquisition_context_items": {
+          "const": 0
+        },
+        "image": {
+          "type": "object",
+          "required": [
+            "rows",
+            "columns",
+            "samples_per_pixel",
+            "photometric_interpretation",
+            "planar_configuration",
+            "bits_allocated",
+            "bits_stored",
+            "high_bit",
+            "pixel_representation"
+          ],
+          "properties": {
+            "rows": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            },
+            "columns": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            },
+            "samples_per_pixel": {
+              "const": 3
+            },
+            "photometric_interpretation": {
+              "const": "RGB"
+            },
+            "planar_configuration": {
+              "const": 0
+            },
+            "bits_allocated": {
+              "const": 8
+            },
+            "bits_stored": {
+              "const": 8
+            },
+            "high_bit": {
+              "const": 7
+            },
+            "pixel_representation": {
+              "const": 0
+            }
+          },
+          "additionalProperties": false
+        },
+        "absent_content": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "const": "number_of_frames"
+            },
+            {
+              "const": "frame_of_reference_uid"
+            },
+            {
+              "const": "specimen_module"
+            },
+            {
+              "const": "optical_path_module"
+            },
+            {
+              "const": "icc_profile_module"
+            }
+          ],
+          "items": false,
+          "minItems": 4,
+          "maxItems": 5
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

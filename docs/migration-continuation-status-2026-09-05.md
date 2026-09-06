@@ -3037,3 +3037,50 @@ generation (receipt
 The pre-existing US draft and all failed/successful evidence remain preserved.
 Remaining ordinary media, derived, codec/provider and isolated R7 scopes remain
 open; R8/R9 and all mapped Heavy, viewer and release gates remain due.
+
+### 2026-09-06 — Native single-frame VL slice completed
+
+Corpus `32b69e6` imports the original endoscopic, microscopic and photographic
+ICC recipes as content0.20.0 (51 cases derived from its registry). One import
+commit includes source/selected contracts, tests, routing, current documentation
+and the necessary shared capture correction. Baseline capture now records an
+exact versioned working-source snapshot, including base HEAD, indexed/untracked
+bytes, modes and deletions, and requires an unchanged final snapshot. This
+removes the readiness-commit prerequisite without weakening pinned inputs;
+selected availability/parity still use a clean committed candidate.
+
+All original runtime pins remain unchanged. Under corpus
+`artifacts/r7-native-vl-single-frame-*-20260906`, baseline1 passed generation,
+strict and report in 1.318072000/0.213126583/1.070004000s (receipt
+`b3d31fff1bb30f33b117bbd0156009972bbffa083f075b8db0e996bf492e094d`).
+Availability1 passed in 2.374294500s (receipt
+`e9b9b02c22ec0270991df5b2e83c6d4cd4f2e68b2415a3aa6f738501357021a4`).
+Parity1 passed in 4.392761416/4.006110041s: three identical files, 3,832 bytes,
+full manifest migration and original report projection (receipt
+`afff7ba3ee9c8ff8c473ae96b68f77d3254b97a56c239dae903be78b6f0d722a`).
+Corpus integration1 passed 1,165 tests in 83.581179792s, then definition checking
+and only routed smoke/VL generation (receipt
+`d698740c37dceb992c60b7e1d9806094a45d78d712a7fbaf05be79e2d94fa795`).
+
+The generator's recipe0.2 capability selects photo/endo/micro by template/SOP
+structure and admits caller metadata, anatomy, RGB geometry/pixels and optional
+ICC v2 matrix/TRC profiles. Planar Configuration remains 0 per the source note.
+Generation and strict reopening share the typed VL validator while common
+Part 10 checks remain mandatory. Manifest2/report2 bind the declaration and
+reject missing contracts, contradictory fields and malformed ICC data.
+The new caller profile has complete non-overlapping tag ranges; historical
+recipe0.1 ICC bytes and their recorded qualification scope remain untouched.
+Caller ColorSpace claims are excluded: profile structure does not prove sRGB
+color accuracy. No independent conformance or viewer claim was added.
+
+All 80 mapped ordinary commands passed (917 distinct named tests), plus 90
+Fast Rust tests, 51 Python contracts, tiny smoke, formatting, JSON,
+ownership/spelling and warnings-denied compilation. Two stale cache-byte
+assertions were corrected from the resource inventory and only their failed
+tests repeated. Development failures and integration evidence remain in
+`reports/r7-native-vl-integration-20260906` (110-file index SHA-256
+`326974e4bac4ae58c969f10cae9529845c1811add740555bb81c06a53b98eca8`).
+The dedicated target measured 1,710,804 KiB. The default target, US draft,
+original pins and all retained artifacts remain preserved. Remaining ordinary
+non-image/WSI, derived, codec/provider and isolated R7 scopes remain open;
+R8/R9 and all mapped Heavy, viewer and release gates remain due.

@@ -5,6 +5,7 @@ pub mod classic_dx_mg;
 pub mod classic_mr_cr;
 pub mod classic_nuclear;
 pub mod classic_vl_projection;
+pub(crate) use classic_vl_projection::validate_caller_vl_parameters;
 mod codec_registry;
 mod content_provider;
 mod encapsulated_payload;

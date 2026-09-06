@@ -549,6 +549,13 @@ Viewer expectations shall distinguish:
 - `show_unsupported_but_recognized`;
 - `reject_with_clear_unsupported_object_status`.
 
+Recipe `0.2.0` visible-light generation is selected by template/SOP structure.
+Caller definitions own RGB pixels, identity, metadata, anatomy and optional ICC
+profile declarations. Shared validation binds the declarations and reopened
+bytes, including complete bounded ICC v2 matrix/TRC structure; it does not
+infer an sRGB colorimetry claim from the profile header. Frozen recipe `0.1.0`
+behavior remains a separate compatibility boundary.
+
 ## 9. Pixel and Encoding Axes
 
 ### 9.1 Native pixel data

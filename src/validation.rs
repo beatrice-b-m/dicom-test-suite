@@ -1048,6 +1048,16 @@ pub(crate) fn validate_part10_file(
     path: &Path,
     expected: &Part10Expectations<'_>,
 ) -> Result<ValidatedPart10, GenerateError> {
+    validate_part10_file_with_vl(path, expected, None)
+}
+
+/// Replace only the frozen VL tuple policy with a caller's typed VL validator.
+/// All common Part 10 and image checks still execute.
+pub(crate) fn validate_part10_file_with_vl(
+    path: &Path,
+    expected: &Part10Expectations<'_>,
+    caller_vl: Option<&dyn Fn(&OpenedObject) -> Result<(), String>>,
+) -> Result<ValidatedPart10, GenerateError> {
     let bytes = fs::read(path).map_err(|source| GenerateError::ReadGeneratedFile {
         path: path.to_path_buf(),
         source,
@@ -1400,7 +1410,15 @@ pub(crate) fn validate_part10_file(
     if let Some(segmentation) = &expected.segmentation {
         validate_segmentation(path, &obj, &mut internal, segmentation)?;
     }
-    validate_vl_single_frame(path, &obj, &mut internal, expected)?;
+    if let Some(validate) = caller_vl {
+        validate(&obj).map_err(|message| GenerateError::ValidateDicomFile {
+            path: path.to_path_buf(),
+            message,
+        })?;
+        internal.push(serde_json::json!({"name":"caller_vl_structure","status":"passed","message":"Caller VL metadata, pixels and optional ICC structure match the typed declaration."}));
+    } else {
+        validate_vl_single_frame(path, &obj, &mut internal, expected)?;
+    }
 
     fail_if_any_failed(path, &internal)?;
 

@@ -4,9 +4,9 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 277,
-    "rust_test_entries": 1526,
+    "rust_test_entries": 1527,
     "integration_source_groups": 189,
-    "integration_test_entries": 945,
+    "integration_test_entries": 946,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
   },
   "enums": {
@@ -1866,7 +1866,7 @@
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 24,
+      "entry_count": 25,
       "entries": [
         "loaded_capabilities_are_verified_destination_free_and_sdk_consistent",
         "caller_named_ct_cli_is_sdk_identical_strictly_valid_and_reported",
@@ -1891,9 +1891,10 @@
         "caller_named_vl_photo_cli_is_sdk_identical_strictly_valid_and_reported",
         "caller_owned_enhanced_cli_sdk_strict_report_and_repeat_are_identical",
         "caller_owned_sc_integer_cli_sdk_strict_report_and_repeat_are_identical",
-        "caller_encoded_metadata_cli_sdk_strict_report_and_repeat_are_identical"
+        "caller_encoded_metadata_cli_sdk_strict_report_and_repeat_are_identical",
+        "caller_vl_images_and_icc_are_cli_sdk_identical_and_structurally_valid"
       ],
-      "entry_digest": "eff7607c4e60c12b61bf178f0245a9e703347c422078e5bd78a0b4708be2c977"
+      "entry_digest": "db378ad01eca48f5d155289d6bbbc9686cad9bc8b4af19b46e3a9bb45c1f7952"
     },
     {
       "source": "tests/frame_codec_service.rs",
@@ -3928,7 +3929,7 @@
         "mutation_of_an_internal_shared_root_fails_closed_on_reuse",
         "one_handle_reuses_one_tree_across_batch_generate_validate_report_and_compose"
       ],
-      "entry_digest": "8f20e28d5635429d4d22b75472d79f0cb836ae94863b4cf17d48cedba637c5db"
+      "entry_digest": "b54eca8b22fa02c2ec41e7603601db177ee985d18c70d1b8485f9582fddfe9a9"
     },
     {
       "source": "src/executor/evidence.rs",
@@ -4255,7 +4256,7 @@
         "cargo_lock_perturbation_changes_only_toolchain_and_legacy_provenance",
         "external_runtime_identity_requires_successful_typed_execution_evidence"
       ],
-      "entry_digest": "e7813eda4685ec412c704207ee2b732f5614045699633b88617381544cc1d1ef"
+      "entry_digest": "815116b240bbeba2476fbbe8f3c1078f247067cfc5792cbf3360c4ed6acc3b16"
     },
     {
       "source": "src/lib.rs",
@@ -4361,7 +4362,7 @@
         "dependency_graph_is_closed_acyclic_and_reachable",
         "runtime_ids_remain_unique"
       ],
-      "entry_digest": "aaba02e0ac16f0c5ffd7965cf3ded7b0480b6b968a30a8d9268ac54ffea55ab1"
+      "entry_digest": "a8619d8df0916f50389f68c6f692e7394d3354244653470acf45836dadfb9bed"
     },
     {
       "source": "src/media.rs",

@@ -28,7 +28,15 @@ pub(crate) fn validate_part10_with_expectations(
     path: &Path,
     expected: &Part10Expectations<'_>,
 ) -> Result<TypedValidationReport, CuratedValidationError> {
-    let validated = validate_part10_file(path, expected)
+    validate_part10_with_vl(path, expected, None)
+}
+
+pub(crate) fn validate_part10_with_vl(
+    path: &Path,
+    expected: &Part10Expectations<'_>,
+    caller_vl: Option<&dyn Fn(&crate::OpenedObject) -> Result<(), String>>,
+) -> Result<TypedValidationReport, CuratedValidationError> {
+    let validated = crate::validation::validate_part10_file_with_vl(path, expected, caller_vl)
         .map_err(|error| CuratedValidationError::Part10(error.to_string()))?;
     Ok(TypedValidationReport {
         bytes: validated.bytes,
@@ -54,7 +62,7 @@ pub(crate) fn validate_icc_profile_round_trip(
     path: &Path,
     expected_sha256: &str,
     expected_size: usize,
-    expected_color_space: &str,
+    expected_color_space: Option<&str>,
 ) -> Result<TypedValidationCheck, CuratedValidationError> {
     let object = open_file(path).map_err(|error| fail(path, error.to_string()))?;
     let profile = object
@@ -76,16 +84,20 @@ pub(crate) fn validate_icc_profile_round_trip(
             "ICC Profile bytes do not match the typed recipe declaration",
         ));
     }
-    let color_space = object
-        .element(tags::COLOR_SPACE)
-        .map_err(|error| fail(path, format!("read Color Space: {error}")))?
-        .to_str()
-        .map_err(|error| fail(path, format!("decode Color Space: {error}")))?;
-    if color_space.trim() != expected_color_space {
-        return Err(fail(
-            path,
-            "DICOM Color Space does not match the typed ICC recipe declaration",
-        ));
+    if let Some(expected_color_space) = expected_color_space {
+        let color_space = object
+            .element(tags::COLOR_SPACE)
+            .map_err(|error| fail(path, format!("read Color Space: {error}")))?
+            .to_str()
+            .map_err(|error| fail(path, format!("decode Color Space: {error}")))?;
+        if color_space.trim() != expected_color_space {
+            return Err(fail(
+                path,
+                "DICOM Color Space does not match the typed ICC recipe declaration",
+            ));
+        }
+    } else if object.element(tags::COLOR_SPACE).is_ok() {
+        return Err(fail(path, "undeclared DICOM Color Space"));
     }
     Ok(TypedValidationCheck::passed_internal(
         "icc_profile_round_trip",

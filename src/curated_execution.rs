@@ -3883,6 +3883,18 @@ fn validate_classic_base<'a>(
     pixels: ClassicPixelValidation<'a>,
     configure: impl FnOnce(&mut Part10Expectations<'a>),
 ) -> Result<TypedValidationReport, ServiceInvocationError> {
+    validate_classic_base_with_vl(path, artifact, plan, content, pixels, configure, None)
+}
+
+fn validate_classic_base_with_vl<'a>(
+    path: &Path,
+    artifact: &'a crate::corpus_plan::PlannedDicomArtifact,
+    plan: &'a ResolvedInstancePlan,
+    content: &'a MaterializedContentEvidence,
+    pixels: ClassicPixelValidation<'a>,
+    configure: impl FnOnce(&mut Part10Expectations<'a>),
+    caller_vl: Option<&dyn Fn(&crate::OpenedObject) -> Result<(), String>>,
+) -> Result<TypedValidationReport, ServiceInvocationError> {
     let sop_instance_uid = plan
         .identities
         .get(&CompositionUidRole::SopInstance, 0)
@@ -3946,7 +3958,7 @@ fn validate_classic_base<'a>(
         segmentation: None,
     };
     configure(&mut expected);
-    validate_part10_with_expectations(path, &expected)
+    crate::curated_validation::validate_part10_with_vl(path, &expected, caller_vl)
         .map_err(|error| service_error("validation", error))
 }
 
@@ -4702,8 +4714,12 @@ fn validate_vl_projection_classic(
         crate::recipes::classic_vl_projection::inspect_xa_xrf_capability(&context.case_recipe)
             .map_err(|error| service_error("validation", error))?
             .is_some();
-    let qualified_photo =
-        crate::recipes::classic_vl_projection::inspect_vl_photo_capability(&context.case_recipe)
+    let caller_vl =
+        crate::recipes::classic_vl_projection::inspect_vl_capability(&context.case_recipe)
+            .map_err(|error| service_error("validation", error))?
+            .is_some();
+    let qualified_photo = caller_vl
+        || crate::recipes::classic_vl_projection::inspect_vl_photo_capability(&context.case_recipe)
             .map_err(|error| service_error("validation", error))?
             .is_some();
     if qualified_photo
@@ -4742,7 +4758,23 @@ fn validate_vl_projection_classic(
                 },
             )
             .transpose()?;
-        let mut typed = validate_classic_base(
+        let provider: crate::recipes::classic_vl_projection::VlProviderParameters =
+            serde_json::from_value(serde_json::json!(context.case_recipe.provider_parameters))
+                .map_err(|error| service_error("validation", error))?;
+        let validate_vl = |obj: &crate::OpenedObject| {
+            crate::vl::validate_parameters_object(
+                &provider,
+                &item,
+                &context.artifact_recipe.attribute_operations,
+                context
+                    .artifact_recipe
+                    .classic_projection
+                    .as_ref()
+                    .and_then(|p| p.icc.as_ref()),
+                obj,
+            )
+        };
+        let mut typed = validate_classic_base_with_vl(
             path,
             artifact,
             plan,
@@ -4764,14 +4796,19 @@ fn validate_vl_projection_classic(
                 palette,
             },
             |_| {},
+            if caller_vl { Some(&validate_vl) } else { None },
         )?;
         if let Some(expected_sha256) = item.icc_profile_sha256.as_deref() {
             let profile_hex = item.icc_profile_hex.as_deref().ok_or_else(|| {
                 ServiceInvocationError::new("validation", "ICC hash lacks typed profile bytes")
             })?;
-            let color_space = item.color_space.as_deref().ok_or_else(|| {
-                ServiceInvocationError::new("validation", "ICC hash lacks typed DICOM Color Space")
-            })?;
+            let color_space = item.color_space.as_deref();
+            if !caller_vl && color_space.is_none() {
+                return Err(ServiceInvocationError::new(
+                    "validation",
+                    "ICC hash lacks typed DICOM Color Space",
+                ));
+            }
             typed.append(
                 validate_icc_profile_round_trip(
                     path,

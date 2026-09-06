@@ -169,7 +169,10 @@ native U8 contracts with caller-owned names, orders and paths. The
 [photographic contract](docs/generation-guide.md#caller-defined-native-photographic-images)
 preserves all synthetic metadata and source projection flags. This recipe
 capability is separate from the photographic composition template's qualified
-interleaved RGB8 default; it adds no arbitrary palette or ICC/RLE capability.
+interleaved RGB8 default. Recipe `0.2.0` additionally supports caller-owned
+RGB geometry and metadata for photographic, endoscopic and microscopic images,
+with optional structurally validated ICC v2 RGB input profiles. See the
+[VL contract](docs/generation-guide.md#caller-defined-native-visible-light-images).
 
 Caller-defined [one-bit and unsigned 32-bit Secondary Capture](docs/generation-guide.md#caller-defined-one-bit-and-unsigned-32-bit-secondary-capture)
 uses explicit metadata and pixel declarations with checked native packing,

@@ -1,0 +1,126 @@
+{
+  "corpus_definition_bundle_schema_version": "1.0.0",
+  "definition_id": "fixture.generic-vl-single-frame",
+  "definition_version": "1.0.0",
+  "profiles": [
+    {
+      "profile_id": "smoke",
+      "scope": "valid",
+      "members": []
+    },
+    {
+      "profile_id": "core",
+      "scope": "valid",
+      "members": [
+        "caller/vl/camera-a",
+        "caller/vl/camera-b",
+        "caller/vl/color-profile"
+      ]
+    },
+    {
+      "profile_id": "extended",
+      "scope": "valid",
+      "members": []
+    },
+    {
+      "profile_id": "legacy",
+      "scope": "legacy",
+      "members": []
+    },
+    {
+      "profile_id": "stress",
+      "scope": "stress",
+      "members": []
+    },
+    {
+      "profile_id": "negative",
+      "scope": "expected_invalid",
+      "members": []
+    },
+    {
+      "profile_id": "fuzz",
+      "scope": "fuzz",
+      "members": []
+    },
+    {
+      "profile_id": "all",
+      "scope": "valid",
+      "union_of": [
+        "smoke",
+        "core",
+        "extended"
+      ],
+      "optional_profile": "stress",
+      "members": []
+    }
+  ],
+  "registry": {
+    "path": "cases/registry.json",
+    "sha256": "3198d948eef747853c2b9a1b896b87d6226e2a2320f1f3f985ab929970962ac8",
+    "size_bytes": 4843
+  },
+  "cases": [
+    {
+      "case_id": "caller/vl/camera-a",
+      "recipe_id": "caller_camera_a",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/camera-a.json",
+        "sha256": "0bee0e41a6a2e68aa3a1269706342094dab7b17f047e5b2b9f04b2d560220ac7",
+        "size_bytes": 5821
+      },
+      "dependencies": [],
+      "evidence_ids": [
+        "source-note.phase-4-vl-single-frame"
+      ],
+      "asset_ids": []
+    },
+    {
+      "case_id": "caller/vl/camera-b",
+      "recipe_id": "caller_camera_b",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/camera-b.json",
+        "sha256": "d9623156c7a79cf20da0da7dd2eae06bc2601ad78333e81b90ecfb67f5666200",
+        "size_bytes": 5826
+      },
+      "dependencies": [],
+      "evidence_ids": [
+        "source-note.phase-4-vl-single-frame"
+      ],
+      "asset_ids": []
+    },
+    {
+      "case_id": "caller/vl/color-profile",
+      "recipe_id": "caller_color_profile",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/color-profile.json",
+        "sha256": "5f08501af1634c8972ed9b0bc49e8cf92d272f67c56a193548d37895d847eb68",
+        "size_bytes": 8265
+      },
+      "dependencies": [],
+      "evidence_ids": [
+        "source-note.phase-2-icc-profile"
+      ],
+      "asset_ids": []
+    }
+  ],
+  "evidence": [
+    {
+      "evidence_id": "source-note.phase-4-vl-single-frame",
+      "media_type": "text/markdown",
+      "path": "evidence/phase-4-vl-single-frame.md",
+      "sha256": "7a5b59cc5245e2aca0428af1981318e65bdbb5a2269c109f90339811190729f9",
+      "size_bytes": 9431
+    },
+    {
+      "evidence_id": "source-note.phase-2-icc-profile",
+      "media_type": "text/markdown",
+      "path": "evidence/phase-2-icc-profile.md",
+      "sha256": "e2a5e44b91281e534a1521f9c0faa7e52ebc6e52121c79549cb4688c0c17e62f",
+      "size_bytes": 6965
+    }
+  ],
+  "assets": []
+}

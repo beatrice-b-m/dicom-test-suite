@@ -1,4 +1,6 @@
-use super::classic_vl_projection::{inspect_vl_photo_capability, inspect_xa_xrf_capability};
+use super::classic_vl_projection::{
+    inspect_vl_capability, inspect_vl_photo_capability, inspect_xa_xrf_capability,
+};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -644,8 +646,12 @@ fn validate_classic_capability_contract(
     let pet = inspect_pet_capability(recipe).map_err(|error| semantic(path, error.to_string()))?;
     let xa_xrf =
         inspect_xa_xrf_capability(recipe).map_err(|error| semantic(path, error.to_string()))?;
-    let photo =
-        inspect_vl_photo_capability(recipe).map_err(|error| semantic(path, error.to_string()))?;
+    let vl = inspect_vl_capability(recipe).map_err(|error| semantic(path, error.to_string()))?;
+    let photo = if vl.is_none() {
+        inspect_vl_photo_capability(recipe).map_err(|error| semantic(path, error.to_string()))?
+    } else {
+        None
+    };
     match ct.is_some()
         || dx_mg.is_some()
         || cr.is_some()
@@ -656,6 +662,7 @@ fn validate_classic_capability_contract(
         || pet.is_some()
         || xa_xrf.is_some()
         || photo.is_some()
+        || vl.is_some()
     {
         true => recipe
             .planning_order
@@ -1952,7 +1959,20 @@ fn validate_registry_bindings(
                 });
             }
         }
+        let caller_vl =
+            inspect_vl_capability(recipe).map_err(|error| RecipeCatalogError::Completeness {
+                message: error.to_string(),
+            })?;
+        if caller_vl
+            .as_ref()
+            .is_some_and(|p| case.modality.as_deref() != Some(p.modality.as_str()))
+        {
+            return Err(RecipeCatalogError::Completeness {
+                message: "registry modality contradicts caller VL capability".into(),
+            });
+        }
         let name_independent_photo = recipe.plan_provider_id == "native.classic_plan"
+            && caller_vl.is_none()
             && inspect_vl_photo_capability(recipe)
                 .map_err(|error| RecipeCatalogError::Completeness {
                     message: format!(
@@ -1985,6 +2005,7 @@ fn validate_registry_bindings(
                 || name_independent_pet
                 || name_independent_xa_xrf
                 || name_independent_photo
+                || caller_vl.is_some()
                 || case.case_id.starts_with("classic/")
                 || (case.case_id.starts_with("vl/") && !case.case_id.starts_with("vl/wsi/")));
         let migrated_advanced = matches!(

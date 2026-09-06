@@ -1,0 +1,200 @@
+{
+  "case_recipe_schema_version": "0.2.0",
+  "recipe_id": "caller_camera_a",
+  "recipe_version": "0.1.0",
+  "binding": {
+    "case_id": "caller/vl/camera-a"
+  },
+  "kind": "dicom",
+  "plan_provider_id": "native.classic_plan",
+  "planning_order": 70,
+  "projection_order": 70,
+  "dependencies": [],
+  "provider_parameters": {
+    "patient_name": "Caller^Camera",
+    "patient_id": "CALLER-VL-21",
+    "patient_birth_date": "19880229",
+    "patient_sex": "O",
+    "study_date": "20240229",
+    "study_time": "101112",
+    "study_id": "VL21",
+    "manufacturer": "Caller Camera Lab",
+    "software_versions": "2.1"
+  },
+  "validation_rule_ids": [
+    "validation.shared"
+  ],
+  "projection_rule_ids": [
+    "projection.curated"
+  ],
+  "dicom": {
+    "artifacts": [
+      {
+        "logical_id": "view",
+        "order": 0,
+        "output": {
+          "role": "caller_rgb",
+          "path": "camera/camera-a.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {
+          "uid_file_index": 17,
+          "modality": "ES",
+          "sop_class_uid": "1.2.840.10008.5.1.4.1.1.77.1.1",
+          "rows": 2,
+          "columns": 3,
+          "samples_per_pixel": 3,
+          "photometric_interpretation": "RGB",
+          "planar_configuration": 0,
+          "stored_values": [
+            11,
+            22,
+            33,
+            44,
+            55,
+            66,
+            77,
+            88,
+            99,
+            110,
+            121,
+            132,
+            143,
+            154,
+            165,
+            176,
+            187,
+            198
+          ],
+          "pixel_min": 11,
+          "pixel_max": 198,
+          "frame_sha256": "821a25cab4bbf0d805d6aa041097efe10c4bd79135bc094ba2ac6005169e2bd6",
+          "body_part_examined": "ARM",
+          "laterality": "L"
+        },
+        "attribute_operations": [
+          {
+            "operation": "set",
+            "tag": "0008,0023",
+            "vr": "DA",
+            "value": "20240301"
+          },
+          {
+            "operation": "set",
+            "tag": "0008,0033",
+            "vr": "TM",
+            "value": "121314"
+          }
+        ],
+        "content": {
+          "provider_id": "content.native_pixels",
+          "parameters": {}
+        },
+        "validation_rule_ids": [
+          "validation.shared"
+        ],
+        "projection_rule_ids": [
+          "projection.curated"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [
+          "vl_endoscopic_image_storage",
+          "vl_rgb_pixels",
+          "native_ob_pixel_data"
+        ],
+        "algorithm_provider_id": "algorithm.classic_vl_projection",
+        "template": {
+          "template_id": "vl/endoscopic",
+          "template_version": "1.0.0"
+        },
+        "classic_projection": {
+          "family": "vl_projection",
+          "expected_capabilities": [
+            "open_file",
+            "read_metadata",
+            "render_native_pixels"
+          ],
+          "visual_pattern": "caller_2x3_rgb",
+          "semantic_labels": {
+            "photometric_semantics": "Caller RGB pixel samples"
+          },
+          "standards_evidence_append": [
+            {
+              "anchor": "table_B.5-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.4",
+              "query": "lookup_sop_class VL Endoscopic Image Storage",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_A.32.1-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "lookup_iod VL Endoscopic Image",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_A.32.1-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "list_modules_for_iod VL Endoscopic Image",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.8-77",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "list_attributes_for_module VL Image --expand-macros",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_C.7-5a",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "list_attributes_for_module General Series --expand-macros",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "sect_A.32.1.4.1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "retrieve_standard_text sect_A.32.1.4.1",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "table_6-1",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.6",
+              "query": "lookup_data_element PlanarConfiguration",
+              "source": "dicom-standard-kb"
+            },
+            {
+              "anchor": "sect_C.7.6.3.1.3",
+              "covered": true,
+              "edition": "2026b",
+              "part": "PS3.3",
+              "query": "retrieve_standard_text sect_C.7.6.3.1.3",
+              "source": "dicom-standard-kb"
+            }
+          ],
+          "include_implementation_version_name": true
+        }
+      }
+    ]
+  }
+}

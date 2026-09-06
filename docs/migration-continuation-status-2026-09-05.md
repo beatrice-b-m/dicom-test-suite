@@ -2676,3 +2676,34 @@ this checkpoint; one fresh report2 attempt is merely ready. There is still no
 accepted Enhanced baseline, import, availability, parity, reusable caller
 capability, independent conformance, viewer, Heavy, package or release claim.
 R7 remains open, and R8/R9 remain held behind their dependencies.
+
+## Enhanced multiframe report2 retained; boolean grouping fixed — 2026-09-05
+
+The fresh report2 completion attempt is retained at
+`artifacts/r7-native-enhanced-multiframe-baseline4-report2-20260905` with
+receipt SHA-256
+`d33d4b9ede859b6528118026142a98225f2b6351c511e65a45137c32511c47ba`.
+It made exactly one 1.075830375-second report call, which exited zero without a
+retry and emitted 3,455,121 bytes at SHA-256
+`a7c3882982b16426baf8b0d5e1400b0d9ac986b711a1b85f3d0017266fc1a52a`.
+The document contains 7 generated, 110 unavailable and 10 planned rows, 127
+ordered rows, 120 gaps and all 475 grouped-coverage keys. The helper then failed
+closed at `report_contract`: the sole projection mismatch was
+`enhanced_pet_slice_progression_direction_states`, emitted as `{}` instead of
+the source-authenticated `{"false": 1}`. Immutable baseline4, report1, the
+reporter candidate and the original generator/reporter pins remain unchanged.
+
+Generator change `fix(report): retain boolean scalar coverage` makes the shared
+scalar-label projection treat JSON booleans as the stable strings `true` and
+`false`, while null, arrays and objects remain ungrouped and existing string and
+number labels remain unchanged. This is the reusable scalar-count-map contract;
+the focused Enhanced PET regression now binds the exact `false` group. The
+focused PET test and six report-contract tests pass, as do the 40 routing tests,
+the 1,521-entry ownership check, formatting and diff checks.
+
+Report2 remains failed evidence, not an accepted completion. The source fix has
+not been independently reviewed or built into a distinct reporter candidate,
+and no further native report has run. There is still no accepted Enhanced
+baseline, import, availability, parity, reusable caller capability, independent
+conformance, viewer, Heavy, package or release claim. R7 remains open, and
+R8/R9 remain held behind their dependencies.

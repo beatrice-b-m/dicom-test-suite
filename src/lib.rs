@@ -29995,6 +29995,7 @@ fn report_scalar_label(value: &Value) -> Option<String> {
     match value {
         Value::String(value) => Some(value.clone()),
         Value::Number(value) => Some(value.to_string()),
+        Value::Bool(value) => Some(value.to_string()),
         _ => None,
     }
 }
@@ -38456,6 +38457,26 @@ mod tests {
 
     #[test]
     fn enhanced_pet_report_fields_are_exact_grouped_and_rendered() {
+        assert_eq!(
+            report_scalar_label(&serde_json::json!("label")),
+            Some("label".to_string())
+        );
+        assert_eq!(
+            report_scalar_label(&serde_json::json!(2.5)),
+            Some("2.5".to_string())
+        );
+        assert_eq!(
+            report_scalar_label(&serde_json::json!(true)),
+            Some("true".to_string())
+        );
+        assert_eq!(
+            report_scalar_label(&serde_json::json!(false)),
+            Some("false".to_string())
+        );
+        assert_eq!(report_scalar_label(&Value::Null), None);
+        assert_eq!(report_scalar_label(&serde_json::json!({})), None);
+        assert_eq!(report_scalar_label(&serde_json::json!([])), None);
+
         let file = serde_json::json!({
             "expected_enhanced_pet": {
                 "image_type": ["DERIVED", "PRIMARY", "STATIC", "MULTIPLICATION"],
@@ -38527,6 +38548,10 @@ mod tests {
         );
         assert_eq!(
             grouped_json.pointer("/enhanced_pet_rwvm_slopes/2.5"),
+            Some(&Value::from(1))
+        );
+        assert_eq!(
+            grouped_json.pointer("/enhanced_pet_slice_progression_direction_states/false"),
             Some(&Value::from(1))
         );
         let markdown = render_coverage_report_markdown(&serde_json::json!({

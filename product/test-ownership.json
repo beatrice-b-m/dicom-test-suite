@@ -4338,7 +4338,7 @@
         "encapsulated_stl_manifest_contract_is_exact_and_case_scoped",
         "encapsulated_stl_report_projects_payload_geometry_and_grouped_evidence"
       ],
-      "entry_digest": "4e7d142a634f284553f667d0f24fa0665edb6873833cb802efb40a93e837c2f8"
+      "entry_digest": "f032cb2d5370dd765969d582df004b0df3b06c5dd20f0513618793835a96d470"
     },
     {
       "source": "src/manifest_contract.rs",

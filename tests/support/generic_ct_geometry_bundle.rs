@@ -10,7 +10,7 @@ pub fn oracle() -> Value {
     let bytes = include_bytes!("../fixtures/generic-ct-geometry-semantics.json");
     assert_eq!(
         sha256_hex(bytes),
-        "31dc5d0d2d0dd43d20fb898e6eb162219b95d751016df653a6e94f29a6572fb0",
+        "b85a21b46797c177db39102286c5ca091e08096386ef405a332ab7cadb027d92",
         "the reviewed caller-owned CT geometry oracle is immutable"
     );
     let value: Value = serde_json::from_slice(bytes).unwrap();
@@ -125,12 +125,121 @@ impl GenericCtGeometryBundle {
         args.extend(["--format".into(), "json".into()]);
         args
     }
+
+    pub fn rewrite_rescale(&self, slope: &str, intercept: &str) {
+        let recipe_path = self
+            .members
+            .join("cases/recipes/caller-angled-order-study.json");
+        let mut recipe: Value = serde_json::from_slice(&fs::read(&recipe_path).unwrap()).unwrap();
+        recipe["provider_parameters"]["rescale_slope"] = Value::from(slope);
+        recipe["provider_parameters"]["rescale_intercept"] = Value::from(intercept);
+        let recipe_bytes = serde_json::to_vec_pretty(&recipe).unwrap();
+        fs::write(&recipe_path, &recipe_bytes).unwrap();
+
+        let mut definition: Value =
+            serde_json::from_slice(&fs::read(&self.descriptor).unwrap()).unwrap();
+        definition["cases"][0]["recipe"]["size_bytes"] = recipe_bytes.len().into();
+        definition["cases"][0]["recipe"]["sha256"] = sha256_hex(&recipe_bytes).into();
+        fs::write(
+            &self.descriptor,
+            serde_json::to_vec_pretty(&definition).unwrap(),
+        )
+        .unwrap();
+    }
+
+    pub fn rewrite_second_series_without_sorting_conflict(&self) {
+        let recipe_path = self
+            .members
+            .join("cases/recipes/caller-angled-order-study.json");
+        let mut recipe: Value = serde_json::from_slice(&fs::read(&recipe_path).unwrap()).unwrap();
+        for artifact in recipe["dicom"]["artifacts"].as_array_mut().unwrap() {
+            if artifact["parameters"]["series_index"] == 42 {
+                let position = artifact["parameters"]["position_along_normal"]
+                    .as_f64()
+                    .unwrap();
+                artifact["parameters"]["instance_number"]["value"] = Value::from(match position {
+                    value if value == 0.0 => "10",
+                    value if value == 4.0 => "50",
+                    value if value == 11.0 => "90",
+                    _ => panic!("unexpected caller fixture position"),
+                });
+            }
+        }
+        let recipe_bytes = serde_json::to_vec_pretty(&recipe).unwrap();
+        fs::write(&recipe_path, &recipe_bytes).unwrap();
+        let mut definition: Value =
+            serde_json::from_slice(&fs::read(&self.descriptor).unwrap()).unwrap();
+        definition["cases"][0]["recipe"]["size_bytes"] = recipe_bytes.len().into();
+        definition["cases"][0]["recipe"]["sha256"] = sha256_hex(&recipe_bytes).into();
+        fs::write(
+            &self.descriptor,
+            serde_json::to_vec_pretty(&definition).unwrap(),
+        )
+        .unwrap();
+    }
 }
 
 impl Drop for GenericCtGeometryBundle {
     fn drop(&mut self) {
         fs::remove_dir_all(&self.root).unwrap();
     }
+}
+
+fn assert_rescale_projection(manifest: &Value) -> Result<(), String> {
+    let expected = oracle();
+    let files = manifest["files"]
+        .as_array()
+        .ok_or("manifest files missing")?;
+    let rows = expected["caller"]["files"].as_array().unwrap();
+    if files.len() != rows.len() {
+        return Err("caller CT manifest file count differs".into());
+    }
+    for (file, row) in files.iter().zip(rows) {
+        let rescale = &file["expected_semantics"]["rescale"];
+        for (field, expected) in [
+            ("slope", json!("1.25")),
+            ("intercept", json!("-950")),
+            ("output_min", row["rescale_output_min"].clone()),
+            ("output_max", row["rescale_output_max"].clone()),
+        ] {
+            if rescale[field] != expected {
+                return Err(format!("caller CT rescale semantic mismatch: {field}"));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn assert_geometry_projection(manifest: &Value) -> Result<(), String> {
+    let expected = oracle();
+    let files = manifest["files"]
+        .as_array()
+        .ok_or("manifest files missing")?;
+    let rows = expected["caller"]["files"].as_array().unwrap();
+    if files.len() != rows.len() {
+        return Err("caller CT manifest file count differs".into());
+    }
+    for (file, row) in files.iter().zip(rows) {
+        let geometry = &file["expected_geometry"];
+        for (field, expected) in [
+            ("instance_number", row["instance_number"].clone()),
+            ("instance_number_state", json!("numeric")),
+            (
+                "sort_basis",
+                json!("image_position_patient_projected_on_slice_normal"),
+            ),
+            ("sort_direction", json!("ascending")),
+        ] {
+            if geometry[field] != expected {
+                return Err(format!("caller CT manifest geometry mismatch: {field}"));
+            }
+        }
+        if geometry["position_along_normal_mm"].as_f64() != row["position_along_normal_mm"].as_f64()
+        {
+            return Err("caller CT manifest geometry mismatch: position_along_normal_mm".into());
+        }
+    }
+    Ok(())
 }
 
 pub fn assert_manifest(manifest: &Value) {
@@ -141,6 +250,8 @@ pub fn assert_manifest(manifest: &Value) {
         manifest["identity_projection"]["corpus_definition"]["identity"],
         expected["caller"]["identity"]
     );
+    assert_rescale_projection(manifest).unwrap();
+    assert_geometry_projection(manifest).unwrap();
     let files = manifest["files"].as_array().unwrap();
     assert_eq!(files.len(), 6);
     for (file, row) in files
@@ -165,6 +276,17 @@ pub fn assert_manifest(manifest: &Value) {
             geometry["instance_number_order_index"],
             row["instance_number_order_index"]
         );
+        assert_eq!(geometry["instance_number"], row["instance_number"]);
+        assert_eq!(geometry["instance_number_state"], "numeric");
+        assert_eq!(
+            geometry["position_along_normal_mm"].as_f64(),
+            row["position_along_normal_mm"].as_f64()
+        );
+        assert_eq!(
+            geometry["sort_basis"],
+            "image_position_patient_projected_on_slice_normal"
+        );
+        assert_eq!(geometry["sort_direction"], "ascending");
         assert_eq!(geometry["adjacent_spacing_mm"], json!([4.0, 7.0]));
         assert_eq!(geometry["spacing_uniform"], false);
         assert_eq!(geometry["sorting_conflict_expected"], true);
@@ -181,6 +303,28 @@ pub fn assert_manifest(manifest: &Value) {
         ] {
             assert_eq!(organization[key], true, "{key}");
         }
+    }
+}
+
+pub fn assert_manifest_rescale_mutations_fail(manifest: &Value) {
+    for field in ["slope", "intercept", "output_min", "output_max"] {
+        let mut mutated = manifest.clone();
+        mutated["files"][0]["expected_semantics"]["rescale"][field] = json!("tampered");
+        assert!(assert_rescale_projection(&mutated).is_err(), "{field}");
+    }
+}
+
+pub fn assert_manifest_geometry_mutations_fail(manifest: &Value) {
+    for field in [
+        "instance_number",
+        "instance_number_state",
+        "position_along_normal_mm",
+        "sort_basis",
+        "sort_direction",
+    ] {
+        let mut mutated = manifest.clone();
+        mutated["files"][0]["expected_geometry"][field] = json!("tampered");
+        assert!(assert_geometry_projection(&mutated).is_err(), "{field}");
     }
 }
 
@@ -209,6 +353,13 @@ fn assert_ct_report_projection(report: &Value) -> Result<(), String> {
                 "geometry_instance_number_order_index",
                 file["instance_number_order_index"].clone(),
             ),
+            ("geometry_instance_number", file["instance_number"].clone()),
+            ("geometry_instance_number_state", json!("numeric")),
+            (
+                "geometry_sort_basis",
+                json!("image_position_patient_projected_on_slice_normal"),
+            ),
+            ("geometry_sort_direction", json!("ascending")),
             ("geometry_adjacent_spacing_mm", json!([4.0, 7.0])),
             ("geometry_spacing_uniform", json!(false)),
             ("geometry_gantry_detector_tilt_degrees", json!(11.30993247)),
@@ -231,10 +382,20 @@ fn assert_ct_report_projection(report: &Value) -> Result<(), String> {
             ("pixel_spacing", json!("0.73\\0.41")),
             ("slice_thickness", json!("2.5")),
             ("spacing_between_slices", Value::Null),
+            ("ct_rescale_intercept", json!("-950")),
+            ("ct_rescale_slope", json!("1.25")),
+            ("ct_rescale_type", json!("HU")),
         ] {
             if row[field] != expected {
                 return Err(format!("report2 caller CT field mismatch: {field}"));
             }
+        }
+        if row["geometry_position_along_normal_mm"].as_f64()
+            != file["position_along_normal_mm"].as_f64()
+        {
+            return Err(
+                "report2 caller CT field mismatch: geometry_position_along_normal_mm".into(),
+            );
         }
     }
     for (field, expected) in [
@@ -244,10 +405,17 @@ fn assert_ct_report_projection(report: &Value) -> Result<(), String> {
         ("geometries", json!({"2x2":6})),
         ("bit_depths", json!({"12":6})),
         ("image_orientations_patient", json!({"1\\0\\0\\0\\1\\0":6})),
+        (
+            "image_positions_patient",
+            json!({"0\\0\\0":1,"0\\-0.8\\4":1,"0\\-2.2\\11":1,"25\\-0.8\\4":1,"25\\0\\0":1,"25\\-2.2\\11":1}),
+        ),
         ("pixel_spacings", json!({"0.73\\0.41":6})),
         ("slice_thicknesses", json!({"2.5":6})),
         ("spacing_between_slices", json!({})),
         ("ct_acquisition_numbers", json!({"4":3,"6":3})),
+        ("ct_rescale_intercepts", json!({"-950":6})),
+        ("ct_rescale_slopes", json!({"1.25":6})),
+        ("ct_rescale_types", json!({"HU":6})),
     ] {
         if report["grouped_coverage"][field] != expected {
             return Err(format!("report2 caller CT group mismatch: {field}"));
@@ -268,6 +436,11 @@ pub fn assert_report_mutations_fail(report: &Value) {
     for field in [
         "geometry_geometric_order_index",
         "geometry_instance_number_order_index",
+        "geometry_instance_number",
+        "geometry_instance_number_state",
+        "geometry_position_along_normal_mm",
+        "geometry_sort_basis",
+        "geometry_sort_direction",
         "geometry_adjacent_spacing_mm",
         "geometry_spacing_uniform",
         "geometry_gantry_detector_tilt_degrees",
@@ -284,6 +457,9 @@ pub fn assert_report_mutations_fail(report: &Value) {
         "pixel_spacing",
         "slice_thickness",
         "spacing_between_slices",
+        "ct_rescale_intercept",
+        "ct_rescale_slope",
+        "ct_rescale_type",
     ] {
         let mut mutated = report.clone();
         mutated["coverage_matrix"][0][field] = json!("tampered");
@@ -296,10 +472,14 @@ pub fn assert_report_mutations_fail(report: &Value) {
         "geometries",
         "bit_depths",
         "image_orientations_patient",
+        "image_positions_patient",
         "pixel_spacings",
         "slice_thicknesses",
         "spacing_between_slices",
         "ct_acquisition_numbers",
+        "ct_rescale_intercepts",
+        "ct_rescale_slopes",
+        "ct_rescale_types",
     ] {
         let mut mutated = report.clone();
         mutated["grouped_coverage"][field] = json!({"tampered":99});

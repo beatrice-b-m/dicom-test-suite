@@ -20,6 +20,92 @@ const LOCK_HASH_PATH: &str = "standards.lock.json";
 const CT_PREFIXES: [&str; 2] = ["classic/ct/", "geometry/ct/"];
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
+// Accepted original-generator (232b9de), seed-1 baseline3 payload oracle. This
+// remains independent of both current planning paths so coordinated changes
+// cannot silently relabel historical binary evidence.
+const ACCEPTED_CT_GEOMETRY_BASELINE3: [(&str, u64, &str); 16] = [
+    (
+        "geometry/ct/spatial_sort_conflicts_instance_number/slice-001.dcm",
+        1250,
+        "e5fc879fc223aa52c6d4ecaee819a31f642451cd2024d2f99cc0a35aaac9626e",
+    ),
+    (
+        "geometry/ct/spatial_sort_conflicts_instance_number/slice-002.dcm",
+        1250,
+        "10a2e1504e5dcf2541596253d8d9abed71e592c172d7f6a7c7ac69defb9e456f",
+    ),
+    (
+        "geometry/ct/spatial_sort_conflicts_instance_number/slice-003.dcm",
+        1250,
+        "92db69f0c5ac140d08a982a0499484a802fd04d0af4486129ad04297d743b295",
+    ),
+    (
+        "geometry/ct/nonuniform_slice_spacing/slice-001.dcm",
+        1226,
+        "5498bf550eb0d73a9e064108bb343b62a2a037a3efdcf78290e5c6652978ef7a",
+    ),
+    (
+        "geometry/ct/nonuniform_slice_spacing/slice-002.dcm",
+        1226,
+        "b283d1c5b7dbeac9c0c97005885d28468e4338397806b49bc5598ef21fd90aea",
+    ),
+    (
+        "geometry/ct/nonuniform_slice_spacing/slice-003.dcm",
+        1226,
+        "320c9b7dc23efa5d0c175cfedcfaa3a1d0f90b7117c67199327fa3dabd0964ab",
+    ),
+    (
+        "geometry/ct/gantry_tilt_series/slice-001.dcm",
+        1250,
+        "7e042b6f8c639aa5ef7f09fdda7aff79592589d2d09d74bf2e88a71486171be2",
+    ),
+    (
+        "geometry/ct/gantry_tilt_series/slice-002.dcm",
+        1250,
+        "508fa912a5c6989c2a23f6d477c339feb6769de7d7bb77e6ce4fd3af07060edb",
+    ),
+    (
+        "geometry/ct/gantry_tilt_series/slice-003.dcm",
+        1252,
+        "183b5f4c25dff31c9be722390dafcd160a406203edd622649590f23dc22ad57a",
+    ),
+    (
+        "geometry/ct/duplicate_missing_instance_number/slice-001.dcm",
+        1246,
+        "396fa80f8247e29aedb0cb5846fda4c68fcca9c9d6032b60c6f3a01c7b305956",
+    ),
+    (
+        "geometry/ct/duplicate_missing_instance_number/slice-002.dcm",
+        1246,
+        "c690891f65989f018e4f87d19ebd1f6de753f69d282046c32d46329fecc243f0",
+    ),
+    (
+        "geometry/ct/duplicate_missing_instance_number/slice-003.dcm",
+        1244,
+        "3a070eb970cdfd9cff11aea2f6f446007993e8fbbb49ae1d1a556b9291795de1",
+    ),
+    (
+        "geometry/ct/multiseries_shared_frame_of_reference/series-001/slice-001.dcm",
+        1250,
+        "79489620c79310415f3674a824d372f2efc9119a28e1952531ce7d8440036beb",
+    ),
+    (
+        "geometry/ct/multiseries_shared_frame_of_reference/series-001/slice-002.dcm",
+        1250,
+        "717032653dda78e1d3dabd86ec5c9bd29c505476ca167f0b510537e0c8faedec",
+    ),
+    (
+        "geometry/ct/multiseries_shared_frame_of_reference/series-002/slice-001.dcm",
+        1250,
+        "bd7aadb83f905790e7a92c0755775f07d647d41e3a866d18fe381950990fbf82",
+    ),
+    (
+        "geometry/ct/multiseries_shared_frame_of_reference/series-002/slice-002.dcm",
+        1250,
+        "9f5630dbf1a1766081c0e73491d643a417770ee6d81c1e141b788b0f44d3f35b",
+    ),
+];
+
 fn temp_path(label: &str) -> PathBuf {
     std::env::temp_dir().join(format!(
         "dicom-test-suite-classic-ct-{label}-{}-{}",
@@ -253,7 +339,7 @@ fn caller_ct_series_geometry_is_derived_and_fails_closed() {
 
     let mut invalid_conflict = conflict.clone();
     invalid_conflict.provider_parameters["sorting_conflict_expected"] = Value::from(false);
-    rejects(&invalid_conflict, "contradicts derived spatial");
+    rejects(&invalid_conflict, "derived study-level conflict aggregate");
 
     let mut duplicate_position = conflict.clone();
     duplicate_position.dicom.as_mut().unwrap().artifacts[1].parameters["image_position_patient"] =
@@ -276,6 +362,13 @@ fn caller_ct_series_geometry_is_derived_and_fails_closed() {
     overlong_ds.provider_parameters["slice_thickness"] = Value::from("12345678901234567");
     rejects(&overlong_ds, "invalid CT DS slice_thickness");
 
+    let mut overflowing_rescale = conflict.clone();
+    overflowing_rescale.provider_parameters["rescale_slope"] = Value::from("1e308");
+    rejects(
+        &overflowing_rescale,
+        "rescale endpoint transformation is non-finite",
+    );
+
     let mut invalid_date = conflict.clone();
     invalid_date.provider_parameters["acquisition_date"] = Value::from("20260230");
     rejects(&invalid_date, "invalid CT acquisition_date");
@@ -288,6 +381,17 @@ fn caller_ct_series_geometry_is_derived_and_fails_closed() {
     let mut invalid_tilt = tilt.clone();
     invalid_tilt.provider_parameters["gantry_detector_tilt"] = Value::from("15");
     rejects(&invalid_tilt, "contradicts the declared slice-origin shear");
+
+    let mut negative_tilt = tilt.clone();
+    negative_tilt.provider_parameters["gantry_detector_tilt"] = Value::from("-11.30993247");
+    rejects(&negative_tilt, "tilt magnitude must be within 0..90");
+
+    let mut opposite_shear = tilt.clone();
+    opposite_shear.dicom.as_mut().unwrap().artifacts[1].parameters["image_position_patient"] =
+        serde_json::json!(["0", "1", "5"]);
+    opposite_shear.dicom.as_mut().unwrap().artifacts[2].parameters["image_position_patient"] =
+        serde_json::json!(["0", "2", "10"]);
+    rejects(&opposite_shear, "negative column direction");
 
     let multi = case("geometry/ct/multiseries_shared_frame_of_reference");
     let mut sparse_series_indices = multi.clone();
@@ -302,6 +406,60 @@ fn caller_ct_series_geometry_is_derived_and_fails_closed() {
             .unwrap()
             .len(),
         4
+    );
+
+    let mut singleton_plus_series = multi.clone();
+    singleton_plus_series.binding.case_id = "caller/ct/singleton-plus-stack".into();
+    singleton_plus_series.recipe_id = "caller_singleton_plus_stack".into();
+    let artifacts = &mut singleton_plus_series.dicom.as_mut().unwrap().artifacts;
+    artifacts.retain(|artifact| artifact.order != 1);
+    for (order, artifact) in artifacts.iter_mut().enumerate() {
+        artifact.order = u32::try_from(order).unwrap();
+    }
+    let requests = plan_ct_recipe(&singleton_plus_series, &lock_hash, 7)
+        .unwrap()
+        .unwrap();
+    assert_eq!(requests.len(), 3);
+    let conditional_tags = ["0018,5100", "0020,0062"];
+    for tag in conditional_tags {
+        assert!(
+            requests[0].family.iter().all(|fragment| fragment
+                .module()
+                .operations
+                .iter()
+                .all(|operation| operation.address().normalized_tag() != tag)),
+            "singleton series must omit multi-instance-only {tag}"
+        );
+        assert!(
+            requests[1..]
+                .iter()
+                .all(|request| request.family.iter().any(|fragment| {
+                    fragment
+                        .module()
+                        .operations
+                        .iter()
+                        .any(|operation| operation.address().normalized_tag() == tag)
+                })),
+            "multi-instance series must retain {tag}"
+        );
+    }
+
+    let mut all_singletons = singleton_plus_series.clone();
+    all_singletons.dicom.as_mut().unwrap().artifacts.truncate(2);
+    all_singletons
+        .provider_parameters
+        .insert("gantry_detector_tilt".into(), Value::from("10"));
+    rejects(&all_singletons, "requires at least one slice interval");
+    all_singletons
+        .provider_parameters
+        .insert("gantry_detector_tilt".into(), Value::from("0"));
+    assert_eq!(
+        plan_ct_recipe(&all_singletons, &lock_hash, 7)
+            .unwrap()
+            .unwrap()
+            .len(),
+        2,
+        "zero-tilt singleton series remain a valid bounded contract"
     );
 
     let mut missing_organization = multi.clone();
@@ -321,7 +479,7 @@ fn direct_ct_plans_are_byte_identical_to_current_generator() {
     let run = prepare_generation_run(GenerateOptions {
         profile: "all".into(),
         out_dir: generated_root.clone(),
-        seed: 7,
+        seed: 1,
         include_stress: false,
     })
     .unwrap();
@@ -329,11 +487,29 @@ fn direct_ct_plans_are_byte_identical_to_current_generator() {
     fs::create_dir(&planned_root).unwrap();
     let manifest: Value =
         serde_json::from_slice(&fs::read(generated_root.join("manifest.json")).unwrap()).unwrap();
+    let accepted = manifest["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|entry| {
+            ACCEPTED_CT_GEOMETRY_BASELINE3
+                .iter()
+                .any(|(path, _, _)| entry["path"].as_str() == Some(*path))
+        })
+        .map(|entry| {
+            (
+                entry["path"].as_str().unwrap(),
+                entry["size_bytes"].as_u64().unwrap(),
+                entry["sha256"].as_str().unwrap(),
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(accepted, ACCEPTED_CT_GEOMETRY_BASELINE3);
     let (catalog, templates, lock_hash) = load();
 
     for recipe in owned(&catalog) {
         let artifacts = &recipe.dicom.as_ref().unwrap().artifacts;
-        let requests = plan_ct_recipe(recipe, &lock_hash, 7).unwrap().unwrap();
+        let requests = plan_ct_recipe(recipe, &lock_hash, 1).unwrap().unwrap();
         let planned = OrderedSeriesProvider.plan(requests).unwrap();
         let expected_paths = artifacts
             .iter()

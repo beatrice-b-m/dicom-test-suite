@@ -218,8 +218,19 @@ fn ct(ctx: &CuratedArtifactProjectionContext) -> Result<Facts, CuratedManifestEr
         ]));
     }
     let recipe = json!({"rows":px.rows,"columns":px.columns,"samples_per_pixel":1,"photometric_interpretation":"MONOCHROME2","bits_allocated":16,"bits_stored":12,"high_bit":11,"pixel_representation":1,"pixel_values":px.stored_values,"geometry":geometry,"kvp":p.kvp,"acquisition_number":a.acquisition_number,"series_number":a.series_number,"rescale":{"intercept":p.rescale_intercept,"slope":p.rescale_slope,"type":p.rescale_type},"window":{"center":p.window_center,"width":p.window_width}});
-    let output_min = px.pixel_min + parse(&p.rescale_intercept)? as i64;
-    let output_max = px.pixel_max + parse(&p.rescale_intercept)? as i64;
+    let intercept = parse(&p.rescale_intercept)?;
+    let slope = parse(&p.rescale_slope)?;
+    let endpoints = [
+        px.pixel_min as f64 * slope + intercept,
+        px.pixel_max as f64 * slope + intercept,
+    ];
+    if endpoints.iter().any(|value| !value.is_finite()) {
+        return Err(err(
+            "classic CT rescale endpoint transformation is non-finite",
+        ));
+    }
+    let output_min = semantic_number(endpoints[0].min(endpoints[1]));
+    let output_max = semantic_number(endpoints[0].max(endpoints[1]));
     let mut semantics = json!({"synthetic_data":"YES","image_type":joined(&p.image_type),"pixel_min":px.pixel_min,"pixel_max":px.pixel_max,"rescale":{"intercept":p.rescale_intercept,"slope":p.rescale_slope,"type":p.rescale_type,"output_min":output_min,"output_max":output_max},"window":{"center":p.window_center,"width":p.window_width}});
     let mut specials = Map::new();
     if capability.artifacts.len() > 1 {
@@ -263,6 +274,14 @@ fn ct(ctx: &CuratedArtifactProjectionContext) -> Result<Facts, CuratedManifestEr
         semantics,
         specials,
     })
+}
+
+fn semantic_number(value: f64) -> Value {
+    if value.fract() == 0.0 && value >= i64::MIN as f64 && value <= i64::MAX as f64 {
+        Value::from(value as i64)
+    } else {
+        Value::from(value)
+    }
 }
 
 fn photo(

@@ -338,7 +338,7 @@ pub fn plan_ct_recipe(
         let family = ClassicCtFamilyProvider.plan_family(ClassicCtFamilyRequest {
             provider: &provider,
             artifact: parameters,
-            multi_instance_series: dicom.artifacts.len() > 1,
+            multi_instance_series: inspected.series_instance_count > 1,
         })?;
         let pixels = &parameters.pixels;
         requests.push(ClassicInstanceRequest {
@@ -463,6 +463,7 @@ pub(crate) fn inspect_ct_capability(
             "artifact parameters",
         )?;
         validate_artifact_parameters(&decoded)?;
+        validate_rescale_endpoints(&provider, &decoded)?;
         if !uid_file_indices.insert(decoded.uid_file_index) {
             return Err(contract("CT uid_file_index values must be unique"));
         }
@@ -582,8 +583,10 @@ fn validate_provider(provider: &ClassicCtProviderParameters) -> Result<(), Class
     }
     if let Some(value) = &provider.gantry_detector_tilt {
         let tilt = parse_ds(value, "gantry_detector_tilt")?;
-        if !(-90.0..=90.0).contains(&tilt) {
-            return Err(contract("CT gantry_detector_tilt must be within -90..90"));
+        if !(0.0..=90.0).contains(&tilt) {
+            return Err(contract(
+                "CT gantry_detector_tilt magnitude must be within 0..90",
+            ));
         }
     }
     let orientation = provider
@@ -669,6 +672,22 @@ fn validate_artifact_parameters(
     Ok(())
 }
 
+fn validate_rescale_endpoints(
+    provider: &ClassicCtProviderParameters,
+    parameters: &ClassicCtArtifactParameters,
+) -> Result<(), ClassicCtPlanError> {
+    let slope = parse_ds(&provider.rescale_slope, "rescale_slope")?;
+    let intercept = parse_ds(&provider.rescale_intercept, "rescale_intercept")?;
+    if [parameters.pixels.pixel_min, parameters.pixels.pixel_max]
+        .into_iter()
+        .map(|value| value as f64 * slope + intercept)
+        .any(|value| !value.is_finite())
+    {
+        return Err(contract("CT rescale endpoint transformation is non-finite"));
+    }
+    Ok(())
+}
+
 fn derive_series_contract(
     provider: &ClassicCtProviderParameters,
     parameters: Vec<(u32, ClassicCtArtifactParameters)>,
@@ -678,10 +697,9 @@ fn derive_series_contract(
         .iter()
         .map(|value| parse_ds(value, "image_orientation_patient"))
         .collect::<Result<Vec<_>, _>>()?;
-    let normal = cross(
-        [orientation[0], orientation[1], orientation[2]],
-        [orientation[3], orientation[4], orientation[5]],
-    );
+    let row = [orientation[0], orientation[1], orientation[2]];
+    let column = [orientation[3], orientation[4], orientation[5]];
+    let normal = cross(row, column);
     let mut by_series = BTreeMap::<u32, Vec<(u32, &ClassicCtArtifactParameters, [f64; 3])>>::new();
     for (order, item) in &parameters {
         let values = item
@@ -700,11 +718,6 @@ fn derive_series_contract(
             .entry(item.series_index)
             .or_default()
             .push((*order, item, position));
-    }
-    if parameters.len() > 1 && by_series.values().any(|members| members.len() < 2) {
-        return Err(contract(
-            "multi-artifact CT geometry requires at least two members per series",
-        ));
     }
     match &provider.series_organization {
         Some(_) if by_series.len() < 2 => {
@@ -732,6 +745,7 @@ fn derive_series_contract(
         .enumerate()
         .map(|(index, value)| (*value, index + 1))
         .collect::<BTreeMap<_, _>>();
+    let mut tilt_interval_observed = false;
     let mut derived = BTreeMap::<
         u32,
         (
@@ -744,6 +758,7 @@ fn derive_series_contract(
             usize,
         ),
     >::new();
+    let mut series_conflicts = Vec::with_capacity(by_series.len());
     for (series_index, members) in &mut by_series {
         let first = members[0].1;
         if members.iter().any(|(_, item, _)| {
@@ -789,18 +804,24 @@ fn derive_series_contract(
         if let Some(expected_tilt) = tilt {
             let mut shear_direction = None;
             for pair in members.windows(2) {
+                tilt_interval_observed = true;
                 let delta = subtract(pair[1].2, pair[0].2);
                 let along = dot(delta, normal);
                 let in_plane = subtract(delta, scale(normal, along));
                 let magnitude = dot(in_plane, in_plane).sqrt();
                 let actual = magnitude.atan2(along.abs()).to_degrees();
-                if (actual - expected_tilt.abs()).abs() > 0.000_01 {
+                if (actual - expected_tilt).abs() > 0.000_01 {
                     return Err(contract(
                         "CT gantry_detector_tilt contradicts the declared slice-origin shear",
                     ));
                 }
                 if magnitude > 0.000_01 {
                     let direction = scale(in_plane, 1.0 / magnitude);
+                    if dot(direction, scale(column, -1.0)) < 0.999_99 {
+                        return Err(contract(
+                            "CT gantry tilt shear must follow the negative column direction",
+                        ));
+                    }
                     if shear_direction.is_some_and(|prior| dot(prior, direction) < 0.999_99) {
                         return Err(contract("CT gantry tilt shear direction is inconsistent"));
                     }
@@ -846,11 +867,7 @@ fn derive_series_contract(
             .map(|(order, _)| *order)
             .collect::<Vec<_>>();
         let conflict = fully_ordered.then_some(geometric_orders != numeric_orders);
-        if provider.sorting_conflict_expected != conflict {
-            return Err(contract(
-                "CT sorting_conflict_expected contradicts derived spatial and Instance Number order",
-            ));
-        }
+        series_conflicts.push(conflict);
         for (index, (order, _, _)) in members.iter().enumerate() {
             derived.insert(
                 *order,
@@ -865,6 +882,20 @@ fn derive_series_contract(
                 ),
             );
         }
+    }
+    let aggregate_conflict = series_conflicts
+        .iter()
+        .all(Option::is_some)
+        .then(|| series_conflicts.iter().any(|value| *value == Some(true)));
+    if provider.sorting_conflict_expected != aggregate_conflict {
+        return Err(contract(
+            "CT sorting_conflict_expected contradicts the derived study-level conflict aggregate",
+        ));
+    }
+    if tilt.is_some_and(|value| value > 0.000_01) && !tilt_interval_observed {
+        return Err(contract(
+            "positive CT gantry tilt requires at least one slice interval",
+        ));
     }
     Ok(parameters
         .into_iter()

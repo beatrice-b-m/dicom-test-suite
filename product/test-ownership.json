@@ -510,7 +510,7 @@
         "caller_ct_series_geometry_is_derived_and_fails_closed",
         "direct_ct_plans_are_byte_identical_to_current_generator"
       ],
-      "entry_digest": "5ab73e3842254b79b53d6174c735ec3320ab192b37dd1c38b02a5406fad7d9a1"
+      "entry_digest": "e1c59cb969a73b82a4026e1861b0329caec05e42548f8e691bebab63c937cae3"
     },
     {
       "source": "tests/classic_dx_mg_plan.rs",
@@ -1889,7 +1889,7 @@
         "caller_named_xa_xrf_cli_is_sdk_identical_strictly_valid_and_reported",
         "caller_named_vl_photo_cli_is_sdk_identical_strictly_valid_and_reported"
       ],
-      "entry_digest": "0daa464b134662e07f8a1ee61c7f17921bb83155ed241828e316f1f334e3e6ff"
+      "entry_digest": "75e228af5ddb5d98f359a9fe51ecd383e9b4590f0d6b3d0e1bf8d7c91de9fe29"
     },
     {
       "source": "tests/frame_codec_service.rs",

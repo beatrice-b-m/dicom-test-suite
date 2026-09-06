@@ -2489,6 +2489,8 @@ fn caller_owned_ct_geometry_cli_sdk_strict_and_report_are_identical() {
     let cli_manifest: Value = serde_json::from_slice(&cli_manifest_bytes).unwrap();
     valid("manifest-v2.schema.json", &cli_manifest);
     generic_ct_geometry_bundle::assert_manifest(&cli_manifest);
+    generic_ct_geometry_bundle::assert_manifest_rescale_mutations_fail(&cli_manifest);
+    generic_ct_geometry_bundle::assert_manifest_geometry_mutations_fail(&cli_manifest);
     let oracle = generic_ct_geometry_bundle::oracle();
     for (file, row) in cli_manifest["files"]
         .as_array()
@@ -2588,6 +2590,99 @@ fn caller_owned_ct_geometry_cli_sdk_strict_and_report_are_identical() {
             .any(|failure| failure.contains("geometry_order: actual rank")),
         "{:?}",
         validation.failures()
+    );
+
+    let negative = generic_ct_geometry_bundle::GenericCtGeometryBundle::new();
+    negative.rewrite_rescale("-2", "10");
+    let GenerateCorpusOutcome::Published(negative_run) = product
+        .generate_corpus(
+            GenerateCorpusRequest::from_file(
+                &negative.descriptor,
+                &negative.members,
+                negative.root.join("negative-output"),
+                generic_ct_geometry_bundle::selector(),
+            )
+            .with_seed(13)
+            .with_parallelism(3),
+        )
+        .unwrap()
+    else {
+        panic!("negative-slope caller CT geometry must publish")
+    };
+    let negative_manifest = negative_run.manifest().deserialize::<Value>().unwrap();
+    assert_eq!(
+        negative_manifest["files"][0]["expected_semantics"]["rescale"],
+        json!({
+            "intercept":"10",
+            "slope":"-2",
+            "type":"HU",
+            "output_min":-3790,
+            "output_max":2010
+        }),
+        "negative slope must transform both endpoints and reorder the output bounds"
+    );
+
+    let heterogeneous = generic_ct_geometry_bundle::GenericCtGeometryBundle::new();
+    heterogeneous.rewrite_second_series_without_sorting_conflict();
+    let GenerateCorpusOutcome::Published(heterogeneous_run) = product
+        .generate_corpus(
+            GenerateCorpusRequest::from_file(
+                &heterogeneous.descriptor,
+                &heterogeneous.members,
+                heterogeneous.root.join("heterogeneous-output"),
+                generic_ct_geometry_bundle::selector(),
+            )
+            .with_seed(13)
+            .with_parallelism(3),
+        )
+        .unwrap()
+    else {
+        panic!("heterogeneous per-series sorting conflicts must publish")
+    };
+    let heterogeneous_manifest = heterogeneous_run.manifest().deserialize::<Value>().unwrap();
+    let conflicts = heterogeneous_manifest["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|file| {
+            (
+                file["expected_series_organization"]["series_ordinal"]
+                    .as_u64()
+                    .unwrap(),
+                file["expected_geometry"]["sorting_conflict_expected"]
+                    .as_bool()
+                    .unwrap(),
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        conflicts,
+        vec![
+            (1, true),
+            (1, true),
+            (1, true),
+            (2, false),
+            (2, false),
+            (2, false)
+        ]
+    );
+    let heterogeneous_report = product
+        .report(ReportRequest::new(heterogeneous_run.output_root()))
+        .unwrap()
+        .deserialize::<Value>()
+        .unwrap();
+    assert_eq!(
+        heterogeneous_report["coverage_matrix"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|row| (
+                row["series_ordinal"].as_u64().unwrap(),
+                row["geometry_sorting_conflict_expected"].as_bool().unwrap(),
+            ))
+            .collect::<Vec<_>>(),
+        conflicts,
+        "report2 must retain per-series conflict facts rather than flattening the aggregate"
     );
 }
 

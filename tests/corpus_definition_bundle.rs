@@ -67,6 +67,47 @@ const DX_CASE: &str = "classic/dx/display_shutter_mono2_u16_explicit_le";
 const MR_CASE: &str = "classic/mr/multislice_oblique_explicit_le";
 
 #[test]
+fn caller_owned_ct_geometry_fixture_is_name_independent_and_rejects_registry_modality() {
+    let source = PathBuf::from("tests/fixtures/generic-ct-geometry-corpus");
+    let descriptor = fs::read(source.join("definition.json")).unwrap();
+    let bundle =
+        CorpusDefinitionBundle::load_descriptor_bytes(&descriptor, source.join("members")).unwrap();
+    let catalog =
+        crate::recipes::RecipeCatalog::from_verified_bundle(&bundle, Path::new(".")).unwrap();
+    assert!(
+        catalog
+            .binding_for_case("caller/volumes/angled-order-study")
+            .is_some()
+    );
+
+    let root = temp("caller-ct-geometry-wrong-modality");
+    copy_bundle(&source.join("members"), &root.join("members"));
+    let mut definition: serde_json::Value = serde_json::from_slice(&descriptor).unwrap();
+    let registry_path = root.join("members/cases/registry.json");
+    let mut registry: serde_json::Value =
+        serde_json::from_slice(&fs::read(&registry_path).unwrap()).unwrap();
+    registry["cases"][0]["modality"] = "MR".into();
+    let registry_bytes = serde_json::to_vec(&registry).unwrap();
+    fs::write(&registry_path, &registry_bytes).unwrap();
+    definition["registry"]["size_bytes"] = registry_bytes.len().into();
+    definition["registry"]["sha256"] = crate::sha256_hex(&registry_bytes).into();
+    let bundle = CorpusDefinitionBundle::load_descriptor_bytes(
+        &serde_json::to_vec(&definition).unwrap(),
+        fs::canonicalize(root.join("members")).unwrap(),
+    )
+    .unwrap();
+    let error =
+        crate::recipes::RecipeCatalog::from_verified_bundle(&bundle, Path::new(".")).unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("registry modality contradicts CT capability"),
+        "{error}"
+    );
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn caller_owned_us_multiframe_fixture_is_admitted_by_structure() {
     let fixture = PathBuf::from("tests/fixtures/generic-us-multiframe-corpus");
     let inspected = crate::sdk::DicomTestSuite::embedded()

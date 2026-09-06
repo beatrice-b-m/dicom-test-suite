@@ -10,9 +10,7 @@ use crate::executor::adapters::ManifestProjectionArtifact;
 use crate::executor::evidence::{
     ArtifactExecutionEvidence, MaterializedContentEvidence, ResultStatus,
 };
-use crate::recipes::classic_ct::{
-    ClassicCtArtifactParameters, ClassicCtInstanceNumber, ClassicCtProviderParameters,
-};
+use crate::recipes::classic_ct::{ClassicCtInstanceNumber, inspect_ct_capability};
 use crate::recipes::classic_dx_mg::DxMgArtifactParameters;
 use crate::recipes::classic_mr_cr::{CrArtifactParameters, inspect_mr_capability};
 use crate::recipes::classic_nuclear::{
@@ -21,7 +19,7 @@ use crate::recipes::classic_nuclear::{
 use crate::recipes::classic_vl_projection::{
     ProjectionArtifactParameters, VlArtifactParameters, VlPhotometricInterpretation,
 };
-use crate::recipes::{ClassicProjectionFamily, ClassicSemanticLabels, PlannedArtifactRecipe};
+use crate::recipes::{ClassicProjectionFamily, ClassicSemanticLabels};
 
 use super::{
     CuratedManifestError, err, fail, legacy_validation, only, required, transfer_syntax_name, uid,
@@ -151,11 +149,6 @@ fn provider<T: DeserializeOwned>(
 ) -> Result<T, CuratedManifestError> {
     decode(Value::Object(ctx.case_recipe.provider_parameters.clone()))
 }
-fn artifact_value<T: DeserializeOwned>(
-    value: &PlannedArtifactRecipe,
-) -> Result<T, CuratedManifestError> {
-    decode(Value::Object(value.parameters.clone()))
-}
 fn joined(values: &[String]) -> String {
     values.join("\\")
 }
@@ -191,30 +184,20 @@ fn image(
 }
 
 fn ct(ctx: &CuratedArtifactProjectionContext) -> Result<Facts, CuratedManifestError> {
-    let p: ClassicCtProviderParameters = provider(ctx)?;
-    let a: ClassicCtArtifactParameters = artifact(ctx)?;
+    let capability = inspect_ct_capability(&ctx.case_recipe)
+        .map_err(|error| err(format!("invalid typed classic CT input: {error}")))?
+        .ok_or_else(|| err("classic CT projection lacks the CT capability tuple"))?;
+    let inspected = capability
+        .artifacts
+        .iter()
+        .find(|artifact| artifact.order == ctx.artifact_recipe.order)
+        .ok_or_else(|| err("classic CT artifact missing from inspected capability"))?;
+    let p = &capability.provider;
+    let a = &inspected.parameters;
     let px = &a.pixels;
-    let artifacts = &ctx
-        .case_recipe
-        .dicom
-        .as_ref()
-        .ok_or_else(|| err("classic CT has no artifacts"))?
-        .artifacts;
-    let all = artifacts
-        .iter()
-        .map(artifact_value::<ClassicCtArtifactParameters>)
-        .collect::<Result<Vec<_>, _>>()?;
-    let slice_count = all
-        .iter()
-        .filter(|v| v.series_index == a.series_index)
-        .count();
-    let study_series_count = all.iter().map(|v| v.series_index).max().unwrap_or(0) + 1;
-    let slice_order_index = all
-        .iter()
-        .filter(|value| value.series_index == a.series_index)
-        .position(|value| value.uid_file_index == a.uid_file_index)
-        .ok_or_else(|| err("classic CT artifact missing from its series"))?
-        + 1;
+    let slice_count = inspected.series_instance_count;
+    let study_series_count = capability.study_series_count;
+    let slice_order_index = inspected.geometric_order_index;
     let mut geometry = json!({"pixel_spacing":joined(&p.pixel_spacing),"image_orientation_patient":joined(&p.image_orientation_patient),"image_position_patient":joined(&a.image_position_patient),"slice_thickness":p.slice_thickness});
     if let Some(value) = &p.spacing_between_slices {
         geometry["spacing_between_slices"] = json!(value);
@@ -222,7 +205,7 @@ fn ct(ctx: &CuratedArtifactProjectionContext) -> Result<Facts, CuratedManifestEr
     if let Some(value) = &p.gantry_detector_tilt {
         geometry["gantry_detector_tilt_degrees"] = json!(parse(value)?);
     }
-    if all.len() > 1 {
+    if capability.artifacts.len() > 1 {
         geometry.as_object_mut().unwrap().extend(Map::from_iter([
             (
                 "position_along_normal".into(),
@@ -230,7 +213,7 @@ fn ct(ctx: &CuratedArtifactProjectionContext) -> Result<Facts, CuratedManifestEr
             ),
             ("slice_order_index".into(), json!(slice_order_index)),
             ("slice_count".into(), json!(slice_count)),
-            ("series_ordinal".into(), json!(a.series_index + 1)),
+            ("series_ordinal".into(), json!(inspected.series_ordinal)),
             ("study_series_count".into(), json!(study_series_count)),
         ]));
     }
@@ -239,61 +222,28 @@ fn ct(ctx: &CuratedArtifactProjectionContext) -> Result<Facts, CuratedManifestEr
     let output_max = px.pixel_max + parse(&p.rescale_intercept)? as i64;
     let mut semantics = json!({"synthetic_data":"YES","image_type":joined(&p.image_type),"pixel_min":px.pixel_min,"pixel_max":px.pixel_max,"rescale":{"intercept":p.rescale_intercept,"slope":p.rescale_slope,"type":p.rescale_type,"output_min":output_min,"output_max":output_max},"window":{"center":p.window_center,"width":p.window_width}});
     let mut specials = Map::new();
-    if all.len() > 1 {
+    if capability.artifacts.len() > 1 {
         semantics["geometry_sort_key"] = json!({"image_orientation_patient":joined(&p.image_orientation_patient),"position_along_normal":a.position_along_normal,"slice_order_index":slice_order_index});
         semantics["series_instance_count"] = json!(slice_count);
         semantics["shared_study_series_frame_of_reference"] = json!(true);
-        let mut positions = all
-            .iter()
-            .filter(|v| v.series_index == a.series_index)
-            .map(|v| v.position_along_normal)
-            .collect::<Vec<_>>();
-        positions.sort_by(f64::total_cmp);
-        let adjacent = positions
-            .windows(2)
-            .map(|v| v[1] - v[0])
-            .collect::<Vec<_>>();
         let instance = match &a.instance_number {
             ClassicCtInstanceNumber::Value { value } => value.parse::<i64>().ok(),
             ClassicCtInstanceNumber::Empty => None,
         };
-        let mut instance_numbers = all
-            .iter()
-            .filter(|value| value.series_index == a.series_index)
-            .filter_map(|value| match &value.instance_number {
-                ClassicCtInstanceNumber::Value { value } => value.parse::<i64>().ok(),
-                ClassicCtInstanceNumber::Empty => None,
-            })
-            .collect::<Vec<_>>();
-        instance_numbers.sort_unstable();
-        let instance_numbers_valid = instance_numbers.len() == slice_count
-            && instance_numbers
-                .windows(2)
-                .all(|values| values[0] != values[1]);
-        let instance_order = instance_numbers_valid
-            .then(|| {
-                instance.and_then(|value| {
-                    instance_numbers
-                        .iter()
-                        .position(|candidate| *candidate == value)
-                        .map(|index| index + 1)
-                })
-            })
-            .flatten();
-        let mut expected = json!({"image_orientation_patient":numbers(&p.image_orientation_patient)?,"image_position_patient":numbers(&a.image_position_patient)?,"position_along_normal_mm":a.position_along_normal,"geometric_order_index":positions.iter().position(|v|*v==a.position_along_normal).unwrap()+1,"instance_number":instance,"instance_number_state":if instance.is_some(){"numeric"}else{"empty"},"instance_number_order_index":instance_order,"sort_basis":"image_position_patient_projected_on_slice_normal","sort_direction":"ascending","position_tolerance_mm":0.00001,"spacing_tolerance_mm":0.00001,"adjacent_spacing_mm":adjacent,"spacing_uniform":positions.windows(3).all(|v|(v[1]-v[0]-(v[2]-v[1])).abs()<0.00001),"sorting_conflict_expected":p.sorting_conflict_expected,"series_instance_count":slice_count});
+        let mut expected = json!({"image_orientation_patient":numbers(&p.image_orientation_patient)?,"image_position_patient":numbers(&a.image_position_patient)?,"position_along_normal_mm":a.position_along_normal,"geometric_order_index":inspected.geometric_order_index,"instance_number":instance,"instance_number_state":if instance.is_some(){"numeric"}else{"empty"},"instance_number_order_index":inspected.instance_number_order_index,"sort_basis":"image_position_patient_projected_on_slice_normal","sort_direction":"ascending","position_tolerance_mm":0.00001,"spacing_tolerance_mm":0.00001,"adjacent_spacing_mm":inspected.adjacent_spacing_mm,"spacing_uniform":inspected.spacing_uniform,"sorting_conflict_expected":inspected.sorting_conflict_expected,"series_instance_count":slice_count});
         if let Some(value) = &p.gantry_detector_tilt {
             expected["gantry_detector_tilt_degrees"] = json!(parse(value)?);
         }
         specials.insert("expected_geometry".into(), expected);
-        if let Some(series) = p.series_organization {
-            semantics["series_ordinal"] = json!(a.series_index + 1);
+        if let Some(series) = &p.series_organization {
+            semantics["series_ordinal"] = json!(inspected.series_ordinal);
             semantics["study_series_count"] = json!(study_series_count);
             specials.insert(
                 "expected_series_organization".into(),
                 json!({"group_id":series.group_id,"shared_study_instance_uid_expected":series.shared_study_instance_uid,
                     "shared_frame_of_reference_uid_expected":series.shared_frame_of_reference_uid,
                     "distinct_series_instance_uids_expected":series.distinct_series_instance_uids,
-                    "series_instance_count":slice_count,"series_ordinal":a.series_index+1,"study_series_count":study_series_count}),
+                    "series_instance_count":slice_count,"series_ordinal":inspected.series_ordinal,"study_series_count":study_series_count}),
             );
         }
     }

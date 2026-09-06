@@ -1,5 +1,6 @@
 //! Data-first CT and CT geometry recipe planning.
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
@@ -20,7 +21,7 @@ use crate::native_pixel::{
     ByteOrder, NativePixelRequest, PhotometricInterpretation, PixelDataVr, PixelShape,
     StoredValueType,
 };
-use crate::{DeterministicUidInput, UidRole, deterministic_uid};
+use crate::{DeterministicUidInput, UidRole, deterministic_uid, sha256_hex};
 
 const PROVIDER_ID: &str = "native.classic_plan";
 const CONTENT_PROVIDER_ID: &str = "content.native_pixels";
@@ -140,8 +141,22 @@ struct ClassicCtFamilyRequest<'a> {
 /// namespace authority over provider dispatch.
 #[derive(Debug)]
 pub(crate) struct ClassicCtCapability {
-    provider: ClassicCtProviderParameters,
-    artifacts: Vec<ClassicCtArtifactParameters>,
+    pub(crate) provider: ClassicCtProviderParameters,
+    pub(crate) artifacts: Vec<ClassicCtCapabilityArtifact>,
+    pub(crate) study_series_count: usize,
+}
+
+#[derive(Debug)]
+pub(crate) struct ClassicCtCapabilityArtifact {
+    pub(crate) order: u32,
+    pub(crate) parameters: ClassicCtArtifactParameters,
+    pub(crate) geometric_order_index: usize,
+    pub(crate) instance_number_order_index: Option<usize>,
+    pub(crate) adjacent_spacing_mm: Vec<f64>,
+    pub(crate) spacing_uniform: bool,
+    pub(crate) sorting_conflict_expected: Option<bool>,
+    pub(crate) series_instance_count: usize,
+    pub(crate) series_ordinal: usize,
 }
 
 impl ClassicFamilyProvider<ClassicCtFamilyRequest<'_>> for ClassicCtFamilyProvider {
@@ -217,6 +232,7 @@ pub fn plan_ct_recipe(
     let ClassicCtCapability {
         provider,
         artifacts: parameters,
+        ..
     } = capability;
     let dicom = recipe
         .dicom
@@ -248,7 +264,16 @@ pub fn plan_ct_recipe(
         role: UidRole::ImplementationClass,
     });
     let mut requests = Vec::with_capacity(dicom.artifacts.len());
-    for (artifact, parameters) in dicom.artifacts.iter().zip(parameters.iter()) {
+    let artifacts_by_order = dicom
+        .artifacts
+        .iter()
+        .map(|artifact| (artifact.order, artifact))
+        .collect::<BTreeMap<_, _>>();
+    for inspected in &parameters {
+        let artifact = artifacts_by_order
+            .get(&inspected.order)
+            .expect("inspected CT artifact order exists");
+        let parameters = &inspected.parameters;
         let series_instance_uid = uid(
             recipe,
             standards_lock_sha256,
@@ -417,11 +442,11 @@ pub(crate) fn inspect_ct_capability(
     )?;
     validate_provider(&provider)?;
     let mut parameters = Vec::with_capacity(dicom.artifacts.len());
-    for (expected_order, artifact) in dicom.artifacts.iter().enumerate() {
-        if artifact.order as usize != expected_order {
-            return Err(contract(
-                "CT artifacts must have contiguous zero-based order",
-            ));
+    let mut orders = BTreeSet::new();
+    let mut uid_file_indices = BTreeSet::new();
+    for artifact in &dicom.artifacts {
+        if !orders.insert(artifact.order) {
+            return Err(contract("CT artifact orders must be unique"));
         }
         validate_artifact_contract(artifact)?;
         if !artifact
@@ -437,12 +462,32 @@ pub(crate) fn inspect_ct_capability(
             Value::Object(artifact.parameters.clone()),
             "artifact parameters",
         )?;
-        validate_artifact_parameters(&decoded, artifact.order)?;
-        parameters.push(decoded);
+        validate_artifact_parameters(&decoded)?;
+        if !uid_file_indices.insert(decoded.uid_file_index) {
+            return Err(contract("CT uid_file_index values must be unique"));
+        }
+        parameters.push((artifact.order, decoded));
     }
+    if orders
+        .iter()
+        .copied()
+        .ne(0..u32::try_from(orders.len()).unwrap_or(u32::MAX))
+    {
+        return Err(contract(
+            "CT artifacts must have contiguous zero-based order",
+        ));
+    }
+    parameters.sort_by_key(|(order, _)| *order);
+    let artifacts = derive_series_contract(&provider, parameters)?;
+    let study_series_count = artifacts
+        .iter()
+        .map(|artifact| artifact.parameters.series_index)
+        .collect::<BTreeSet<_>>()
+        .len();
     Ok(Some(ClassicCtCapability {
         provider,
-        artifacts: parameters,
+        artifacts,
+        study_series_count,
     }))
 }
 
@@ -482,8 +527,80 @@ fn validate_artifact_contract(
 }
 
 fn validate_provider(provider: &ClassicCtProviderParameters) -> Result<(), ClassicCtPlanError> {
-    if provider.image_type != ["ORIGINAL", "PRIMARY", "AXIAL"] {
-        return Err(contract("CT Image Type must be ORIGINAL\\PRIMARY\\AXIAL"));
+    if !(2..=8).contains(&provider.image_type.len())
+        || !matches!(provider.image_type[0].as_str(), "ORIGINAL" | "DERIVED")
+        || !matches!(provider.image_type[1].as_str(), "PRIMARY" | "SECONDARY")
+        || provider.image_type.iter().any(|value| !valid_cs(value))
+    {
+        return Err(contract("invalid reusable CT Image Type declaration"));
+    }
+    validate_da(&provider.acquisition_date, "CT acquisition_date")?;
+    validate_tm(&provider.acquisition_time, "CT acquisition_time")?;
+    validate_da(
+        &provider.patient.patient_birth_date,
+        "CT patient_birth_date",
+    )?;
+    validate_da(&provider.study.study_date, "CT study_date")?;
+    validate_tm(&provider.study.study_time, "CT study_time")?;
+    for (field, value, positive) in [
+        (
+            "pixel_spacing row",
+            provider.pixel_spacing[0].as_str(),
+            true,
+        ),
+        (
+            "pixel_spacing column",
+            provider.pixel_spacing[1].as_str(),
+            true,
+        ),
+        ("slice_thickness", provider.slice_thickness.as_str(), true),
+        ("kvp", provider.kvp.as_str(), true),
+        (
+            "rescale_intercept",
+            provider.rescale_intercept.as_str(),
+            false,
+        ),
+        ("rescale_slope", provider.rescale_slope.as_str(), false),
+        ("window_center", provider.window_center.as_str(), false),
+        ("window_width", provider.window_width.as_str(), true),
+    ] {
+        let parsed = parse_ds(value, field)?;
+        if positive && parsed <= 0.0 {
+            return Err(contract(format!("CT {field} must be positive")));
+        }
+    }
+    if parse_ds(&provider.rescale_slope, "rescale_slope")? == 0.0 {
+        return Err(contract("CT rescale_slope must be nonzero"));
+    }
+    if provider.rescale_type.is_empty() || provider.rescale_type.len() > 16 {
+        return Err(contract("invalid CT rescale_type"));
+    }
+    if let Some(value) = &provider.spacing_between_slices {
+        if parse_ds(value, "spacing_between_slices")? <= 0.0 {
+            return Err(contract("CT spacing_between_slices must be positive"));
+        }
+    }
+    if let Some(value) = &provider.gantry_detector_tilt {
+        let tilt = parse_ds(value, "gantry_detector_tilt")?;
+        if !(-90.0..=90.0).contains(&tilt) {
+            return Err(contract("CT gantry_detector_tilt must be within -90..90"));
+        }
+    }
+    let orientation = provider
+        .image_orientation_patient
+        .iter()
+        .enumerate()
+        .map(|(index, value)| parse_ds(value, &format!("image_orientation_patient[{index}]")))
+        .collect::<Result<Vec<_>, _>>()?;
+    let row = [orientation[0], orientation[1], orientation[2]];
+    let column = [orientation[3], orientation[4], orientation[5]];
+    if (dot(row, row).sqrt() - 1.0).abs() > 0.000_01
+        || (dot(column, column).sqrt() - 1.0).abs() > 0.000_01
+        || dot(row, column).abs() > 0.000_01
+    {
+        return Err(contract(
+            "CT image_orientation_patient must contain orthonormal unit vectors",
+        ));
     }
     if provider
         .series_organization
@@ -502,19 +619,270 @@ fn validate_provider(provider: &ClassicCtProviderParameters) -> Result<(), Class
 
 fn validate_artifact_parameters(
     parameters: &ClassicCtArtifactParameters,
-    order: u32,
 ) -> Result<(), ClassicCtPlanError> {
-    if parameters.uid_file_index != order {
-        return Err(contract("CT uid_file_index must equal artifact order"));
+    parse_is(&parameters.series_number, "series_number")?;
+    parse_is(&parameters.acquisition_number, "acquisition_number")?;
+    if let ClassicCtInstanceNumber::Value { value } = &parameters.instance_number {
+        parse_is(value, "instance_number")?;
     }
-    if parameters.pixels.rows == 0
-        || parameters.pixels.columns == 0
-        || parameters.pixels.stored_values.is_empty()
-        || parameters.pixels.frame_sha256.len() != 64
+    let position = parameters
+        .image_position_patient
+        .iter()
+        .enumerate()
+        .map(|(index, value)| parse_ds(value, &format!("image_position_patient[{index}]")))
+        .collect::<Result<Vec<_>, _>>()?;
+    if !parameters.position_along_normal.is_finite() {
+        return Err(contract("CT position_along_normal must be finite"));
+    }
+    let pixels = &parameters.pixels;
+    let expected_values = usize::from(pixels.rows)
+        .checked_mul(usize::from(pixels.columns))
+        .ok_or_else(|| contract("CT native pixel cardinality overflow"))?;
+    if pixels.rows == 0
+        || pixels.columns == 0
+        || pixels.stored_values.len() != expected_values
+        || pixels
+            .stored_values
+            .iter()
+            .any(|value| !(-2048..=2047).contains(value))
+        || pixels.pixel_min != *pixels.stored_values.iter().min().unwrap_or(&0)
+        || pixels.pixel_max != *pixels.stored_values.iter().max().unwrap_or(&0)
+        || pixels.frame_sha256.len() != 64
+        || !pixels
+            .frame_sha256
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit())
     {
         return Err(contract("invalid CT native pixel declaration"));
     }
+    let mut bytes = Vec::with_capacity(pixels.stored_values.len() * 2);
+    for value in &pixels.stored_values {
+        let stored_word = (*value as u16) & 0x0fff;
+        bytes.extend_from_slice(&stored_word.to_le_bytes());
+    }
+    if sha256_hex(&bytes) != pixels.frame_sha256 {
+        return Err(contract(
+            "CT native pixel frame_sha256 does not match samples",
+        ));
+    }
+    let _ = position;
     Ok(())
+}
+
+fn derive_series_contract(
+    provider: &ClassicCtProviderParameters,
+    parameters: Vec<(u32, ClassicCtArtifactParameters)>,
+) -> Result<Vec<ClassicCtCapabilityArtifact>, ClassicCtPlanError> {
+    let orientation = provider
+        .image_orientation_patient
+        .iter()
+        .map(|value| parse_ds(value, "image_orientation_patient"))
+        .collect::<Result<Vec<_>, _>>()?;
+    let normal = cross(
+        [orientation[0], orientation[1], orientation[2]],
+        [orientation[3], orientation[4], orientation[5]],
+    );
+    let mut by_series = BTreeMap::<u32, Vec<(u32, &ClassicCtArtifactParameters, [f64; 3])>>::new();
+    for (order, item) in &parameters {
+        let values = item
+            .image_position_patient
+            .iter()
+            .map(|value| parse_ds(value, "image_position_patient"))
+            .collect::<Result<Vec<_>, _>>()?;
+        let position = [values[0], values[1], values[2]];
+        let projected = dot(normal, position);
+        if (projected - item.position_along_normal).abs() > 0.000_01 {
+            return Err(contract(
+                "CT position_along_normal contradicts projected Image Position Patient",
+            ));
+        }
+        by_series
+            .entry(item.series_index)
+            .or_default()
+            .push((*order, item, position));
+    }
+    if parameters.len() > 1 && by_series.values().any(|members| members.len() < 2) {
+        return Err(contract(
+            "multi-artifact CT geometry requires at least two members per series",
+        ));
+    }
+    match &provider.series_organization {
+        Some(_) if by_series.len() < 2 => {
+            return Err(contract("CT series organization requires multiple series"));
+        }
+        None if by_series.len() > 1 => {
+            return Err(contract(
+                "multiple CT series require an explicit series organization contract",
+            ));
+        }
+        _ => {}
+    }
+    let spacing_between = provider
+        .spacing_between_slices
+        .as_deref()
+        .map(|value| parse_ds(value, "spacing_between_slices"))
+        .transpose()?;
+    let tilt = provider
+        .gantry_detector_tilt
+        .as_deref()
+        .map(|value| parse_ds(value, "gantry_detector_tilt"))
+        .transpose()?;
+    let series_ordinals = by_series
+        .keys()
+        .enumerate()
+        .map(|(index, value)| (*value, index + 1))
+        .collect::<BTreeMap<_, _>>();
+    let mut derived = BTreeMap::<
+        u32,
+        (
+            usize,
+            Option<usize>,
+            Vec<f64>,
+            bool,
+            Option<bool>,
+            usize,
+            usize,
+        ),
+    >::new();
+    for (series_index, members) in &mut by_series {
+        let first = members[0].1;
+        if members.iter().any(|(_, item, _)| {
+            item.series_number != first.series_number
+                || item.acquisition_number != first.acquisition_number
+        }) {
+            return Err(contract(
+                "CT series members must share Series and Acquisition Number declarations",
+            ));
+        }
+        members.sort_by(|left, right| {
+            left.1
+                .position_along_normal
+                .total_cmp(&right.1.position_along_normal)
+                .then_with(|| left.0.cmp(&right.0))
+        });
+        if members.windows(2).any(|pair| {
+            (pair[1].1.position_along_normal - pair[0].1.position_along_normal).abs() <= 0.000_01
+        }) {
+            return Err(contract(
+                "CT projected slice positions must be unique within a series",
+            ));
+        }
+        let adjacent = members
+            .windows(2)
+            .map(|pair| pair[1].1.position_along_normal - pair[0].1.position_along_normal)
+            .collect::<Vec<_>>();
+        let uniform = adjacent.first().is_none_or(|first| {
+            adjacent
+                .iter()
+                .all(|value| (*value - *first).abs() <= 0.000_01)
+        });
+        if let Some(expected) = spacing_between {
+            if adjacent
+                .iter()
+                .any(|value| (*value - expected).abs() > 0.000_01)
+            {
+                return Err(contract(
+                    "CT spacing_between_slices contradicts projected slice intervals",
+                ));
+            }
+        }
+        if let Some(expected_tilt) = tilt {
+            let mut shear_direction = None;
+            for pair in members.windows(2) {
+                let delta = subtract(pair[1].2, pair[0].2);
+                let along = dot(delta, normal);
+                let in_plane = subtract(delta, scale(normal, along));
+                let magnitude = dot(in_plane, in_plane).sqrt();
+                let actual = magnitude.atan2(along.abs()).to_degrees();
+                if (actual - expected_tilt.abs()).abs() > 0.000_01 {
+                    return Err(contract(
+                        "CT gantry_detector_tilt contradicts the declared slice-origin shear",
+                    ));
+                }
+                if magnitude > 0.000_01 {
+                    let direction = scale(in_plane, 1.0 / magnitude);
+                    if shear_direction.is_some_and(|prior| dot(prior, direction) < 0.999_99) {
+                        return Err(contract("CT gantry tilt shear direction is inconsistent"));
+                    }
+                    shear_direction = Some(direction);
+                }
+            }
+        }
+        let mut instance_order = members
+            .iter()
+            .map(|(order, item, _)| {
+                let number = match &item.instance_number {
+                    ClassicCtInstanceNumber::Value { value } => {
+                        parse_is(value, "instance_number").ok()
+                    }
+                    ClassicCtInstanceNumber::Empty => None,
+                };
+                (*order, number)
+            })
+            .collect::<Vec<_>>();
+        let fully_ordered = instance_order.iter().all(|(_, value)| value.is_some())
+            && instance_order
+                .iter()
+                .filter_map(|(_, value)| *value)
+                .collect::<BTreeSet<_>>()
+                .len()
+                == instance_order.len();
+        let instance_ranks = if fully_ordered {
+            instance_order.sort_by_key(|(order, value)| (value.unwrap(), *order));
+            instance_order
+                .iter()
+                .enumerate()
+                .map(|(index, (order, _))| (*order, index + 1))
+                .collect::<BTreeMap<_, _>>()
+        } else {
+            BTreeMap::new()
+        };
+        let geometric_orders = members
+            .iter()
+            .map(|(order, _, _)| *order)
+            .collect::<Vec<_>>();
+        let numeric_orders = instance_order
+            .iter()
+            .map(|(order, _)| *order)
+            .collect::<Vec<_>>();
+        let conflict = fully_ordered.then_some(geometric_orders != numeric_orders);
+        if provider.sorting_conflict_expected != conflict {
+            return Err(contract(
+                "CT sorting_conflict_expected contradicts derived spatial and Instance Number order",
+            ));
+        }
+        for (index, (order, _, _)) in members.iter().enumerate() {
+            derived.insert(
+                *order,
+                (
+                    index + 1,
+                    instance_ranks.get(order).copied(),
+                    adjacent.clone(),
+                    uniform,
+                    conflict,
+                    members.len(),
+                    series_ordinals[series_index],
+                ),
+            );
+        }
+    }
+    Ok(parameters
+        .into_iter()
+        .map(|(order, parameters)| {
+            let facts = derived.remove(&order).expect("all CT members derived");
+            ClassicCtCapabilityArtifact {
+                order,
+                parameters,
+                geometric_order_index: facts.0,
+                instance_number_order_index: facts.1,
+                adjacent_spacing_mm: facts.2,
+                spacing_uniform: facts.3,
+                sorting_conflict_expected: facts.4,
+                series_instance_count: facts.5,
+                series_ordinal: facts.6,
+            }
+        })
+        .collect())
 }
 
 fn validate_series_contract(
@@ -524,17 +892,112 @@ fn validate_series_contract(
     let distinct_series = requests
         .iter()
         .map(|request| request.common.series.series_instance_uid.as_str())
-        .collect::<std::collections::BTreeSet<_>>()
+        .collect::<BTreeSet<_>>()
         .len();
-    match &provider.series_organization {
-        Some(_) if distinct_series < 2 => Err(contract(
-            "multi-series CT contract must produce distinct Series Instance UIDs",
-        )),
-        None if distinct_series > 1 => Err(contract(
-            "multiple CT series require an explicit series organization contract",
-        )),
-        _ => Ok(()),
+    if provider.series_organization.is_some() != (distinct_series > 1) {
+        return Err(contract(
+            "CT planned series topology contradicts declaration",
+        ));
     }
+    Ok(())
+}
+
+fn parse_ds(value: &str, field: &str) -> Result<f64, ClassicCtPlanError> {
+    if value.is_empty() || value.len() > 16 || !value.is_ascii() || value.trim() != value {
+        return Err(contract(format!("invalid CT DS {field}")));
+    }
+    value
+        .parse::<f64>()
+        .ok()
+        .filter(|parsed| parsed.is_finite())
+        .ok_or_else(|| contract(format!("invalid CT DS {field}")))
+}
+
+fn parse_is(value: &str, field: &str) -> Result<i32, ClassicCtPlanError> {
+    if value.is_empty() || value.len() > 12 || !value.is_ascii() || value.trim() != value {
+        return Err(contract(format!("invalid CT IS {field}")));
+    }
+    value
+        .parse::<i32>()
+        .map_err(|_| contract(format!("invalid CT IS {field}")))
+}
+
+fn validate_da(value: &str, field: &str) -> Result<(), ClassicCtPlanError> {
+    if value.len() != 8 || !value.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err(contract(format!("invalid {field}")));
+    }
+    let year = value[0..4].parse::<u32>().unwrap_or(0);
+    let month = value[4..6].parse::<u32>().unwrap_or(0);
+    let day = value[6..8].parse::<u32>().unwrap_or(0);
+    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let max_day = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap => 29,
+        2 => 28,
+        _ => 0,
+    };
+    if year == 0 || day == 0 || day > max_day {
+        return Err(contract(format!("invalid {field}")));
+    }
+    Ok(())
+}
+
+fn validate_tm(value: &str, field: &str) -> Result<(), ClassicCtPlanError> {
+    let (whole, fraction) = value
+        .split_once('.')
+        .map_or((value, None), |(a, b)| (a, Some(b)));
+    if !(2..=6).contains(&whole.len())
+        || whole.len() % 2 != 0
+        || !whole.bytes().all(|byte| byte.is_ascii_digit())
+        || fraction.is_some_and(|part| {
+            part.is_empty() || part.len() > 6 || !part.bytes().all(|byte| byte.is_ascii_digit())
+        })
+        || (fraction.is_some() && whole.len() != 6)
+        || value.len() > 16
+    {
+        return Err(contract(format!("invalid {field}")));
+    }
+    let hour = whole[0..2].parse::<u32>().unwrap_or(24);
+    let minute = whole
+        .get(2..4)
+        .map(|part| part.parse::<u32>().unwrap_or(60));
+    let second = whole
+        .get(4..6)
+        .map(|part| part.parse::<u32>().unwrap_or(60));
+    if hour > 23 || minute.is_some_and(|value| value > 59) || second.is_some_and(|value| value > 60)
+    {
+        return Err(contract(format!("invalid {field}")));
+    }
+    Ok(())
+}
+
+fn valid_cs(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 16
+        && value.bytes().all(|byte| {
+            byte.is_ascii_uppercase() || byte.is_ascii_digit() || matches!(byte, b' ' | b'_')
+        })
+}
+
+fn dot(left: [f64; 3], right: [f64; 3]) -> f64 {
+    left[0] * right[0] + left[1] * right[1] + left[2] * right[2]
+}
+
+fn cross(left: [f64; 3], right: [f64; 3]) -> [f64; 3] {
+    [
+        left[1] * right[2] - left[2] * right[1],
+        left[2] * right[0] - left[0] * right[2],
+        left[0] * right[1] - left[1] * right[0],
+    ]
+}
+
+fn subtract(left: [f64; 3], right: [f64; 3]) -> [f64; 3] {
+    [left[0] - right[0], left[1] - right[1], left[2] - right[2]]
+}
+
+fn scale(value: [f64; 3], factor: f64) -> [f64; 3] {
+    [value[0] * factor, value[1] * factor, value[2] * factor]
 }
 
 fn uid(

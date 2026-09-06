@@ -1,0 +1,29 @@
+{
+  "corpus_definition_bundle_schema_version": "1.0.0",
+  "definition_id": "fixture.generic-ct-geometry",
+  "definition_version": "1.0.0",
+  "profiles": [
+    {"profile_id": "smoke", "scope": "valid", "members": []},
+    {"profile_id": "core", "scope": "valid", "members": []},
+    {"profile_id": "extended", "scope": "valid", "members": ["caller/volumes/angled-order-study"]},
+    {"profile_id": "legacy", "scope": "legacy", "members": []},
+    {"profile_id": "stress", "scope": "stress", "members": []},
+    {"profile_id": "negative", "scope": "expected_invalid", "members": []},
+    {"profile_id": "fuzz", "scope": "fuzz", "members": []},
+    {"profile_id": "all", "scope": "valid", "union_of": ["smoke", "core", "extended"], "optional_profile": "stress"}
+  ],
+  "registry": {"path": "cases/registry.json", "size_bytes": 933, "sha256": "a5cad8d8752742e15048fe0bb0463084f1d07c8888ef1dfce1b48be3350b4bf6"},
+  "cases": [
+    {
+      "case_id": "caller/volumes/angled-order-study",
+      "recipe_id": "caller_angled_order_study",
+      "recipe_version": "1.0.0",
+      "recipe": {"path": "cases/recipes/caller-angled-order-study.json", "size_bytes": 11420, "sha256": "108561a9788a25bf95e953c0f3387849c6ffe7fc0cbd23d2fe4e53e348c3cd69"},
+      "dependencies": [],
+      "evidence_ids": [],
+      "asset_ids": []
+    }
+  ],
+  "evidence": [],
+  "assets": []
+}

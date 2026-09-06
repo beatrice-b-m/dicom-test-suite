@@ -646,7 +646,6 @@ fn validate_classic_capability_contract(
         false => {
             let case_id = recipe.binding.case_id.as_str();
             if case_id.starts_with("classic/")
-                || case_id.starts_with("geometry/ct/")
                 || (case_id.starts_with("vl/") && !case_id.starts_with("vl/wsi/"))
             {
                 Ok(())
@@ -1771,6 +1770,14 @@ fn validate_registry_bindings(
                     message: format!("{} has invalid CT capability: {error}", case.case_id),
                 })?
                 .is_some();
+        if name_independent_ct && case.modality.as_deref() != Some("CT") {
+            return Err(RecipeCatalogError::Completeness {
+                message: format!(
+                    "{} registry modality contradicts CT capability",
+                    case.case_id
+                ),
+            });
+        }
         let name_independent_dx_mg = recipe.plan_provider_id == "native.classic_plan"
             && inspect_dx_mg_capability(recipe)
                 .map_err(|error| RecipeCatalogError::Completeness {
@@ -1900,7 +1907,6 @@ fn validate_registry_bindings(
                 || name_independent_xa_xrf
                 || name_independent_photo
                 || case.case_id.starts_with("classic/")
-                || case.case_id.starts_with("geometry/ct/")
                 || (case.case_id.starts_with("vl/") && !case.case_id.starts_with("vl/wsi/")));
         let migrated_advanced = matches!(
             recipe.plan_provider_id.as_str(),

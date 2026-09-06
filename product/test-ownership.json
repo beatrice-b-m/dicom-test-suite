@@ -4,9 +4,9 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 277,
-    "rust_test_entries": 1517,
+    "rust_test_entries": 1520,
     "integration_source_groups": 189,
-    "integration_test_entries": 939,
+    "integration_test_entries": 941,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
   },
   "enums": {
@@ -503,13 +503,14 @@
       "domain": "engine",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 3,
+      "entry_count": 4,
       "entries": [
         "migrated_ct_catalog_is_complete_explicit_and_historically_ordered",
         "planning_is_filesystem_free_and_rejects_corrupt_contracts",
+        "caller_ct_series_geometry_is_derived_and_fails_closed",
         "direct_ct_plans_are_byte_identical_to_current_generator"
       ],
-      "entry_digest": "b7bb68a10fa3f9e0997141aa482b3f2f785cc85121e8d6a0f5fc7951e7b3b6de"
+      "entry_digest": "5ab73e3842254b79b53d6174c735ec3320ab192b37dd1c38b02a5406fad7d9a1"
     },
     {
       "source": "tests/classic_dx_mg_plan.rs",
@@ -1276,8 +1277,9 @@
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 37,
+      "entry_count": 38,
       "entries": [
+        "caller_owned_ct_geometry_fixture_is_name_independent_and_rejects_registry_modality",
         "caller_owned_us_multiframe_fixture_is_admitted_by_structure",
         "caller_owned_nm_multiframe_fixture_is_admitted_by_structure",
         "external_ct_capability_is_name_independent_and_integrity_bound",
@@ -1316,7 +1318,7 @@
         "negative_and_fuzz_dependencies_cannot_cross_legacy_or_stress_boundaries",
         "excessive_undeclared_inventory_fails_without_buffering_all_names"
       ],
-      "entry_digest": "692cc659e839c8a7bed61d21b1b0ff799a6fb2b16fe7b0c047467e218f567c1f"
+      "entry_digest": "b18cced4fb5edb3f1a8ce791a8444d6a24508aa1d7a340b5a0ac32ce9c21b649"
     },
     {
       "source": "tests/corpus_plan.rs",
@@ -1863,7 +1865,7 @@
       "domain": "cli_sdk",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 20,
+      "entry_count": 21,
       "entries": [
         "loaded_capabilities_are_verified_destination_free_and_sdk_consistent",
         "caller_named_ct_cli_is_sdk_identical_strictly_valid_and_reported",
@@ -1881,12 +1883,13 @@
         "caller_owned_us_multiframe_cli_sdk_and_report_are_identical",
         "caller_owned_nm_multiframe_cli_sdk_and_report_are_identical",
         "caller_owned_nonsquare_sc_cli_sdk_strict_and_report_are_identical",
+        "caller_owned_ct_geometry_cli_sdk_strict_and_report_are_identical",
         "caller_owned_timezone_sc_cli_sdk_strict_and_report_are_identical",
         "caller_named_pet_cli_is_sdk_identical_strictly_valid_and_reported",
         "caller_named_xa_xrf_cli_is_sdk_identical_strictly_valid_and_reported",
         "caller_named_vl_photo_cli_is_sdk_identical_strictly_valid_and_reported"
       ],
-      "entry_digest": "e165abe019fcea8dd4d64614c1f6480aad21feccab2b30ee7249f5acf4e5e2ca"
+      "entry_digest": "0daa464b134662e07f8a1ee61c7f17921bb83155ed241828e316f1f334e3e6ff"
     },
     {
       "source": "tests/frame_codec_service.rs",
@@ -4220,7 +4223,7 @@
         "organization_reader_rejects_dataset_manifest_uid_mismatches",
         "organization_reader_rejects_wrong_or_missing_series_number"
       ],
-      "entry_digest": "241c4519dad82597eaaaa96e96e820f02f7f3189d749423f68442a5268232627"
+      "entry_digest": "a38cb3c8f41df02e242df76ad746fca5b063ffb9ec0e9bb335c9058144d5a794"
     },
     {
       "source": "src/hashing.rs",

@@ -2,6 +2,8 @@
 mod generic_cr_bundle;
 #[path = "support/generic_ct_bundle.rs"]
 mod generic_ct_bundle;
+#[path = "support/generic_ct_geometry_bundle.rs"]
+mod generic_ct_geometry_bundle;
 #[path = "support/generic_dx_mg_bundle.rs"]
 mod generic_dx_mg_bundle;
 #[path = "support/generic_metadata_sc_bundle.rs"]
@@ -2420,6 +2422,170 @@ fn caller_owned_nonsquare_sc_cli_sdk_strict_and_report_are_identical() {
             .failures()
             .iter()
             .any(|failure| failure.contains("nonsquare_pixel_spacing")),
+        "{:?}",
+        validation.failures()
+    );
+}
+
+#[test]
+fn caller_owned_ct_geometry_cli_sdk_strict_and_report_are_identical() {
+    let f = generic_ct_geometry_bundle::GenericCtGeometryBundle::new();
+    let command = |args: &[String]| {
+        let raw = Command::new(env!("CARGO_BIN_EXE_synth-dicom-gen"))
+            .args(args)
+            .current_dir(&f.root)
+            .env("PATH", "")
+            .output()
+            .unwrap();
+        assert!(
+            raw.status.success(),
+            "{}",
+            String::from_utf8_lossy(&raw.stderr)
+        );
+        assert!(raw.stderr.is_empty());
+        let value: Value = serde_json::from_slice(&raw.stdout).unwrap();
+        valid("cli-success-envelope.schema.json", &value);
+        value
+    };
+    let product = DicomTestSuite::embedded().unwrap();
+    let capabilities = command(&f.args("capabilities", None));
+    valid(
+        "capabilities-result-v3.schema.json",
+        &capabilities["result"],
+    );
+    let sdk_capabilities = product
+        .capabilities_with_corpus(
+            InspectCorpusRequest::from_file(&f.descriptor, &f.members)
+                .with_selection(generic_ct_geometry_bundle::selector())
+                .with_seed(13)
+                .with_parallelism(3),
+        )
+        .unwrap();
+    assert_eq!(
+        capabilities["result"],
+        serde_json::to_value(sdk_capabilities).unwrap()
+    );
+    let assessment = &capabilities["result"]["loaded_corpus"]["assessment"];
+    assert_eq!(assessment["validation"], "not_run");
+    assert_eq!(assessment["publication"], "not_run");
+    assert_eq!(
+        assessment["artifact_ids"],
+        json!([
+            "curated_caller_angled_order_study_diagnostic_origin",
+            "curated_caller_angled_order_study_diagnostic_middle",
+            "curated_caller_angled_order_study_diagnostic_high",
+            "curated_caller_angled_order_study_late_scout_middle",
+            "curated_caller_angled_order_study_scout_origin",
+            "curated_caller_angled_order_study_scout_high"
+        ])
+    );
+    assert!(!f.root.join("cli-output").exists());
+
+    let cli = command(&f.args("generate", Some("cli-output")));
+    valid("generation-result-v3.schema.json", &cli["result"]);
+    assert_eq!(cli["result"]["validation_status"], "passed");
+    assert_eq!(cli["result"]["emitted_file_count"], 6);
+    let cli_manifest_bytes = fs::read(f.root.join("cli-output/manifest.json")).unwrap();
+    let cli_manifest: Value = serde_json::from_slice(&cli_manifest_bytes).unwrap();
+    valid("manifest-v2.schema.json", &cli_manifest);
+    generic_ct_geometry_bundle::assert_manifest(&cli_manifest);
+    let oracle = generic_ct_geometry_bundle::oracle();
+    for (file, row) in cli_manifest["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .zip(oracle["caller"]["files"].as_array().unwrap())
+    {
+        generic_ct_geometry_bundle::assert_payload(
+            &f.root
+                .join("cli-output")
+                .join(file["path"].as_str().unwrap()),
+            row,
+        );
+    }
+
+    let GenerateCorpusOutcome::Published(sdk) = product
+        .generate_corpus(
+            GenerateCorpusRequest::from_file(
+                &f.descriptor,
+                &f.members,
+                f.root.join("sdk-output"),
+                generic_ct_geometry_bundle::selector(),
+            )
+            .with_seed(13)
+            .with_parallelism(3),
+        )
+        .unwrap()
+    else {
+        panic!("caller-owned CT geometry must publish")
+    };
+    assert_eq!(sdk.manifest().deserialize::<Value>().unwrap(), cli_manifest);
+    assert_eq!(
+        fs::read(sdk.output_root().join("manifest.json")).unwrap(),
+        cli_manifest_bytes
+    );
+    for file in cli_manifest["files"].as_array().unwrap() {
+        let path = file["path"].as_str().unwrap();
+        assert_eq!(
+            fs::read(sdk.output_root().join(path)).unwrap(),
+            fs::read(f.root.join("cli-output").join(path)).unwrap()
+        );
+    }
+
+    let validation = command(&["validate", "cli-output", "--format", "json"].map(str::to_owned));
+    valid("validation-result.schema.json", &validation["result"]);
+    assert_eq!(validation["result"]["valid"], true);
+    assert_eq!(validation["result"]["files_checked"], 6);
+    assert!(
+        product
+            .validate(ValidateRequest::new(sdk.output_root()))
+            .unwrap()
+            .is_valid()
+    );
+
+    let report = command(
+        &[
+            "report",
+            "cli-output",
+            "--format",
+            "json",
+            "--cli-api",
+            "1.0.0",
+        ]
+        .map(str::to_owned),
+    );
+    valid("report-result-v2.schema.json", &report["result"]);
+    valid(
+        "coverage-report-v2.schema.json",
+        &report["result"]["report"],
+    );
+    generic_ct_geometry_bundle::assert_report(&report["result"]["report"]);
+    generic_ct_geometry_bundle::assert_report_mutations_fail(&report["result"]["report"]);
+    assert_eq!(
+        product
+            .report(ReportRequest::new(sdk.output_root()))
+            .unwrap()
+            .deserialize::<Value>()
+            .unwrap(),
+        report["result"]["report"]
+    );
+
+    let mut tampered = cli_manifest;
+    tampered["files"][0]["expected_geometry"]["geometric_order_index"] = json!(99);
+    fs::write(
+        f.root.join("cli-output/manifest.json"),
+        serde_json::to_vec_pretty(&tampered).unwrap(),
+    )
+    .unwrap();
+    let validation = product
+        .validate(ValidateRequest::new(f.root.join("cli-output")))
+        .unwrap();
+    assert!(!validation.is_valid());
+    assert!(
+        validation
+            .failures()
+            .iter()
+            .any(|failure| failure.contains("geometry_order: actual rank")),
         "{:?}",
         validation.failures()
     );

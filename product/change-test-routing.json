@@ -44,6 +44,9 @@
     "generic_timezone_sc_public_contract": {
       "commands": [{"target": "cli_sdk__nonfast", "module": "external_corpus_cli"}]
     },
+    "generic_ct_geometry_public_contract": {
+      "commands": [{"target": "cli_sdk__nonfast", "module": "external_corpus_cli"}]
+    },
     "reduced_wsi_reader": {
       "commands": [
         {"kind":"lib", "module":"validation::wsi_tiled_sparse_tests::reduced_reader_tests", "source":"src/validation_wsi_reduced_reader_tests.rs", "list_count":2}
@@ -136,7 +139,7 @@
     },
     "corpus_definition_internal": {
       "commands": [
-        {"kind": "lib", "module": "corpus_definition::tests", "source": "tests/corpus_definition_bundle.rs", "list_count": 37}
+        {"kind": "lib", "module": "corpus_definition::tests", "source": "tests/corpus_definition_bundle.rs", "list_count": 38}
       ]
     },
     "engine": {
@@ -281,6 +284,12 @@
       "exact": ["tests/support/generic_timezone_sc_bundle.rs"],
       "prefixes": ["tests/fixtures/generic-timezone-sc-corpus/"],
       "bundles": ["generic_timezone_sc_public_contract"]
+    },
+    {
+      "id": "generic-ct-geometry-public-contract",
+      "exact": ["tests/support/generic_ct_geometry_bundle.rs", "tests/fixtures/generic-ct-geometry-semantics.json"],
+      "prefixes": ["tests/fixtures/generic-ct-geometry-corpus/"],
+      "bundles": ["generic_ct_geometry_public_contract"]
     },
     {"id":"reduced-wsi-reader", "exact":["src/lib.rs", "src/validation.rs", "src/validation_wsi_tiled_sparse_tests.rs", "src/validation_wsi_reduced_reader_tests.rs"], "bundles":["reduced_wsi_reader"]},
     {"id":"stress-projection", "exact":["src/curated_manifest/stress.rs"], "bundles":["stress_projection"]},

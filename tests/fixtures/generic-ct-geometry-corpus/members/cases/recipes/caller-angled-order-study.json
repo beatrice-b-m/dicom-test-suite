@@ -1,0 +1,91 @@
+{
+  "case_recipe_schema_version": "0.1.0",
+  "recipe_id": "caller_angled_order_study",
+  "recipe_version": "1.0.0",
+  "binding": {"case_id": "caller/volumes/angled-order-study"},
+  "kind": "dicom",
+  "plan_provider_id": "native.classic_plan",
+  "planning_order": 731,
+  "projection_order": 419,
+  "dependencies": [],
+  "provider_parameters": {
+    "patient": {"patient_name": "GEOMETRY^Caller^Volume", "patient_id": "GEOM-CALLER-42", "patient_birth_date": "19840229", "patient_sex": "O"},
+    "study": {"study_date": "20260704", "study_time": "091527.25", "accession_number": "GEO-731", "referring_physician_name": "VECTOR^NORMAL", "study_id": "ANGLED-ORDER"},
+    "equipment": {"manufacturer": "caller-lab", "software_versions": "9.4"},
+    "acquisition_date": "20260704",
+    "acquisition_time": "091530.5",
+    "image_type": ["DERIVED", "SECONDARY", "REFORMATTED"],
+    "pixel_spacing": ["0.73", "0.41"],
+    "image_orientation_patient": ["1", "0", "0", "0", "1", "0"],
+    "slice_thickness": "2.5",
+    "gantry_detector_tilt": "11.30993247",
+    "kvp": "103.5",
+    "rescale_intercept": "-950",
+    "rescale_slope": "1.25",
+    "rescale_type": "HU",
+    "window_center": "55.5",
+    "window_width": "610",
+    "sorting_conflict_expected": true,
+    "series_organization": {"group_id": "caller-shared-coordinate-space", "shared_study_instance_uid": true, "shared_frame_of_reference_uid": true, "distinct_series_instance_uids": true}
+  },
+  "validation_rule_ids": ["validation.shared"],
+  "projection_rule_ids": ["projection.curated"],
+  "dicom": {
+    "artifacts": [
+      {
+        "logical_id": "late_scout_middle", "order": 3, "public_profile_membership": ["extended"],
+        "template": {"template_id": "classic/ct", "template_version": "1.0.0"},
+        "output": {"role": "scout_middle", "path": "caller-volumes/scout/middle-plane.dcm"},
+        "encoding": {"transfer_syntax_uid": "1.2.840.10008.1.2.1", "sequence_length_policy": "default", "item_length_policy": "default", "offset_table_policy": "none", "fragmentation_policy": "native", "preamble_policy": "zero_filled", "file_meta_policy": "standard"},
+        "parameters": {"uid_file_index": 203, "series_index": 42, "series_number": "19", "acquisition_number": "6", "instance_number": {"state": "value", "value": "70"}, "image_position_patient": ["25", "-0.8", "4"], "position_along_normal": 4.0, "pixels": {"rows": 2, "columns": 2, "stored_values": [-700, 20, 800, 1600], "pixel_min": -700, "pixel_max": 1600, "frame_sha256": "f49dfec39f922fd1618aa97b5458b388dadec3e55e2371806d3ac571ba191f77"}},
+        "attribute_operations": [], "content": {"provider_id": "content.native_pixels", "parameters": {}}, "validation_rule_ids": ["validation.shared"], "projection_rule_ids": ["projection.curated"], "determinism": "byte_stable", "stressors": ["caller_series_geometry", "nonuniform_spacing", "gantry_tilt"], "algorithm_provider_id": "algorithm.classic_ct",
+        "classic_projection": {"family": "ct", "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels", "sort_spatially"], "visual_pattern": "caller_angled_six_plane_gradient", "standards_evidence_append": [], "include_implementation_version_name": false}
+      },
+      {
+        "logical_id": "diagnostic_origin", "order": 0, "public_profile_membership": ["extended"],
+        "template": {"template_id": "classic/ct", "template_version": "1.0.0"},
+        "output": {"role": "diagnostic_low", "path": "caller-volumes/diagnostic/origin-plane.dcm"},
+        "encoding": {"transfer_syntax_uid": "1.2.840.10008.1.2.1", "sequence_length_policy": "default", "item_length_policy": "default", "offset_table_policy": "none", "fragmentation_policy": "native", "preamble_policy": "zero_filled", "file_meta_policy": "standard"},
+        "parameters": {"uid_file_index": 100, "series_index": 7, "series_number": "81", "acquisition_number": "4", "instance_number": {"state": "value", "value": "90"}, "image_position_patient": ["0", "0", "0"], "position_along_normal": 0.0, "pixels": {"rows": 2, "columns": 2, "stored_values": [-1000, -10, 500, 1900], "pixel_min": -1000, "pixel_max": 1900, "frame_sha256": "16bbb2c0747ceb5a028214e041f2a8a152c90663d05f7c75c5185190a76d87a9"}},
+        "attribute_operations": [], "content": {"provider_id": "content.native_pixels", "parameters": {}}, "validation_rule_ids": ["validation.shared"], "projection_rule_ids": ["projection.curated"], "determinism": "byte_stable", "stressors": ["caller_series_geometry", "instance_number_conflict"], "algorithm_provider_id": "algorithm.classic_ct",
+        "classic_projection": {"family": "ct", "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels", "sort_spatially"], "visual_pattern": "caller_angled_six_plane_gradient", "standards_evidence_append": [], "include_implementation_version_name": false}
+      },
+      {
+        "logical_id": "scout_high", "order": 5, "public_profile_membership": ["extended"],
+        "template": {"template_id": "classic/ct", "template_version": "1.0.0"},
+        "output": {"role": "scout_terminal", "path": "caller-volumes/scout/terminal-plane.dcm"},
+        "encoding": {"transfer_syntax_uid": "1.2.840.10008.1.2.1", "sequence_length_policy": "default", "item_length_policy": "default", "offset_table_policy": "none", "fragmentation_policy": "native", "preamble_policy": "zero_filled", "file_meta_policy": "standard"},
+        "parameters": {"uid_file_index": 205, "series_index": 42, "series_number": "19", "acquisition_number": "6", "instance_number": {"state": "value", "value": "80"}, "image_position_patient": ["25", "-2.2", "11"], "position_along_normal": 11.0, "pixels": {"rows": 2, "columns": 2, "stored_values": [-500, 40, 1000, 1400], "pixel_min": -500, "pixel_max": 1400, "frame_sha256": "b5d90aa83a589d01feadf95d59b797c1dde43a3db7fc5f13de3b7244e5086d03"}},
+        "attribute_operations": [], "content": {"provider_id": "content.native_pixels", "parameters": {}}, "validation_rule_ids": ["validation.shared"], "projection_rule_ids": ["projection.curated"], "determinism": "byte_stable", "stressors": ["caller_series_geometry", "nonuniform_spacing", "gantry_tilt"], "algorithm_provider_id": "algorithm.classic_ct",
+        "classic_projection": {"family": "ct", "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels", "sort_spatially"], "visual_pattern": "caller_angled_six_plane_gradient", "standards_evidence_append": [], "include_implementation_version_name": false}
+      },
+      {
+        "logical_id": "diagnostic_middle", "order": 1, "public_profile_membership": ["extended"],
+        "template": {"template_id": "classic/ct", "template_version": "1.0.0"},
+        "output": {"role": "diagnostic_mid", "path": "caller-volumes/diagnostic/middle-plane.dcm"},
+        "encoding": {"transfer_syntax_uid": "1.2.840.10008.1.2.1", "sequence_length_policy": "default", "item_length_policy": "default", "offset_table_policy": "none", "fragmentation_policy": "native", "preamble_policy": "zero_filled", "file_meta_policy": "standard"},
+        "parameters": {"uid_file_index": 101, "series_index": 7, "series_number": "81", "acquisition_number": "4", "instance_number": {"state": "value", "value": "10"}, "image_position_patient": ["0", "-0.8", "4"], "position_along_normal": 4.0, "pixels": {"rows": 2, "columns": 2, "stored_values": [-900, 0, 600, 1800], "pixel_min": -900, "pixel_max": 1800, "frame_sha256": "344fab30125b4f01194baeffe4a08201c98168ead1207b6b6588b9e1c15c337f"}},
+        "attribute_operations": [], "content": {"provider_id": "content.native_pixels", "parameters": {}}, "validation_rule_ids": ["validation.shared"], "projection_rule_ids": ["projection.curated"], "determinism": "byte_stable", "stressors": ["caller_series_geometry", "instance_number_conflict", "gantry_tilt"], "algorithm_provider_id": "algorithm.classic_ct",
+        "classic_projection": {"family": "ct", "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels", "sort_spatially"], "visual_pattern": "caller_angled_six_plane_gradient", "standards_evidence_append": [], "include_implementation_version_name": false}
+      },
+      {
+        "logical_id": "scout_origin", "order": 4, "public_profile_membership": ["extended"],
+        "template": {"template_id": "classic/ct", "template_version": "1.0.0"},
+        "output": {"role": "scout_low", "path": "caller-volumes/scout/origin-plane.dcm"},
+        "encoding": {"transfer_syntax_uid": "1.2.840.10008.1.2.1", "sequence_length_policy": "default", "item_length_policy": "default", "offset_table_policy": "none", "fragmentation_policy": "native", "preamble_policy": "zero_filled", "file_meta_policy": "standard"},
+        "parameters": {"uid_file_index": 204, "series_index": 42, "series_number": "19", "acquisition_number": "6", "instance_number": {"state": "value", "value": "120"}, "image_position_patient": ["25", "0", "0"], "position_along_normal": 0.0, "pixels": {"rows": 2, "columns": 2, "stored_values": [-600, 30, 900, 1500], "pixel_min": -600, "pixel_max": 1500, "frame_sha256": "b2da5ae767839032d7b7ca00113cab5fab64c93f0df6932924f35d6383305a56"}},
+        "attribute_operations": [], "content": {"provider_id": "content.native_pixels", "parameters": {}}, "validation_rule_ids": ["validation.shared"], "projection_rule_ids": ["projection.curated"], "determinism": "byte_stable", "stressors": ["caller_series_geometry", "instance_number_conflict"], "algorithm_provider_id": "algorithm.classic_ct",
+        "classic_projection": {"family": "ct", "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels", "sort_spatially"], "visual_pattern": "caller_angled_six_plane_gradient", "standards_evidence_append": [], "include_implementation_version_name": false}
+      },
+      {
+        "logical_id": "diagnostic_high", "order": 2, "public_profile_membership": ["extended"],
+        "template": {"template_id": "classic/ct", "template_version": "1.0.0"},
+        "output": {"role": "diagnostic_terminal", "path": "caller-volumes/diagnostic/terminal-plane.dcm"},
+        "encoding": {"transfer_syntax_uid": "1.2.840.10008.1.2.1", "sequence_length_policy": "default", "item_length_policy": "default", "offset_table_policy": "none", "fragmentation_policy": "native", "preamble_policy": "zero_filled", "file_meta_policy": "standard"},
+        "parameters": {"uid_file_index": 102, "series_index": 7, "series_number": "81", "acquisition_number": "4", "instance_number": {"state": "value", "value": "50"}, "image_position_patient": ["0", "-2.2", "11"], "position_along_normal": 11.0, "pixels": {"rows": 2, "columns": 2, "stored_values": [-800, 10, 700, 1700], "pixel_min": -800, "pixel_max": 1700, "frame_sha256": "5c9661d4623e0d3e4a9578b7db6198d72e8a5dbe4f5164db8ca5fee5feade775"}},
+        "attribute_operations": [], "content": {"provider_id": "content.native_pixels", "parameters": {}}, "validation_rule_ids": ["validation.shared"], "projection_rule_ids": ["projection.curated"], "determinism": "byte_stable", "stressors": ["caller_series_geometry", "nonuniform_spacing", "gantry_tilt"], "algorithm_provider_id": "algorithm.classic_ct",
+        "classic_projection": {"family": "ct", "expected_capabilities": ["open_file", "read_metadata", "render_native_pixels", "sort_spatially"], "visual_pattern": "caller_angled_six_plane_gradient", "standards_evidence_append": [], "include_implementation_version_name": false}
+      }
+    ]
+  }
+}

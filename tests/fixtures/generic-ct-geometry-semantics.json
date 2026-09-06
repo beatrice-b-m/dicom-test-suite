@@ -1,0 +1,37 @@
+{
+  "oracle_version": "1.0.0",
+  "accepted_original_pin_baseline3": {
+    "source_revision": "232b9de41f97ee95abe1ecc40b6b8b70ebeeea5f",
+    "seed": 1,
+    "parallelism": 4,
+    "receipt_sha256": "dd1729f24d8840478a466a221f6165b19a5a363790a5097eeda5b2f83faeccf3",
+    "raw_manifest_sha256": "0eb3879a4d7653d63fb8013151d52a80a3c3cfb7dd80221906c24ec797e774f6",
+    "artifact_count": 16,
+    "payload_bytes": 19916,
+    "comparison_policy": "This is the accepted original-pin baseline3 domain. Later source qualifications and this caller-owned fixture do not relabel its bytes."
+  },
+  "caller": {
+    "case_id": "caller/volumes/angled-order-study",
+    "recipe_id": "caller_angled_order_study",
+    "seed": 13,
+    "parallelism": 3,
+    "corpus_plan_sha256": "b7fe26060ac60da15f387c5680385394f21b66e67f341194225d8374261134bd",
+    "identity": {
+      "schema_version": "1.0.0",
+      "definition_id": "fixture.generic-ct-geometry",
+      "definition_version": "1.0.0",
+      "manifest_sha256": "6e35b2504b4615bcb0c6b5bbee423becd77a7dd69c07be698b69dcf204e8a3d7",
+      "corpus_definition_sha256": "485099e16aa23830619fb14c728a49d3eb3d8fe9a35b77eb350697ba25a50e3e",
+      "file_count": 3,
+      "total_size_bytes": 13708
+    },
+    "files": [
+      {"logical_id":"diagnostic_origin","role":"diagnostic_low","path":"caller-volumes/diagnostic/origin-plane.dcm","size_bytes":1272,"sha256":"a0c9b3b2793becbe10e809bffe6ed15542b0a26b417735a59894d10c8f0ba075","pixel_data_sha256":"16bbb2c0747ceb5a028214e041f2a8a152c90663d05f7c75c5185190a76d87a9","series_ordinal":1,"geometric_order_index":1,"instance_number_order_index":3,"image_position_patient":"0\\0\\0"},
+      {"logical_id":"diagnostic_middle","role":"diagnostic_mid","path":"caller-volumes/diagnostic/middle-plane.dcm","size_bytes":1274,"sha256":"df427a32dc5bcc80bdafc3f9ea397749af02ab83a10e77c1b00e897c3d6adcfa","pixel_data_sha256":"344fab30125b4f01194baeffe4a08201c98168ead1207b6b6588b9e1c15c337f","series_ordinal":1,"geometric_order_index":2,"instance_number_order_index":1,"image_position_patient":"0\\-0.8\\4"},
+      {"logical_id":"diagnostic_high","role":"diagnostic_terminal","path":"caller-volumes/diagnostic/terminal-plane.dcm","size_bytes":1276,"sha256":"af2947c86a16e65ce17dbe54aa9d6ab8aba67fc278e457564dbc17ca449788a2","pixel_data_sha256":"5c9661d4623e0d3e4a9578b7db6198d72e8a5dbe4f5164db8ca5fee5feade775","series_ordinal":1,"geometric_order_index":3,"instance_number_order_index":2,"image_position_patient":"0\\-2.2\\11"},
+      {"logical_id":"late_scout_middle","role":"scout_middle","path":"caller-volumes/scout/middle-plane.dcm","size_bytes":1276,"sha256":"fdde96ec17e72e5b1b609ed9698986553ff4cced986d91585af8536cb3425d23","pixel_data_sha256":"f49dfec39f922fd1618aa97b5458b388dadec3e55e2371806d3ac571ba191f77","series_ordinal":2,"geometric_order_index":2,"instance_number_order_index":1,"image_position_patient":"25\\-0.8\\4"},
+      {"logical_id":"scout_origin","role":"scout_low","path":"caller-volumes/scout/origin-plane.dcm","size_bytes":1274,"sha256":"600d60c05599849dd141f49d875ef6f4a378920bcfb451fb206ac8a9b920b2e7","pixel_data_sha256":"b2da5ae767839032d7b7ca00113cab5fab64c93f0df6932924f35d6383305a56","series_ordinal":2,"geometric_order_index":1,"instance_number_order_index":3,"image_position_patient":"25\\0\\0"},
+      {"logical_id":"scout_high","role":"scout_terminal","path":"caller-volumes/scout/terminal-plane.dcm","size_bytes":1276,"sha256":"fb3f28a1f1d3dd37e14e94ed16f6f14da46c361544f866182d6c4ef465a25120","pixel_data_sha256":"b5d90aa83a589d01feadf95d59b797c1dde43a3db7fc5f13de3b7244e5086d03","series_ordinal":2,"geometric_order_index":3,"instance_number_order_index":2,"image_position_patient":"25\\-2.2\\11"}
+    ]
+  }
+}

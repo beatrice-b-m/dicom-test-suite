@@ -162,10 +162,11 @@ fn planning_is_filesystem_free_and_rejects_corrupt_contracts() {
 
     let mut reordered = recipe.clone();
     reordered.dicom.as_mut().unwrap().artifacts.swap(0, 1);
-    assert!(matches!(
-        plan_ct_recipe(&reordered, &lock_hash, 7),
-        Err(ClassicCtPlanError::Contract(_))
-    ));
+    assert_eq!(
+        plan_ct_recipe(&reordered, &lock_hash, 7).unwrap().unwrap(),
+        requests,
+        "declaration-array order must not change caller-owned artifact order"
+    );
 
     let non_ct = catalog.recipes().values().find(|candidate| {
         !CT_PREFIXES
@@ -176,6 +177,140 @@ fn planning_is_filesystem_free_and_rejects_corrupt_contracts() {
         plan_ct_recipe(non_ct.unwrap(), &lock_hash, 7)
             .unwrap()
             .is_none()
+    );
+}
+
+#[test]
+fn caller_ct_series_geometry_is_derived_and_fails_closed() {
+    let (catalog, _, lock_hash) = load();
+    let case = |case_id: &str| {
+        catalog
+            .recipes()
+            .values()
+            .find(|recipe| recipe.binding.case_id == case_id)
+            .unwrap()
+    };
+    let conflict = case("geometry/ct/spatial_sort_conflicts_instance_number");
+
+    let rejects = |recipe: &synth_dicom_gen::recipes::CaseRecipe, expected: &str| {
+        let error = plan_ct_recipe(recipe, &lock_hash, 7).unwrap_err();
+        assert!(error.to_string().contains(expected), "{error}");
+    };
+
+    let mut arbitrary_identity = conflict.clone();
+    arbitrary_identity.binding.case_id = "caller/geometry/renamed-stack".into();
+    arbitrary_identity.recipe_id = "caller_geometry_renamed_stack".into();
+    arbitrary_identity.provider_parameters["image_type"] =
+        serde_json::json!(["DERIVED", "SECONDARY", "REFORMATTED"]);
+    for (index, artifact) in arbitrary_identity
+        .dicom
+        .as_mut()
+        .unwrap()
+        .artifacts
+        .iter_mut()
+        .enumerate()
+    {
+        artifact.parameters["uid_file_index"] = Value::from(40 + index as u64);
+        artifact.parameters["series_index"] = Value::from(17);
+        artifact.parameters["series_number"] = Value::from("83");
+        artifact.parameters["acquisition_number"] = Value::from("9");
+    }
+    arbitrary_identity
+        .dicom
+        .as_mut()
+        .unwrap()
+        .artifacts
+        .swap(0, 2);
+    assert_eq!(
+        plan_ct_recipe(&arbitrary_identity, &lock_hash, 7)
+            .unwrap()
+            .unwrap()
+            .len(),
+        3
+    );
+
+    let mut duplicate_uid = conflict.clone();
+    duplicate_uid.dicom.as_mut().unwrap().artifacts[1].parameters["uid_file_index"] =
+        Value::from(0);
+    rejects(&duplicate_uid, "uid_file_index values must be unique");
+
+    let mut invalid_orientation = conflict.clone();
+    invalid_orientation.provider_parameters["image_orientation_patient"] =
+        serde_json::json!(["1", "0", "0", "1", "0", "0"]);
+    rejects(&invalid_orientation, "orthonormal unit vectors");
+
+    let mut invalid_position = conflict.clone();
+    invalid_position.dicom.as_mut().unwrap().artifacts[1].parameters["position_along_normal"] =
+        Value::from(6.0);
+    rejects(
+        &invalid_position,
+        "contradicts projected Image Position Patient",
+    );
+
+    let mut invalid_spacing = conflict.clone();
+    invalid_spacing.provider_parameters["spacing_between_slices"] = Value::from("4");
+    rejects(&invalid_spacing, "contradicts projected slice intervals");
+
+    let mut invalid_conflict = conflict.clone();
+    invalid_conflict.provider_parameters["sorting_conflict_expected"] = Value::from(false);
+    rejects(&invalid_conflict, "contradicts derived spatial");
+
+    let mut duplicate_position = conflict.clone();
+    duplicate_position.dicom.as_mut().unwrap().artifacts[1].parameters["image_position_patient"] =
+        serde_json::json!(["0", "0", "0"]);
+    duplicate_position.dicom.as_mut().unwrap().artifacts[1].parameters["position_along_normal"] =
+        Value::from(0.0);
+    rejects(&duplicate_position, "positions must be unique");
+
+    let mut invalid_pixels = conflict.clone();
+    invalid_pixels.dicom.as_mut().unwrap().artifacts[0].parameters["pixels"]["stored_values"] =
+        serde_json::json!([-1024, 0, 1024]);
+    rejects(&invalid_pixels, "invalid CT native pixel declaration");
+
+    let mut invalid_hash = conflict.clone();
+    invalid_hash.dicom.as_mut().unwrap().artifacts[0].parameters["pixels"]["frame_sha256"] =
+        Value::from("0".repeat(64));
+    rejects(&invalid_hash, "frame_sha256 does not match");
+
+    let mut overlong_ds = conflict.clone();
+    overlong_ds.provider_parameters["slice_thickness"] = Value::from("12345678901234567");
+    rejects(&overlong_ds, "invalid CT DS slice_thickness");
+
+    let mut invalid_date = conflict.clone();
+    invalid_date.provider_parameters["acquisition_date"] = Value::from("20260230");
+    rejects(&invalid_date, "invalid CT acquisition_date");
+
+    let mut invalid_time = conflict.clone();
+    invalid_time.provider_parameters["acquisition_time"] = Value::from("12.1");
+    rejects(&invalid_time, "invalid CT acquisition_time");
+
+    let tilt = case("geometry/ct/gantry_tilt_series");
+    let mut invalid_tilt = tilt.clone();
+    invalid_tilt.provider_parameters["gantry_detector_tilt"] = Value::from("15");
+    rejects(&invalid_tilt, "contradicts the declared slice-origin shear");
+
+    let multi = case("geometry/ct/multiseries_shared_frame_of_reference");
+    let mut sparse_series_indices = multi.clone();
+    for artifact in &mut sparse_series_indices.dicom.as_mut().unwrap().artifacts {
+        let original = artifact.parameters["series_index"].as_u64().unwrap();
+        artifact.parameters["series_index"] = Value::from(if original == 0 { 7 } else { 42 });
+        artifact.parameters["series_number"] = Value::from(if original == 0 { "81" } else { "19" });
+    }
+    assert_eq!(
+        plan_ct_recipe(&sparse_series_indices, &lock_hash, 7)
+            .unwrap()
+            .unwrap()
+            .len(),
+        4
+    );
+
+    let mut missing_organization = multi.clone();
+    missing_organization
+        .provider_parameters
+        .remove("series_organization");
+    rejects(
+        &missing_organization,
+        "require an explicit series organization",
     );
 }
 

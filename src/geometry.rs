@@ -38,6 +38,7 @@ struct SeriesOrganizationInstance {
     frame_of_reference_uid: String,
     expected_study_series_count: usize,
     expected_series_ordinal: usize,
+    expected_series_number: String,
     expected_series_instance_count: usize,
     expected_shared_study: bool,
     expected_shared_frame: bool,
@@ -423,14 +424,15 @@ fn read_series_organization_instance(
         }
     }
     let expected_series_ordinal = usize_at(expected, "/series_ordinal")?;
+    let expected_series_number = string_at(file, "/recipe/recipe_parameters/series_number")?;
     let series_number = object
         .element(tags::SERIES_NUMBER)
         .map_err(|error| format!("{path}: series_organization_series_number: {error}"))?
-        .to_int::<i64>()
+        .to_str()
         .map_err(|error| format!("{path}: series_organization_series_number: {error}"))?;
-    if usize::try_from(series_number).ok() != Some(expected_series_ordinal) {
+    if series_number.trim_matches('\0').trim() != expected_series_number {
         return Err(format!(
-            "{path}: series_organization_series_number: dataset {series_number}, declared ordinal {expected_series_ordinal}"
+            "{path}: series_organization_series_number: dataset {series_number}, declared {expected_series_number}"
         ));
     }
     Ok(SeriesOrganizationInstance {
@@ -442,6 +444,7 @@ fn read_series_organization_instance(
         frame_of_reference_uid,
         expected_study_series_count: usize_at(expected, "/study_series_count")?,
         expected_series_ordinal,
+        expected_series_number: expected_series_number.to_string(),
         expected_series_instance_count: usize_at(expected, "/series_instance_count")?,
         expected_shared_study: bool_at(expected, "/shared_study_instance_uid_expected")?,
         expected_shared_frame: bool_at(expected, "/shared_frame_of_reference_uid_expected")?,
@@ -499,6 +502,7 @@ fn validate_series_organization(
             if member.expected_series_ordinal != series_first.expected_series_ordinal
                 || member.expected_series_instance_count
                     != series_first.expected_series_instance_count
+                || member.expected_series_number != series_first.expected_series_number
             {
                 failures.push(format!(
                     "{}: series_organization_series_declaration: series {series_uid} has inconsistent ordinal or instance count",
@@ -911,7 +915,7 @@ mod tests {
         let failure = read_series_organization_instance(&root, &file, &expected)
             .expect_err("wrong serialized Series Number must be rejected");
         assert!(
-            failure.contains("series_organization_series_number: dataset 9, declared ordinal 2"),
+            failure.contains("series_organization_series_number: dataset 9, declared 2"),
             "wrong Series Number should identify the mismatch: {failure}"
         );
 
@@ -969,6 +973,7 @@ mod tests {
             frame_of_reference_uid: "1.2.3.3".to_string(),
             expected_study_series_count: 2,
             expected_series_ordinal: series_ordinal,
+            expected_series_number: series_ordinal.to_string(),
             expected_series_instance_count: 2,
             expected_shared_study: true,
             expected_shared_frame: true,
@@ -990,6 +995,11 @@ mod tests {
                     "study_instance_uid": study_instance_uid,
                     "series_instance_uid": series_instance_uid,
                     "frame_of_reference_uid": frame_of_reference_uid
+                },
+                "recipe": {
+                    "recipe_parameters": {
+                        "series_number": series_ordinal.to_string()
+                    }
                 }
             }),
             serde_json::json!({

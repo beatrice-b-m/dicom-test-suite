@@ -51,7 +51,9 @@ use crate::executor::services::{
 };
 use crate::negative::classify_negative_parser_probe;
 use crate::negative_plan::NEGATIVE_PARSER_RULE_ID;
-use crate::recipes::classic_ct::{ClassicCtArtifactParameters, ClassicCtProviderParameters};
+use crate::recipes::classic_ct::{
+    ClassicCtArtifactParameters, ClassicCtProviderParameters, inspect_ct_capability,
+};
 use crate::recipes::classic_dx_mg::{DxMgArtifactParameters, DxMgFamily};
 use crate::recipes::classic_mr_cr::{CrArtifactParameters, inspect_mr_capability};
 use crate::recipes::classic_nuclear::{
@@ -4861,10 +4863,11 @@ fn validate_classic_ct_group(
     planned: &BTreeMap<String, crate::corpus_plan::PlannedDicomArtifact>,
 ) -> Result<TypedValidationCheck, ServiceInvocationError> {
     let case_id = &current.case_recipe.binding.case_id;
-    let provider: ClassicCtProviderParameters = serde_json::from_value(Value::Object(
-        current.case_recipe.provider_parameters.clone(),
-    ))
-    .map_err(|error| service_error("validation", error))?;
+    let capability = inspect_ct_capability(&current.case_recipe)
+        .map_err(|error| service_error("validation", error))?
+        .ok_or_else(|| {
+            ServiceInvocationError::new("validation", "CT group lacks the typed CT capability")
+        })?;
     let mut members = contexts
         .values()
         .filter(|context| {
@@ -4885,18 +4888,39 @@ fn validate_classic_ct_group(
             Ok((context, parameters, artifact))
         })
         .collect::<Result<Vec<_>, ServiceInvocationError>>()?;
-    members.sort_by_key(|(context, _, _)| context.historical_artifact_order);
+    members.sort_by_key(|(context, _, _)| context.artifact_recipe.order);
     if members.is_empty() {
         return Err(ServiceInvocationError::new(
             "validation",
             "CT group has no planned members",
         ));
     }
+    if members.len() != capability.artifacts.len() {
+        return Err(ServiceInvocationError::new(
+            "validation",
+            "CT group member count differs from inspected capability",
+        ));
+    }
     let study = classic_identity(members[0].2, CompositionUidRole::StudyInstance)?;
     let frame = classic_identity(members[0].2, CompositionUidRole::FrameOfReference)?;
     let mut series_by_index = BTreeMap::<u32, &str>::new();
-    let mut last_position = BTreeMap::<u32, f64>::new();
-    for (_, parameters, artifact) in &members {
+    for (context, parameters, artifact) in &members {
+        let inspected = capability
+            .artifacts
+            .iter()
+            .find(|candidate| candidate.order == context.artifact_recipe.order)
+            .ok_or_else(|| {
+                ServiceInvocationError::new(
+                    "validation",
+                    "CT planned member is absent from inspected capability",
+                )
+            })?;
+        if inspected.parameters != *parameters {
+            return Err(ServiceInvocationError::new(
+                "validation",
+                "CT planned member parameters differ from inspected capability",
+            ));
+        }
         if classic_identity(artifact, CompositionUidRole::StudyInstance)? != study
             || classic_identity(artifact, CompositionUidRole::FrameOfReference)? != frame
         {
@@ -4914,16 +4938,6 @@ fn validate_classic_ct_group(
                 ));
             }
         }
-        if let Some(previous) =
-            last_position.insert(parameters.series_index, parameters.position_along_normal)
-        {
-            if parameters.position_along_normal <= previous {
-                return Err(ServiceInvocationError::new(
-                    "validation",
-                    "CT planned slice positions are not strictly increasing within series",
-                ));
-            }
-        }
     }
     let distinct = series_by_index.values().copied().collect::<BTreeSet<_>>();
     if distinct.len() != series_by_index.len() {
@@ -4932,7 +4946,7 @@ fn validate_classic_ct_group(
             "distinct CT series indexes share a Series Instance UID",
         ));
     }
-    if provider.series_organization.is_some() != (series_by_index.len() > 1) {
+    if capability.provider.series_organization.is_some() != (series_by_index.len() > 1) {
         return Err(ServiceInvocationError::new(
             "validation",
             "CT cross-series organization declaration does not match planned topology",

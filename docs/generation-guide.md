@@ -275,7 +275,13 @@ geometric order, adjacent spacing vector and uniformity, in-plane displacement
 for declared gantry tilt, numeric Instance Number rank/conflict, and single- or
 multi-series organization. Series indices may be sparse; DICOM Series and
 Acquisition Numbers remain explicit caller strings and must be consistent
-within each series. Pixels are native signed 12-bit words with checked shape,
+within each series. This capability's tilt field is a nonnegative 0–90 degree
+magnitude, and nonzero shear must follow the negative image-column direction;
+positive tilt also requires at least one derived interval. Negative tag values
+and opposite-axis shear are outside this bounded generic contract and reject.
+Singleton series remain valid at zero tilt. Per-series Instance Number conflict
+facts may differ; the provider scalar is their study aggregate and becomes
+absent if any series lacks a complete numeric ordering. Pixels are native signed 12-bit words with checked shape,
 range, extrema and semantic frame hash. `planning_order` is mandatory and
 globally unique among migrated recipes, but it is scheduling metadata and does
 not dispatch the CT planner. The caller chooses case ID, recipe ID,

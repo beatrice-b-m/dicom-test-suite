@@ -1047,7 +1047,14 @@ typed parameters, and an explicit output. The inspector orders by the explicit
 artifact order and derives projected spatial ranks, adjacent spacing and
 uniformity, tilt displacement, Instance Number conflict ranks, and per-study
 series organization. Sparse caller series indices do not become DICOM Series
-Numbers. Any CT marker with an incomplete, contradictory, or mixed tuple fails
+Numbers. This bounded contract treats tilt as a nonnegative 0–90 degree
+magnitude and requires nonzero origin shear along the negative image-column
+direction plus at least one interval; zero-tilt singleton series remain valid.
+Sorting conflict is derived per series. The compatibility scalar is the
+study-level any-conflict aggregate only when every series has complete numeric
+Instance Numbers, and is otherwise absent. This does not generalize signed
+Gantry/Detector Tilt. Any CT marker
+with an incomplete, contradictory, or mixed tuple fails
 closed. `planning_order` remains mandatory and globally unique for migrated
 recipes but is not a planner discriminator. This public
 CLI/SDK CT boundary excludes `native.stress_ct_plan`, other classic/VL families,

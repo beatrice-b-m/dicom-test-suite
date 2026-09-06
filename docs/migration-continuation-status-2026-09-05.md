@@ -2499,6 +2499,30 @@ separate corpus-owned boundary; independent conformance, viewer, Heavy,
 package, release and complete-R7 gates retain their own evidence boundaries.
 R7 remains open, and R8/R9 remain held behind their dependencies.
 
+Independent review corrections are recorded by generator `ca7db33`. Rescale
+output bounds now apply the caller slope and intercept to both stored-value
+endpoints, reject nonfinite derived values, and reorder negative-slope bounds.
+The supported tilt contract is explicitly a nonnegative magnitude with
+negative-column shear and at least one interval when positive. Singleton series
+remain valid at zero tilt, multi-instance-only attributes are decided per
+series, and heterogeneous per-series Instance Number conflicts retain their
+own manifest/report values while the legacy provider scalar is a study
+aggregate. The public oracle now binds all populated geometry/report fields and
+the exact accepted original-pin baseline3 16-file path/size/SHA table without
+coupling it to future `geometry/ct` inventory.
+
+Focused verification used
+`cargo test --locked --no-default-features --test engine__subsystem classic_ct_plan::`
+(4 passed) and
+`cargo test --locked --no-default-features --test cli_sdk__nonfast external_corpus_cli::caller_owned_ct_geometry_cli_sdk_strict_and_report_are_identical -- --exact`
+(1 passed). The exact changed-path router selected and passed
+`external_corpus_cli::` (21), `corpus_generation__subsystem` (92),
+`classic_ct_plan::` (4), and `corpus_plan::` (22); ownership reports 1,520
+entries and `git diff --check` passes. Generator commits for this implemented
+slice are `f9f45fa`, `69987bf`, and `ca7db33`. Independent acceptance remains
+pending review; these same-project checks do not advance R7 or any downstream
+gate.
+
 ## CT geometry import, availability and migrated parity accepted — 2026-09-05
 
 Corpus `155b98c` imports the five exact source-pinned CT geometry/series recipes
@@ -2558,7 +2582,7 @@ Both accepted runs authenticate original generator source
 `232b9de41f97ee95abe1ecc40b6b8b70ebeeea5f` and artifact
 `4ca0c6d6a8e4cbab81b7005b4354c7ff558c44747e00f41d22d3abbfd50b7768`.
 The historical baseline alone retains reporter source
-`c2ffe41c9e4d691a45ae5a77ca9bdd7db8f84cdb` and artifact
+`c2ffe41a9af6b72857f51b507ae6165a14deacdb` and artifact
 `c56f49b0fc6626948f93f83568b592efd35109919c128da1191f818aab4bb383`;
 parity does not invoke that reporter. This closes the CT-geometry-local
 R7.1/R7.2/R7.3/R7.5 ordinary-core slice only. Extended/relationship families,

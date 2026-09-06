@@ -121,7 +121,14 @@ parameters, and an explicit output path. Explicit artifact order is unique and
 contiguous from zero, while recipe-array order, UID indices, series indices and
 DICOM Series Numbers are caller-owned. The typed inspector derives projected
 geometry order, spacing/uniformity, tilt displacement, Instance Number
-conflicts and series organization before planning. `planning_order` is still
+conflicts and series organization before planning. Tilt is deliberately
+bounded to a nonnegative 0–90 degree magnitude with shear along the negative
+image-column direction, and a positive magnitude requires at least one slice
+interval; zero-tilt singleton series remain valid. Derived conflict remains
+per series, while the provider scalar expresses the study aggregate and is
+absent when any series lacks complete numeric Instance Numbers, rather than
+general signed Gantry/Detector Tilt.
+`planning_order` is still
 mandatory and globally unique, but is not the dispatch key.
 
 Any partial or mixed CT tuple fails closed. Callers may choose their own case

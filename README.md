@@ -103,6 +103,14 @@ parameters, and an explicit output path. The typed contract derives spatial
 order, adjacent spacing and uniformity, gantry-tilt geometry, Instance Number
 conflicts, and single- or multi-series organization from the declaration.
 Series indices and numbers are caller values rather than array ordinals.
+This bounded caller contract represents tilt as a nonnegative 0–90 degree
+magnitude with slice-origin shear along the negative image-column direction;
+positive tilt requires at least one derived slice interval, while singleton
+series remain valid at zero tilt. Instance Number conflict is retained per
+series; the legacy provider scalar is a study aggregate (`true` when any fully
+numeric series conflicts, `false` when none do, and absent when any series is
+not fully numeric). It does not claim generic signed Gantry/Detector Tilt
+support.
 `planning_order` remains mandatory and globally unique for migrated recipes,
 but does not select the CT planner.
 Partial or mixed tuples fail closed. This CLI/SDK contract uses only the

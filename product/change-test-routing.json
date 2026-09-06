@@ -178,7 +178,7 @@
     },
     "report": {
       "commands": [
-        {"kind": "lib", "module": "report_contract::report_contract_tests", "source": "src/report_contract.rs", "list_count": 5},
+        {"kind": "lib", "module": "report_contract::report_contract_tests", "source": "src/report_contract.rs", "list_count": 6},
         {"target": "cli_sdk__nonfast", "module": "report_cli"},
         {"target": "cli_sdk__nonfast", "module": "sdk_facade"}
       ]

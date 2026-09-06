@@ -212,10 +212,51 @@ mod report_contract_tests {
         let mut expected = legacy["$defs"]["coverage_row"].clone();
         explicit_references(&mut expected);
         let mut actual = new["$defs"]["coverage_row"].clone();
+        let generated_only_cases = [
+            "classic/sc/mono2_u1_native",
+            "classic/sc/mono2_u32_explicit_le",
+            "derived/mesh/encapsulated_stl",
+            "derived/registration/spatial_ct_pair",
+            "non-image/waveform/twelve_lead_ecg",
+            "vl/photo/rgb_icc_profile_explicit_le",
+        ];
+        let mut normalized_status_guards = Vec::new();
+        for rule in actual["allOf"].as_array_mut().unwrap() {
+            let Some(case_id) = rule
+                .pointer("/if/properties/case_id/const")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+            else {
+                continue;
+            };
+            if !generated_only_cases.contains(&case_id.as_str()) {
+                continue;
+            }
+            assert_eq!(
+                rule.pointer("/if/properties/status/const"),
+                Some(&Value::String("generated".into()))
+            );
+            assert_eq!(
+                rule.pointer("/if/required"),
+                Some(&serde_json::json!(["case_id", "status"]))
+            );
+            rule["if"]["properties"]
+                .as_object_mut()
+                .unwrap()
+                .remove("status");
+            if case_id == "derived/mesh/encapsulated_stl" {
+                rule["if"]["required"] = serde_json::json!(["case_id"]);
+            } else {
+                rule["if"].as_object_mut().unwrap().remove("required");
+            }
+            normalized_status_guards.push(case_id);
+        }
+        normalized_status_guards.sort();
+        assert_eq!(normalized_status_guards, generated_only_cases);
         actual["allOf"][15] = actual["allOf"][15]["anyOf"][0].clone();
         assert_eq!(
             actual, expected,
-            "only the reviewed nonsquare alternative may change"
+            "only the reviewed nonsquare alternative and generated-status guards may change"
         );
         let mut normalized = new.clone();
         normalized.as_object_mut().unwrap().remove("$defs");
@@ -292,6 +333,44 @@ mod report_contract_tests {
         report[version_field] = version.into();
         report["identity_projection"] = serde_json::to_value(projection).unwrap();
         report
+    }
+
+    #[test]
+    fn coverage_1_1_artifact_specific_rows_are_status_aware() {
+        const GENERATED_ONLY_CASES: [&str; 6] = [
+            "classic/sc/mono2_u1_native",
+            "classic/sc/mono2_u32_explicit_le",
+            "derived/mesh/encapsulated_stl",
+            "derived/registration/spatial_ct_pair",
+            "non-image/waveform/twelve_lead_ecg",
+            "vl/photo/rgb_icc_profile_explicit_le",
+        ];
+
+        for case_id in GENERATED_ONLY_CASES {
+            let mut unavailable = current_report(
+                include_bytes!("../tests/fixtures/cli/coverage-report-v0.1.json"),
+                "coverage_report_schema_version",
+                "1.1.0",
+            );
+            let row = &mut unavailable["coverage_matrix"][0];
+            row["case_id"] = case_id.into();
+            row["status"] = "unavailable".into();
+            row["reason_code"] = "generator_not_implemented".into();
+            row["validation_status"] = "unavailable".into();
+            validate_report_contract(&unavailable).unwrap_or_else(|error| {
+                panic!("1.1 unavailable projection for {case_id} must validate: {error}")
+            });
+
+            let mut missing_generated_observations = unavailable;
+            missing_generated_observations["coverage_matrix"][0]["status"] = "generated".into();
+            missing_generated_observations["coverage_matrix"][0]["reason_code"] = Value::Null;
+            missing_generated_observations["coverage_matrix"][0]["validation_status"] =
+                "passed".into();
+            assert!(
+                validate_report_contract(&missing_generated_observations).is_err(),
+                "generated {case_id} must retain its exact artifact observations"
+            );
+        }
     }
 
     #[test]

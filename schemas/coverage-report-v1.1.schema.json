@@ -4842,10 +4842,14 @@
             "properties": {
               "case_id": {
                 "const": "derived/mesh/encapsulated_stl"
+              },
+              "status": {
+                "const": "generated"
               }
             },
             "required": [
-              "case_id"
+              "case_id",
+              "status"
             ]
           },
           "then": {
@@ -5583,8 +5587,15 @@
             "properties": {
               "case_id": {
                 "const": "classic/sc/mono2_u32_explicit_le"
+              },
+              "status": {
+                "const": "generated"
               }
-            }
+            },
+            "required": [
+              "case_id",
+              "status"
+            ]
           },
           "then": {
             "properties": {
@@ -5624,8 +5635,15 @@
             "properties": {
               "case_id": {
                 "const": "classic/sc/mono2_u1_native"
+              },
+              "status": {
+                "const": "generated"
               }
-            }
+            },
+            "required": [
+              "case_id",
+              "status"
+            ]
           },
           "then": {
             "properties": {
@@ -5689,8 +5707,15 @@
             "properties": {
               "case_id": {
                 "const": "vl/photo/rgb_icc_profile_explicit_le"
+              },
+              "status": {
+                "const": "generated"
               }
-            }
+            },
+            "required": [
+              "case_id",
+              "status"
+            ]
           },
           "then": {
             "properties": {
@@ -5959,8 +5984,15 @@
             "properties": {
               "case_id": {
                 "const": "derived/registration/spatial_ct_pair"
+              },
+              "status": {
+                "const": "generated"
               }
-            }
+            },
+            "required": [
+              "case_id",
+              "status"
+            ]
           },
           "then": {
             "properties": {
@@ -6930,8 +6962,15 @@
             "properties": {
               "case_id": {
                 "const": "non-image/waveform/twelve_lead_ecg"
+              },
+              "status": {
+                "const": "generated"
               }
-            }
+            },
+            "required": [
+              "case_id",
+              "status"
+            ]
           },
           "then": {
             "properties": {

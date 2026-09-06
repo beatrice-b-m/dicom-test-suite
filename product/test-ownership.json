@@ -4,7 +4,7 @@
     "rust_test_targets": 22,
     "integration_test_targets": 20,
     "rust_test_entry_groups": 277,
-    "rust_test_entries": 1520,
+    "rust_test_entries": 1521,
     "integration_source_groups": 189,
     "integration_test_entries": 941,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
@@ -3923,7 +3923,7 @@
         "mutation_of_an_internal_shared_root_fails_closed_on_reuse",
         "one_handle_reuses_one_tree_across_batch_generate_validate_report_and_compose"
       ],
-      "entry_digest": "14a990675abb3f71c62b08d8166ca2a1b62e8b2c6ffab6fe5dd4e8df571a4b39"
+      "entry_digest": "a4301964f1fabc1aba20fbdb44a4aaa3ac0d148911c4c822a6510bf1cd804955"
     },
     {
       "source": "src/executor/evidence.rs",
@@ -4250,7 +4250,7 @@
         "cargo_lock_perturbation_changes_only_toolchain_and_legacy_provenance",
         "external_runtime_identity_requires_successful_typed_execution_evidence"
       ],
-      "entry_digest": "db4fd7909cbcc787d07cb498c7aa1cf3831f57c6557e96e3ed848de05689c1de"
+      "entry_digest": "8d5951ebf37842b9d8150207ca486bef14deb01232bfa7e5408109775ea3ebff"
     },
     {
       "source": "src/lib.rs",
@@ -4482,15 +4482,16 @@
       "domain": "corpus_generation",
       "verification_class": "subsystem",
       "cost_tier": "ordinary",
-      "entry_count": 5,
+      "entry_count": 6,
       "entries": [
         "coverage_1_1_preserves_original_rows_and_other_case_guards_exactly",
         "coverage_1_1_non_generated_null_alternative_is_closed",
+        "coverage_1_1_artifact_specific_rows_are_status_aware",
         "legacy_report_fixtures_remain_schema_valid",
         "current_reports_validate_and_preserve_every_legacy_field",
         "current_report_contracts_reject_identity_and_version_mutations"
       ],
-      "entry_digest": "335ed652c3c82bb29e5ccbc9ba52ecd4a45bc488f936a609c6d6f1f96ee5b8bb"
+      "entry_digest": "cb5ec6d87dd4752a52e922df463b444a8dbd44f5b0f94dcdc52dce55495f6c6c"
     },
     {
       "source": "src/rt_manifest.rs",

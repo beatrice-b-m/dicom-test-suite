@@ -2593,3 +2593,47 @@ codec/provider partitions, isolated legacy/negative/fuzz/stress/media/protocol
 scopes, embedded removal, viewer evidence and terminal R8/R9 gates remain.
 There is no independent-conformance, viewer, Heavy, package, release or
 complete-R7 claim; R7 remains open and R8/R9 remain held.
+
+## Enhanced multiframe report-only completion ready, not executed — 2026-09-05
+
+The six-case Enhanced CT/MR/PET base cohort remains a seven-artifact,
+twelve-frame source-pinned slice. Baseline1 and baseline3 remain retained
+failures; the baseline2 name records only a sandbox-denied pre-root attempt for
+which no evidence directory or native command existed. Baseline4 remains the
+immutable report-stage failure at receipt
+`20441214ba321f50fd260529f221f49389d0006b8f98b34fc03f86e05c1305f8`:
+the original generator completed one generation and one strict validation,
+then the historical `c2ffe41a9af6b72857f51b507ae6165a14deacdb`
+reporter failed once. Its manifest remains
+`5297aa42ef04d0bf822b7385d953f95e6b53f026ab0af18cc7f82ca046ac98f6`;
+no failed receipt, command, payload, binary or pin is relabeled.
+
+Generator `eb81d40` repairs only the coverage-report1.1 status guard. One
+immutable source-archive build produced the distinct unreleased report-only
+candidate at 71,518,592 bytes and SHA-256
+`b1cdd7673c398366b49b1c120fd0f84e30f5183c25f5d7a1efc3fdcc96f1c6cf`.
+Build receipt `3b755f4bddf436866d94e282edf940f90da5c518ea0be69c52ff9bd52f95937f`,
+validation receipt `3d40cd5e35fc54bea7af74e41ef14330ccf4694a72e13b7c62047dfd8b95d320`
+and 22-file inventory
+`637c382932d211fa38cb31af025dd6675f9abc2f1621b45d9508c0e4257959fa`
+bind source tree `11112f770d4ce31db89a0db5dd2167e471e0fc25`, the single
+offline/locked/no-default-feature aarch64 build, and version2/capabilities3
+discovery only. The original reporter artifact `c56f49b0…b383` and generator
+artifact `4ca0c6d6…7768` remain separate and unchanged.
+
+Corpus commits `1440ab6`, `2163336` and `3d052dc` pin that candidate in an
+Enhanced-only const contract and prepare a fresh-adjacent report-completion
+helper. The helper authenticates the full baseline4 closure twice, snapshots
+the caller-supplied candidate before and after acquisition, executes at most one
+`report` command from an unrelated empty-`PATH` directory, retains failures
+without retry, validates the exact 127-row/120-gap/475-group coverage1.1
+projection, and supports subprocess-free replay. It cannot run candidate
+generation or validation commands. Independent review passed 154 focused/shared
+tests, authenticated the real baseline4 receipt and manifest read-only, and
+passed the exact `67ea8c5..3d052dc` CI-routing dry run; the corpus worktree and
+generator-owned user files remained unchanged.
+
+The completion command has not run. Therefore there is no accepted Enhanced
+baseline, import, availability, parity, reusable caller capability, independent
+conformance, viewer, Heavy, package or release evidence at this checkpoint.
+R7 remains open, and R8/R9 remain held behind their dependencies.

@@ -174,6 +174,11 @@ RGB geometry and metadata for photographic, endoscopic and microscopic images,
 with optional structurally validated ICC v2 RGB input profiles. See the
 [VL contract](docs/generation-guide.md#caller-defined-native-visible-light-images).
 
+Caller-defined [native ECG waveforms](docs/generation-guide.md#caller-defined-native-ecg-waveforms)
+carry explicit metadata, group layouts, sample formulas and channel calibration.
+Shared strict validation checks the declared structures and bytes; independent
+conformance and diagnostic suitability are not implied.
+
 Caller-defined [encapsulated PDF and binary STL](docs/generation-guide.md#caller-defined-encapsulated-pdf-and-binary-stl)
 accept explicit payload bytes and metadata with strict reopening. PDF framing
 and STL geometry checks are same-project evidence; external format conformance

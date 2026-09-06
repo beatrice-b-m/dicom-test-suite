@@ -1,0 +1,110 @@
+{
+  "corpus_definition_bundle_schema_version": "1.0.0",
+  "definition_id": "fixture.generic-ecg-waveform",
+  "definition_version": "1.0.0",
+  "profiles": [
+    {
+      "profile_id": "smoke",
+      "scope": "valid",
+      "members": []
+    },
+    {
+      "profile_id": "core",
+      "scope": "valid",
+      "members": [
+        "caller/trace/paired-leads",
+        "caller/trace/mixed-rates"
+      ]
+    },
+    {
+      "profile_id": "extended",
+      "scope": "valid",
+      "members": []
+    },
+    {
+      "profile_id": "legacy",
+      "scope": "legacy",
+      "members": []
+    },
+    {
+      "profile_id": "stress",
+      "scope": "stress",
+      "members": []
+    },
+    {
+      "profile_id": "negative",
+      "scope": "expected_invalid",
+      "members": []
+    },
+    {
+      "profile_id": "fuzz",
+      "scope": "fuzz",
+      "members": []
+    },
+    {
+      "profile_id": "all",
+      "scope": "valid",
+      "union_of": [
+        "smoke",
+        "core",
+        "extended"
+      ],
+      "optional_profile": "stress",
+      "members": []
+    }
+  ],
+  "registry": {
+    "path": "cases/registry.json",
+    "sha256": "057c2b99a567d852add8f2d853a02bc3f3c10954a8fe58d37ef75b2b98b475fc",
+    "size_bytes": 2947
+  },
+  "cases": [
+    {
+      "case_id": "caller/trace/paired-leads",
+      "recipe_id": "caller_trace_0",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/trace_0.json",
+        "sha256": "9b7886675d5e06f2036dfa43fca30b31ba7639412ae8cdf657c9ec0f23f22f00",
+        "size_bytes": 6514
+      },
+      "dependencies": [],
+      "evidence_ids": [
+        "source-note.phase-3-twelve-lead-ecg-waveform"
+      ],
+      "asset_ids": []
+    },
+    {
+      "case_id": "caller/trace/mixed-rates",
+      "recipe_id": "caller_trace_1",
+      "recipe_version": "0.1.0",
+      "recipe": {
+        "path": "cases/recipes/trace_1.json",
+        "sha256": "9c898dde1453bb7b91a2c1871876eb9eec1d85a58dc10cdd5f9a0bbad978a75d",
+        "size_bytes": 6548
+      },
+      "dependencies": [],
+      "evidence_ids": [
+        "source-note.phase-3-general-ecg-waveform"
+      ],
+      "asset_ids": []
+    }
+  ],
+  "evidence": [
+    {
+      "evidence_id": "source-note.phase-3-twelve-lead-ecg-waveform",
+      "media_type": "text/markdown",
+      "path": "evidence/phase-3-twelve-lead-ecg-waveform.md",
+      "sha256": "2ec87ff5bd687c0139d855de49de19eca43bbdba263900b08b48a63d97b03448",
+      "size_bytes": 11547
+    },
+    {
+      "evidence_id": "source-note.phase-3-general-ecg-waveform",
+      "media_type": "text/markdown",
+      "path": "evidence/phase-3-general-ecg-waveform.md",
+      "sha256": "5fdc6be9b5d947899f4349a316edad4aea71e553ee6caaa91bfd1017fd41e4d9",
+      "size_bytes": 11980
+    }
+  ],
+  "assets": []
+}

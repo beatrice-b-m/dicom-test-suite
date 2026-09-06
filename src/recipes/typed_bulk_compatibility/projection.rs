@@ -59,6 +59,10 @@ impl WaveformManifestProjection {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum WaveformRecipeParameters {
+    Caller {
+        waveform_capability_version: String,
+        waveform_contract: WaveformPlanInput,
+    },
     TwelveLead {
         multiplex_group_label: String,
         channel_count: u64,
@@ -134,17 +138,24 @@ pub struct ExpectedMultiplexGroup {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum WaveformDecimalProjection {
+    HistoricalNumber(i64),
+    CallerLexeme(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ExpectedWaveformChannel {
     pub ordinal: u64,
     pub label: String,
     pub source: ExpectedWaveformCode,
-    pub sensitivity: u8,
+    pub sensitivity: WaveformDecimalProjection,
     pub sensitivity_units: ExpectedWaveformCode,
-    pub sensitivity_correction_factor: u8,
-    pub baseline: i8,
+    pub sensitivity_correction_factor: WaveformDecimalProjection,
+    pub baseline: WaveformDecimalProjection,
     pub bits_stored: u8,
-    pub time_skew_seconds: u8,
+    pub time_skew_seconds: WaveformDecimalProjection,
     pub sample_skew_absent: bool,
 }
 
@@ -198,6 +209,21 @@ pub struct ExpectedWaveformAbsentContent {
 pub fn project_waveform(
     input: &WaveformPlanInput,
 ) -> Result<WaveformManifestProjection, SpecializedValidationError> {
+    if input.caller_metadata.is_none()
+        && input
+            .groups
+            .iter()
+            .flat_map(|g| &g.channels)
+            .any(|c| c.caller_calibration.is_some())
+    {
+        return Err(SpecializedValidationError::Projection(
+            "channel calibration requires caller waveform contract".into(),
+        ));
+    }
+    if input.caller_metadata.is_some() {
+        crate::recipes::validate_caller_waveform_input(input)
+            .map_err(|e| SpecializedValidationError::Projection(e.to_string()))?;
+    }
     let formula = formula_text(input);
     let mut groups = Vec::with_capacity(input.groups.len());
     let mut aggregate_bytes = Vec::new();
@@ -240,16 +266,48 @@ pub fn project_waveform(
                     coding_scheme_designator: "MDC".into(),
                     code_meaning: channel.code_meaning.clone(),
                 },
-                sensitivity: 1,
+                sensitivity: channel
+                    .caller_calibration
+                    .as_ref()
+                    .map(|c| WaveformDecimalProjection::CallerLexeme(c.sensitivity.clone()))
+                    .unwrap_or(WaveformDecimalProjection::HistoricalNumber(1)),
                 sensitivity_units: ExpectedWaveformCode {
-                    code_value: "uV".into(),
-                    coding_scheme_designator: "UCUM".into(),
-                    code_meaning: "microvolt".into(),
+                    code_value: channel
+                        .caller_calibration
+                        .as_ref()
+                        .map(|c| c.unit_code_value.clone())
+                        .unwrap_or_else(|| "uV".into()),
+                    coding_scheme_designator: channel
+                        .caller_calibration
+                        .as_ref()
+                        .map(|c| c.unit_coding_scheme.clone())
+                        .unwrap_or_else(|| "UCUM".into()),
+                    code_meaning: channel
+                        .caller_calibration
+                        .as_ref()
+                        .map(|c| c.unit_code_meaning.clone())
+                        .unwrap_or_else(|| "microvolt".into()),
                 },
-                sensitivity_correction_factor: 1,
-                baseline: 0,
+                sensitivity_correction_factor: channel
+                    .caller_calibration
+                    .as_ref()
+                    .map(|c| {
+                        WaveformDecimalProjection::CallerLexeme(
+                            c.sensitivity_correction_factor.clone(),
+                        )
+                    })
+                    .unwrap_or(WaveformDecimalProjection::HistoricalNumber(1)),
+                baseline: channel
+                    .caller_calibration
+                    .as_ref()
+                    .map(|c| WaveformDecimalProjection::CallerLexeme(c.baseline.clone()))
+                    .unwrap_or(WaveformDecimalProjection::HistoricalNumber(0)),
                 bits_stored: 16,
-                time_skew_seconds: 0,
+                time_skew_seconds: channel
+                    .caller_calibration
+                    .as_ref()
+                    .map(|c| WaveformDecimalProjection::CallerLexeme(c.time_skew_seconds.clone()))
+                    .unwrap_or(WaveformDecimalProjection::HistoricalNumber(0)),
                 sample_skew_absent: true,
             })
             .collect();
@@ -273,8 +331,26 @@ pub fn project_waveform(
                 payload_sha256: group.declared_sha256.clone(),
                 channel_sha256,
                 sample_value_formula: formula.clone(),
-                sample_min: -1000,
-                sample_max: 1000,
+                sample_min: if input.caller_metadata.is_some() {
+                    bytes
+                        .chunks_exact(2)
+                        .map(|v| i16::from_le_bytes(v.try_into().unwrap()))
+                        .min()
+                        .unwrap()
+                        .into()
+                } else {
+                    -1000
+                },
+                sample_max: if input.caller_metadata.is_some() {
+                    bytes
+                        .chunks_exact(2)
+                        .map(|v| i16::from_le_bytes(v.try_into().unwrap()))
+                        .max()
+                        .unwrap()
+                        .into()
+                } else {
+                    1000
+                },
                 waveform_padding_value_absent: true,
                 value_field_padding_bytes: 0,
             },
@@ -305,10 +381,19 @@ pub fn project_waveform(
                 one_second_duration,
                 diagnostic_use,
             } => {
-                let [group] = groups.as_slice() else {
-                    return Err(SpecializedValidationError::Projection(
-                        "twelve-lead projection requires one group".into(),
-                    ));
+                let group = if input.caller_metadata.is_some() {
+                    groups.first().ok_or_else(|| {
+                        SpecializedValidationError::Projection(
+                            "caller waveform groups missing".into(),
+                        )
+                    })?
+                } else {
+                    let [group] = groups.as_slice() else {
+                        return Err(SpecializedValidationError::Projection(
+                            "twelve-lead projection requires one group".into(),
+                        ));
+                    };
+                    group
                 };
                 (
                     "twelve_lead_ecg",
@@ -371,6 +456,14 @@ pub fn project_waveform(
                 known_stressors.clone(),
             ),
         };
+    let recipe_parameters = if input.caller_metadata.is_some() {
+        WaveformRecipeParameters::Caller {
+            waveform_capability_version: "1.0.0".into(),
+            waveform_contract: input.clone(),
+        }
+    } else {
+        recipe_parameters
+    };
     Ok(WaveformManifestProjection {
         recipe_id: input.recipe.recipe_id.clone(),
         recipe_version: input.recipe.recipe_version.clone(),
@@ -682,6 +775,16 @@ pub fn project_encapsulated_payload(
 }
 
 fn formula_text(input: &WaveformPlanInput) -> String {
+    if input.caller_metadata.is_some() {
+        return format!(
+            "((s * (c + 1) * (g + 1) * {} + c * {} + g * {}) mod {}) - {}; g is declared formula_group_index",
+            input.formula.sample_multiplier,
+            input.formula.channel_bias_multiplier,
+            input.formula.group_bias_multiplier,
+            input.formula.modulus,
+            input.formula.baseline
+        );
+    }
     match input.projection {
         WaveformProjection::TwelveLead { .. } => {
             "((s * (c + 1) * 37 + c * 101) mod 2001) - 1000".into()
@@ -696,6 +799,10 @@ fn waveform_bytes(
     input: &WaveformPlanInput,
     group_index: usize,
 ) -> Result<Vec<u8>, SpecializedValidationError> {
+    if input.caller_metadata.is_some() {
+        return crate::recipes::caller_waveform_group_bytes(input, group_index)
+            .map_err(|e| SpecializedValidationError::Projection(e.to_string()));
+    }
     let group = &input.groups[group_index];
     let capacity = group
         .channels

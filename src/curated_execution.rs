@@ -1199,6 +1199,14 @@ impl BoundExecutionServices for CuratedBoundExecutionServices {
                             "waveform provider recipe did not yield typed input",
                         )
                     })?;
+                if input.caller_metadata.is_some() {
+                    let obj = dicom_object::open_file(
+                        self.staging_root.join(declaration.relative_path.as_str()),
+                    )
+                    .map_err(|error| service_error("waveform validation", error))?;
+                    crate::waveform::validate_parameters_object(&input, &obj)
+                        .map_err(|error| service_error("waveform validation", error))?;
+                }
                 validate_waveform(&input, &observation)
                     .map_err(|error| service_error("waveform validation", error))?
             } else {

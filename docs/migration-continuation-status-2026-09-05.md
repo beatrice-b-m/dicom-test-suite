@@ -3124,3 +3124,51 @@ SHA-256 `472887e9031b843853557e075e34c39e3a75d5f25a377c9f29d56b05f1de0d14`).
 The dedicated target measured 1,720,492 KiB; default target and US draft remain
 untouched. Remaining waveform/WSI, derived, codec/provider and isolated R7
 scopes are open; R8/R9 and all Heavy, viewer and release gates remain due.
+
+### 2026-09-06 — Native ECG waveform slice completed; implementation paused
+
+Corpus `016d410` imports both original ECG recipes and source notes as
+content0.22.0 (55 cases derived from its registry), with source/selected
+contracts, tests, routing and documentation in the same import commit. Shared
+capture needed no new parser or family helper: complete nested Waveform SQ/OW
+assertions bind the original groups, channel data and report projection.
+Original generator/reporter pins remain unchanged.
+
+Under corpus `artifacts/r7-native-ecg-waveforms-*-20260906`, baseline1 passed
+generation/strict/report in 1.383610750/0.228164916/1.085402875s (receipt
+`d44c798898623ceb3a998c3a77cc30888c3cba63502f4f5949ac5a1cf18b9a94`).
+Availability1 passed in 2.411340625s (receipt
+`03b989ccdb7c68cb72c4b8319e3bd4989da4b3ec4655781eb6dd28ff50800ede`).
+Parity1 passed in 4.535256625/4.155637125s with two identical files, 77,132
+bytes, full manifest migration and original report projection (receipt
+`f80a7b418ed1edf523e307a9898d8e8335b39cfb17de0b3e094665f9a5b14377`).
+Corpus integration1 passed 1,171 tests plus definition inspection and routed
+smoke/ECG generation (receipt
+`f09c1159099ba4bb87932c524eef4794301085d58533c3bb41d6eb3f883c8b75`).
+
+Recipe0.2 now carries complete caller metadata, group layouts, formulas and
+channel calibration. Shared validation enforces ECG limits, required fields,
+finite calibration, explicit zero skew, bounded arithmetic, actual extrema,
+sequence/VR structure and exact OW bytes. Coded units remain caller values;
+syntax/binding does not claim ontology validity or physical accuracy. Frozen
+schema matching replaces reverse imports into historical builders. The
+compatibility layer invokes retained historical object validators so removing
+caller evidence cannot bypass metadata validation. Public fixtures prove
+CLI/SDK/repeat equivalence and reject missing contracts, invalid declarations,
+calibration and payload tampering. Original0.1 serialization remains unchanged.
+
+All 82 mapped ordinary commands passed (919 distinct named tests), plus 90
+Fast Rust tests, 51 Python contracts, smoke, JSON, formatting, ownership,
+spelling and warnings-denied compilation. Only the caller test was repeated
+after final declaration corrections. The newly connected historical strict
+path passed both original ECG cases, whose complete bytes also matched the
+retained baseline. Development failures and all integration artifacts remain
+in `reports/r7-native-ecg-integration-20260906` (116-file index SHA-256
+`9ac6807fb4c24b51d45bdd8508bb0befd400b37eec231c19c19f41850ddf8121`).
+The dedicated target measured 1,728,256 KiB; default target, US draft and all
+prior evidence remain preserved.
+
+Implementation pauses here at the user's request. R7 remains incomplete:
+remaining WSI, derived, codec/provider and isolated scopes still require their
+slices. R8/R9 and all applicable Heavy, viewer and terminal release gates remain
+open; no overall migration completion or release qualification is claimed.

@@ -61,6 +61,22 @@ pub fn validate_waveform(
             )
         }),
     )?;
+    if input.caller_metadata.is_some() {
+        crate::recipes::validate_caller_waveform_input(input)
+            .map_err(|error| SpecializedValidationError::Observation(error.to_string()))?;
+        for index in 0..input.groups.len() {
+            crate::recipes::caller_waveform_group_bytes(input, index)
+                .map_err(|error| SpecializedValidationError::Observation(error.to_string()))?;
+        }
+        return Ok(TypedValidationReport {
+            bytes: vec![],
+            checks: vec![TypedValidationCheck::passed_internal(
+                "caller_waveform_group_integrity",
+                "Caller multiplex topology, signed samples and declared group integrity agree with generic composition observations; diagnostic interpretation and independent conformance are not assessed.",
+            )],
+            metadata_observation: None,
+        });
+    }
     let projected = project_waveform(input)?;
     let waveform = &projected.expected_waveform;
     let prefix = waveform.iod_kind.as_str();

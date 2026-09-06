@@ -32,3 +32,6 @@ mod version_cli;
 
 #[path = "../generic_encapsulated_payloads.rs"]
 mod generic_encapsulated_payloads;
+
+#[path = "../generic_ecg_waveforms.rs"]
+mod generic_ecg_waveforms;

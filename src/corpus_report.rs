@@ -34,6 +34,7 @@ pub(crate) fn project(manifest: &Value) -> Result<Value, String> {
     for file in files {
         crate::vl::validate_manifest(file)?;
         crate::encapsulated::validate_manifest(file)?;
+        crate::waveform::validate_manifest(file)?;
         // Report2 is declaration-driven. Suppress legacy report1's curated
         // case-name inference, then restore the caller's identity fields.
         let case_id = file["case_id"].as_str().unwrap();
@@ -44,6 +45,13 @@ pub(crate) fn project(manifest: &Value) -> Result<Value, String> {
             .is_some()
         {
             projection_file["recipe"]["recipe_parameters"]["encapsulated_contract"]["case_id"] =
+                projection_file["case_id"].clone();
+        }
+        if projection_file["recipe"]["recipe_parameters"]
+            .get("waveform_contract")
+            .is_some()
+        {
+            projection_file["recipe"]["recipe_parameters"]["waveform_contract"]["case_id"] =
                 projection_file["case_id"].clone();
         }
         let mut row = crate::generated_external_coverage_row(

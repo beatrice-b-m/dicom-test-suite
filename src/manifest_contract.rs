@@ -63,6 +63,41 @@ impl fmt::Display for ManifestContractError {
 
 impl std::error::Error for ManifestContractError {}
 
+/// Match a frozen schema definition without importing historical corpus builders.
+pub(crate) fn legacy_field_matches(field: &str, value: &Value) -> Result<bool, String> {
+    use std::collections::BTreeMap;
+    use std::sync::{Arc, Mutex, OnceLock};
+    static VALIDATORS: OnceLock<Mutex<BTreeMap<String, Arc<jsonschema::Validator>>>> =
+        OnceLock::new();
+    let mut cache = VALIDATORS
+        .get_or_init(|| Mutex::new(BTreeMap::new()))
+        .lock()
+        .map_err(|_| "legacy schema cache poisoned".to_string())?;
+    let validator = if let Some(validator) = cache.get(field) {
+        validator.clone()
+    } else {
+        let legacy: Value =
+            serde_json::from_slice(include_bytes!("../schemas/manifest.schema.json"))
+                .map_err(|e| e.to_string())?;
+        if legacy["$defs"].get(field).is_none() {
+            return Err("unknown frozen manifest schema definition".into());
+        }
+        let validator = Arc::new(
+            jsonschema::options()
+                .with_resource(
+                    LEGACY_MANIFEST_ID,
+                    jsonschema::Resource::from_contents(legacy).map_err(|e| e.to_string())?,
+                )
+                .build(&serde_json::json!({"$ref":format!("{LEGACY_MANIFEST_ID}#/$defs/{field}")}))
+                .map_err(|e| e.to_string())?,
+        );
+        cache.insert(field.to_owned(), validator.clone());
+        validator
+    };
+    drop(cache);
+    Ok(validator.is_valid(value))
+}
+
 pub(crate) fn load_manifest_contract(
     output_root: &Path,
     resources: &EngineResources,
@@ -721,6 +756,7 @@ mod external_manifest_contract_tests {
             "expected_icc_profile",
             "expected_vl_single_frame",
             "expected_encapsulated_stl",
+            "expected_waveform",
         ] {
             expected["properties"][field]["$ref"] = json!(format!("#/$defs/{field}"));
         }
@@ -764,6 +800,10 @@ mod external_manifest_contract_tests {
             "expected_icc_profile": external["$defs"]["expected_icc_profile"].clone(),
             "expected_vl_single_frame": external["$defs"]["expected_vl_single_frame"].clone(),
             "expected_encapsulated_stl": external["$defs"]["expected_encapsulated_stl"].clone(),
+            "expected_waveform": external["$defs"]["expected_waveform"].clone(),
+            "caller_waveform_group": external["$defs"]["caller_waveform_group"].clone(),
+            "caller_waveform_storage": external["$defs"]["caller_waveform_storage"].clone(),
+            "caller_waveform_channel": external["$defs"]["caller_waveform_channel"].clone(),
             "expected_sequence_length_encoding": external["$defs"]["expected_sequence_length_encoding"].clone(),
             "expected_us_multiframe": external["$defs"]["expected_us_multiframe"].clone(),
             "expected_us_frame": external["$defs"]["expected_us_frame"].clone(),

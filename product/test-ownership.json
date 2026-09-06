@@ -3,10 +3,10 @@
   "scope": {
     "rust_test_targets": 22,
     "integration_test_targets": 20,
-    "rust_test_entry_groups": 278,
-    "rust_test_entries": 1528,
-    "integration_source_groups": 190,
-    "integration_test_entries": 947,
+    "rust_test_entry_groups": 279,
+    "rust_test_entries": 1529,
+    "integration_source_groups": 191,
+    "integration_test_entries": 948,
     "inventory_rule": "Cargo lib/bin/integration targets plus every Rust #[test] entry"
   },
   "enums": {
@@ -2004,6 +2004,18 @@
       "entry_digest": "c058bce8342e5ea0bc5b3b5d4c64b90e22032b083df8e0dcc26aac06e00c9d8a"
     },
     {
+      "source": "tests/generic_ecg_waveforms.rs",
+      "domain": "cli_sdk",
+      "verification_class": "subsystem",
+      "cost_tier": "ordinary",
+      "target": "cli_sdk__nonfast",
+      "entries": [
+        "caller_waveforms_are_reproducible_and_semantically_bound"
+      ],
+      "entry_count": 1,
+      "entry_digest": "7457b90a75e73c2ca753653a50d99c89b32884df1026263ae9e141e93acbdacb"
+    },
+    {
       "source": "tests/generic_encapsulated_payloads.rs",
       "domain": "cli_sdk",
       "verification_class": "subsystem",
@@ -3115,7 +3127,7 @@
       "entries": [
         "twelve_lead_ecg_vertical_slice_is_byte_deterministic_and_closed"
       ],
-      "entry_digest": "4f43c8567e878c9d72d121de31b45cadb6f99e6363d7b12ceb382a1d05a5672c"
+      "entry_digest": "efa6b7e446f94e8be36f00b9312db6ad22c595732ad0e5147d0e33c55562b51f"
     },
     {
       "source": "tests/typed_bulk_compatibility.rs",
@@ -3941,7 +3953,7 @@
         "mutation_of_an_internal_shared_root_fails_closed_on_reuse",
         "one_handle_reuses_one_tree_across_batch_generate_validate_report_and_compose"
       ],
-      "entry_digest": "3ffb0960c4e8674f6dbd2d09356111009dc521e17950926a43a875888a027745"
+      "entry_digest": "95da6c26b34025d389bcfca331c921c5f3f34aa1580d9a1d61b6e52a10000ffc"
     },
     {
       "source": "src/executor/evidence.rs",
@@ -4268,7 +4280,7 @@
         "cargo_lock_perturbation_changes_only_toolchain_and_legacy_provenance",
         "external_runtime_identity_requires_successful_typed_execution_evidence"
       ],
-      "entry_digest": "2801c2a08b6a5f66165d1347c77c8fdb068ef933a947961b6d434b502925a010"
+      "entry_digest": "8bb51d236e5fc050738597df0e6e392af47d77a5fc11f20d7aa800b552d01678"
     },
     {
       "source": "src/lib.rs",
@@ -4374,7 +4386,7 @@
         "dependency_graph_is_closed_acyclic_and_reachable",
         "runtime_ids_remain_unique"
       ],
-      "entry_digest": "82b72288dec3af560b05186613c7704dcfb42ba83606ff9eb88c9fc6a973dc80"
+      "entry_digest": "aafb8517e0767759b86820b77bb334522afee7702f67ec5eaa226cffcb286032"
     },
     {
       "source": "src/media.rs",

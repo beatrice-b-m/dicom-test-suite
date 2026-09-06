@@ -49,6 +49,29 @@ pub struct WaveformPlanInput {
     pub groups: Vec<WaveformGroupInput>,
     pub formula: WaveformFormula,
     pub projection: WaveformProjection,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub caller_metadata: Option<WaveformCallerMetadata>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WaveformCallerMetadata {
+    pub patient_name: String,
+    pub patient_id: String,
+    pub patient_birth_date: String,
+    pub patient_sex: String,
+    pub study_date: String,
+    pub study_time: String,
+    pub content_date: String,
+    pub content_time: String,
+    pub acquisition_datetime: String,
+    pub manufacturer: String,
+    pub software_versions: String,
+    pub instance_number: String,
+    pub referring_physician_name: String,
+    pub accession_number: String,
+    pub institution_name: String,
+    pub institution_address: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -70,6 +93,20 @@ pub struct WaveformChannelInput {
     pub label: String,
     pub code_value: String,
     pub code_meaning: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub caller_calibration: Option<WaveformChannelCalibration>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WaveformChannelCalibration {
+    pub sensitivity: String,
+    pub sensitivity_correction_factor: String,
+    pub baseline: String,
+    pub time_skew_seconds: String,
+    pub unit_code_value: String,
+    pub unit_coding_scheme: String,
+    pub unit_code_meaning: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -147,7 +184,7 @@ pub fn waveform_input_from_recipe(
         .ok_or(WaveformPlanError::Recipe(
             "missing waveform output path".into(),
         ))?;
-    Ok(Some(WaveformPlanInput {
+    let input = WaveformPlanInput {
         case_id: recipe.binding.case_id.clone(),
         recipe: recipe.identity(),
         artifact_logical_id: artifact.logical_id.clone(),
@@ -162,7 +199,73 @@ pub fn waveform_input_from_recipe(
         groups: parameters.groups,
         formula: parameters.formula,
         projection: parameters.projection,
-    }))
+        caller_metadata: parameters.caller_metadata,
+    };
+    if recipe.case_recipe_schema_version == "0.2.0" {
+        if recipe.planning_order.is_none()
+            || recipe.projection_order.is_none()
+            || !recipe.dependencies.is_empty()
+            || artifact.output.provider_derived == Some(true)
+            || !artifact.attribute_operations.is_empty()
+            || !artifact.parameters.is_empty()
+            || !artifact.content.parameters.is_empty()
+            || artifact.secondary_capture.is_some()
+            || artifact.metadata_sc.is_some()
+            || artifact.classic_projection.is_some()
+            || artifact.public_profile_membership.is_some()
+            || artifact.encoding.transfer_syntax_uid != "1.2.840.10008.1.2.1"
+            || artifact.encoding.sequence_length_policy != "default"
+            || artifact.encoding.item_length_policy != "default"
+            || artifact.encoding.offset_table_policy != "none"
+            || artifact.encoding.fragmentation_policy != "native"
+            || artifact
+                .encoding
+                .non_template_encoding_provider_id
+                .is_some()
+            || artifact.encoding.preamble_policy.as_deref() != Some("zero_filled")
+            || artifact.encoding.file_meta_policy.as_deref() != Some("standard")
+            || artifact
+                .template
+                .as_ref()
+                .is_none_or(|t| t.template_version != "1.0.0")
+        {
+            return Err(WaveformPlanError::Shape);
+        }
+        for rules in [&recipe.validation_rule_ids, &artifact.validation_rule_ids] {
+            if rules.len() != 3
+                || ![
+                    "validation.waveform.topology",
+                    "validation.waveform.samples",
+                    "validation.content.integrity",
+                ]
+                .iter()
+                .all(|required| rules.iter().any(|rule| rule == required))
+            {
+                return Err(WaveformPlanError::Recipe(
+                    "caller waveform requires exact native waveform validation rules".into(),
+                ));
+            }
+        }
+        for rules in [&recipe.projection_rule_ids, &artifact.projection_rule_ids] {
+            if rules.as_slice() != ["projection.waveform"] {
+                return Err(WaveformPlanError::Recipe(
+                    "caller waveform requires its native projection rule".into(),
+                ));
+            }
+        }
+        validate_caller_waveform_input(&input)?;
+    } else if input.caller_metadata.is_some()
+        || input
+            .groups
+            .iter()
+            .flat_map(|g| &g.channels)
+            .any(|c| c.caller_calibration.is_some())
+    {
+        return Err(WaveformPlanError::Recipe(
+            "caller waveform metadata requires recipe0.2".into(),
+        ));
+    }
+    Ok(Some(input))
 }
 
 #[derive(Debug, Deserialize)]
@@ -177,6 +280,8 @@ struct WaveformDocumentParameters {
     groups: Vec<WaveformGroupInput>,
     formula: WaveformFormula,
     projection: WaveformProjection,
+    #[serde(default)]
+    caller_metadata: Option<WaveformCallerMetadata>,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -193,6 +298,9 @@ impl WaveformPlanProvider {
             .validate(&recipe.artifact_logical_id)
             .map_err(WaveformPlanError::Context)?;
         validate_input(recipe)?;
+        if recipe.caller_metadata.is_some() {
+            validate_caller_waveform_input(recipe)?;
+        }
         let ids = Identities::from_context(context)?;
         let waveform_sequence = address("WaveformSequence")?;
         let mut items = Vec::with_capacity(recipe.groups.len());
@@ -293,7 +401,353 @@ impl WaveformPlanProvider {
     }
 }
 
+/// Source-note-backed CID 3001 subset; codes are independent of caller labels,
+/// channel order and group layout.
+fn supported_ecg_source(code: &str) -> Option<&'static str> {
+    match code {
+        "2:1" => Some("Lead I"),
+        "2:2" => Some("Lead II"),
+        "2:61" => Some("Lead III"),
+        "2:62" => Some("aVR, augmented voltage, right"),
+        "2:63" => Some("aVL, augmented voltage, left"),
+        "2:64" => Some("aVF, augmented voltage, foot"),
+        "2:3" => Some("Lead V1"),
+        "2:4" => Some("Lead V2"),
+        "2:5" => Some("Lead V3"),
+        "2:6" => Some("Lead V4"),
+        "2:7" => Some("Lead V5"),
+        "2:8" => Some("Lead V6"),
+        "2:75" => Some("Auxiliary unipolar lead 1"),
+        "2:76" => Some("Auxiliary unipolar lead 2"),
+        "2:77" => Some("Auxiliary unipolar lead 3"),
+        "2:78" => Some("Auxiliary unipolar lead 4"),
+        _ => None,
+    }
+}
+
+fn validate_waveform_text(keyword: &str, vr: DicomVr, text: &str) -> Result<(), WaveformPlanError> {
+    if !text.is_ascii() || text.contains('\\') {
+        return Err(WaveformPlanError::Attribute(
+            "caller waveform text requires singleton ASCII".into(),
+        ));
+    }
+    AttributeOperation::Set {
+        address: address(keyword)?,
+        vr,
+        value: AttributeValue::Primitive(PrimitiveValue::String(text.into())),
+    }
+    .validate_declared_vr()
+    .map_err(|e| WaveformPlanError::Attribute(e.to_string()))
+}
+
+pub fn validate_caller_waveform_input(input: &WaveformPlanInput) -> Result<(), WaveformPlanError> {
+    validate_input(input)?;
+    let m = input.caller_metadata.as_ref().ok_or_else(|| {
+        WaveformPlanError::Recipe("complete caller waveform metadata required".into())
+    })?;
+    let twelve = matches!(input.projection, WaveformProjection::TwelveLead { .. });
+    let (sop, template, max_groups, max_channels) = if twelve {
+        (
+            "1.2.840.10008.5.1.4.1.1.9.1.1",
+            "non-image/waveform/twelve-lead-ecg",
+            5,
+            13,
+        )
+    } else {
+        (
+            "1.2.840.10008.5.1.4.1.1.9.1.2",
+            "non-image/waveform/general-ecg",
+            4,
+            24,
+        )
+    };
+    if input.sop_class_uid != sop
+        || input.template_id != template
+        || input.modality != "ECG"
+        || input.groups.len() > max_groups
+        || (twelve && input.groups.iter().map(|g| g.channels.len()).sum::<usize>() > 13)
+        || [
+            m.instance_number.as_str(),
+            m.content_date.as_str(),
+            m.content_time.as_str(),
+            m.acquisition_datetime.as_str(),
+        ]
+        .iter()
+        .any(|value| value.trim().is_empty())
+        || !matches!(m.patient_sex.as_str(), "" | "M" | "F" | "O")
+    {
+        return Err(WaveformPlanError::Shape);
+    }
+    for (keyword, vr, text) in [
+        ("PatientName", DicomVr::PN, m.patient_name.as_str()),
+        ("PatientID", DicomVr::LO, m.patient_id.as_str()),
+        (
+            "PatientBirthDate",
+            DicomVr::DA,
+            m.patient_birth_date.as_str(),
+        ),
+        ("PatientSex", DicomVr::CS, m.patient_sex.as_str()),
+        ("StudyDate", DicomVr::DA, m.study_date.as_str()),
+        ("StudyTime", DicomVr::TM, m.study_time.as_str()),
+        ("ContentDate", DicomVr::DA, m.content_date.as_str()),
+        ("ContentTime", DicomVr::TM, m.content_time.as_str()),
+        (
+            "AcquisitionDateTime",
+            DicomVr::DT,
+            m.acquisition_datetime.as_str(),
+        ),
+        ("Manufacturer", DicomVr::LO, m.manufacturer.as_str()),
+        (
+            "SoftwareVersions",
+            DicomVr::LO,
+            m.software_versions.as_str(),
+        ),
+        ("InstanceNumber", DicomVr::IS, m.instance_number.as_str()),
+        (
+            "ReferringPhysicianName",
+            DicomVr::PN,
+            m.referring_physician_name.as_str(),
+        ),
+        ("AccessionNumber", DicomVr::SH, m.accession_number.as_str()),
+        ("InstitutionName", DicomVr::LO, m.institution_name.as_str()),
+        (
+            "InstitutionAddress",
+            DicomVr::ST,
+            m.institution_address.as_str(),
+        ),
+        ("StudyID", DicomVr::SH, input.study_id.as_str()),
+        ("SeriesNumber", DicomVr::IS, input.series_number.as_str()),
+        (
+            "ManufacturerModelName",
+            DicomVr::LO,
+            input.manufacturer_model_name.as_str(),
+        ),
+        (
+            "DeviceSerialNumber",
+            DicomVr::LO,
+            input.device_serial_number.as_str(),
+        ),
+    ] {
+        validate_waveform_text(keyword, vr, text)?;
+    }
+    let mut labels = std::collections::BTreeSet::new();
+    let mut duration = None;
+    let mut total_values = 0_u64;
+    for (index, group) in input.groups.iter().enumerate() {
+        let frequency = group
+            .sampling_frequency_hz
+            .parse::<u64>()
+            .map_err(|_| WaveformPlanError::Shape)?;
+        if group.channels.len() > max_channels
+            || !(200..=1000).contains(&frequency)
+            || (twelve && group.samples_per_channel > 16384)
+            || u64::from(group.samples_per_channel) % frequency != 0
+            || !labels.insert(group.label.as_str())
+            || group.label.trim().is_empty()
+        {
+            return Err(WaveformPlanError::Shape);
+        }
+        validate_waveform_text("MultiplexGroupLabel", DicomVr::SH, &group.label)?;
+        validate_waveform_text(
+            "SamplingFrequency",
+            DicomVr::DS,
+            &group.sampling_frequency_hz,
+        )?;
+        let current = u64::from(group.samples_per_channel) / frequency;
+        if duration.is_some_and(|d| d != current) {
+            return Err(WaveformPlanError::Shape);
+        }
+        duration = Some(current);
+        total_values = total_values
+            .checked_add(u64::from(group.samples_per_channel) * group.channels.len() as u64)
+            .ok_or(WaveformPlanError::ResourceOverflow)?;
+        if total_values > ContentProviderLimits::default().max_elements {
+            return Err(WaveformPlanError::ResourceOverflow);
+        }
+        let mut codes = std::collections::BTreeSet::new();
+        for channel in &group.channels {
+            if !codes.insert(channel.code_value.as_str())
+                || supported_ecg_source(&channel.code_value) != Some(channel.code_meaning.as_str())
+                || channel.label.trim().is_empty()
+            {
+                return Err(WaveformPlanError::Shape);
+            }
+            validate_waveform_text("ChannelLabel", DicomVr::SH, &channel.label)?;
+            let calibration = channel.caller_calibration.as_ref().ok_or_else(|| {
+                WaveformPlanError::Recipe("caller channel calibration is required".into())
+            })?;
+            for (keyword, text, positive) in [
+                ("ChannelSensitivity", calibration.sensitivity.as_str(), true),
+                (
+                    "ChannelSensitivityCorrectionFactor",
+                    calibration.sensitivity_correction_factor.as_str(),
+                    true,
+                ),
+                ("ChannelBaseline", calibration.baseline.as_str(), false),
+                (
+                    "ChannelTimeSkew",
+                    calibration.time_skew_seconds.as_str(),
+                    false,
+                ),
+            ] {
+                validate_waveform_text(keyword, DicomVr::DS, text)?;
+                let value = text
+                    .trim()
+                    .parse::<f64>()
+                    .map_err(|_| WaveformPlanError::Shape)?;
+                if !value.is_finite()
+                    || (positive && value <= 0.0)
+                    || (keyword == "ChannelTimeSkew" && value != 0.0)
+                {
+                    return Err(WaveformPlanError::Shape);
+                }
+            }
+            for (keyword, vr, text) in [
+                (
+                    "CodeValue",
+                    DicomVr::SH,
+                    calibration.unit_code_value.as_str(),
+                ),
+                (
+                    "CodingSchemeDesignator",
+                    DicomVr::SH,
+                    calibration.unit_coding_scheme.as_str(),
+                ),
+                (
+                    "CodeMeaning",
+                    DicomVr::LO,
+                    calibration.unit_code_meaning.as_str(),
+                ),
+            ] {
+                if text.trim().is_empty() {
+                    return Err(WaveformPlanError::Shape);
+                }
+                validate_waveform_text(keyword, vr, text)?;
+            }
+        }
+        caller_waveform_group_bytes(input, index)?;
+    }
+    match input.projection {
+        WaveformProjection::TwelveLead {
+            simultaneous_sampling,
+            one_second_duration,
+            diagnostic_use,
+            ..
+        } => {
+            if !simultaneous_sampling
+                || diagnostic_use
+                || one_second_duration != (duration == Some(1))
+            {
+                return Err(WaveformPlanError::Shape);
+            }
+        }
+        WaveformProjection::General {
+            simultaneous_sampling_within_groups,
+            common_duration_seconds,
+            cross_group_synchronization_asserted,
+            diagnostic_use,
+            ..
+        } => {
+            if !simultaneous_sampling_within_groups
+                || cross_group_synchronization_asserted
+                || diagnostic_use
+                || duration != Some(u64::from(common_duration_seconds))
+            {
+                return Err(WaveformPlanError::Shape);
+            }
+        }
+    }
+    Ok(())
+}
+
+pub fn caller_waveform_group_bytes(
+    input: &WaveformPlanInput,
+    index: usize,
+) -> Result<Vec<u8>, WaveformPlanError> {
+    let group = input.groups.get(index).ok_or(WaveformPlanError::Shape)?;
+    let count = (group.channels.len() as u64)
+        .checked_mul(u64::from(group.samples_per_channel))
+        .ok_or(WaveformPlanError::ResourceOverflow)?;
+    if count == 0
+        || count > ContentProviderLimits::default().max_elements
+        || input.formula.modulus == 0
+    {
+        return Err(WaveformPlanError::ResourceOverflow);
+    }
+    // The complete modulo domain must fit signed 16-bit storage, including
+    // negative baselines. Measured extrema are still derived from actual samples.
+    let minimum = -i64::from(input.formula.baseline);
+    let maximum = i64::from(input.formula.modulus) - 1 - i64::from(input.formula.baseline);
+    if i16::try_from(minimum).is_err() || i16::try_from(maximum).is_err() {
+        return Err(WaveformPlanError::Shape);
+    }
+    // Bound every formula term before allocating the sample vector.
+    u64::from(group.samples_per_channel - 1)
+        .checked_mul(group.channels.len() as u64)
+        .and_then(|v| v.checked_mul(u64::from(group.formula_group_index) + 1))
+        .and_then(|v| v.checked_mul(u64::from(input.formula.sample_multiplier)))
+        .and_then(|v| {
+            v.checked_add(
+                (group.channels.len() as u64 - 1)
+                    * u64::from(input.formula.channel_bias_multiplier),
+            )
+        })
+        .and_then(|v| {
+            v.checked_add(
+                u64::from(group.formula_group_index)
+                    * u64::from(input.formula.group_bias_multiplier),
+            )
+        })
+        .ok_or(WaveformPlanError::ResourceOverflow)?;
+    let output = NeutralContentProvider
+        .expand(
+            &ContentProviderRequest::Waveform(WaveformContract {
+                target: ContentTarget {
+                    slot: group.slot.clone(),
+                    content_kind: "waveform_samples".into(),
+                    address: address("WaveformData")?,
+                    vr: DicomVr::OW,
+                },
+                channels: u32::try_from(group.channels.len())
+                    .map_err(|_| WaveformPlanError::ResourceOverflow)?,
+                samples_per_channel: group.samples_per_channel,
+                bits_allocated: 16,
+                byte_order: ContentByteOrder::LittleEndian,
+                samples: IntegerSamples::Signed {
+                    values: samples(input, group)?,
+                },
+            }),
+            ContentProviderLimits::default(),
+        )
+        .map_err(|e| WaveformPlanError::Content(e.to_string()))?;
+    let Some(crate::composition::ContentMaterialization::Inline(bytes)) = output
+        .contents
+        .into_iter()
+        .next()
+        .and_then(|c| c.materialization)
+    else {
+        return Err(WaveformPlanError::Shape);
+    };
+    if bytes.len() as u64 != group.declared_size_bytes
+        || sha256_hex(&bytes) != group.declared_sha256
+    {
+        return Err(WaveformPlanError::DeclaredDigest(group.slot.clone()));
+    }
+    Ok(bytes)
+}
+
 fn validate_input(input: &WaveformPlanInput) -> Result<(), WaveformPlanError> {
+    if input.caller_metadata.is_none()
+        && input
+            .groups
+            .iter()
+            .flat_map(|g| &g.channels)
+            .any(|c| c.caller_calibration.is_some())
+    {
+        return Err(WaveformPlanError::Recipe(
+            "channel calibration requires complete caller waveform metadata".into(),
+        ));
+    }
     if input.groups.is_empty() || input.groups.len() > 8 || input.formula.modulus == 0 {
         return Err(WaveformPlanError::Shape);
     }
@@ -332,7 +786,7 @@ fn samples(
         for channel in 0..group.channels.len() as u32 {
             let product = u64::from(sample)
                 .checked_mul(u64::from(channel + 1))
-                .and_then(|value| value.checked_mul(u64::from(group.formula_group_index + 1)))
+                .and_then(|value| value.checked_mul(u64::from(group.formula_group_index) + 1))
                 .and_then(|value| value.checked_mul(u64::from(input.formula.sample_multiplier)))
                 .ok_or(WaveformPlanError::ResourceOverflow)?;
             let channel_bias = u64::from(channel)
@@ -394,6 +848,7 @@ fn channel_item(
     ordinal: usize,
     channel: &WaveformChannelInput,
 ) -> Result<AttributeItem, WaveformPlanError> {
+    let calibration = channel.caller_calibration.as_ref();
     Ok(AttributeItem {
         attributes: vec![
             set_string("WaveformChannelNumber", DicomVr::IS, &ordinal.to_string())?,
@@ -406,14 +861,44 @@ fn channel_item(
                     &channel.code_meaning,
                 )?],
             )?,
-            set_string("ChannelSensitivity", DicomVr::DS, "1")?,
+            set_string(
+                "ChannelSensitivity",
+                DicomVr::DS,
+                calibration.map(|c| c.sensitivity.as_str()).unwrap_or("1"),
+            )?,
             set_sequence(
                 "ChannelSensitivityUnitsSequence",
-                vec![code_item("UCUM", "uV", "microvolt")?],
+                vec![code_item(
+                    calibration
+                        .map(|c| c.unit_coding_scheme.as_str())
+                        .unwrap_or("UCUM"),
+                    calibration
+                        .map(|c| c.unit_code_value.as_str())
+                        .unwrap_or("uV"),
+                    calibration
+                        .map(|c| c.unit_code_meaning.as_str())
+                        .unwrap_or("microvolt"),
+                )?],
             )?,
-            set_string("ChannelSensitivityCorrectionFactor", DicomVr::DS, "1")?,
-            set_string("ChannelBaseline", DicomVr::DS, "0")?,
-            set_string("ChannelTimeSkew", DicomVr::DS, "0")?,
+            set_string(
+                "ChannelSensitivityCorrectionFactor",
+                DicomVr::DS,
+                calibration
+                    .map(|c| c.sensitivity_correction_factor.as_str())
+                    .unwrap_or("1"),
+            )?,
+            set_string(
+                "ChannelBaseline",
+                DicomVr::DS,
+                calibration.map(|c| c.baseline.as_str()).unwrap_or("0"),
+            )?,
+            set_string(
+                "ChannelTimeSkew",
+                DicomVr::DS,
+                calibration
+                    .map(|c| c.time_skew_seconds.as_str())
+                    .unwrap_or("0"),
+            )?,
             set_unsigned("WaveformBitsStored", DicomVr::US, 16)?,
         ],
     })
@@ -434,27 +919,76 @@ fn common_attributes(
     ids: &Identities,
     waveform_items: Vec<AttributeItem>,
 ) -> Result<Vec<ResolvedAttribute>, WaveformPlanError> {
+    let m = input.caller_metadata.as_ref();
     let mut attributes = Vec::new();
     for (keyword, vr, value) in [
         ("SOPClassUID", DicomVr::UI, input.sop_class_uid.as_str()),
         ("SOPInstanceUID", DicomVr::UI, ids.sop.as_str()),
         ("SyntheticData", DicomVr::CS, "YES"),
-        ("PatientName", DicomVr::PN, "DTS^Synthetic^Patient001"),
-        ("PatientID", DicomVr::LO, "DTS-PATIENT-001"),
-        ("PatientBirthDate", DicomVr::DA, "19700101"),
-        ("PatientSex", DicomVr::CS, "O"),
+        (
+            "PatientName",
+            DicomVr::PN,
+            m.map(|m| m.patient_name.as_str())
+                .unwrap_or("DTS^Synthetic^Patient001"),
+        ),
+        (
+            "PatientID",
+            DicomVr::LO,
+            m.map(|m| m.patient_id.as_str())
+                .unwrap_or("DTS-PATIENT-001"),
+        ),
+        (
+            "PatientBirthDate",
+            DicomVr::DA,
+            m.map(|m| m.patient_birth_date.as_str())
+                .unwrap_or("19700101"),
+        ),
+        (
+            "PatientSex",
+            DicomVr::CS,
+            m.map(|m| m.patient_sex.as_str()).unwrap_or("O"),
+        ),
         ("StudyInstanceUID", DicomVr::UI, ids.study.as_str()),
-        ("StudyDate", DicomVr::DA, "20260101"),
-        ("StudyTime", DicomVr::TM, "000000"),
-        ("ReferringPhysicianName", DicomVr::PN, ""),
+        (
+            "StudyDate",
+            DicomVr::DA,
+            m.map(|m| m.study_date.as_str()).unwrap_or("20260101"),
+        ),
+        (
+            "StudyTime",
+            DicomVr::TM,
+            m.map(|m| m.study_time.as_str()).unwrap_or("000000"),
+        ),
+        (
+            "ReferringPhysicianName",
+            DicomVr::PN,
+            m.map(|m| m.referring_physician_name.as_str()).unwrap_or(""),
+        ),
         ("StudyID", DicomVr::SH, input.study_id.as_str()),
-        ("AccessionNumber", DicomVr::SH, ""),
+        (
+            "AccessionNumber",
+            DicomVr::SH,
+            m.map(|m| m.accession_number.as_str()).unwrap_or(""),
+        ),
         ("Modality", DicomVr::CS, input.modality.as_str()),
         ("SeriesInstanceUID", DicomVr::UI, ids.series.as_str()),
         ("SeriesNumber", DicomVr::IS, input.series_number.as_str()),
-        ("Manufacturer", DicomVr::LO, "dicom-test-suite"),
-        ("InstitutionName", DicomVr::LO, ""),
-        ("InstitutionAddress", DicomVr::ST, ""),
+        (
+            "Manufacturer",
+            DicomVr::LO,
+            m.map(|m| m.manufacturer.as_str())
+                .unwrap_or("dicom-test-suite"),
+        ),
+        (
+            "InstitutionName",
+            DicomVr::LO,
+            m.map(|m| m.institution_name.as_str()).unwrap_or(""),
+        ),
+        (
+            "InstitutionAddress",
+            DicomVr::ST,
+            m.map(|m| m.institution_address.as_str()).unwrap_or(""),
+        ),
         (
             "ManufacturerModelName",
             DicomVr::LO,
@@ -465,11 +999,33 @@ fn common_attributes(
             DicomVr::LO,
             input.device_serial_number.as_str(),
         ),
-        ("SoftwareVersions", DicomVr::LO, BYTE_STABLE_OUTPUT_VERSION),
-        ("InstanceNumber", DicomVr::IS, "1"),
-        ("ContentDate", DicomVr::DA, "20260101"),
-        ("ContentTime", DicomVr::TM, "000000"),
-        ("AcquisitionDateTime", DicomVr::DT, "20260101000000"),
+        (
+            "SoftwareVersions",
+            DicomVr::LO,
+            m.map(|m| m.software_versions.as_str())
+                .unwrap_or(BYTE_STABLE_OUTPUT_VERSION),
+        ),
+        (
+            "InstanceNumber",
+            DicomVr::IS,
+            m.map(|m| m.instance_number.as_str()).unwrap_or("1"),
+        ),
+        (
+            "ContentDate",
+            DicomVr::DA,
+            m.map(|m| m.content_date.as_str()).unwrap_or("20260101"),
+        ),
+        (
+            "ContentTime",
+            DicomVr::TM,
+            m.map(|m| m.content_time.as_str()).unwrap_or("000000"),
+        ),
+        (
+            "AcquisitionDateTime",
+            DicomVr::DT,
+            m.map(|m| m.acquisition_datetime.as_str())
+                .unwrap_or("20260101000000"),
+        ),
     ] {
         attributes.push(resolved_string(keyword, vr, value, ids)?);
     }

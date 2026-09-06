@@ -697,6 +697,34 @@ metadata, pixels, empty AcquisitionContextSequence and optional profile bytes;
 report2 validates declarations and projects structural VL/ICC coverage. These
 are same-project checks, not independent conformance or color-accuracy evidence.
 
+#### Caller-defined native ECG waveforms
+
+Recipe `0.2.0` supports caller-owned Twelve-lead and General ECG definitions
+through `native.waveform_plan`, `content.waveform_samples` and
+`algorithm.waveform_deterministic_multiplex`. Complete patient, study,
+equipment and acquisition metadata, channel calibration, coded units, group
+layout and deterministic formula coefficients are caller inputs. The
+[caller example](../tests/fixtures/generic-ecg-waveform-corpus/definition.json)
+uses two groups in each IOD with varied rates, samples, metadata and calibration.
+
+The bounded capability uses signed 16-bit little-endian OW data, integer
+200–1,000 Hz rates and equal whole-second group durations. Twelve-lead permits
+1–5 groups, at most 13 channels in total and 16,384 samples per group; General
+ECG permits 1–4 groups with at most 24 channels per group. Supported source
+codes are the 16 standard limb, precordial and auxiliary lead codes recorded
+in the source notes; layouts and labels are independent of historical cases.
+Channel sensitivity and correction are positive finite DS values, baseline is
+finite, and explicit zero skew preserves simultaneous sampling within groups.
+Coded units are checked for syntax and exact binding. These checks do not
+establish ontology validity, physical calibration accuracy, cross-group
+synchronization or diagnostic suitability.
+
+Generation and strict validation share metadata, sequence, channel, payload
+and declared-hash checks. Manifest2 binds the complete typed declaration;
+report2 derives measured extrema, formula and grouped coverage. Historical
+recipe `0.1.0` bytes and projections remain unchanged. Independent conformance
+and interoperability retain their separately pinned evidence boundaries.
+
 #### Caller-defined encapsulated PDF and binary STL
 
 Recipe `0.2.0` supports explicit caller bytes through

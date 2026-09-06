@@ -1880,7 +1880,7 @@
           "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_advanced_blending_presentation_state"
         },
         "expected_waveform": {
-          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_waveform"
+          "$ref": "#/$defs/expected_waveform"
         },
         "expected_encapsulated_stl": {
           "$ref": "#/$defs/expected_encapsulated_stl"
@@ -2464,6 +2464,393 @@
           "additionalProperties": false
         }
       ]
+    },
+    "caller_waveform_storage": {
+      "type": "object",
+      "required": [
+        "bits_allocated",
+        "sample_interpretation",
+        "data_vr",
+        "byte_order",
+        "interleave_order",
+        "payload_length_bytes",
+        "payload_sha256",
+        "channel_sha256",
+        "sample_value_formula",
+        "sample_min",
+        "sample_max",
+        "waveform_padding_value_absent",
+        "value_field_padding_bytes"
+      ],
+      "properties": {
+        "bits_allocated": {
+          "const": 16
+        },
+        "sample_interpretation": {
+          "const": "SS"
+        },
+        "data_vr": {
+          "const": "OW"
+        },
+        "byte_order": {
+          "const": "little_endian"
+        },
+        "interleave_order": {
+          "const": "channel_then_sample"
+        },
+        "payload_length_bytes": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "payload_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "channel_sha256": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "minItems": 1,
+          "maxItems": 24
+        },
+        "sample_value_formula": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sample_min": {
+          "type": "integer",
+          "minimum": -32768,
+          "maximum": 32767
+        },
+        "sample_max": {
+          "type": "integer",
+          "minimum": -32768,
+          "maximum": 32767
+        },
+        "waveform_padding_value_absent": {
+          "const": true
+        },
+        "value_field_padding_bytes": {
+          "const": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "caller_waveform_group": {
+      "type": "object",
+      "required": [
+        "ordinal",
+        "originality",
+        "label",
+        "channel_count",
+        "samples_per_channel",
+        "sampling_frequency_hz",
+        "duration_seconds",
+        "simultaneous_sampling",
+        "channels",
+        "storage"
+      ],
+      "properties": {
+        "ordinal": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "originality": {
+          "const": "ORIGINAL"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "channel_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 24
+        },
+        "samples_per_channel": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "sampling_frequency_hz": {
+          "type": "integer",
+          "minimum": 200,
+          "maximum": 1000
+        },
+        "duration_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "simultaneous_sampling": {
+          "const": true
+        },
+        "channels": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/caller_waveform_channel"
+          },
+          "minItems": 1,
+          "maxItems": 24
+        },
+        "storage": {
+          "$ref": "#/$defs/caller_waveform_storage"
+        }
+      },
+      "additionalProperties": false
+    },
+    "expected_waveform": {
+      "anyOf": [
+        {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/expected_waveform"
+        },
+        {
+          "type": "object",
+          "required": [
+            "iod_kind",
+            "sop_class_uid",
+            "iod_name",
+            "modality",
+            "transfer_syntax_uid",
+            "acquisition_context_items",
+            "multiplex_groups",
+            "aggregate",
+            "absent_content"
+          ],
+          "properties": {
+            "iod_kind": {
+              "enum": [
+                "twelve_lead_ecg",
+                "general_ecg"
+              ]
+            },
+            "sop_class_uid": {
+              "enum": [
+                "1.2.840.10008.5.1.4.1.1.9.1.1",
+                "1.2.840.10008.5.1.4.1.1.9.1.2"
+              ]
+            },
+            "iod_name": {
+              "enum": [
+                "12-lead ECG Waveform",
+                "General ECG Waveform"
+              ]
+            },
+            "modality": {
+              "const": "ECG"
+            },
+            "transfer_syntax_uid": {
+              "const": "1.2.840.10008.1.2.1"
+            },
+            "acquisition_context_items": {
+              "const": 0
+            },
+            "multiplex_groups": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/caller_waveform_group"
+              },
+              "minItems": 1,
+              "maxItems": 5
+            },
+            "aggregate": {
+              "type": "object",
+              "required": [
+                "group_count",
+                "total_channel_count",
+                "common_duration_seconds",
+                "total_payload_length_bytes",
+                "group_payload_sha256",
+                "aggregate_payload_sha256"
+              ],
+              "properties": {
+                "group_count": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 5
+                },
+                "total_channel_count": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 96
+                },
+                "common_duration_seconds": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "total_payload_length_bytes": {
+                  "type": "integer",
+                  "minimum": 2
+                },
+                "group_payload_sha256": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "minItems": 1,
+                  "maxItems": 5
+                },
+                "aggregate_payload_sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "additionalProperties": false
+            },
+            "absent_content": {
+              "type": "object",
+              "required": [
+                "annotation_module",
+                "synchronization_module",
+                "references",
+                "image",
+                "pixel_data"
+              ],
+              "properties": {
+                "annotation_module": {
+                  "const": true
+                },
+                "synchronization_module": {
+                  "const": true
+                },
+                "references": {
+                  "const": true
+                },
+                "image": {
+                  "const": true
+                },
+                "pixel_data": {
+                  "const": true
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "iod_kind": {
+                    "const": "twelve_lead_ecg"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "sop_class_uid": {
+                    "const": "1.2.840.10008.5.1.4.1.1.9.1.1"
+                  },
+                  "iod_name": {
+                    "const": "12-lead ECG Waveform"
+                  },
+                  "multiplex_groups": {
+                    "items": {
+                      "properties": {
+                        "channel_count": {
+                          "maximum": 13
+                        },
+                        "samples_per_channel": {
+                          "maximum": 16384
+                        },
+                        "channels": {
+                          "maxItems": 13
+                        }
+                      }
+                    }
+                  },
+                  "aggregate": {
+                    "properties": {
+                      "total_channel_count": {
+                        "maximum": 13
+                      }
+                    }
+                  }
+                }
+              },
+              "else": {
+                "properties": {
+                  "sop_class_uid": {
+                    "const": "1.2.840.10008.5.1.4.1.1.9.1.2"
+                  },
+                  "iod_name": {
+                    "const": "General ECG Waveform"
+                  },
+                  "multiplex_groups": {
+                    "maxItems": 4
+                  },
+                  "aggregate": {
+                    "properties": {
+                      "group_count": {
+                        "maximum": 4
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "caller_waveform_channel": {
+      "type": "object",
+      "required": [
+        "ordinal",
+        "label",
+        "source",
+        "sensitivity",
+        "sensitivity_units",
+        "sensitivity_correction_factor",
+        "baseline",
+        "bits_stored",
+        "time_skew_seconds",
+        "sample_skew_absent"
+      ],
+      "properties": {
+        "ordinal": {
+          "type": "integer"
+        },
+        "label": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/waveform_code"
+        },
+        "sensitivity": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16
+        },
+        "sensitivity_units": {
+          "$ref": "https://dicom-test-suite.local/schemas/manifest.schema.json#/$defs/waveform_code"
+        },
+        "sensitivity_correction_factor": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16
+        },
+        "baseline": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16
+        },
+        "bits_stored": {
+          "const": 16
+        },
+        "time_skew_seconds": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16
+        },
+        "sample_skew_absent": {
+          "const": true
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

@@ -1,0 +1,208 @@
+{
+  "case_recipe_schema_version": "0.2.0",
+  "recipe_id": "caller_trace_0",
+  "recipe_version": "0.1.0",
+  "binding": {
+    "case_id": "caller/trace/paired-leads"
+  },
+  "kind": "dicom",
+  "plan_provider_id": "native.waveform_plan",
+  "planning_order": 910,
+  "projection_order": 910,
+  "dependencies": [],
+  "provider_parameters": {
+    "sop_class_uid": "1.2.840.10008.5.1.4.1.1.9.1.1",
+    "modality": "ECG",
+    "study_id": "CALLER-ECG",
+    "series_number": "71",
+    "manufacturer_model_name": "CALLER-RECORDER",
+    "device_serial_number": "CALLER-ECG-71",
+    "groups": [
+      {
+        "slot": "trace_group_0",
+        "label": "CALLER_GROUP_1",
+        "channels": [
+          {
+            "label": "CALLER1_1",
+            "code_value": "2:1",
+            "code_meaning": "Lead I",
+            "caller_calibration": {
+              "sensitivity": "0.5",
+              "sensitivity_correction_factor": "2",
+              "baseline": "3",
+              "time_skew_seconds": "0",
+              "unit_code_value": "mV",
+              "unit_coding_scheme": "UCUM",
+              "unit_code_meaning": "millivolt"
+            }
+          },
+          {
+            "label": "CALLER1_2",
+            "code_value": "2:2",
+            "code_meaning": "Lead II",
+            "caller_calibration": {
+              "sensitivity": "0.5",
+              "sensitivity_correction_factor": "2",
+              "baseline": "3",
+              "time_skew_seconds": "0",
+              "unit_code_value": "mV",
+              "unit_coding_scheme": "UCUM",
+              "unit_code_meaning": "millivolt"
+            }
+          }
+        ],
+        "samples_per_channel": 200,
+        "sampling_frequency_hz": "200",
+        "formula_group_index": 0,
+        "declared_size_bytes": 800,
+        "declared_sha256": "3d8c040d79935b9999130a60504586248842cdeabedec3257f48bc3bb2c8808f"
+      },
+      {
+        "slot": "trace_group_1",
+        "label": "CALLER_GROUP_2",
+        "channels": [
+          {
+            "label": "CALLER2_1",
+            "code_value": "2:62",
+            "code_meaning": "aVR, augmented voltage, right",
+            "caller_calibration": {
+              "sensitivity": "0.5",
+              "sensitivity_correction_factor": "2",
+              "baseline": "3",
+              "time_skew_seconds": "0",
+              "unit_code_value": "mV",
+              "unit_coding_scheme": "UCUM",
+              "unit_code_meaning": "millivolt"
+            }
+          },
+          {
+            "label": "CALLER2_2",
+            "code_value": "2:63",
+            "code_meaning": "aVL, augmented voltage, left",
+            "caller_calibration": {
+              "sensitivity": "0.5",
+              "sensitivity_correction_factor": "2",
+              "baseline": "3",
+              "time_skew_seconds": "0",
+              "unit_code_value": "mV",
+              "unit_coding_scheme": "UCUM",
+              "unit_code_meaning": "millivolt"
+            }
+          },
+          {
+            "label": "CALLER2_3",
+            "code_value": "2:64",
+            "code_meaning": "aVF, augmented voltage, foot",
+            "caller_calibration": {
+              "sensitivity": "0.5",
+              "sensitivity_correction_factor": "2",
+              "baseline": "3",
+              "time_skew_seconds": "0",
+              "unit_code_value": "mV",
+              "unit_coding_scheme": "UCUM",
+              "unit_code_meaning": "millivolt"
+            }
+          }
+        ],
+        "samples_per_channel": 400,
+        "sampling_frequency_hz": "400",
+        "formula_group_index": 1,
+        "declared_size_bytes": 2400,
+        "declared_sha256": "50749b2c2fe3a8483db64417f47d68111ca0072772d4dd47a1acead8de337b5e"
+      }
+    ],
+    "formula": {
+      "sample_multiplier": 17,
+      "channel_bias_multiplier": 13,
+      "group_bias_multiplier": 29,
+      "modulus": 1001,
+      "baseline": 500
+    },
+    "projection": {
+      "kind": "twelve_lead",
+      "expected_capabilities": [
+        "open_file",
+        "read_metadata",
+        "read_waveform",
+        "display_twelve_lead_ecg"
+      ],
+      "expected_visual_pattern": "caller_deterministic_trace",
+      "known_stressors": [
+        "caller_waveform_groups",
+        "signed_16_bit_ow_payload",
+        "channel_then_sample_interleave"
+      ],
+      "simultaneous_sampling": true,
+      "one_second_duration": true,
+      "diagnostic_use": false
+    },
+    "caller_metadata": {
+      "patient_name": "CALLER^TRACE",
+      "patient_id": "CALLER-TRACE-71",
+      "patient_birth_date": "19860512",
+      "patient_sex": "O",
+      "study_date": "20250904",
+      "study_time": "091011",
+      "content_date": "20250905",
+      "content_time": "111213",
+      "acquisition_datetime": "20250905111213",
+      "manufacturer": "CALLER LAB",
+      "software_versions": "caller-7.1",
+      "instance_number": "7",
+      "referring_physician_name": "CALLER^REFERRER",
+      "accession_number": "ECG-71",
+      "institution_name": "CALLER CENTER",
+      "institution_address": "SYNTHETIC LAB"
+    }
+  },
+  "validation_rule_ids": [
+    "validation.waveform.topology",
+    "validation.waveform.samples",
+    "validation.content.integrity"
+  ],
+  "projection_rule_ids": [
+    "projection.waveform"
+  ],
+  "dicom": {
+    "artifacts": [
+      {
+        "logical_id": "trace_0",
+        "output": {
+          "role": "primary_1",
+          "path": "caller/trace/paired-leads/instance.dcm"
+        },
+        "encoding": {
+          "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+          "sequence_length_policy": "default",
+          "item_length_policy": "default",
+          "offset_table_policy": "none",
+          "fragmentation_policy": "native",
+          "preamble_policy": "zero_filled",
+          "file_meta_policy": "standard"
+        },
+        "parameters": {},
+        "attribute_operations": [],
+        "content": {
+          "provider_id": "content.waveform_samples",
+          "parameters": {}
+        },
+        "validation_rule_ids": [
+          "validation.waveform.topology",
+          "validation.waveform.samples",
+          "validation.content.integrity"
+        ],
+        "projection_rule_ids": [
+          "projection.waveform"
+        ],
+        "determinism": "byte_stable",
+        "stressors": [],
+        "algorithm_provider_id": "algorithm.waveform_deterministic_multiplex",
+        "template": {
+          "template_id": "non-image/waveform/twelve-lead-ecg",
+          "template_version": "1.0.0"
+        },
+        "order": 0
+      }
+    ]
+  }
+}

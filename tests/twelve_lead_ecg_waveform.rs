@@ -81,6 +81,40 @@ fn twelve_lead_ecg_vertical_slice_is_byte_deterministic_and_closed() {
     coverage_report::assert_current_contract(&first_root, &report);
     assert_report_contract(&report);
 
+    // Updating the file digest cannot remove the frozen metadata obligation.
+    let mut changed_bytes = first_bytes.clone();
+    let offset = changed_bytes
+        .windows(b"DTS-PATIENT-001".len())
+        .position(|bytes| bytes == b"DTS-PATIENT-001")
+        .unwrap();
+    changed_bytes[offset] = b'X';
+    fs::write(first_root.join(RELATIVE_PATH), &changed_bytes).unwrap();
+    let mut changed_manifest = first_manifest.clone();
+    let changed_file = changed_manifest["files"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|file| file["case_id"] == CASE_ID)
+        .unwrap();
+    changed_file["sha256"] = json!(synth_dicom_gen::sha256_hex(&changed_bytes));
+    fs::write(
+        first_root.join("manifest.json"),
+        serde_json::to_vec(&changed_manifest).unwrap(),
+    )
+    .unwrap();
+    assert!(
+        !synth_dicom_gen::validate_generated_root(&first_root)
+            .unwrap()
+            .failures
+            .is_empty()
+    );
+    fs::write(first_root.join(RELATIVE_PATH), first_bytes).unwrap();
+    fs::write(
+        first_root.join("manifest.json"),
+        serde_json::to_vec(&first_manifest).unwrap(),
+    )
+    .unwrap();
+
     fs::remove_dir_all(first_workspace).expect("remove first workspace");
     fs::remove_dir_all(second_workspace).expect("remove second workspace");
 }

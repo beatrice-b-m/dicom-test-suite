@@ -1,0 +1,105 @@
+{
+  "case_registry_schema_version": "0.2.0",
+  "cases": [
+    {
+      "case_id": "caller/trace/paired-leads",
+      "artifact_kind": "dicom_instance",
+      "status": "implemented",
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "object_family": "waveform",
+      "compatibility_axes": [
+        "waveform"
+      ],
+      "roadmap": null,
+      "blockers": [],
+      "profiles": [
+        "core"
+      ],
+      "recipe_id": "caller_trace_0",
+      "recipe_version": "0.1.0",
+      "iod_name": "12-lead ECG Waveform",
+      "sop_class_name": "12-lead ECG Waveform Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.9.1.1",
+      "modality": "ECG",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid TwelveLeadECGWaveformStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-3-twelve-lead-ecg-waveform.md",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.34.3-1"
+        }
+      ]
+    },
+    {
+      "case_id": "caller/trace/mixed-rates",
+      "artifact_kind": "dicom_instance",
+      "status": "implemented",
+      "provider": {
+        "kind": "rust_native",
+        "id": "rust_native"
+      },
+      "object_family": "waveform",
+      "compatibility_axes": [
+        "waveform"
+      ],
+      "roadmap": null,
+      "blockers": [],
+      "profiles": [
+        "core"
+      ],
+      "recipe_id": "caller_trace_1",
+      "recipe_version": "0.1.0",
+      "iod_name": "General ECG Waveform",
+      "sop_class_name": "General ECG Waveform Storage",
+      "sop_class_uid": "1.2.840.10008.5.1.4.1.1.9.1.2",
+      "modality": "ECG",
+      "transfer_syntax_uid": "1.2.840.10008.1.2.1",
+      "determinism": "byte_stable",
+      "requirements": {
+        "features": [],
+        "external_codecs": [],
+        "external_validators": []
+      },
+      "skip": null,
+      "standards_evidence": [
+        {
+          "source": "dicom-standard-kb",
+          "edition": "2026b",
+          "query": "dicom-kb lookup uid GeneralECGWaveformStorage --edition 2026b",
+          "covered": true,
+          "part": "PS3.6",
+          "anchor": "table_A-1"
+        },
+        {
+          "source": "local-source-note",
+          "edition": "2026b",
+          "query": "standards/source-notes/phase-3-general-ecg-waveform.md",
+          "covered": true,
+          "part": "PS3.3",
+          "anchor": "table_A.34.4-1"
+        }
+      ]
+    }
+  ]
+}

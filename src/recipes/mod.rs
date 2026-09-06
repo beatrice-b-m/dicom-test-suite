@@ -158,8 +158,10 @@ pub use typed_bulk_compatibility::{
 };
 pub use waveform::{
     WAVEFORM_ALGORITHM_PROVIDER_ID, WAVEFORM_CONTENT_PROVIDER_ID, WAVEFORM_PLAN_PROVIDER_ID,
-    WaveformChannelInput, WaveformFormula, WaveformGroupInput, WaveformPlanError,
-    WaveformPlanInput, WaveformPlanProvider, WaveformProjection, waveform_input_from_recipe,
+    WaveformCallerMetadata, WaveformChannelCalibration, WaveformChannelInput, WaveformFormula,
+    WaveformGroupInput, WaveformPlanError, WaveformPlanInput, WaveformPlanProvider,
+    WaveformProjection, caller_waveform_group_bytes, validate_caller_waveform_input,
+    waveform_input_from_recipe,
 };
 pub use wsi::{
     WSI_ADVANCED_PROVIDER_ID, WsiAdvancedPlanProvider, WsiArtifactParameters, WsiArtifactRecipe,

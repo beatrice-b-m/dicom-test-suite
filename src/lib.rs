@@ -33,6 +33,7 @@ mod encapsulated;
 mod icc;
 mod report_contract;
 mod vl;
+mod waveform;
 #[cfg(any(
     feature = "htj2k_openjph",
     feature = "jpegxl",
@@ -10911,6 +10912,89 @@ fn validate_family_standard_elements_with_context(
     obj: &OpenedObject,
     reduced_wsi: Option<&ReducedStressWsiContext>,
 ) -> Result<(), ValidateError> {
+    match crate::waveform::validate_manifest(file) {
+        Ok(true) => {
+            if let Err(error) = crate::waveform::validate_object(file, obj) {
+                failures.push(format!("{relative_path}: {error}"));
+            }
+            return Ok(());
+        }
+        Ok(false) => {
+            let sop = file["dicom"]["sop_class_uid"].as_str().unwrap_or("");
+            if matches!(
+                sop,
+                "1.2.840.10008.5.1.4.1.1.9.1.1" | "1.2.840.10008.5.1.4.1.1.9.1.2"
+            ) {
+                let sop_instance_uid = manifest_str(
+                    manifest_path,
+                    file,
+                    "/uids/sop_instance_uid",
+                    "missing waveform SOP Instance UID",
+                )?;
+                let study_instance_uid = manifest_str(
+                    manifest_path,
+                    file,
+                    "/uids/study_instance_uid",
+                    "missing waveform Study UID",
+                )?;
+                let series_instance_uid = manifest_str(
+                    manifest_path,
+                    file,
+                    "/uids/series_instance_uid",
+                    "missing waveform Series UID",
+                )?;
+                let result = if sop.ends_with(".1") {
+                    validation::validate_twelve_lead_ecg_file(
+                        path,
+                        &validation::TwelveLeadEcgExpectations {
+                            sop_instance_uid,
+                            study_instance_uid,
+                            series_instance_uid,
+                            implementation_class_uid: obj.meta().implementation_class_uid(),
+                            waveform: waveform_manifest::twelve_lead_ecg_expected_waveform(),
+                        },
+                    )
+                } else {
+                    validation::validate_general_ecg_file(
+                        path,
+                        &validation::GeneralEcgExpectations {
+                            sop_instance_uid,
+                            study_instance_uid,
+                            series_instance_uid,
+                            implementation_class_uid: obj.meta().implementation_class_uid(),
+                            waveform: waveform_manifest::general_ecg_expected_waveform(),
+                        },
+                    )
+                };
+                match result {
+                    Ok(validated) => {
+                        for layer in ["internal", "standards"] {
+                            if let Some(rows) = validated.validation[layer].as_array() {
+                                for row in rows {
+                                    if row["status"] == "failed" {
+                                        failures.push(format!(
+                                            "{relative_path}: waveform: {}",
+                                            row["message"]
+                                        ));
+                                    }
+                                }
+                            } else {
+                                failures.push(format!(
+                                    "{relative_path}: missing waveform validation layer"
+                                ));
+                            }
+                        }
+                    }
+                    Err(error) => failures.push(format!("{relative_path}: waveform: {error}")),
+                }
+                return Ok(());
+            }
+        }
+        Err(error) => {
+            failures.push(format!("{relative_path}: {error}"));
+            return Ok(());
+        }
+    }
     match crate::encapsulated::validate_manifest(file) {
         Ok(true) => {
             if let Err(error) = crate::encapsulated::validate_object(file, obj) {
@@ -28124,6 +28208,10 @@ fn waveform_report_fields(
     manifest_path: &Path,
     file: &Value,
 ) -> Result<WaveformReportFields, ReportError> {
+    crate::waveform::validate_manifest(file).map_err(|_| ReportError::MetadataShape {
+        path: manifest_path.to_path_buf(),
+        message: "invalid caller waveform declaration",
+    })?;
     let is_waveform = file
         .get("case_id")
         .and_then(Value::as_str)

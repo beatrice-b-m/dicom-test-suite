@@ -2778,3 +2778,35 @@ completion attempt; this is not accepted Enhanced baseline, import,
 availability, parity or reusable caller capability evidence. Original
 generator/reporter pins remain unchanged. R7 remains open, and R8/R9 remain
 held behind their dependencies.
+
+## Enhanced reporter candidate3 report3 readiness accepted — 2026-09-06
+
+Corpus `6f1cbf2` moves only the Enhanced report-completion lock and its exact
+const schema to accepted candidate3 source
+`b1a22ae9183a4846e4228488847b4897eca17cb2` and artifact
+`2f4bfa428f94b96e50a12cdfe1fdaaff0449358c6d05fdad4329974e0a90b203`
+at 71,518,400 bytes. The compact version/capabilities discovery identities
+remain `ce58d72f…b4ea` and `464b0afe…7696b`; production acquisition validation
+accepts the candidate3 documents. The completion receipt boundary now derives
+the candidate source revision from that lock rather than naming candidate1.
+Corpus `48aa310` records the resulting report3 readiness while preserving the
+original generator/reporter locks, candidate1, retained candidate2 failure and
+retained report1/report2 failures as separate identities.
+
+Independent review passed
+`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.test_reporter_contract tests.test_complete_native_enhanced_multiframe_baseline tests.test_ci_routing`
+(119 tests) and the exact `779d1b9..48aa310` CI routing dry run. The corpus
+owner's focused documentation/static selection passed 37 tests. Read-only
+production discovery validation returned version2/capabilities3, and baseline4
+authentication preserved receipt
+`20441214ba321f50fd260529f221f49389d0006b8f98b34fc03f86e05c1305f8`
+and manifest
+`5297aa42ef04d0bf822b7385d953f95e6b53f026ab0af18cc7f82ca046ac98f6`.
+Report1 receipt `5673b643…4531` and report2 receipt `d33d4b9e…47ba` remain
+unchanged, the corpus worktree is clean and no report3 evidence root exists.
+
+This accepts only the lock/helper/readiness boundary for one fresh report-only
+completion attempt. It does not accept an Enhanced baseline, import,
+availability, parity, reusable caller capability, independent conformance,
+viewer, Heavy, package or release result. R7 remains open, and R8/R9 remain
+held behind their dependencies.
